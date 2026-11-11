@@ -274,7 +274,7 @@ export default function App() {
   const captureAPI = useRef(null);
   const setCaptureAPI = useCallback(api => { captureAPI.current = api; }, []);
   const captureViewport = useRef(null), captureToolbox = useRef(null);
-  useCaptureRegions(captureViewport, captureToolbox, preferencesReady && ['vertices', 'animation', 'bones'].includes(mode));
+  useCaptureRegions(captureViewport, captureToolbox, preferencesReady && preferences.capture.shareXRegions && ['vertices', 'animation', 'bones'].includes(mode));
   const viewportCaptureAPI = useRef(null);
   const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
@@ -881,6 +881,7 @@ export default function App() {
   }
   function requestCloseSession(target) {
     if (savingRef.current) return;
+    if (bitReplacement) { setDialog({ type: 'closeTab', target, replacement: true }); return; }
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     if (target === session) rememberSessionView(target);
     if (sessionDirty(target)) setDialog({ type: 'closeTab', target });
@@ -1363,6 +1364,7 @@ export default function App() {
     });
     setBitReplacement({
       original: session, revision: doc.revision, history: selectionHistory, before: selectionState, survivingGeosets,
+      geosets: new Set(result.geosetIndices.map(index => draftDoc.model.Geosets[index])),
       editorView: { view, quadView, tool, cameraMode, storedWorkplane, storedWorkplaneEnabled, overlayModes, cleanViews, hideExtras,
         viewport: viewportCaptureAPI.current?.snapshotView() },
     });
@@ -1702,11 +1704,12 @@ export default function App() {
     note(key ? `Toolbar hidden. Settings > Toolbar or ${formatChord(key)} brings it back.` : 'Toolbar hidden. Settings > Toolbar brings it back.');
   }, [preferencesReady, toolbarHidden, preferences.toolbarHiddenNoted]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
-  useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.bitReplacement && !latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || /^(toolbar|language):/.test(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
+  useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.bitReplacement && !latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || /^(toolbar|language):/.test(action) || latest.current.dialog?.type === 'resource' && (['undo','redo'].includes(action) || latest.current.dialog.emittersOnly && action === 'Nodes') || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
   useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); loadPreferences(); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
   const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
-  const hasAnyUnsavedWork=sessions.some(sessionDirty);
+  const hasAnyUnsavedWork=!!bitReplacement || sessions.some(sessionDirty);
+  const recoverySession = bitReplacement?.original ?? session, recoveryDoc = recoverySession.doc;
   async function saveSessionWork(target, includeNeverSaved = false) {
     const hasModelWork = target.doc.dirty || Object.keys(target.uvPreviews).length > 0 || Object.keys(target.animationDrafts).length > 0;
     let saved = !target.paintProject?.dirty || await savePaintProject(target.paintProject, target);
@@ -1714,24 +1717,27 @@ export default function App() {
     return saved;
   }
   saveBeforeCloseRef.current=async()=>{
+    if (latest.current.bitReplacement) {
+      setNotice({ title: 'Save model?', message: 'Commit or discard the replacement before saving.' });
+      return false;
+    }
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     for (const target of latest.current.sessions) if ((sessionDirty(target) || !target.path) && !await saveSessionWork(target, true)) return false;
     return true;
   };
-  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork]);
+  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,replacement:!!bitReplacement,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork, bitReplacement]);
   useEffect(() => { applyApplicationTheme(preferences); }, [preferences]);
   // Without a graphics card the processor draws every frame. Lighten such a
   // PC once; later choices in Graphics settings are kept.
   useEffect(() => { if (preferencesReady && !preferencesRef.current.graphics.softwareLow && detectRenderer().software) changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, ...SOFTWARE_RENDERING_GRAPHICS } })); }, [preferencesReady]);
-  useEffect(() => { const handler = event => { if (latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
+  useEffect(() => { const handler = event => { if (latest.current.bitReplacement || latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
   useEffect(() => {
-    if (bitReplacement) return;
-    if (!doc.dirty && doc.revision === 0 && !hasUVPreview && !hasTrackDrafts && !session.paintProject?.dirty && session.checkpoint === 0) return;
-    const timer = setTimeout(async () => { try { await checkpoint(session); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
+    if (!bitReplacement && !sessionDirty(recoverySession) && recoveryDoc.revision === 0 && recoverySession.checkpoint === 0) return;
+    const timer = setTimeout(async () => { try { await checkpoint(recoverySession); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
     return () => clearTimeout(timer);
-  }, [doc, doc.revision, doc.recoveryHistoryRevision, session, session.uvPreviews, session.animationDrafts, session.paintProject, session.paintProject?.revision, session.paintProject?.dirty, session.paintWorkingRevision, session.paintAppliedRevision]);
+  }, [bitReplacement, recoveryDoc, recoveryDoc.revision, recoveryDoc.recoveryHistoryRevision, recoverySession, recoverySession.uvPreviews, recoverySession.animationDrafts, recoverySession.paintProject, recoverySession.paintProject?.revision, recoverySession.paintProject?.dirty, recoverySession.paintWorkingRevision, recoverySession.paintAppliedRevision]);
   // After "Close without saving" a failed recovery copy loses nothing the user kept, so it does not block closing.
-  useEffect(() => window.desktop?.onBeforeClose?.(async ({ discarded } = {}) => { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); const drafts=recovery.flush(latest.current.sessions.filter(target => target.doc.revision || target.checkpoint || sessionDirty(target))); await (discarded ? drafts.catch(error => console.warn('Recovery on close: '+error.message)) : drafts); }),[]);
+  useEffect(() => window.desktop?.onBeforeClose?.(async ({ discarded } = {}) => { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); const drafts=recovery.flush(latest.current.sessions.filter(target => target.doc.revision || target.checkpoint || sessionDirty(target) || latest.current.bitReplacement?.original === target)); await (discarded ? drafts.catch(error => console.warn('Recovery on close: '+error.message)) : drafts); }),[]);
   useEffect(() => window.desktop?.onSaveBeforeClose?.(() => saveBeforeCloseRef.current()),[]);
   useEffect(() => { if(preferencesReady && !bitReplacement) resolveTextures(); },[preferencesReady, bitReplacement, JSON.stringify(model.Textures.map(texture => texture.Image))]);
 
@@ -1884,6 +1890,8 @@ export default function App() {
     rigWorkspace, saving, say, seekMotionTime, selectable, selectedNodeIds, selectMotion, sequence, session,
     setMotionAnchor, setPlaybackSpeed, setPlaying, time
   }}/>;
+  const bitRgbGeosets = bitReplacement ? Object.keys(validSelection).map(Number)
+    .filter(id => validSelection[id].length && bitReplacement.geosets.has(model.Geosets[id])) : [];
   const activePortrait = portraitModeActive;
   const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, doc.revision]);
   const cameraPortraitActive = activePortrait && !!model.Cameras?.[portraitCameraIndex];
@@ -1959,8 +1967,8 @@ export default function App() {
         rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}>
           {bitReplacement && <div className="bit-replacement-actions" role="group" aria-label="Replace Part">
-            <ReplacementRgb model={model} geosetIds={Object.keys(validSelection).filter(id => validSelection[id].length).map(Number)} disabled={!!dialog || !!settingsTab || saving}
-              onChange={(axis, value) => edit('Set Bit RGB', ['GeosetAnims'], current => setPartRgbChannel(current, Object.keys(validSelection).filter(id => validSelection[id].length).map(Number), axis, value))}/>
+            <ReplacementRgb model={model} geosetIds={bitRgbGeosets} disabled={!!dialog || !!settingsTab || saving}
+              onChange={(axis, value) => edit('Set Bit RGB', ['GeosetAnims'], current => setPartRgbChannel(current, bitRgbGeosets, axis, value))}/>
             <button disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(false)}>Cancel</button>
             <button className="bit-replacement-commit" disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(true)}>Commit</button>
           </div>}
@@ -2016,12 +2024,12 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status">{!bitReplacement && <ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>}{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
+    <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
     <AppDialogs {...{
       visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
       forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
-      importPart, stageBitReplacement, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
+      importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
       openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
       removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
       selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,

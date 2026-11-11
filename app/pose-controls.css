@@ -17,7 +17,7 @@
 .game-preview-root .pose-pin[data-style="icon"], .game-preview-root .pose-pin[data-style="round"] { width: 30px; height: 30px; }
 .game-preview-root .pose-pin[data-style="round"] { border-radius: 50%; }
 .game-preview-root .pose-pin[data-style="icon"] span, .game-preview-root .pose-pin[data-style="round"] span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
-.pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 260px; max-height: 70vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
+.pose-setup { position: fixed; z-index: 110; right: 174px; top: calc(118px + var(--desktop-menu-height, 0px)); width: 260px; max-height: 70vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
 .pose-setup header { display: flex; align-items: center; justify-content: space-between; }
 .pose-setup p { margin: 7px 0; line-height: 1.35; }
 .pose-setup button { font-size: 11px; min-height: 24px; padding: 3px 5px; }

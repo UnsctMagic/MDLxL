@@ -3,11 +3,7 @@ import { desktop } from './desktop.js';
 
 export function useCaptureRegions(viewport, toolbox, enabled) {
   useEffect(() => {
-    if (!desktop?.setCaptureRegions) return;
-    if (!enabled) {
-      desktop.setCaptureRegions(Array(8).fill(0));
-      return;
-    }
+    if (!enabled || !desktop?.setCaptureRegions) return;
 
     const regions = [viewport.current, toolbox.current];
     const send = () => {
@@ -33,6 +29,7 @@ export function useCaptureRegions(viewport, toolbox, enabled) {
       observer.disconnect();
       window.removeEventListener('resize', send);
       resolution.removeEventListener('change', watchResolution);
+      desktop.setCaptureRegions(null);
     };
   }, [viewport, toolbox, enabled]);
 }

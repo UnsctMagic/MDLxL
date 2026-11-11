@@ -106,7 +106,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       await dialog.waitFor({ state: 'detached', timeout: 15000 });
       await replaceAction.getByRole('button', { name: 'Commit' }).waitFor();
       assert.equal(await dock.evaluate(element => element.inert), true);
-      assert.equal(await tabs.count(), 0);
+      assert.equal(await tabs.getByRole('tab', { name: 'Footman.mdx', exact: true }).count(), 1, 'the original tab remains reachable for the close prompt');
       const controls = await replaceAction.boundingBox();
       const front = await page.locator('[data-viewport="front"]').boundingBox();
       const top = await page.locator('[data-viewport="top"]').boundingBox();

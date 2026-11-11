@@ -128,7 +128,10 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
       if (generation.current !== request) return;
       const source = document.model;
       setMissing(names.filter(name => !loaded.has(partPathKey(name)))); setAssets(loaded); setPart({ ...record, model: source });
-      if (replacing) await applyPart({ source, assets: loaded, look: partRgbOptions(source)[0], applyGlobals: null, replace: true, request });
+      if (replacing) {
+        const looks = partRgbOptions(source);
+        if (looks.length < 2) await applyPart({ source, assets: loaded, look: looks[0], applyGlobals: null, replace: true, request });
+      }
     } catch (error) { if (generation.current === request) setError(error.message); }
     finally { if (generation.current === request) setBusy(false); }
   };
@@ -139,7 +142,7 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
     const values = new Set(part.model.Geosets.map((_, index) => Math.round((look.colors?.[index]?.[axis] ?? 1) * 255)));
     return values.size === 1 ? [...values][0] : '';
   });
-  const preview = useMemo(() => part && !replacing ? previewPart(partLook(part.model, look)) : null, [part, look, replacing]);
+  const preview = useMemo(() => part && (!replacing || rgbOptions.length > 1) ? previewPart(partLook(part.model, look)) : null, [part, look, replacing, rgbOptions.length]);
   const hasSelection = Object.values(selectionByGeoset || {}).some(ids => ids.length);
   const collect = () => { try { setCollection(collectPart(model, selectionByGeoset)); setError(''); } catch (error) { setError(error.message); } };
   // A Bit with global animations asks once whether to apply them.
@@ -187,7 +190,8 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
     </aside><main><div className="parts-preview">{preview ? <Viewport key="source" presentation="preview" model={preview} revision={0} textureAssets={assets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={-1} time={0} playing={false} shaded/> : <p>{busy ? 'Loading…' : replacing ? 'Choose a Bit to replace the selection.' : 'Select a part to preview it.'}</p>}
     </div>
       {part && <><strong className="parts-filename">{part.name} · {part.model.Geosets.length} geosets</strong>{!replacing && <p className="parts-note">Import the whole part at its original coordinates and scale, attached to DummyBone. Source rig motion is not imported.</p>}
-      {!replacing && <><PartRgb options={rgbOptions} value={rgb} onChange={value => { setRgb(value); setChannels([null, null, null]); }} busy={busy}/>
+      <PartRgb options={rgbOptions} value={rgb} onChange={value => { setRgb(value); setChannels([null, null, null]); }} busy={busy}/>
+      {!replacing && <>
       <div className="parts-color-controls parts-rgb-inputs" role="group" aria-label="Custom RGB" title="Edit the Bit’s RGB channels before importing (0–255). Blank channels keep the selected look.">
         {['R', 'G', 'B'].map((label, axis) => <label className={`channel-${label.toLowerCase()}`} key={label}>{label}<input type="number" aria-label={`Bit ${label}`} min="0" max="255" step="1" disabled={busy} placeholder={rgbValues[axis] === '' ? 'Mixed' : String(rgbValues[axis])} value={channels[axis] ?? rgbValues[axis]} onChange={event => {
           const value = event.target.value;
@@ -196,7 +200,7 @@ export default function BitsAndParts({ model, selectionByGeoset, textureAssets =
       </div></>}
       {missing.length > 0 && <p className="parts-warning">Unavailable textures: {missing.join(', ')}. Import requires these textures unless an equivalent dependency already exists.</p>}
       {part.model.Version !== model.Version && <p className="parts-warning">Source format {part.model.Version}; destination format {model.Version}. Convert a copy to the destination format before import.</p>}</>}
-    </main></div><footer>{asking ? <><span>Apply its global animations?</span><button disabled={busy || invalidRgb} onClick={() => importPart(true)}>Yes</button><button disabled={busy || invalidRgb} onClick={() => importPart(false)}>No</button></> : <><span>{!replacing && 'The displayed RGB is imported; saved Bit tracks stay intact.'}</span><button onClick={onClose} disabled={busy}>Cancel</button>{!replacing && <button className="parts-import" disabled={!part || busy || invalidRgb || part?.model.Version !== model.Version} onClick={() => importPart()}>{busy ? 'Working…' : 'Import whole part'}</button>}</>}</footer></>}
+    </main></div><footer>{asking ? <><span>Apply its global animations?</span><button disabled={busy || invalidRgb} onClick={() => importPart(true)}>Yes</button><button disabled={busy || invalidRgb} onClick={() => importPart(false)}>No</button></> : <><span>{!replacing && 'The displayed RGB is imported; saved Bit tracks stay intact.'}</span><button onClick={onClose} disabled={busy}>Cancel</button>{(!replacing || rgbOptions.length > 1) && <button className="parts-import" disabled={!part || busy || invalidRgb || part?.model.Version !== model.Version} onClick={() => importPart()}>{busy ? 'Working…' : replacing ? 'Apply replacement' : 'Import whole part'}</button>}</>}</footer></>}
     {error && <div className="parts-error" role="alert">{error}</div>}
   </section></div>;
 }

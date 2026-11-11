@@ -419,7 +419,8 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
         <p>PNG screenshots: Low 1280 px · Medium 1920 px · High 3840 px. PNG preserves full color without compression loss.</p>
         <p className="settings-hint">GIF uses a shared palette with up to 256 entries, including transparency for optimization. Higher quality needs more processing. Recording preserves elapsed time when capture frames are skipped and uses temporary disk space.</p>
         <Toggle id="capture:pressed-keys" label="Show pressed keys" checked={prefs.showPressedKeys} onChange={showPressedKeys=>commit({showPressedKeys})} description="Display keyboard and mouse combinations for tutorials. Text entered in fields is not shown."/>
-        <button onClick={()=>commit({capture:{fps:30,recordingQuality:'medium',screenshotQuality:'medium'}})}>Restore capture defaults</button>
+        <label className="settings-toggle" title="Lets ShareX find the viewport and toolbox as capture regions. Runs a small helper program while an editor is open."><input type="checkbox" checked={prefs.capture.shareXRegions} onChange={event=>commit({capture:{...prefs.capture,shareXRegions:event.target.checked}})}/><span>ShareX regions</span></label>
+        <button onClick={()=>commit({capture:{fps:30,recordingQuality:'medium',screenshotQuality:'medium',shareXRegions:false}})}>Restore capture defaults</button>
         </section>
       </SettingsSplit></div>}
       {tab === 'visuals' && <div className="settings-page settings-appearance-page">

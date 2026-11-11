@@ -718,7 +718,7 @@ async function createWindow(bounds={}){
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
-    captureRegions.get(current)?.(Array(8).fill(0));
+    captureRegions.get(current)?.(null);
     textureDecoder=null;texturePreviews.cancel();rejectThumbnailRequests('Editor renderer closed.');
     await Promise.allSettled([...captureOperations]);
     await previewRecordings.closeOwner(current.webContents.id);
