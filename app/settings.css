@@ -118,7 +118,7 @@
 /* Samples drawn inside a section. */
 .settings-appearance-preview{display:block;width:96px;height:22px;margin:5px 0 0 auto;border:1px solid var(--ui-border);background:var(--ui-field);pointer-events:none}
 .settings-controller-shapes{display:block}
-.settings-controller-preview{width:100%;height:80px;border:1px solid var(--settings-line);border-radius:var(--settings-inner-radius);margin-bottom:6px}
+.settings-controller-preview{width:100%;height:auto;border:1px solid var(--settings-line);border-radius:var(--settings-inner-radius);margin-bottom:6px}
 .settings-bone-preview{display:block;width:204px;height:64px;margin:4px 0 10px;border:1px solid var(--settings-line);border-radius:var(--settings-inner-radius)}
 .settings-appearance-grid{display:block}
 .settings-appearance-grid:empty{display:none}

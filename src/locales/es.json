@@ -7787,5 +7787,11 @@
   "Folder *": "Carpeta *",
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
-  "Bones *": "Huesos *"
+  "Bones *": "Huesos *",
+  "Figure": "Figura",
+  "Rig": "Rig",
+  "Symbol set": "Conjunto de símbolos",
+  "Choose the drawings inside the handles: body parts, bones, abstract rig shapes or thin outlines.": "Elige los dibujos dentro de las asas: partes del cuerpo, huesos, formas de control abstractas o contornos finos.",
+  "Handle background": "Fondo del asa",
+  "Fill the inside of the handles with the background color. Off leaves the model visible through them.": "Rellena el interior de las asas con el color de fondo. Desactivado deja ver el modelo a través de ellas."
 }

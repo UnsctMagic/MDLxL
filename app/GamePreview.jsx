@@ -33,7 +33,8 @@ import { dragKeys, isModifierKey, modifierHeld, selectionKeys } from '../src/mod
 import { holdGestureKey } from './gesture-keys.js';
 import { beginGizmoRotation, gizmoMoveTranslation, drawGizmoRotationFeedback, rotationDisplayHandles, drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawPivotCrosses, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationSpace, movementRotationAmount, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { getLanguage, translate } from '../src/localization.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleKey, poseHandleTarget, posePinPath, poseSymbolName, poseSymbols, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
+import { drawPoseOverlay, pickPoseHandle, poseHandleKey, poseHandleTarget, posePinPath, poseSymbolName, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
+import { poseSymbolLayers } from '../src/pose-symbol-sets.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint, poseChainIds } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, applyUVRestAppearance, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from './game-preview-data.js';
 import { applyWiggleMatrices } from '../src/bone-wiggle.js';
@@ -203,8 +204,6 @@ export default function GamePreview(inputProps) {
     }).catch(error => { if (active) latest.current.onPortraitLightingStatus?.(error.message); });
     return () => { active = false; };
   },[portraitDnc,props.modelPath]);
-
-  useEffect(() => loadPoseSymbols(() => runtime.current?.scheduler.invalidate()), []);
 
   useEffect(() => {
     if (!portraitHasFrame(props) || !root.current) return;
@@ -593,9 +592,9 @@ export default function GamePreview(inputProps) {
       if (event.type === 'pointerup' && event.button === 2 && !press.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= 4) latest.current.onPoseMenu?.(press.key, event.clientX, event.clientY);
     };
     // One small button per hidden handle, right-aligned on the POSE button's row; each shows its own symbol.
-    const updateRevealStrip = (items, width) => {
+    const updateRevealStrip = (items, width, symbolSet) => {
       if (!items.length) { if (revealStrip) { revealStrip.remove(); revealStrip = null; revealSignature = ''; revealLayout = ''; } return; }
-      const signature = getLanguage() + '|' + items.map(item => item.id + ':' + item.label).join('|');
+      const signature = getLanguage() + '|' + symbolSet + '|' + items.map(item => item.id + ':' + item.label).join('|');
       if (!revealStrip) {
         revealStrip = ownerDocument.createElement('div'); revealStrip.dataset.poseReveals = ''; revealStrip.className = 'pose-reveals';
         revealStrip.addEventListener('pointerdown', event => event.stopPropagation());
@@ -607,12 +606,15 @@ export default function GamePreview(inputProps) {
         revealStrip.replaceChildren(...items.map(item => {
           const button = ownerDocument.createElement('button'), name = translate('Show') + ' ' + translate(item.label);
           button.type = 'button'; button.dataset.poseReveal = item.id; button.title = name; button.setAttribute('aria-label', name);
-          if (item.label === 'Pelvis') { const image = ownerDocument.createElement('img'); image.alt = ''; image.src = new URL('./pose-trollface.png', import.meta.url).href; button.appendChild(image); }
-          else {
-            const paths = poseSymbols[poseSymbolName(item.label)], svg = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg'), shape = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path'), detail = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); shape.setAttribute('d', paths[0]); shape.setAttribute('fill', 'currentColor'); detail.setAttribute('d', paths[1]); detail.setAttribute('fill', 'none'); detail.setAttribute('stroke', 'var(--controller-background)'); detail.setAttribute('stroke-width', '1.8'); detail.setAttribute('stroke-linecap', 'round'); detail.setAttribute('stroke-linejoin', 'round');
-            svg.append(shape, detail); button.appendChild(svg);
+          const svg = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+          for (const { kind, d, width: strokeWidth } of poseSymbolLayers(symbolSet, poseSymbolName(item.label))) {
+            const path = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d); path.setAttribute('fill', kind === 'fill' ? 'currentColor' : 'none');
+            if (kind !== 'fill') { path.setAttribute('stroke', kind === 'cut' ? 'var(--controller-background)' : 'currentColor'); path.setAttribute('stroke-width', String(strokeWidth)); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); }
+            svg.appendChild(path);
           }
+          button.appendChild(svg);
           return button;
         }));
       }
@@ -1658,7 +1660,7 @@ export default function GamePreview(inputProps) {
           pinButton.hidden = !!nodeGesture;
         } else if (pinButton) { pinButton.remove(); pinButton = null; pinPlacement = null; pinOffset = null; }
 
-        updateRevealStrip(poseVisible && !p.poseConfig.picking ? (p.poseConfig.hidden || []).flatMap(id => { const handle = poseHandles.find(item => item.hidden && poseHandleKey(item) === id); return handle ? [{ id, label: handle.label }] : []; }) : [], width);
+        updateRevealStrip(poseVisible && !p.poseConfig.picking ? (p.poseConfig.hidden || []).flatMap(id => { const handle = poseHandles.find(item => item.hidden && poseHandleKey(item) === id); return handle ? [{ id, label: handle.label }] : []; }) : [], width, controllerAppearance.symbolSet);
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));

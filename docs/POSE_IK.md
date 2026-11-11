@@ -52,9 +52,9 @@ rigs, including joints named through their native attachment references.
    pin and stays in Setup and Copy Pose. It waits as a small button left of **POSE**;
    click that button to show it again.
 
-Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on themed
-backings so they remain identifiable over bone markers. Whole-body control uses
-a person symbol; hooves have their own symbol. Labels appear for the selected
+Handles show a body-part symbol on themed backings so they remain identifiable
+over bone markers; Focus and appearance below describes the symbol sets.
+Whole-body control uses a body symbol; hooves have their own symbol. Labels appear for the selected
 or hovered handle. Pelvis uses the same handle and selection colours as the other
 controls. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps
@@ -280,8 +280,15 @@ Appearance uses collapsed sections and a color-set picker in every section.
 A whole appearance preset also sets the controllers. Controllers can then use
 a separate set, for example Blackrock controls with a Lordaeron interface.
 Lordaeron remains the default. Handle, body and bend shapes offer circles,
-squares, diamonds and triangles; symbols, size, state colors and XYZ colors
-are adjustable. Pin offers a labeled button, square icon and round icon.
+squares, diamonds and triangles; symbols, size, state colors, XYZ colors
+and the handle background (which can be switched off) are adjustable. The symbols
+come in four sets chosen under Controllers: Figure (solid body-part pictograms),
+Skeleton (bones), Rig (abstract control glyphs) and Outline (thin line drawings
+with their own metaphors). Each symbol is a fill, a cut and a line path in a
+24 x 24 box in `src/pose-symbol-sets.js`, where `DEFAULT_POSE_SYMBOL_SET` names
+the default set, and the choice is stored like the other controller values
+(profile, appearance sets, Configuration export). The old symbols and the
+pelvis image are gone. Pin offers a labeled button, square icon and round icon.
 These are familiar rig-control primitives, following Autodesk's
 [custom curve control workflow](https://www.autodesk.com/learn/ondemand/tutorial/common-rig-control-methods).
 

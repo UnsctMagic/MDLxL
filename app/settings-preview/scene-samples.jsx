@@ -3,6 +3,7 @@ import React from 'react';
 import { GRAPHICS_PRESETS, GRID_PRESETS } from '../../src/preferences.js';
 import { CAPTURE_QUALITIES } from '../../src/capture-settings.js';
 import { controllerShapePoints } from '../../src/controller-appearance.js';
+import { PoseSymbolPaths } from '../PoseSymbolIcon.jsx';
 import { backgroundImageRect } from '../../src/viewport-appearance.js';
 import { FOLDER_COLORS, NODE_COLORS } from '../../src/tree-appearance.js';
 import { wireDashArray } from '../../src/wire-pattern.js';
@@ -222,9 +223,10 @@ function boneLink(a, b, width, shape, fill, outline) {
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / length, ny = (b[0] - a[0]) / length, half = (shape === 'cone' ? Math.max(10, width * 3.4) : width * 1.7) / 2;
   return <polygon points={toPoints([[a[0] + nx * half, a[1] + ny * half], [b[0] + nx * .5, b[1] + ny * .5], [b[0] - nx * .5, b[1] - ny * .5], [a[0] - nx * half, a[1] - ny * half]])} fill={fill} stroke={shape === 'cone' ? outline : 'none'} strokeWidth=".8"/>;
 }
-function ShapeAt({ shape, x, y, radius, stroke, fill, strokeWidth = 2 }) {
+function ShapeAt({ shape, x, y, radius, stroke, fill, strokeWidth = 2, symbol }) {
   const points = controllerShapePoints(shape, radius);
-  return points ? <polygon points={toPoints(points.map(([px, py]) => [x + px, y + py]))} stroke={stroke} fill={fill} strokeWidth={strokeWidth} strokeLinejoin="round"/> : <circle cx={x} cy={y} r={radius} stroke={stroke} fill={fill} strokeWidth={strokeWidth}/>;
+  return <>{points ? <polygon points={toPoints(points.map(([px, py]) => [x + px, y + py]))} stroke={stroke} fill={fill} strokeWidth={strokeWidth} strokeLinejoin="round"/> : <circle cx={x} cy={y} r={radius} stroke={stroke} fill={fill} strokeWidth={strokeWidth}/>}
+    {symbol && <g transform={`translate(${x} ${y}) scale(${Math.min(1, radius / 17)}) translate(-12 -12)`}><PoseSymbolPaths set={symbol.set} name={symbol.name} color={stroke} background={symbol.background}/></g>}</>;
 }
 
 export const rigSampleScene = {
@@ -256,7 +258,7 @@ export const rigSampleScene = {
       return { stage: <>
         <rect x="8" y="24" width="204" height="84" rx="3" fill={c.background} stroke="none"/>
         <line x1="52" x2="168" y1="66" y2="66" stroke={c.skeleton} strokeWidth="2"/>
-        {spots.map(([x, y, key, stroke]) => <ShapeAt key={key} shape={c[key]} x={x} y={y} radius={r} stroke={stroke} fill={c.background}/>)}
+        {spots.map(([x, y, key, stroke]) => <ShapeAt key={key} shape={c[key]} x={x} y={y} radius={r} stroke={stroke} fill={c.filled ? c.background : 'none'} symbol={c.symbols && key !== 'bendShape' ? { set: c.symbolSet, name: key === 'shape' ? 'Hand' : 'Body', background: c.background } : null}/>)}
         <g transform="translate(110 134)" stroke={c.pinned} fill="none" strokeWidth="2">{c.pinStyle === 'round' ? <circle r="15"/> : <rect x={-pinW / 2} y="-14" width={pinW} height="28" rx="3"/>}<path d="M-5-8H5L3-2L7 2V4H-7V2L-3-2ZM0 4V12"/></g>
         <g strokeWidth="2.4" strokeLinecap="round"><line x1="24" x2="52" y1="148" y2="148" stroke={c.axisX}/><line x1="32" x2="32" y1="120" y2="148" stroke={c.axisZ}/><line x1="32" x2="48" y1="148" y2="134" stroke={c.axisY}/></g>
       </>, hud: <Readout x={view.right} y={view.top + 2} text={`${r} px`}/> };
