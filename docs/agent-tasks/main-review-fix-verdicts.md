@@ -1,8 +1,37 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: rework re-checked and accepted on all seven branches; one combined branch still needed before merging
+Status: **ready to merge when the owner says "merge"**: combined branch `codex/main-review-20261111-all` at `7e3faedf`
 Owner / consolidator: Claude Code (review), Codex (rework)
-Updated: 2026-11-11 (evening)
+Updated: 2026-11-11 (night)
+
+## Ready (11 Nov, night)
+
+`codex/main-review-20261111-all` at `7e3faedf` (worktree clean; contains online `main`
+`a8a4ca86`, which has not moved).
+
+- Since Claude's full check at `7bb44d28` only three `.electron.cjs` test files and the
+  handoff note changed: no app code, no source test, no guarded file. Claude's whole
+  source-suite run at `7bb44d28` (3,397 tests, 0 new failures) therefore still stands.
+- The three test corrections do what was asked and weaken nothing: the audit picks a
+  free key from the live catalog; the animated-vertex check waits for the final position
+  (Move) and for a settled preview (Rotate, Resize) and prints numbers on failure, at
+  the same 0.0002 tolerance; the BITZ check polls for the recovery copy.
+- Codex's raw logs (`out/vertex-recheck`, `out/test-faults` in its worktree), read by
+  Claude: `vertex-animated-preview` passed twice, including Rotate and Resize release
+  and Undo; `review-bitz` passed 5 of 5 twice, including the recovery copy;
+  `hotkey-defaults-audit` passed twice. With the 21 that passed earlier, all 24 hidden
+  app checks named for these fixes have passed on the combined build.
+- Not run, by design: the full packaged suite (a release gate) and any check by Claude
+  in the running app. The owner's hand test is still to come.
+
+At merge time: one PR from `codex/main-review-20261111-all` into `main`, with Claude's
+later notes (`claude/main-review-2026-11-11`, merges cleanly on top). Afterwards mark the
+review notes completed with the merge revision and drop their rows from the task index.
+
+Still open, not part of this merge: O2 (POSE swivel), O7 (three 0.39.0 behaviours), FX
+Part B (waits for `claude/fx-editor`, which must drop the old clock remap line), the
+missing Flail03 reference file. `codex/release-0.40.0` and `codex/call-upon-forge` are
+unmerged, were not reviewed, and will meet the same catalog conflicts.
 
 ## Re-check of the rework (11 Nov, evening)
 
