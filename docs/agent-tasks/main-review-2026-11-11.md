@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: reworked local branches ready for Claude re-check. FX window part waits on claude/fx-editor.
+Status: combined local branch ready for Claude’s final review. Three packaged checks failed; see the combined results below.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-11
 
@@ -236,3 +236,82 @@ and two opt-in POSE corpus checks.
   expected sizes. The four UV preview strings match the release lane.
 
 All revisions and notes are saved locally for Claude’s re-check.
+
+## Combined branch for Claude’s final check
+
+Branch `codex/main-review-20261111-all` in
+`D:\Codex\mdlxl-main-review-20261111-all`. Combined merge tip `a2dedb93`.
+The build and tests used `c4273a26`. The only change between those tips is
+Claude’s verdict note at `1de45e9b`, merged after `9317b54f`.
+
+Started from contract 2 (`426fdabe`, which includes contract 1), then used
+merge commits for 6, 3, 4, 5 and 7 in that order, followed by Claude’s
+documentation. Conflicts were confined to the five locale catalogs, their
+size assertion and the task index. All incoming translations and CRLF
+line endings were verified. French and German match the ordered union.
+The index keeps contract 6’s table and Claude’s main-review row. The CI
+baseline, UV test numbers and frozen flail comparisons were preserved.
+
+### Combined checks
+
+| Command or check | Result |
+| --- | --- |
+| `pnpm run build` | Passed, with Vite’s chunk-size warning |
+| `pnpm run test:source` | 3,330 passed, 0 failed, 10 skipped, 0 cancelled |
+| `pnpm test` | 57 passed, 0 failed, 0 skipped |
+| `node .github/check-test-baseline.mjs out/combined/source.fails .github/known-test-failures.txt` | 3,340 passing reporter events including skips, 0 failing, 0 baseline entries, 0 new |
+| `node --test test/localization-catalogs.test.js` | 6 passed, 0 failed, 0 skipped. Both order and CRLF guards passed unchanged. |
+| Offline package using cached Electron 40.8.0 | Passed, with 1,510 runtime and asset files and 55 locale files verified |
+
+The ten source skips were the Windows SIGTERM case, Windows symlink
+permissions, this volume’s lack of 8.3 names, optional archer, skin-repair
+pair, private Fx, twin-head rider and Tinker/Brown Magnataur inputs, and
+two opt-in POSE corpus checks.
+
+Ran `node scripts/run-packaged-tests.mjs default` with the comma-separated
+harness names below, once per file on the hidden Windows test desktop.
+**21 harnesses passed, 3 failed, 0 skipped.** Forge used
+`MDLXL_TEST_FORGE_REBOUND=1` for the rebound Alt drag. Raw logs are in
+`out/combined` and `out/suite/default` in the worktree.
+
+| Contract | Passing `.electron.cjs` harnesses | Failing harnesses |
+| --- | --- | --- |
+| 1 | Part A uses source checks | FX Part B is deferred |
+| 2 | `save-extents` (3 cases), `save-unreadable` (1), `library-copy-verification` (1) | |
+| 3 | `review-settings` (7 scenarios), `hotkey-badges`, `shift-lock-badge` | `hotkey-defaults-audit` |
+| 4 | `billboard-vertex-drag`, `glow-non-square`, `glow-detection` (2 workflows), `axis-guides-menu`, `fx-uv-click-threshold`, `uv-wrapper-isolation`, `forge-detail-editing`, `uv-preview-visibility` | `vertex-animated-preview` |
+| 5 | `citadel-pro`, `paint-tab-camera`, `paint-image-navigation` | |
+| 6 | The contract’s discard-cue comparison was a separate disposable probe | |
+| 7 | `review-desktop` (7 cases), `bit-replacement`, `emtr-quick-options`, `manager-menu-hotkeys` | `review-bitz` (4 passed, 1 failed) |
+
+- `hotkey-defaults-audit` stopped at the existing Ctrl+F9 setup, waiting
+  for **Assign shortcut** before reaching **Default**. Contract 3 records
+  the same stop on the base. The separate `review-settings` harness
+  passed the Default confirmation workflow on the combined package.
+- `vertex-animated-preview` failed at line 138. The harness read the
+  vertex at +13.5 px right and +3.75 px down after requesting +18 px and
+  +5 px in four steps. The read matches the third step exactly, and
+  the wait accepts any nonzero translation. The final painted step
+  and subsequent assertions were not verified in this run.
+- `review-bitz` showed the Save warning on Exit. Its check for the
+  original Footman’s disk checkpoint returned false. The installed
+  Playwright treats the async predicate’s Promise as a successful poll,
+  so the test can read before a checkpoint is present. The disk
+  checkpoint and subsequent assertions remain unverified. The four
+  other BITZ scenarios passed, including Commit and Discard on tab close.
+
+### Owner summary
+
+The seven reviewed fixes are together. The save check confirmed that
+MDLxL keeps the last good file if it cannot make a safety copy and offers
+Save As elsewhere. Claude’s final check should look at the animated
+vertex and BITZ recovery failures and the known shortcut-audit stop.
+
+O2 (POSE swivel) and O7 (the three 0.39.0 behaviors) still need owner
+decisions. FX Part B (A3–A5) waits on `claude/fx-editor`. The release kit
+still records that Flail03’s mounted-spheres case needs the missing
+historical reference. The O5 text is ready for the next authorized
+update of the separate release branch.
+
+Claude’s next step is review only, using this note and the
+[fix verdicts](main-review-fix-verdicts.md). The branch is local.
