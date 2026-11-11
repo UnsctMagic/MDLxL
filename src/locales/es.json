@@ -7785,5 +7785,9 @@
   "Folder *": "Carpeta *",
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
-  "Bones *": "Huesos *"
+  "Bones *": "Huesos *",
+  "Preview RGB": "Vista previa RGB",
+  "Preview RGB {0}": "Vista previa RGB {0}",
+  "Reset preview RGB": "Restablecer vista previa RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Previsualiza RGB en el geoset activo (0–255). Los canales vacíos usan el RGB del modelo."
 }

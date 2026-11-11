@@ -7680,5 +7680,9 @@
   "Folder *": "文件夹 *",
   "Controller *": "控制器 *",
   "Citadel *": "城堡 *",
-  "Bones *": "骨骼 *"
+  "Bones *": "骨骼 *",
+  "Preview RGB": "RGB 预览",
+  "Preview RGB {0}": "RGB 预览 {0}",
+  "Reset preview RGB": "重置 RGB 预览",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "在当前几何组中预览 RGB（0–255）。留空的通道使用模型的 RGB。"
 }

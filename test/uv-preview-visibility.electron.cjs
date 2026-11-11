@@ -30,7 +30,8 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
   fs.writeFileSync(fixture, bytes);
   const { app, page, errors, target: appUnderTest } = await launchApp({
     fixture, out, bounds: { x: -3000, y: 0, width: 1440, height: 1000 },
-    settings: { preferences: { graphics: { pauseWhenHidden: false } } },
+    settings: { preferences: { graphics: { pauseWhenHidden: false },
+      hotkeys: { 'uv-wrapper:preview-rgb-red': ['Ctrl+Alt+R'], 'uv-wrapper:hide-extras': ['Ctrl+Alt+H'] } } },
   });
   try {
     console.log(JSON.stringify(bundleHashes(appUnderTest)));
@@ -87,11 +88,11 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     assert.equal(full.find(draw => draw.index === 4)?.alpha, .5, 'context uses static geoset and layer alpha');
     assert.equal(full.some(draw => draw.index === 5), false, 'context with static alpha zero stays hidden');
     const wrapper = page.locator('.uv-tab-window');
-    const hideExtras = wrapper.getByRole('button', { name: 'Hide Extras', exact: true });
+    const hideExtras = wrapper.getByRole('button', { name: 'Hide extras', exact: true });
     await hideExtras.waitFor({ timeout: 5000 }).catch(() => assert.fail('Hide Extras is available in the Live Model Preview footer'));
     const beforeExtras = await camera();
     assert.ok(full.some(draw => draw.index === 6), 'the other extra is drawn before filtering');
-    await click(hideExtras);
+    await page.keyboard.press('Control+Alt+H');
     await page.waitForFunction(selector => !uvMeshDraws(selector).some(draw => draw.index === 6), preview, { timeout: 5000 });
     assert.equal(await hideExtras.getAttribute('aria-pressed'), 'true');
     assert.deepEqual(await draws(), full.filter(draw => draw.index !== 6),
@@ -106,6 +107,10 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     const blue = wrapper.getByRole('spinbutton', { name: 'Preview RGB B', exact: true });
     const reset = wrapper.getByRole('button', { name: 'Reset preview RGB', exact: true });
     await red.waitFor({ timeout: 5000 }).catch(() => assert.fail('Preview RGB offers a red number input beside Hide RGB'));
+    for (const [field, id] of [[red, 'preview-rgb-red'], [green, 'preview-rgb-green'], [blue, 'preview-rgb-blue'], [hideExtras, 'hide-extras']]) {
+      assert.equal(await field.getAttribute('data-hotkey'), 'uv-wrapper:' + id);
+      assert.notEqual(await field.getAttribute('data-hotkey-manual'), null);
+    }
     const quickColors = await page.locator('.quick-display label:has([data-hotkey="rgb"]) svg path')
       .evaluateAll(paths => paths.map(path => getComputedStyle(path).fill));
     assert.equal(quickColors.length, 3, 'Quick display has three RGB colors');
@@ -129,10 +134,17 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
       uvMeshDraws(selector).find(draw => draw.index === target)?.rgb.every((value, index) => value === rgb[index]),
     { selector: preview, target, rgb }, { timeout: 5000 });
     const beforeRGB = await camera();
-    await enter(red, '255');
+    await page.keyboard.press('Control+Alt+R');
+    await page.waitForFunction(() => document.activeElement?.getAttribute('data-hotkey') === 'uv-wrapper:preview-rgb-red');
+    await page.keyboard.type('255');
+    assert.equal(await red.inputValue(), '255');
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true }));
+    assert.deepEqual((await draws()).find(draw => draw.index === target).rgb, workingDraw.rgb, 'typing does not tint the preview until Enter');
+    await page.keyboard.press('Enter');
     await expectRGB([1, .5, .75]);
     await enter(green, '0');
     await enter(blue, '128');
+    await page.keyboard.press('Enter');
     const override = [1, 0, Math.fround(128 / 255)];
     await expectRGB(override);
     assert.deepEqual(await draws(), full.map(draw => draw.index === target ? { ...draw, rgb: override } : draw),
@@ -141,6 +153,7 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     assert.equal(await model(), before, 'typing RGB leaves authored model data intact');
     assert.equal(await page.evaluate(() => window.__mdlxl.session().doc.revision), beforeRevision, 'typing RGB creates no model revision');
     await enter(blue, '256');
+    await page.keyboard.press('Enter');
     await expectRGB([1, 0, .75]);
     await click(reset);
     await expectRGB(workingDraw.rgb);
@@ -163,6 +176,7 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     await click(hideRGB);
     await expectRGB([1, 1, 1]);
     await enter(green, '255');
+    await page.keyboard.press('Enter');
     await expectRGB([.25, 1, .75]);
     assert.equal(await hideRGB.getAttribute('aria-pressed'), 'false', 'typing a tint turns Hide RGB off');
     await click(hideRGB);

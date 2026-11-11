@@ -7775,5 +7775,9 @@
   "Folder *": "Папка *",
   "Controller *": "Контроллер *",
   "Citadel *": "Цитадель *",
-  "Bones *": "Кости *"
+  "Bones *": "Кости *",
+  "Preview RGB": "Предпросмотр RGB",
+  "Preview RGB {0}": "Предпросмотр RGB {0}",
+  "Reset preview RGB": "Сбросить предпросмотр RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели."
 }
