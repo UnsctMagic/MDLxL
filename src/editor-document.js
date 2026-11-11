@@ -961,6 +961,18 @@ export function removeGeosets(model, removed, { clearInvalid = false } = {}) {
   for (const anim of kept) if (valid(anim.GeosetId)) anim.GeosetId = oldToNew[anim.GeosetId];
   model.GeosetAnims = kept;
   model.Geosets = model.Geosets.filter((_, i) => !targets.has(i));
+  for (const geoset of model.Geosets) {
+    const stack = geoset._FxStack;
+    if (!stack) continue;
+    // FX fits the original members and stores the impact vertex in geoset-local coordinates.
+    const survives = id => valid(id) && !targets.has(id);
+    if (Array.isArray(stack.group)) stack.group = stack.group.filter(survives).map(id => oldToNew[id]);
+    if (stack.contact) {
+      const id = stack.contact.geoset;
+      if (survives(id)) stack.contact.geoset = oldToNew[id];
+      else stack.contact = null;
+    }
+  }
   for (const bone of model.Bones || []) {
     if (valid(bone.GeosetId)) bone.GeosetId = oldToNew[bone.GeosetId];
     else if (clearInvalid && !noReference(bone.GeosetId)) bone.GeosetId = null;
