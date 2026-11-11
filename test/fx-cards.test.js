@@ -114,6 +114,7 @@ test('Rhythm, Second colour, Blend and Lit by map light reach a Card the way the
  const {model}=knight();
  let graph=compileAnimation(model,0,cardStack(model,{pulse:'beat',tint:[1,.3,0],tint2:[1,.1,0],filter:4,unshaded:false}));
  const shape=model.Geosets[graph.layers[1].geoset],layer=model.Materials[shape.MaterialID].Layers[0];
+ assert.equal(shape.Vertices.length,(partFrame(model.Geosets[0]).regions?.length||1)*12,'the colour goes on the card quads');
  assert.equal(layer.FilterMode,4);assert.equal(layer.Shading&1,0);
  const colour=model.GeosetAnims.find(a=>a.GeosetId===graph.layers[1].geoset).Color;
  assert.ok(colour.Keys,'a colour rhythm animates the geoset colour');
@@ -133,6 +134,8 @@ test('a Card stack saves and reopens as MDX and MDL with the same editable layer
   assert.ok(Math.abs(layer.strength-.7)<1e-4&&layer.tint.every((v,i)=>Math.abs(v-stack.layers[0].tint[i])<1e-4),format+': colour and intensity read back');
   const shape=reopened.model.Geosets.find(g=>g._FxTag==='cards/1/shape');
   assert.ok(shape,format+': the card geoset keeps its owner');
+  assert.equal(shape.Vertices.length,cardBones(reopened.model).length*12,format+': four corners per reopened card bone');
+  assert.ok(cardBones(reopened.model).length>=2,format+': the card bones keep their owner');
   compileAnimation(reopened.model,0,{...read,layers:[{...layer,count:1}]});
   assert.equal(reopened.model.Geosets.filter(g=>g._FxTag==='cards/1/shape').length,1,format+': re-applying replaces the card geoset');
   compileAnimation(reopened.model,0,{...read,layers:[]});
