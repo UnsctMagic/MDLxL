@@ -622,3 +622,16 @@ test('real models: committing the default plan changes only names and uses each 
 test('rule 7: real models are stable - committing the defaults and planning again proposes nothing', () => {
   for (const key of ['footman', 'hoofprint', 'slaanesh-champion', 'lahmian']) assertStable(loadMdx(fixturePath(key)), key);
 });
+
+test('rule 7: SD sheep is stable - a second run no longer renames Bone_Foot_L to Bone_Leg2_L', () => {
+  assertStable(loadMdx(fixturePath('sd800-sheep')), 'sheep');
+});
+
+test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm ends at the attachment Hand Right Ref', () => {
+  const model = loadMdx(fixturePath('sd800-archnathid')), plan = planBoneNames(model);
+  assertGoodPlan(model, plan, 'archnathid');
+  assert.ok(model.Attachments.some(node => node.Name.trim() === 'Hand Right Ref'), 'setup: the attachment exists');
+  for (const node of model.Attachments) assert.equal(rowsById(plan).get(node.ObjectId), undefined, node.Name);
+  assertNames(model, plan, { 'Bone CLAW L': 'Bone_Hand_L', 'Bone CLAW R': 'Bone_Hand_R', 'Bone Arm L': 'Bone_Arm1_L', 'Bone Arm R': 'Bone_Arm1_R' }, 'archnathid');
+  assertKept(model, plan, ['Bone_Box23'], 'archnathid (hub above the right arm)');
+});
