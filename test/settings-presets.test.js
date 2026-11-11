@@ -704,12 +704,13 @@ test('junk in settings.json cannot get through', () => {
   assert.equal(cleaned.uv[1].values.rotateSpeed, 200);
   assert.ok(!('extra' in cleaned));
 });
-test('saved presets ride along in Export configuration and come back', () => {
-  let prefs = edited.uv();
-  prefs = commit(prefs, savePreset('uv', prefs, 'Mine'));
-  const hotkeyPrefs = edited.hotkeys(); prefs = commit(prefs, savePreset('hotkeys', { ...hotkeyPrefs, settingsPresets: prefs.settingsPresets }, 'Keys'));
-  const restored = importConfiguration(JSON.stringify(exportConfiguration(prefs)));
-  assert.deepEqual(restored.settingsPresets, prefs.settingsPresets);
+test('configuration import keeps the receiving profile’s preset library', () => {
+  const source = edited.uv(), incoming = commit(source, savePreset('uv', source, 'Shared'));
+  const local = commit(edited.hotkeys(), savePreset('hotkeys', edited.hotkeys(), 'My keys'));
+  const exported = exportConfiguration(incoming);
+  assert.ok(!Object.hasOwn(exported.preferences, 'settingsPresets'));
+  const oldExport = { ...exported, preferences: { ...exported.preferences, settingsPresets: incoming.settingsPresets } };
+  assert.deepEqual(importConfiguration(oldExport, local).settingsPresets, local.settingsPresets);
 });
 
 // ---- Desktop channels ------------------------------------------------------
@@ -748,6 +749,16 @@ for (const domain of PRESET_DOMAINS) test(`${domain}: bar shows the four actions
   assert.doesNotMatch(html, new RegExp(`preset:${domain}:delete`));
   // Appearance's list holds the viewport looks that shipped before this work, under their existing names.
   if (domain !== 'appearance') assert.doesNotMatch(html, /Blender|Maya/i);
+});
+test('choosing the built-in Hotkeys preset asks before replacing the bindings', () => {
+  const prefs = edited.hotkeys(), notices = [], commits = [], questions = [];
+  bar.pickPreset('hotkeys', prefs, 'default', change => commits.push(change), text => notices.push(text), id => questions.push(id));
+  assert.deepEqual(commits, [], 'the chosen default has not been applied');
+  assert.deepEqual(notices, []);
+  assert.deepEqual(questions, ['default']);
+  bar.pickPreset('hotkeys', prefs, questions[0], change => commits.push(change), text => notices.push(text));
+  assert.deepEqual(commits[0].hotkeys, {});
+  assert.deepEqual(commits[0].modifiers, {});
 });
 test('nothing matching shows one disabled Custom entry', () => {
   const html = renderBar('uv', fresh({ uvDrag: { ...DEFAULT_UV_DRAG, zoomSpeed: 150 } }));

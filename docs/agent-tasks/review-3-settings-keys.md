@@ -1,6 +1,6 @@
 # Contract 3: settings and keys cannot be wiped by accident
 
-Status: ready for Codex
+Status: reworked and ready for Claude re-check. O5 wording is ready for the next release-branch update.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -63,6 +63,7 @@ Out of scope: preset file format, the Settings layout, any stored key name.
 
 ## Revision and local state
 
+- Fix revision: `a4e7109d` on local `codex/main-review-20261111-3`.
 - Base: local `claude/main-review-2026-11-11` (`main` at `a8a4ca86`).
 - Overlap: `claude/fx-editor` changes two lines of `app/PresetBar.jsx`; keep edits there small.
 
@@ -89,31 +90,101 @@ Out of scope: preset file format, the Settings layout, any stored key name.
 
 ## Changes and verification
 
-Tests to add first (each must fail on the base):
+- C1 uses the existing Restore confirmation when selecting a built-in Hotkeys
+  preset. Cancel and Escape keep the prior selection and assignments.
+- C2 updates settings supplied by the file, including fields inside partial
+  settings sections. Preset libraries in `settingsPresets` and the profile's
+  UV default marker are local. A supplied shortcut map is a complete map.
+  The import instructions and completion message were updated in all five
+  catalogs. The separate shared preset-file check still rejects default clashes.
+- C3 puts the main Move lock badge inside the preferences provider. C4 gives
+  explicit assignments precedence over overlapping defaults, including
+  Ctrl+F2, Shift+F3 and Alt+K. Duplicate explicit assignments still fail
+  configuration validation.
+- O3 restores plain-key behavior after a tapped Alt when no Alt shortcut runs.
+  O4 records the right/up UV default for fresh installs so both Restore buttons
+  and the MDLxL preset agree. Older profiles restore centre Zoom.
 
-- `test/settings-presets.test.js`: with a custom key set, choosing Default through the
-  same path the dropdown uses leaves the key until the confirm is accepted.
-- A packaged step in the style of `test/uv-drag-settings.electron.cjs`: real select
-  change on the Hotkeys preset, confirm row appears, Cancel keeps keys.
-- `test/preferences.test.js`: import a configuration without `settingsPresets`,
-  `modifiers`, `uvDrag`, `toolbarMode` into a profile that has them; all four stay.
-  Import a current export; exact match.
-- Extend `test/shift-lock-badge.electron.cjs`: rebind `drag.move.axisLock` to Alt, real
-  Move drag in the main window with Alt held, badge appears.
-- `test/hotkey-default-overlaps.test.js`: with a user override binding Ctrl+F2 to
-  another command, the launcher's effective keys do not contain Ctrl+F2 and the user's
-  command runs. Same for Alt+K and Surface Effects.
-- Item 5: a packaged hotkeys test: real Alt press and release, then a plain R; the
-  Rotate tool becomes active. Alt tap, then a key with an Alt+ shortcut, still runs it.
-- Item 6: `test/uv-drag-settings.test.js`: for a profile marked as seeded, the UV
-  preset id is the built-in one and Restore returns right/up; for a profile without
-  the mark, Restore returns centre as today. `test/uv-tools.test.js` stays untouched.
+Fail-first on `4340c5f8`: five new source cases failed (preset committed before
+confirmation, old import reset settings, exported preset list, Ctrl+F2 still
+on the launcher, seeded UV read Custom). The named Electron harness on the
+baseline package passed one and failed six: the confirmation did not appear,
+the import showed the old replacement message, the Alt lock badge did not
+appear during a verified Move drag, plain R stayed inactive, Alt+K failed to
+select Rotate, and fresh UV Restore gave centre. The older-profile UV case
+passed. Two focused follow-up source cases also reproduced missing nested
+capture settings and an omitted keyframe colour being reset by legacy migration.
 
-Run the files above plus `test/hotkey-defaults.test.js`, `test/hotkey-migration.test.js`,
-`test/hotkey-window-source.test.js`, `test/localization-catalogs.test.js` (new text
-needs all five languages).
+Final source check on `a4e7109d` passed 371 tests with zero failures or skips:
 
-## Blockers and next action
+```text
+node --test test/settings-presets.test.js test/preferences.test.js
+  test/hotkey-default-overlaps.test.js test/uv-drag-settings.test.js
+  test/hotkey-defaults.test.js test/hotkey-migration.test.js
+  test/hotkey-window-source.test.js test/localization-catalogs.test.js
+  test/release-fixes.test.js test/final-patch-core.test.js
+  test/desktop-settings.test.js test/uv-tools.test.js
+  test/appearance-themes.test.js test/rotate-settings.test.js
+  test/rotation-drag.test.js test/compact-geoset-set.test.js
+  test/herrdave-shell.test.js test/learn.test.js test/light-dark-switch.test.js
+  test/paint-lamps.test.js test/pose-console.test.js test/quad-view.test.js
+  test/uv-preview-display.test.js
+```
 
-- None. On completion: status, revision and checks here; plain summary for the owner;
-  hand back.
+Built with Vite and packaged from the existing Electron cache on D:. Ran
+`node scripts/run-packaged-tests.mjs default review-settings` on the hidden
+Windows desktop against the final build: seven scenarios passed, zero failures
+or skips. The preceding build also passed the named `hotkey-badges` and
+`shift-lock-badge` harnesses, including the default Shift badge, detached
+Sphereomancer, and Alt+R and Escape behavior. The final changes after those
+two runs were confined to configuration import and preset confirmation.
+
+The existing packaged hotkey audit now uses Tab and ArrowDown to choose
+Default, checks that the current preset remains selected, and clicks Restore
+all defaults before its existing Fit and Learn assertions. `node --check
+test/hotkey-defaults-audit.electron.cjs` and `git diff --check` passed.
+
+The named `node scripts/run-packaged-tests.mjs default hotkey-defaults-audit`
+run stopped before the Default step on both `4340c5f8` and the contract 3
+package. It opened all 33 windows without skips, then waited for Assign
+shortcut while recording Ctrl+F9 for Fit. Both runs recorded Ctrl+F9 for
+Forge's Tube thickness, which makes Settings offer Replace existing assignment.
+A temporary copy that clicked that button passed the full audit on the
+contract 3 package. It checked all 743 catalog rows, confirmed Default via
+real input, restored Fit's Home tooltip, and reset the same Learn entry.
+The committed audit keeps the pre-existing Fit setup.
+
+## Summary for the owner
+
+Picking Default in Hotkeys now asks before clearing keys. Importing an old
+configuration keeps the saved Hotkeys and Mouse presets and settings missing
+from the file. The main Move lock badge follows its assigned key. Your own
+shortcuts take precedence, and tapping Alt still lets an ordinary key work.
+Fresh installations restore right/up UV Zoom and older profiles restore centre.
+
+## Next action
+
+- Claude: review local branch `codex/main-review-20261111-3`. Saved on your PC, not online.
+- O5: the 0.40.0 release session still needs to add the approved line in all six
+  languages on local `codex/release-0.40.0`. English: “On German and French
+  keyboards, letter keys rebound before 0.39 may now be on a different key.
+  Check them in Settings > Hotkeys.”
+
+
+## Rework after Claude’s review
+
+- Implementation revision dd02737e. The settings test still checks that Classic and Orbit use the preset bar’s Custom snapshot route. The UV guide qualifies centre Zoom by profile age. The full source run found two protected Chinese catalog entries had been replaced. Those keys and values were restored alongside the new import text in the five catalogs. The community catalog check now passes with its original hash.
+- C4 consequence: importing a configuration with a custom key on another command’s default now keeps the imported key instead of raising Conflicting shortcut. The check in test/release-fixes.test.js records this. Preset files still reject the clash.
+- pnpm run test:source: 3,278 passed, 0 failed, 10 skipped. CI reporter: 3,288 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. Focused settings, catalog and community localization checks: 22 passed. The baseline file is unchanged.
+- Owner summary: the preset test protects the intended behavior, the guide explains which UV default applies, and the Chinese community wording remains available.
+
+### O5 release handoff
+
+Add the following line to the matching draft notes on codex/release-0.40.0 when that branch next moves.
+
+- EN — On German and French keyboards, letter keys rebound before 0.39 may now be on a different key. Check them in Settings > Hotkeys.
+- ES — En teclados alemanes y franceses, las teclas de letras reasignadas antes de la versión 0.39 pueden estar ahora en otra tecla. Revísalas en Ajustes > Atajos de teclado.
+- RU — На немецких и французских клавиатурах буквенные клавиши, переназначенные до версии 0.39, теперь могут оказаться на других клавишах. Проверьте их в разделе «Настройки → Горячие клавиши».
+- ZH-CN — 使用德语或法语键盘时，在 0.39 版之前重新绑定的字母快捷键现在可能对应其他按键。请在“设置 → 快捷键”中检查。
+- FR — Sur les claviers allemands et français, les raccourcis de lettres réattribués avant la version 0.39 peuvent désormais se trouver sur une autre touche. Vérifiez-les dans Paramètres > Raccourcis clavier.
+- DE — Auf deutschen und französischen Tastaturen können vor Version 0.39 neu belegte Buchstabenkürzel jetzt auf einer anderen Taste liegen. Prüfen Sie sie unter Einstellungen > Tastenkürzel.

@@ -714,7 +714,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(legacySettings);
   if (freshInstall) {
-    settings = await settingsStore.configure({ preferences: { uvDrag: { ...settings.preferences.uvDrag, zoomStyle: 'rightUp' } } });
+    settings = await settingsStore.configure({ preferences: { uvRightUpDefault: true, uvDrag: { ...settings.preferences.uvDrag, zoomStyle: 'rightUp' } } });
   }
   if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status),

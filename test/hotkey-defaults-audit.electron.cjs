@@ -99,10 +99,18 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.match(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), /Ctrl\+F9/);
     checks.push('A rebind reaches the tooltip at once and forgets only that key in Learn, keeping its mute');
 
-    // Loading a preset goes the same way: the built-in Default puts Fit back.
+    // Choosing Default asks before it puts Fit back.
     await seed();
     await page.keyboard.press('Control+k'); await click(page.locator('#settings-tab-hotkeys'));
-    await page.locator('[data-hotkey="preset:hotkeys:select"]').selectOption('default');
+    const preset = settingsWindow.getByLabel('Hotkeys preset', { exact: true });
+    for (let step = 0; step < 8 && !await preset.evaluate(el => document.activeElement === el); step++) await page.keyboard.press('Tab');
+    assert.ok(await preset.evaluate(el => document.activeElement === el), 'Tab reaches the Hotkeys preset');
+    await page.keyboard.press('ArrowDown');
+    const confirm = settingsWindow.getByRole('button', { name: 'Restore all defaults', exact: true });
+    await confirm.waitFor({ state: 'visible', timeout: 8000 });
+    assert.equal(await preset.inputValue(), 'custom', 'Default waits for confirmation');
+    const confirmBox = await confirm.boundingBox();
+    await page.mouse.click(confirmBox.x + confirmBox.width / 2, confirmBox.y + confirmBox.height / 2);
     await expectForgot('preset load');
     await click(page.getByRole('button', { name: 'Close Settings', exact: true }));
     await page.waitForFunction(() => document.querySelector('[data-hotkey="fit"]')?.getAttribute('data-hotkey-shortcuts') === 'Home');
