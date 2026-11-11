@@ -316,6 +316,24 @@ Hand names (`pose-recognition.js:192-216` reads limb kinds from names); Lord of
 Change's wings `B_W_1..6` read as Wing limbs only while anonymous
 (`pose-recognition.js:153` skips a pair whose joints have a Wing part role).
 
+## Fix round 3 (11 Nov, from Claude's QA of `2202209e`)
+
+QA of `2202209e` on main's POSE: source tests 55/55; library gate 0 failing
+models of 941 (0 LOST/MOVED/GRIP/STABILITY). On the POSE side's fix branch
+`8f336192` (not merged): 3 models LOST; one is ours:
+
+1. **Wing limbs found from shape keep their names.** A chain labelled `Wing` whose
+   joints do not already read Wing by name (`poseNodeRole`) is part `keep`, every
+   joint. POSE finds such wings from their shape only while the joints are
+   anonymous; once named Wing they become separate Wing part handles, a reading the
+   owner's accepted POSE tests protect (Lord of Change: `B_W_1..6` →
+   `Bone_Wing1..3_L/R` loses both Wing limbs on the POSE branch). Same principle as
+   item 12 of round 1: never give a name that flips POSE's reading of that bone.
+   Wing chains whose joints already read Wing keep today's naming.
+
+Not ours: zergling (sent to the POSE side) — its fix keeps `Bone Root L/R` only
+while the holder `Object01` is unnamed, and Bone Namer names it `Bone_Chest`.
+
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
