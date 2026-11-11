@@ -1,6 +1,6 @@
 # Contract 7: fixes for the five PRs merged on 11 November (#622 to #626)
 
-Status: H1–H9, O8 and O11 complete locally. Ready for Claude review.
+Status: reworked and ready for Claude re-check.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -221,3 +221,12 @@ menu again. Node Manager opens in its normal state, the reviewed controls have
 translations, and ShareX sharing starts only when you turn it on in Capture.
 
 Saved on your PC, not online. Ready for Claude review.
+
+## Rework after Claude’s review
+
+- Implementation revision 9e348665. Only the replacement’s own tab offers Commit, Discard replacement, and Cancel with the existing close-prompt hotkeys. Commit continues through the normal save prompt for the edited tab. Discard resumes the ordinary close flow. Another tab can close while the draft stays open.
+- ShareX uses the shared Settings Toggle and keeps the same helper on editor switches. UV sends empty region coordinates. Disabling the switch ends the helper. The capture defaults test now includes the off setting.
+- The localization test extracts JSX text, title, aria-label and placeholder strings from BITZ, Part RGB, Library Save Copy and the EMTR menu. It checks future literals with a small name allowlist. All five catalogs include the missing dialog titles and the older labels exposed by the new scan.
+- pnpm run test:source: 3,279 passed, 0 failed, 10 skipped. CI reporter: 3,289 passing events including skips, 0 failures, 0 new failures. pnpm test: 57 passed, 0 failed, 0 skipped. Focused capture and localization checks: 20 passed. The baseline file is unchanged.
+- Hidden node --test --test-concurrency=1 test/review-bitz.electron.cjs test/review-desktop.electron.cjs: 11 passed; the initial ShareX locator expected the old checkbox label. After switching to the shared Toggle and selecting vertices before opening UV, node --test --test-name-pattern=ShareX test/review-desktop.electron.cjs passed its one scenario. It observed empty regions in UV and the same helper PID after returning to Vertices. BITZ tests closed an unrelated tab, saved a committed replacement before closing, and verified a discarded replacement left the file bytes intact.
+- Owner summary: the BITZ draft only interrupts closing the tab it belongs to. ShareX keeps running as you switch editors and stops when you turn it off.
