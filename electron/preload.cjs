@@ -96,6 +96,7 @@ contextBridge.exposeInMainWorld('desktop', {
   ...(process.platform === 'win32' ? {
     onMenuItems: callback => subscribe('menu:items', callback, { ready: 'menu:ready' }),
     clickMenuItem: id => ipcRenderer.send('menu:click', id),
+    setCaptureRegions: edges => ipcRenderer.send('capture:regions', edges),
   } : {}),
   // Acknowledging first tells main the page is responsive and still saving, so a
   // long final recovery write is not cut off by the unresponsive-page timeout.

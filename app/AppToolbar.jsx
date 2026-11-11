@@ -47,19 +47,34 @@ export default function AppToolbar({
     roots.forEach(root => observer.observe(root, { childList: true, subtree: true }));
     return () => { observer.disconnect(); roots.forEach(root => setToolbarTabStops(root, false)); };
   }, [toolbarHidden]);
-  const dock = useRef(null), [learnOpen, setLearnOpen] = useState(false), [learnPosition, setLearnPosition] = useState({});
+  const dock = useRef(null), iconMenuRef = useRef(null);
+  const [iconMenu, setIconMenu] = useState(null), [iconMenuPosition, setIconMenuPosition] = useState({});
+  const iconMenuTrigger = () => dock.current?.querySelector(`[data-hotkey="${iconMenu}"]`);
   useLayoutEffect(() => {
-    if (!learnOpen) return;
+    if (!iconMenu) return;
     const position = () => {
-      const rect = dock.current.querySelector('.learner-tool').getBoundingClientRect();
-      setLearnPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+      const rect = iconMenuTrigger().getBoundingClientRect();
+      setIconMenuPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
     };
     position();
     window.addEventListener('resize', position);
     return () => window.removeEventListener('resize', position);
-  }, [learnOpen, visUI]);
-  useEffect(() => { if (learnOpen) dock.current.querySelector('.learn-menu')?.focus({ preventScroll: true }); }, [learnOpen]);
-  useDismiss(learnOpen, [() => dock.current?.querySelector('.learner-tool'), () => dock.current?.querySelector('.learn-menu')], () => setLearnOpen(false), {claimEscape:true, escapePriority:-20});
+  }, [iconMenu, visUI]);
+  useEffect(() => { if (iconMenu) iconMenuRef.current?.focus({ preventScroll: true }); }, [iconMenu]);
+  useDismiss(!!iconMenu, [iconMenuTrigger, iconMenuRef], () => setIconMenu(null), {claimEscape:true, escapePriority:-20});
+  const toggleIconMenu = event => {
+    const action = event.currentTarget.dataset.hotkey;
+    setIconMenu(current => current === action ? null : action);
+  };
+  const onIconContextMenu = event => {
+    event.preventDefault();
+    toggleIconMenu(event);
+  };
+  const chooseEmtrOption = action => {
+    setIconMenu(null);
+    if (action === 'manager') setDialog({ type: 'resource', kind: 'Nodes', emittersOnly: true });
+    else openParticles(undefined, action);
+  };
   useLayoutEffect(() => {
     const row = editorRow.current;
     row.removeAttribute('data-short-editors');
@@ -83,7 +98,20 @@ export default function AppToolbar({
   const quickDisplay = mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <QuickDisplay key={displayMode} vanilla={visUI} viewMode={displayMode} checks={menuChecks} onCommand={runCommand} isEnabled={commandEnabled} onClear={clearDisplay}/>;
   // With the toolbar hidden this select cannot be seen, so its key searches for a colour instead of taking the keyboard.
   const teamPicker = <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }} onFocus={event => { if (preferences.toolbarMode === 'hidden' && !visUI) { event.currentTarget.blur(); onHiddenTeamColor(); } }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>;
-  const moduleDock = <div className="classic-toolbar-group toolbar-modules" ref={dock}>{aiControl}<Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary(undefined, true)}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><Tool action="surfaceEffects" className="surface-effects-tool" icon="btn-magical-sentry" badge="FX" title="Surface Effects" disabled={!commandEnabled('surfaceEffects')} onClick={()=>runCommand('surfaceEffects')}/><Tool action="animXL" className="animxl-tool" icon="btn-animate-dead" badge="ANIM" title="AnimXL: shape an animation with sliders" disabled={!commandEnabled('animXL')} onClick={()=>setDialog({type:'animXL'})}/><Tool className="auto-corpse-tool" icon="btn-exhume-corpses" badge="CORP" title="Auto Corpse (test)" description="Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model." disabled={doc.readOnly||saving||!!dialog||!!settingsTab||mode==='paint'||mode==='showcase'} onClick={placeCorpse}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool action="learn" className="learner-tool" icon="btn-ancient-of-lore" badge="LER" title="Learn" description="Learn: open learning controls and settings." onContextMenu={event => { event.preventDefault(); setLearnOpen(value => !value); }} active={preferences.learn.enabled} onClick={event => { if (event.isTrusted) setLearnOpen(value => !value); else commands.current.learn(); }}/>{learnOpen && <div className="learn-menu" role="menu" aria-label="Learn" tabIndex={-1} data-hotkey-window="" data-hotkey-scope="editor" data-hotkey-prefix="learn-menu" style={learnPosition}><button role="menuitemcheckbox" aria-checked={preferences.learn.enabled} data-hotkey="mode" data-hotkey-label="Learn mode" onClick={() => commands.current.learn()}><span aria-hidden="true">{preferences.learn.enabled ? '✓' : ''}</span>Learn mode</button><button role="menuitemcheckbox" aria-checked={preferences.showHotkeys} data-hotkey="show-hotkeys" data-hotkey-label="Show hotkeys" onClick={() => changePreferences(previous => ({ ...previous, showHotkeys: !previous.showHotkeys }))}><span aria-hidden="true">{preferences.showHotkeys ? '✓' : ''}</span>Show hotkeys</button>{mode === 'paint' && <button role="menuitemcheckbox" aria-checked={preferences.paintKeyLabels} data-hotkey="paint-key-labels" data-hotkey-label="Paint key labels" onClick={() => changePreferences(previous => ({ ...previous, paintKeyLabels: !previous.paintKeyLabels }))}><span aria-hidden="true">{preferences.paintKeyLabels ? '✓' : ''}</span>Paint key labels</button>}<button role="menuitem" data-hotkey="settings" data-hotkey-label="Learn settings" onClick={() => { setLearnOpen(false); setSettingsTab('learn'); }}><span aria-hidden="true"/>Learn settings…</button></div>}<Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>;
+  const learnMenuOpen = iconMenu === 'learn';
+  const iconMenuPopup = iconMenu && <div ref={iconMenuRef} className="learn-menu" role="menu" aria-label={learnMenuOpen ? 'Learn' : 'EMTR'} tabIndex={-1} data-hotkey-window={learnMenuOpen ? '' : undefined} data-hotkey-scope="editor" data-hotkey-prefix={learnMenuOpen ? 'learn-menu' : undefined} style={iconMenuPosition}>
+    {learnMenuOpen ? <>
+      <button role="menuitemcheckbox" aria-checked={preferences.learn.enabled} data-hotkey="mode" data-hotkey-label="Learn mode" onClick={() => commands.current.learn()}><span aria-hidden="true">{preferences.learn.enabled ? '✓' : ''}</span>Learn mode</button>
+      <button role="menuitemcheckbox" aria-checked={preferences.showHotkeys} data-hotkey="show-hotkeys" data-hotkey-label="Show hotkeys" onClick={() => changePreferences(previous => ({ ...previous, showHotkeys: !previous.showHotkeys }))}><span aria-hidden="true">{preferences.showHotkeys ? '✓' : ''}</span>Show hotkeys</button>
+      {mode === 'paint' && <button role="menuitemcheckbox" aria-checked={preferences.paintKeyLabels} data-hotkey="paint-key-labels" data-hotkey-label="Paint key labels" onClick={() => changePreferences(previous => ({ ...previous, paintKeyLabels: !previous.paintKeyLabels }))}><span aria-hidden="true">{preferences.paintKeyLabels ? '✓' : ''}</span>Paint key labels</button>}
+      <button role="menuitem" data-hotkey="settings" data-hotkey-label="Learn settings" onClick={() => { setIconMenu(null); setSettingsTab('learn'); }}><span aria-hidden="true"/>Learn settings…</button>
+    </> : <>
+      <button type="button" role="menuitem" disabled={doc.readOnly} onClick={() => chooseEmtrOption('glow')}><span aria-hidden="true"/>Glow Up</button>
+      <button type="button" role="menuitem" onClick={() => chooseEmtrOption('library')}><span aria-hidden="true"/>EMTR Library</button>
+      <button type="button" role="menuitem" onClick={() => chooseEmtrOption('manager')}><span aria-hidden="true"/>Manager</button>
+    </>}
+  </div>;
+  const moduleDock = <div className="classic-toolbar-group toolbar-modules" ref={dock}>{aiControl}<Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary(undefined, true)}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" description="Emitter Editor. Right-click for Glow Up, EMTR Library, and Manager." disabled={!commandEnabled('particles')} aria-haspopup="menu" aria-expanded={iconMenu === 'particles'} onContextMenu={onIconContextMenu} onClick={() => { setIconMenu(null); openParticles(); }}/><Tool action="surfaceEffects" className="surface-effects-tool" icon="btn-magical-sentry" badge="FX" title="Surface Effects" disabled={!commandEnabled('surfaceEffects')} onClick={()=>runCommand('surfaceEffects')}/><Tool action="animXL" className="animxl-tool" icon="btn-animate-dead" badge="ANIM" title="AnimXL: shape an animation with sliders" disabled={!commandEnabled('animXL')} onClick={()=>setDialog({type:'animXL'})}/><Tool className="auto-corpse-tool" icon="btn-exhume-corpses" badge="CORP" title="Auto Corpse (test)" description="Preview a corpse fitted under the last Death frame, adjust its Size and Height, then create it with flesh and bone decay. Undo restores the model." disabled={doc.readOnly||saving||!!dialog||!!settingsTab||mode==='paint'||mode==='showcase'} onClick={placeCorpse}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool action="learn" className="learner-tool" icon="btn-ancient-of-lore" badge="LER" title="Learn" description="Learn: open learning controls and settings." onContextMenu={onIconContextMenu} active={preferences.learn.enabled} onClick={event => { if (event.isTrusted) toggleIconMenu(event); else commands.current.learn(); }}/>{iconMenuPopup}<Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>;
   const { shortcuts } = useHotkeys();
   const nativeMenuState = window.desktop?.setMenuState && JSON.stringify({
     readOnly: doc.readOnly, saving, viewMode: displayMode, vanilla: visUI, checks: menuChecks,
@@ -188,7 +216,7 @@ function VertexAnimationControl({ sequences, index, frame, active, disabled, onT
   useDismiss(open, [control], event => {
     if (event.type === 'keydown') closeFrame();
     else setShowFrame(false);
-  }, { claimEscape: true, escapePriority: -20 });
+  }, {claimEscape:true, escapePriority:-20});
   const label = translate('Choose animation');
   const name = sequences[index]?.Name;
   return <span ref={control} className="vertex-animation-control">

@@ -7,7 +7,7 @@ import ToolWindow from './ToolWindow.jsx';
 import NodeEventEditor from './NodeEventEditor.jsx';
 import NodeEmitterVisibility from './NodeEmitterVisibility.jsx';
 
-const EMITTER_KINDS = ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters'];
+import { EFFECT_FAMILIES as EMITTER_KINDS, effectNodes } from '../src/particle-recipes.js';
 import { EVENT_TYPES, loadEventCatalog } from './node-event-data.js';
 import { Bone, Paperclip, Camera, Volume2, Droplets, Footprints, Lightbulb, Sparkles, Box, Circle, ChevronRight, ChevronDown } from 'lucide-react';
 import { Section, SelectField, Check, TrackEditor } from './Fields.jsx';
@@ -30,8 +30,9 @@ const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Node
 const nodeIcons = { Bones: Bone, Helpers: Paperclip, Attachments: Paperclip, EventObjects: Camera, Lights: Lightbulb, ParticleEmitters: Sparkles, ParticleEmitters2: Sparkles, ParticleEmitterPopcorns: Sparkles, RibbonEmitters: Sparkles, CollisionShapes: Box };
 const nodeTypeFor = collection => Object.keys(NODE_TYPES).find(type => NODE_TYPES[type][0] === collection);
 
-function resourceRows(model, kind, tree) {
+function resourceRows(model, kind, tree, emittersOnly) {
   if (kind !== 'Nodes') return (model?.[kind] || []).map((item, index) => ({ item, index, depth: 0 }));
+  if (emittersOnly) return effectNodes(model).map(({ node }) => ({ item: node, index: node.ObjectId, depth: 0 })).sort((a, b) => a.index - b.index);
   return nodeHierarchyRows(model, tree);
 }
 
@@ -85,20 +86,23 @@ function removeResource(model, kind, index) {
 }
 
 /** Resource windows share the document's history and preserve native properties. */
-export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCamera, onOpenParticleEditor, livePreview = false, selectedNodeId, previewFrame, sequenceIndex = 0, onSeek, onSequenceChange, textureAssets, preferences, teamColor, onUndo, onRedo, onNodeChange, onKindChange, kind = 'Materials', doc, edit, refresh, onClose, onImportTexture, onTextureFolder, selectionByGeoset, activeGeoset = 0, inspectedGeoset = activeGeoset, onGeosetChange, onVerticesChange, onSelectionClear }) {
-  const initialIndex = () => kind === 'Nodes' && doc?.model?.Nodes[selectedNodeId] ? selectedNodeId : ['Geosets', 'Materials', 'GeosetAnims'].includes(kind) ? relatedResourceIndices(doc?.model, inspectedGeoset, kind)[0] ?? null : 0;
+export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibility, onHotkeys, onViewCamera, onOpenParticleEditor, livePreview = false, selectedNodeId, previewFrame, sequenceIndex = 0, onSeek, onSequenceChange, textureAssets, preferences, teamColor, onUndo, onRedo, onNodeChange, onKindChange, kind = 'Materials', doc, edit, refresh, onClose, onImportTexture, onTextureFolder, selectionByGeoset, activeGeoset = 0, inspectedGeoset = activeGeoset, onGeosetChange, onVerticesChange, onSelectionClear }) {
+  const selectedNode = doc?.model?.Nodes[selectedNodeId];
+  const canSelectNode = selectedNode && (!emittersOnly || EMITTER_KINDS.includes(nodeKind(doc.model, selectedNode)));
+  const initialIndex = () => emittersOnly ? (canSelectNode ? selectedNodeId : resourceRows(doc.model, kind, false, true)[0]?.index ?? null)
+    : kind === 'Nodes' && canSelectNode ? selectedNodeId : ['Geosets', 'Materials', 'GeosetAnims'].includes(kind) ? relatedResourceIndices(doc?.model, inspectedGeoset, kind)[0] ?? null : 0;
   const [currentKind, setCurrentKind] = useState(kind), [selectedIndex, setSelectedIndex] = useState(initialIndex);
-  const [nodeType, setNodeType] = useState('Bone'), [tree, setTree] = useState(true), [localSelection, setLocalSelection] = useState({});
+  const [nodeType, setNodeType] = useState(emittersOnly ? 'ParticleEmitter2' : 'Bone'), [tree, setTree] = useState(!emittersOnly), [localSelection, setLocalSelection] = useState({});
   const [collapsed, setCollapsed] = useState(new Set()), [propertiesOpen, setPropertiesOpen] = useState(true), [query, setQuery] = useState('');
   const [frame, setFrame] = useState(Math.round(previewFrame || 0)), [message, setMessage] = useState(''), [warnings, setWarnings] = useState(0), [, redraw] = useState(0);
   const [sorting, setSorting] = useState(false);
   const [managerSequence, setManagerSequence] = useState(doc?.model?.Sequences?.[sequenceIndex] ? sequenceIndex : 0);
   const dialog = useRef(null), list = useRef(null), lastApplySucceeded = useRef(true);
   const [catalog, setCatalog] = useState(null), [catalogError, setCatalogError] = useState('');
-  useEffect(() => { if(currentKind !== 'Nodes' || catalog) return; let active=true; loadEventCatalog(modelPath).then(value=>{if(active){setCatalog(value);if(!Object.values(value).some(rows=>rows.length))setCatalogError('Event data not found in the configured game files.');}},cause=>{if(active)setCatalogError(cause.message);});return()=>{active=false;}; }, [currentKind, modelPath, catalog]);
+  useEffect(() => { if(currentKind !== 'Nodes' || emittersOnly || catalog) return; let active=true; loadEventCatalog(modelPath).then(value=>{if(active){setCatalog(value);if(!Object.values(value).some(rows=>rows.length))setCatalogError('Event data not found in the configured game files.');}},cause=>{if(active)setCatalogError(cause.message);});return()=>{active=false;}; }, [currentKind, emittersOnly, modelPath, catalog]);
   useEffect(() => { if (kind !== currentKind) { setCurrentKind(kind); setSelectedIndex(initialIndex()); setMessage(''); } }, [kind]);
   useEffect(() => { setSorting(false); setCurrentKind(kind); setSelectedIndex(initialIndex()); setLocalSelection({}); setMessage(''); }, [doc]);
-  useEffect(() => { if (currentKind === 'Nodes' && doc?.model?.Nodes[selectedNodeId]) { setSelectedIndex(selectedNodeId); setQuery(''); setCollapsed(previous => { const next = new Set(previous); for (const id of nodeHierarchyRows(doc.model).find(row => row.index === selectedNodeId)?.ancestors || []) next.delete(id); return next; }); } }, [selectedNodeId]);
+  useEffect(() => { if (currentKind === 'Nodes' && canSelectNode) { setSelectedIndex(selectedNodeId); setQuery(''); if (emittersOnly) return; setCollapsed(previous => { const next = new Set(previous); for (const id of nodeHierarchyRows(doc.model).find(row => row.index === selectedNodeId)?.ancestors || []) next.delete(id); return next; }); } }, [selectedNodeId]);
   useEffect(() => { if (['Geosets', 'Materials', 'GeosetAnims'].includes(currentKind)) setSelectedIndex(relatedResourceIndices(doc?.model, inspectedGeoset, currentKind)[0] ?? null); }, [inspectedGeoset, doc]);
   useEffect(() => { if (livePreview && Number.isFinite(previewFrame)) setFrame(Math.round(previewFrame)); }, [previewFrame, livePreview]);
   useEffect(() => { if (doc?.model?.Sequences?.[sequenceIndex]) setManagerSequence(sequenceIndex); }, [sequenceIndex, doc]);
@@ -107,14 +111,15 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
   useEffect(() => { list.current?.querySelector(`[data-${currentKind === 'Nodes' ? 'node-id' : 'resource-index'}="${selectedIndex}"]`)?.scrollIntoView({ block: 'nearest' }); const properties = dialog.current?.querySelector('.re-properties'); if (properties) properties.scrollTop = 0; }, [selectedIndex, currentKind, tree]);
   const model = doc?.model;
   const friendly = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Model'].includes(currentKind);
-  const allRows = model ? resourceRows(model, currentKind, tree) : [];
+  const allRows = model ? resourceRows(model, currentKind, tree, emittersOnly) : [];
   const matching = query.trim().toLowerCase();
   const rowLabel = row => currentKind === 'Materials' ? materialName(model, row.index) : resourceName(currentKind, row);
-  const rows = matching ? allRows.filter(row => `${rowLabel(row)} ${row.item?.Image || ''} ${currentKind === 'Nodes' ? nodeKind(model, row.item) : ''} ${currentKind === 'Nodes' ? row.index : row.index + 1}`.toLowerCase().includes(matching)) : currentKind === 'Nodes' ? visibleNodeRows(allRows, collapsed) : allRows;
+  const rows = matching ? allRows.filter(row => `${rowLabel(row)} ${row.item?.Image || ''} ${currentKind === 'Nodes' ? nodeKind(model, row.item) : ''} ${currentKind === 'Nodes' ? row.index : row.index + 1}`.toLowerCase().includes(matching)) : currentKind === 'Nodes' && tree ? visibleNodeRows(allRows, collapsed) : allRows;
   const selected = selectedIndex === null ? null : allRows.find(row => row.index === selectedIndex) || rows[0];
   const relatedIndices = relatedResourceIndices(model, inspectedGeoset, currentKind);
   const toggleBranch = index => setCollapsed(previous => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; });
-  const title = titles[currentKind] || 'Resource Manager';
+  const title = emittersOnly ? 'Emitter Manager' : titles[currentKind] || 'Resource Manager';
+  const listName = emittersOnly ? 'Emitters' : currentKind;
   const viewCamera = row => { if (currentKind === 'Cameras' && row) onViewCamera?.(row.item, row.index); };
   const validVertices = (index, ids) => [...new Set(Array.from(ids || []))].filter(id => Number.isInteger(id) && id >= 0 && id < (doc.model.Geosets[index]?.Vertices.length || 0) / 3);
   const vertices = currentKind === 'Geosets' && selected ? validVertices(selected.index, (selectionByGeoset || localSelection)[selected.index]) : [];
@@ -128,7 +133,7 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
     onSelectionClear?.(index);
   };
   const choose = (nextKind, index) => {
-    if (nextKind === 'Nodes' && !doc.model.Nodes[index]) index = resourceRows(doc.model, 'Nodes', tree)[0]?.index ?? null;
+    if (nextKind === 'Nodes' && !doc.model.Nodes[index]) index = resourceRows(doc.model, 'Nodes', tree, emittersOnly)[0]?.index ?? null;
     setCurrentKind(nextKind); setSelectedIndex(index); setMessage(''); setQuery(''); setPropertiesOpen(true);
     if (nextKind !== currentKind) onKindChange?.(nextKind);
     if (nextKind === 'Geosets' && doc.model.Geosets[index]) onGeosetChange?.(index);
@@ -189,7 +194,7 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
     if (!selected) return;
     const result = apply(`Remove ${currentKind}`, [currentKind, 'Nodes', 'Geosets', 'GeosetAnims', 'Materials', 'PivotPoints'], m => removeResource(m, currentKind, selected.index));
     if (result !== false) {
-      const remaining = resourceRows(doc.model, currentKind, tree), next = remaining[Math.max(0, Math.min(remaining.length - 1, rows.indexOf(selected) - 1))];
+      const remaining = resourceRows(doc.model, currentKind, tree, emittersOnly), next = remaining[Math.max(0, Math.min(remaining.length - 1, rows.indexOf(selected) - 1))];
       if (next) choose(currentKind, next.index); else setSelectedIndex(null);
     }
   };
@@ -202,13 +207,13 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
   const seek = value => { setFrame(value); onSeek?.(value); };
   const changeSequence = value => { setManagerSequence(value); onSequenceChange?.(value); seek(model.Sequences[value].Interval[0]); };
   if (sorting) return <SortMyMess doc={doc} modelPath={modelPath} textureAssets={textureAssets} preferences={preferences} teamColor={teamColor} sequenceIndex={managerSequence} frame={frame} onClose={() => { setSorting(false); requestAnimationFrame(() => dialog.current?.focus()); }} onCommit={decisions => apply('Sort My Mess', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Materials', 'Textures', 'RibbonEmitters', 'ParticleEmitters2', 'Info'], m => applySortMyMess(m, decisions))}/>;
-  return <ToolWindow title={title} modal={!livePreview} trap={!livePreview} windowRef={dialog} overlayClass={`resource-editor re-xl${friendly ? '' : ' re-compact-manager'}`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} headerClass="re-caption" closeClass="re-caption-close" groupButtons onClose={onClose} onKeyDown={keyDown}
-    actions={onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}
+  return <ToolWindow title={title} modal={!livePreview} trap={!livePreview} windowRef={dialog} overlayClass={`resource-editor re-xl${!friendly || emittersOnly ? ' re-compact-manager' : ''}`} className={`re-window ${currentKind === 'Nodes' && !emittersOnly ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} headerClass="re-caption" closeClass="re-caption-close" groupButtons onClose={onClose} onKeyDown={keyDown}
+    actions={!emittersOnly && onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}
     sectionProps={{ 'data-hotkey-scope': historyScope, 'data-hotkey-prefix': `resource:${currentKind}`, 'data-hotkey-category': `${title} controls` }}>
-      <nav className="re-manager-tabs" aria-label="Resource managers">{Object.entries(managerTabs).map(([next, label]) => <button key={next} disabled={!model} aria-pressed={next === currentKind} title={titles[next]} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{label}</button>)}</nav>
+      {!emittersOnly && <nav className="re-manager-tabs" aria-label="Resource managers">{Object.entries(managerTabs).map(([next, label]) => <button key={next} disabled={!model} aria-pressed={next === currentKind} title={titles[next]} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{label}</button>)}</nav>}
       {currentKind === 'Model' ? <ModelManager key={modelPath} doc={doc} edit={apply} assets={textureAssets} teamColor={teamColor}/> : <div className="re-body"><aside className="re-list-pane">
-        {friendly && <input className="re-search" type="search" aria-label={`Search ${currentKind.toLowerCase()}`} placeholder="Search name, type or ID…" value={query} onChange={event => setQuery(event.target.value)}/>}
-        <div ref={list} className="re-list" role={currentKind === 'Nodes' && tree ? 'tree' : 'listbox'} aria-label={`${currentKind} list`} onKeyDown={event => {
+        {friendly && <input className="re-search" type="search" aria-label={`Search ${listName.toLowerCase()}`} placeholder="Search name, type or ID…" value={query} onChange={event => setQuery(event.target.value)}/>}
+        <div ref={list} className="re-list" role={currentKind === 'Nodes' && tree ? 'tree' : 'listbox'} aria-label={`${listName} list`} onKeyDown={event => {
           const offset = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
           if (offset && rows.length) { event.preventDefault(); const row = rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(selected) + offset))]; choose(currentKind, row.index); }
           if (currentKind === 'Nodes' && tree && selected && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
@@ -221,11 +226,11 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
             {tree && row.ancestors.slice(-8).map((id, level) => <i aria-hidden="true" key={id} className={`re-tree-line ${level === row.depth - 1 ? 're-tree-elbow' : ''} ${row.continuations[level] ? 're-tree-continuing' : ''}`} style={{ left: 12 + level * 14 }}/>) }
             {tree && row.hasChildren ? <button tabIndex={-1} className="re-tree-expander" aria-label={`${collapsed.has(row.index) ? 'Expand' : 'Collapse'} ${row.item.Name}`} onClick={event => { event.stopPropagation(); toggleBranch(row.index); }}>{collapsed.has(row.index) ? <ChevronRight/> : <ChevronDown/>}</button> : <span className="re-tree-spacer"/>}<Icon className="re-node-icon" aria-hidden="true"/><span className="re-node-name" translate={row.item.Name ? 'no' : undefined}>{resourceName(currentKind, row)}</span><small>{nodeKind(model,row.item) === 'EventObjects' ? EVENT_TYPES[row.item.Name?.slice(0,3)] || 'Event' : nodeTypeFor(nodeKind(model,row.item))?.replace(/([a-z])([A-Z0-9])/g, '$1 $2')}</small>
           </div>  : <button data-resource-index={row.index} data-hotkey={`item:${row.index}`} data-hotkey-label={`Choose ${currentKind} item ${displayNumber(row.index)}`} key={row.index} type="button" role="option" aria-selected={selected?.index === row.index} tabIndex={selected?.index === row.index ? 0 : -1} className={`${selected?.index === row.index ? 're-selected' : ''} ${relatedIndices.includes(row.index) ? 're-related' : ''}`} title={currentKind === 'Cameras' ? `${resourceName(currentKind, row)} · double-click to view through camera` : resourceName(currentKind, row)} onClick={() => choose(currentKind, row.index)} onDoubleClick={() => viewCamera(row)}><span translate={row.item?.Name || currentKind === 'Textures' && row.item?.Image ? 'no' : undefined}>{rowLabel(row)}</span><small>{displayNumber(row.index)}</small></button>; })}
-          {!rows.length && <div className="re-empty-list">{matching ? 'No matching resources.' : `No ${currentKind.toLowerCase()}.`}</div>}
+          {!rows.length && <div className="re-empty-list">{matching ? 'No matching resources.' : `No ${listName.toLowerCase()}.`}</div>}
         </div>
-        {currentKind === 'Nodes' && <label className="re-tree-toggle"><input data-hotkey="hierarchy" aria-label="Show hierarchy" type="checkbox" checked={tree} onChange={event => setTree(event.target.checked)}/>Show hierarchy</label>}
-        {currentKind === 'Nodes' && <div className="re-list-actions"><button onClick={() => setCollapsed(new Set())}>Expand all</button><button onClick={() => setCollapsed(new Set(allRows.filter(row => row.hasChildren).map(row => row.index)))}>Collapse all</button><button aria-expanded={propertiesOpen} onClick={() => setPropertiesOpen(value => !value)}>Properties</button></div>}
-        {currentKind === 'Nodes' && <label className="re-node-type">New node type:<select data-hotkey="nodeType" aria-label="New node type" value={nodeType} onChange={event => setNodeType(event.target.value)}>{Object.keys(NODE_TYPES).filter(type => type !== 'ParticleEmitterPopcorn' || model?.Version >= 900).map(type => <option key={type}>{type}</option>)}</select></label>}
+        {currentKind === 'Nodes' && !emittersOnly && <label className="re-tree-toggle"><input data-hotkey="hierarchy" aria-label="Show hierarchy" type="checkbox" checked={tree} onChange={event => setTree(event.target.checked)}/>Show hierarchy</label>}
+        {currentKind === 'Nodes' && !emittersOnly && <div className="re-list-actions"><button onClick={() => setCollapsed(new Set())}>Expand all</button><button onClick={() => setCollapsed(new Set(allRows.filter(row => row.hasChildren).map(row => row.index)))}>Collapse all</button><button aria-expanded={propertiesOpen} onClick={() => setPropertiesOpen(value => !value)}>Properties</button></div>}
+        {currentKind === 'Nodes' && <label className="re-node-type">{emittersOnly ? 'New emitter type:' : 'New node type:'}<select data-hotkey="nodeType" aria-label={emittersOnly ? 'New emitter type' : 'New node type'} value={nodeType} onChange={event => setNodeType(event.target.value)}>{Object.keys(NODE_TYPES).filter(type => (!emittersOnly || EMITTER_KINDS.includes(NODE_TYPES[type][0])) && (type !== 'ParticleEmitterPopcorn' || model?.Version >= 900)).map(type => <option key={type}>{type}</option>)}</select></label>}
         <div className="re-list-actions"><button data-hotkey="resourceeditors:action:1" onClick={add} disabled={!model || doc.readOnly}>New</button><button data-hotkey="resourceeditors:action:2" onClick={clone} disabled={!selected || doc.readOnly}>Clone</button><button data-hotkey="resourceeditors:action:3" onClick={remove} disabled={!selected || doc.readOnly || currentKind === 'GlobalSequences'}>Remove</button></div>
         {currentKind === 'Cameras' && <button data-hotkey="viewCamera" title="Set the viewport position, target and field of view from this camera" disabled={!selected || !onViewCamera} onClick={() => viewCamera(selected)}>View Through Camera</button>}
               </aside><div className="re-properties" hidden={currentKind === 'Nodes' && !propertiesOpen}>
