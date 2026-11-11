@@ -54,7 +54,7 @@ function assertNames(model, plan, expected, label = '') {
 const assertKept = (model, plan, currents, label = '') => { for (const current of currents) { const id = idOf(model, current); assert.notEqual(id, undefined, `${label} model has "${current}"`); assert.equal(nameIn(plan, id), current, `${label} ${current} keeps its name`); } };
 
 test('the part list is the contract list, Keep name last', () => {
-  assert.deepEqual([...BONE_PARTS], ['root', 'pelvis', 'spine', 'chest', 'neck', 'head', 'arm', 'hand', 'leg', 'foot', 'hoof', 'tail', 'wing', 'keep']);
+  assert.deepEqual([...BONE_PARTS], ['root', 'pelvis', 'spine', 'chest', 'neck', 'head', 'arm', 'hand', 'leg', 'foot', 'hoof', 'tail', 'wing', 'mesh', 'keep']);
 });
 
 // ---------------------------------------------------------------- made-up biped
@@ -682,4 +682,119 @@ test('round 3 (b): a Wing chain whose joints already read Wing is still renamed 
   assertGoodPlan(model, plan);
   assert.deepEqual([id.arm1L, id.arm2L, id.handL].map(bone => nameIn(plan, bone)), ['Bone_Wing1_L', 'Bone_Wing2_L', 'Bone_Wing3_L']);
   assert.equal(rowsById(plan).get(id.arm1L).part, 'wing');
+});
+
+// ---------------------------------------------------------------- round 4: mesh pieces
+
+// A skinned leaf Bone hanging on `parent`, like a badly named mesh part.
+const piece = (model, name, parent, pivot) => addNode(model, name, parent, pivot);
+const pieceRig = () => { const model = emptyModel(), id = addBiped(model, { name: messyName }); return { model, id }; };
+
+test('round 4: a mesh piece takes the name of the joint it hangs on, with Mesh_ in front', () => {
+  const { model, id } = pieceRig(), thigh = piece(model, 'Mesh01', id.leg1L, [0, 8, 36]), shin = piece(model, 'Mesh02', id.leg2R, [0, -9, 18]);
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.equal(nameIn(plan, thigh), 'Mesh_Leg1_L');
+  assert.equal(nameIn(plan, shin), 'Mesh_Leg2_R');
+  const row = rowsById(plan).get(thigh);
+  assert.deepEqual([row.part, row.side], ['mesh', null]);
+  assert.equal(nameIn(plan, id.leg1L), 'Bone_Leg1_L', 'the joint itself is named as before');
+});
+
+test('round 4 guard: a piece under a Hand, a Chest or the Root keeps its name', () => {
+  const { model, id } = pieceRig(), pieces = [piece(model, 'Mesh01', id.handL, [0, 25, 35]), piece(model, 'Mesh02', id.chest, [0, 0, 58]), piece(model, 'Mesh03', id.root, [0, 0, 41])];
+  const plan = planBoneNames(model);
+  for (const bone of pieces) { assert.equal(rowsById(plan).get(bone).part, 'keep'); assert.equal(nameIn(plan, bone), model.Nodes[bone].Name); }
+});
+
+test('round 4 guard: a piece that has a child bone keeps its name, and so does the child', () => {
+  const { model, id } = pieceRig(), parent = piece(model, 'Mesh01', id.leg1L, [0, 8, 36]), child = piece(model, 'Mesh02', parent, [0, 8, 34]);
+  const plan = planBoneNames(model);
+  assert.equal(nameIn(plan, parent), 'Mesh01');
+  assert.equal(nameIn(plan, child), 'Mesh02', 'its parent keeps its name, so it is not a piece either');
+});
+
+test('round 4 guard: a piece with changing Rotation keys keeps its name; constant keys do not stop it', () => {
+  const { model, id } = pieceRig(), moving = piece(model, 'Mesh01', id.leg1L, [0, 8, 36]), still = piece(model, 'Mesh02', id.leg2L, [0, 9, 18]);
+  const track = vectors => ({ LineType: 1, GlobalSeqId: null, Keys: vectors.map((Vector, i) => ({ Frame: i * 500, Vector: new Float32Array(Vector) })) });
+  model.Nodes[moving].Rotation = track([[0, 0, 0, 1], [0, 0, Math.sin(.4), Math.cos(.4)]]);
+  model.Nodes[still].Rotation = track([[0, 0, 0, 1], [0, 0, 0, 1]]);
+  const plan = planBoneNames(model);
+  assert.equal(nameIn(plan, moving), 'Mesh01');
+  assert.equal(nameIn(plan, still), 'Mesh_Leg2_L');
+});
+
+test('round 4 guard: a piece whose skin is on the other side from its parent keeps its name', () => {
+  const { model, id } = pieceRig(), across = piece(model, 'Mesh01', id.leg1L, [0, -8, 36]), centre = piece(model, 'Mesh02', id.leg1L, [0, 0, 36]);
+  const plan = planBoneNames(model);
+  assert.equal(nameIn(plan, across), 'Mesh01', 'its skin stands on -Y but the leg is the left (+Y) leg');
+  assert.equal(nameIn(plan, centre), 'Mesh_Leg1_L', "a skin centre on Y = 0 counts as on the parent's side");
+});
+
+test('round 4 guard: a piece named with a word other tools read keeps its name', () => {
+  const { model, id } = pieceRig();
+  const words = ['Cape', 'Sword_Blade', 'Jaw', 'Hair_01', 'Death_Piece', 'Portrait_Mesh', 'gutz01', 'Glow', 'Head Ref'], bones = words.map((name, i) => piece(model, name, id.leg1L, [0, 8, 36 - i * .1]));
+  const plan = planBoneNames(model);
+  bones.forEach((bone, i) => assert.equal(nameIn(plan, bone), words[i], words[i]));
+});
+
+test('round 4: two pieces on one joint take the uniqueness suffix', () => {
+  const { model, id } = pieceRig(), one = piece(model, 'Mesh01', id.leg1L, [0, 8, 36]), two = piece(model, 'Mesh02', id.leg1L, [0, 8, 35]);
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  const names = [nameIn(plan, one), nameIn(plan, two)];
+  assert.ok(names.every(name => name.startsWith('Mesh_Leg1_L')), names.join());
+  assert.notEqual(names[0], names[1]);
+  assert.ok(names.includes('Mesh_Leg1_L'), 'one of them has the plain name');
+});
+
+test("round 4: correcting the parent's side flips the piece's name too", () => {
+  const { model, id } = pieceRig(), left = piece(model, 'Mesh01', id.leg1L, [0, 8, 36]), right = piece(model, 'Mesh02', id.leg1R, [0, -8, 36]);
+  const plan = planBoneNames(model), sides = {};
+  for (const key of ['leg1L', 'leg2L', 'footL']) sides[id[key]] = { side: 'R', position: null };
+  for (const key of ['leg1R', 'leg2R', 'footR']) sides[id[key]] = { side: 'L', position: null };
+  const rows = nameBones(model, plan, { sides }), name = bone => rows.find(row => row.id === bone).name;
+  assert.equal(name(id.leg1L), 'Bone_Leg1_R');
+  assert.equal(name(left), 'Mesh_Leg1_R');
+  assert.equal(name(right), 'Mesh_Leg1_L');
+});
+
+test('round 4: nameBones can set a bone to Mesh piece or back to Keep name', () => {
+  const { model, id } = pieceRig(), onHand = piece(model, 'Mesh01', id.handL, [0, 25, 35]), auto = piece(model, 'Mesh02', id.leg1L, [0, 8, 36]);
+  const plan = planBoneNames(model);
+  assert.equal(nameIn(plan, onHand), 'Mesh01');
+  let rows = nameBones(model, plan, { parts: { [onHand]: 'mesh' } });
+  assert.equal(rows.find(row => row.id === onHand).part, 'mesh');
+  assert.equal(rows.find(row => row.id === onHand).name, 'Mesh_Hand_L');
+  rows = nameBones(model, plan, { parts: { [auto]: 'keep' } });
+  assert.equal(rows.find(row => row.id === auto).name, 'Mesh02');
+  assert.equal(rows.find(row => row.id === auto).part, 'keep');
+});
+
+test("round 4: Raider (owner's wolf rider) - mesh pieces take their joints' names; guarded bones keep theirs", () => {
+  const model = loadMdx(fixturePath('raider')), plan = planBoneNames(model);
+  assert.equal(plan.error ?? null, null);
+  assertGoodPlan(model, plan, 'raider');
+  assertNames(model, plan, {
+    'wolf-rearrightthigh': 'Mesh_Leg1_Rear_R', 'wolf-rearrightshin': 'Mesh_Leg2_Rear_R', 'wolf-rearleftthigh': 'Mesh_Leg1_Rear_L', 'wolf-rearleftshin': 'Mesh_Leg2_Rear_L',
+    'wolf-fronrightthigh': 'Mesh_Leg1_Front_R', '': 'Mesh_Leg2_Front_R', 'wolf-frontleftthigh': 'Mesh_Leg1_Front_L', 'wolf-frontleftshin': 'Mesh_Leg2_Front_L',
+    'wolf-tail2': 'Mesh_Tail2', 'wolf-chest': 'Mesh_Neck',
+    'bone back r leg': 'Bone_Leg1_Rear_R', 'bone back l shin': 'Bone_Leg2_Rear_L', 'bone front r leg': 'Bone_Leg1_Front_R', 'bone front l shin': 'Bone_Leg2_Front_L', 'bone tail 1': 'Bone_Tail1', 'bone tail 2': 'Bone_Tail2', 'bone wolf neck': 'Bone_Neck', bone_chest: 'Bone_Chest',
+    'bone frontl toe': 'Bone_Foot_Front_L', 'bone front r toe': 'Bone_Foot_Front_R', 'bone back r toe': 'Bone_Foot_Rear_R', 'bone object67': 'Bone_Foot_Rear_L',
+  }, 'raider');
+  // wolf-body: its parent is a hub joint (kept). wolf-head: has a child. mouth: its parent keeps its name.
+  // bone_1..3: under a Hand and animated. bone_hand: under the Chest. weapon: a Helper and a weapon word. Death: no parent.
+  assertKept(model, plan, ['wolf-body', 'wolf-head', 'mouth', 'bone_1', 'bone_2', 'bone_3', 'bone_hand', 'weapon', 'Death'], 'raider');
+  assert.equal(rowsById(plan).get(idOf(model, 'wolf-chest')).part, 'mesh');
+});
+
+test('round 4: Raider is stable - committing the defaults and planning again proposes nothing', () => {
+  assertStable(loadMdx(fixturePath('raider')), 'raider');
+});
+
+test('round 4: a gripped Mesh_ end takes its side from its Stand skin centre (orc wolfrider rightfoot, Y -22.9)', () => {
+  const model = loadMdx(fixturePath('sd-orc-wolfrider')), plan = planBoneNames(model), name = nameIn(plan, idOf(model, 'rightfoot'));
+  assertGoodPlan(model, plan, 'wolfrider');
+  assert.match(name, /^Mesh_Foot(?:_[A-Za-z0-9]+)?_R$/, name);
+  assert.ok(nameIn(plan, idOf(model, 'leftfoot')).endsWith('_L'), 'its mirror, skin at Y +32.6, is left');
 });
