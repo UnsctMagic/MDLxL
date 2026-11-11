@@ -383,7 +383,7 @@ Preserve binary defaults behind animated fields where the application's codec su
 
 **Add to model** uses the single-clicked Library row while the Library is open, otherwise the current Lab effect. Both add routes load the chosen recipe into Lab before placement. A load error leaves the Lab and target model unchanged; never substitute the previous recipe.
 
-Placement matches **Add ribbon**: selected vertices determine the centre and parent using the shared ribbon influence rule. With no vertices selected, use the selected bone/attachment pivot, otherwise the model origin. The panel contains only **Add effect**, the ribbon **Visibility** checklist (current animation ticked), **Create** and **Cancel**. Keep **Snap to surface** and its double-click interaction; the clicked face also determines the parent bone.
+Placement matches **Add ribbon**: selected vertices determine the centre and parent using the shared ribbon influence rule. With no vertices selected, use the selected bone/attachment pivot, otherwise the model origin. The panel contains only **Add effect**, the ribbon **Visibility** checklist (current animation ticked), **Create** and **Cancel**. The preview has **Play / Pause** below the model and uses the Particle Editor playback hotkey. A paused placement stays paused when its visibility or attachment changes. Keep **Snap to surface** and its double-click interaction; the clicked face also determines the parent bone.
 
 The live model and effect remain visible while placing. The shared ribbon-style handle sits at the emitter's world position and moves the visible effect by the pointer's screen distance, including display scaling. Retain normal mouse rotation. Errors appear as one line in the panel, without removing the preview.
 
