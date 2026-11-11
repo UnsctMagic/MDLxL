@@ -1,8 +1,68 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: rework re-checked and accepted on all seven branches; one combined branch still needed before merging
+Status: combined branch `7e3faedf` passed the final check; before merging it needs new `main` (`f49889b9`) merged in and the O2 swivel check (12 Nov)
 Owner / consolidator: Claude Code (review), Codex (rework)
-Updated: 2026-11-11 (evening)
+Updated: 2026-11-11 (night)
+
+## Owner decisions O2 and O7, and the new main (12 Nov)
+
+Relayed by the continuation session on 12 Nov 2026, in the owner's words.
+
+- **O7: "yes approved."** The three 0.39.0 behaviours stay as they are (Esc twice when a
+  tool holds unapplied work; hotkeys do not fire buttons scrolled out of view; no
+  dropdown letter type-ahead). No work.
+- **O2: "i didnt use it but why was it removed? not approved."** Claude checked the code
+  again and **corrects its own finding: the swivel was not removed.** PR #585 replaced
+  only the *Rotate* gesture on the elbow/knee control (it now turns the joint, like
+  every other handle). *Move* on that control still aims the bend with the hand or foot
+  fixed: `app/GamePreview.jsx`, the Move path, calls `solvePoseLimb` with the end kept
+  at `pose.end` and the dragged point as `pole` when the target is a bend. #585 did not
+  touch that line, and its PR text says exactly this. The review's wording "cannot be
+  reached" was wrong; what the reviewer saw was that `swivelPoseLimb` (the old
+  Rotate-gesture solver) has no caller left.
+  - What is missing is proof in the running app: `test/pose-ik.electron.cjs` drags the
+    bend control with Move but only checks that one undo step was added.
+  - Step for Codex: add a real-mouse check that Move on the Elbow and Knee controls
+    keeps the hand/foot in place and turns the bend. If it passes, no app change. If it
+    fails, that is the bug and gets the smallest fix. `swivelPoseLimb` and its tests stay.
+- **New main.** PR #627 ("Pause interactive effect placement previews") merged at
+  `f49889b9`. It changes `ParticleEditor.jsx`, `ParticlePlacementStage.jsx`,
+  `SurfaceEffects.jsx`, one contract page and two app tests; its CI is green. No file is
+  changed on both sides, and a trial merge with the combined branch is clean. The
+  combined branch needs `main` merged in before it is merged. #627 was read briefly,
+  not reviewed.
+
+The "Ready" verdict below stands for `7e3faedf`; the branch is ready again once `main`
+is merged in and the O2 check has run.
+
+## Ready (11 Nov, night)
+
+`codex/main-review-20261111-all` at `7e3faedf` (worktree clean; contains online `main`
+`a8a4ca86`, which has not moved).
+
+- Since Claude's full check at `7bb44d28` only three `.electron.cjs` test files and the
+  handoff note changed: no app code, no source test, no guarded file. Claude's whole
+  source-suite run at `7bb44d28` (3,397 tests, 0 new failures) therefore still stands.
+- The three test corrections do what was asked and weaken nothing: the audit picks a
+  free key from the live catalog; the animated-vertex check waits for the final position
+  (Move) and for a settled preview (Rotate, Resize) and prints numbers on failure, at
+  the same 0.0002 tolerance; the BITZ check polls for the recovery copy.
+- Codex's raw logs (`out/vertex-recheck`, `out/test-faults` in its worktree), read by
+  Claude: `vertex-animated-preview` passed twice, including Rotate and Resize release
+  and Undo; `review-bitz` passed 5 of 5 twice, including the recovery copy;
+  `hotkey-defaults-audit` passed twice. With the 21 that passed earlier, all 24 hidden
+  app checks named for these fixes have passed on the combined build.
+- Not run, by design: the full packaged suite (a release gate) and any check by Claude
+  in the running app. The owner's hand test is still to come.
+
+At merge time: one PR from `codex/main-review-20261111-all` into `main`, with Claude's
+later notes (`claude/main-review-2026-11-11`, merges cleanly on top). Afterwards mark the
+review notes completed with the merge revision and drop their rows from the task index.
+
+Still open, not part of this merge: O2 (POSE swivel), O7 (three 0.39.0 behaviours), FX
+Part B (waits for `claude/fx-editor`, which must drop the old clock remap line), the
+missing Flail03 reference file. `codex/release-0.40.0` and `codex/call-upon-forge` are
+unmerged, were not reviewed, and will meet the same catalog conflicts.
 
 ## Re-check of the rework (11 Nov, evening)
 
@@ -34,6 +94,51 @@ catalog-size line of `test/localization-catalogs.test.js` (only there; branches 
 merge cleanly). Seven separate PRs would each need that conflict resolved again. Codex
 builds one combined branch (`codex/main-review-20261111-all`), Claude checks it, and
 that single branch is what gets merged when the owner says "merge".
+
+## Final check of the combined branch (11 Nov, night)
+
+`codex/main-review-20261111-all` at `7bb44d28` (worktree
+`D:\Codex\mdlxl-main-review-20261111-all`, clean). Online `main` is still `a8a4ca86`.
+
+- It contains all seven reviewed tips, Claude's notes at `1de45e9b` and `main`, as plain
+  merges in the agreed order.
+- Claude repeated the merges independently: the result is identical to Codex's last
+  merge commit outside the files that conflicted (the five catalogs, the catalog-size
+  line, the task index). Codex's one commit after the merges changes only the handoff note.
+- Catalogs: every key of every branch is present with the same text, nothing extra;
+  sizes match the test line (`[7858, 7868, 7763, 7991, 7991]`).
+- Whole source suite, Claude's run: 3,397 tests, 0 new failures (the same 9 as the base
+  in Claude's environment). Baseline, flail fixtures and locked UV numbers untouched.
+- Hidden app checks, Codex's run on the combined package: 21 pass, 3 fail. Claude read
+  the three harnesses and Codex's raw logs; none points at a fault in the fixes:
+
+| Harness | Verdict | Why |
+| --- | --- | --- |
+| `hotkey-defaults-audit` | Already failing on `main`; a fault in the test | It hard-codes Ctrl+F9 as a free key for its Fit rebind. After the audit opens every window, Forge's Tube thickness holds Ctrl+F9, so Settings offers "Replace existing assignment" and the test waits for "Assign shortcut". Codex saw the identical stop on the base `4340c5f8`. The fixes changed none of the key-allocation code, and the stop (line 95) comes before the lines contract 3 edited. Not run on the base by Claude. |
+| `vertex-animated-preview` | Fault in the test (timing) | After a four-step mouse move it waits only for "any movement", then reads the vertex while the button is still down. Live drags do their work once per frame, so the read caught step three of four: +13.5 / +3.75 px instead of +18 / +5 px, exactly three quarters. |
+| `review-bitz`, Exit case | Fault in the test (timing) | Its wait passes an async function to `waitForFunction`; the returned Promise counts as "true", so it reads once instead of polling. The app writes the original model's checkpoint 350 ms after the draft opens (`app/App.jsx`, checkpoint effect), later than that single read. |
+
+Because the three stops hide the assertions that follow them, the combined branch is
+not called ready until the three tests are corrected (test files only) and those three
+harnesses pass on the combined package.
+
+**Follow-up at `d029ece9` (test files only).** The hotkey audit now passes twice. The
+animated-vertex check passes its corrected Move part and then stops in the Rotate/Resize
+loop at line 245, "release keeps the posed edit". Verdict: the same fault in the test,
+not a regression.
+
+- That loop records the preview after a wait that is satisfied by the first degree of
+  rotation (or 1% of scale) out of eight mouse steps, then compares the display after
+  release with that early sample at a tolerance of 0.0002.
+- Releasing the mouse first applies the last pending pointer position
+  (`transformFrame.flush()` in `app/Viewport.jsx`), by design, so the display after
+  release is at step eight while the sample can be from an earlier step.
+- In the same run the Move part, which now waits for the final position before it
+  samples, passed the identical check ("release keeps the displayed result") through
+  the same release code. That shows the release path reproduces the live preview.
+- Not proven by a run of the Rotate part: the log holds no numbers. The corrected test
+  must print them if it fails again.
+- The BITZ check has not been run since its correction.
 
 The sections below are the first review, kept as the record of what was asked.
 
