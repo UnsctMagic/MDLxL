@@ -334,6 +334,43 @@ models of 941 (0 LOST/MOVED/GRIP/STABILITY). On the POSE side's fix branch
 Not ours: zergling (sent to the POSE side) — its fix keeps `Bone Root L/R` only
 while the holder `Object01` is unnamed, and Bone Namer names it `Bone_Chest`.
 
+## Fix round 4 (12 Nov, owner's hand test)
+
+Owner: "Bone namer is a bit meh - its okay - but it basically only offers to rename
+bones that are already named well." Their model (fixture `bone-namer/Raider.mdx`, wolf
+rider): the helper skeleton was renamed, but the badly named mesh pieces hanging on
+each joint (`wolf-rearrightthigh`, `wolf-chest`, `wolf-tail2`, an unnamed shin piece)
+stayed Keep because POSE never identifies them. Library today: 19.9% of bones renamed;
+16,267 such pieces in 904 models. Measured on a scratch namer with exactly the rule
+below: library gate 0 of 941 failing (LOST/MOVED/GRIP/STABILITY/NAME 0; GAINED 298 and
+RETYPED 4 unchanged), renamed share 37.4%, Raider 23 → 33 of 44.
+
+1. **Mesh pieces take the name of the joint they hang on.** New part `mesh`
+   (BONE_PARTS gains `'mesh'` before `'keep'`; Part list label `Mesh piece`, tooltip
+   "A mesh piece takes the name of the bone it hangs on, with Mesh_ in front."). A
+   bone is a mesh piece by default when all hold: it is in `model.Bones` (not a
+   Helper) and POSE did not identify it; it carries skin; it has no Bone/Helper
+   children; it has no Rotation keys that change; its parent gets a part other than
+   Root, Hand, Chest, Mesh piece or Keep name; its Stand skin centre is on its
+   parent's side (or within 1e-4 of Y = 0); and its current name contains none of
+   the words other tools read: the `WEAPON_WORDS` of `src/rig-names.js`, chain, rein,
+   guard, camera, over head, cloth, cape, banner, hair, beard, finger, thumb,
+   decoration, jaw, lip, eye, brow, death, portrait, gutz, glow, ref. Its name is
+   `Mesh_` + the parent's new name without the leading `Bone_`
+   (`Bone_Leg1_Rear_L` → `Mesh_Leg1_Rear_L`, `Bone_Mount_Neck` → `Mesh_Mount_Neck`);
+   several pieces on one joint take the normal uniqueness suffix. It has no own
+   side or number (Side dropdown disabled); it follows its parent when the parent's
+   part, side or actor is corrected. The user may set any bone to Mesh piece or
+   back to Keep name with the Part list.
+2. **Gripped `Mesh_` ends (round 1 item 12) take their side from their Stand skin
+   centre**, not their pivot. Today 40 models put them on the wrong side (orc
+   wolfrider `rightfoot` → `Mesh_Foot_Middle2_L` with its skin at Y −22.9).
+
+Known, not changed (POSE recognition, owner rule "bug fixes only"): on the Raider POSE
+does not find the rider as a separate body (rider head `Bone_Head`, wolf head
+`Bone_Head_2`) and does not find the rider's left arm (`bone_hand` hangs straight off
+the chest).
+
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
@@ -342,7 +379,7 @@ New file `src/bone-namer.js`, pure (no React), importing only shared helpers
 `node-hierarchy.js` `nodeIndex`/`uniqueName`, `bone-tools.js` `renameRigNode`).
 
 ```js
-export const BONE_PARTS; // ['root','pelvis','spine','chest','neck','head','arm','hand','leg','foot','hoof','tail','wing','keep']
+export const BONE_PARTS; // ['root','pelvis','spine','chest','neck','head','arm','hand','leg','foot','hoof','tail','wing','mesh','keep'] (mesh: fix round 4)
 export function planBoneNames(model);
 // → { actors: [{ body, kind: 'main'|'mount'|'extra'|'copy', copyOf, prefix, suffix }],
 //     rows: [{ id, current, part, side, position, actor, name }], error }
