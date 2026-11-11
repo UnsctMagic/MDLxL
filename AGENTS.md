@@ -47,6 +47,11 @@ separate and are not a shared handover.
   files, even during cleanups the owner asks for; only add to it. Tests read
   real models from it through `test/helpers/fixtures.cjs`, never from Downloads,
   Desktop or a checkout's `out/`.
+- Models on the owner's PC come and go. When a test, check, review or release
+  step names a model or reference file that is missing, use a similar model that
+  exists (same kind of rig, part or effect) and say which one you used. Never
+  search drives for it, never block a test, review, merge or release on it, and
+  never ask the owner to find it.
 - Remove task-created disposable builds/profiles/runtimes after verification,
   keeping the small report and needed captures. Stop unused task-started processes.
   After pushing or merging, remove the finished task worktree and prune its
