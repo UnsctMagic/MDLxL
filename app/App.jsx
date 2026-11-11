@@ -91,6 +91,8 @@ import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
 import { sampleTrack } from '../src/animation.js';
+import { setPartRgbChannel } from '../src/bits-and-parts.js';
+import { ReplacementRgb } from './PartRgb.jsx';
 import { partBones } from '../src/part-bones.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
@@ -1905,6 +1907,13 @@ export default function App() {
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
+    {bitReplacement && <div className="bit-replacement-actions" role="group" aria-label="Replace Part">
+      <strong>Replace Part</strong>
+      <ReplacementRgb model={model} geosetIds={Object.keys(validSelection).filter(id => validSelection[id].length).map(Number)} disabled={!!dialog || !!settingsTab || saving}
+        onChange={(axis, value) => edit('Set Bit RGB', ['GeosetAnims'], current => setPartRgbChannel(current, Object.keys(validSelection).filter(id => validSelection[id].length).map(Number), axis, value))}/>
+      <button disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(false)}>Cancel</button>
+      <button className="bit-replacement-commit" disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(true)}>Commit</button>
+    </div>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       <WarningToasts messages={warnings} onDismiss={id => setWarnings(previous => previous.filter(item => item.id !== id))} actionWarning={duplicateAnimations.length ? { id: session.id, message: 'Duplicate geoset animations', title: 'Some geosets have more than one animation record. The model works; click to choose which record to keep.', onAction: () => setDialog({ type: 'geosetRepair' }) } : null}/>
       {mode !== 'manager' && <AppViewLabel {...{
@@ -1992,9 +2001,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status">{bitReplacement ? <div className="bit-replacement-actions" role="group" aria-label="Replace Part">
-      <strong>Replace Part</strong><button disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(false)}>Cancel</button><button disabled={!!dialog || !!settingsTab || saving} onClick={() => finishBitReplacement(true)}>Commit</button>
-    </div> : <ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>}{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
+    <div className="classic-status">{!bitReplacement && <ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>}{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
     <AppDialogs {...{
       visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

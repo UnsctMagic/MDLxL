@@ -13,7 +13,7 @@ import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
 import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
 import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
-import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { standardVisibility } from './auto-corpse.js';
 
 import { gamePathKey } from './game-path.js';
@@ -396,6 +396,23 @@ function freezeTracks(owner, pick, frame, interval, globalSequences, frozen = []
   }
 }
 
+function setPartTint(animation, rgb) {
+  animation.Color = new Float32Array(rgb || [1, 1, 1]);
+  animation.Flags = rgb ? animation.Flags | 2 : animation.Flags & ~2;
+  if (animation._MdxDefaults) {
+    delete animation._MdxDefaults.Color;
+    if (!Object.keys(animation._MdxDefaults).length) delete animation._MdxDefaults;
+  }
+}
+
+export function setPartRgbChannel(model, geosetIds, axis, value) {
+  for (const id of geosetIds) {
+    const color = Array.from(sampleGeosetAnimation(model, id, 0, -1).color);
+    color[axis] = value / 255;
+    setPartTint(ensureGeosetAnimation(model, id), color);
+  }
+}
+
 /** What a Bit import brings: one RGB look from partRgbOptions (null is No RGB),
  * appearance frozen at that look's animation, and its global loops only when
  * the user applies them. Visibility is left to commitPart. */
@@ -413,11 +430,7 @@ export function partLook(source, { colors = null, sequenceIndex = -1, globals = 
   for (const animation of model.GeosetAnims || []) {
     let rgb = colors?.[animation.GeosetId];
     if (custom) rgb = channels.map((value, axis) => value ?? rgb?.[axis] ?? 1);
-    if (custom || !kept(animation.Color)) {
-      animation.Color = new Float32Array(rgb || [1, 1, 1]);
-      animation.Flags = rgb ? animation.Flags | 2 : animation.Flags & ~2;
-      if (animation._MdxDefaults) delete animation._MdxDefaults.Color;
-    }
+    if (custom || !kept(animation.Color)) setPartTint(animation, rgb);
     if (!kept(animation.Alpha)) { animation.Alpha = 1; if (animation._MdxDefaults) delete animation._MdxDefaults.Alpha; }
     if (animation._MdxDefaults && !Object.keys(animation._MdxDefaults).length) delete animation._MdxDefaults;
   }

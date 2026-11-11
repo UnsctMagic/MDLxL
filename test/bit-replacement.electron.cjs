@@ -91,19 +91,24 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await viewport.click();
     await page.keyboard.press('Control+a');
     await page.waitForFunction(count => __mdlxl.selection().selection[0]?.length === count, selected.length);
-    const begin = async () => {
+    const begin = async (chooseFirst = false) => {
       await page.locator('[data-hotkey="bitsAndParts"]').click();
-      await button('Replace Part').click();
+      if (!chooseFirst) await button('Replace Part').click();
       await button('Renamed Bit.mdx').click();
-      await editChannel('G', 128);
-      await page.waitForFunction(() => {
-        const host = document.querySelector('.parts-preview [aria-label="3D model viewport"]');
-        const state = host && findFiberState(host, r => r?.renderer && r?.entries);
-        const tint = state?.entries[0]?.meshes[0]?.material.userData.geosetTint?.value.toArray();
-        return tint?.[0] === 1 && Math.abs(tint[1] - 128 / 255) < .00001 && tint[2] === 0;
-      });
-      await button('Edit in Quad View').click();
+      if (chooseFirst) {
+        await dialog.getByRole('spinbutton', { name: 'Bit G', exact: true }).waitFor();
+        await button('Replace Part').click();
+      }
+      await dialog.waitFor({ state: 'detached', timeout: 15000 });
       await replaceAction.getByRole('button', { name: 'Commit' }).waitFor();
+      await editChannel('G', 128);
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(index => {
+        const host = document.querySelector('.classic-view [aria-label="3D model viewport"]');
+        const state = host && findFiberState(host, r => r?.renderer && r?.entries);
+        const tint = state?.entries[index]?.meshes[0]?.material.userData.geosetTint?.value.toArray();
+        return tint?.[0] === 1 && Math.abs(tint[1] - 128 / 255) < .00001 && tint[2] === 0;
+      }, incomingIndex);
       assert.equal(await page.locator('[data-viewport="perspective"]').count(), 1);
       assert.equal(await page.locator('[data-hotkey="translate"]').getAttribute('aria-pressed'), 'true');
       await page.waitForFunction(index => __mdlxl.selection().selection[index]?.length === 8, incomingIndex);
@@ -146,7 +151,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.deepEqual(await serialized(), before);
     assert.equal(await page.getByRole('button', { name: 'Quad View', exact: true }).getAttribute('aria-pressed'), 'false');
 
-    await begin();
+    await begin(true);
     await drag('front', 40, 14);
     await page.waitForFunction(([index, before]) => __mdlxl.model().Geosets[index].Vertices.some((value, i) => Math.abs(value - before[i]) > .001), [incomingIndex, centered]);
     const moved = await vertices();

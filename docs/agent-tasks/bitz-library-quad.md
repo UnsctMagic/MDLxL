@@ -11,11 +11,12 @@ Base: `171b8bb9`
   uses the platform trash. Moving a Bit leaves its texture references intact.
 - In the normal Bit picker, choose a preset when available and edit the
   **R**, **G**, and **B** fields (0–255). A blank channel keeps the preset.
-- Select target vertices, open BITZ, choose **Replace Part** and a Bit, then
-  click **Edit in Quad View**. The Bit starts at its own size on the target.
-  The actual vertex editor opens on a disposable document with Move active.
-  **Commit** installs the edited result as one model undo step. **Cancel**
-  restores the original document and view mode.
+- Select target vertices and open BITZ. Choose **Replace Part** and click a
+  Bit, or click **Replace Part** with a Bit already selected. The vertex
+  editor opens directly in Quad View with Move active and the Bit at its own
+  size on the target. The replacement bar exposes RGB for the selected
+  geosets. **Commit** installs the edited result as one model undo step.
+  **Cancel** restores the original document and view mode.
 
 The focused source tests failed on the baseline because custom RGB was
 ignored and the library had no change API. The packaged test failed on the
@@ -25,5 +26,9 @@ and runs on the invisible Windows test desktop. The final build passed
 The packaged test verified live RGB, mouse rotation, Move, draft undo and
 redo, Cancel, one-step Commit undo and redo, and whole-part import. Its
 recycle-bin destination was redirected to the disposable test folder.
-Warcraft III gameplay and the OS recycle-bin integration were not exercised.
-Disposable builds and profiles were removed after verification.
+The direct-entry regression failed on the previous build because selecting a
+Bit left the picker open. The revised package passed both click orders, live
+RGB in Quad View, and the existing Commit and Cancel checks. All 52 focused
+source checks passed on the revision. Warcraft III gameplay and the OS
+recycle-bin integration were not exercised. The owner test copy retains its
+existing Bitz folder and profile.
