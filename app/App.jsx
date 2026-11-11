@@ -274,13 +274,13 @@ export default function App() {
   const captureAPI = useRef(null);
   const setCaptureAPI = useCallback(api => { captureAPI.current = api; }, []);
   const captureViewport = useRef(null), captureToolbox = useRef(null);
-  useCaptureRegions(captureViewport, captureToolbox, preferencesReady && preferences.capture.shareXRegions && ['vertices', 'animation', 'bones'].includes(mode));
   const viewportCaptureAPI = useRef(null);
   const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
   const [uvEntrySelection, setUVEntrySelection] = useState({}), [uvEntryId,setUVEntryId] = useState(0);
   const [uvWindow, setUVWindowState] = useState(null), [uvFocused, setUVFocused] = useState(false);
   const uvEditing = !!uvWindow && !uvWindow.minimized && uvFocused;
+  useCaptureRegions(captureViewport, captureToolbox, preferencesReady && preferences.capture.shareXRegions, uvEditing ? 'uv' : mode);
   const setUVWindow = next => {
     const value = typeof next === 'function' ? next(session.uvWindow || null) : next;
     session.uvWindow = value; setUVWindowState(value);
@@ -874,14 +874,17 @@ export default function App() {
     let remaining = currentSessions.filter(item => item !== target);
     if (!remaining.length) remaining = [newSession(createEmptyDocument(preferences.newModelVersion))];
     setSessions(remaining);
-    if (target === (latest.current.session || session)) {
+    if (target === (latest.current.bitReplacement?.original ?? latest.current.session ?? session)) {
       const next = remaining[Math.min(index, remaining.length - 1)];
       setSession(next); restoreSessionView(next); say(`Closed ${target.doc.name}`);
     } else { releaseUnusedTextureUrls(); refresh(); }
   }
   function requestCloseSession(target) {
     if (savingRef.current) return;
-    if (bitReplacement) { setDialog({ type: 'closeTab', target, replacement: true }); return; }
+    if (target === bitReplacement?.original) { setDialog({ type: 'closeTab', target, replacement: true }); return; }
+    closeModelTab(target);
+  }
+  function closeModelTab(target) {
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     if (target === session) rememberSessionView(target);
     if (sessionDirty(target)) setDialog({ type: 'closeTab', target });
@@ -1372,7 +1375,7 @@ export default function App() {
     setQuadView(true); setTool('translate'); setCameraMode('work');
   }
 
-  function finishBitReplacement(commit) {
+  function finishBitReplacement(commit, close = false) {
     const { original, revision, history, before, survivingGeosets, editorView } = bitReplacement;
     if (commit) {
       try {
@@ -1412,6 +1415,7 @@ export default function App() {
     setTool(editorView.tool); setCameraMode(editorView.cameraMode);
     setStoredWorkplane(editorView.storedWorkplane); setStoredWorkplaneEnabled(editorView.storedWorkplaneEnabled);
     setOverlayModes(editorView.overlayModes); setCleanViews(editorView.cleanViews); setHideExtras(editorView.hideExtras);
+    if (close) { setDialog(null); closeModelTab(original); }
   }
 
   // keepOpen: the Library stays open so more geosets can be imported in a row.

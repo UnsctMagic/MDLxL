@@ -127,7 +127,7 @@ test('ShareX helper starts only when enabled and stops when disabled', async () 
     await page.waitForFunction(() => window.__mdlxl.session()?.doc?.model?.Geosets.length > 0);
     assert.deepEqual(await helpers(), [], 'a visible editor does not start the helper by default');
     await chooseMenu(page, 'Settings', 'Recording and screenshots…');
-    const option = page.getByRole('checkbox', { name: 'ShareX regions', exact: true });
+    const option = page.locator('[data-hotkey="capture:sharex-regions"]');
     assert.equal(await option.isChecked(), false);
     const waitForHelpers = async expected => {
       const deadline = Date.now() + 7000;
@@ -137,6 +137,26 @@ test('ShareX helper starts only when enabled and stops when disabled', async () 
     };
     await click(page, option);
     await waitForHelpers(1);
+    const initial = await helpers();
+    await app.evaluate(({ ipcMain }) => {
+      globalThis.reviewCaptureUpdates = [];
+      ipcMain.on('capture:regions', (_event, edges) => globalThis.reviewCaptureUpdates.push(edges));
+    });
+    await click(page, page.getByRole('button', { name: 'Close Settings', exact: true }));
+    const geoset = page.getByLabel('Select geoset 0', { exact: true });
+    if (!(await geoset.isChecked())) await click(page, geoset);
+    await click(page, editor);
+    await page.keyboard.press('Control+a');
+    await click(page, page.locator('[data-hotkey="uv"]'));
+    const exitUV = page.getByRole('button', { name: 'Exit UV Wrapper', exact: true });
+    await exitUV.waitFor();
+    const updates = await app.evaluate(() => globalThis.reviewCaptureUpdates);
+    assert.ok(updates.some(edges => edges?.length === 8 && edges.every(edge => edge === 0)), 'UV sends empty regions');
+    assert.equal(updates.includes(null), false, 'switching mode does not stop capture');
+    await click(page, exitUV);
+    await exitUV.waitFor({ state: 'detached' });
+    assert.deepEqual(await helpers(), initial, 'the same helper is running after returning to Vertices');
+    await chooseMenu(page, 'Settings', 'Recording and screenshots…');
     await click(page, option);
     await waitForHelpers(0);
     await click(page, option);

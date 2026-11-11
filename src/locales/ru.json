@@ -7829,5 +7829,10 @@
   "Bit B": "Деталь B",
   "Original ({0})": "Исходный формат ({0})",
   "Save a copy of {0}": "Сохранить копию {0}",
-  "{0} could not be read.": "Не удалось прочитать {0}."
+  "{0} could not be read.": "Не удалось прочитать {0}.",
+  "Save model?": "Сохранить модель?",
+  "Close model tab?": "Закрыть вкладку модели?",
+  "Close BitsAndParts": "Закрыть BitsAndParts",
+  "to the Recycle Bin?": "в корзину?",
+  "Unavailable textures:": "Недоступные текстуры:"
 }

@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { desktop } from './desktop.js';
 
-export function useCaptureRegions(viewport, toolbox, enabled) {
+const emptyRegions = [0, 0, 0, 0, 0, 0, 0, 0];
+
+export function useCaptureRegions(viewport, toolbox, enabled, mode) {
   useEffect(() => {
-    if (!enabled || !desktop?.setCaptureRegions) return;
+    if (!enabled || !desktop?.setCaptureRegions || !['vertices', 'animation', 'bones'].includes(mode)) return;
 
     const regions = [viewport.current, toolbox.current];
     const send = () => {
@@ -29,7 +31,10 @@ export function useCaptureRegions(viewport, toolbox, enabled) {
       observer.disconnect();
       window.removeEventListener('resize', send);
       resolution.removeEventListener('change', watchResolution);
-      desktop.setCaptureRegions(null);
+      desktop.setCaptureRegions(emptyRegions);
     };
-  }, [viewport, toolbox, enabled]);
+  }, [viewport, toolbox, enabled, mode]);
+  useEffect(() => {
+    if (enabled && desktop?.setCaptureRegions) return () => desktop.setCaptureRegions(null);
+  }, [enabled]);
 }

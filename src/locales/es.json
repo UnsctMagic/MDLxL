@@ -7839,5 +7839,10 @@
   "Bit B": "Pieza B",
   "Original ({0})": "Original ({0})",
   "Save a copy of {0}": "Guardar una copia de {0}",
-  "{0} could not be read.": "No se pudo leer {0}."
+  "{0} could not be read.": "No se pudo leer {0}.",
+  "Save model?": "¿Guardar el modelo?",
+  "Close model tab?": "¿Cerrar la pestaña del modelo?",
+  "Close BitsAndParts": "Cerrar BitsAndParts",
+  "to the Recycle Bin?": "a la papelera de reciclaje?",
+  "Unavailable textures:": "Texturas no disponibles:"
 }

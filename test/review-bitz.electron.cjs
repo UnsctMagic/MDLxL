@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { appTarget, launchApp, closeApp } = require('./helpers/app.cjs');
+const { appTarget, launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 
 async function click(page, locator) {
@@ -11,7 +11,7 @@ async function click(page, locator) {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
-async function withBit(label, multi, run) {
+async function withBit(label, multi, run, { second = false } = {}) {
   const target = appTarget();
   assert.ok(target.packaged);
   const out = path.resolve('out/review-bitz', label);
@@ -38,7 +38,16 @@ async function withBit(label, multi, run) {
     const launched = await launchApp({ target, out, fixture, pageTimeout: 6500, bounds: { x: -3000, y: 0, width: 1440, height: 1080 } });
     app = launched.app;
     const { page } = launched;
-    await page.getByRole('tab', { name: 'Clean Footman.mdx' }).waitFor();
+    const footmanTab = page.getByRole('tab', { name: 'Clean Footman.mdx', exact: true });
+    await footmanTab.waitFor();
+    if (second) {
+      const other = path.join(out, 'Other Footman.mdx');
+      fs.copyFileSync(fixture, other);
+      await stubDialogs(app, { open: other });
+      await page.keyboard.press('Control+o');
+      await page.getByRole('tab', { name: 'Other Footman.mdx', exact: true }).waitFor();
+      await click(page, footmanTab);
+    }
     await page.waitForFunction(() => window.__mdlxl?.model()?.Geosets[0]?.Vertices.length > 24);
     await click(page, page.locator('[data-hotkey="geosetsClear"]'));
     const geoset = page.locator('.geoset-hover-target').filter({ has: page.getByLabel('Select geoset 0', { exact: true }) });
@@ -77,6 +86,43 @@ test('closing a clean Footman tab asks what to do with the open replacement', as
     assert.match(await prompt.textContent(), /commit or discard the replacement/i);
     await click(page, prompt.getByRole('button', { name: 'Cancel', exact: true }));
     await actions.waitFor();
+  });
+});
+
+test('closing another model tab leaves a BITZ draft open; Commit continues the owning tab close', async () => {
+  await withBit('commit-close', false, async ({ page, stage, actions, fixture }) => {
+    const original = fs.readFileSync(fixture);
+    await stage();
+    const closeOther = page.getByRole('button', { name: 'Close Other Footman.mdx', exact: true });
+    await click(page, closeOther);
+    await closeOther.waitFor({ state: 'detached' });
+    await actions.waitFor();
+    assert.equal(await page.getByRole('dialog', { name: 'Close model tab?' }).count(), 0);
+    const close = page.getByRole('button', { name: 'Close Clean Footman.mdx', exact: true });
+    await click(page, close);
+    const prompt = page.getByRole('dialog', { name: 'Close model tab?', exact: true });
+    const commit = prompt.getByRole('button', { name: 'Commit', exact: true });
+    assert.equal(await commit.getAttribute('data-hotkey'), 'app:action:3');
+    await click(page, commit);
+    await actions.waitFor({ state: 'detached' });
+    await click(page, prompt.getByRole('button', { name: 'Save', exact: true }));
+    await close.waitFor({ state: 'detached' });
+    assert.notDeepEqual(fs.readFileSync(fixture), original, 'the committed replacement was saved before closing');
+  }, { second: true });
+});
+
+test('Discard continues the owning BITZ tab close without changing the file', async () => {
+  await withBit('discard-close', false, async ({ page, stage, fixture }) => {
+    const original = fs.readFileSync(fixture);
+    await stage();
+    const close = page.getByRole('button', { name: 'Close Clean Footman.mdx', exact: true });
+    await click(page, close);
+    const prompt = page.getByRole('dialog', { name: 'Close model tab?', exact: true });
+    const discard = prompt.getByRole('button', { name: 'Discard replacement', exact: true });
+    assert.equal(await discard.getAttribute('data-hotkey'), 'app:action:4');
+    await click(page, discard);
+    await close.waitFor({ state: 'detached' });
+    assert.deepEqual(fs.readFileSync(fixture), original);
   });
 });
 

@@ -7734,5 +7734,10 @@
   "Bit B": "部件 B",
   "Original ({0})": "原始格式（{0}）",
   "Save a copy of {0}": "保存 {0} 的副本",
-  "{0} could not be read.": "无法读取 {0}。"
+  "{0} could not be read.": "无法读取 {0}。",
+  "Save model?": "保存模型？",
+  "Close model tab?": "关闭模型标签页？",
+  "Close BitsAndParts": "关闭 BitsAndParts",
+  "to the Recycle Bin?": "移到回收站？",
+  "Source format": "源格式"
 }
