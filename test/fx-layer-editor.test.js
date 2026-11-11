@@ -108,10 +108,11 @@ test('the texture area of a native card and of an atlas skin moves and resizes i
 test('rune Repeat, Size, Turn, Slide and Across lay out the glyphs, and a fit-view gesture edits the same fields',async()=>{
  const {glyphIslands,withGlyphGesture,previewCoordinates}=await import('../src/global-animation-model.js');
  const rune=setup('rune-blade','Runes'),uv=patch=>compile(structuredClone(rune.model),withLayer(rune.stack,patch)).shape.TVertices[0];
- const plain=uv({}),computed=glyphIslands(rune.model.Geosets[0])[0].repeats,height=a=>span(a)[3]-span(a)[1],width=a=>span(a)[2]-span(a)[0];
+ const plain=uv({}),height=a=>span(a)[3]-span(a)[1],width=a=>span(a)[2]-span(a)[0];
+ assert.ok(Math.abs(width(uv({glyphScale:2}))/width(plain)-.5)<1e-4,'Size 2 halves the UV span, so the runes grow');
+ const computed=glyphIslands(rune.model.Geosets[0])[0].repeats;
  assert.ok(Math.abs(height(uv({repeats:computed}))-height(plain))<1e-5,'the computed count is the default of Repeat');
  assert.ok(Math.abs(height(uv({repeats:computed*3}))/height(plain)-3)<1e-4,'Repeat changes how often the runes repeat along the part');
- assert.ok(Math.abs(width(uv({glyphScale:2}))/width(plain)-.5)<1e-4,'Size 2 halves the UV span, so the runes grow');
  const turned=uv({glyphTurn:90});
  assert.ok(Math.abs(width(turned)-height(plain))<1e-4&&Math.abs(height(turned)-width(plain))<1e-4,'Turn 90 swaps the rune axes');
  const slid=uv({glyphSlide:.25,glyphAcross:-.1});
@@ -126,9 +127,9 @@ test('rune Repeat, Size, Turn, Slide and Across lay out the glyphs, and a fit-vi
 test('colour rhythms animate the overlay colour on the layer clock with constant alpha; Soft pulse stays bright',async()=>{
  const {strengthPasses}=await import('../src/global-animation-model.js');
  const rune=setup('rune-blade','Runes'),before={anims:rune.model.GeosetAnims.length,clocks:[...rune.model.GlobalSequences]};
- const tint=rune.layer.tint,second=looks.secondTint(tint),near=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-6);
  let {anim,material,model}={...compile(rune.model,withLayer(rune.stack,{pulse:'beat',loop:2000})),model:rune.model};
  assert.equal(anim.Color.LineType,3,'Colour beat eases between its colours');
+ const tint=rune.layer.tint,second=looks.secondTint(tint),near=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-6);
  assert.equal(model.GlobalSequences[anim.Color.GlobalSeqId],2000,'the colour runs on the layer clock');
  assert.deepEqual(anim.Color.Keys.map(k=>k.Frame),[0,1000,2000]);
  assert.ok(near(Array.from(anim.Color.Keys[0].Vector),tint)&&near(Array.from(anim.Color.Keys[1].Vector),second)&&near(Array.from(anim.Color.Keys[2].Vector),tint));
