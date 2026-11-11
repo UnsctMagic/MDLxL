@@ -1,8 +1,39 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: **ready to merge when the owner says "merge"**: combined branch `codex/main-review-20261111-all` at `7e3faedf`
+Status: combined branch `7e3faedf` passed the final check; before merging it needs new `main` (`f49889b9`) merged in and the O2 swivel check (12 Nov)
 Owner / consolidator: Claude Code (review), Codex (rework)
 Updated: 2026-11-11 (night)
+
+## Owner decisions O2 and O7, and the new main (12 Nov)
+
+Relayed by the continuation session on 12 Nov 2026, in the owner's words.
+
+- **O7: "yes approved."** The three 0.39.0 behaviours stay as they are (Esc twice when a
+  tool holds unapplied work; hotkeys do not fire buttons scrolled out of view; no
+  dropdown letter type-ahead). No work.
+- **O2: "i didnt use it but why was it removed? not approved."** Claude checked the code
+  again and **corrects its own finding: the swivel was not removed.** PR #585 replaced
+  only the *Rotate* gesture on the elbow/knee control (it now turns the joint, like
+  every other handle). *Move* on that control still aims the bend with the hand or foot
+  fixed: `app/GamePreview.jsx`, the Move path, calls `solvePoseLimb` with the end kept
+  at `pose.end` and the dragged point as `pole` when the target is a bend. #585 did not
+  touch that line, and its PR text says exactly this. The review's wording "cannot be
+  reached" was wrong; what the reviewer saw was that `swivelPoseLimb` (the old
+  Rotate-gesture solver) has no caller left.
+  - What is missing is proof in the running app: `test/pose-ik.electron.cjs` drags the
+    bend control with Move but only checks that one undo step was added.
+  - Step for Codex: add a real-mouse check that Move on the Elbow and Knee controls
+    keeps the hand/foot in place and turns the bend. If it passes, no app change. If it
+    fails, that is the bug and gets the smallest fix. `swivelPoseLimb` and its tests stay.
+- **New main.** PR #627 ("Pause interactive effect placement previews") merged at
+  `f49889b9`. It changes `ParticleEditor.jsx`, `ParticlePlacementStage.jsx`,
+  `SurfaceEffects.jsx`, one contract page and two app tests; its CI is green. No file is
+  changed on both sides, and a trial merge with the combined branch is clean. The
+  combined branch needs `main` merged in before it is merged. #627 was read briefly,
+  not reviewed.
+
+The "Ready" verdict below stands for `7e3faedf`; the branch is ready again once `main`
+is merged in and the O2 check has run.
 
 ## Ready (11 Nov, night)
 
