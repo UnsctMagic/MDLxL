@@ -1,6 +1,6 @@
 # Contract 6: housekeeping after the review
 
-Status: ready for Codex (do last)
+Status: reworked and ready for Claude re-check. The documented Flail03 reference is missing.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -79,8 +79,64 @@ Out of scope: any new check, any change to OptimizeXL results, renaming stored k
   test/paint-uv-layout.test.js test/settings-presets.test.js test/desktop-bridge.test.js
   test/node-index.test.js`, plus the geoset-extras tests; results identical before and after.
 
-## Blockers and next action
+## Codex handoff
 
-- No blocker; O6 is approved. If the `mounted-spheres` reference file cannot be found,
-  say so here and ask the owner; do not regenerate or replace the accepted hash.
-- On completion: status, revision and checks here; plain summary for the owner; hand back.
+Local implementation revision 143236bc on codex/main-review-20261111-6, based on
+4340c5f8. Housekeeping followed the other contracts' implementation branches.
+
+- G2: checked each task against the merge history already present in 4340c5f8.
+  Fourteen merged task rows were removed and fifteen notes got their merge
+  revision. The world-budget branch was integrated at 9ffbd7f8 and reached main
+  through #456 at 7dc13293. Local history does not identify a separate #437 merge.
+  The deterministic AI steering follow-up merged in #435, so its row could close
+  along with the original #427/#430 work. The other current tasks stay listed.
+  132 local file links resolved across the 17 edited documents. This was a
+  local history and link check.
+- G1: the immutable check on 4340c5f8 stopped at “Only explicitly added repair
+  capabilities may extend this baseline.” The single allowlist addition is
+  bounds. The script, baseline files, stored hashes and fixtures otherwise
+  keep the accepted rules. The release standard names both input files and
+  records that the historical Flail03 reference is missing.
+- G1 verification: node test/manual/optimizexl-flail-regression.mjs ran once
+  per accepted model on 143236bc. Flail01 matched all 31 accepted results and
+  verified the extents repair. Flail03 stopped only at mounted-spheres.
+  Actual SHA-256 c0a0955d8f92cb3d1ab1d13914845cc134060a31d84cd2ced2645795c0836ca9
+  is the same as the main-review run with only bounds allowed. Frozen SHA-256
+  084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a
+  is unchanged. The owner confirmed the 237,022-byte reference is absent and
+  asked to record the known failure and finish the rest. No reference was rebuilt.
+- G3: extents and Hide extras share visibility sampling and additive-layer
+  recognition. The extents caller keeps its original fallback for missing
+  intervals and its treatment of global tracks. Emitter visibility reuses
+  globalSequenceId. Wiggle and Paint reuse nodeIndex, and Wiggle reuses nodePivot.
+  Preset IPC uses preset:openFile and preset:saveFile, with openPresetFile and
+  savePresetFile in the renderer. The updated preset IPC assertion failed on the
+  old handlers and passed on the renamed bridge.
+- G3 verification: node --test test/model-extents.test.js test/bone-wiggle.test.js
+  test/paint-uv-layout.test.js test/settings-presets.test.js
+  test/desktop-bridge.test.js test/node-index.test.js test/geoset-extras.test.js
+  passed 188 before and 188 after, with zero failures or skips. Direct comparisons
+  of computed extents, exclusion and visibility lists, Wiggle matrices, and
+  Paint face assignments were identical on the Paint Footman, Tzeentch Knight,
+  Mecha-CL and Flail03 fixtures.
+- The proposed nameRegion rule would change Paint head detail on real models.
+  It adds 26 detailed faces on Tzeentch Knight by recognising the horse neck,
+  and 14 on Flail03 by recognising the horse neck, jaw and mouth. Paint's
+  original head-name rule stays in use. Only its descendant lookup was shared.
+- Built with pnpm exec vite build --configLoader runner and packaged from the
+  cached Electron archive. One focused hidden desktop comparison used real
+  AnimXL clicks, Heavy and Escape. Before the change the visible cue was at
+  layer 2200, below workspace dialogs at 16000. After the change it was above
+  that layer and the second Escape closed the tool as before.
+- Owner summary: The task index now reflects merged work. The Flail01 safety
+  check passes and Flail03 reaches the known case that needs the missing
+  reference. Shared rules produced the same model results in the focused
+  comparisons. The discard message appears above workspace dialogs.
+
+Claude can review 143236bc and this note locally. The historical case can be
+rerun if the exact reference becomes available.
+## Rework after Claude’s review
+
+- Implementation revision 63020155. The discard cue computes its layer directly from the workspace dialog layer. The three existing theme layer tokens are intact. The approved temporary Flail03 release rule, complete actual hash above, and #437 integration wording are recorded.
+- pnpm run test:source: 3,272 passed, 0 failed, 10 skipped. CI reporter: 3,282 passing events including skips, 0 failures, 0 new failures against .github/known-test-failures.txt. pnpm test: 57 passed, 0 failed, 0 skipped. node --test test/ui-primitives.test.js: 16 passed, 0 failed, 0 skipped. The baseline file is unchanged.
+- Owner summary: the discard notice stays above workspace dialogs. Flail01 must pass and Flail03 may differ only in the known mounted-spheres case while the original reference is missing.

@@ -716,13 +716,13 @@ test('saved presets ride along in Export configuration and come back', () => {
 
 test('two thin IPC channels, editor only, same size limit as the module', () => {
   const main = source('electron/main.cjs'), preload = source('electron/preload.cjs');
-  assert.match(main, /ipcMain\.handle\('presets:openFile',async event=>\{\s*editorOnly\(event/);
-  assert.match(main, /ipcMain\.handle\('presets:saveFile',async\(event,payload\)=>\{\s*editorOnly\(event/);
-  assert.match(preload, /presetOpenFile: \(\)=>call\('presets:openFile'\)/);
-  assert.match(preload, /presetSaveFile: payload=>call\('presets:saveFile',payload\)/);
+  assert.match(main, /ipcMain\.handle\('preset:openFile',async event=>\{\s*editorOnly\(event/);
+  assert.match(main, /ipcMain\.handle\('preset:saveFile',async\(event,payload\)=>\{\s*editorOnly\(event/);
+  assert.match(preload, /openPresetFile: \(\)=>call\('preset:openFile'\)/);
+  assert.match(preload, /savePresetFile: payload=>call\('preset:saveFile',payload\)/);
   const limit = /const MAX_PRESET_FILE=(\d+)\*(\d+)\*(\d+);/.exec(main);
   assert.ok(limit); assert.equal(Number(limit[1]) * Number(limit[2]) * Number(limit[3]), MAX_PRESET_FILE_BYTES);
-  assert.equal([...main.matchAll(/ipcMain\.handle\('presets:/g)].length, 2);
+  assert.equal([...main.matchAll(/ipcMain\.handle\('preset:/g)].length, 2);
 });
 
 // ---- The bar ---------------------------------------------------------------
@@ -773,7 +773,7 @@ test('Appearance can jump to its Presets page and still write a file', () => {
 });
 test('without the desktop bridge a hidden file input is the fallback; with it there is none', () => {
   assert.match(renderBar('uv', fresh()), /type="file" accept="\.mdlxl-preset,\.json"/);
-  globalThis.desktop = { presetOpenFile() {}, presetSaveFile() {} };
+  globalThis.desktop = { openPresetFile() {}, savePresetFile() {} };
   try { assert.doesNotMatch(renderBar('uv', fresh()), /type="file"/); }
   finally { delete globalThis.desktop; }
 });

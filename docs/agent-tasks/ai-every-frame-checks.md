@@ -1,6 +1,6 @@
 # AI every-frame checks: MDLxL sweeps a rule over every animation
 
-Status: ready for review; awaiting merge approval
+Status: completed, merged in #488 at f75e407d
 Implementation by Codex. Plan by Claude Code.
 Updated: 2026-11-01
 

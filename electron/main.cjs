@@ -105,13 +105,13 @@ ipcMain.handle('particles:export',async(_,id)=>{
 // in src/settings-presets.js validates the content. Keep MAX_PRESET_FILE equal to
 // MAX_PRESET_FILE_BYTES there.
 const MAX_PRESET_FILE=32*1024*1024;
-ipcMain.handle('presets:openFile',async event=>{
+ipcMain.handle('preset:openFile',async event=>{
  editorOnly(event,'Presets can only be loaded from the editor.');
  const result=await dialog.showOpenDialog(win,{title:'Load preset',filters:[{name:'MDLxL preset',extensions:['mdlxl-preset','json']}],properties:['openFile']});
  if(result.canceled)return null;const file=result.filePaths[0],info=await fs.stat(file);if(info.size>MAX_PRESET_FILE)throw Error('This file is too large to be a preset.');
  return {name:path.basename(file),text:await fs.readFile(file,'utf8')};
 });
-ipcMain.handle('presets:saveFile',async(event,payload)=>{
+ipcMain.handle('preset:saveFile',async(event,payload)=>{
  editorOnly(event,'Presets can only be saved from the editor.');
  if(typeof payload?.name!=='string'||typeof payload.text!=='string'||Buffer.byteLength(payload.text)>MAX_PRESET_FILE)throw Error('Invalid preset.');
  const destination=await chooseSavePath({title:'Save preset',defaultPath:safeWindowsName(payload.name,{fallback:'Preset'})+'.mdlxl-preset',extension:'mdlxl-preset',filterName:'MDLxL preset'});

@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: review done; fixes not started (seven contracts below, ready for Codex)
+Status: reworked local branches ready for Claude re-check. FX window part waits on claude/fx-editor.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-11
 
@@ -161,12 +161,78 @@ Owner decisions from these five (same "Yes, your picks" on 11 Nov 2026):
 7. On finishing: update the contract note (status, revision, checks, what is left), add a
    short plain-language summary for the owner, and hand back to Claude for review.
 
-## Blockers and next action
+## Local handoff to Claude
 
-- Owner: O1, O3 to O6 and O8 to O11 are decided (11 Nov). Still open: O2, O7, and
-  which contracts go into 0.40.0.
-- Codex: contracts 1 and 2 first (both touch `src/editor-document.js` in different
-  functions; merge 1 before 2). Contracts 3, 4, 5 and 7 can run at the same time
-  (7 shares `app/App.jsx` and `app/AppDialogs.jsx` with 2, in other functions).
-  Contract 6 last.
-- On completion: mark this note completed and remove its row from the [task index](README.md).
+Review base is 4340c5f8 on claude/main-review-2026-11-11. Each local branch
+below is checked out in D:\Codex\mdlxl-main-review-20261111-N, with N equal to
+the contract number. Read the contract note in that branch's worktree for its
+fail-first evidence, checks, and owner summary.
+
+| Contract | Branch | Local revision | Owner summary |
+| --- | --- | --- | --- |
+| [1](review-1-fx-references.md) | codex/main-review-20261111-1 | d13fbf6f, A1/A2 | FX keeps pointing at the same surviving parts and its own clocks. |
+| [2](review-2-save-safety.md) | codex/main-review-20261111-2 | 5c18a201, diff from d13fbf6f | An unreadable overwrite backs up the destination and keeps the tab unsaved. Cancel leaves extents alone. The other model writers report verification loss, and AI asks before combining after indexed list changes. |
+| [3](review-3-settings-keys.md) | codex/main-review-20261111-3 | 49327893 | Settings protects keys and saved presets. The main lock badge and shortcuts follow the user's bindings. |
+| [4](review-4-editors-previews.md) | codex/main-review-20261111-4 | 97cbbb58 | Animated vertex moves follow the mouse. UV, Corpse, Glow Up, axis guides and Forge fixes passed focused checks. |
+| [5](review-5-paint-drags.md) | codex/main-review-20261111-5 | fa90a3cb | Brush drags update once per frame, Escape restores the original values, and Paint follows rebound mouse keys. |
+| [6](review-6-housekeeping.md) | codex/main-review-20261111-6 | 143236bc, with this handoff at branch tip | The task index reflects merges. Flail01 passes. Flail03 stops at the known case that needs the missing reference. |
+| [7](review-7-newest-five.md) | codex/main-review-20261111-7 | 5a600416 | BITZ, menu and panel positioning, translations, and the ShareX setting passed the focused checks. |
+
+### Review notes
+
+- A3–A5 stay queued behind claude/fx-editor. Contract 1 removed one existing FX
+  sweep line because the shared clock deletion now does that remap. The current
+  FX editor branch still needs that overlap reconciled when integrated.
+- O2 and O7 remain open for the owner. The release lane has the O5 wording
+  handoff. The owner confirmed the original Flail03 reference is missing and
+  asked to record the known result and proceed. The release kit records the
+  missing reference.
+- Integration touchpoints include App.jsx, AppDialogs.jsx, electron/main.cjs,
+  PresetBar.jsx and the locale catalogs. Contract 2 already includes contract 1.
+  Verify the overlapping workflows if the owner later asks to combine branches.
+- The named hotkey-defaults audit still stops in its pre-existing Ctrl+F9
+  assignment setup. The contract 3 note records the same stop on the base and
+  the complete passing diagnostic run using the offered Replace button.
+- This is the local review handoff. All work is saved on the owner's PC.
+## Re-check after Claude’s verdicts
+
+Verdicts were read at b5a14e18 on claude/main-review-2026-11-11. Review the
+numbered rework only, using the previous tip in the table above as the base
+for each diff. Branch 1 remains at its original tip and its re-run is
+recorded here.
+
+| Contract | Branch | Local revision | Source pass / fail / skip | Compatibility pass / fail / skip | New CI failures |
+| --- | --- | --- | --- | --- | --- |
+| 1 | codex/main-review-20261111-1 | d13fbf6f | 3280 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 2 | codex/main-review-20261111-2 | 426fdabe | 3307 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 3 | codex/main-review-20261111-3 | 47337d05 | 3278 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 4 | codex/main-review-20261111-4 | 684b568e | 3278 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 5 | codex/main-review-20261111-5 | 7961856b | 3276 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 6 | codex/main-review-20261111-6 | 73ffd802 plus this handoff | 3272 / 0 / 10 | 57 / 0 / 0 | 0 |
+| 7 | codex/main-review-20261111-7 | 053ad9d0 | 3279 / 0 / 10 | 57 / 0 / 0 | 0 |
+
+Each worktree built offline with the cached FFmpeg binaries before running
+pnpm run test:source and pnpm test. The CI source reporter and baseline
+checker found zero failing tests. The tracked baseline has zero entries.
+The nine earlier particle-library failures in the verdict evidence were
+missing dist/particle-runtime.mjs errors.
+
+The ten skips on each branch are the Windows SIGTERM check, Windows
+symlink permissions, the volume without 8.3 short names, optional archer,
+skin-repair pair, Fx, twin-head rider and Tinker/Brown Magnataur inputs,
+and two opt-in POSE corpus checks.
+
+- O12 is implemented as the owner decided. The save notice preserves the
+  last good destination when the copy fails and offers Save As elsewhere.
+- Paint camera controls, Escape, and translations were rechecked. The BITZ
+  tab close choices and ShareX PID across Vertices and UV were verified on
+  the hidden test desktop. Contract notes record their named checks.
+- FX Part B still waits on claude/fx-editor. O2 and O7 remain open. The O5
+  text is ready in six languages for the next release-branch update.
+- Flail01 passed all 31 frozen comparisons. The release kit allows the known
+  Flail03 mounted-spheres mismatch only while the historical file is missing.
+- For later integration, branches 2, 3, 4, 5 and 7 add or retain locale
+  entries. Preserve each key, catalog order and CRLF, then recount the
+  expected sizes. The four UV preview strings match the release lane.
+
+All revisions and notes are saved locally for Claude’s re-check.

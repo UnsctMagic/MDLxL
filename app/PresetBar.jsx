@@ -20,7 +20,7 @@ export function pickPreset(domain, preferences, id, commit, say) {
 }
 
 async function writePresetFile(name, text) {
-  if (globalThis.desktop?.presetSaveFile) return !!await globalThis.desktop.presetSaveFile({ name, text });
+  if (globalThis.desktop?.savePresetFile) return !!await globalThis.desktop.savePresetFile({ name, text });
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), link = document.createElement('a');
   link.href = url; link.download = `${name.replace(/[<>:"/\\|?*]/g, '_')}.${PRESET_EXTENSION}`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -48,7 +48,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   const root = useRef(null), fileInput = useRef(null);
   const [naming, setNaming] = useState(false), [confirming, setConfirming] = useState(false), [name, setName] = useState(''), [status, setStatus] = useState('');
   const presets = listPresets(domain, preferences), builtIns = presets.filter(preset => preset.builtIn), saved = presets.filter(preset => !preset.builtIn);
-  const active = activePreset(domain, preferences, lastChosen.get(domain)), desktopFiles = !!globalThis.desktop?.presetOpenFile;
+  const active = activePreset(domain, preferences, lastChosen.get(domain)), desktopFiles = !!globalThis.desktop?.openPresetFile;
   const left = active === CUSTOM_PRESET ? undefined : unsavedCustom.get(domain);
   const showUnsaved = left !== undefined && activePreset(domain, { ...preferences, ...restoreCustom(domain, preferences, left) }) === CUSTOM_PRESET;
   const question = presetRestoreQuestion(domain), label = presetDomainLabel(domain);
@@ -76,7 +76,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   });
   const load = async () => {
     if (!desktopFiles) { fileInput.current?.click(); return; }
-    try { const file = await globalThis.desktop.presetOpenFile(); if (file) loadText(file.text); }
+    try { const file = await globalThis.desktop.openPresetFile(); if (file) loadText(file.text); }
     catch (error) { say(error.message); }
   };
   const loadPicked = async event => {
