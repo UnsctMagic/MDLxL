@@ -35,7 +35,7 @@ test('the launcher and the cycle have their keys, and nothing else claims them',
   const owners = key => COMMANDS.filter(command => command.defaultKeys.includes(key) && command.scope === 'editor').map(command => command.id);
   assert.deepEqual(owners('Ctrl+F2'), ['launcher']);
   assert.deepEqual(owners('Shift+F3'), ['toolbarCycle']);
-  for (const id of ['showcase', 'managers', 'autoCorpse', 'visToggle']) assert.deepEqual(COMMANDS.find(command => command.id === id).defaultKeys, []);
+  for (const id of ['showcase', 'autoCorpse', 'visToggle']) assert.deepEqual(COMMANDS.find(command => command.id === id).defaultKeys, []);
 });
 
 test('Graphic stays untouched: its attribute is absent and every new rule needs another mode', () => {
@@ -104,7 +104,7 @@ test('presentation choices are not offered to the AI console', () => {
   assert.match(app, /const runCommand = id => \{ if\(commandEnabled\(id\)\) \(uiCommands\[id\] \|\| commands\.current\[id\]\)\?\.\(\); \};/);
 });
 
-test('the launcher and the cycle work in Paint, Managers and every other editor', () => {
+test('the launcher and the cycle work in Paint and every other editor', () => {
   assert.match(app, /scope:\['undo','redo','launcher','toolbarCycle'\]\.includes\(command\.id\)/);
 });
 
@@ -130,7 +130,7 @@ test('native radios default to Graphic and grey out while VIS is on', () => {
 });
 
 test('every control that had no menu route has one now, in both menus', () => {
-  const sent = [], items = menu('Modules', {}, sent), want = { 'Citadel Paint': 'paint', Managers: 'managers', Showcase: 'showcase', 'Forge…': 'forge', 'BitsAndParts…': 'bitsAndParts', 'OptimizeXL…': 'optimizeModel', 'Auto Corpse…': 'autoCorpse', 'AI console': 'ai:open' };
+  const sent = [], items = menu('Modules', {}, sent), want = { 'Citadel Paint': 'paint', Showcase: 'showcase', 'Forge…': 'forge', 'BitsAndParts…': 'bitsAndParts', 'OptimizeXL…': 'optimizeModel', 'Auto Corpse…': 'autoCorpse', 'AI console': 'ai:open' };
   for (const [label, id] of Object.entries(want)) { const row = items.find(item => item.label === label); assert.ok(row, label); row.click(); assert.equal(sent.at(-1), id); }
   for (const id of Object.values(want)) assert.ok(bar.includes(`'${id}']`), 'browser menu: ' + id);
   assert.ok(menu('File').some(item => item.label === 'Convert MDX800 / MDX1000'));
@@ -162,7 +162,7 @@ test('the launcher lists catalog commands, editors first, without forge, paint, 
   const rows = launcherRows(catalog, extras(), () => true), listed = ids(rows);
   assert.deepEqual(listed.slice(0, 2), ['vertices', 'bones']);
   for (const absent of ['launcher', 'forge:shape:add', 'paint:draw', 'someButton']) assert.ok(!listed.includes(absent), absent);
-  assert.ok(LAUNCHER_EDITORS.includes('managers') && LAUNCHER_EDITORS.includes('showcase'));
+  assert.ok(LAUNCHER_EDITORS.includes('showcase'));
 });
 
 test('the launcher applies the same enabled rule to every row', () => {
@@ -192,8 +192,8 @@ test('extra rows carry the audit list and show their current state', () => {
 test('extra rows follow VIS and editors that have no view menu', () => {
   const vis = ids(extras({ visUI: true }));
   assert.ok(!vis.some(id => id.startsWith('toolbar:') || id === 'ai:open'));
-  const managers = ids(extras({ displayMode: 'manager' }));
-  assert.ok(!managers.includes('grid') && !managers.includes('clearDisplay'));
+  const showcase = ids(extras({ displayMode: 'showcase' }));
+  assert.ok(!showcase.includes('grid') && !showcase.includes('clearDisplay'));
 });
 
 test('an empty search hides the long choice lists, typing finds them', () => {

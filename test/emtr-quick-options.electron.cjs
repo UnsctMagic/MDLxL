@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { launchApp, closeApp, root } = require('./helpers/app.cjs');
+const { launchApp, closeApp, clickMenu, root } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 
 async function click(page, locator, button = 'left') {
@@ -111,11 +111,10 @@ async function main() {
     await manager.waitFor({ state: 'hidden' });
     await closeEditor();
 
-    await click(page, page.getByRole('button', { name: 'Managers', exact: true }));
-    const tabs = page.getByRole('navigation', { name: 'Resource managers' });
-    await click(page, tabs.getByRole('button', { name: 'Nodes', exact: true }));
-    await page.locator('[data-node-type="Bones"]').first().waitFor();
-    assert.ok(await page.getByLabel('Show hierarchy').isVisible());
+    await clickMenu(app, 'Node Manager…');
+    const nodeManager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
+    await nodeManager.locator('[data-node-type="Bones"]').first().waitFor();
+    assert.ok(await nodeManager.getByLabel('Show hierarchy').isVisible());
     assert.deepEqual(errors, []);
     console.log('Shared Learn and EMTR menu styling, placement and dismissal, normal opening, Glow Up with mouse rotation, Library, emitter-only Manager and full Node Manager passed.');
   } finally {

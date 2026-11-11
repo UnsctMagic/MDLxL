@@ -62,7 +62,14 @@ test('the exact first-run wording has Smooth highlighted by default and is trans
 
 const built = await build({ entryPoints: [new URL('../app/AppToolbar.jsx', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')], bundle: true, write: false, format: 'cjs', platform: 'node', packages: 'external', loader: { '.css': 'empty' }, logLevel: 'silent' });
 const module = { exports: {} };
-const hooks = { ...React, useRef: value => ({ current: value }), useState: value => [value, () => {}], useEffect() {}, useLayoutEffect() {} };
+const hooks = {
+  ...React,
+  useContext: () => ({ shortcuts: {} }),
+  useRef: value => ({ current: value }),
+  useState: value => [value, () => {}],
+  useEffect() {},
+  useLayoutEffect() {},
+};
 new Function('require', 'module', 'exports', built.outputFiles[0].text)(name => name === 'react' ? hooks : require(name), module, module.exports);
 function findSwitch(element) {
   if (!element || typeof element !== 'object') return null;
