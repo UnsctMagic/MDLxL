@@ -68,6 +68,13 @@ function overlay(c,geometry,material,colour,ownAnimation){
  if(old)Object.assign(old,anim);else m.GeosetAnims.push(anim);
  return index;
 }
+const LIGHTING=[['unshaded',1],['twoSided',16],['unfogged',32]];
+const hasLighting=l=>LIGHTING.some(([key])=>l[key]!=null);
+// Explicit layer lighting replaces only the bits it names.
+function shading(bits,l){
+ for(const [key,bit] of LIGHTING)if(l[key]!=null)bits=l[key]?bits|bit:bits&~bit;
+ return bits;
+}
 export function textureRepeats(model,textureId){
  return (model.Textures[textureId]?.Flags&3)===3;
 }
@@ -173,7 +180,7 @@ function skinLayer(c,l){
  }
  const alphaFor=value=>arc?keys(arc.clock,arc.ms,arc.alpha.map(([t,a])=>[t,a*value]),0):glyphCurve?keys(id,ms,glyphCurve.map(([t,a])=>[t,a*value])):value;
  const alpha=alphaFor(1);
- const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,Alpha:alpha};
+ const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:shading(l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,l),Alpha:alpha};
  if(!l.fixed&&!l.glyphs&&l.pulse!=='steady'&&l.pulse!=='fade'&&(l.type==='Moving skin'||!shape)){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
   const turns=Math.max(1,Math.round(l.speed));
@@ -188,9 +195,11 @@ function skinLayer(c,l){
  }
  if(samePicture&&previous){
   if(typeof previous.TextureID==='number'||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
-  layer.FilterMode=previous.FilterMode;layer.Shading=previous.Shading;
+  // Keep a material-manager edit unless this layer's own Blend or lighting changed.
+  if(prior.filter===l.filter)layer.FilterMode=previous.FilterMode;
+  if(LIGHTING.every(([key])=>prior[key]===l[key]))layer.Shading=previous.Shading;
  }
- if(arc){layer.FilterMode=3;layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(arc.clock,arc.ms,arc.motion,0)});}
+ if(arc){layer.FilterMode=l.filter??3;layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(arc.clock,arc.ms,arc.motion,0)});}
  const passes=strengthPasses([layer],l.strength,l.type==='Glow',alphaFor);
  if(samePicture&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
@@ -210,6 +219,7 @@ function nativeSurface(c,l){
  const first=native.Layers[0].Alpha;
  const peak=typeof first==='number'?first:Math.max(...first.Keys.map(k=>k.Vector[0]));
  c.state.layers.find(v=>v.id===l.id).unitAlphaPeak=peak;
+ for(const layer of native.Layers){if(l.filter!=null)layer.FilterMode=l.filter;if(hasLighting(l))layer.Shading=shading(layer.Shading??0,l);}
  native.Layers=strengthPasses(native.Layers,l.strength);
  const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;

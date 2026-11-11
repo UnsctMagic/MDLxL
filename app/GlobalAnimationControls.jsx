@@ -8,7 +8,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
@@ -16,7 +16,7 @@ import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength}){
  const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
- const [live,setLive]=useState(null),gesture=useRef(null);
+ const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
  const setLayer=next=>setStack({...stack,layers:stack.layers.map(v=>v.id===next.id?next:v)});
  const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}setLayer(key==='size'?withLayerSize(l,next):next);};
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
@@ -31,6 +31,11 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  const runeImages=baseGlyph&&!RUNE_IMAGES.some(([,path])=>path===baseGlyph)?[[l.label,baseGlyph],...RUNE_IMAGES]:RUNE_IMAGES;
  const activeRunes=l?.glyphs&&!runeImages.some(([,path])=>path===l.image)?[[l.image.split('\\\\').at(-1),l.image],...runeImages]:runeImages;
  const canTile=!l?.own||(surface&&textureRepeats(graph.model,graph.model.Materials[surface.MaterialID].Layers[0].TextureID));
+ // Every surface layer has the same controls, whatever preset it came from.
+ const surf=l&&l.type!=='Particles'&&l.type!=='Edge'&&!l.stamp&&surfaceIngredient(l);
+ const compiled=graph?.model.Materials[surface?.MaterialID]?.Layers[0];
+ const blend=l&&(layerFilter(l)??compiled?.FilterMode);
+ const unshaded=l?.unshaded??!!(compiled?.Shading&1);
  function particle(field,key,min,max,step,title){
   return <div title={title}><ParticleSlider field={field} value={live?.key===key?live.value:l[key]} min={min} max={max} step={step}
    begin={()=>{gesture.current={key};}} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
@@ -103,6 +108,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
   </>}
   {(l.glyphs||l.type==='Glow')&&<label className="field"><span>Glow</span><select aria-label={l.glyphs?'Rune glow':'Glow style'} value={l.pulse||'breathe'} onChange={e=>update('pulse',e.target.value)}>{[['steady','Steady'],['breathe','Pulse'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse'],...(['crystal','steel'].includes(l.pulse)?[[l.pulse,l.label]]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
+  {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={blend??''} onChange={e=>setLayer(withBlend(l,Number(e.target.value)))}>{blend==null&&<option value=""/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {l.glyphs&&<>
    <label className="field"><span>Rune</span><select aria-label="Rune" value={l.image} onChange={e=>setLayer({...l,image:e.target.value})}>{activeRunes.map(([name,path])=><option key={path} value={path}>{name}</option>)}</select></label>
    <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale layer={l} preferences={preferences} change={update}/>
@@ -111,6 +117,9 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
    {(l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&!l.powerArcs)&&row('Speed','speed',1,4,1,'Complete turns or texture passes within the loop.')}
    {l.type==='Moving skin'&&!l.fixed&&l.pulse!=='fade'&&!l.nativeSurface&&<>{row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}{!l.atlasRect&&canTile&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}{!l.atlasRect&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}</>}
   </>}
+  {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+   <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
+  </>}</details>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}
   {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id)}>Open in EMTR</button>}
   </>}

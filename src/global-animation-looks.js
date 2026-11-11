@@ -218,6 +218,24 @@ export function partFrame(geometry,split=true) {
  }
  return result;
 }
+// Blend choices for a surface layer: native FilterMode values. Modulate darkens what is behind it.
+export const BLEND_CHOICES=[[0,'Solid'],[1,'Cut-out'],[2,'See-through'],[3,'Add'],[4,'Add alpha'],[5,'Darken']];
+const additive=filter=>filter===3||filter===4;
+/** The FilterMode a surface layer compiles with when it has no explicit filter (undefined when only its native file knows). */
+export function layerFilter(l){
+ if(l.filter!=null)return l.filter;
+ const n=l.nativeSurface;
+ if(n)return n.layers?n.layers[0]?.filter??3:n.texture?n.replaceFilter??n.filterMode??3:undefined;
+ return l.powerArcs?3:l.base?2:3;
+}
+// New layers: additive light is unshaded; glows, runes and additive light ignore fog.
+function lightingRule(l,filter){return {unshaded:additive(filter)?true:undefined,unfogged:l.type==='Glow'||l.glyphs||additive(filter)?true:undefined};}
+/** Change Blend; unshaded and unfogged follow it unless the user set them otherwise. */
+export function withBlend(l,filter){
+ const before=lightingRule(l,layerFilter(l)),after=lightingRule(l,filter),next={...l,filter};
+ for(const key of ['unshaded','unfogged'])if(l[key]===before[key]){if(after[key]==null)delete next[key];else next[key]=after[key];}
+ return next;
+}
 export function makeLayer(spec,frame,palette,id) {
  frame=frame.regions?.[0]?.frame||frame;
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
@@ -230,6 +248,11 @@ export function makeLayer(spec,frame,palette,id) {
  const p=properties[spec.kind]||[1,24,.12,1,0,1];
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
  const {starts:_starts,...saved}=structuredClone(spec);
+ if(surfaceIngredient(spec)&&!spec.stamp){
+  const rule=lightingRule(spec,layerFilter(spec));
+  for(const key of ['unshaded','unfogged'])if(saved[key]==null&&rule[key]!=null)saved[key]=rule[key];
+  if(!spec.nativeSurface&&saved.twoSided==null)saved.twoSided=!spec.water;
+ }
  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
