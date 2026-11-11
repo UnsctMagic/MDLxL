@@ -3,6 +3,7 @@ import {translate} from '../src/localization.js';
 import ParticleTimingTool from './ParticleTimingTool.jsx';
 import {particleValue} from '../src/particle-bindings.js';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
+import FxLookBar from './FxLookBar.jsx';
 import {impactDefaults,textureRepeats,glyphIslands,withGlyphGesture} from '../src/global-animation-model.js';
 import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
@@ -14,7 +15,7 @@ import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  const look=lookOf(stack),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
@@ -72,6 +73,7 @@ export default function GlobalAnimationControls({overlayLocked=false,assets,stac
  const nativeFinish=()=>{const g=gesture.current;gesture.current=null;if(g?.value===undefined)return;if(g.field==='EmissionRate'&&stack.impact){const hit=g.value?.Keys?.find(k=>k.Vector[0]>0)?.Frame;if(hit!=null)setStack({...stack,...impactDefaults(graph.model,graph.geoset,stack.sequence,hit)});else setLayer({...l,burst:g.value});}else setLayer({...l,native:{...l.native,[g.field]:g.value}});};
  return <>
   <h3>{look.name}</h3>
+  {lookActions&&<FxLookBar look={look} stack={stack} actions={lookActions}/>}
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
   {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><select aria-label="Ice variation" value={stack.iceVariation||'dark'} onChange={e=>setStack(withIceVariation(stack,frame,e.target.value))}><option value="dark">Dark ice</option><option value="white">White ice</option></select></label>}
   {look.variations&&<label className="field"><span>Variation</span><select aria-label="Variation" value={currentVariation(stack,look)} onChange={e=>setStack(withVariation(stack,frame,look,e.target.value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}

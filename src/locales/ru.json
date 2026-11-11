@@ -7820,5 +7820,14 @@
   "Controller *": "Контроллер *",
   "Citadel *": "Цитадель *",
   "Bones *": "Кости *",
-  "Empty": "Пусто"
+  "Empty": "Пусто",
+  "My looks": "Мои эффекты",
+  "Delete this look": "Удалить этот эффект",
+  "Deletes this saved look. Models that use it keep their effect.": "Удаляет этот сохранённый эффект. Модели, которые его используют, сохраняют свой эффект.",
+  "This file is not an FX look.": "Этот файл не является эффектом FX.",
+  "Keeps this look under a name, or writes it to a file to share.": "Сохраняет этот эффект под именем или записывает его в файл для обмена.",
+  "Opens a look file. It is added to My looks and used right away.": "Открывает файл эффекта. Он добавляется в «Мои эффекты» и сразу применяется.",
+  "Too many saved looks.": "Слишком много сохранённых эффектов.",
+  "This look could not be saved.": "Не удалось сохранить этот эффект.",
+  "Look file": "Файл эффекта"
 }

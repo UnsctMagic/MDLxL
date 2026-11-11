@@ -32,6 +32,7 @@
 .surface-effects .sfx-cards .gf-row:hover{background:var(--ui-hover,#2d3b43)}
 .surface-effects .sfx-cards .gf-row.selected{background:var(--ui-selected,#4a4a37);color:var(--ui-selected-text,#fff0c6)}
 .surface-effects .sfx-card{padding-left:22px!important}.surface-effects .sfx-card .gf-name{display:block;overflow:hidden;text-overflow:ellipsis}
+.sfx-own-row{display:flex;align-items:center}.sfx-own-row>.sfx-card{flex:1;min-width:0}.sfx-own-row>.preset-bar-delete{flex:none;height:24px;margin-left:2px}
 .fx-layer-row{display:flex;gap:3px;align-items:center}.fx-layer-row>button{flex:1;min-width:0}.sfx-controls .pe-life-table{width:100%;table-layout:fixed}.sfx-controls .pe-life-table input{max-width:100%;min-width:0;box-sizing:border-box}.sfx-controls .pe-life-table th{font-size:10px}.sfx-controls .pe-life-table input[type=color]{width:38px;height:22px}
 
 .surface-effects .sfx-cards svg{display:block}

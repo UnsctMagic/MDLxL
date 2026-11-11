@@ -8,7 +8,9 @@ import GameLibraryRow from './GameLibraryRow.jsx';
 import GlobalAnimationControls from './GlobalAnimationControls.jsx';
 import GlobalAnimationStage from './GlobalAnimationStage.jsx';
 import {GLOBAL_LOOKS,findLook,lookOf,newStack,partFrame,withLayerTexture,withParticleStrength,withLayerSize} from '../src/global-animation-looks.js';
-import {ownLookFrom,stackFromOwnLook} from '../src/fx-own-looks.js';
+import {version} from '../package.json';
+import {ownLookFrom,stackFromOwnLook,upsertOwnLook,ownLookFile,parseOwnLookFile} from '../src/fx-own-looks.js';
+import {writePresetFile} from './PresetBar.jsx';
 import {animationPart,compileAnimation,readAnimationStack,impactDefaults,strengthPasses,previewCoordinates,FX_SECTIONS} from '../src/global-animation-model.js';
 import {createFrameCoalescer} from './viewport-performance.js';
 import {globalAssetKey,createGlobalLibrary} from './global-animation-library.js';
@@ -17,6 +19,7 @@ import {standSequenceIndex} from '../src/sequence-editor.js';
 import {tintFromHex,hexFromTint} from '../src/surface-effect-colours.js';
 import {imageTextureLayers} from '../src/uv-preview.js';
 import {resolveGameFiles} from './desktop.js';
+import './preset-bar.css';
 import './particle-editor.css';
 import './resource-editors.css';
 import './texture-library.css';
@@ -40,13 +43,15 @@ function ColourControl({tint,defaultTint,update,hint,label='Colour',pickerLabel,
  const hex=hexFromTint(tint);
  return <div className="sfx-custom-colour" title={hint}><label>{label} <TintPicker value={hex} onCommit={update} label={pickerLabel}/></label><button aria-label={resetLabel} title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
 }
-export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],textureAssets,modelPath,preferences,teamColor,sequenceIndex,onPlaced,onOpenEmitter,onClose}){
+export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],textureAssets,modelPath,preferences,changePreferences,teamColor,sequenceIndex,onPlaced,onOpenEmitter,onClose}){
  // Two or more geosets checked in the editor are offered as one surface, chosen by default.
  const [groupChoice]=useState(()=>{const usable=i=>doc.model.Geosets[i]&&!doc.model.Geosets[i]._FxTag,picked=initialGroup.filter(usable);if(picked.length>1)return picked;const start=animationPart(doc.model,doc.model.Geosets[initialGeoset]?initialGeoset:0),saved=doc.model.Geosets[start]?._FxStack?.group?.filter(usable);return saved?.length?[start,...saved]:[];});
  const [combined,setCombined]=useState(groupChoice.length>1);
  const [part,setPart]=useState(()=>{const start=animationPart(doc.model,doc.model.Geosets[initialGeoset]?initialGeoset:0);return groupChoice.length>1&&!groupChoice.includes(start)?groupChoice[0]:start;});
  const members=useMemo(()=>combined?groupChoice.filter(i=>i!==part):[],[combined,groupChoice,part]);
  const makeStack=(entry,index,current)=>{const saved=readAnimationStack(doc.model,index);if(saved?.look===entry.id)return saved;if(entry.own)return stackFromOwnLook(entry.own,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());const next=newStack(entry,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());return entry.impact?{...next,...impactDefaults(doc.model,index,current)}:next;};
+ // The user's own looks are filed as a first folder, with the same rows as the built-in ones.
+ const ownLooks=preferences?.fxLooks||[],ownEntries=useMemo(()=>ownLooks.map(record=>({id:record.id,name:record.name,group:'My looks',layers:record.layers,own:record})),[ownLooks]);
  const [stack,setStack]=useState(()=>readAnimationStack(doc.model,part)||makeStack(GLOBAL_LOOKS[0],part,sequenceIndex));
  const drafts=useRef(new Map());drafts.current.set(part,stack);
  // Each part as first shown: only a change from that is unapplied work.
@@ -111,13 +116,22 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const targetOptions=groupChoice.length>1?[{value:-1,label:'Selected geosets ('+groupChoice.length+')'},...geosetOptions]:geosetOptions;
  const pickTarget=value=>{if(value===-1){setCombined(true);if(!groupChoice.includes(part))pickGeoset(groupChoice[0]);return;}setCombined(false);pickGeoset(value);};
  // A look this PC does not list (someone else's own look) is kept by the stack itself.
- const entryOf=current=>findLook(current.look)||{id:current.look,name:current.name||'Custom look',group:'My looks',layers:current.layers,own:{...ownLookFrom(current,partFrame(doc.model.Geosets[part]),current.name||'Custom look'),id:current.look}};
- const choose=(entry,index=part)=>{if(entry.id===stack.look&&index===part)return;const next=makeStack(entry,index,sequence);setStack(next);setTrial(null);selectLayer(next.layers.find(l=>l.kind==='flame')?.id||next.layers[0]?.id);setOriginal(false);setPlacing(false);if(next.impact&&next.sequence>=0)setSequence(next.sequence);};
+ const entryOf=current=>findLook(current.look)||ownEntries.find(e=>e.id===current.look)||{id:current.look,name:current.name||'Custom look',group:'My looks',layers:current.layers,own:{...ownLookFrom(current,partFrame(doc.model.Geosets[part]),current.name||'Custom look'),id:current.look}};
+ const show=next=>{setStack(next);setTrial(null);selectLayer(next.layers.find(l=>l.kind==='flame')?.id||next.layers[0]?.id);setOriginal(false);setPlacing(false);if(next.impact&&next.sequence>=0)setSequence(next.sequence);};
+ const choose=(entry,index=part)=>{if(entry.id===stack.look&&index===part)return;show(makeStack(entry,index,sequence));};
+ // Saving a look changes preferences only: not the model, not Undo, and not the window's unapplied work.
+ const keepLooks=looks=>changePreferences?.(previous=>({...previous,fxLooks:looks})),openMyLooks=()=>setFolders(old=>new Set([...old,'My looks']));
+ const lookActions={
+  save:name=>{const {looks,look}=upsertOwnLook(ownLooks,ownLookFrom(stack,partFrame(doc.model.Geosets[part]),name)),next={...stack,look:look.id,name:look.name};keepLooks(looks);if(JSON.stringify(stack)===baselines.current.get(part))baselines.current.set(part,JSON.stringify(next));setStack(next);openMyLooks();return look;},
+  saveFile:name=>writePresetFile(name,ownLookFile(ownLookFrom(stack,partFrame(doc.model.Geosets[part]),name),version)),
+  loadText:text=>{const {looks,look}=upsertOwnLook(ownLooks,parseOwnLookFile(text));keepLooks(looks);show(stackFromOwnLook(look,partFrame(doc.model.Geosets[part]),stack.owner));openMyLooks();return look;},
+ };
+ const removeLook=id=>changePreferences?.(previous=>({...previous,fxLooks:previous.fxLooks.filter(l=>l.id!==id)}));
  const pickGeoset=index=>{index=animationPart(lastModel.current,index);if(!doc.model.Geosets[index]||index===part)return;setPart(index);setTrial(null);const saved=drafts.current.get(index)||readAnimationStack(doc.model,index);if(saved){setStack(saved);selectLayer(saved.layers[0]?.id);setFolders(old=>new Set([...old,lookOf(saved).group]));}else choose(entryOf(stack),index);setPlacing(false);};
  const isolated=useMemo(()=>solo?[...new Set([part,...members,...(!original&&graph?.layers?Object.values(graph.layers).map(l=>l.geoset).filter(i=>i>=0):[])])]:undefined,[solo,part,members,original,graph]);
  const hidden=useMemo(()=>isolated?new Set(doc.model.Geosets.map((_,i)=>i).filter(i=>!isolated.includes(i))):undefined,[doc,doc.revision,isolated]);
  const message=error||graph?.error||previewError,layer=stack.layers.find(l=>l.id===selectedLayer);
- const query=search.trim().toLowerCase(),matches=GLOBAL_LOOKS.filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
+ const query=search.trim().toLowerCase(),matches=[...ownEntries,...GLOBAL_LOOKS].filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
  const groups=[...new Set(matches.map(e=>e.group))];
  const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(!previewStack.layers.length&&!readAnimationStack(doc.model,part)){onClose();return;}if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+lookOf(stack).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,loaded));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
  return <ToolWindow title="Surface Effects" overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose} unapplied={unapplied}
@@ -132,14 +146,14 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     <input data-hotkey="surface-effects:find-a-surface-effect" data-hotkey-manual data-hotkey-label="Find a surface effect" className="sfx-search" type="search" aria-label="Find a surface effect" placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}/>
     <div className="gf-tree sfx-cards" aria-label="Effects library">{groups.map(group=>{const entries=matches.filter(e=>e.group===group),open=!!query||folders.has(group);return <section key={group}>
      <GameLibraryRow as="button" className="gf-row folder" folder open={open} aria-expanded={open} name={translate(group)} count={entries.length} icon={<GameIcon fallback={open?FolderOpen:Folder}/>} onClick={()=>setFolders(old=>{const next=new Set(old);next.has(group)?next.delete(group):next.add(group);return next;})}/>
-     {open&&entries.map(entry=>{const icon=entry.layers.find(l=>l.image)?.image;return <GameLibraryRow as="button" key={entry.id} name={translate(entry.name)} className={'gf-row sfx-card'+(stack.look===entry.id?' selected':'')} aria-label={entry.name+(entry.impact?' impact':' global animation')} aria-pressed={stack.look===entry.id} icon={<GameIcon iconKey={icon?'fx:'+icon:null} read={icon?async()=>(await resolveGameFiles([icon]))[0]:null} fallback={Sparkles}/>} onClick={()=>choose(entry)}/>;})}
+     {open&&entries.map(entry=>{const icon=entry.layers.find(l=>l.image)?.image,row=<GameLibraryRow as="button" key={entry.id} name={entry.own?entry.name:translate(entry.name)} className={'gf-row sfx-card'+(stack.look===entry.id?' selected':'')} aria-label={entry.name+(entry.impact?' impact':' global animation')} aria-pressed={stack.look===entry.id} icon={<GameIcon iconKey={icon?'fx:'+icon:null} read={icon?async()=>(await resolveGameFiles([icon]))[0]:null} fallback={Sparkles}/>} onClick={()=>choose(entry)}/>;return entry.own&&stack.look===entry.id?<div className="sfx-own-row" key={entry.id}>{row}<button type="button" className="preset-bar-delete" aria-label="Delete this look" title="Deletes this saved look. Models that use it keep their effect." onClick={()=>removeLook(entry.id)}>×</button></div>:row;})}
     </section>;})}{!matches.length&&<span className="sfx-empty">No matching effects</span>}</div>
    </aside>
    <main className="sfx-center"><div className="sfx-stage">
     <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} placing={placing&&!original} onLayer={next=>{setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={doc.model.Sequences[sequence]?.Interval[0]??0} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><select data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={e=>setSequence(Number(e.target.value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</select><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

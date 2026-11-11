@@ -19,7 +19,7 @@ export function pickPreset(domain, preferences, id, commit, say) {
   lastChosen.set(domain, change.presetId); commit(change); say(change.status);
 }
 
-async function writePresetFile(name, text) {
+export async function writePresetFile(name, text) {
   if (globalThis.desktop?.presetSaveFile) return !!await globalThis.desktop.presetSaveFile({ name, text });
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), link = document.createElement('a');
   link.href = url; link.download = `${name.replace(/[<>:"/\\|?*]/g, '_')}.${PRESET_EXTENSION}`; link.click();

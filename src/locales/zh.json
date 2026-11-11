@@ -7726,5 +7726,14 @@
   "Controller *": "控制器 *",
   "Citadel *": "城堡 *",
   "Bones *": "骨骼 *",
-  "Empty": "空白"
+  "Empty": "空白",
+  "My looks": "我的效果",
+  "Delete this look": "删除此效果",
+  "Deletes this saved look. Models that use it keep their effect.": "删除此已保存的效果。使用它的模型会保留其效果。",
+  "This file is not an FX look.": "此文件不是 FX 效果。",
+  "Keeps this look under a name, or writes it to a file to share.": "以名称保存此效果，或写入文件以便分享。",
+  "Opens a look file. It is added to My looks and used right away.": "打开效果文件。文件会添加到“我的效果”并立即使用。",
+  "Too many saved looks.": "已保存的效果过多。",
+  "This look could not be saved.": "无法保存此效果。",
+  "Look file": "效果文件"
 }

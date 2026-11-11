@@ -13,9 +13,6 @@ test('a stack whose look this PC does not list compiles, saves, reopens and gets
  for(const format of ['mdx','mdl']){
   const doc=createDemoDocument(),frame=partFrame(doc.model.Geosets[0]);
   const stack={owner:'own-test',look:'own:whatever',name:'My fire',loop:1760,impact:false,layers:flames(frame).slice(0,2)};
-  assert.equal(typeof looks.lookOf,'function','lookOf is exported');
-  const stand=looks.lookOf(stack);
-  assert.deepEqual([stand.id,stand.name,stand.group,stand.loop,stand.palette,stand.layers.length,stand.custom],['own:whatever','My fire','My looks',1760,'native',0,true]);
   compileAnimation(doc.model,0,stack);
   const reopened=openDocument(doc.serialize(format),'own.'+format),read=readAnimationStack(reopened.model,0);
   assert.ok(read,format+': the saved stack is read back although no built-in look has its id');
@@ -24,6 +21,9 @@ test('a stack whose look this PC does not list compiles, saves, reopens and gets
   const again=structuredClone(read);again.layers[0].strength=.5;
   compileAnimation(reopened.model,0,again);
   assert.equal(readAnimationStack(reopened.model,0).layers[0].strength,.5,format+': it re-applies');
+  assert.equal(typeof looks.lookOf,'function','lookOf is exported');
+  const stand=looks.lookOf(stack);
+  assert.deepEqual([stand.id,stand.name,stand.group,stand.loop,stand.palette,stand.layers.length,stand.custom],['own:whatever','My fire','My looks',1760,'native',0,true]);
  }
  assert.equal(looks.lookOf({look:'sort-thorn'}).id,'sort-thorn','a built-in look stays itself');
  assert.equal(looks.lookOf({look:'nobody'}).name,'Custom look');

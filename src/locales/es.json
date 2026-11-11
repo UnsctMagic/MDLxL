@@ -7830,5 +7830,14 @@
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
   "Bones *": "Huesos *",
-  "Empty": "Vacío"
+  "Empty": "Vacío",
+  "My looks": "Mis efectos",
+  "Delete this look": "Eliminar este efecto",
+  "Deletes this saved look. Models that use it keep their effect.": "Elimina este efecto guardado. Los modelos que lo usan conservan su efecto.",
+  "This file is not an FX look.": "Este archivo no es un efecto FX.",
+  "Keeps this look under a name, or writes it to a file to share.": "Guarda este efecto con un nombre o lo escribe en un archivo para compartirlo.",
+  "Opens a look file. It is added to My looks and used right away.": "Abre un archivo de efecto. Se añade a Mis efectos y se usa al momento.",
+  "Too many saved looks.": "Demasiados efectos guardados.",
+  "This look could not be saved.": "No se pudo guardar este efecto.",
+  "Look file": "Archivo de efecto"
 }
