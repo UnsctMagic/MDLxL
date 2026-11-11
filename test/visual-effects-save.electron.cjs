@@ -4,7 +4,8 @@ const {root,launchApp,closeApp,stubDialogs}=require('./helpers/app.cjs');const {
 (async()=>{
  const {GLOBAL_LOOKS}=await import('../src/global-animation-looks.js'),{fxData}=await import('../src/global-animation-data.js'),{openDocument}=await import('../src/editor-document.js');
  const requested=process.env.FX_LOOKS?.split(',');
- const cases=Array.from(GLOBAL_LOOKS.entries()).filter(([,look])=>!requested||requested.includes(look.id));
+ // Empty (12eac16a) has no layers, so Apply leaves nothing to save; fx-own-looks covers it with a layer added.
+ const cases=Array.from(GLOBAL_LOOKS.entries()).filter(([,look])=>look.layers.length&&(!requested||requested.includes(look.id)));
  assert.ok(cases.length,'No matching FX looks');
  const out=path.join(root,'out/visual-effects-save',requested?cases[0][1].id:'all');fs.mkdirSync(out,{recursive:true});
  const targets=[['WH_WOC_WarriorSlaaneshDual01.mdx',28,26],['optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx',18,12],['surface-effects/WH_WOC_WarriorNurgle02.mdx',19,8]];
