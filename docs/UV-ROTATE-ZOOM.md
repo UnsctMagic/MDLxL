@@ -12,7 +12,7 @@ fix the code, not the test numbers.
 pick another feel (`preferences.uvDrag`, `src/uv-drag-settings.js`), and an
 always-visible **Each piece** toggle in the UV Wrapper turns or zooms each
 separate piece on its own spot. The MDLxL preset and the fallback for existing
-profiles keep centre Zoom. On 10 Nov 2026, the owner chose right/up Zoom for
+profiles keep centre Zoom for profiles that existed before 11 Nov 2026. On 10 Nov 2026, the owner chose right/up Zoom for
 first launch of fresh downloads. On 11 Nov 2026, the owner confirmed that both
 Restore buttons and the MDLxL preset use right/up on those profiles. Older
 profiles retain centre Zoom as their default. All of it is UV Wrapper only. 3D tools and FX
