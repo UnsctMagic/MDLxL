@@ -455,8 +455,8 @@ export default function Viewport({ children, ...inputProps }) {
       }
       if (p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const animated = p.vertexPreviewSequence != null;
-      const posedEditing = !animated && state.nodes.some(node => node.Flags & 120);
-      if (posedEditing) applyPreviewPose(p, camera);
+      const posedEditing = animated || state.nodes.some(node => node.Flags & 120);
+      if (!animated && posedEditing) applyPreviewPose(p, camera);
       const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3();
       const editedPose = animated ? {} : null, visiblePivot = new THREE.Vector3(), vertex = new THREE.Vector3();
       let count = 0, posedSelection = false, poseInvertible = true;
@@ -494,8 +494,14 @@ export default function Viewport({ children, ...inputProps }) {
         pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
         if (animated) visiblePivot.fromBufferAttribute(state.entries[anchor.geosetIndex].geometry.attributes.position, anchor.vertexIndex);
       }
-      // Screen handles follow the frozen mesh. The transform pivot stays in the base pose.
       const viewPivot = animated ? visiblePivot : pivot;
+      const animatedWorldEdit = animated && posedSelection && poseInvertible;
+      if (animatedWorldEdit) {
+        for (const key of Object.keys(selectedMap)) {
+          snapshots[key] = new Float32Array(state.entries[key].geometry.attributes.position.array);
+        }
+        pivot.copy(visiblePivot);
+      }
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(viewPivot, start);
@@ -510,7 +516,7 @@ export default function Viewport({ children, ...inputProps }) {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: viewPivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor, ctrl: dragKeys(event, 'rotate', p.preferences).ctrlKey, reach: screenPivot => selectionReach(selectedMap, animated ? null : snapshots, animated ? null : rotatePieces, screenPivot, start) });
       }
-      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, animatedWorldEdit, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
       if (down.rotationDrag?.straight) invalidate();
     }
     /** Big selections: how far the selection reaches on screen from its pivot, or each piece from its own centre. */
@@ -659,13 +665,21 @@ export default function Viewport({ children, ...inputProps }) {
         }
         const positions=constrained?.modelPositions?.[key];
         if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
+        if (drag.animatedWorldEdit) {
+          // The gesture is solved on the frozen mesh. Keep its inverse-skinned
+          // base positions for commit and for any resample during the drag.
+          for (const [slot, index] of indices.entries()) {
+            vertex.fromBufferAttribute(position, index).applyMatrix4(drag.poseInverses[key][slot]);
+            position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+          }
+        }
         if (drag.editedPose) skinEditedVertices(entry, drag, key);
         display.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
-      if (drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
+      if (drag.animatedWorldEdit || drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
         const modelPositions = {};
         for (const [key, indices] of Object.entries(drag.selections)) {
-          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.poseInverses?.[key], values = [];
+          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.editedPose ? null : drag.poseInverses?.[key], values = [];
           for (let slot = 0; slot < indices.length; slot++) {
             vertex.fromBufferAttribute(position, indices[slot]); if (inverses) vertex.applyMatrix4(inverses[slot]);
             values.push(vertex.x, vertex.y, vertex.z);

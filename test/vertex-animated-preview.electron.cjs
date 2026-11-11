@@ -19,6 +19,8 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     createSequence(model, 250, { name: 'Stand', gap: 250 });
     const bone = model.Bones[0];
     setKey(bone, 'Rotation', 100, [0, 0, Math.SQRT1_2, Math.SQRT1_2]);
+    setKey(bone, 'Rotation', 250, [0, 0, Math.SQRT1_2, Math.SQRT1_2]);
+    setKey(bone, 'Rotation', 450, [.5, 0, 0, Math.sqrt(.75)]);
     setKey(bone, 'Translation', 100, [12, -6, 0]);
     setKey(bone, 'Translation', 450, [45, 19, 0]);
     setKey(bone, 'Translation', 700, [-24, 17, 0]);
@@ -69,7 +71,8 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     await painted(-1, 0);
     await page.getByLabel('View direction', { exact: true }).selectOption('top');
     await page.getByLabel('XY workplane', { exact: true }).check();
-    await host.focus();
+    const hostBox = await host.boundingBox();
+    await page.mouse.click(hostBox.x + 5, hostBox.y + 5);
     assert.equal(await button.getAttribute('aria-pressed'), 'false');
     assert.equal(await picker.inputValue(), '0');
     assert.ok((await picker.boundingBox()).width <= 20, 'only the arrow-sized picker receives clicks');
@@ -131,10 +134,15 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     await page.mouse.down();
     await page.mouse.move(start.x + 18, start.y + 5, { steps: 4 });
     await page.waitForFunction(() => vertexPreviewRuntime().drag?.payload?.translation?.some(value => Math.abs(value) > .01));
+    const moved = await screenVertex(0);
+    assert.ok(Math.abs(moved.x - start.x - 18) < 1 && Math.abs(moved.y - start.y - 5) < 1,
+      'the frozen vertex follows the pointer: ' + JSON.stringify({ start, moved }));
     const live = await inspect();
     assert.deepEqual(live.vertices, rest.vertices, 'live drag leaves the authored model alone until release');
     const expected = structuredClone(doc.model.Geosets[0]);
-    transformVertices(expected, [0], live.drag.translation, [1, 1, 1], [0, 0, 0], live.drag.pivot);
+    // The frozen bone is turned 90 degrees about Z. Its inverse maps the screen-space move back to the base.
+    const [x, y, z] = live.drag.translation;
+    transformVertices(expected, [0], [y, -x, z], [1, 1, 1], [0, 0, 0], live.drag.pivot);
     closeArray(live.drawn, expectedPose(expected.Vertices, 0, 250), 'live preview skins the edited base vertex at the chosen frame');
     await page.mouse.up();
     await page.waitForFunction(() => !vertexPreviewRuntime().drag && vertexPreviewRuntime().entries[0].geoset.Vertices[0] !== -32);
@@ -180,7 +188,61 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     const undone = await inspect();
     assert.deepEqual(undone.vertices, rest.vertices);
     closeArray(undone.drawn, expectedPose(undone.vertices, 1), 'undo refreshes the frozen preview');
+    await page.getByRole('button', { name: 'Quad View', exact: true }).click();
+    await page.getByLabel('View direction', { exact: true }).selectOption('top');
+    await page.getByLabel('XY workplane', { exact: true }).check();
+    await picker.click();
+    await page.waitForFunction(() => document.querySelector('.vertex-animation-picker select').matches(':open'));
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ArrowUp');
+    await painted(0, 100);
+    await button.click({ button: 'right' });
+    await field.click();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type('450');
+    await page.keyboard.press('Enter');
+    await painted(0, 450);
+    await page.keyboard.press('Control+a');
+    await page.waitForFunction(() => vertexPreviewRuntime().entries[0].selectedPoints.geometry.index?.count > 1);
+    const tilted = await inspect();
+    const pane = await host.boundingBox();
+    const center = await screenVertex(0);
+    const begin = { x: Math.min(pane.x + pane.width - 135, center.x + 70), y: Math.min(pane.y + pane.height - 135, center.y + 60) };
+    for (const tool of ['r', 'z']) {
+      await page.keyboard.press(tool);
+      await page.mouse.move(begin.x, begin.y);
+      await page.mouse.down();
+      if (tool === 'r') {
+        const rotation = await page.evaluate(() => {
+          const drag = vertexPreviewRuntime().drag.rotationDrag;
+          return { tangent: drag.tangent, circle: drag.circle, pivot: drag.pivot, start: drag.start };
+        });
+        if (rotation.circle) {
+          const dx = rotation.start.x - rotation.pivot.x, dy = rotation.start.y - rotation.pivot.y;
+          for (let step = 1; step <= 8; step++) {
+            const angle = step * Math.PI / 16;
+            await page.mouse.move(pane.x + rotation.pivot.x + dx * Math.cos(angle) - dy * Math.sin(angle),
+              pane.y + rotation.pivot.y + dx * Math.sin(angle) + dy * Math.cos(angle));
+          }
+        } else await page.mouse.move(begin.x + rotation.tangent.x * 50, begin.y + rotation.tangent.y * 50, { steps: 8 });
+      } else await page.mouse.move(begin.x + 35, begin.y, { steps: 8 });
+      await page.waitForFunction(tool => {
+        const drag = vertexPreviewRuntime().drag?.payload;
+        return tool === 'r' ? drag?.rotation?.some(value => Math.abs(value) > 1) : drag?.scale?.some(value => Math.abs(value - 1) > .01);
+      }, tool);
+      const turned = await inspect();
+      const visiblePivot = await page.evaluate(() => vertexPreviewRuntime().drag.viewPivot.toArray());
+      const posed = { Vertices: new Float32Array(tilted.drawn) };
+      transformVertices(posed, tilted.selection, [0, 0, 0], turned.drag.scale || [1, 1, 1], turned.drag.rotation || [0, 0, 0], visiblePivot);
+      closeArray(turned.drawn, posed.Vertices, (tool === 'r' ? 'Rotate' : 'Resize') + ' follows the frozen workplane');
+      await page.mouse.up();
+      await page.waitForFunction(before => vertexPreviewRuntime().entries[0].geoset.Vertices.some((value, index) => value !== before[index]), tilted.vertices);
+      closeArray((await inspect()).drawn, turned.drawn, 'release keeps the posed edit');
+      await page.keyboard.press('Control+z');
+      await page.waitForFunction(before => vertexPreviewRuntime().entries[0].geoset.Vertices.every((value, index) => value === before[index]), tilted.vertices);
+      closeArray((await inspect()).drawn, tilted.drawn, 'undo restores the frozen pose');
+    }
     assert.deepEqual(errors, []);
-    console.log('PASS frozen preview, right-click frame selection and reset, vertex picking, live base-pose edits, undo, mouse orbit and quad switching');
+    console.log('PASS frozen preview, frame selection, vertex picking, posed Move, Rotate and Resize with base-pose commits, exact undo, mouse orbit and quad switching');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
