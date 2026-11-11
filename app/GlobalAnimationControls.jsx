@@ -8,14 +8,14 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {findLook,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
+import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 export default function GlobalAnimationControls({overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
- const look=findLook(stack.look),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
+ const look=lookOf(stack),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
  const setLayer=next=>setStack({...stack,layers:stack.layers.map(v=>v.id===next.id?next:v)});

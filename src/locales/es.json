@@ -7829,5 +7829,6 @@
   "Folder *": "Carpeta *",
   "Controller *": "Controlador *",
   "Citadel *": "Ciudadela *",
-  "Bones *": "Huesos *"
+  "Bones *": "Huesos *",
+  "Empty": "Vacío"
 }

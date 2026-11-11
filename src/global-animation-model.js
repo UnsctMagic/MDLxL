@@ -3,7 +3,7 @@ import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateC
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
-import {findLook,partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint} from './global-animation-looks.js';
+import {partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint} from './global-animation-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
 import {visitTracks,sampleNodeMatrices,geosetSkinMatrix} from './animation.js';
@@ -477,7 +477,7 @@ export function animationPart(model,index){
 /** Read quick-control values from their native managers. More complex authored tracks stay intact. */
 export function readAnimationStack(model,index){
  const saved=model.Geosets[index]?._FxStack;
- if(!saved||!findLook(saved.look))return null;
+ if(!saved||typeof saved.look!=='string')return null;
  const draft=structuredClone(saved);
  for(const l of draft.layers){
   const prefix=draft.owner+'/'+l.id+'/';

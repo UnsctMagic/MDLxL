@@ -7,7 +7,8 @@ import GameIcon from './GameIcon.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
 import GlobalAnimationControls from './GlobalAnimationControls.jsx';
 import GlobalAnimationStage from './GlobalAnimationStage.jsx';
-import {GLOBAL_LOOKS,findLook,newStack,partFrame,withLayerTexture,withParticleStrength,withLayerSize} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,lookOf,newStack,partFrame,withLayerTexture,withParticleStrength,withLayerSize} from '../src/global-animation-looks.js';
+import {ownLookFrom,stackFromOwnLook} from '../src/fx-own-looks.js';
 import {animationPart,compileAnimation,readAnimationStack,impactDefaults,strengthPasses,previewCoordinates,FX_SECTIONS} from '../src/global-animation-model.js';
 import {createFrameCoalescer} from './viewport-performance.js';
 import {globalAssetKey,createGlobalLibrary} from './global-animation-library.js';
@@ -45,7 +46,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const [combined,setCombined]=useState(groupChoice.length>1);
  const [part,setPart]=useState(()=>{const start=animationPart(doc.model,doc.model.Geosets[initialGeoset]?initialGeoset:0);return groupChoice.length>1&&!groupChoice.includes(start)?groupChoice[0]:start;});
  const members=useMemo(()=>combined?groupChoice.filter(i=>i!==part):[],[combined,groupChoice,part]);
- const makeStack=(entry,index,current)=>{const saved=readAnimationStack(doc.model,index);if(saved?.look===entry.id)return saved;const next=newStack(entry,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());return entry.impact?{...next,...impactDefaults(doc.model,index,current)}:next;};
+ const makeStack=(entry,index,current)=>{const saved=readAnimationStack(doc.model,index);if(saved?.look===entry.id)return saved;if(entry.own)return stackFromOwnLook(entry.own,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());const next=newStack(entry,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());return entry.impact?{...next,...impactDefaults(doc.model,index,current)}:next;};
  const [stack,setStack]=useState(()=>readAnimationStack(doc.model,part)||makeStack(GLOBAL_LOOKS[0],part,sequenceIndex));
  const drafts=useRef(new Map());drafts.current.set(part,stack);
  // Each part as first shown: only a change from that is unapplied work.
@@ -54,7 +55,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const [selectedLayer,selectLayer]=useState(()=>stack.layers.find(l=>l.kind==='flame')?.id||stack.layers[0]?.id);
  const [picture,setPicture]=useState(null),strengthDrag=useRef(null);
  const [loadGlobal]=useState(()=>createGlobalLibrary()),[search,setSearch]=useState('');
- const [folders,setFolders]=useState(()=>new Set([findLook(stack.look).group]));
+ const [folders,setFolders]=useState(()=>new Set([lookOf(stack).group]));
  const [loaded,setLoaded]=useState(null),[error,setError]=useState(''),[previewError,setPreviewError]=useState(''),[ready,setReady]=useState(false);
  const [playing,setPlaying]=useState(true),[sequence,setSequence]=useState(()=>sequenceIndex>=0?sequenceIndex:standSequenceIndex(doc.model));
  const [cameraMode,setCameraMode]=useState('work'),[placing,setPlacing]=useState(false),[original,setOriginal]=useState(false),[solo,setSolo]=useState(false),[highlight,setHighlight]=useState(false);
@@ -109,14 +110,16 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const geosetOptions=useMemo(()=>doc.model.Geosets.map((g,i)=>{const name=imageTextureLayers(doc.model,i)[0]?.path?.split(/[\\/]/).at(-1)?.replace(/\.[^.]+$/,'');return {value:i,label:'Geoset '+(i+1)+' · '+(name||g.Vertices.length/3+' vertices')};}),[doc,doc.revision]);
  const targetOptions=groupChoice.length>1?[{value:-1,label:'Selected geosets ('+groupChoice.length+')'},...geosetOptions]:geosetOptions;
  const pickTarget=value=>{if(value===-1){setCombined(true);if(!groupChoice.includes(part))pickGeoset(groupChoice[0]);return;}setCombined(false);pickGeoset(value);};
+ // A look this PC does not list (someone else's own look) is kept by the stack itself.
+ const entryOf=current=>findLook(current.look)||{id:current.look,name:current.name||'Custom look',group:'My looks',layers:current.layers,own:{...ownLookFrom(current,partFrame(doc.model.Geosets[part]),current.name||'Custom look'),id:current.look}};
  const choose=(entry,index=part)=>{if(entry.id===stack.look&&index===part)return;const next=makeStack(entry,index,sequence);setStack(next);setTrial(null);selectLayer(next.layers.find(l=>l.kind==='flame')?.id||next.layers[0]?.id);setOriginal(false);setPlacing(false);if(next.impact&&next.sequence>=0)setSequence(next.sequence);};
- const pickGeoset=index=>{index=animationPart(lastModel.current,index);if(!doc.model.Geosets[index]||index===part)return;setPart(index);setTrial(null);const saved=drafts.current.get(index)||readAnimationStack(doc.model,index);if(saved){setStack(saved);selectLayer(saved.layers[0]?.id);setFolders(old=>new Set([...old,findLook(saved.look).group]));}else choose(findLook(stack.look),index);setPlacing(false);};
+ const pickGeoset=index=>{index=animationPart(lastModel.current,index);if(!doc.model.Geosets[index]||index===part)return;setPart(index);setTrial(null);const saved=drafts.current.get(index)||readAnimationStack(doc.model,index);if(saved){setStack(saved);selectLayer(saved.layers[0]?.id);setFolders(old=>new Set([...old,lookOf(saved).group]));}else choose(entryOf(stack),index);setPlacing(false);};
  const isolated=useMemo(()=>solo?[...new Set([part,...members,...(!original&&graph?.layers?Object.values(graph.layers).map(l=>l.geoset).filter(i=>i>=0):[])])]:undefined,[solo,part,members,original,graph]);
  const hidden=useMemo(()=>isolated?new Set(doc.model.Geosets.map((_,i)=>i).filter(i=>!isolated.includes(i))):undefined,[doc,doc.revision,isolated]);
  const message=error||graph?.error||previewError,layer=stack.layers.find(l=>l.id===selectedLayer);
  const query=search.trim().toLowerCase(),matches=GLOBAL_LOOKS.filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
  const groups=[...new Set(matches.map(e=>e.group))];
- const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+findLook(stack.look).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,loaded));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
+ const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(!previewStack.layers.length&&!readAnimationStack(doc.model,part)){onClose();return;}if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+lookOf(stack).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,loaded));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
  return <ToolWindow title="Surface Effects" overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose} unapplied={unapplied}
   after={picture!=null&&<Suspense fallback={null}><TextureLibrary model={doc.model} onClose={()=>setPicture(null)} selectLabel="Use picture" onSelectTexture={async asset=>{
    const [file]=await resolveGameFiles([asset.name]);if(!file)throw Error('Choose a native Warcraft texture.');

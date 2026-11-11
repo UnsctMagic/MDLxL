@@ -10,7 +10,7 @@ import {compileAnimation} from '../src/global-animation-model.js';
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 const hash=layer=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
-for(const look of looks.GLOBAL_LOOKS)test(look.name+' starts with its intended particle defaults and offers its original emitters first',()=>{
+for(const look of looks.GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' starts with its intended particle defaults and offers its original emitters first',()=>{
  const doc=fixture(),frame=looks.partFrame(doc.model.Geosets[0]),stack=looks.newStack(look,frame,'empty');
  const same=(a,b)=>a.label===b.label&&a.image===b.image&&a.kind===b.kind,choices=looks.emitterChoices(look);
  const own=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((spec,i,all)=>spec.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&same(o,spec))===i);

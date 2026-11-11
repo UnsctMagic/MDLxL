@@ -3,6 +3,7 @@ import {Triangle,Vector3} from 'three';
 import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
+import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
@@ -54,6 +55,7 @@ export const GLOBAL_LOOKS=[
  make('motes','Motes','Around the unit',3250,'lilac',[dust('Drifting lights','motes',texture('GenericGlow64'))]),
  make('rising-embers','Rising embers','Around the unit',2100,'copper',[embers()]),
  make('frost-mist','Frost mist','Around the unit',3150,'glacier',[frost()]),
+ make('empty','Empty','Build your own',3000,'native',[]),
  make('moving-own','Moving own texture','Your textures',3200,'native',[skin('Moving texture',null,{base:true,own:true})]),
  make('colour-pulse','Colour pulse','Your textures',2600,'lilac',[pulse()]),
  make('fade-pulse','Fade pulse','Your textures',2750,'native',[skin('Breathing opacity',null,{base:true,own:true,pulse:'fade'})]),
@@ -93,7 +95,7 @@ export const LIBRARY=[
  ['Poison & nature',[['poison-skin','Poison'],['poison'],['felwood-curse'],['venom-seep'],['claude-corrupted-veins'],['sort-briar'],['sort-ink'],['fly-swarm'],['claude-plague-swarm']]],
  ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
  ['Death & spirit',[['claude-wraith-form'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],
- ['Build your own',[['moving-own','Moving texture'],['colour-pulse'],['fade-pulse']]],
+ ['Build your own',[['empty','Empty'],['moving-own','Moving texture'],['colour-pulse'],['fade-pulse']]],
 ];
 {
  const all=new Map(GLOBAL_LOOKS.map(l=>[l.id,l])),listed=new Set(LIBRARY.flatMap(([,rows])=>rows.map(([id])=>id)));
@@ -101,6 +103,8 @@ export const LIBRARY=[
 }
 // A saved impact remains editable. It is never offered in the library or search.
 export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredLooks.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);
+/** The look a stack uses: a built-in one, or a stand-in for a look this PC does not list (the user's own, or one from another model). */
+export const lookOf=stack=>findLook(stack.look)||{id:stack.look,name:stack.name||'Custom look',group:'My looks',loop:stack.loop,palette:'native',layers:[],custom:true};
 export function withIceVariation(stack,frame,variant){
  const names=new Set([...ICE_VARIANTS.dark,...ICE_VARIANTS.white].map(l=>l.label));
  const surfaces=stack.layers.filter(l=>names.has(l.label)),extra=stack.layers.filter(l=>!names.has(l.label));
@@ -257,15 +261,8 @@ export function surfaceControls(l,canTile){
  return {moving:!l.powerArcs,speed:!l.powerArcs&&(moves||!!l.frames),direction:!l.glyphs&&(area||l.own&&!canTile?moves:true),tiling:!l.glyphs&&!area&&canTile,area};
 }
 export function makeLayer(spec,frame,palette,id) {
- frame=frame.regions?.[0]?.frame||frame;
- const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
- const properties={
-  flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,46,.72,unit*3.6,-unit*5,unit*.40],
-  crackle:[3,4,.40,unit*6.2,0,unit*2.25],sparks:[4,58,.38,unit*6,unit*.5,unit*.45],mist:[5,22,1.18,-unit*.52,unit*2.5,unit*1.72],
-  drops:[4,7,.69,-unit*.5,unit*7,unit*.33],motes:[4,11,1.05,unit*.7,-unit*.35,unit*.53],
-  flies:[5,5,.09,0,0,Math.max(2.1,Math.min(8,length*.066+radius*.037))],
- };
- const p=properties[spec.kind]||[1,24,.12,1,0,1];
+ const basis=layerBasis(frame),{length}=basis;
+ const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
  const {starts:_starts,...saved}=structuredClone(spec);
  if(surfaceIngredient(spec)&&!spec.stamp){
@@ -275,7 +272,7 @@ export function makeLayer(spec,frame,palette,id) {
  }
  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
-  count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?Math.min(girth,length*.29)*1.35:spec.kind==='flies'?Math.max(radius*1.12,length*.32):p[5],
+  count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3],gravity:p[4],size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5],
   spriteSize:p[5],smoothness:32};
 }
 export function newStack(look,frame,owner) {

@@ -12,7 +12,7 @@ function fixture(real=false){
  const doc=real?openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx'):createDemoDocument(),g=doc.model.Geosets[0],frame=partFrame(g);
  return {doc,frame,donors:{rune:{Geosets:[structuredClone(g)],Materials:[{Layers:[{TextureID:0}]}],Textures:[{Image:LAYER_CHOICES.find(l=>l.type==='Rune').image}]}}};
 }
-for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
+for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
  const {doc,frame,donors}=fixture(look.impact),model=doc.model;
  const old=structuredClone(model.Sequences);
  const before={geos:model.Geosets.length,nodes:model.Nodes.filter(Boolean).length,mats:model.Materials.length};
