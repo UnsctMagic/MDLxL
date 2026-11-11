@@ -1,8 +1,8 @@
 # Review of main, 11 November 2026
 
-Status: combined local branch ready for Claude’s final review. All four follow-up hidden runs passed.
+Status: latest main merged locally. O2 verified, O7 approved, and the combined branch is ready for Claude’s final review.
 Owner / consolidator: Claude Code (review), Codex (fixes)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 ## Goal and completion criteria
 
@@ -81,18 +81,18 @@ was run; **read** = traced in the code, not run; **app** = needs the running app
 ### Owner decisions
 
 Claude listed a suggested answer for each question. Owner, 11 Nov 2026: "Yes, your
-picks". The Decision column is that suggested answer, now the owner's decision. O2 and
-O7 had no suggested answer and stay open.
+picks". The Decision column records those answers and the owner’s separate O2 and
+O7 decisions from 12 Nov.
 
 | ID | Question in plain words | PR | Decision |
 | --- | --- | --- | --- |
 | O1 | AnimXL, Selected bones: dragging on empty space now turns the camera. Box-select and click-empty-to-deselect are gone. Keep, or bring them back on Shift/Ctrl + drag? | #584 | Keep as it is. No work. Reopen only if the owner misses box-select. |
-| O2 | POSE: Rotate on an elbow or knee now turns the joint like any bone. The old swivel (turn the limb while the hand stays put) cannot be reached. Bring it back somewhere, or remove the leftover code? | #585 | **Open.** The owner has not said whether they used the swivel. Change nothing. |
+| O2 | POSE: Can the elbow or knee still swivel with the hand or foot held in place after #585 changed Rotate? | #585 | Owner, 12 Nov: “i didnt use it but why was it removed? not approved.” Verified on the packaged Footman: **Move** on Elbow or Knee swivels the bend with the endpoint fixed. **Rotate** turns the joint and respects a pinned endpoint. The new check passed with the existing POSE code. |
 | O3 | After tapping Alt (key hints), the next plain key is swallowed instead of doing its normal job. Wanted? | #602 | Put the old behaviour back: [contract 3](review-3-settings-keys.md) item 5. |
 | O4 | New installs start with right/up UV Zoom, but the UV preset reads "Custom" and Restore switches to centre Zoom. Should Restore keep right/up for them? | #602, #615 | Restore keeps right/up on new installs: contract 3 item 6. |
 | O5 | German and French keyboards: letter keys the user rebound before 0.39 may now sit on another key. No automatic fix is possible; add one line to the release notes? | #602 | One line in the 0.40.0 release notes: contract 3 item 7. |
 | O6 | Approve the new extents finding as an allowed addition in the flail check (G1)? All accepted outputs still match. | #581 | Approved: [contract 6](review-6-housekeeping.md) item 2. |
-| O7 | Still open from 0.39.0: Esc needs two presses when a tool holds unapplied work; hotkeys no longer fire buttons scrolled out of view; dropdown letter type-ahead is gone. | #602 | **Open.** Not asked in this round. Change nothing. |
+| O7 | From 0.39.0: Esc needs two presses when a tool holds unapplied work; hotkeys do not fire buttons scrolled out of view; dropdown letter type-ahead is gone. | #602 | Owner, 12 Nov: “yes approved.” Keep the three behaviors. |
 
 ### Process
 
@@ -156,7 +156,7 @@ Owner decisions from these five (same "Yes, your picks" on 11 Nov 2026):
 3. No new features, panels, settings or wording beyond what the item says. No version bump.
 4. Focused tests only; never the full packaged suite. Report exactly what was run.
 5. The owner's decisions are in the two "Owner decisions" tables above. An item still
-   marked **Open** there (O2, O7) is not touched. Do not choose for the owner.
+   marked **Open** there is not touched. Do not choose for the owner.
 6. Nothing online until the owner says "merge". Report `saved on your PC, not online`.
 7. On finishing: update the contract note (status, revision, checks, what is left), add a
    short plain-language summary for the owner, and hand back to Claude for review.
@@ -183,7 +183,7 @@ fail-first evidence, checks, and owner summary.
 - A3–A5 stay queued behind claude/fx-editor. Contract 1 removed one existing FX
   sweep line because the shared clock deletion now does that remap. The current
   FX editor branch still needs that overlap reconciled when integrated.
-- O2 and O7 remain open for the owner. The release lane has the O5 wording
+- O2 and O7 were still open at this handoff. The release lane has the O5 wording
   handoff. The owner confirmed the original Flail03 reference is missing and
   asked to record the known result and proceed. The release kit records the
   missing reference.
@@ -227,7 +227,7 @@ and two opt-in POSE corpus checks.
 - Paint camera controls, Escape, and translations were rechecked. The BITZ
   tab close choices and ShareX PID across Vertices and UV were verified on
   the hidden test desktop. Contract notes record their named checks.
-- FX Part B still waits on claude/fx-editor. O2 and O7 remain open. The O5
+- FX Part B still waits on claude/fx-editor. O2 and O7 were still open at this re-check. The O5
   text is ready in six languages for the next release-branch update.
 - Flail01 passed all 31 frozen comparisons. The release kit allows the known
   Flail03 mounted-spheres mismatch only while the historical file is missing.
@@ -307,8 +307,8 @@ MDLxL keeps the last good file if it cannot make a safety copy and offers
 Save As elsewhere. Claude’s final check should look at the animated
 vertex and BITZ recovery failures and the known shortcut-audit stop.
 
-O2 (POSE swivel) and O7 (the three 0.39.0 behaviors) still need owner
-decisions. FX Part B (A3–A5) waits on `claude/fx-editor`. The release kit
+O2 and O7 were still open at this combined handoff. See the 12 Nov decisions
+above. FX Part B (A3–A5) waits on `claude/fx-editor`. The release kit
 still records that Flail03’s mounted-spheres case needs the missing
 historical reference. The O5 text is ready for the next authorized
 update of the separate release branch.
@@ -388,3 +388,60 @@ open. The two earlier hotkey audit passes at `8b9130e5` still apply.
 Only the vertex harness and this note changed. Logs are in
 `out/vertex-recheck`. The combined branch is back with Claude for a local,
 review-only final check.
+
+## Main update and owner decisions, 12 November 2026
+
+Local branch `codex/main-review-20261111-all` started at `7e3faedf`.
+It merged the local `origin/main` at `f49889b9` (PR #627), then
+`claude/main-review-2026-11-11` at `c188ad03`. Both were plain merges
+with no conflicts. Merged app tip `84e3b068`. Test revision `7c255671`.
+
+On the packaged SD Footman at frame 500, a real mouse drag in **Move**
+on the selected **Elbow** or **Knee** aimed the bend around the fixed
+hand or foot. The shoulder and hip stayed fixed. Settled preview and
+committed measurements matched. Each gesture added exactly one undo
+step, and Undo restored the entire model exactly.
+
+| Move control | Hand/foot world displacement | Shoulder/hip world displacement | Bend world displacement | Screen movement toward drag |
+| --- | ---: | ---: | ---: | ---: |
+| Arm Elbow | 0.000000336 | <0.000000000001 | 5.9745 | 13.9941 px |
+| Leg Knee | 0.000000526 | <0.000000000001 | 3.4783 | 5.9620 px |
+
+The endpoint tolerance was 0.004 model units. The existing Rotate
+checks passed at three camera views, including the pinned-foot case.
+The POSE implementation, `swivelPoseLimb` and its source tests remain
+as they were. O7 is approved as recorded in the owner table above.
+
+### Checks on the merged branch
+
+| Command or hidden harness | Result |
+| --- | --- |
+| `node --check test/pose-sd-controls.electron.cjs` | Passed |
+| `pnpm run build` | Passed with Vite’s chunk-size warning |
+| `pnpm run test:source` | 3,330 passed, 0 failed, 10 skipped |
+| `pnpm test` | 57 passed, 0 failed, 0 skipped |
+| `node .github/check-test-baseline.mjs out/main-20261112/source.fails .github/known-test-failures.txt` | 3,340 reporter passing events including skips, 0 failing, 0 baseline entries, 0 new |
+| `pose-sd-controls.electron.cjs` | Once, 11 reported checks passed, exit 0 |
+| `pose-ik.electron.cjs` | Once, 26 reported checks passed, exit 0 |
+| `emtr-add-like-ribbons.electron.cjs` | Once with `MDLXL_PLACEMENT_REVIEW=1`, P1/P4/P5/P6 passed, exit 0 |
+| `surface-effects.electron.cjs` | Once, the Tzeentch Knight check passed, exit 0 |
+
+The first source run used an `MDLXL_TEMP` override and reported 14
+failures in fixture-dependent tests and the default-temp assertion.
+The rerun used the repository’s default `out/tmp` and passed without
+code or baseline edits. The ten skips are the same optional input
+and Windows-specific skips documented above.
+
+The four harnesses used one offline package of `84e3b068` and the
+hidden Windows test desktop. Packaging verified 1,510 runtime and
+asset files and 55 locale files. The PR #627 checks came from the local
+`D:\Codex\mdlxl-interactive-preview-pause-review.md` report. The original
+SD Footman and Tzeentch Knight fixtures were available. Logs and
+measurements are in `out/main-20261112`.
+
+**For the owner.** To swivel a limb, select its Elbow or Knee control
+and drag with Move. The hand or foot stays in place. Rotate still turns
+the joint and honors a pin. O7’s three behaviors are approved as they are.
+
+Claude’s next step is a local review only. FX Part B and the missing
+historical Flail03 reference remain as recorded above.
