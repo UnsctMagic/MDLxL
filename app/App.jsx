@@ -27,6 +27,7 @@ import UVWindow from './UVWindow.jsx';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
 import { hasDesktop, resolveGameFiles } from './desktop.js';
+import { useCaptureRegions } from './useCaptureRegions.js';
 import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
 import Learn from './Learn.jsx';
@@ -270,6 +271,8 @@ export default function App() {
   // preview's callback closure retain the previous preview, forming a chain.
   const captureAPI = useRef(null);
   const setCaptureAPI = useCallback(api => { captureAPI.current = api; }, []);
+  const captureViewport = useRef(null), captureToolbox = useRef(null);
+  useCaptureRegions(captureViewport, captureToolbox, preferencesReady && ['vertices', 'animation', 'bones'].includes(mode));
   const viewportCaptureAPI = useRef(null);
   const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
@@ -1835,7 +1838,7 @@ export default function App() {
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
-    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
+    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}${mode === 'manager' ? ' manager-immersive' : ''}`} inert={saving || undefined}><section className="classic-view" ref={captureViewport}>
       <WarningToasts messages={warnings} onDismiss={id => setWarnings(previous => previous.filter(item => item.id !== id))} actionWarning={duplicateAnimations.length ? { id: session.id, message: 'Duplicate geoset animations', title: 'Some geosets have more than one animation record. The model works; click to choose which record to keep.', onAction: () => setDialog({ type: 'geosetRepair' }) } : null}/>
       {mode !== 'manager' && <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
@@ -1899,7 +1902,7 @@ export default function App() {
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
-    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <aside className="classic-sidebar">
+    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && mode !== 'manager' && <aside className="classic-sidebar" ref={captureToolbox}>
       <SidebarResizer/>
       {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
