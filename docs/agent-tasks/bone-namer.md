@@ -83,7 +83,7 @@ Rules:
 
 - **Side** `_L` / `_R` is decided by position, never by the old name: Warcraft III
   units face +X, so +Y is the unit's left (y = 0 counts as left, as in
-  Attachemator). Use Stand-pose world positions (Stand = `attachematorStandSequence`,
+  Attachemator). Use Stand-pose world positions (Stand = `standSequenceIndex` in `src/sequence-editor.js`, Attachemator's Stand rule,
   its first frame; node maths from `src/animation.js`). Trunk parts, Head and
   Tail never get a side. Never give a trunk name a side (POSE demotes a mirrored
   pair named Pelvis/Body/Chest).
@@ -212,8 +212,8 @@ control styles.
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
-(`pose-ik.js` `suggestPoseRig`/`poseChainIds`, `attachemator.js`
-`attachematorStandSequence`, `animation.js` node maths and `sampleGeosetAnimation`,
+(`pose-ik.js` `suggestPoseRig`/`poseChainIds`, `sequence-editor.js`
+`standSequenceIndex`, `animation.js` node maths and `sampleGeosetAnimation`,
 `node-hierarchy.js` `nodeIndex`/`uniqueName`, `bone-tools.js` `renameRigNode`).
 
 ```js
