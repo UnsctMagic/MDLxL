@@ -171,3 +171,33 @@ Updated: 2026-11-11
   Attachemator outputs identical to main's on all. Letting one of those tools
   use the new clues is a separate change with its own library comparison.
 - `rig.inferred` lists the roles `posePartGaps` added.
+
+## Renamed rigs (2026-11-11)
+
+Fault 1 measured 864 limb ends with rigid skin and no Bone or Helper children
+across 1,019 models at baseline 85bcfabd. G1 received a skin grip. G2 had
+a matching name prefix and passed the centre-distance test. G3 had a matching
+prefix and failed that test. Other ends had neither the prefix nor a grip.
+Distances are divided by the end-to-parent segment length. Each distance cell
+shows min / P10 / median / P90 / max.
+
+| Group | Ends | Models | (a) Nearest vertex | (b) Skin box | (c) Skin centre | Matching refs (ends / refs) | (d) Ref to skin centre | (d) Ref to pivot |
+|---|---:|---:|---|---|---|---:|---|---|
+| G1 | 172 | 103 | 0.1798 / 0.7123 / 1.0388 / 1.3568 / 2.0028 | 0.0000 / 0.4201 / 0.9571 / 1.3568 / 1.9103 | 0.7091 / 0.7707 / 1.2701 / 1.6754 / 3.5933 | 100 / 104 | 0.0666 / 0.1405 / 0.2228 / 0.7644 / 1.0852 | 0.3238 / 0.6343 / 1.1871 / 1.6733 / 1.8483 |
+| G2 | 55 | 35 | 0.0997 / 0.4032 / 0.8035 / 1.0974 / 2.1147 | 0.0000 / 0.0000 / 0.6210 / 0.8642 / 2.1147 | 0.7012 / 0.7127 / 0.9010 / 1.4339 / 2.1147 | 45 / 45 | 0.0380 / 0.2460 / 0.5740 / 1.0739 / 1.5867 | 0.2229 / 0.2950 / 0.4300 / 1.6192 / 2.4964 |
+| G3 | 311 | 115 | 0.0318 / 0.3336 / 0.5301 / 0.7023 / 0.9023 | 0.0000 / 0.0000 / 0.3609 / 0.5315 / 0.6234 | 0.0307 / 0.3267 / 0.4741 / 0.6299 / 0.6945 | 289 / 301 | 0.0408 / 0.1116 / 0.2851 / 0.5023 / 3.0674 | 0.0907 / 0.1733 / 0.3876 / 0.5838 / 2.8642 |
+| Other | 326 | 121 | 0.0260 / 0.2043 / 0.5014 / 1.6373 / 3.8716 | 0.0000 / 0.0000 / 0.2966 / 1.5331 / 3.8716 | 0.1267 / 0.2585 / 0.5533 / 1.6779 / 3.8716 | 83 / 83 | 0.0341 / 0.1143 / 0.1791 / 0.4679 / 0.9458 | 0.1250 / 0.2662 / 0.4091 / 0.7443 / 1.2737 |
+
+The geometry and attachment measures overlap between G1 and G2. The decision
+is "no POSE change, solved by naming in Bone Namer". Bone Namer avoids giving
+the Bone_ prefix to ends POSE grips by skin. The measurement report and
+per-end TSV are in the task worktree under out/.
+
+Fault 2 library comparison against 85bcfabd covered 1,020 models. Of these,
+1,011 were identical and 9 moved a Head handle to a named descendant and
+gave the former joint a Neck handle. Blue, Green and Red Lobstrokk each
+moved from Bone_Box18 to Bone_Head, and Owlbear moved from Bone_Neck to
+Bone_Head01, in both SD corpus folders. DeadwoodV2.05 also moved from
+Bone_Neck to Bone_Head01 and lost its Leaf Neck handle. That removal falls
+outside the allowed library changes. The patch was kept as specified for
+review. Full results are in out/pose-corpus-diff-head/changes.md.

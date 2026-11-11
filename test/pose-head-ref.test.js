@@ -94,8 +94,9 @@ test('a mount keeps its head clue although a rider in the same model has a named
 
 // Exact rigs recorded from the code before this rule changed.
 const BASE_SIBLING = {"chains":["arm:Should_L>Elbow_L>Wrist_L","arm:Should_R>Elbow_R>Wrist_R","leg:Leg1_L>Leg2_L>Foot_L","leg:Leg1_R>Leg2_R>Foot_R"],"nodes":["Chest=Chest","Head=Head","Neck=Neck","Pelvis=Pelvis"],"body":"Root","roles":{"Root":"Body","Chest":"Chest"}};
-const BASE_NECK = {"chains":["arm:Should_L>Elbow_L>Wrist_L","arm:Should_R>Elbow_R>Wrist_R","leg:Leg1_L>Leg2_L>Foot_L","leg:Leg1_R>Leg2_R>Foot_R"],"nodes":["Chest=Chest","Neck=Head","Pelvis=Pelvis"],"body":"Root","roles":{"Root":"Body","Chest":"Chest","Neck":"Head"}};
 const BASE_CHILD = {"chains":["arm:Should_L>Elbow_L>Wrist_L","arm:Should_R>Elbow_R>Wrist_R","leg:Leg1_L>Leg2_L>Foot_L","leg:Leg1_R>Leg2_R>Foot_R"],"nodes":["Chest=Chest","Head=Head","Neck=Neck","Pelvis=Pelvis"],"body":"Root","roles":{"Root":"Body","Chest":"Chest"}};
+
+const EXPECTED_NECK = {"chains":["arm:Should_L>Elbow_L>Wrist_L","arm:Should_R>Elbow_R>Wrist_R","leg:Leg1_L>Leg2_L>Foot_L","leg:Leg1_R>Leg2_R>Foot_R"],"nodes":["Chest=Chest","Head=Head","Neck=Neck","Pelvis=Pelvis"],"body":"Root","roles":{"Root":"Body","Chest":"Chest"}};
 test('a Head Ref on a sibling helper under the same neck adds no second head', () => {
   const result = summary(siblingRef());
   assert.deepEqual(heads(result), ['Head=Head']);
@@ -103,8 +104,8 @@ test('a Head Ref on a sibling helper under the same neck adds no second head', (
 });
 test('a Head Ref on the neck above the named head adds no second head', () => {
   const result = summary(neckRef());
-  assert.deepEqual(heads(result), ['Neck=Head']); // the neck sits right under the chest: already its own head clue
-  assert.deepEqual(result, BASE_NECK);
+  assert.deepEqual(heads(result), ['Head=Head']);
+  assert.deepEqual(result, EXPECTED_NECK);
 });
 test('a Head Ref on an unnamed child of the named head adds no second head', () => {
   const result = summary(childRef());

@@ -219,6 +219,8 @@ with no usable name are only found once an animation moves them (they can be
 added by hand with Add).
 A head attachment point marks the head of its own neck even when another body in
 the same model (a rider, a second creature) has a named head.
+A named Head descendant takes precedence when a Head attachment is on its
+ancestor directly below the chest.
 Auto Corpse, Attachemator and AnimXL read the rig without these added clues, so their
 results are unchanged; the added clues apply to the POSE handles shown in Movement.
 

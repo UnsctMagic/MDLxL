@@ -166,7 +166,9 @@ export function suggestPoseRig(model, frame, sequence, options = {}) {
     if ((model.Attachments || []).some(other => other.Parent === ref.Parent && ['Hand','Foot'].includes(poseNodeRole(other)) && poseNodeRole(other) !== role)) continue;
     if (['Head', 'Hand', 'Foot', 'Hoof'].includes(poseNodeRole(parent))) continue;
     if (role === 'Head') {
-      if (poseNodeRole(byId.get(parent.Parent)) === 'Chest' || (clues ? !transforms.some(node => poseNodeRole(node) === 'Head' && (descendantOf(parent.ObjectId, node.ObjectId) || descendantOf(node.ObjectId, byId.has(parent.Parent) ? parent.Parent : parent.ObjectId) || trunkAnchor(node.ObjectId) === trunkAnchor(parent.ObjectId))) : !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head'))) roles[parent.ObjectId] = role;
+      const chestMarksHead = poseNodeRole(byId.get(parent.Parent)) === 'Chest' &&
+        (!clues || !transforms.some(node => poseNodeRole(node) === 'Head' && descendantOf(node.ObjectId, parent.ObjectId)));
+      if (chestMarksHead || (clues ? !transforms.some(node => poseNodeRole(node) === 'Head' && (descendantOf(parent.ObjectId, node.ObjectId) || descendantOf(node.ObjectId, byId.has(parent.Parent) ? parent.Parent : parent.ObjectId) || trunkAnchor(node.ObjectId) === trunkAnchor(parent.ObjectId))) : !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head'))) roles[parent.ObjectId] = role;
       continue;
     }
     if (/(?:arm2|forearm|leg2|leg3|calf|shin|knee)(?:$|[ _.-])/i.test(parent.Name)) continue;
