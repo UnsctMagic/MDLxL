@@ -283,6 +283,39 @@ in its clues mode). The skin-grip loss is solved on our side by item 12. The lim
 after a body or chest gets its real name (20 models) is POSE's intended reading;
 the gate reports it for review.
 
+## Fix round 2 (11 Nov, from Claude's QA of `5c25ff10`)
+
+Bug fixes only. QA of `5c25ff10`: packaged workflow 68/68 and Attachemator pass;
+source tests 53/55; library gate on main's POSE: 0 LOST/MOVED/GRIP, 7 STABILITY;
+on POSE `88aef3e1` also 3 models LOST that belong to that POSE branch (below).
+
+1. **Mount order.** Item 3 means only "never Main". Do not move follower-carrying
+   bodies to the end of the actor order: Main is the first actor in the normal order
+   (visible in Stand, two hands, larger) that is not a key of `rig.followers`; every
+   other actor keeps its normal place. Today the native Knight's hidden horse copy
+   (`ABDOMEN01`) becomes the Mount and the visible horse (`ABDOMEN`) its `_Copy`
+   (`bone-namer.js:203`).
+2. **Nested bodies need their own legs.** Item 4 counted any two limb chains, so a
+   spine bone named `Abdomen` with the arms below it became its own actor. A nested
+   Body is its own actor only when at least two **leg** chains (kind `leg`, no
+   `Chain` label) have it as their nearest body. A rider has legs; a spine piece
+   does not.
+3. **Hand/Foot/Hoof only from chains.** As the Recognition table says, Hand, Foot
+   and Hoof come only from chain ends; a bone that POSE gives a Hand/Foot/Hoof role
+   but that is not in a chain is part `keep` (`bone-namer.js:62` assigns them from
+   any lone role). Those bones carry only a `Foot Left/Right Ref` attachment; once
+   named Foot, POSE writes no role for them, so names flip between two states on
+   every run (easterchicken `WingL` → `Bone_Foot_Front_L`, kelthuzad/necromancer
+   `RobeBackL` → `Bone_Mount_Foot_Rear_L`; 7 models). Measured: this alone makes
+   STABILITY 0 on both POSE versions; 90 lone hand/foot mesh pieces in 56 models
+   now keep their names.
+
+Not ours (sent to the POSE side; POSE branch `88aef3e1` only, main unaffected):
+zergling's mirrored `Bone Root L/R` lose their Body handles once the hands carry
+Hand names (`pose-recognition.js:192-216` reads limb kinds from names); Lord of
+Change's wings `B_W_1..6` read as Wing limbs only while anonymous
+(`pose-recognition.js:153` skips a pair whose joints have a Wing part role).
+
 ## Engine (fixed API, Claude's tests are written against it)
 
 New file `src/bone-namer.js`, pure (no React), importing only shared helpers
