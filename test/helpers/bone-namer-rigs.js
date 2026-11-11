@@ -48,23 +48,37 @@ export const nodeName = (model, id) => model.Nodes[id].Name;
  * `links` inserts unnamed bones between pelvis and chest (spine) or chest and head (neck).
  * `swapSides` names the left (+Y) limbs `R` and the right ones `L`, like a badly made model.
  */
-export function addBiped(model, { name, ox = 0, oz = 0, scale = 1, parent = null, spineLinks = 0, neckLinks = 0, swapSides = false, legHeight = 38, leftLeg = null, noPelvis = false } = {}) {
+const ids0 = {};
+export function addBiped(model, { name, ox = 0, oz = 0, scale = 1, parent = null, spineLinks = 0, neckLinks = 0, swapSides = false, legHeight = 38, leftLeg = null, noPelvis = false, hub = false, abdomen = false, extraArm = false, attachArms = false } = {}) {
   const at = (x, y, z) => [ox + x * scale, y * scale, oz + z * scale];
   const root = addNode(model, name('root'), parent, at(0, 0, 40));
   const pelvis = noPelvis ? root : addNode(model, name('pelvis'), root, at(0, 0, legHeight));
   let up = pelvis;
   for (let i = 0; i < spineLinks; i++) up = addNode(model, name(`spine.${i}`), up, at(0, 0, 44 + i * 3));
+  if (abdomen) up = ids0.abdomen = addNode(model, 'Bone_Abdomen', up, at(0, 0, 50));
   const chest = addNode(model, name('chest'), up, at(0, 0, 60));
   let top = chest;
   for (let i = 0; i < neckLinks; i++) top = addNode(model, name(`neck.${i}`), top, at(0, 0, 70 + i * 3));
   const head = addNode(model, name('head'), top, at(0, 0, 80));
-  const ids = { root, pelvis, chest, head };
+  const ids = { root, pelvis, chest, head, ...(abdomen ? { abdomen: up } : {}) };
+  if (hub) ids.hub = addNode(model, 'Bone01', pelvis, at(0, 0, legHeight + 1));
   for (const [side, sign] of [['L', 1], ['R', -1]]) {
     const label = swapSides ? (side === 'L' ? 'R' : 'L') : side;
     const part = key => name(`${key}.${label}`);
     ids[`arm1${side}`] = addNode(model, part('arm1'), chest, at(0, 15 * sign, 62));
+    if (attachArms && side === 'R') {
+      // Forearm with a Hand Right Ref attachment and no hand bone, as in the native Footman.
+      ids.arm2R = addNode(model, 'Forearm_R', ids.arm1R, at(0, -22, 48));
+      ids.refR = addNode(model, 'Hand Right Ref', ids.arm2R, at(0, -25, 36), { list: 'Attachments' });
+    } else {
     ids[`arm2${side}`] = addNode(model, part('arm2'), ids[`arm1${side}`], at(0, 22 * sign, 48));
     ids[`hand${side}`] = addNode(model, part('hand'), ids[`arm2${side}`], at(0, 25 * sign, 36));
+    }
+    if (extraArm && side === 'L') {
+      ids.xarm1 = addNode(model, 'Upper2_L', chest, at(0, 14, 56));
+      ids.xarm2 = addNode(model, 'Fore2_L', ids.xarm1, at(0, 20, 44));
+      ids.xhand = addNode(model, 'Hand2_L', ids.xarm2, at(0, 24, 33));
+    }
     if (side === 'L' && leftLeg === 'extra') {
       // An extra numbered joint above the thigh: POSE walks up through "Bone01" into the leg chain.
       ids.extraL = addNode(model, 'Bone01', pelvis, at(0, 4, legHeight + 2));
@@ -74,7 +88,7 @@ export function addBiped(model, { name, ox = 0, oz = 0, scale = 1, parent = null
       ids.upperL = addNode(model, 'Upper_L', pelvis, at(0, 8, legHeight));
       ids.linkL = addNode(model, 'Link_L', ids.upperL, at(0, 8.5, 30));
       ids.leg1L = ids.linkL;
-    } else ids[`leg1${side}`] = addNode(model, part('leg1'), pelvis, at(0, 8 * sign, legHeight));
+    } else ids[`leg1${side}`] = addNode(model, part('leg1'), ids.hub ?? pelvis, at(0, 8 * sign, legHeight));
     ids[`leg2${side}`] = addNode(model, side === 'L' && leftLeg === 'missed' ? 'Knee_L' : part('leg2'), ids[`leg1${side}`], at(0, 9 * sign, 20));
     ids[`foot${side}`] = addNode(model, part('foot'), ids[`leg2${side}`], at(2, 9 * sign, 5));
   }

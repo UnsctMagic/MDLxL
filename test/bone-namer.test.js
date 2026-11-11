@@ -196,14 +196,13 @@ test('rider plain, larger mount prefixed Mount_', () => {
   assert.equal(nameIn(plan, rider.handL), 'Bone_Hand_L');
   assert.equal(nameIn(plan, rider.root), 'Bone_Root');
   assert.equal(nameIn(plan, rider.footR), 'Bone_Foot_R');
-  assert.equal(nameIn(plan, mount.root), 'Mount_Bone_Root');
-  assert.equal(nameIn(plan, mount.head), 'Mount_Bone_Head');
-  assert.equal(nameIn(plan, mount.hoof_0L), 'Mount_Bone_Hoof_Front_L');
-  assert.equal(nameIn(plan, mount.leg2_1R), 'Mount_Bone_Leg2_Rear_R');
+  assert.equal(nameIn(plan, mount.root), 'Bone_Mount_Root');
+  assert.equal(nameIn(plan, mount.head), 'Bone_Mount_Head');
+  assert.equal(nameIn(plan, mount.hoof_0L), 'Bone_Mount_Hoof_Front_L');
+  assert.equal(nameIn(plan, mount.leg2_1R), 'Bone_Mount_Leg2_Rear_R');
   assert.deepEqual(plan.actors.map(actor => actor.kind), ['main', 'mount']);
   const mountActor = plan.actors[1];
   assert.equal(mountActor.body, mount.root);
-  assert.equal(mountActor.prefix, 'Mount_');
   assert.equal(plan.actors[0].body, rider.root);
   assert.equal(rowsById(plan).get(mount.hoof_0L).actor, mount.root);
   assert.equal(rowsById(plan).get(rider.handL).actor, rider.root);
@@ -240,8 +239,8 @@ test('a mount with its own hidden copy: the copy takes the Mount_ names plus _Co
   startGeoset(model, { hidden: true }); const twin = addQuadruped(model, { scale: 1.5, ox: 600, prefix: 'Bone Horse Spare ' });
   const plan = planBoneNames(model);
   assertGoodPlan(model, plan);
-  assert.equal(nameIn(plan, mount.hoof_0L), 'Mount_Bone_Hoof_Front_L');
-  assert.equal(nameIn(plan, twin.hoof_0L), 'Mount_Bone_Hoof_Front_L_Copy');
+  assert.equal(nameIn(plan, mount.hoof_0L), 'Bone_Mount_Hoof_Front_L');
+  assert.equal(nameIn(plan, twin.hoof_0L), 'Bone_Mount_Hoof_Front_L_Copy');
 });
 
 test('a different, not larger actor is Extra_', () => {
@@ -250,7 +249,7 @@ test('a different, not larger actor is Extra_', () => {
   const plan = planBoneNames(model);
   assertGoodPlan(model, plan);
   assert.equal(nameIn(plan, main.handL), 'Bone_Hand_L');
-  assert.equal(nameIn(plan, small.handL), 'Extra_Bone_Hand_L');
+  assert.equal(nameIn(plan, small.handL), 'Bone_Extra_Hand_L');
   assert.deepEqual(plan.actors.map(actor => actor.kind), ['main', 'extra']);
 });
 
@@ -332,14 +331,14 @@ test('an actor override making the mount Main swaps the prefixes', () => {
   const rows = nameBones(model, plan, { actors: { [mount.root]: 'main' } }), name = i => rows.find(row => row.id === i).name;
   assert.equal(name(mount.hoof_0L), 'Bone_Hoof_Front_L');
   assert.equal(name(mount.root), 'Bone_Root');
-  assert.equal(name(rider.handL), 'Mount_Bone_Hand_L');
-  assert.equal(name(rider.root), 'Mount_Bone_Root');
+  assert.equal(name(rider.handL), 'Bone_Mount_Hand_L');
+  assert.equal(name(rider.root), 'Bone_Mount_Root');
 });
 
 test('an actor override can make the mount an Extra_', () => {
   const { model, mount } = riderOnMount(), plan = planBoneNames(model);
   const rows = nameBones(model, plan, { actors: { [mount.root]: 'extra' } });
-  assert.equal(rows.find(row => row.id === mount.hoof_0L).name, 'Extra_Bone_Hoof_Front_L');
+  assert.equal(rows.find(row => row.id === mount.hoof_0L).name, 'Bone_Extra_Hoof_Front_L');
 });
 
 // ---------------------------------------------------------------- what is never renamed
@@ -448,6 +447,94 @@ test('commit is all or nothing when one row is invalid', () => {
   }
 });
 
+// ---------------------------------------------------------------- fix round 1 engine rules
+
+// Commits every changed default row on a scratch model, then plans again: nothing may want to change.
+function assertStable(model, label) {
+  const plan = planBoneNames(model), chosen = new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id));
+  applyBoneNames(model, plan.rows, chosen);
+  const again = planBoneNames(model), moving = again.rows.filter(row => row.name !== row.current).map(row => `${row.current} -> ${row.name}`);
+  assert.deepEqual(moving, [], `${label}: planning a model Bone Namer already renamed proposes nothing`);
+}
+
+test('rule 1: a hub joint above both legs keeps its name and the legs number from the thigh', () => {
+  const model = emptyModel(), id = addBiped(model, { name: standardName, hub: true }), plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.equal(model.Nodes[id.hub].Name, 'Bone01');
+  assert.equal(rowsById(plan).get(id.hub).part, 'keep', 'POSE runs both legs through Bone01; it is a hub');
+  assert.equal(nameIn(plan, id.hub), 'Bone01');
+  assert.deepEqual(['leg1L', 'leg2L', 'footL', 'leg1R', 'leg2R', 'footR'].map(key => nameIn(plan, id[key])), ['Bone_Leg1_L', 'Bone_Leg2_L', 'Bone_Foot_L', 'Bone_Leg1_R', 'Bone_Leg2_R', 'Bone_Foot_R']);
+});
+
+test('rule 3: the body that carries a follower is never Main, even when only it is visible in Stand', () => {
+  const model = emptyModel(), mount = addQuadruped(model, { scale: 1.5 });
+  const carrier = addNode(model, 'Bone Horse Carrier Body', null, [...model.Nodes[mount.root].PivotPoint], { mesh: false });
+  startGeoset(model, { hidden: true });
+  const rider = addBiped(model, { name: messyName, parent: carrier, oz: 60, ox: 10 });
+  const plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.equal(nameIn(plan, mount.hoof_0L), 'Bone_Mount_Hoof_Front_L', 'the mount (a rig.followers key) is not Main');
+  assert.equal(nameIn(plan, rider.handL), 'Bone_Hand_L', 'the rider is Main although hidden in Stand');
+  assert.deepEqual(plan.actors.map(actor => actor.kind), ['main', 'mount']);
+  assert.equal(plan.actors[0].body, rider.root);
+});
+
+test('rule 4: a Body-named bone inside one creature (no limbs of its own) is not an actor and keeps its name', () => {
+  const model = emptyModel(), id = addBiped(model, { name: messyName, abdomen: true }), plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.equal(plan.actors.length, 1, 'one creature, one actor');
+  assert.equal(rowsById(plan).get(id.abdomen).part, 'keep');
+  assert.equal(nameIn(plan, id.abdomen), 'Bone_Abdomen');
+  assert.equal(nameIn(plan, id.root), 'Bone_Root');
+  assert.equal(nameIn(plan, id.chest), 'Bone_Chest');
+  assert.equal(nameIn(plan, id.handL), 'Bone_Hand_L');
+  assert.ok(plan.rows.every(row => !/^Bone_(?:Extra|Mount)/.test(row.name)), 'no row is pushed into an Extra / Mount actor');
+});
+
+test('rule 4: a rider with its own limbs stays its own actor', () => {
+  const { model, rider } = riderOnMount(), plan = planBoneNames(model);
+  assert.deepEqual(plan.actors.map(actor => actor.body).sort(), [rider.root, ...[plan.actors.find(actor => actor.kind === 'mount').body]].sort());
+  assert.equal(plan.actors.length, 2);
+});
+
+test('rule 5: a limb ending at an attachment keeps Arm numbers on its bones; the attachment is untouched', () => {
+  const model = emptyModel(), id = addBiped(model, { name: messyName, attachArms: true }), plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  assert.equal(nameIn(plan, id.arm1R), 'Bone_Arm1_R');
+  assert.equal(nameIn(plan, id.arm2R), 'Bone_Arm2_R', 'Forearm_R has no Hand role, so it takes the next Arm number');
+  assert.equal(nameIn(plan, id.handL), 'Bone_Hand_L');
+  assert.equal(rowsById(plan).get(id.refR), undefined);
+  assert.equal(model.Nodes[id.refR].Name, 'Hand Right Ref');
+});
+
+test('rule 6: Arm numbers restart for each limb; a second left arm is Arm1, Arm2, Hand, never Arm3 / Arm4', () => {
+  const model = emptyModel(), id = addBiped(model, { name: messyName, extraArm: true }), plan = planBoneNames(model);
+  assertGoodPlan(model, plan);
+  for (const row of plan.rows) assert.ok(!/Arm[34]/.test(row.name), `${row.current} -> ${row.name}`);
+  const first = nameIn(plan, id.arm1L), second = nameIn(plan, id.xarm1);
+  assert.ok(first.startsWith('Bone_Arm1_L') && second.startsWith('Bone_Arm1_L') && first !== second, `${first} / ${second}`);
+  assert.ok(nameIn(plan, id.arm2L).startsWith('Bone_Arm2_L') && nameIn(plan, id.xarm2).startsWith('Bone_Arm2_L'));
+  assert.ok(nameIn(plan, id.handL).startsWith('Bone_Hand_L') && nameIn(plan, id.xhand).startsWith('Bone_Hand_L'));
+  assert.equal(nameIn(plan, id.arm1R), 'Bone_Arm1_R', 'the right arm is untouched');
+});
+
+test('rule 7: made-up rigs are stable - committing the defaults and planning again proposes nothing', () => {
+  const builds = {
+    'junk biped': () => { const m = emptyModel(); addBiped(m, { name: messyName }); return m; },
+    'swapped sides with spine and neck': () => { const m = emptyModel(); addBiped(m, { name: standardName, swapSides: true, spineLinks: 2, neckLinks: 2 }); return m; },
+    quadruped, 'three pairs': () => { const m = emptyModel(); addQuadruped(m, { pairs: [30, 2, -25] }); return m; },
+    'rider on mount': () => riderOnMount().model,
+    'rig copy': () => riderOnMount({ copy: true }).model,
+    'extra leg joint': () => { const m = emptyModel(); addBiped(m, { name: standardName, leftLeg: 'extra', noPelvis: true }); return m; },
+    'hub': () => { const m = emptyModel(); addBiped(m, { name: standardName, hub: true }); return m; },
+    'abdomen': () => { const m = emptyModel(); addBiped(m, { name: messyName, abdomen: true }); return m; },
+    'two left arms': () => { const m = emptyModel(); addBiped(m, { name: messyName, extraArm: true }); return m; },
+    'attachment arm': () => { const m = emptyModel(); addBiped(m, { name: messyName, attachArms: true }); return m; },
+  };
+  function quadruped() { const m = emptyModel(); addQuadruped(m); return m; }
+  for (const [label, build] of Object.entries(builds)) assertStable(build(), label);
+});
+
 // ---------------------------------------------------------------- real models
 
 test('native Footman: the left hand named Bone_Hand_R becomes Bone_Hand_L; the right arm ends at an attachment', () => {
@@ -482,15 +569,15 @@ test('native Knight: rider plain, horse Mount_ with Front / Rear hooves, hidden 
   assertNames(model, plan, { Bone_Root: 'Bone_Root', Bone_Chest: 'Bone_Chest', Bone_Head: 'Bone_Head', 'Bone_Arm1_R ': 'Bone_Arm1_R', Bone_Arm2_R: 'Bone_Arm2_R', 'Bone_Hand_R ': 'Bone_Hand_R', Bone_Arm1_L: 'Bone_Arm1_L', Bone_Arm2_L: 'Bone_Arm2_L', 'Bone_Hand_R 01': 'Bone_Hand_L', Object11: 'Bone_Leg1_R', Bone_Leg2_R: 'Bone_Leg2_R', Object13: 'Bone_Foot_R', Object14: 'Bone_Leg1_L', Bone_Leg2_L: 'Bone_Leg2_L', Object16: 'Bone_Foot_L' }, 'rider');
   // The horse: larger, no hands -> Mount_.
   assertNames(model, plan, {
-    'Bone HorseBONE_ABDOMEN': 'Mount_Bone_Root', 'Bone HorseBONE_PELVIS': 'Mount_Bone_Pelvis', 'Bone HorseBONE_CHEST': 'Mount_Bone_Chest', 'Bone HorseBONE_NECK': 'Mount_Bone_Neck', 'Bone HorseBONE_HEAD': 'Mount_Bone_Head', 'Bone HorseBONE_TAIL1': 'Mount_Bone_Tail1',
-    'Bone HorseBone_Leg1_Front_R': 'Mount_Bone_Leg1_Front_R', 'Bone HorseBone_Leg2_Front_R': 'Mount_Bone_Leg2_Front_R', 'Bone HorseBone_Leg3_Front_R': 'Mount_Bone_Leg3_Front_R', 'Bone HorseBone_Hoof_Front_R': 'Mount_Bone_Hoof_Front_R',
-    'Bone HorseBone_Leg1_Front_L': 'Mount_Bone_Leg1_Front_L', 'Bone HorseBone_Leg3_Front_L\\': 'Mount_Bone_Leg3_Front_L', 'Bone HorseBone_Hoof_Front_L': 'Mount_Bone_Hoof_Front_L',
-    'Bone HorseBone_Leg1_Rear_R': 'Mount_Bone_Leg1_Rear_R', 'Bone HorseBone_Hoof_Rear_R': 'Mount_Bone_Hoof_Rear_R', 'Bone HorseBone_Leg2_Rear_L': 'Mount_Bone_Leg2_Rear_L', 'Bone HorseBone_Hoof_Rear_L': 'Mount_Bone_Hoof_Rear_L',
+    'Bone HorseBONE_ABDOMEN': 'Bone_Mount_Root', 'Bone HorseBONE_PELVIS': 'Bone_Mount_Pelvis', 'Bone HorseBONE_CHEST': 'Bone_Mount_Chest', 'Bone HorseBONE_NECK': 'Bone_Mount_Neck', 'Bone HorseBONE_HEAD': 'Bone_Mount_Head', 'Bone HorseBONE_TAIL1': 'Bone_Mount_Tail1',
+    'Bone HorseBone_Leg1_Front_R': 'Bone_Mount_Leg1_Front_R', 'Bone HorseBone_Leg2_Front_R': 'Bone_Mount_Leg2_Front_R', 'Bone HorseBone_Leg3_Front_R': 'Bone_Mount_Leg3_Front_R', 'Bone HorseBone_Hoof_Front_R': 'Bone_Mount_Hoof_Front_R',
+    'Bone HorseBone_Leg1_Front_L': 'Bone_Mount_Leg1_Front_L', 'Bone HorseBone_Leg3_Front_L\\': 'Bone_Mount_Leg3_Front_L', 'Bone HorseBone_Hoof_Front_L': 'Bone_Mount_Hoof_Front_L',
+    'Bone HorseBone_Leg1_Rear_R': 'Bone_Mount_Leg1_Rear_R', 'Bone HorseBone_Hoof_Rear_R': 'Bone_Mount_Hoof_Rear_R', 'Bone HorseBone_Leg2_Rear_L': 'Bone_Mount_Leg2_Rear_L', 'Bone HorseBone_Hoof_Rear_L': 'Bone_Mount_Hoof_Rear_L',
   }, 'horse');
   // The hidden copies take the Main / Mount names plus _Copy.
   assertNames(model, plan, {
     'Bone_T-Bone_Root': 'Bone_Root_Copy', 'Bone_T-Bone_Chest': 'Bone_Chest_Copy', 'Bone_T-Bone_Head': 'Bone_Head_Copy', 'Bone_T-Bone_Arm1_R': 'Bone_Arm1_R_Copy', 'Bone_T-Bone_Hand_R ': 'Bone_Hand_R_Copy', 'Bone_T-Bone_Hand_R 01': 'Bone_Hand_L_Copy', 'T-Object11': 'Bone_Leg1_R_Copy', 'T-Object13': 'Bone_Foot_R_Copy',
-    'Bone HorseBONE_ABDOMEN01': 'Mount_Bone_Root_Copy', 'Bone HorseBone_Hoof_Front_L01': 'Mount_Bone_Hoof_Front_L_Copy', 'Bone HorseBone_Leg2_Rear_R01': 'Mount_Bone_Leg2_Rear_R_Copy', 'Bone HorseBONE_TAIL02': 'Mount_Bone_Tail1_Copy',
+    'Bone HorseBONE_ABDOMEN01': 'Bone_Mount_Root_Copy', 'Bone HorseBone_Hoof_Front_L01': 'Bone_Mount_Hoof_Front_L_Copy', 'Bone HorseBone_Leg2_Rear_R01': 'Bone_Mount_Leg2_Rear_R_Copy', 'Bone HorseBONE_TAIL02': 'Bone_Mount_Tail1_Copy',
   }, 'copies');
   assertKept(model, plan, ['gutz00', 'Portrait Head', 'Mustache', 'Death Portrait', 'T_Object11'], 'knight');
   const kinds = plan.actors.map(actor => actor.kind);
@@ -504,7 +591,7 @@ test('owner\'s Slaanesh Champion: rider under the Death root is Main, horse is M
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'champion');
   assertNames(model, plan, { Bone_Root: 'Bone_Root', Bone_Chest: 'Bone_Chest', Bone_Head: 'Bone_Head', Bone_Arm1_L: 'Bone_Arm1_L', Bone_Arm2_L: 'Bone_Arm2_L', Bone_Hand_L: 'Bone_Hand_L', 'Bone_Arm1_R ': 'Bone_Arm1_R', Bone_Arm2_R: 'Bone_Arm2_R', 'Bone_Hand_R ': 'Bone_Hand_R', Object11: 'Bone_Leg1_R', Object13: 'Bone_Foot_R', Object14: 'Bone_Leg1_L', Object16: 'Bone_Foot_L', Bone_Leg2_R: 'Bone_Leg2_R', Bone_Leg2_L: 'Bone_Leg2_L' }, 'rider');
-  assertNames(model, plan, { 'Bone HorseBONE_ABDOMEN': 'Mount_Bone_Root', 'Bone HorseBONE_PELVIS': 'Mount_Bone_Pelvis', 'Bone HorseBONE_CHEST': 'Mount_Bone_Chest', 'Bone HorseBONE_NECK': 'Mount_Bone_Neck', 'Bone HorseBONE_HEAD': 'Mount_Bone_Head', 'Bone HorseBONE_TAIL1': 'Mount_Bone_Tail1', 'Bone HorseBone_Hoof_Front_R': 'Mount_Bone_Hoof_Front_R', 'Bone HorseBone_Hoof_Front_L': 'Mount_Bone_Hoof_Front_L', 'Bone HorseBone_Hoof_Rear_R': 'Mount_Bone_Hoof_Rear_R', 'Bone HorseBone_Hoof_Rear_L': 'Mount_Bone_Hoof_Rear_L', 'Bone HorseBone_Leg1_Front_L': 'Mount_Bone_Leg1_Front_L', 'Bone HorseBone_Leg3_Rear_R': 'Mount_Bone_Leg3_Rear_R' }, 'horse');
+  assertNames(model, plan, { 'Bone HorseBONE_ABDOMEN': 'Bone_Mount_Root', 'Bone HorseBONE_PELVIS': 'Bone_Mount_Pelvis', 'Bone HorseBONE_CHEST': 'Bone_Mount_Chest', 'Bone HorseBONE_NECK': 'Bone_Mount_Neck', 'Bone HorseBONE_HEAD': 'Bone_Mount_Head', 'Bone HorseBONE_TAIL1': 'Bone_Mount_Tail1', 'Bone HorseBone_Hoof_Front_R': 'Bone_Mount_Hoof_Front_R', 'Bone HorseBone_Hoof_Front_L': 'Bone_Mount_Hoof_Front_L', 'Bone HorseBone_Hoof_Rear_R': 'Bone_Mount_Hoof_Rear_R', 'Bone HorseBone_Hoof_Rear_L': 'Bone_Mount_Hoof_Rear_L', 'Bone HorseBone_Leg1_Front_L': 'Bone_Mount_Leg1_Front_L', 'Bone HorseBone_Leg3_Rear_R': 'Bone_Mount_Leg3_Rear_R' }, 'horse');
   assertKept(model, plan, ['Bone HorseBONE_ABDOMEN_Death', 'Cape', 'Axe', 'Dummy02', 'Portrait Head', 'Plane04'], 'champion');
   assert.deepEqual(plan.actors.map(actor => actor.kind), ['main', 'mount']);
 });
@@ -517,7 +604,7 @@ test('Lahmian: the visible Root rig is Main with standard names; cloth, spear, f
   assertKept(model, plan, ['Root sway', 'Spear', 'Jaw', 'Eye_L', 'Smile_R', 'HairBack_1', 'ArmCloth_R_1', 'ClothCurve_R_04', 'ClothCurve_L_07', 'Waist', 'Flaps', 'Hero1', 'DummyBone'], 'lahmian');
   assert.equal(plan.actors[0].kind, 'main');
   assert.equal(plan.actors[0].body, idOf(model, 'Root'), 'Root is the Main actor: its skin shows in Stand, the Caspette rig is hidden there');
-  for (const name of ['Casp_hand_R', 'Casp_Hand_L', 'Casp_Chest', 'Casp_head']) assert.match(nameIn(plan, idOf(model, name)), /^(?:Mount|Extra|Copy)\d*_|_Copy\d*$/, `${name} belongs to a second actor, never the unprefixed Main`);
+  for (const name of ['Casp_hand_R', 'Casp_Hand_L', 'Casp_Chest', 'Casp_head']) assert.match(nameIn(plan, idOf(model, name)), /^Bone_(?:Mount|Extra)\d*_|_Copy\d*$/, `${name} belongs to a second actor, never the unprefixed Main`);
   assert.ok(plan.actors.length >= 2);
 });
 
@@ -530,4 +617,8 @@ test('real models: committing the default plan changes only names and uses each 
     assert.equal(snapshot(model), before, `${key}: only names changed`);
     for (const row of plan.rows.filter(row => chosen.has(row.id))) assert.equal(model.Nodes[row.id].Name, row.name, key);
   }
+});
+
+test('rule 7: real models are stable - committing the defaults and planning again proposes nothing', () => {
+  for (const key of ['footman', 'hoofprint', 'slaanesh-champion', 'lahmian']) assertStable(loadMdx(fixturePath(key)), key);
 });
