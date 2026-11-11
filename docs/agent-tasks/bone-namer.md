@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: active (contract ready for Codex; QA by Claude)
+Status: blocked (POSE role contract mismatch; Codex stopped as instructed)
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-11
 
@@ -282,10 +282,37 @@ broken ([testing rules](../TESTING-RULES.md)).
 - Done: scheme census (corpus-sd), POSE probes (Knight: rider under the horse body
   plus two rig copies; Slaanesh Champion knight: rider death copy; Footman: left
   hand named `Bone_Hand_R`); POSE brain confirmed the API and the name rules.
-- Remaining: everything in Work split and QA plan.
+- Codex inspection at `189879e3a69d0c1e77f4dad5885adbff47ed083d`: clean
+  `claude/bone-namer` worktree; read the instructions, contract and owning code.
+  Stopped before implementation on the POSE dependency below, as the owner required.
+  No feature code or protected files changed; no dependencies installed or junctions created.
+- `pnpm run build` passed (Node v22.23.3, Vite 7.3.1, 16.29 s). This is a
+  baseline build, not Bone Namer verification. Existing JSON import-attribute and
+  large-chunk warnings were emitted. Removed the newly generated `dist/` and task
+  temporary directory after the build. No tests written or run; no app launched.
+- Remaining: all Codex implementation and all Claude QA. This handoff changes
+  only this note, saved locally on `claude/bone-namer`; no push, PR, merge or release.
 
 ## Blockers and next action
 
-- Next: owner confirms the scheme; Codex builds per this contract on
-  `claude/bone-namer`; Claude QA workers 1–2 start in parallel.
+- **Blocker: the allowed POSE result does not contain all resolved roles.** At
+  `189879e3`, `suggestPoseRig()` initializes `roles = {}` (`src/pose-ik.js:151`)
+  and internally resolves each part with `roles[id] || poseNodeRole(node)`
+  (`src/pose-ik.js:176`). It returns the sparse overrides unchanged at line 357.
+  `nodes` is an array of numeric control IDs (lines 349–356), not resolved roles.
+  For example, a named Head, Neck, Spine, Pelvis, Tail or additional Body can be
+  recognised internally without an entry in the returned `roles` object.
+  The actual POSE preview uses `poseRole()` (`app/pose-overlay.js:82`), which
+  applies that same fallback (`src/pose-ik.js:145`).
+- The contract permits only `suggestPoseRig` / `poseChainIds` from POSE and
+  `chains`, `body`, `nodes`, `roles` from its result. Those do not expose the
+  missing role labels. Treating absent roles as unidentified would omit recognised
+  parts and additional actors; reproducing name recognition locally would violate
+  the POSE-only requirement. No workaround or POSE edit was made.
+- **Next for Claude:** resolve this dependency with the POSE owner: either expose
+  complete resolved roles through the allowed result, or explicitly revise this
+  contract to permit the existing `poseRole()` resolver (while still accepting
+  only the listed anatomical roles). Then hand the updated contract/revision back
+  to Codex to implement the feature. The owner has already authorised the build;
+  scheme confirmation is not pending.
 - On completion: mark completed with the merge revision; remove the README row.
