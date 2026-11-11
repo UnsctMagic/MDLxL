@@ -26,6 +26,9 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
 [packaged rendering/input](../test/hotkey-badges.electron.cjs).
 
 The top menus show the current primary shortcut beside each bound command.
+On Windows, [DesktopMenu.jsx](../app/DesktopMenu.jsx) draws the dropdowns from
+the same [menu definition](../electron/menu.cjs). The shortcut column stays
+right-aligned and uses a muted color.
 
 ## Where the keys come from
 

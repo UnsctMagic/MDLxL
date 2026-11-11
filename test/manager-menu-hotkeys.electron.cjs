@@ -28,6 +28,84 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
   try {
     await page.getByRole('tab', { name: path.basename(fixture), exact: true }).waitFor();
     assert.deepEqual(await tabs(page), editorNames);
+    const bar = page.getByRole('menubar', { name: 'Application menu' });
+    assert.equal(await bar.count(), 1, 'Windows shows the MDLxL menu bar');
+    assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible()), false);
+    const openMenu = name => bar.getByRole('menuitem', { name, exact: true }).click();
+    const popupMenu = name => bar.getByRole('menu', { name, exact: true });
+    await openMenu('Managers');
+    const managerMenu = popupMenu('Managers');
+    const managerLabels = managerMenu.getByRole('menuitem');
+    assert.deepEqual(await managerLabels.locator('.desktop-menu-label').allTextContents(), managers.map(([name]) => name + '…'));
+    assert.deepEqual(await managerLabels.locator('kbd').allTextContents(), managers.map(([, key]) => 'Alt+' + key));
+    const shortcutStyles = await managerLabels.evaluateAll(rows => rows.map(row => {
+      const label = row.querySelector('.desktop-menu-label'), key = row.querySelector('kbd');
+      const text = document.createRange();
+      text.selectNodeContents(key);
+      return {
+        gap: text.getBoundingClientRect().left - label.getBoundingClientRect().right,
+        opacity: Number(getComputedStyle(key).opacity), right: text.getBoundingClientRect().right,
+        rowBackground: getComputedStyle(row).backgroundColor,
+      };
+    }));
+    assert.ok(shortcutStyles.every(style => style.gap >= 29 && style.opacity >= .7 && style.opacity <= .8), 'the shortcut column has breathing room and lighter text');
+    assert.ok(shortcutStyles.every(style => Math.abs(style.right - shortcutStyles[0].right) < 1), 'Windows shortcuts line up on the right');
+    assert.ok(shortcutStyles.every(style => style.rowBackground === 'rgba(0, 0, 0, 0)'), 'idle menu rows have a plain background');
+    await managerMenu.getByRole('menuitem', { name: 'Material Manager…', exact: true }).click();
+    const openedMaterial = page.getByRole('dialog', { name: 'Material Manager', exact: true });
+    await openedMaterial.waitFor();
+    await page.keyboard.press('Escape');
+    await openedMaterial.waitFor({ state: 'detached' });
+
+    await page.keyboard.press('Alt+f');
+    await popupMenu('File').waitFor();
+    await page.keyboard.press('ArrowDown');
+    const recent = popupMenu('File').getByRole('menuitem', { name: 'Recent Files', exact: true });
+    assert.equal(await recent.evaluate(node => node === document.activeElement), true);
+    await page.keyboard.press('ArrowRight');
+    await popupMenu('Recent Files').waitFor();
+    await page.keyboard.press('Escape');
+    await popupMenu('Recent Files').waitFor({ state: 'detached' });
+    assert.equal(await recent.evaluate(node => node === document.activeElement), true);
+    await page.keyboard.press('Escape');
+    await popupMenu('File').waitFor({ state: 'detached' });
+    await page.keyboard.press('F10');
+    await page.keyboard.press('ArrowDown');
+    await popupMenu('File').waitFor();
+    await page.keyboard.press('Escape');
+    await popupMenu('File').waitFor({ state: 'detached' });
+
+    await openMenu('Settings');
+    await popupMenu('Settings').getByRole('menuitem', { name: 'Toolbar', exact: true }).hover();
+    await popupMenu('Toolbar').getByRole('menuitemradio', { name: 'Trim', exact: true }).click();
+    await page.locator('.classic-app[data-toolbar="trim"]').waitFor();
+    await openMenu('Settings');
+    await popupMenu('Settings').getByRole('menuitem', { name: 'Toolbar', exact: true }).hover();
+    await popupMenu('Toolbar').getByRole('menuitemradio', { name: 'Graphic', exact: true }).click();
+    await page.locator('.classic-app:not([data-toolbar])').waitFor();
+    await openMenu('View');
+    const status = await page.locator('.classic-status').boundingBox();
+    await page.mouse.click(status.x + status.width / 2, status.y + status.height / 2);
+    await popupMenu('View').waitFor({ state: 'detached' });
+    await openMenu('View');
+    const viewBones = popupMenu('View').getByRole('menuitemcheckbox', { name: 'Bones', exact: true });
+    const quickBones = page.locator('.quick-display [data-hotkey="display:bones"]');
+    const wasChecked = await quickBones.isChecked();
+    assert.equal(await viewBones.getAttribute('aria-checked'), String(wasChecked));
+    await viewBones.click();
+    assert.equal(await quickBones.isChecked(), !wasChecked, 'the mouse route toggles the same View setting');
+
+    const { translate } = await import('../src/localization.js');
+    await openMenu('Settings');
+    await popupMenu('Settings').getByRole('menuitem', { name: 'Language', exact: true }).hover();
+    await popupMenu('Language').getByRole('menuitemradio', { name: 'Français', exact: true }).click();
+    await page.waitForFunction(() => document.documentElement.lang === 'fr');
+    const frSettings = translate('Settings', 'fr'), frLanguage = translate('Language', 'fr');
+    await openMenu(frSettings);
+    await popupMenu(frSettings).getByRole('menuitem', { name: frLanguage, exact: true }).hover();
+    await popupMenu(frLanguage).getByRole('menuitemradio', { name: 'English', exact: true }).click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    await bar.getByRole('menuitem', { name: 'Settings', exact: true }).waitFor();
     await page.keyboard.press('F5');
     await page.getByRole('button', { name: 'Animations', exact: true, pressed: true }).waitFor();
     const bones = page.locator('.quick-display [data-hotkey="display:bones"]');
@@ -46,7 +124,7 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
       assert.equal(entry.register, false, name);
       await page.keyboard.press('Alt+' + key.toLowerCase());
       const popup = page.getByRole('dialog', { name, exact: true });
-      await popup.waitFor();
+      await popup.locator('[data-hotkey="close"][aria-keyshortcuts="Escape"]').waitFor();
       await page.keyboard.press('Escape');
       await popup.waitFor({ state: 'detached' });
       assert.equal(await page.getByRole('button', { name: 'Animations', exact: true, pressed: true }).count(), 1, name);
@@ -80,6 +158,11 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
       }
       throw Error('Material Manager menu still shows the old shortcut after rebinding');
     });
+
+    await openMenu('Managers');
+    await managerMenu.getByRole('menuitem', { name: 'Material Manager…', exact: true }).getByText('Ctrl+F9', { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    await managerMenu.waitFor({ state: 'detached' });
     await page.keyboard.press('Control+F9');
     await material.waitFor();
     await page.keyboard.press('Escape');
@@ -121,6 +204,6 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
     await materialRow.click();
     await browser.getByRole('dialog', { name: 'Material Manager', exact: true }).waitFor();
     assert.deepEqual(errors, []);
-    console.log('PASS manager tab removal, nine native shortcut labels and key routes, popup menu and internal Model tab, live remap, browser menu hints and right alignment');
+    console.log('PASS Windows menu spacing, muted keys, mouse and keyboard navigation, View and Language; nine manager shortcuts, live remap, Model popup and browser alignment');
   } finally { await closeApp(app); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

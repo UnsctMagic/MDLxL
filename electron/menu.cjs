@@ -62,4 +62,25 @@ function buildMenuTemplate(bindings, dispatch, platform = process.platform, rece
   return localized(template);
 }
 
-module.exports = { buildMenuTemplate, nativeAccelerator, normalizeMenuChecks, normalizeMenuKeys };
+// Send the presentation of the same menu to the Windows renderer. Clicks retain the menu item's handler.
+function presentMenu(menu, formatChord) {
+  const commands = new Map();
+  function rows(items, parentEnabled) {
+    return items.map(item => {
+      if (item.type === 'separator') return { type: 'separator' };
+      const [title, extraKey] = item.label.split('\t');
+      const mnemonic = [...title.matchAll(/&(&|.)/g)].find(match => match[1] !== '&')?.[1].toLowerCase();
+      const label = title.replace(/&(&?)/g, '$1');
+      const enabled = parentEnabled && item.enabled;
+      const shortcut = formatChord(item.accelerator || extraKey || '');
+      if (enabled && !item.submenu) commands.set(item.commandId, item);
+      return {
+        id: item.commandId, type: item.type, label, mnemonic, enabled, checked: item.checked, shortcut,
+        submenu: item.submenu ? rows(item.submenu.items, enabled) : undefined,
+      };
+    });
+  }
+  return { items: rows(menu.items, true), commands };
+}
+
+module.exports = { buildMenuTemplate, nativeAccelerator, normalizeMenuChecks, normalizeMenuKeys, presentMenu };
