@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
+const { isDeepStrictEqual } = require('node:util');
 const { launchApp, closeApp } = require('./helpers/app.cjs');
 
 (async () => {
@@ -214,6 +215,14 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
     const center = await screenVertex(0);
     const begin = { x: Math.min(pane.x + pane.width - 135, center.x + 70), y: Math.min(pane.y + pane.height - 135, center.y + 60) };
     for (const tool of ['r', 'z']) {
+      const toolName = tool === 'r' ? 'Rotate' : 'Resize';
+      const compareDrawn = (actual, expected, label) => {
+        assert.equal(actual.length, expected.length, `${toolName} ${label}: actual length ${actual.length}, expected length ${expected.length}`);
+        for (const [index, value] of actual.entries()) {
+          assert.ok(Math.abs(value - expected[index]) < .0002,
+            `${toolName} ${label} at component ${index}: actual ${value}, expected ${expected[index]}`);
+        }
+      };
       await page.keyboard.press(tool);
       await page.mouse.move(begin.x, begin.y);
       await page.mouse.down();
@@ -235,17 +244,29 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
         const drag = vertexPreviewRuntime().drag?.payload;
         return tool === 'r' ? drag?.rotation?.some(value => Math.abs(value) > 1) : drag?.scale?.some(value => Math.abs(value - 1) > .01);
       }, tool);
-      const turned = await inspect();
+      const deadline = performance.now() + 5000;
+      let previous = await inspect();
+      let turned;
+      while (performance.now() + 50 <= deadline) {
+        await delay(50);
+        const current = await inspect();
+        if (current.drag && isDeepStrictEqual(current.drawn, previous.drawn) && isDeepStrictEqual(current.drag, previous.drag)) {
+          turned = current;
+          break;
+        }
+        previous = current;
+      }
+      assert.ok(turned, `${toolName} preview did not settle within 5 s`);
       const visiblePivot = await page.evaluate(() => vertexPreviewRuntime().drag.viewPivot.toArray());
       const posed = { Vertices: new Float32Array(tilted.drawn) };
       transformVertices(posed, tilted.selection, [0, 0, 0], turned.drag.scale || [1, 1, 1], turned.drag.rotation || [0, 0, 0], visiblePivot);
-      closeArray(turned.drawn, posed.Vertices, (tool === 'r' ? 'Rotate' : 'Resize') + ' follows the frozen workplane');
+      compareDrawn(turned.drawn, posed.Vertices, 'follows the frozen workplane');
       await page.mouse.up();
       await page.waitForFunction(before => vertexPreviewRuntime().entries[0].geoset.Vertices.some((value, index) => value !== before[index]), tilted.vertices);
-      closeArray((await inspect()).drawn, turned.drawn, 'release keeps the posed edit');
+      compareDrawn((await inspect()).drawn, turned.drawn, 'release keeps the posed edit');
       await page.keyboard.press('Control+z');
       await page.waitForFunction(before => vertexPreviewRuntime().entries[0].geoset.Vertices.every((value, index) => value === before[index]), tilted.vertices);
-      closeArray((await inspect()).drawn, tilted.drawn, 'undo restores the frozen pose');
+      compareDrawn((await inspect()).drawn, tilted.drawn, 'undo restores the frozen pose');
     }
     assert.deepEqual(errors, []);
     console.log('PASS frozen preview, frame selection, vertex picking, posed Move, Rotate and Resize with base-pose commits, exact undo, mouse orbit and quad switching');
