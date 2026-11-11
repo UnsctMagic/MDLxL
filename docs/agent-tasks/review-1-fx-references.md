@@ -1,6 +1,6 @@
 # Contract 1: FX keeps pointing at the right geosets and clocks
 
-Status: ready for Codex
+Status: A1/A2 complete and ready for Claude review. Part B (A3–A5) waiting for claude/fx-editor.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
 Updated: 2026-11-11
 
@@ -92,5 +92,14 @@ also run the focused tests of its other callers named in the map (OptimizeXL
 
 ## Blockers and next action
 
-- No blocker for parts 1 to 3. Part B waits on the overlap note.
+- Part B waits on the overlap note. The local FX editor tip 757a3c3c is outside the review base; no FX window changes or tests were run.
 - On completion: status, revision and checks here; plain summary for the owner; hand back.
+
+## Codex handoff
+
+- Local code revision 669bc563 on codex/main-review-20261111-1, based on 4340c5f8.
+- Shared geoset removal shifts saved group members and impact contacts to their surviving parts. A deleted or merged-away member is dropped. A removed contact is cleared so FX can calculate it again, since its vertex index belongs to the removed geoset. These are the two geoset references in _FxStack. The old invalid-group filtering remains in the FX window and compile path.
+- Shared Global Sequence removal updates ownership IDs and duration metadata. The one overlapping line in global-animation-model.js was removed because the FX sweep calls the shared function and would otherwise shift ownership twice. The separate FX editor branch still has that line.
+- Red at 4340c5f8: node --test --test-reporter=spec test/fx-stale-references.test.js, 1 pass, 7 fail, 0 skip. The group still held [3,4] instead of [2,3], the impact contact still pointed to 4 instead of 3, and FX reused a user's clock while leaving its old clock behind. The pre-existing two-stack sweep passed and guards against double shifting.
+- Green at 669bc563: node --test --test-reporter=spec test/fx-stale-references.test.js test/global-animations.test.js test/editor-document.test.js test/geoset-operations.test.js test/sort-my-mess.test.js test/optimizexl.test.js, 147 pass, 0 fail, 1 skip. The optional Sort My Mess Tinker/Brown Magnataur replay requires the specific private MDLXL_SORT_NURGLE input. The first aggregate run hit a sandbox write denial in two OptimizeXL backup tests; the run with D: write access passed. Undo/redo, equal-length authored clocks and the FX sweep passed. git diff --check passed.
+- Owner summary: Deleting or merging model parts keeps FX aimed at the surviving parts. Deleting a Global Sequence keeps FX from taking over your own timing. The FX window changes are waiting on the separate FX editor work.
