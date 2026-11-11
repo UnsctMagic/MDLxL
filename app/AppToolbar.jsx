@@ -120,7 +120,7 @@ export default function AppToolbar({
     readOnly: doc.readOnly, saving, viewMode: displayMode, vanilla: visUI, checks: menuChecks,
     surfaceEffectsEnabled: commandEnabled('surfaceEffects'), uvEnabled: commandEnabled('uv'),
     toolbarMode: preferences.toolbarMode, language: preferences.language,
-    disabledCommands: ['forge', 'bitsAndParts', 'optimizeModel', 'paint', 'autoCorpse', 'convertVersion', 'ai:open'].filter(id => !commandEnabled(id)),
+    disabledCommands: ['forge', 'bitsAndParts', 'optimizeModel', 'paint', 'autoCorpse', 'convertVersion', 'ai:open', 'axes'].filter(id => !commandEnabled(id)),
     menuKeys: Object.fromEntries([...(VIEW_MENU[displayMode] || []).map(([, id]) => id), 'ai:open'].map(id => [id, shortcuts[id]?.[0]])),
   });
   useEffect(() => {
