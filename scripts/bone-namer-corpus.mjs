@@ -24,7 +24,7 @@ const outDir = path.resolve(opt.out || path.join(repo, 'out', 'bone-namer-corpus
 const only = opt.filter ? new RegExp(opt.filter, 'i') : null;
 
 const imp = file => import(pathToFileURL(path.join(repo, 'src', file)));
-const [namer, pose, seq, anim, compat] = await Promise.all([import(pathToFileURL(namerPath)), imp('pose-ik.js'), imp('sequence-editor.js'), imp('animation.js'), imp('mdx-compatibility.js')]);
+const [namer, pose, seq, anim, compat, skinCenter] = await Promise.all([import(pathToFileURL(namerPath)), imp('pose-ik.js'), imp('sequence-editor.js'), imp('animation.js'), imp('mdx-compatibility.js'), imp('movement-selection.js')]);
 if (typeof namer.planBoneNames !== 'function' || typeof namer.applyBoneNames !== 'function') usage(`${namerPath} must export planBoneNames and applyBoneNames`);
 let docModule = null;
 
@@ -173,9 +173,12 @@ function checkNames(renamedModel, renamedIds, nodes, sequence, frame) {
     if (!name.trim()) problems.push(`empty name on #${id}`);
     const side = name.match(SIDE)?.[1];
     if (side) {
-      const y = anim.worldPivot(renamedModel, id, matrices, node).y;
+      // A Mesh_ name is a mesh piece: its pivot is arbitrary, so its side is its Stand skin centre
+      // (the same helper POSE uses). Every other name keeps the pivot check.
+      const skin = /^Mesh_/.test(name) ? skinCenter.movementBoneVertexCenter(renamedModel, id, matrices)?.center : null;
+      const where = skin ? 'skin centre' : 'pivot', y = skin ? skin.y : anim.worldPivot(renamedModel, id, matrices, node).y;
       const bad = side === 'L' ? !(y >= 0) : !(y < 0);
-      if (bad) { if (Math.abs(y) <= 1e-4) review.push({ kind: 'SIDE-NEAR-ZERO', text: `"${name}" Stand Y = ${y}` }); else problems.push(`"${name}" is _${side} but Stand Y = ${y.toFixed(3)}`); }
+      if (bad) { if (Math.abs(y) <= 1e-4) review.push({ kind: 'SIDE-NEAR-ZERO', text: `"${name}" Stand ${where} Y = ${y}` }); else problems.push(`"${name}" is _${side} but Stand ${where} Y = ${y.toFixed(3)}`); }
     }
   }
   return { problems, review };
