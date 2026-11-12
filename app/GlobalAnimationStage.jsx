@@ -10,7 +10,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  const real=graph?.model?.Nodes[result?.id];
  // An orbiting Edge rides three helpers; its handles stay with the part the helpers hang from.
  let parentNode=real?.Parent,anchorId=result?.id;if(layer?.orbit&&layer.type==='Edge')for(let i=0;i<3&&parentNode!=null;i++){anchorId=parentNode;parentNode=graph.model.Nodes[parentNode]?.Parent;}
- const frame=graph?.frame.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
+ const frame=graph?.frame?.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
  const active=placing&&frame&&value&&(result?.id!=null);
  const parent=active?parentNode??null:null;
  const marks=useMemo(()=>{
