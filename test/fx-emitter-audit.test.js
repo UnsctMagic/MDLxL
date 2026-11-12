@@ -66,9 +66,9 @@ test('Falling mist puffs stay within about a third of the unit height',()=>{
  assert.ok(layer.size*1.38<=60*.35+1e-9,'largest puff '+(layer.size*1.38).toFixed(1));
 });
 test('motes are larger and emit at least two per second at every orbit',()=>{
- const {layer,emitters}=addEmitter('Drifting lights'),plain=makeLayer({...choice('Drifting lights'),size:1},partFrame(knight().model.Geosets[37]),'native',1);
+ const {layer,emitters}=addEmitter('Drifting lights'),before=makeLayer({...choice('Drifting lights'),burstGap:1},partFrame(knight().model.Geosets[37]),'native',1);
  assert.ok(emitters.every(p=>p.EmissionRate>=2-1e-9),'per orbit '+emitters.map(p=>p.EmissionRate.toFixed(2)));
- assert.equal(plain.size,1,'a look that sets its own size keeps it');assert.ok(layer.size>1);
+ assert.ok(Math.abs(layer.size-before.size*1.5)<1e-9,'half as large again');
 });
 test('Plague haze is additive, not a mud-coloured blend',()=>{
  const {emitters}=addEmitter('Plague haze');
