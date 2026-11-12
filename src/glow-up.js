@@ -135,7 +135,8 @@ const sideless = name => nameTokens(name).map(token => {
 export function weaponChoices(model, marked) {
   const choices = [], found = weaponCandidates(model), likely = found.filter(c => c.score > 0);
   // `sure`: clear enough to switch weapon glow on by default (a weapon name).
-  if (marked && ribbonPolygonSelection(model, marked).polygons) choices.push({ key: 'marked', label: 'Marked polygons', marked, sure: true });
+  const selection = marked && ribbonPolygonSelection(model, marked);
+  if (selection?.polygons) choices.push({ key: 'marked', label: 'Marked polygons', ids: selection.parent == null ? [] : [selection.parent], marked, sure: true });
   const top = likely[0], twin = top && nameSide(top.name) && likely.find(c => c !== top && c.score === top.score && sideless(c.name) === sideless(top.name));
   if (twin) choices.push({ key: `pair-${top.id}-${twin.id}`, label: `${top.name} + ${twin.name}`, ids: [top.id, twin.id], sure: top.score >= 4 });
   for (const c of found) choices.push({ key: `bone-${c.id}`, label: c.name, ids: [c.id], other: c.score <= 0, sure: c.score >= 4 });
@@ -294,21 +295,28 @@ function addWeapon(model, lines, size, originSize, materialId) {
   return addQuads(model, quads, materialId);
 }
 
+function weaponLines(model, { weaponIds = [], marked, weaponFrom, weaponTo }) {
+  if (!marked && !weaponIds.length) throw Error('Choose the weapon’s bone.');
+  const range = { from: weaponFrom, to: weaponTo };
+  return marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
+}
+
 /**
  * Add hero glow. One undo step when run inside EditorDocument.apply.
  * options: origin, originSize (× fitted width), weapon, weaponIds | marked, weaponSize,
  * weaponFrom/weaponTo (0 butt … 1 tip, or [along, side, side] in weapon lengths;
  * default from past the grip to the tip), brightness, or originBrightness and
- * weaponBrightness to light the two apart.
+ * weaponBrightness to light the two apart. addedWeapons accepts the same
+ * weapon fields for each extra glow, with a separate geoset per entry.
  */
-export function addHeroGlow(model, { origin = true, originSize = 1, originOffset = [0, 0], weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75, originBrightness = brightness, weaponBrightness = brightness } = {}) {
-  if (!origin && !weapon) throw Error('Choose origin glow, weapon glow, or both.');
+export function addHeroGlow(model, { origin = true, originSize = 1, originOffset = [0, 0], weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75, originBrightness = brightness, weaponBrightness = brightness, addedWeapons = [] } = {}) {
+  if (!origin && !weapon && !addedWeapons.length) throw Error('Choose origin glow, weapon glow, or both.');
   if (!(originOffset.length === 2 && originOffset.every(Number.isFinite))) throw Error('The origin glow position is invalid.');
-  if (![originSize, weaponSize].every(v => Number.isFinite(v) && v >= .1 && v <= 5)) throw Error('Glow size must be between 10% and 500%.');
-  if (![originBrightness, weaponBrightness].every(v => Number.isFinite(v) && v >= 0 && v <= 1)) throw Error('Glow brightness must be between 0 and 100%.');
-  if (weapon && !marked && !weaponIds.length) throw Error('Choose the weapon’s bone.');
-  const fitted = originGlowSize(model), range = { from: weaponFrom, to: weaponTo };
-  const lines = !weapon ? [] : marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
+  const weapons = weapon ? [{ weaponIds, marked, weaponSize, weaponFrom, weaponTo, weaponBrightness }, ...addedWeapons] : addedWeapons;
+  if (![originSize, weaponSize, ...weapons.map(w => w.weaponSize ?? 1)].every(v => Number.isFinite(v) && v >= .1 && v <= 5)) throw Error('Glow size must be between 10% and 500%.');
+  if (![originBrightness, weaponBrightness, ...weapons.map(w => w.weaponBrightness ?? brightness)].every(v => Number.isFinite(v) && v >= 0 && v <= 1)) throw Error('Glow brightness must be between 0 and 100%.');
+  const fitted = originGlowSize(model);
+  const rows = weapons.map(w => ({ lines: weaponLines(model, w), size: w.weaponSize ?? 1, alpha: w.weaponBrightness ?? brightness }));
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
   let textureId = model.Textures.findIndex(t => t.ReplaceableId === 2 && !t.Image);
   if (textureId < 0) textureId = model.Textures.push({ Image: '', ReplaceableId: 2, Flags: 0 }) - 1;
@@ -318,11 +326,13 @@ export function addHeroGlow(model, { origin = true, originSize = 1, originOffset
     const found = model.Materials.findIndex(m => (m.PriorityPlane ?? 0) === 0 && (m.RenderMode ?? 0) === 0 && m.Layers?.length === 1 && [m.Layers[0]].every(l => l.FilterMode === 3 && l.Shading === 17 && l.TextureID === textureId && l.TVertexAnimId == null && (l.CoordId ?? 0) === 0 && l.Alpha === alpha));
     return found >= 0 ? found : model.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 3, Shading: 17, TextureID: textureId, TVertexAnimId: null, CoordId: 0, Alpha: alpha }] }) - 1;
   };
-  const materialId = material(origin ? originBrightness : weaponBrightness);
-  const weaponMaterialId = origin && weapon && weaponBrightness !== originBrightness ? material(weaponBrightness) : materialId;
+  const originMaterialId = origin ? material(originBrightness) : undefined;
+  const weaponMaterials = rows.map(row => material(row.alpha));
+  const materialId = originMaterialId ?? weaponMaterials[0];
+  const weaponMaterialId = weaponMaterials[0] ?? materialId;
   const geosetIndices = [];
-  if (origin) geosetIndices.push(addOrigin(model, fitted * originSize, materialId, originOffset));
-  if (weapon) geosetIndices.push(addWeapon(model, lines, weaponSize, fitted, weaponMaterialId));
+  if (origin) geosetIndices.push(addOrigin(model, fitted * originSize, originMaterialId, originOffset));
+  rows.forEach(({ lines, size }, i) => geosetIndices.push(addWeapon(model, lines, size, fitted, weaponMaterials[i])));
   growBounds(model, geosetIndices.map(i => model.Geosets[i]));
   return { geosetIndices, materialId, weaponMaterialId, textureId, size: fitted };
 }
@@ -341,13 +351,16 @@ function growBounds(model, geosets) {
  * butt, tip, glowing stretch and the middle square's half width. On a model
  * that already glows, the handles sit on its own glow (see glowUp).
  */
-export function glowLayout(model, { originSize = 1, originOffset = [0, 0], weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, excluded } = {}) {
-  const fitted = originGlowSize(model), size = fitted * originSize, range = { from: weaponFrom, to: weaponTo }, found = findHeroGlow(model, excluded);
+export function glowLayout(model, options = {}, addedWeapon) {
+  const { originSize = 1, originOffset = [0, 0], excluded } = options;
+  const weapon = addedWeapon ?? options;
+  const { weaponIds = [], marked, weaponSize = 1 } = weapon;
+  const fitted = originGlowSize(model), size = fitted * originSize, found = findHeroGlow(model, excluded);
   const origin = found?.origin
     ? { center: [originOffset[0], originOffset[1], found.origin.center[2] * size / found.origin.width], half: size / 2 }
     : { center: [originOffset[0], originOffset[1], size * ORIGIN_LAYERS[1].height], half: size * ORIGIN_LAYERS[1].width / 2 };
-  if (found?.weapon) return { origin, weapons: [ownWeaponHandles(model, found.weapon, { weaponSize, weaponFrom, weaponTo })] };
-  const lines = marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
+  if (found?.weapon && !addedWeapon) return { origin, weapons: [ownWeaponHandles(model, found.weapon, weapon)] };
+  const lines = marked || weaponIds.length ? weaponLines(model, weapon) : [];
   return { origin, weapons: lines.map(line => ({ ...line, mid: line.start.map((v, a) => (v + line.end[a]) / 2), half: weaponSquares(line, weaponSize, fitted).quad / 2 })) };
 }
 
@@ -419,7 +432,9 @@ function weaponPart(model, pieces, nodes, holds) {
   // A square on its own bone follows that bone's parent; one on a shared bone follows that bone.
   const anchors = pieces.map(p => p.bones.length !== 1 ? undefined : holds(p.bones[0], [p]) ? nodes.get(p.bones[0]).Parent ?? undefined : p.bones[0]);
   const mid = pieces[Math.floor(pieces.length / 2)];
-  const part = { pieces, center: mid.center, node: mid.bones[0], half: pieces.reduce((sum, p) => sum + p.width, 0) / pieces.length / 2, brightness: piecesAlpha(model, pieces) };
+  const bones = new Set(pieces.flatMap(p => p.bones));
+  const occupied = new Set([...bones].map(id => holds(id, pieces) ? nodes.get(id).Parent : id));
+  const part = { pieces, occupied, center: mid.center, node: mid.bones[0], half: pieces.reduce((sum, p) => sum + p.width, 0) / pieces.length / 2, brightness: piecesAlpha(model, pieces) };
   const anchor = anchors[0];
   if (anchor == null || anchors.some(a => a !== anchor)) return part;
   let line;
@@ -575,11 +590,11 @@ function adjustWeapon(model, found, { weaponSize = 1, weaponFrom, weaponTo }, mo
 export function glowUp(model, options = {}) {
   const found = findHeroGlow(model, options.excluded);
   if (!found) {
-    if (!options.origin && !options.weapon && hasNonSquareGlow(model)) return { geosetIndices: [] };
+    if (!options.origin && !options.weapon && !options.addedWeapons?.length && hasNonSquareGlow(model)) return { geosetIndices: [] };
     return addHeroGlow(model, options);
   }
   const { origin = true, weapon = false } = options, add = { origin: origin && !found.origin, weapon: weapon && !found.weapon }, moved = new Set();
-  const result = add.origin || add.weapon ? addHeroGlow(model, { ...options, ...add }) : { geosetIndices: [] };
+  const result = add.origin || add.weapon || options.addedWeapons?.length ? addHeroGlow(model, { ...options, ...add }) : { geosetIndices: [] };
   if (origin && found.origin) adjustOrigin(model, found, options, moved);
   if (weapon && found.weapon) adjustWeapon(model, found, options, moved);
   // Only a slider that moved applies; set to the same brightness, the two change together and a shared material stays one.

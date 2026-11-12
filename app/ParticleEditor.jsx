@@ -75,6 +75,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const [libraryChoice,setLibraryChoice]=useState(null),[openingSelection,setOpeningSelection]=useState(false),[placementStageError,setPlacementStageError]=useState(''),[placementPlaying,setPlacementPlaying]=useState(true);
   const [preparedPlacement,setPreparedPlacement]=useState(null),[sizeKey,setSizeKey]=useState(null),[manual,setManual]=useState(false);
   const [glow,setGlow]=useState(null),[glowSnapshot,setGlowSnapshot]=useState(null),glowShown=useRef(null),glowFitted=useRef(false);
+  const [activeWeapon,setActiveWeapon]=useState(0);
   const [tick,setTick]=useState(0),[structure,setStructure]=useState(0),[message,setMessage]=useState(''),[snapshot,setSnapshot]=useState(null),[saveOpen,setSaveOpen]=useState(false),[name,setName]=useState('My effect'),[placement,setPlacement]=useState(null);
   const activeDoc=context==='Lab'?lab.doc:doc;
   useEffect(()=>{setMuted([]);setIngredients(null);},[activeDoc]);
@@ -230,7 +231,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       const keys = ignoredGlowPieces.get(geoset);
       if (keys) excluded.set(index, keys);
     });
-    return { ...glowStart(doc.model, selectedGeometry, excluded), excluded };
+    return { ...glowStart(doc.model, selectedGeometry, excluded), excluded, addedWeapons: [] };
   };
   const toggleGlowPiece = piece => {
     const geoset = doc.model.Geosets[piece.geoset];
@@ -254,18 +255,44 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       };
     });
   };
-  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {excluded:value.excluded,origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
+  const weaponOptions=({weaponKey,weaponSize,weaponFrom,weaponTo,weaponBrightness})=>{
+    const choice=glowChoices.find(c=>c.key===weaponKey);
+    return {weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize,weaponFrom,weaponTo,weaponBrightness};
+  };
+  const glowOptions=({excluded,origin,originSize,originOffset,originBrightness,weapon,addedWeapons,...primary})=>({
+    excluded,origin,originSize,originOffset,originBrightness,weapon,...weaponOptions(primary),
+    addedWeapons:weapon?addedWeapons.map(weaponOptions):[],
+  });
+  const activeDraft=glow?.addedWeapons[activeWeapon-1];
+  const stageGlow=glow&&{
+    origin:glow.origin,originSize:glow.originSize,originOffset:glow.originOffset,weapon:glow.weapon,
+    weaponSize:(activeDraft??glow).weaponSize,weaponFrom:(activeDraft??glow).weaponFrom,weaponTo:(activeDraft??glow).weaponTo,
+  };
+  const updateWeapon=(value,change)=>activeWeapon
+    ? {...value,addedWeapons:value.addedWeapons.map((draft,i)=>i===activeWeapon-1?{...draft,...change}:draft)}
+    : {...value,...change};
+  const changeStageGlow=({origin,weapon,originSize,originOffset,...weaponChange})=>setGlow(value=>{
+    const change={...value,originSize:originSize??value.originSize,originOffset:originOffset??value.originOffset};
+    return Object.keys(weaponChange).length?updateWeapon(change,weaponChange):change;
+  });
   // Drag handles in the preview, as for emitters: their bind-pose points follow the weapon bone.
-  const glowLayoutNow=useMemo(()=>{if(!glow||!doc)return null;try{return glowLayout(doc.model,glowOptions(glow));}catch{return null;}},[glow,doc,revision,glowChoices]);
+  const glowLayoutNow=useMemo(()=>{
+    if(!glow||!doc)return null;
+    try{return glowLayout(doc.model,glowOptions(glow),activeDraft&&weaponOptions(activeDraft));}catch{return null;}
+  },[glow,doc,revision,glowChoices,activeDraft]);
+  const weaponMark=`weapon-${activeWeapon}-${!activeWeapon&&glowOwn?.weapon?'existing':(activeDraft??glow)?.weaponKey}`;
   const glowMarks=useMemo(()=>{
     if(!glowLayoutNow)return undefined;const marks={};
     if(glow.origin){const {center:[x,y,z],half}=glowLayoutNow.origin;Object.assign(marks,{origin:{point:[x,y,z]},originX:{point:[x+1,y,z]},originY:{point:[x,y+1,z]},edge:{point:[x+half,y,z]},edgeUnit:{point:[x+half+1,y,z]}});[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b],i)=>{marks['corner'+i]={point:[x+a*half,y+b*half,z]};});}
     const weapon=glow.weapon&&glowLayoutNow.weapons[0];
-    if(weapon)for(const key of ['butt','tip','start','end','mid'])if(weapon[key])marks[key]={point:weapon[key],node:weapon.parentId,...(key==='mid'?{radius:weapon.half,turn:!!weapon.frame}:{})};
+    if(weapon){
+      marks[weaponMark]={point:weapon.mid,node:weapon.parentId,radius:weapon.half,turn:!!weapon.frame};
+      for(const key of ['butt','tip','start','end'])if(weapon[key])marks[key]={point:weapon[key],node:weapon.parentId};
+    }
     // One model unit along the weapon and its two sides from each end: the drag turns screen movement into these.
     if(weapon?.frame)for(const key of ['start','end'])for(const axis of ['along','side','other'])marks[key+'-'+axis]={point:weapon[key].map((v,a)=>v+weapon.frame[axis][a]),node:weapon.parentId};
     return marks;
-  },[glowLayoutNow,glow?.origin,glow?.weapon]);
+  },[glowLayoutNow,glow?.origin,glow?.weapon,weaponMark]);
   // Each slider change rebuilds the preview; fit the view once, then keep the user's camera.
   const glowPreviewReady=useCallback(api=>{capture.current=api;if(api&&!glowFitted.current){glowFitted.current=true;api.whenReady().then(()=>{if(capture.current===api)api.fit();}).catch(error=>{if(capture.current===api)setMessage(error.message);});}},[]);
   // Hold the animation still while a stage handle (glow, emitter move, size or rotate) is dragged,
@@ -288,6 +315,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       // A model that glows starts from its own glow.
       glowFitted.current=false;
       setGlowSnapshot(null);
+      setActiveWeapon(0);
       setGlow(startGlowDraft());
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
@@ -307,7 +335,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       const mutate=m=>repairHeroGlow(m,glow.excluded);
       const accepted=edit?edit('Fix hero glow',GLOW_SECTIONS,mutate,{rethrow:true}):doc.apply('Fix hero glow',GLOW_SECTIONS,mutate);
       if(accepted===false)return;
-      setGlow(startGlowDraft());setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
+      setActiveWeapon(0);setGlow(startGlowDraft());setStructure(v=>v+1);refresh?.();setMessage('Hero glow fixed. Undo restores it.');
     }catch(error){setMessage(error.message);}
   };
   const toggleLibrary=async()=>{
@@ -392,7 +420,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       {saveOpen&&<div className="pe-action-strip">{context==='Lab'&&effectNodes(model).length>1&&<span>Whole effect · {effectNodes(model).length} ingredients</span>}<label>Preset name<input aria-label="Preset name" value={name} maxLength={120} onChange={e=>setName(e.target.value)}/></label><button onClick={save}>Save to My presets</button><button onClick={()=>setSaveOpen(false)}>Cancel</button></div>}
       <div className={'pe-body '+(mode==='Classic'?'pe-classic':'pe-clueless')+(library?' pe-browsing':'')}>
         <div className="pe-preview-pane">
-          <div className="pe-preview">{glow?<Suspense fallback={<span>Loading preview…</span>}>{glowShown.current?<GamePreview presentation="preview" model={glowShown.current} revision={0} textureAssets={textureAssets} modelPath={modelPath} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={100} loop onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={glowPreviewReady} onParticleStage={setGlowSnapshot} particleStageMarks={glowMarks} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/>:<span>{glowPreview?.error||'Preparing glow…'}</span>}<GlowStageTools snapshot={glowSnapshot} glow={glow} layout={glowLayoutNow} onChange={setGlow} onDrag={holdFrame} preferences={previewPreferences}/></Suspense>:placement?<ParticlePlacementStage {...{doc,placement,teamColor}} playing={placementPlaying} setPlaying={setPlacementPlaying} recipe={placementResources?.recipe||placementRecipe} textureAssets={placementAssets} preferences={previewPreferences} onPosition={position=>setPlacement(p=>({...p,position}))} onSurface={surface=>setPlacement(p=>({...p,parent:surface.parent==null?'':String(surface.parent),motion:surface.parent==null?'source':'target',position:surface.position}))} onError={setPlacementStageError}/>:<><Suspense fallback={<span>Loading preview…</span>}><GamePreview suspended={library||pictureLibrary||examples||!!testView||!!ingredients} presentation="preview" model={preview} revision={0} particleAuthoring hiddenParticleIds={hiddenParticleIds} particleLiveModel={working} particleLiveRevision={tick} particleLiveField={lastField.current} particleLinked={linked} particleFxSpeed={(linked?speed:fxSpeed)*100} onParticleStatus={setPreviewStatus} particleSelectedId={hiddenParticleIds?.has(emitterId)?undefined:emitterId} particleAnchorId={emitterId} onParticleStage={setSnapshot} onParticlePick={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);}} onCameraGestureChange={active=>{if(active)cancel();}} textureAssets={assets} modelPath={context==='On model'?modelPath:undefined} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={speed*100} loop={loop} onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={previewReady} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/></Suspense>{sizeKey&&<div className="pe-size-banner" role="status" aria-label="Smooth Size"><b>Adjust the scale at this specific key (frame {sizeKey.frame}) and the ribbon will grow/shrink smoothly between keys.</b><span>Drag the green ends.</span><button onClick={commitSize} title="Write this size key. Undo or Ctrl+Z removes it.">Commit</button><button onClick={cancelSize} title="Discard (Esc).">Cancel</button></div>}{mode==='Clueless'&&!activeDoc.readOnly&&<ParticleStageTools frames={capture.current?.frames} onDrag={holdFrame} rotate preferences={previewPreferences} {...{snapshot,tool,emitter,begin,change,finish,cancel,cancelVersion,lifeStage,sizeKey}} onSizeDraft={(field,value)=>setSizeKey(key=>key&&{...key,[field==='HeightAbove'?'above':'below']:value})} options={{frame,globalTime:previewStatus.global??frame,interval,globalSequences:model.GlobalSequences,family}}/>}</>}
+          <div className="pe-preview">{glow?<Suspense fallback={<span>Loading preview…</span>}>{glowShown.current?<GamePreview presentation="preview" model={glowShown.current} revision={0} textureAssets={textureAssets} modelPath={modelPath} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={100} loop onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={glowPreviewReady} onParticleStage={setGlowSnapshot} particleStageMarks={glowMarks} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/>:<span>{glowPreview?.error||'Preparing glow…'}</span>}<GlowStageTools snapshot={glowSnapshot} glow={stageGlow} layout={glowLayoutNow} weaponMark={weaponMark} onChange={changeStageGlow} onDrag={holdFrame} preferences={previewPreferences}/></Suspense>:placement?<ParticlePlacementStage {...{doc,placement,teamColor}} playing={placementPlaying} setPlaying={setPlacementPlaying} recipe={placementResources?.recipe||placementRecipe} textureAssets={placementAssets} preferences={previewPreferences} onPosition={position=>setPlacement(p=>({...p,position}))} onSurface={surface=>setPlacement(p=>({...p,parent:surface.parent==null?'':String(surface.parent),motion:surface.parent==null?'source':'target',position:surface.position}))} onError={setPlacementStageError}/>:<><Suspense fallback={<span>Loading preview…</span>}><GamePreview suspended={library||pictureLibrary||examples||!!testView||!!ingredients} presentation="preview" model={preview} revision={0} particleAuthoring hiddenParticleIds={hiddenParticleIds} particleLiveModel={working} particleLiveRevision={tick} particleLiveField={lastField.current} particleLinked={linked} particleFxSpeed={(linked?speed:fxSpeed)*100} onParticleStatus={setPreviewStatus} particleSelectedId={hiddenParticleIds?.has(emitterId)?undefined:emitterId} particleAnchorId={emitterId} onParticleStage={setSnapshot} onParticlePick={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);}} onCameraGestureChange={active=>{if(active)cancel();}} textureAssets={assets} modelPath={context==='On model'?modelPath:undefined} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={speed*100} loop={loop} onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={previewReady} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/></Suspense>{sizeKey&&<div className="pe-size-banner" role="status" aria-label="Smooth Size"><b>Adjust the scale at this specific key (frame {sizeKey.frame}) and the ribbon will grow/shrink smoothly between keys.</b><span>Drag the green ends.</span><button onClick={commitSize} title="Write this size key. Undo or Ctrl+Z removes it.">Commit</button><button onClick={cancelSize} title="Discard (Esc).">Cancel</button></div>}{mode==='Clueless'&&!activeDoc.readOnly&&<ParticleStageTools frames={capture.current?.frames} onDrag={holdFrame} rotate preferences={previewPreferences} {...{snapshot,tool,emitter,begin,change,finish,cancel,cancelVersion,lifeStage,sizeKey}} onSizeDraft={(field,value)=>setSizeKey(key=>key&&{...key,[field==='HeightAbove'?'above':'below']:value})} options={{frame,globalTime:previewStatus.global??frame,interval,globalSequences:model.GlobalSequences,family}}/>}</>}
           {manual&&selectedEffect&&<EmitterTextDialog doc={activeDoc} id={emitterId} onEdit={(label,sections,mutate)=>apply(label,mutate,sections)} onClose={()=>setManual(false)}/>}
           {ingredients&&<ParticleIngredients source={ingredients} {...{assets,preferences:previewPreferences,teamColor,mode,muted}} onMute={id=>setMuted(values=>values.includes(id)?values.filter(value=>value!==id):[...values,id])} onSelect={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);setIngredients(null);}} onClose={()=>setIngredients(null)}/>}
           {testView&&<ParticleTestView {...testView} assets={assets} preferences={preferences} onClose={()=>setTestView(null)}/>}
@@ -407,7 +435,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
           <select data-hotkey="particles:animation" data-hotkey-manual data-hotkey-label="Particle preview animation" aria-label="Particle preview animation" value={sequence} onChange={e=>{cancel();const next=Number(e.target.value);setSequence(next);setTime(model.Sequences[next].Interval[0]);}}>{model.Sequences.map((clip,index)=><option key={index} value={index}>{clip.Name}</option>)}</select></>}
         </div>
         <fieldset className="pe-controls inspector-fields" disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients}>
-          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} detected={glowDetected} faults={glowFaults} error={glowPreview?.error} onChange={setGlow} onTogglePiece={toggleGlowPiece} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
+          {glow?<GlowUpControls glow={glow} choices={glowChoices} own={glowOwn} detected={glowDetected} faults={glowFaults} error={glowPreview?.error} activeWeapon={activeWeapon} onActiveWeapon={setActiveWeapon} onWeaponChange={change=>setGlow(value=>updateWeapon(value,change))} onChange={setGlow} onTogglePiece={toggleGlowPiece} onCreate={createGlow} onFix={fixGlow} onCancel={()=>setGlow(null)}/>:placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError||placementStageError}/>:
           emitter?<>{family==='RibbonEmitters'?<div className="pe-clueless-controls pe-ribbon-fields"><RibbonFields flat model={activeDoc.model} id={emitterId} time={frame} sequenceIndex={sequence} globalSeqId={null} restPose={false} disabled={activeDoc.readOnly} onEdit={(label,sections,mutate)=>apply(label,mutate,sections,{keepPlaying:true})} onPause={cancel}><div className="ribbon-box-actions"><button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this ribbon, for experienced users. Apply is one undo step." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div></RibbonFields></div>:<><div className="pe-tool-tabs">{['Look','Motion'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>{cancel();setTool(item);}}>{item}</button>)}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" className="pe-manual" disabled={activeDoc.readOnly} title="Edit the exact MDL text of this emitter, for experienced users. Hover a word to see what it does." onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></div><ParticleCluelessControls onDemo={context==='Lab'?setDemo:undefined} demo={demo} teamColor={teamColor||'#ed3333'} {...{emitter,frame,sequence,tool,scope,setScope,asset,assets,preferences,update,patch,begin,change,finish,cancel,lifeStage,setLifeStage}} onImport={importPicture} onLibrary={()=>{cancel();setPictureLibrary(true);}} onChoosePicture={choosePicture} onRemovePicture={removePicture} onTeamPicture={teamPicture} model={working} globalTime={previewStatus.global??frame} onSeek={value=>{setPlaying(false);setTime(value);}}/></>}</>:<p>{selectedEffect?<>{translate("This emitter type has no sliders yet. ")}<button data-hotkey="particles:adjust-manually" data-hotkey-manual data-hotkey-label="Adjust Manually" disabled={activeDoc.readOnly} onClick={()=>{cancel();setPlaying(false);setManual(true);}}>Adjust Manually</button></>:'Choose an effect in the library.'}</p>}
         </fieldset>
       </div>

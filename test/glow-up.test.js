@@ -115,6 +115,47 @@ test('mirrored weapons are offered together, and marked polygons come first', ()
   assert.ok(copy.Geosets.at(-1).Groups.every(([id]) => copy.Nodes[copy.Nodes[id].Parent].Name === 'Mesh sword_R'));
 });
 
+test('each weapon glow has its own bone, placement, size and brightness in one undo step', () => {
+  const doc = hero({ swords: ['Sword', 'Axe'] }), original = structuredClone(doc.model);
+  const sword = original.Bones.find(b => b.Name === 'Sword'), axe = original.Bones.find(b => b.Name === 'Axe');
+  const addedWeapon = { weaponIds: [axe.ObjectId], weaponFrom: .8, weaponTo: .95, weaponSize: .4, weaponBrightness: .45 };
+  const options = { origin: false, weapon: true, weaponIds: [sword.ObjectId], addedWeapons: [addedWeapon] };
+  const { weapons: [layout] } = glowLayout(original, options, addedWeapon);
+  const result = doc.apply('Glow Up', [], m => glowUp(m, options));
+  assert.equal(result.geosetIndices.length, 2);
+  const [first, second] = result.geosetIndices.map(i => doc.model.Geosets[i]);
+  assert.ok(first.Groups.every(([id]) => doc.model.Nodes[id].Parent === sword.ObjectId));
+  assert.ok(second.Groups.every(([id]) => doc.model.Nodes[id].Parent === axe.ObjectId));
+  assert.equal(doc.model.Materials[first.MaterialID].Layers[0].Alpha, .75);
+  assert.equal(doc.model.Materials[second.MaterialID].Layers[0].Alpha, .45);
+  const centers = quadCenters(second);
+  near(centers[0], layout.start);
+  near(centers.at(-1), layout.end);
+  const firstSquareWidth = g => Math.abs(g.Vertices[7] - g.Vertices[1]);
+  assert.ok(firstSquareWidth(second) < firstSquareWidth(first));
+  const saved = openDocument(doc.serialize('mdx')).model;
+  const parents = result.geosetIndices.map(i => [...new Set(saved.Geosets[i].Groups.map(([id]) => saved.Nodes[saved.Nodes[id].Parent].Name))]);
+  assert.deepEqual(parents, [['Sword'], ['Axe']]);
+  doc.undo();
+  assert.deepEqual(doc.model, original);
+});
+
+test('adding a weapon glow to an existing one leaves the original glow intact', () => {
+  const doc = hero({ swords: ['Sword', 'Axe'] }), model = doc.model;
+  const sword = model.Bones.find(b => b.Name === 'Sword'), axe = model.Bones.find(b => b.Name === 'Axe');
+  const first = addHeroGlow(model, { origin: false, weapon: true, weaponIds: [sword.ObjectId] });
+  const before = structuredClone(model);
+  const options = { ...glowStart(model), addedWeapons: [{ weaponIds: [axe.ObjectId] }] };
+  assert.ok(findHeroGlow(model).weapon.occupied.has(sword.ObjectId));
+  const result = glowUp(model, options);
+  assert.equal(result.geosetIndices.length, 1);
+  const extra = model.Geosets[result.geosetIndices[0]];
+  assert.ok(extra.Groups.every(([id]) => model.Nodes[id].Parent === axe.ObjectId));
+  assert.equal(extra.MaterialID, first.weaponMaterialId);
+  assert.deepEqual(model.Geosets.slice(0, before.Geosets.length), before.Geosets);
+  assert.deepEqual(model.Bones.slice(0, before.Bones.length), before.Bones);
+});
+
 test('a model without a named weapon starts with weapon glow off', () => {
   const doc = createStarterDocument();
   assert.ok(weaponChoices(doc.model).every(c => !c.sure));
