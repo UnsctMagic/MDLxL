@@ -240,14 +240,20 @@ keep its count.
   per fly, each quad entirely on its own owned billboarded bone (bone flags 264), under one owned
   swarm bone at the part's centre that follows the part without tilting (Don't inherit rotation).
   One owned material with one layer: Transparent (alpha key), two-sided, lit, priority plane 0,
-  native `Textures\Doodads0.blp` cell 151 of 12 rows x 16 columns. Each fly rides one of the five
+  by default the native fly area of `Textures\Abomination.blp` (u .558-.641, v .309-.394), which
+  reference swarms use and which reads darker and narrower than the `Doodads0` cell 151 of native
+  `Flies.mdx`. Each quad copies the measured corner layout of its picture (`FLY_PICTURES` in
+  `src/fx-cards.js`): a turned diamond on the billboarded bone, each corner showing the same
+  picture point as in the native model, triangles 0,1,2 and 3,2,1. Change texture keeps the
+  diamond and shows the whole new picture; Doodads0 keeps the native cell. Each fly rides one of the five
   native Hermite paths (`FLY_PATHS`, unchanged) as a closed translation track on an owned global
   sequence. Flies come in sets of five; each further set (`FLY_SETS` in `src/fx-cards.js`) has
   its own clock, yaw, time phase, width and height, so Amount above five never stacks flies and
   the swarm never visibly repeats. Clocks are `1233 x sqrt(radius / 88) x [1, 1.16, .89, 1.05, .95,
   1.11] / Speed` ms, all different. Five fly widths per set: Fly size x [.77, 1.12, .78, 1.47, .87].
-  Defaults: Fly size is 7% of the height of the unit's own mesh (stored bounds only without
-  one), kept within 10-22 units; Swarm size (the
+  Defaults: Fly size is 8.5% of the height of the unit's own mesh (stored bounds only without
+  one; the native swarms' mean fly), at least 6 units (readable at game distance) and at most 22,
+  so a 104-unit Footman gets 8.8-unit flies; Swarm size (the
   mean path radius) is .9 x the main skin region's radius or .3 x its length, never less than four
   fly widths; a part split into many skin regions still gets one swarm around one centre. Controls:
   **Amount** 5-30 in steps of 5, **Fly size**, **Swarm size**, **Speed** (0.25-4x, multiplies every

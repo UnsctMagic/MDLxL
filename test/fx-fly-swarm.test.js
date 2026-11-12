@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import * as looks from '../src/global-animation-looks.js';
 import {openDocument} from '../src/editor-document.js';
 import {compileAnimation,readAnimationStack} from '../src/global-animation-model.js';
-import {unitHeight} from '../src/fx-layer-basis.js';
+import {unitHeight,flyQuadSize} from '../src/fx-layer-basis.js';
+import {FLY_PICTURES} from '../src/fx-cards.js';
 import {modelHash} from './helpers/fx-legacy-snapshot.mjs';
 
 // Owner, 12 November 2026: "fly swarm - doesnt look good ... make it scaleable." Fly swarm is made the native
@@ -60,13 +61,21 @@ for(const [name,part] of Object.entries(PARTS))test('Fly swarm on the '+name+' p
   }
   const clocks=[...new Set(flies.map(b=>model.GlobalSequences[b.Translation.GlobalSeqId]))];
   assert.equal(clocks.length,amount/5,label+': one clock per set of five, all different');
-  // One material layer like the native flies: alpha-keyed, two-sided, lit, the Doodads0 fly cell.
+  // One material layer like the native flies: alpha-keyed, two-sided, lit, the Abomination fly area.
   const material=model.Materials[shape.MaterialID];
   assert.equal(material.Layers.length,1);assert.equal(material.PriorityPlane,0);
   assert.equal(material.Layers[0].FilterMode,1,'Transparent (alpha key)');assert.equal(material.Layers[0].Shading,16,'two-sided and lit');
-  assert.equal(model.Textures[material.Layers[0].TextureID].Image,'Textures\\Doodads0.blp');
+  assert.equal(model.Textures[material.Layers[0].TextureID].Image,'Textures\\Abomination.blp');
   const uv=shape.TVertices[0];
-  for(let i=0;i<uv.length;i+=2){assert.ok(uv[i]>=.4375-1e-6&&uv[i]<=.5+1e-6);assert.ok(uv[i+1]>=.75-1e-6&&uv[i+1]<=.8334);}
+  for(let i=0;i<uv.length;i+=2){assert.ok(uv[i]>=.558&&uv[i]<=.641,'u in the fly area');assert.ok(uv[i+1]>=.309&&uv[i+1]<=.394,'v in the fly area');}
+  // Each corner shows the part of the picture the reference swarms map to it, on their turned diamond.
+  const ref=FLY_PICTURES.abomination;
+  for(let q=0;q<amount;q++)for(let j=0;j<4;j++){
+   assert.deepEqual([uv[(q*4+j)*2],uv[(q*4+j)*2+1]].map(v=>Math.round(v*1000)),ref.uv[j].map(v=>Math.round(v*1000)),label+': corner '+j+' picture');
+   const pivot=flies[q].PivotPoint,half=Math.max(...[0,1,2,3].map(c=>Math.abs(shape.Vertices[(q*4+c)*3+1]-pivot[1])));
+   ref.corners[j].forEach((v,a)=>close(shape.Vertices[(q*4+j)*3+a]-pivot[a],v*half,label+': corner '+j+' axis '+a,1e-3));
+  }
+  assert.deepEqual(Array.from(shape.Faces.slice(0,6)),[0,1,2,3,2,1],'native triangle order');
  }
 });
 
@@ -87,11 +96,11 @@ test('Fly size, Swarm size and Speed change what they name and nothing else',()=
  assert.equal(new Set(fast.clocks).size,new Set(a.clocks).size,'clocks stay distinct');
 });
 
-test('default sizes: flies from the unit height (10-22 units), the swarm at least four flies wide',()=>{
+test('default sizes: flies from the unit height (8.5%, 6-22 units), the swarm at least four flies wide',()=>{
  for(const part of Object.values(PARTS)){
   const {model}=knight(),l=swarmStack(model,part).layers[0];
-  assert.ok(l.spriteSize>=10&&l.spriteSize<=22,'fly size '+l.spriteSize);
-  close(l.spriteSize,Math.max(10,Math.min(22,unitHeight(model)*.07)),'fly size follows the unit');
+  assert.ok(l.spriteSize>=6&&l.spriteSize<=22,'fly size '+l.spriteSize);
+  close(l.spriteSize,Math.max(6,Math.min(22,unitHeight(model)*.085)),'fly size follows the unit');
   assert.ok(l.size>=l.spriteSize*4,'swarm radius '+l.size);
   assert.equal(l.amount,5);assert.equal(l.speed,1);assert.deepEqual(l.tint,[1,1,1],'no tint');
  }
@@ -136,4 +145,19 @@ test('a stack saved with the old emitter flies keeps them and compiles as before
  assert.equal(model.ParticleEmitters2.length-emitters,5,'old flies stay particle emitters');
  assert.equal(flyBones(model).length,0,'no quad flies for an old stack');
  assert.equal(readAnimationStack(model,PARTS.single).layers[0].swarm,undefined,'reading back does not convert it');
+});
+
+test('a small unit gets proportionate flies: the mean fly is about 8.5% of the mesh height',()=>{
+ assert.equal(flyQuadSize(104),104*.085,'a 104-unit Footman body: 8.8-unit flies');
+ assert.equal(flyQuadSize(40),6,'never smaller than 6 (readable at game distance)');
+ assert.equal(flyQuadSize(600),22);
+});
+
+test('Change texture still works: another picture shows whole, Doodads0 keeps the native cell',()=>{
+ for(const [image,override,inside] of [['Textures\\Doodads0.blp',false,[.4375,.5,.75,.8334]],['Textures\\GenericGlow64.blp',true,[0,1,0,1]]]){
+  const {model}=knight();compileAnimation(model,PARTS.single,swarmStack(model,PARTS.single,{image,pictureOverride:override}));
+  const shape=shapeOf(model),uv=shape.TVertices[0];
+  assert.equal(model.Textures[model.Materials[shape.MaterialID].Layers[0].TextureID].Image,image);
+  for(let i=0;i<uv.length;i+=2)assert.ok(uv[i]>=inside[0]-1e-6&&uv[i]<=inside[1]+1e-6&&uv[i+1]>=inside[2]-1e-6&&uv[i+1]<=inside[3]+1e-6,image);
+ }
 });

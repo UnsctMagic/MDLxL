@@ -1,6 +1,6 @@
 import {Quaternion,Vector3} from 'three';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
-import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock} from './fx-cards.js';
+import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
@@ -634,10 +634,9 @@ function flySwarm(c,l){
  const centre=c.frame.center.clone().add(new Vector3(...l.offset));
  const swarm=nodeFor(c,'Bones','Bone','swarm',l.label,centre,c.parent);
  swarm.Flags=256|2;for(const key of ['Translation','Rotation','Scaling'])delete swarm[key];
- // The native fly cell of Doodads0 (12 rows, 16 columns, cell 151); another picture shows whole.
- const [u0,v0,du,dv]=l.pictureOverride?[0,0,1,1]:[7/16,9/12,1/16,1/12];
+ // The measured corner layout and picture area of the native fly pictures; another picture shows whole.
+ const picture=flyPicture(l.image,l.pictureOverride);
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],points=[];
- const side=new Vector3(0,1,0),up=new Vector3(0,0,1),normal=new Vector3(1,0,0);
  let widest=0;
  for(let k=0;k<count;k++){
   const s=Math.floor(k/5),p=k%5,set=FLY_SETS[s%FLY_SETS.length],yaw=set.yaw*Math.PI/180,cos=Math.cos(yaw),sin=Math.sin(yaw);
@@ -650,11 +649,10 @@ function flySwarm(c,l){
   fly.Translation={LineType:2,GlobalSeqId:clock,Keys:phasedPath(FLY_KEYS[p],set.phase).map(key=>({Frame:Math.round(key.t*ms),Vector:vec(turned(key.v)),InTan:vec(turned(key.i)),OutTan:vec(turned(key.o))}))};
   for(const key of fly.Translation.Keys)points.push(pivot.clone().add(new Vector3(...key.Vector)).toArray());
   const half=width*FLY_SIZES[p]/2,first=vertices.length/3;widest=Math.max(widest,half);
-  for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
-   vertices.push(...pivot.clone().addScaledVector(side,a*half).addScaledVector(up,b*half).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);
+  for(const [j,corner] of picture.corners.entries()){
+   vertices.push(...corner.map((v,a)=>pivot.getComponent(a)+v*half));normals.push(...picture.normal);uvs.push(...picture.uv[j]);vertexGroup.push(groups.length);
   }
-  uvs.push(u0,v0+dv,u0+du,v0+dv,u0+du,v0,u0,v0);
-  faces.push(first,first+1,first+2,first,first+2,first+3);
+  faces.push(first,first+1,first+2,first+3,first+2,first+1);
   groups.push([fly.ObjectId]);
  }
  // One layer like the native flies: alpha-keyed (Transparent), two-sided and lit by the map.

@@ -69,3 +69,19 @@ export const FLY_SCATTER=Object.freeze([[54.6,4.3,-1.1],[47.9,4.3,10.2],[-13.2,3
 export const FLY_BOUNDS=Object.freeze({amount:[5,30],spriteSize:[2,60],speed:[.25,4]});
 /** One fly clock: native 1233 ms at radius 88, longer for a wider swarm (constant fly speed grows with the root of the radius). */
 export const flyClock=(radius,set,speed=1)=>Math.max(100,Math.round(1233*Math.sqrt(Math.max(1,radius)/88)*FLY_SETS[set%FLY_SETS.length].clock/Math.max(.05,speed)));
+// How a fly quad lies on its billboarded bone and which part of its picture each corner shows, measured from the
+// native swarms: corners as [x,y,z] shares of half the fly width around the pivot (a turned diamond, not a square),
+// one [u,v] per corner, the quad's normal; triangles 0,1,2 and 3,2,1.
+export const FLY_PICTURES=Object.freeze({
+ // The fly area of Abomination.blp, as reference swarms map it (the default).
+ abomination:{image:'Textures\\Abomination.blp',corners:[[.039,-1,-.143],[.247,-.117,-.87],[-.247,.13,.87],[-.039,1,.143]],uv:[[.566,.315],[.575,.367],[.636,.33],[.611,.376]],normal:[.96,0,.28]},
+ // Native Flies.mdx: Doodads0 cell 151 (12 rows, 16 columns).
+ doodads:{image:'Textures\\Doodads0.blp',corners:[[0,-1,-.167],[0,-.182,-1],[0,.182,1],[0,1,.167]],uv:[[.4375,.75],[.4375,.8333],[.5,.75],[.5,.8333]],normal:[1,0,0]},
+});
+/** The corner layout and picture area for a fly picture; another picture shows whole on the native diamond. */
+export function flyPicture(image,override){
+ const key=String(image||'').toLowerCase().replace(/\//g,'\\');
+ const known=Object.values(FLY_PICTURES).find(p=>p.image.toLowerCase()===key);
+ if(known&&!override)return known;
+ return {...FLY_PICTURES.doodads,uv:[[0,0],[0,1],[1,0],[1,1]]};
+}
