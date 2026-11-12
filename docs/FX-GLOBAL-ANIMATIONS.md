@@ -82,7 +82,23 @@ Animation Manager and UV controls. Do not invent another control scheme.
 
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
-Use the grouped Add layer menu for surface ingredients across all accepted presets. Every preset also has a Particles field with an empty Add emitter choice. Selecting an emitter only previews it (5 November owner request): it shows in the preview but not in the layer list, a new pick replaces it, the empty choice removes it, and **Add** keeps it as a layer through the same layer builder. Apply includes a previewed emitter, so Apply matches the preview. The empty choice allocates no native objects or assets. A layer can use a different native texture from the existing texture library. Particle layers can also change emitter while keeping their placement. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons. M, R and Z select these tools inside FX.
+Use the grouped **Add layer** menu for surface ingredients across all accepted
+presets. Choosing an item from its open menu adds a layer. Wheel steps over the
+closed menu replace a single temporary surface preview. **Particles → Add
+emitter** previews one emitter recipe. The two pickers share one temporary
+preview. Choosing the empty option clears that picker's preview, and **Add**
+keeps the previewed ingredient in the layer list. Apply includes the temporary
+ingredient, so Apply matches the preview. The empty choice allocates no native
+objects or assets.
+
+Wheel over the closed **Change emitter** menu to step from the current recipe
+while keeping the layer's placement. **Variation** and **Add emitter** also
+accept closed-menu wheel steps. Recipe choices can step through texture loading
+once this target has a fitted frame. A layer can use a different native texture
+from the existing library. Artists can combine light shapes, rune glyphs,
+sparks, mist, moving textures and ribbon edges on the same part. The rune UV map
+opens with its native image and the vertex editor's Move, Rotate and Scale
+icons. M, R and Z select these tools inside FX.
 
 Create as overlay keeps the original material visible and draws the effect on separate geosets fitted to the same surface and skin. With the switch cleared, the effect supplies the visible surface. Only stacks containing a surface ingredient offer the choice. Persist it through Apply and MDX/MDL reopen.
 
@@ -251,6 +267,39 @@ its unapplied draft and loads applied document FX or a fresh fit of the chosen
 look. Apply effect and the explicit Open in EMTR apply-and-open action write the
 document; ordinary browsing does not. The owner deferred this polish's behavioral
 QA until release packaging; source review is not visual acceptance.
+
+### Fire and Arcane variations
+
+**Fire → Variation** offers **Surface flames**, **Enveloping flames** and
+**Fireball**. Surface flames retains the existing Hot core and Flames layers.
+Enveloping flames uses two overlapping surface-fitted CloudSingle emitters with
+different lifetimes and launch speeds. Fireball shares one initial surface
+anchor across its compact flame, glow and sparks. Each layer keeps its own
+editable emitter sites. **Arcane → Variation → Shimmering energy** uses a
+DarkPortal03 surface, the moving native cloud skin and rising Star7b particles.
+The existing Arcane option remains the default. Variation changes retain
+user-added layers. All four styles use native textures.
+
+Fresh Surface flames use versioned defaults. On strips, lighter alpha and a
+less white start colour accompany short ballistic motion and differing steady
+birth rates within the same layer budget. Rim sites cap the generated sprite
+size at 0.75 times the sampled physical component's radius. The cap affects
+ParticleScaling and leaves the placement footprint, clearance, site coordinates
+and count unchanged. An explicit Size edit disables the relevant cap. Individual
+values and native overrides retain precedence. Per-site baselines distinguish
+native edits from generated defaults. Own-look refits resample automatic
+positions and their geometry hints on the destination surface. Saved layers
+without the opt-in retain their existing recipe unless the user switches it.
+
+Fire's Size, Speed and Rise/Fall quick controls show the compiled values for
+the selected site or layer representative. When the layer or selected site has
+authored native Speed or Gravity, its quick control edits that native value
+through the shared particle binding. For a track, the binding offsets the curve
+in the current clip, or adds a key if the clip has none. A globally sequenced
+authored track uses the reported local-frame phase when FX lacks the global
+preview phase, which can differ during looping playback. The fresh defaults
+are static. Visual acceptance of these variations, sizing and wheel controls
+is pending.
 
 See [placement work order and evidence](agent-tasks/fx-emitter-placement.md).
 

@@ -326,10 +326,11 @@ function defaultSurfaceSites(c,layer){
  const fit=layer.surfaceFit;
  if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
  const {attachmentCache:cache,surfaceKey,frame}=c;
- const offerKey='emitter-surface|'+fit.version+'|'+surfaceKey+'|'+fit.footprint+'|'+fit.liveParticles;
+ const fireFit=layer.fireFit?.version===1;
+ const offerKey='emitter-surface|'+surfaceKey+'|'+JSON.stringify([fit,fireFit]);
  if(cache.has(offerKey))return cache.get(offerKey);
  const samples=suggestEmitterSites(emitterSurface(c),fit,frame.unitHeight);
- const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'surface'+index})));
+ const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'surface'+index})),fireFit);
  const result=sites.length?sites:null;
  cache.set(offerKey,result);
  return result;
@@ -339,7 +340,7 @@ function emitterSurface(c){
  if(!c.attachmentCache.has(key))c.attachmentCache.set(key,analyseEmitterSurface(c.source));
  return c.attachmentCache.get(key);
 }
-function attachEmitterSites(c,samples){
+function attachEmitterSites(c,samples,fireFit){
  const {frame}=c,regionByVertex=new Map();
  frame.regions?.forEach((region,index)=>region.vertices.forEach(vertex=>regionByVertex.set(vertex,index)));
  // Convert the combined geometry's triangle back to its original geoset/indices.
@@ -351,13 +352,14 @@ function attachEmitterSites(c,samples){
   triangleStart+=part.Faces.length/3;
   return range;
  });
- return samples.map(({key,point,vertices,triangle,barycentric})=>{
+ return samples.map(({key,point,vertices,triangle,barycentric,fit})=>{
   if(!vertices)return {key,point,region:0,ground:true};
   const part=parts.findLast(entry=>entry.triangleStart<=triangle);
   const local=vertices.map(vertex=>vertex-part.vertexStart);
   const byWeight=[0,1,2].sort((a,b)=>barycentric[b]-barycentric[a]);
   const region=byWeight.map(i=>regionByVertex.get(vertices[i])).find(Number.isInteger)??0;
-  return {key,point,region,ground:false,surface:{geoset:part.geoset,triangle:triangle-part.triangleStart,vertices:local,barycentric},attachmentPoint:point};
+  return {key,point,region,ground:false,surface:{geoset:part.geoset,triangle:triangle-part.triangleStart,vertices:local,barycentric},attachmentPoint:point,
+   ...(fireFit&&fit?{fireFit:fit}:{})};
  });
 }
 function completeEmitterSiteLayout(c,layer){
@@ -370,10 +372,11 @@ function completeEmitterSiteLayout(c,layer){
  const fixed=layout.filter(site=>site.point);
  const ground=fixed.find(site=>site.ground!=null)?.ground??!!(layer.ground||layer.nativeSpec?.flat);
  const groundZ=ground?(fixed.find(site=>site.ground)?.point[2]??1.5):undefined;
- const key='emitter-extra|'+c.surfaceKey+'|'+JSON.stringify([fit,groundZ,layout]);
+ const fireFit=layer.fireFit?.version===1;
+ const key='emitter-extra|'+c.surfaceKey+'|'+JSON.stringify([fit,groundZ,layout,fireFit]);
  if(cache.has(key))return cache.get(key);
  const samples=suggestAdditionalEmitterSites(emitterSurface(c),fit,frame.unitHeight,fixed.map(site=>site.point),missing.length,groundZ);
- const extra=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:missing[index].key})));
+ const extra=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:missing[index].key})),fireFit);
  const byKey=new Map(extra.map(site=>[site.key,site]));
  const completed=layout.map((slot,index)=>{
   if(slot.point)return slot;
@@ -389,7 +392,7 @@ function completeEmitterSiteLayout(c,layer){
  return completed;
 }
 function emitterSiteRecord(slot,point,region,ground){
- return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),
+ return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),...(slot.fireFit?{fireFit:slot.fireFit}:{}),
   ...(slot.surface?{surface:slot.surface,attachmentPoint:slot.attachmentPoint??slot.point}:{})};
 }
 function nativeEmitterRegions(c,layer,contact,source){
@@ -559,13 +562,19 @@ function particles(c,layer){
   const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
   return Array.from({length:regionCount},(_,i)=>({regionIndex,region,i,regionCount,key:'source'+regionIndex+'-'+i}));
  });
+ const fireFit=layer.fireFit?.version===1?layer.fireFit:null;
+ // Keep the layer's emission budget, with slightly different steady rates to
+ // break up identical birth intervals along a straight strip.
+ const rateWeights=fireFit&&planned.some(slot=>slot.fireFit?.strip)?planned.map((slot,i)=>slot.fireFit?.strip?1+.06*(i%5-2):1):null;
+ const rateScale=rateWeights&&rateWeights.reduce((sum,weight,i)=>sum+(!active||active.has(planned[i].key)?weight:0),0)/(active?.size||planned.length);
  let emitted=0;
  for(const [site,slot] of planned.entries()){
   const {regionIndex,region,i,regionCount,key}=slot,frame=region.frame,l=individualEmitterLayer(layer,key);
   // Shared sites sit evenly along their own region.
   const span=l.placement||l;
   const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-span.lower+(span.upper+span.lower)*(i+.20)/(count-.60);
-  const rate=active?l.amount/Math.max(1,active.size):layout?l.amount/planned.length:shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
+  const rate=(active?l.amount/Math.max(1,active.size):layout?l.amount/planned.length:shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length))*(rateScale?rateWeights[site]/rateScale:1);
+  const wave=shares?site%count:i;
   const pos=slot.point?new Vector3(...slot.point):fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
   c.sites.push(emitterSiteRecord(slot,pos,regionIndex,!!slot.ground));pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted||active&&!active.has(key))continue;
@@ -584,15 +593,21 @@ function particles(c,layer){
   }else if(l.kind==='drops'&&!l.surfaceSites&&!slot.point&&!layer.individuals?.[key]?.position)pos.z-=frame.girth*.35;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label+' '+(i+1),pos,parent);
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
-  const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
+  const strip=fireFit&&slot.fireFit?.strip,componentRadius=fireFit&&slot.fireFit?.radius;
+  const values=layer.individuals?.[key]?.values;
+  const sprite=componentRadius>0&&!fireFit.sizeEdited&&values?.size==null?Math.min(size,componentRadius*.75):size;
+  const loft=strip?Math.max(24,Math.min(64,(layer.surfaceFit?.footprint??size)*2.6)):0;
+  const velocity=strip&&!fireFit.velocityEdited&&values?.velocity==null?loft:l.velocity;
+  const gravity=strip&&!fireFit.gravityEdited&&values?.gravity==null?loft/.38:l.gravity;
+  const colors=flame?[l.tint.map(v=>Math.min(1,strip?v*.88+.12:v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
   const current={...p},prior=individualEmitterLayer(c.prior,key);
   Object.assign(p,{Squirt:false,Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,
-   Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
+   Speed:velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
    EmissionRate:fly?1.3/l.lasts:l.steadyRate?rate:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,rate*(.76+.24*Math.cos((k%8)*Math.PI/4+wave*1.7))])),
    Visibility:keys(id,ms,[[0,1],[1,1]]),FrameFlags:1,Time:fly?.5:.36,SegmentColor:colors.map(vec),
-   ParticleScaling:vec(fly?[size,size,size]:flame?[size*.94,size,size*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
-   Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});
+   ParticleScaling:vec(fly?[size,size,size]:flame?[sprite*.94,sprite,sprite*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
+   Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?(strip?[84,106,0]:[230,254,0]):[88,232,0]).map(a=>Math.round(a*l.strength)))});
   if(l.kind==='crackle'&&l.burstGap!=null){
    // Each site gets one turn, alternating limbs before advancing along the blade.
    const span=Math.max(60,Math.round(l.burstWindow*1000)),period=span+Math.max(100,Math.round(l.burstGap*1000));
@@ -608,7 +623,9 @@ function particles(c,layer){
   }
   const first=fly&&!l.pictureOverride?9*16+7:0,end=fly?first:mist&&!l.pictureOverride?25:atlas*atlas-1,mid=fly?first:mist&&!l.pictureOverride?12:Math.floor(end*.4);
   p.LifeSpanUVAnim=Uint32Array.from([first,mid,1]);p.DecayUVAnim=Uint32Array.from([Math.min(end,mid+1),end,1]);
-  if(prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
+  if(fireFit&&prior?.fireFit?.version===1&&prior.image===l.image&&current.Visibility?.GlobalSeqId!=null)
+   p.TextureID=current.TextureID; // Native-manager picture edits keep their model-local texture reference.
+  if(!fireFit&&prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
    // A layer adjustment preserves independent native fields already edited in EMTR.
    const samePicture=prior.image===l.image;
    for(const field of ['Flags','FilterMode','FrameFlags','Time','Variation','TailLength','TailUVAnim','TailDecayUVAnim'])p[field]=current[field];
@@ -867,12 +884,13 @@ export function readAnimationStack(model,index){
  const draft=structuredClone(saved);
  for(const l of draft.layers){
   const prefix=draft.owner+'/'+l.id+'/';
-  if(l.individuals){
+  if(l.individuals||l.fireFit?.version===1&&l.emitterState){
    // Native-manager edits come back to their own site, never to sibling defaults.
    for(const [key,baseline] of Object.entries(l.emitterState||{})){
-    const node=model.ParticleEmitters2.find(n=>n._FxTag===prefix+key);if(l.individuals[key]?.deleted||!node)continue;
+    const node=model.ParticleEmitters2.find(n=>n._FxTag===prefix+key);if(l.individuals?.[key]?.deleted||!node)continue;
     for(const field of INDIVIDUAL_NATIVE_FIELDS)if(node[field]!==undefined&&!sameEmitterValue(plainEmitterValue(node[field]),baseline[field])){
-     const record=l.individuals[key]||(l.individuals[key]={});
+     const individuals=l.individuals||(l.individuals={});
+     const record=individuals[key]||(individuals[key]={});
      record.values={...record.values,native:{...record.values?.native,[field]:plainEmitterValue(node[field])}};
     }
    }
@@ -1030,7 +1048,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
   const saved=state.layers.find(item=>item.id===l.id);
-  if(saved.individuals){
+  if(saved.individuals||saved.fireFit?.version===1){
    const live=emitters.map(n=>[n._FxTag.slice(prefix.length),Object.fromEntries(INDIVIDUAL_NATIVE_FIELDS.filter(key=>n[key]!==undefined).map(key=>[key,plainEmitterValue(n[key])]))]);
    const slots=new Set(saved.siteLayout?.map(site=>site.key));
    const retained=saved.siteCount!=null?Object.entries(saved.emitterState||{}).filter(([key])=>slots.has(key)):[];

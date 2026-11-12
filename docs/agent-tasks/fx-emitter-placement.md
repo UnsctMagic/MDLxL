@@ -1,7 +1,7 @@
 # FX: place and edit each emitter of a layer
 
-Status: trial 03 feedback addressed in the count and controls checkpoint; ready for the next approved owner trial; recipe and sizing follow-up queued; release QA deferred
-Branch / checkout: `codex/fx-emitters` in `D:\Codex\fx-emitters`. Trial 03 was built from `32dfa08c`. The count and controls correction follows that revision.
+Status: Fire/Arcane variations, fresh Fire defaults and closed-menu wheel preview implemented for source review. Owner visual acceptance and release QA are pending.
+Branch / checkout: `codex/fx-emitters` in `D:\Codex\fx-emitters`. Trial 04 was built from count and controls checkpoint `4902d535`. The current recipe and dropdown changes follow that revision.
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
 
@@ -279,7 +279,7 @@ Change emitter density, native aim timing, ordinary mouse camera rotation and
 single-preview surface/group switching. No new tests/build/captures ran for these
 corrections. The owner must approve the eventual release testing round and agent.
 
-### Trial 03 feedback and current count correction
+### Trial 03 feedback and count correction
 
 The owner approved the isolated build, package and launch of `32dfa08c`.
 `out/placement/trial-03/report.txt` records its setup and logs. Trial 03 remains
@@ -301,13 +301,38 @@ captures for the correction are all zero. Check low counts on the sword and
 armour, explicit Delete and Change emitter, and the control order and wrapping in
 the next separately approved owner trial.
 
-### Queued after the count and controls trial
+### Trial 04 and current recipe and dropdown changes
 
-The read-only four-model study is complete at
-`out/placement/reference-study-04/STUDY.md`. The owner wants improvements to the
-existing choices and a small set of Fire wrap presets through the existing
-Variation control. DragonBlade belongs to non-elemental energy. Use only native
-textures. The study identifies oversized fresh Fire on horns G9 and uniform
-Fire on straight sword G11. Preserve the accepted curved scythe G17 and G27/G31
-offers. Shape, default size, recipe and preset changes remain queued until the
-owner sees the count and controls correction.
+The owner approved the isolated build, package and launch of `4902d535`.
+`out/placement/trial-04/report.txt` records its setup and logs. That revision
+contains the count and controls checkpoint. It predates the changes below.
+Trial packages, owner profiles and unsaved model tabs are preserved.
+
+- **Fire → Variation** offers Surface flames, Enveloping flames and Fireball.
+  Enveloping flames overlaps two surface-fitted CloudSingle emitters. Fireball
+  starts its flame, glow and sparks at one sampled surface anchor.
+- **Arcane → Variation → Shimmering energy** combines the native scrolling
+  cloud skin and rising Star7b particles. The existing Arcane default and
+  user-added layers remain available. The read-only reference study in
+  `out/placement/reference-study-04/STUDY.md` supplied native asset and
+  technique references. The patch uses only native art.
+- Versioned fresh Surface flames use lighter ballistic fire on strips. The
+  per-site rim cap affects the default sprite size, leaving the offered
+  positions, placement footprint and count intact. The study's G9 component
+  radii suggest a smaller result on its horns. G17, G27 and G31 sit below the
+  cap in the source study. Playback of these cases remains pending.
+- Saved layers without the opt-in retain their prior recipe. Size edits bypass
+  the cap, native values stay authoritative and individual edits remain
+  scoped. Fire quick Size, Speed and Rise/Fall show compiled values. Authored
+  Speed/Gravity edits use the shared binding. A global track's phase falls back
+  to the reported local frame, so it can differ from playback during a loop.
+  Own-look refits clear the source triangle and geometry hints before sampling
+  the destination.
+- Wheel over closed Add emitter, Change emitter, Variation and Add layer menus
+  to step choices. Add layer wheels one temporary preview, Add retains it, and
+  an ordinary open-menu choice adds directly. Change emitter retains sites,
+  and the recipe controls remain available during same-target asset loading.
+
+This patch has zero tests, builds, packages, app runs and captures. The source
+study provides starting values for owner review. Placement satisfaction,
+reference visual parity and Warcraft III playback remain unmeasured.

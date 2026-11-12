@@ -41,10 +41,10 @@ export function individualEmitterLayer(layer,key){
  for(const [quick,fields] of Object.entries(QUICK_NATIVE))if(Object.hasOwn(values,quick))for(const field of fields)if(!Object.hasOwn(values.native||{},field))delete result.native[field];
  return result;
 }
-export function withIndividualEmitter(layer,key,previous,next){
+export function withIndividualEmitter(layer,key,previous,next,touched){
  const record=layer.individuals?.[key]||{},values={...record.values,...(record.values?.native?{native:{...record.values.native}}:{})};
  for(const field of ['tint','size','spriteSize','lasts','amount','strength','particleStrength','opacityBase','velocity','gravity','spread','burstGap','burstWindow']){
-  if(JSON.stringify(previous[field])===JSON.stringify(next[field]))continue;
+  if(field!==touched&&JSON.stringify(previous[field])===JSON.stringify(next[field]))continue;
   if(next[field]===undefined)delete values[field];else values[field]=structuredClone(next[field]);
   for(const native of QUICK_NATIVE[field]||[])if(values.native)delete values.native[native];
  }
@@ -81,6 +81,8 @@ const VALUE_GROUPS=[['tint','native.SegmentColor'],['strength','particleStrength
 const at=(value,key)=>key.startsWith('native.')?value.native?.[key.slice(7)]:value[key];
 function touchedEmitterFields(previous,next){
  const fields=new Set([...VALUE_GROUPS.flat(),...Object.keys(previous.native||{}).map(k=>'native.'+k),...Object.keys(next.native||{}).map(k=>'native.'+k)]),changed=new Set([...fields].filter(k=>JSON.stringify(at(previous,k))!==JSON.stringify(at(next,k))));
+ for(const field of ['size','velocity','gravity'])
+  if(!!previous.fireFit?.[field+'Edited']!==!!next.fireFit?.[field+'Edited'])changed.add(field);
  // The quick Size changes sprite and spawn area; native Width and Length are independent edits.
  if(changed.has('size')){changed.add('native.Width');changed.add('native.Length');}
  for(const group of VALUE_GROUPS)if(group.some(k=>changed.has(k)))for(const key of group)changed.add(key);

@@ -96,8 +96,8 @@ export function RangeField({label,value,min,max,step,output,ends,className='',ti
     {ends&&<span className="range-field-ends"><span>{ends[0]}</span><span>{ends[1]}</span></span>}
   </label>;
 }
-export function ChoiceSelect({onChange,wheel=true,...props}){
-  const latest=useRef(onChange);latest.current=onChange;
+export function ChoiceSelect({onChange,onWheelChange=onChange,wheel=true,...props}){
+  const latest=useRef(onWheelChange);latest.current=onWheelChange;
   const ref=useCallback(node=>{if(node)registerChoiceWheel(node,wheel?value=>latest.current(value):undefined);},[wheel]);
   return <select {...props} ref={ref} onChange={event=>onChange(event.target.value)}/>;
 }

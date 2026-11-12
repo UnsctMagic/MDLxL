@@ -9,7 +9,7 @@ import {surfaceFitInputs} from './fx-emitter-surface.js';
 
 import {SORT_LOOKS,SORT_EMITTERS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair,ENVELOPING_FIRE,FIREBALL,SHIMMERING_ENERGY} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -43,7 +43,11 @@ const vary=(look,variations)=>({...look,variations,layers:variations[0].layers})
 const starts=spec=>({...spec,starts:true});
 const thorn=SORT_LOOKS.find(l=>l.id==='sort-thorn');
 export const GLOBAL_LOOKS=[
- make('flaming-sword','Flaming sword','Blades',1760,'copper',[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames',{starts:true}),embers(),FIRE_FLAME_CARDS]),
+ vary(make('flaming-sword','Flaming sword','Blades',1760,'copper',[]),[
+  {id:'surface-flames',name:'Surface flames',layers:[skin('Hot core',existing('ember-edge').texture,{strength:.58,pulse:'flicker'}),fire('Blade flames',{starts:true,fireFit:1}),embers(),FIRE_FLAME_CARDS]},
+  {id:'enveloping-flames',name:'Enveloping flames',layers:ENVELOPING_FIRE},
+  {id:'fireball',name:'Fireball',layers:FIREBALL},
+ ]),
  vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
   {id:'ice',name:'Ice',layers:[...ICE_VARIANTS.white,starts(frost())]},
   {id:'steel',name:'Frosted steel',layers:[skin('Cold sheen',texture('Ice_IceDull'),{strength:1,base:true,filter:2,atlasRect:[0,0,1,1],tint:[1,1,1]}),glow('White facets',texture('Ice_IceDull'),{atlasRect:[0,0,1,1],pulse:'crystal',strength:.61,tint:[1,1,1],loop:2900}),shine({loop:2267}),starts(frost())]},
@@ -51,12 +55,15 @@ export const GLOBAL_LOOKS=[
  ]),
  make('lightning-blade','Lightning blade','Blades',1240,'azure',[glow('Storm steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),skin('Forked arcs',texture('Lightning4b'),{pulse:'lightning',strength:.92,axis:'v',band:.32,tint:[.75,.89,1],loop:1033}),{...powerArcs(),enabled:false}]),
  // Two energy layers cross on their own clocks with a violet/blue colour beat; a spinning star and a few glow orbs.
- make('arcane-blade','Arcane blade','Blades',2320,'lilac',[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),
+ vary(make('arcane-blade','Arcane blade','Blades',2320,'lilac',[]),[
+  {id:'arcane',name:'Arcane',layers:[glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true}),
   skin('Flowing energy',existing('energy').texture,{strength:.78,pulse:'beat',tint:[.72,.5,1],tint2:[.35,.55,1],loop:2600}),
   skin('Crossing energy',existing('energy').texture,{strength:.55,pulse:'beat',tint:[.4,.6,1],tint2:[.75,.5,1],direction:120,speed:2,loop:3733}),
   cardSpec('Arcane star',texture('star5tga'),{spin:1,fit:.8,sizeMin:.85,sizeMax:1.15,loop:1400,tint:[.9,.75,1]}),
   starts(orbSpray()),
-  glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3,loop:1767,enabled:false})]),
+  glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3,loop:1767,enabled:false})]},
+  {id:'shimmer',name:'Shimmering energy',layers:SHIMMERING_ENERGY},
+ ]),
  vary(make('rune-blade','Rune blade','Blades',4500,'gold',[]),[{id:'runes',name:'Runes',layers:[rune()]},{id:'thorn',name:'Thorn script',layers:thorn.layers}]),
  // The highlight runs on a shorter clock than the surface, so the two never line up.
  make('water-skin','Water skin','Skins',2800,'native',[skin('Water surface',waterFrames[0],{frames:waterFrames,base:true,filter:2,strength:.48,water:true,bodyUV:true,tint:[1,1,1]}),skin('Crossing highlights',waterFrames[0],{frames:waterFrames,direction:90,speed:2,strength:.45,water:true,bodyUV:true,tint:[.85,.95,1],loop:1733})]),
@@ -149,13 +156,30 @@ export const currentVariation=(stack,look)=>stack.variation&&look.variations?.so
 // Layers of the look's variations are swapped; layers the user added stay. A variation's emitters start only when marked.
 export function withVariation(stack,frame,look,variationId){
  const variation=look.variations.find(v=>v.id===variationId);if(!variation)return stack;
- const names=new Set(look.variations.flatMap(v=>v.layers.map(l=>l.label))),particle=l=>l.type==='Particles';
- const owned=stack.layers.filter(l=>names.has(l.label)),extra=stack.layers.filter(l=>!names.has(l.label));
+ const particle=l=>l.type==='Particles',startsByDefault=spec=>!particle(spec)||spec.starts;
+ const keepExtras=look.id==='flaming-sword'||look.id==='arcane-blade';
+ let owned,extra;
+ if(keepExtras){
+  // Only the current variation's starting layers belong to it. Optional or
+  // duplicate ingredients deliberately added to the stack stay as extras.
+  const current=look.variations.find(v=>v.id===currentVariation(stack,look));
+  const specs=current.layers.filter(startsByDefault);
+  owned=stack.layers.filter(layer=>{
+   const index=specs.findIndex(spec=>spec.type===layer.type&&spec.label===layer.label);
+   if(index<0)return false;
+   specs.splice(index,1);return true;
+  });
+  extra=stack.layers.filter(layer=>!owned.includes(layer));
+ }else{
+  const names=new Set(look.variations.flatMap(v=>v.layers.map(l=>l.label)));
+  owned=stack.layers.filter(l=>names.has(l.label));extra=stack.layers.filter(l=>!names.has(l.label));
+ }
  const previous={surfaces:owned.filter(l=>!particle(l)),particles:owned.filter(particle)},used={surfaces:0,particles:0};
  let id=Math.max(0,...stack.layers.map(l=>l.id));
- const layers=variation.layers.filter(spec=>!particle(spec)||spec.starts).map(spec=>{
+ const layers=variation.layers.filter(startsByDefault).map(spec=>{
   const kind=particle(spec)?'particles':'surfaces',old=previous[kind][used[kind]++];
-  return {...makeLayer(spec,frame,look.palette,old?.id??++id),enabled:old?.enabled!==false};
+  const enabled=old?old.enabled!==false:!keepExtras||spec.enabled!==false;
+  return {...makeLayer(spec,frame,look.palette,old?.id??++id),enabled};
  });
  return {...stack,variation:variationId,layers:[...layers,...extra]};
 }
@@ -402,6 +426,7 @@ export function makeLayer(spec,frame,palette,id) {
  // Raised native weather/cloud recipes have an authored launch height.
  if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt)
   layer.surfaceFit=surfaceFitInputs(layer,basis);
+ if(spec.fireFit===1)layer.fireFit={version:1};
  return layer;
 }
 export function newStack(look,frame,owner) {

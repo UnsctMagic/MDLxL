@@ -18,6 +18,8 @@ export function surfaceFitInputs(layer,basis) {
  const footprint=Math.max(1,...(visible.length?visible:sizes));
  const rate=spec?(spec.rate??8)*layer.amount/24:layer.amount;
  const liveParticles=rate*(spec?.life??layer.lasts);
+ // A compact multi-emitter recipe shares one surface anchor across its layers.
+ if(layer.focusedEmitter)return {version:SURFACE_FIT_VERSION,footprint:Math.max(1,basis.length*.1),liveParticles:4};
  return {version:SURFACE_FIT_VERSION,footprint,liveParticles};
 }
 
@@ -144,17 +146,18 @@ function stripSites(part,count,footprint) {
   }
   if(!best)best={...section[0],normal:direction};
   // The offset lies in the same axial plane as the sampled triangle.
-  sites.push(siteAt(best,Math.max(.04,Math.min(footprint*.10,part.radius*.18))));
+  sites.push(siteAt(best,Math.max(.04,Math.min(footprint*.10,part.radius*.18)),{strip:true}));
  }
  return sites;
 }
 
-function siteAt({triangle,barycentric,point,normal},clearance) {
+function siteAt({triangle,barycentric,point,normal},clearance,fit) {
  return {
   point:point.clone().addScaledVector(normal,clearance).toArray(),
   vertices:triangle.ids,
   triangle:triangle.index,
-  barycentric
+  barycentric,
+  fit
  };
 }
 
@@ -189,7 +192,7 @@ function rimSites(shape,footprint,limit,unitHeight) {
     const score=rim+exposure+importance+(body?2.5*upper*Math.abs(lateral):.25*upper);
     const key=point.toArray().map(value=>Math.floor(value/cell)).join(',');
     if((grid.get(key)?.score??-Infinity)<score)
-     grid.set(key,{triangle,barycentric,point,normal,score,lateral,shoulder,partScale});
+     grid.set(key,{triangle,barycentric,point,normal,score,lateral,shoulder,partScale,radius:part.radius});
    }
   }
  }
@@ -207,7 +210,7 @@ function rimSites(shape,footprint,limit,unitHeight) {
   if(chosen.length===count)break;
   if(clear(candidate))chosen.push(candidate);
  }
- return chosen.map(site=>siteAt(site,Math.max(.04,Math.min(footprint*.10,site.partScale*.12))));
+ return chosen.map(site=>siteAt(site,Math.max(.04,Math.min(footprint*.10,site.partScale*.12)),{radius:site.radius}));
 }
 
 export function suggestEmitterSites(shape,fit,unitHeight) {

@@ -33,6 +33,34 @@ export const fireHair=()=>spray('Fire hair',tex('clouds_anim1_bw'),FIRE,
  {atlas:4,life:1.8,rate:12,area:.2,velocity:.3,gravity:-.12,spread:14,size:[.4,.28,.06],alpha:[255,255,0]},
  {native:{...FLAME_NATIVE,LifeSpanUVAnim:[0,7,1],DecayUVAnim:[8,15,1],SegmentColor:[[1,.85,.45],FIRE,[.6,.08,.01]]}});
 
+// Surface-fitted birth areas overlap along the part, with a slower interior and quicker outer flames.
+export const ENVELOPING_FIRE=[
+ starts(spray('Enveloping core',tex('CloudSingle'),[1,.52,.12],
+  {life:1,rate:30,area:.38,velocity:.18,size:[.34,.25,.16],alpha:[210,218,90]},
+  {native:{Variation:0,Time:.45,Flags:EMITTER_CARRIED}})),
+ starts(spray('Enveloping flames',tex('CloudSingle'),[1,.28,.065],
+  {life:.5,rate:30,area:.48,velocity:.27,size:[.29,.22,.13],alpha:[200,222,65]},
+  {native:{Variation:0,Time:.38,Flags:EMITTER_UNFOGGED}})),
+];
+export const FIREBALL=[
+ starts(spray('Fireball',tex('Clouds8x8'),FIRE,
+  {atlas:8,life:.5,rate:50,area:.08,velocity:.65,spread:12,size:[.21,.3,.18],alpha:[115,255,55]},
+  {focusedEmitter:true,native:{Time:.5,Flags:EMITTER_UNFOGGED}})),
+ starts(spray('Fireball glow',tex('Red_Glow3'),[1,.24,.045],
+  {life:.44,rate:17,area:.06,velocity:.12,size:[.2,.37,.26],alpha:[75,126,0]},
+  {focusedEmitter:true})),
+ starts(spray('Fireball sparks',tex('LavaLump'),[1,.56,.18],
+  {life:1.4,rate:8,area:.06,velocity:1.05,gravity:.95,spread:38,size:[.065,.045,.022],alpha:[235,205,0]},
+  {focusedEmitter:true})),
+];
+export const SHIMMERING_ENERGY=[
+ skin('Shimmering energy',tex('DarkPortal03'),{fixed:true,bodyUV:true,filter:4,strength:.65,tint:[.64,.77,1]}),
+ skin('Energy shimmer','UI\\Glues\\SinglePlayer\\TutorialCampaign3D\\cloudstile1.blp',
+  {filter:3,strength:.68,tint:[.72,.82,1],direction:45,loop:2000}),
+ starts(spray('Rising stars',tex('Star7b'),[.83,.88,1],
+  {life:.6,rate:42,area:.14,velocity:.035,gravity:-1.55,spread:35,size:[.15,.15,0],alpha:[220,240,0]})),
+];
+
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,inflate:.11,tint:crystal,strength:1});
 const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});

@@ -20,14 +20,21 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
- const setLayer=next=>{const changed=selectedSite?withIndividualEmitter(layer,selectedSite,l,next):next;setStack({...stack,layers:stack.layers.map(v=>v.id===changed.id?changed:v)});};
- const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}setLayer(key==='size'?withLayerSize(l,next):next);};
+ const setLayer=(next,touched)=>{const changed=selectedSite?withIndividualEmitter(layer,selectedSite,l,next,touched):next;setStack({...stack,layers:stack.layers.map(v=>v.id===changed.id?changed:v)});};
+ const update=(key,val)=>{
+  const next={...l,[key]:val},fireQuick=l.fireFit?.version===1&&['size','velocity','gravity'].includes(key);
+  if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}
+  if(fireQuick&&!selectedSite)next.fireFit={...l.fireFit,[key+'Edited']:true};
+  const actualSize=real?.ParticleScaling?.[1];
+  const previous=key==='size'&&fireQuick&&l.native?.ParticleScaling&&actualSize>0?{...l,size:actualSize}:l;
+  setLayer(key==='size'?withLayerSize(previous,next):next,fireQuick?key:undefined);
+ };
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
  // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
  const swarm=!!l?.swarm&&l?.type==='Particles';
@@ -60,9 +67,34 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
  function particle(field,key,min,max,step,title){
-  return <div title={title}><ParticleSlider decimals={2} field={field} value={live?.key===key?live.value:l[key]} min={min} max={max} step={step}
-   begin={()=>{gesture.current={key};}} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
-   finish={()=>{const g=gesture.current;gesture.current=null;setLive(null);if(g?.value!=null)update(key,Math.max(min,Math.min(max,g.value)));}} cancel={()=>{gesture.current=null;setLive(null);}}/></div>;
+  const fitted=l.fireFit?.version===1&&['size','velocity','gravity'].includes(key);
+  const nativeMotion=fitted&&(field==='Speed'||field==='Gravity')&&l.native?.[field]!=null;
+  // A layer gesture edits the shared authored value, even if the representative site has its own override.
+  const emitter=nativeMotion?{...real,[field]:l.native[field]}:real;
+  const timing={frame:previewFrame,interval:graph?.model.Sequences[previewSequence]?.Interval,globalSequences:authoredClocks,stage:1};
+  const value=fitted&&emitter?particleValue(emitter,field,timing):l[key];
+  const begin=()=>{
+   let parameter;
+   if(nativeMotion){
+    const track=emitter[field],interval=timing.interval;
+    // Offset this clip's existing curve so the sampled value changes while its motion stays intact.
+    // The shared key mode starts the curve if this clip has no keys.
+    const hasKeys=track.Keys?.some(k=>authoredClocks?.[track.GlobalSeqId]>0||!interval||k.Frame>=interval[0]&&k.Frame<=interval[1]);
+    parameter=beginParticleParameter(emitter,field,{...timing,scope:hasKeys?'track':'key'});
+   }
+   gesture.current={key,parameter};
+  };
+  const finish=()=>{
+   const g=gesture.current;gesture.current=null;setLive(null);
+   if(g?.value==null)return;
+   if(g.parameter){
+    const native=JSON.parse(JSON.stringify(g.parameter.change(g.value),(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v));
+    setLayer({...l,native:{...l.native,[field]:native}});
+   }else update(key,Math.max(min,Math.min(max,g.value)));
+  };
+  return <div title={title}><ParticleSlider decimals={2} field={field} disabled={nativeMotion&&!real} value={live?.key===key?live.value:value} min={min} max={max} step={step}
+   begin={begin} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
+   finish={finish} cancel={()=>{gesture.current=null;setLive(null);}}/></div>;
  }
  const menuName=emitterName;
  const choices=stack.impact?[]:LAYER_CHOICES;
@@ -70,13 +102,31 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const surfaceChoices=choices.filter(choice=>choice.type!=='Particles');
  const additions=presetEmitterChoices(look);
  const nextId=()=>Math.max(0,...stack.layers.map(x=>x.id))+1;
- const addLayer=spec=>{
-  if(!frame||!spec)return;
+ const findSurfaceChoice=label=>surfaceChoices.find(spec=>menuName(spec)===label);
+ const currentEmitter=emitterChoices.find(spec=>l?.menuLabel&&spec.menuLabel===l.menuLabel&&spec.kind===l.kind)||
+  emitterChoices.find(spec=>spec.label===l?.label&&spec.kind===l?.kind&&spec.image===l?.image)||
+  emitterChoices.find(spec=>spec.label===l?.label&&spec.kind===l?.kind)||
+  emitterChoices.find(spec=>menuName(spec)===menuName(l||{})&&spec.kind===l?.kind);
+ const addLayer=label=>{
+  const spec=findSurfaceChoice(label);
+  if(!recipeFrame||!spec)return;
   const id=nextId();
-  const next=makeLayer(spec,frame,look.palette,id);setStack({...stack,layers:[...stack.layers,next]});select(id);
+  const next=makeLayer(spec,recipeFrame,look.palette,id);
+  if(trial?.source==='layer')setTrial(null);
+  setStack({...stack,layers:[...stack.layers,next]});select(id);
  };
- // Picking an emitter only previews it; Add keeps it as a layer.
- const tryEmitter=label=>{const choice=additions.find(s=>s.label===label);setTrial(choice&&frame?{label,layer:makeLayer(choice.spec,frame,look.palette,0)}:null);};
+ // A wheel choice on Add layer is temporary, like the existing emitter picker.
+ const tryLayer=(source,label,spec)=>{
+  if(spec&&recipeFrame)setTrial({source,label,layer:makeLayer(spec,recipeFrame,look.palette,0)});
+  else if(trial?.source===source)setTrial(null);
+ };
+ const tryEmitter=label=>tryLayer('emitter',label,additions.find(s=>s.label===label)?.spec);
+ const changeEmitter=label=>{
+  const spec=emitterChoices.find(s=>menuName(s)===label);
+  if(!spec||!recipeFrame||spec===currentEmitter)return;
+  const next=makeLayer(spec,recipeFrame,look.palette,nextId());
+  setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?replaceEmitter(l,next,graph||{frame:recipeFrame,layers:{}}):v)});select(next.id);
+ };
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
  const positional=p||swarm||edge||l?.ground||card;
  const siteCount=result?.ids.length??0;
@@ -94,24 +144,20 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   <h3>{look.name}</h3>
   {lookActions&&<FxLookBar look={look} stack={stack} actions={lookActions}/>}
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
-  {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><ChoiceSelect aria-label="Ice variation" disabled={!frame} value={stack.iceVariation||'dark'} onChange={value=>setStack(withIceVariation(stack,frame,value))}><option value="dark">Dark ice</option><option value="white">White ice</option></ChoiceSelect></label>}
-  {look.variations&&<label className="field"><span>Variation</span><ChoiceSelect aria-label="Variation" disabled={!frame} value={currentVariation(stack,look)} onChange={value=>setStack(withVariation(stack,frame,look,value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</ChoiceSelect></label>}
+  {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><ChoiceSelect aria-label="Ice variation" disabled={!recipeFrame} value={stack.iceVariation||'dark'} onChange={value=>setStack(withIceVariation(stack,recipeFrame,value))}><option value="dark">Dark ice</option><option value="white">White ice</option></ChoiceSelect></label>}
+  {look.variations&&<label className="field"><span>Variation</span><ChoiceSelect aria-label="Variation" disabled={!recipeFrame} value={currentVariation(stack,look)} onChange={value=>setStack(withVariation(stack,recipeFrame,look,value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</ChoiceSelect></label>}
   {stack.impact&&<label className="field"><span>Attack</span><ChoiceSelect aria-label="Attack animation" value={stack.sequence} onChange={value=>{const sequence=Number(value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</ChoiceSelect></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setStack({...stack,layers:stack.layers.map(l=>l.id===item.id?{...item,enabled:e.target.checked}:l)})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);if(!selectedSite)setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
-  {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><ChoiceSelect aria-label="Add emitter" disabled={!frame} value={trial?.label||''} onChange={tryEmitter}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</ChoiceSelect></label>}
-  {!stack.impact&&trial&&<button className="fx-keep-emitter" title="Keep the previewed emitter as a layer." onClick={keepTrial}>Add</button>}
-  <div className="fx-layer-actions">{!stack.impact&&<select data-wheel-skip="" aria-label="Add layer" title="Add one editable layer to this part." value="" onChange={e=>addLayer(choices.find(s=>menuName(s)===e.target.value))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</select>}
+  {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><ChoiceSelect aria-label="Add emitter" disabled={!recipeFrame} value={trial?.source==='emitter'?trial.label:''} onChange={tryEmitter}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</ChoiceSelect></label>}
+  {!stack.impact&&trial&&<button className="fx-keep-emitter" title={trial.source==='layer'?'Add one editable layer to this part.':'Keep the previewed emitter as a layer.'} onClick={keepTrial}>Add</button>}
+  <div className="fx-layer-actions">{!stack.impact&&<ChoiceSelect aria-label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} value={trial?.source==='layer'?trial.label:''} onChange={addLayer} onWheelChange={label=>tryLayer('layer',label,findSurfaceChoice(label))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</ChoiceSelect>}
    {l&&!selectedSite&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
   {selectedSite&&<h4>{translate(emitterName(l))+' '+((result?.ids.indexOf(selectedId)??0)+1)}</h4>}
   {selectedSite&&<button aria-pressed={surfaceSnap} onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>}
   {selectedSite&&<button onClick={deleteEmitter}>Delete emitter</button>}
-  {(p||swarm)&&!selectedSite&&!stack.impact&&<select data-wheel-skip="" aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
-   const spec=emitterChoices.find(s=>menuName(s)===e.target.value);if(!spec||!frame)return;
-   const next=makeLayer(spec,frame,look.palette,Math.max(...stack.layers.map(v=>v.id))+1);
-   setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?replaceEmitter(l,next,graph):v)});select(next.id);
-  }}><option value="">Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</select>}
+  {(p||swarm)&&!selectedSite&&!stack.impact&&<ChoiceSelect aria-label="Change emitter" title="Replace this emitter and keep its position." disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect>}
   {!l.stamp&&!selectedSite&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
   {!edge&&!l.stamp&&<ColourControl resetKey={colourRevision} hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
