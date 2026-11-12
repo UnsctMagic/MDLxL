@@ -7947,5 +7947,11 @@
   "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Создать фаску на рёбрах объёма или границе тонкой поверхности. Золотая ручка регулирует ширину.",
   "handle\u0004Drag": "Тянуть",
   "handle\u0004Center": "Центр",
-  "ALIGN": "ВЫРОВНЯТЬ"
+  "ALIGN": "ВЫРОВНЯТЬ",
+  "bone-side\u0004Left": "Слева",
+  "bone-side\u0004Right": "Справа",
+  "bone-namer\u0004Side": "Сторона",
+  "bone-namer\u0004Part": "Часть",
+  "bone-kind\u0004Copy": "Копия",
+  "bone-part\u0004Spine": "Позвоночник"
 }
