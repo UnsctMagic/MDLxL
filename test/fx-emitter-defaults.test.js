@@ -8,7 +8,8 @@ import {compileAnimation} from '../src/global-animation-model.js';
 
 // Captured from makeLayer at 676aaf6f on this checked-in, real Knight model. Entries were renewed
 // only for new looks, the native-card emitters given names (same values), and Water's drip, which the owner
-// asked to make visible (12 November 2026). Every other emitter keeps its 676aaf6f values.
+// asked to make visible (12 November 2026), and Orbiting flies, rebuilt as a quad swarm on billboarded bones
+// (owner, 12 November 2026: "fly swarm - doesnt look good"). Every other emitter keeps its 676aaf6f values.
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 const hash=layer=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
@@ -30,7 +31,7 @@ for(const look of looks.GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+'
  for(const [i,reference] of baseline[look.id].entries())assert.equal(hash(looks.makeLayer(choices[i].spec,frame,look.palette,reference.id)),reference.hash,reference.label+' has the exact pre-change values and fit');
  const count=doc.model.ParticleEmitters2.length;
  compileAnimation(doc.model,0,stack);
- assert.equal(doc.model.ParticleEmitters2.length>count,stack.layers.some(l=>l.type==='Particles'),'emitter nodes are allocated only for emitters that start');
+ assert.equal(doc.model.ParticleEmitters2.length>count,stack.layers.some(l=>l.type==='Particles'&&!l.swarm),'emitter nodes are allocated only for emitters that start');
  for(const reference of baseline[look.id].filter(reference=>!stack.layers.some(l=>l.label===reference.label))){
   const tag=stack.owner+'/'+reference.id+'/';
   assert.ok(doc.model.Nodes.every(node=>!node?._FxTag?.startsWith(tag)),'no particle bone or helper allocated');

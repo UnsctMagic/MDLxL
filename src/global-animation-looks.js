@@ -3,7 +3,7 @@ import {Triangle,Vector3} from 'three';
 import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
-import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
+import {layerBasis,LAYER_UNIT_FALLBACK,swarmRadiusFor} from './fx-layer-basis.js';
 import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
@@ -303,7 +303,7 @@ export function makeLayer(spec,frame,palette,id) {
   return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:spec.offset?[...spec.offset]:[0,0,0],count:spec.count??1,size:spec.size??(spec.facing==='ground'?groundCardSize(basis):cardSize(basis))*fit};
  }
  const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
- const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
+ const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[1,1,1]:tintFromHex(surfacePalette({palette})[0][1]));
  // scale: a look's multipliers of the part-fitted emitter values; fit: an orbit's share of the fitted radius.
  // shell: the layer's Lift shows as Thickness in its main controls (read from the look, never saved).
  const {starts:_starts,fit=1,scale={},shell:_shell,...saved}=structuredClone(spec);
@@ -317,6 +317,8 @@ export function makeLayer(spec,frame,palette,id) {
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3]*(scale.velocity??1),gravity:p[4]*(scale.gravity??1),size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5]*(scale.size??1),
   spriteSize:p[5],smoothness:32};
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
+ // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
+ if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
  return layer;
 }

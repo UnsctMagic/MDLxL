@@ -1,6 +1,7 @@
 import {Quaternion,Vector3} from 'three';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
-import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN} from './fx-cards.js';
+import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock} from './fx-cards.js';
+import {unitHeight} from './fx-layer-basis.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
@@ -597,13 +598,73 @@ function cardLayer(c,l){
  const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
  if(m.Version>=900)g.LevelOfDetail=0;
  // Bounds hold a card at its largest size facing any way, and the part's own animated bounds.
+ quadBounds(c,g,centres.map(p=>p.toArray()),reach);
+ return {geoset:overlay(c,g,material,rhythmColour({...c,id,ms:base},l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
+}
+/** Owned quad geoset bounds: every point grown by reach, joined with the part's own bounds in each sequence. */
+function quadBounds(c,g,points,reach){
+ const m=c.model;
  const reachOf=list=>{const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const p of list)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],p[a]-reach);hi[a]=Math.max(hi[a],p[a]+reach);}return [lo,hi];};
- const [lo,hi]=reachOf(centres.map(p=>p.toArray()));
+ const [lo,hi]=reachOf(points);
  Object.assign(g,geosetBounds(Float32Array.from([...lo,...hi])));
  g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
   // A sequence without usable bounds of its own (missing, or the empty ±3.4e38 box some files store) takes the cards' bounds.
   if(!own?.MinimumExtent||!own?.MaximumExtent||![0,1,2].every(k=>Math.abs(own.MinimumExtent[k])<1e7&&Math.abs(own.MaximumExtent[k])<1e7&&own.MinimumExtent[k]<=own.MaximumExtent[k]))return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
- return {geoset:overlay(c,g,material,rhythmColour({...c,id,ms:base},l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
+}
+// The five native paths as keys {t,v,i,o}, and their mean distance from their centre (the swarm radius they make at scale 1).
+const FLY_KEYS=FLY_PATHS.map(path=>path.map(k=>({t:k[0],v:k.slice(1,4),i:k.slice(4,7),o:k.slice(7,10)})));
+const FLY_PATH_RADIUS=FLY_KEYS.flat().reduce((sum,k)=>sum+Math.hypot(k.v[0],k.v[1]),0)/FLY_KEYS.flat().length;
+/** A closed path started later: its keys rotated to start at the key nearest phase; the wrap key joins both tangents. */
+function phasedPath(path,phase){
+ const n=path.length-1,j=phase>0?path.slice(0,n).reduce((best,k,i)=>Math.abs(k.t-phase)<Math.abs(path[best].t-phase)?i:best,0):0;
+ if(!j)return path;
+ const start=path[j].t,keysOut=[];
+ for(let i=0;i<n;i++){const k=path[(j+i)%n];keysOut.push({...k,t:((k.t-start)%1+1)%1,i:k===path[0]?path[n].i:k.i});}
+ keysOut.push({...path[j],t:1});
+ return keysOut;
+}
+/**
+ * Fly swarm (native Flies.mdx technique): one owned quad per fly in one owned geoset, each quad entirely on its own
+ * billboarded bone riding a closed native path, under one owned swarm bone that follows the part without tilting.
+ */
+function flySwarm(c,l){
+ const {model:m,tag}=c,count=Math.round(Math.max(FLY_BOUNDS.amount[0],Math.min(FLY_BOUNDS.amount[1],l.amount||5)));
+ const radius=Math.max(1,l.size||1),width=Math.max(.5,l.spriteSize||10),speed=Math.max(FLY_BOUNDS.speed[0],Math.min(FLY_BOUNDS.speed[1],l.speed??1));
+ const tall=c.frame.unitHeight??c.frame.length,scale=radius/FLY_PATH_RADIUS,spread=radius/88*.45;
+ const centre=c.frame.center.clone().add(new Vector3(...l.offset));
+ const swarm=nodeFor(c,'Bones','Bone','swarm',l.label,centre,c.parent);
+ swarm.Flags=256|2;for(const key of ['Translation','Rotation','Scaling'])delete swarm[key];
+ // The native fly cell of Doodads0 (12 rows, 16 columns, cell 151); another picture shows whole.
+ const [u0,v0,du,dv]=l.pictureOverride?[0,0,1,1]:[7/16,9/12,1/16,1/12];
+ const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],points=[];
+ const side=new Vector3(0,1,0),up=new Vector3(0,0,1),normal=new Vector3(1,0,0);
+ let widest=0;
+ for(let k=0;k<count;k++){
+  const s=Math.floor(k/5),p=k%5,set=FLY_SETS[s%FLY_SETS.length],yaw=set.yaw*Math.PI/180,cos=Math.cos(yaw),sin=Math.sin(yaw);
+  // Path keys turned by the set's yaw, widened by its scale and flattened to three quarters in height.
+  const xy=scale*set.width,turned=a=>[(a[0]*cos-a[1]*sin)*xy,(a[0]*sin+a[1]*cos)*xy,a[2]*xy*.75];
+  const at=FLY_SCATTER[p],pivot=centre.clone().add(new Vector3((at[0]*cos-at[1]*sin)*spread,(at[0]*sin+at[1]*cos)*spread,at[2]*spread+set.height*tall));
+  const fly=nodeFor(c,'Bones','Bone','fly'+k,l.label+' '+(k+1),pivot,swarm.ObjectId);
+  fly.Flags=256|8;delete fly.Rotation;delete fly.Scaling;
+  const ms=flyClock(radius,s,speed),clock=clockFor(m,ms,c.createdClocks);
+  fly.Translation={LineType:2,GlobalSeqId:clock,Keys:phasedPath(FLY_KEYS[p],set.phase).map(key=>({Frame:Math.round(key.t*ms),Vector:vec(turned(key.v)),InTan:vec(turned(key.i)),OutTan:vec(turned(key.o))}))};
+  for(const key of fly.Translation.Keys)points.push(pivot.clone().add(new Vector3(...key.Vector)).toArray());
+  const half=width*FLY_SIZES[p]/2,first=vertices.length/3;widest=Math.max(widest,half);
+  for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+   vertices.push(...pivot.clone().addScaledVector(side,a*half).addScaledVector(up,b*half).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);
+  }
+  uvs.push(u0,v0+dv,u0+du,v0+dv,u0+du,v0,u0,v0);
+  faces.push(first,first+1,first+2,first,first+2,first+3);
+  groups.push([fly.ObjectId]);
+ }
+ // One layer like the native flies: alpha-keyed (Transparent), two-sided and lit by the map.
+ const layer={TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:1,Shading:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
+ const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:[layer]});
+ const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
+ if(m.Version>=900)g.LevelOfDetail=0;
+ // Hermite paths swing a little past their keys.
+ quadBounds(c,g,points,widest*Math.SQRT2+radius*.15);
+ return {geoset:overlay(c,g,material,l.tint,m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
 }
 function runeLayer(c,l){
  return skinLayer({...c,prior:c.prior?{...c.prior,type:'Glow',pulse:c.prior.pulse||'breathe'}:null},{...l,type:'Glow',pulse:l.pulse||'breathe',axis:'v',band:.8,bodyUV:false});
@@ -722,6 +783,8 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  // Samples read only the skin bones of this part, which a compile never changes; a caller's cache is keyed by part too.
  const attachmentCache=attachments||new Map(),surfaceKey=index+'/'+members.join(','),originalClockCount=model.GlobalSequences.length;
  const frame=partFrame(surface),created=[...(before?.createdClockIds||[])],used=new Set();
+ // The unit's height sizes new flies (graph.frame carries it to the layer builder).
+ if(frame)frame.unitHeight=unitHeight(model);
  const ms=Math.max(200,Math.round(draft.loop)),id=draft.layers.length&&!draft.impact?clockFor(model,ms,created):-1;
  const state=JSON.parse(JSON.stringify(draft));state.baseMaterial=base;state.createdClockIds=created;state.createdClocks=[];
  source.MaterialID=base;source._FxStack=state;
@@ -751,6 +814,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);
   else if(l.nativeSpec)nativeParticles(context,l);
+  else if(l.type==='Particles'&&l.swarm)flySwarm(context,l);
   else if(l.type==='Particles')particles(context,l);
   else if(l.type==='Edge')edgeLayer(context,l);
   else if(l.type==='Rune')runeLayer(context,l);
@@ -774,11 +838,11 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  }
  // Limited to stacks made with per-layer editing (a Card, an orbit, or any field it added) so stacks saved
  // before it compile exactly as they did; and to removing the whole stack, which leaves the bounds as they were.
- if(clockRemoved&&(!draft.layers.length||[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'||l.orbit||EDITOR_FIELDS.some(key=>key in l))))restoreBounds();
+ if(clockRemoved&&(!draft.layers.length||[...draft.layers,...(before?.layers||[])].some(l=>l.type==='Card'||l.swarm||l.orbit||EDITOR_FIELDS.some(key=>key in l))))restoreBounds();
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
-  results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
+  results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

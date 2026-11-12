@@ -8,6 +8,7 @@ import GameLibraryRow from './GameLibraryRow.jsx';
 import GlobalAnimationControls from './GlobalAnimationControls.jsx';
 import GlobalAnimationStage from './GlobalAnimationStage.jsx';
 import {GLOBAL_LOOKS,findLook,lookOf,newStack,partFrame,withLayerTexture,withParticleStrength,withLayerSize} from '../src/global-animation-looks.js';
+import {unitHeight} from '../src/fx-layer-basis.js';
 import {version} from '../package.json';
 import {ownLookFrom,stackFromOwnLook,upsertOwnLook,ownLookFile,parseOwnLookFile} from '../src/fx-own-looks.js';
 import {writePresetFile} from './PresetBar.jsx';
@@ -49,7 +50,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const [combined,setCombined]=useState(groupChoice.length>1);
  const [part,setPart]=useState(()=>{const start=animationPart(doc.model,doc.model.Geosets[initialGeoset]?initialGeoset:0);return groupChoice.length>1&&!groupChoice.includes(start)?groupChoice[0]:start;});
  const members=useMemo(()=>combined?groupChoice.filter(i=>i!==part):[],[combined,groupChoice,part]);
- const makeStack=(entry,index,current)=>{const saved=readAnimationStack(doc.model,index);if(saved?.look===entry.id)return saved;if(entry.own)return stackFromOwnLook(entry.own,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());const next=newStack(entry,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());return entry.impact?{...next,...impactDefaults(doc.model,index,current)}:next;};
+ const makeStack=(entry,index,current)=>{const fitted=()=>{const frame=partFrame(doc.model.Geosets[index]);if(frame)frame.unitHeight=unitHeight(doc.model);return frame;};const saved=readAnimationStack(doc.model,index);if(saved?.look===entry.id)return saved;if(entry.own)return stackFromOwnLook(entry.own,partFrame(doc.model.Geosets[index]),saved?.owner||crypto.randomUUID());const next=newStack(entry,fitted(),saved?.owner||crypto.randomUUID());return entry.impact?{...next,...impactDefaults(doc.model,index,current)}:next;};
  // The user's own looks are filed as a first folder, with the same rows as the built-in ones.
  const ownLooks=preferences?.fxLooks||[],ownEntries=useMemo(()=>ownLooks.map(record=>({id:record.id,name:record.name,group:'My looks',layers:record.layers,own:record})),[ownLooks]);
  const [stack,setStack]=useState(()=>readAnimationStack(doc.model,part)||makeStack(GLOBAL_LOOKS[0],part,sequenceIndex));
@@ -77,7 +78,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const graph=useMemo(()=>{if(loading)return null;try{const model=structuredClone(doc.model);return {model,...compileAnimation(model,part,previewStack,{...loaded,attachments})};}catch(cause){return {error:cause.message};}},[doc,doc.revision,part,previewStack,loaded,loading,attachments]);
  const lastModel=useRef(doc.model);if(graph?.model)lastModel.current=graph.model;
  function previewStrength(layer,value){
-  if(layer.type==='Particles'){
+  if(layer.type==='Particles'&&!layer.swarm){
    const result=graph?.layers?.[layer.id],api=capture.current;if(!api||result?.id==null)return;
    const original=graph.model.Nodes[result.id].Alpha;
    api.previewParticleAlpha(result.ids,value==null?original:withParticleStrength(layer,original,value).native.Alpha);return;

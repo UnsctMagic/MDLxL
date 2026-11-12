@@ -53,3 +53,19 @@ export function groundCardSize(basis){
 export function cardSize(basis){
  return Math.max(basis.unit*1.2,Math.min(basis.length*.18,basis.girth*2.2));
 }
+// Fly swarm (native Flies.mdx technique): a Card-like set of quads, one per fly, each on its own billboarded bone
+// riding a closed native path. Flies come in sets of five (the five native paths); each further set runs on its own
+// clock, turned, phased, scaled and raised, so the swarm never visibly repeats (study of 5- and 30-fly swarms).
+export const FLY_SETS=Object.freeze([
+ {clock:1,yaw:0,phase:0,width:1,height:0},{clock:1.16,yaw:119,phase:.38,width:1,height:0},
+ {clock:.89,yaw:-85,phase:.78,width:1,height:0},{clock:1.05,yaw:60,phase:.15,width:.8,height:.08},
+ {clock:.95,yaw:-174,phase:.56,width:.85,height:-.05},{clock:1.11,yaw:-41,phase:.9,width:.75,height:.12},
+]);
+/** Width of each of the five flies of a set, as a share of Fly size. */
+export const FLY_SIZES=Object.freeze([.77,1.12,.78,1.47,.87]);
+/** Where each of the five paths is centred around the swarm, in native units for a swarm of radius 88. */
+export const FLY_SCATTER=Object.freeze([[54.6,4.3,-1.1],[47.9,4.3,10.2],[-13.2,37,-19.6],[-33.4,-64.8,30.3],[-56,19.1,-19.8]]);
+/** [min,max] of the fly swarm's own fields: flies, fly width, Speed (multiplies every clock). */
+export const FLY_BOUNDS=Object.freeze({amount:[5,30],spriteSize:[2,60],speed:[.25,4]});
+/** One fly clock: native 1233 ms at radius 88, longer for a wider swarm (constant fly speed grows with the root of the radius). */
+export const flyClock=(radius,set,speed=1)=>Math.max(100,Math.round(1233*Math.sqrt(Math.max(1,radius)/88)*FLY_SETS[set%FLY_SETS.length].clock/Math.max(.05,speed)));

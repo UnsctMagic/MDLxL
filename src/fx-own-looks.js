@@ -68,7 +68,7 @@ function scaleValue(v,k){
 /** A stack for another part. Model-unit sizes follow the part: offsets, speeds and gravity by the unit ratio, the emitter sizes by the same formulas makeLayer uses, the strip ends by the length ratio. Angles, colours, counts, times and picture fields stay. */
 export function stackFromOwnLook(record,frame,owner){
  const was=layerBasis(record.frame),now=layerBasis(frame),k=ratio(was.unit,now.unit),r=ratio(was.length,now.length);
- const sizeOf=(basis,l)=>l.type==='Card'?cardSize(basis):l.type==='Rune'?basis.runeSize:l.kind==='flies'?basis.flySize:(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
+ const sizeOf=(basis,l)=>l.type==='Card'?cardSize(basis):l.type==='Rune'?basis.runeSize:l.swarm?basis.swarmRadius:l.kind==='flies'?basis.flySize:(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
  const spriteOf=(basis,l)=>(basis.properties[l.kind]||LAYER_UNIT_FALLBACK)[5];
  const layers=structuredClone(record.layers).map(l=>{
   const size=ratio(sizeOf(was,l),sizeOf(now,l)),sprite=ratio(spriteOf(was,l),spriteOf(now,l)),moving=l.type==='Particles'||l.type==='Edge';
@@ -78,7 +78,8 @@ export function stackFromOwnLook(record,frame,owner){
   for(const key of ['upper','lower'])if(typeof l[key]==='number')next[key]=l[key]*r;
   if(moving)for(const key of ['velocity','gravity'])if(typeof l[key]==='number')next[key]=l[key]*k;
   if(typeof l.size==='number')next.size=l.size*size;
-  if(typeof l.spriteSize==='number')next.spriteSize=l.spriteSize*sprite;
+  // A fly swarm's fly size follows the unit, not the part: it stays.
+  if(typeof l.spriteSize==='number'&&!l.swarm)next.spriteSize=l.spriteSize*sprite;
   if(plain(l.native)){
    next.native={...l.native};
    for(const key of ['Speed','Gravity','Width','Length'])if(key in next.native)next.native[key]=scaleValue(next.native[key],k);

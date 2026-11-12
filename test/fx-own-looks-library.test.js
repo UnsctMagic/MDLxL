@@ -108,8 +108,10 @@ test('a look made on a long thin part follows a part three times larger, and fit
  for(const key of ['tint','atlasRect','speed','direction','tiling','amount','count','lasts','strength','pulse','label','id','kind','enabled'])assert.deepEqual(now[key],was[key],'flame '+key+' is not scaled');
  assert.deepEqual(now.native.Alpha,[255,255,0]);assert.equal(now.native.Latitude,30);
  const fly=[was,...record.layers].find(l=>l.kind==='flies'),flyNow=next.layers.find(l=>l.kind==='flies');
- close(flyNow.size,fly.size*Math.max(18*1.12,300*.32)/Math.max(6*1.12,100*.32),'fly size follows the radius formula');
- close(flyNow.spriteSize,fly.spriteSize*Math.max(2.1,Math.min(8,300*.066+18*.037))/Math.max(2.1,Math.min(8,100*.066+6*.037)),'fly sprite follows its formula');
+ // A fly swarm's radius follows the part's main piece; each fly keeps the size it was given (it follows the unit, not the part).
+ assert.ok(fly.swarm&&flyNow.swarm,'Orbiting flies are a fly swarm');
+ close(flyNow.size,fly.size*Math.max(18*.9,300*.3)/Math.max(6*.9,100*.3),'swarm size follows the radius formula');
+ close(flyNow.spriteSize,fly.spriteSize,'fly size stays');
  const rune=record.layers.find(l=>l.glyphs),runeNow=next.layers.find(l=>l.glyphs);
  close(runeNow.size,rune.size*Math.min(24,300*.29)/Math.min(8,100*.29),'rune size follows its formula');
  const skin=record.layers.find(l=>l.label==='Flowing energy'),skinNow=next.layers.find(l=>l.label==='Flowing energy');

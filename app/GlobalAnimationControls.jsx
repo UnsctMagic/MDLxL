@@ -14,7 +14,7 @@ import {ribbonQuickValues} from '../src/ribbon-quick.js';
 import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit,shellReach} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
-import {CARD_DEFAULTS,CARD_FACINGS} from '../src/fx-cards.js';
+import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
@@ -27,7 +27,9 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const setLayer=next=>setStack({...stack,layers:stack.layers.map(v=>v.id===next.id?next:v)});
  const update=(key,val)=>{const next={...l,[key]:val};if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}setLayer(key==='size'?withLayerSize(l,next):next);};
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
- const result=graph?.layers?.[l?.id],p=l?.type==='Particles',edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card';
+ // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
+ const swarm=!!l?.swarm&&l?.type==='Particles';
+ const result=graph?.layers?.[l?.id],p=l?.type==='Particles'&&!swarm,edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card';
  const real=result?.id!=null?graph.model.Nodes[result.id]:null;
  const surface=graph?.model.Geosets[result?.geoset];
  const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
@@ -73,7 +75,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  // Picking an emitter only previews it; Add keeps it as a layer.
  const tryEmitter=label=>{const choice=additions.find(s=>s.label===label);setTrial(choice&&frame?{label,layer:makeLayer(choice.spec,frame,look.palette,0)}:null);};
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
- const positional=p||edge||l?.ground||card;
+ const positional=p||swarm||edge||l?.ground||card;
  const cardValue=key=>l[key]??CARD_DEFAULTS[key];
  // An emitter field set under More (EMTR's own controls) is kept in layer.native.
  const plainValues=values=>Object.fromEntries(Object.entries(values).map(([key,value])=>[key,ArrayBuffer.isView(value)?Array.from(value):value]));
@@ -96,7 +98,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value="" onChange={e=>addLayer(choices.find(s=>menuName(s)===e.target.value))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</select>}
    {l&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
-  {p&&!stack.impact&&<select aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
+  {(p||swarm)&&!stack.impact&&<select aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
    const spec=emitterChoices.find(s=>menuName(s)===e.target.value);if(!spec||!frame)return;
    const next=makeLayer(spec,frame,look.palette,Math.max(...stack.layers.map(v=>v.id))+1);
    setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?{...next,enabled:l.enabled,offset:l.offset,upper:l.upper,lower:l.lower}:v)});select(next.id);
@@ -142,6 +144,12 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <ParticleFrameStrip emitter={real} asset={assets?.get(gamePathKey(graph.model.Textures[real.TextureID]?.Image||''))} pictureName={graph.model.Textures[real.TextureID]?.Image} replaceableId={real.ReplaceableId||graph.model.Textures[real.TextureID]?.ReplaceableId||0} patch={values=>values&&setLayer({...l,native:{...l.native,...plainValues(values)}})}/>
    <EmitModeButtons emitter={real} update={depth}/>
   </>}</details>}
+  {swarm&&<>
+   <RangeField key={l.id+'amount'} title="How many flies. Each five more fly on their own clock and paths." label="Amount" output={v=>String(Math.round(v))} min={FLY_BOUNDS.amount[0]} max={FLY_BOUNDS.amount[1]} step={5} value={l.amount} onCommit={v=>update('amount',Math.round(v/5)*5)}/>
+   <RangeField key={l.id+'fly'} title="Width of each fly." label="Fly size" output={v=>v.toFixed(1)} min={FLY_BOUNDS.spriteSize[0]} max={Math.max(FLY_BOUNDS.spriteSize[1],l.spriteSize)} step={.5} value={l.spriteSize} onCommit={v=>update('spriteSize',v)}/>
+   <RangeField key={l.id+'swarm'} title="How far the flies circle from the centre. The round handle in the preview drags it too." label="Swarm size" output={v=>v.toFixed(1)} min={4} max={Math.max(200,(frame?.length||100)*2,l.size)} step={.5} value={l.size} onCommit={v=>update('size',v)}/>
+   <RangeField key={l.id+'speed'} title="How fast the flies circle. Every fly keeps its own pace." label="Speed" output={v=>v.toFixed(2)+'×'} min={FLY_BOUNDS.speed[0]} max={FLY_BOUNDS.speed[1]} step={.05} value={l.speed??1} onCommit={v=>update('speed',v)}/>
+  </>}
   {card&&<>
    <label className="field" title="Which way the card faces: the camera, the ground, or fixed to the part."><span>Facing</span><select aria-label="Facing" value={cardValue('facing')} onChange={e=>update('facing',e.target.value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part'}[id]}</option>)}</select></label>
    {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}
