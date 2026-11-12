@@ -8,7 +8,7 @@ import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,orbSpray,flameCards,lingeringEmbers} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -20,7 +20,9 @@ const frost=()=>dust('Falling mist','mist','ReplaceableTextures\\Weather\\Clouds
 // The library's emitters keep the values they had; new looks bring their own.
 // Flames carry their own fire colour, so they read as fire on any look (emitter audit, 12 November).
 const fire=(label,extra={})=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint:[1,.463,.173],...extra});
-const embers=()=>dust('Rising embers','embers',texture('Star4'));
+const embers=()=>dust('Rising embers','embers',texture('LavaLump'),{tint:[1,.35,.12],amount:12,lasts:2.5,
+ scale:{size:.5,velocity:.1,gravity:.02,stages:[1.6,1,.4]},
+ native:{...EMBER_NATIVE,Time:.5,SegmentColor:[[1,.7,.25],[1,.35,.12],[.45,.07,.01]]}});
 const shine=(extra={})=>glow('Crystal glints',texture('FX\\Flare\\FlareNarrow'),{pulse:'glint',strength:.56,...extra});
 const pulse=()=>glow('Glowing texture',null,{strength:.56,pulse:'breathe'});
 // Ribbons: additive with a steady alpha.
@@ -352,6 +354,7 @@ export function makeLayer(spec,frame,palette,id) {
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3]*(scale.velocity??1),gravity:p[4]*(scale.gravity??1),size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5]*(scale.size??1),
   spriteSize:p[5],smoothness:32};
+ if(scale.stages)layer.native={...layer.native,ParticleScaling:scale.stages.map(v=>v*layer.size)};
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
  // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
  if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
