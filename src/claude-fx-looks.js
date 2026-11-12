@@ -9,8 +9,9 @@ const rune=(label,image,pulse,tint)=>({type:'Rune',label,image,glyphs:true,stren
 const edge=(label,tint,strength=.32)=>({type:'Edge',label,image:tex('RibbonBlur1'),tint,strength});
 const stone=(label,path)=>({type:'Moving skin',label,image:'TerrainArt\\'+path+'.blp',atlasRect:[.625,.25,.125,.25],bodyUV:true,fixed:true,base:true,filter:2,strength:1,tint:[1,1,1]});
 const spray=(label,name,tint,spec)=>({type:'Particles',label,kind:'native',image:tex(name),tint,nativeSpec:{texture:tex(name),...spec}});
-import {DRIP,FEL_FLAME_CARDS} from './fx-technique-looks.js';
-const flames=(label,tint)=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint});
+import {DRIP,FEL_FLAME_CARDS,spray as nativeSpray,vary,EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
+const CLOUDS='ReplaceableTextures\\Weather\\Clouds8x8.blp';
+const U=EMITTER_UNFOGGED,C=EMITTER_CARRIED;
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
 const rune_=[.4,.75,1],ember=[1,.5,.14],violet=[.72,.5,1];
@@ -29,9 +30,38 @@ export const CLAUDE_EMITTERS=[
 ];
 
 export const CLAUDE_LOOKS=[
- fx('Blades','fel-blade','Fel blade',1500,
-  skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
-  {...flames('Fel flames',fel),starts:true},FEL_FLAME_CARDS),
+ vary(fx('Blades','fel-blade','Fel blade',1500),[
+  {id:'original',name:'Fel flames',layers:[
+   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
+   {...dust('Fel flames','flame',CLOUDS,{atlas:8,tint:fel}),starts:true,widthCap:.75,widthCapRimOnly:true},     // no airyFit (cbc)
+   FEL_FLAME_CARDS,
+  ]},
+  {id:'fel-surge',name:'Fel surge',layers:[
+   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
+   nativeSpray('Fel cores',CLOUDS,fel,
+    {atlas:8,life:.45,rate:60,velocity:.05,gravity:-.3,spread:180,size:[.2,.13,.05],alpha:[255,230,0]},
+    {starts:true,siteCount:5,scatter:.25,widthCap:1,
+     native:{Time:.45,Variation:.3,Flags:U,SegmentColor:[[1,.94,.76],[.1,.88,0],[.15,.75,.01]]}}),
+   nativeSpray('Fel streaks',tex('Flame4'),fel,
+    {life:.35,rate:18,velocity:1.1,spread:82,tail:.25,size:[.02,.1,.03],alpha:[255,255,0]},
+    {starts:true,siteCount:5,scatter:.4,aim:'outward',loop:1933,
+     native:{Time:.45,Variation:.4,Flags:U,SegmentColor:[[.99,.96,.03],[.2,.96,.05],[.09,.8,0]]}}),
+   nativeSpray('Fel glow',tex('Green_Glow3'),fel,
+    {life:.8,rate:5,size:[.22,.2,.16],alpha:[70,60,20]},
+    {starts:true,siteCount:5,widthCap:1.3,loop:2267,native:{Time:.5,Flags:C}}),
+  ]},
+  {id:'fel-sparks',name:'Fel sparks',layers:[
+   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
+   nativeSpray('Rising sparks',tex('Star7b'),fel,
+    {life:.6,rate:40,velocity:.03,gravity:-2.2,spread:35,size:[.12,.1,0],alpha:[255,255,0]},
+    {starts:true,birthRegion:true,widthCap:1,loop:1733,
+     native:{Time:.45,Variation:1,Flags:U,SegmentColor:[[.95,1,.6],[.5,1,.1],[.2,.9,0]]}}),
+   nativeSpray('Fel motes',tex('star4_32'),fel,
+    {life:1.4,rate:8,velocity:.1,gravity:-.4,spread:180,size:[.01,.04,.01],alpha:[0,255,0]},
+    {starts:true,birthRegion:true,birthAcross:1.4,loop:2933,
+     native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[1,1,.8],[.6,1,.2],[.2,.85,0]]}}),
+  ]},
+ ]),
  fx('Blades','tidal-blade','Tidal blade',2600,
   skin('Running water',water[0],{frames:water,water:true,axis:'v',strength:.85,tint:sea}),
   glow('Wet sheen',tex('Ice3b'),{pulse:'soft',strength:.45,tint:sea,loop:1733}),

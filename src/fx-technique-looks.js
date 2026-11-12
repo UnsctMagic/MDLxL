@@ -8,11 +8,12 @@ const tex=name=>'Textures\\'+name+'.blp';
 const waterFrames=Array.from({length:8},(_,i)=>tex('Lords000'+i));
 const skin=(label,image,extra={})=>({type:'Moving skin',label,image,...extra});
 const glow=(label,image,extra={})=>({type:'Glow',label,image,...extra});
-const spray=(label,image,tint,spec,extra={})=>({type:'Particles',label,kind:'native',image,tint,nativeSpec:{texture:image,...spec},...extra});
-const orbit=(label,image,tint,extra)=>({type:'Edge',label,image,tint,orbit:true,...extra});
+export const spray=(label,image,tint,spec,extra={})=>({type:'Particles',label,kind:'native',image,tint,nativeSpec:{texture:image,...spec},...extra});
+export const orbit=(label,image,tint,extra)=>({type:'Edge',label,image,tint,orbit:true,...extra});
 const starts=spec=>({...spec,starts:true});
 const make=(id,name,loop,layers,extra={})=>({id:'fx-'+id,name,group:'',loop,palette:'native',layers,...extra});
-const vary=(look,variations)=>({...look,variations,layers:variations[0].layers});
+// A look uses the first variation's layers by default.
+export const vary=(look,variations)=>({...look,variations,layers:variations[0].layers});
 
 // Emitter flags: Unshaded, Unfogged, and Carry (stays with the part).
 export const EMITTER_UNFOGGED=4096|32768|262144,EMITTER_CARRIED=EMITTER_UNFOGGED|524288;
@@ -33,167 +34,7 @@ export const fireHair=()=>spray('Fire hair',tex('clouds_anim1_bw'),FIRE,
  {atlas:4,life:1.8,rate:12,area:.2,velocity:.3,gravity:-.12,spread:14,size:[.4,.28,.06],alpha:[255,255,0]},
  {native:{...FLAME_NATIVE,LifeSpanUVAnim:[0,7,1],DecayUVAnim:[8,15,1],SegmentColor:[[1,.85,.45],FIRE,[.6,.08,.01]]}});
 
-export const ENVELOPING_FIRE=[
-  {
-    type: 'Particles',
-    label: 'Enveloping core',
-    kind: 'native',
-    image: 'Textures\\CloudSingle.blp',
-    tint: [ 1, 0.55, 0.15 ],
-    nativeSpec: {
-      texture: 'Textures\\CloudSingle.blp',
-      filter: 1,
-      life: 1,
-      rate: 30,
-      width: 0.2,
-      length: 0.8,
-      velocity: 0.15,
-      spread: 0,
-      size: [ 0.24, 0.17, 0.12 ],
-      alpha: [ 210, 210, 210 ]
-    },
-    birthRegion: true,
-    native: { Variation: 0, Time: 0, Flags: 823296 },
-    starts: true
-  },
-  {
-    type: 'Particles',
-    label: 'Enveloping particles',
-    kind: 'native',
-    image: 'Textures\\CloudSingle.blp',
-    tint: [ 1, 0.55, 0.15 ],
-    nativeSpec: {
-      texture: 'Textures\\CloudSingle.blp',
-      filter: 1,
-      life: 0.5,
-      rate: 30,
-      width: 0.2,
-      length: 0.8,
-      velocity: 0.23,
-      spread: 0,
-      size: [ 0.24, 0.17, 0.12 ],
-      alpha: [ 210, 210, 210 ]
-    },
-    birthRegion: true,
-    loop: 2133,
-    native: { Variation: 0, Time: 0, Flags: 299008 },
-    starts: true
-  }
-];
-export const FIREBALL=[
-  {
-    type: 'Particles',
-    label: 'Compact core',
-    kind: 'native',
-    image: 'ReplaceableTextures\\Weather\\Clouds8x8.blp',
-    tint: [ 1, 0.55, 0.15 ],
-    nativeSpec: {
-      texture: 'ReplaceableTextures\\Weather\\Clouds8x8.blp',
-      filter: 1,
-      atlas: 8,
-      life: 0.5,
-      rate: 50,
-      area: 0,
-      velocity: 0.32,
-      spread: 5,
-      size: [ 0.4, 0.3, 0.2 ],
-      alpha: [ 255, 150, 100 ]
-    },
-    focusedEmitter: true,
-    native: { Time: 0.5, Variation: 0.15, Flags: 299008 },
-    starts: true
-  },
-  {
-    type: 'Particles',
-    label: 'Backing glow',
-    kind: 'native',
-    image: 'Textures\\Red_Glow3.blp',
-    tint: [ 1, 0.55, 0.15 ],
-    nativeSpec: {
-      texture: 'Textures\\Red_Glow3.blp',
-      filter: 1,
-      life: 0.75,
-      rate: 7,
-      area: 0,
-      velocity: 0.07,
-      spread: 2,
-      size: [ 0.7, 0.5, 0.4 ],
-      alpha: [ 180, 150, 80 ]
-    },
-    focusedEmitter: true,
-    native: { Flags: 823296 },
-    starts: true
-  },
-  {
-    type: 'Particles',
-    label: 'Secondary particles',
-    kind: 'native',
-    image: 'Textures\\LavaLump.blp',
-    tint: [ 1, 0.55, 0.15 ],
-    nativeSpec: {
-      texture: 'Textures\\LavaLump.blp',
-      filter: 1,
-      life: 2.4,
-      rate: 3,
-      area: 0,
-      velocity: 0.24,
-      gravity: 0.65,
-      spread: 65,
-      size: [ 0.055, 0.04, 0.025 ],
-      alpha: [ 255, 200, 100 ]
-    },
-    focusedEmitter: true,
-    loop: 3133,
-    starts: true
-  }
-];
-export const SHIMMERING_ENERGY=[
-  {
-    type: 'Moving skin',
-    label: 'Energy underlay',
-    image: 'Textures\\DarkPortal03.blp',
-    fixed: true,
-    bodyUV: true,
-    filter: 4,
-    strength: 0.6,
-    tint: [ 0.7, 0.5, 1 ]
-  },
-  {
-    type: 'Moving skin',
-    label: 'Moving surface',
-    image: 'UI\\Glues\\SinglePlayer\\TutorialCampaign3D\\cloudstile1.blp',
-    bodyUV: true,
-    filter: 3,
-    speed: 0.65,
-    strength: 0.65,
-    tint: [ 0.7, 0.5, 1 ],
-    loop: 2600
-  },
-  {
-    type: 'Particles',
-    label: 'Surface particles',
-    kind: 'native',
-    image: 'Textures\\Star7b.blp',
-    tint: [ 0.7, 0.5, 1 ],
-    nativeSpec: {
-      texture: 'Textures\\Star7b.blp',
-      filter: 1,
-      life: 0.6,
-      rate: 18,
-      width: 0.1,
-      length: 0.8,
-      velocity: 0.035,
-      gravity: -0.8,
-      spread: 35,
-      size: [ 0.09, 0.09, 0 ],
-      alpha: [ 180, 200, 0 ]
-    },
-    birthRegion: true,
-    loop: 1733,
-    starts: true
-  }
-];
-
+const C=EMITTER_CARRIED;
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,inflate:.11,tint:crystal,strength:1});
 const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
@@ -236,6 +77,18 @@ export const TECHNIQUE_LOOKS=[
  vary(make('lit-crystal','Lit crystal',3600,[],{asOverlay:true}),[
   {id:'light',name:'Inner light',layers:[crystalFacets(4),skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,inflate:.13,tint:crystal,strength:.7,pulse:'soft'}),facetGlints()]},
   {id:'team',name:'Team colour core',layers:[skin('Crystal core','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,fixed:true,bodyUV:true,filter:0,unshaded:true,inflate:.05,strength:1,tint:[1,1,1]}),crystalFacets(3),facetGlints()]},
+  {id:'sparkle',name:'Sparkling facets',layers:[
+   crystalFacets(4),
+   skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,inflate:.13,tint:crystal,strength:.7,pulse:'soft'}),
+   spray('Facet sparkles',tex('star4_32'),[.85,.95,1],
+    {life:.5,rate:10,area:.06,size:[.01,.085,.01],alpha:[0,255,0]},
+    {starts:true,siteCount:12,scatter:.45,widthCap:.8,
+     native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[.8,.93,1],[.53,.77,1]]}}),
+   spray('Prism flares',tex('star5tga'),[.75,.8,1],
+    {life:1.1,rate:2.5,size:[.02,.16,.02],alpha:[0,200,0]},
+    {starts:true,siteCount:3,scatter:.45,widthCap:1.4,loop:2933,
+     native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.7,.75,1],[.85,.6,1]]}}),
+  ]},
  ]),
  make('dark-smoke','Dark smoke',4200,[
   starts(spray('Dark smoke',tex('Clouds8x8Black'),[.12,.1,.12],{atlas:8,filter:0,life:1.9,rate:9,area:.5,velocity:.18,gravity:-.06,spread:25,size:[.2,.32,.75],alpha:[170,170,0]})),
