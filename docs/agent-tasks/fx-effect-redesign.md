@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: in progress (design phase). Local branch only.
+Status: ready for the owner's hand test (test build `TestBuilds\fx-effects`, model `TestBuilds\test-models\TEST FX EFFECTS 01.mdx`). Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -32,6 +32,14 @@ Trial 06 (`7e9660b2`) rejected: "everything looks trash", "a serious regression 
 4. Code (cheaper agents): implement the design; keep the unified controls; restore liked looks Codex changed unless the design improves them.
 5. Look at every result in captures; iterate until each variation is good on a straight sword, a curved weapon and a body.
 6. Focused tests, build, package to `TestBuilds\fx-effects`, named test model, hidden click check, hand to owner.
+
+## Progress (12 November 2026)
+
+- Design: [fx-effect-design.md](fx-effect-design.md) (Fable). Codex built it from [the work order](fx-effect-build-codex.md): commits `99c2fe76`..`72ae4bbc` (merged fast-forward). Codex's report: 83 source-test failures already present at the starting revision; not caused by this work.
+- Claude tuned from renders (`09cd6252`): `widthCapStrip` (separate width cap on straight strips, model `widthCapFor`), Enveloping flames with Heat shade started and a softer ramp, fainter violet Arcane swirl, larger Fel sparks, Tip discharge, Sparkling facets and Sea spray.
+- Render workbench: `out\fx-look\run.ps1 -Plan <plan.json> -Out <folder> [-Exe <MDLxL.exe>]` (hidden desktop). Round plans `out\fx-look\round1..3-plan.json`; captures under `out\fx-look\round1..3`.
+- Seen and accepted in renders: every variation on Great Unclean Dude geosets 10 and 11 (wide blades).
+- Open: on a large many-region body (Great Unclean Dude G6) particle layers are small next to the coloured skin from the default top-down view. The Tzeentch thin-sword test was contaminated by that model's own saved FX flames; a clean thin sword is still untested. Rendered here only; Warcraft III itself not checked.
 
 ## Rules carried over
 
