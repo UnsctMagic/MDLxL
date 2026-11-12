@@ -31,6 +31,8 @@ const round=v=>Math.round(v*10)/10;
  const out=path.join(root,'out/fx-responsiveness');fs.mkdirSync(out,{recursive:true});
  const report={package:process.env.MDLXL_TEST_EXE||process.env.MDLXL_SUITE_PKG||'dev',setups:{}};
  for(const setup of SETUPS){
+  // The test-model collection is private: a missing model is skipped, never failed (GitHub CI has none).
+  if(!setup.model||!fs.existsSync(setup.model)){console.log('skip '+setup.name+': model not found');continue;}
   const errors=[],consoleErrors=[],rows=report.setups[setup.name]={model:path.basename(setup.model),actions:[],frames:[]};
   const {app,page}=await launchApp({fixture:setup.model,out,errors,bounds:{x:-3000,y:0,width:1280,height:920},settings:{preferences:{language:'en',learn:{enabled:false}}}});
   try{

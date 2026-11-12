@@ -54,7 +54,9 @@ const {testModel}=require('./helpers/fixtures.cjs');
    assert.notEqual((await stack()).layers.at(-1)[key],before[key],name+' radius');
    await drag('Move emitter',14,3);assert.notDeepEqual((await stack()).layers.at(-1).offset,before.offset,name+' position');
    if(name==='Fly swarm'){
-    await fx.getByLabel('Amount value').fill('3');await fx.getByLabel('Amount value').press('Enter');await ready();assert.equal((await stack()).layers.at(-1).amount,3);
+    // Flies are quads on billboarded bones (native Flies.mdx technique); Amount adds sets of five.
+    await fx.getByRole('slider',{name:'Amount',exact:true}).fill('15');await ready();assert.equal((await stack()).layers.at(-1).amount,15);
+    assert.equal(await page.evaluate(()=>{const m=mdlxlProbe(document.querySelector('.sfx-stage .game-preview-root')).props.model;return m.Bones.filter(b=>/\/fly\d+$/.test(b._FxTag||'')&&b.Flags===264).length;}),15,'fifteen billboarded fly bones in the preview');
    }
    await button('Cancel').click();await fx.waitFor({state:'hidden'});
   }

@@ -7929,5 +7929,11 @@
   "Tint": "Оттенок",
   "Colour wash": "Цветовая заливка",
   "Team colour": "Цвет команды",
-  "Team colour wash": "Заливка цветом команды"
+  "Team colour wash": "Заливка цветом команды",
+  "Fly size": "Размер мух",
+  "Swarm size": "Размер роя",
+  "How many flies. Each five more fly on their own clock and paths.": "Сколько мух. Каждые пять дополнительных летают в своём ритме и по своим путям.",
+  "Width of each fly.": "Ширина каждой мухи.",
+  "How far the flies circle from the centre. The round handle in the preview drags it too.": "Как далеко от центра кружат мухи. Круглая ручка в предпросмотре тоже меняет это.",
+  "How fast the flies circle. Every fly keeps its own pace.": "Как быстро кружат мухи. Каждая муха сохраняет свой темп."
 }

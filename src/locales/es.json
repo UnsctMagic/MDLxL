@@ -7939,5 +7939,11 @@
   "Tint": "Tinte",
   "Colour wash": "Baño de color",
   "Team colour": "Color de equipo",
-  "Team colour wash": "Baño de color de equipo"
+  "Team colour wash": "Baño de color de equipo",
+  "Fly size": "Tamaño de mosca",
+  "Swarm size": "Tamaño del enjambre",
+  "How many flies. Each five more fly on their own clock and paths.": "Cuántas moscas. Cada cinco más vuelan con su propio ritmo y sus propias trayectorias.",
+  "Width of each fly.": "Ancho de cada mosca.",
+  "How far the flies circle from the centre. The round handle in the preview drags it too.": "A qué distancia del centro vuelan las moscas. El tirador redondo de la vista previa también lo cambia.",
+  "How fast the flies circle. Every fly keeps its own pace.": "Qué tan rápido vuelan las moscas. Cada mosca mantiene su propio ritmo."
 }

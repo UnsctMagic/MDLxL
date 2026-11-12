@@ -7835,5 +7835,11 @@
   "Tint": "色调",
   "Colour wash": "颜色罩染",
   "Team colour": "队伍颜色",
-  "Team colour wash": "队伍颜色罩染"
+  "Team colour wash": "队伍颜色罩染",
+  "Fly size": "苍蝇大小",
+  "Swarm size": "蝇群大小",
+  "How many flies. Each five more fly on their own clock and paths.": "苍蝇数量。每多五只都有自己的节奏和路径。",
+  "Width of each fly.": "每只苍蝇的宽度。",
+  "How far the flies circle from the centre. The round handle in the preview drags it too.": "苍蝇绕中心飞行的距离。预览中的圆形手柄也可拖动调整。",
+  "How fast the flies circle. Every fly keeps its own pace.": "苍蝇飞行的速度。每只苍蝇保持各自的节奏。"
 }
