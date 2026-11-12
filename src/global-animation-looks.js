@@ -96,7 +96,9 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
    nativeSurface:{...e,description:undefined,layers:spec?[spec]:undefined,accents:[],stamp:undefined,cue:undefined},base:e.defaultMode==='replace',strength:e.opacity??1,...(i?{loop:Math.round((e.duration||3000)*1.333)}:orbiting?{loop:Math.round((e.duration||3000)*1.2)}:{})}));
  }
  if(e.id==='fissures')layers.push(fire('Fire',{enabled:false}));
- for(const [i,spec] of (e.accents||[]).entries())layers.push(dust(CARD_NAMES[e.id]?.particles[i]||(spec.flat?(impact?'Flash':'Ground piece'):'Particles')+' '+(i+1),'native',spec.texture,{nativeSpec:spec,ground:!!spec.flat,enabled:!spec.flat,impact}));
+ // A looping card's burst emitter (Stars) emits steadily instead of pulsing once a loop (emitter audit, 12 November).
+ const steady=({burst:_b,delay:_d,...spec})=>({...spec,rate:6});
+ for(const [i,spec] of (e.accents||[]).entries())layers.push(dust(CARD_NAMES[e.id]?.particles[i]||(spec.flat?(impact?'Flash':'Ground piece'):'Particles')+' '+(i+1),'native',spec.texture,{nativeSpec:spec.burst&&!impact?steady(spec):spec,ground:!!spec.flat,enabled:!spec.flat,impact}));
  if(e.stamp&&!impact)layers.push({type:'Rune',label:'Ground seal',stamp:e.stamp,ground:true,enabled:false});
  (impact?retiredImpacts:GLOBAL_LOOKS).push({...make(e.id,e.id==='fissures'?'Fissures skin':e.name,e.id==='fissures'?'Skins':e.category,e.duration||3000,e.palette||'native',layers),impact});
 }

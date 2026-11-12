@@ -33,3 +33,12 @@ for(const label of ['Heavy drops','Ichor drops'])test(label+' fall like Dripping
  const inFlight=list=>list.reduce((a,p)=>a+(typeof p.EmissionRate==='number'?p.EmissionRate:p.EmissionRate.Keys.slice(0,-1).reduce((s,k)=>s+k.Vector[0],0)/(p.EmissionRate.Keys.length-1))*p.LifeSpan,0);
  assert.ok(inFlight(emitters)>9,'drops in flight on the body: '+inFlight(emitters).toFixed(1));
 });
+test('Stars emit at a steady rate instead of a burst once a loop',()=>{
+ const {emitters}=addEmitter('Stars');
+ assert.ok(emitters.length>0);
+ for(const p of emitters){
+  assert.equal(p.Squirt,false);
+  const values=typeof p.EmissionRate==='number'?[p.EmissionRate]:p.EmissionRate.Keys.map(k=>k.Vector[0]);
+  assert.ok(Math.min(...values)>0&&Math.max(...values)===Math.min(...values),'steady rate: '+values);
+ }
+});
