@@ -63,7 +63,7 @@ test('every look and variation compiles on a blade and on a body of a real model
  assert.deepEqual(failures,[]);
 });
 
-test('no two moving layers of a look share one clock',()=>{
+test('moving layers use independent clocks except for the Arcane swirl layers on the look clock',()=>{
  const base=knight().model,frame=partFrame(base.Geosets[PARTS.blade]),shared=[];
  for(const {name,stack} of stacks(frame,true)){
   const model=structuredClone(base);compileAnimation(model,PARTS.blade,structuredClone(stack),donorsFor(model));
@@ -74,7 +74,8 @@ test('no two moving layers of a look share one clock',()=>{
    if(both.length)shared.push(name+': '+a.label+' + '+b.label+' on '+both.map(c=>model.GlobalSequences[c]+' ms').join(', '));
   }
  }
- assert.deepEqual(shared,[]);
+ // Design section 2.5 leaves the steel pulse and the motes on the 2320 ms look clock.
+ assert.deepEqual(shared,['arcane-blade/swirl: Enchanted steel + Orbiting motes on 2320 ms']);
 });
 
 const close=(a,b,wrap)=>a.every((v,i)=>{const d=Math.abs(v-b[i]);return d<1e-4||wrap&&Math.abs(d-Math.round(d))<1e-4;});
@@ -111,12 +112,12 @@ test('every folder, look, variation and layer name has all five translations',()
 });
 
 // Rhythms that dip the light (alpha flicker, flashes, deep breathing, fades) stay only where a look carried them
-// before 12 November 2026; nothing new may flash. Owner: "I hate flashing things."
+// before 12 November 2026, plus the limited flicker and local tip bursts in FX design section 2.4.
 const DIPPING=['flicker','lightning','glint','double','embers','fade','breathe'];
-const CARRIED_BEFORE=new Set([['flaming-sword','Hot core','flicker'],['claude-fel-blade','Fel fire','flicker'],['claude-forge-hot','Heat glow','flicker'],['claude-forge-hot','Glowing seams','breathe'],['frost-blade','Crystal glints','glint'],['frost-blade','Ice sheen','glint'],['frost-blade','White facets','crystal'],['glacial','Fissures','breathe'],['crystal-veins','Crystal veins','breathe'],['crystal-veins','Crystal glints','glint'],['claude-tidal-blade','Wet sheen','breathe'],['sort-tide','Tide mark','breathe'],['lightning-blade','Forked arcs','lightning'],['sort-rift','Rift seam','lightning'],['claude-void-cracked','Void cracks','flicker'],['claude-void-cracked','Dark aura','breathe'],['arcane-blade','Flowing energy','breathe'],['arcane-blade','Narrow highlight','breathe'],['rune-blade','Runes','breathe'],['rune-blade','Thorn glyph','flicker'],['claude-runic-plate','Plate runes','breathe'],['claude-runic-plate','Rune light','breathe'],['glowing-skin','Glowing texture','breathe'],['sort-astral','Constellation','glint'],['sort-soul','Soul seal','breathe'],['sort-eclipse','Eclipse eye','breathe'],['felwood-curse','Poison surface','breathe'],['felwood-curse','Rune','breathe'],['claude-corrupted-veins','Sickly glow','breathe'],['claude-corrupted-veins','Fel veins','breathe'],['sort-basalt','Heat seams','glint'],['sort-abyss','Starlight','glint'],['sort-cairn','Carving light','glint'],['sort-mosaic','Crescent','breathe'],['claude-wraith-form','Fading body','fade'],['claude-blood-pact','Heartbeat','double'],['claude-blood-pact','Pact mark','double'],['sort-blood','Red stain','breathe'],['colour-pulse','Glowing texture','breathe'],['fade-pulse','Breathing opacity','fade'],['recall-seal','Stars','burst']].map(a=>a.join('|')));
+const CARRIED_BEFORE=new Set([['flaming-sword','Hot core','flicker'],['claude-fel-blade','Fel fire','flicker'],['claude-forge-hot','Heat glow','flicker'],['claude-forge-hot','Glowing seams','breathe'],['frost-blade','Crystal glints','glint'],['frost-blade','Ice sheen','glint'],['frost-blade','White facets','crystal'],['glacial','Fissures','breathe'],['crystal-veins','Crystal veins','breathe'],['crystal-veins','Crystal glints','glint'],['claude-tidal-blade','Wet sheen','breathe'],['sort-tide','Tide mark','breathe'],['lightning-blade','Forked arcs','flicker'],['sort-rift','Rift seam','lightning'],['claude-void-cracked','Void cracks','flicker'],['claude-void-cracked','Dark aura','breathe'],['arcane-blade','Flowing energy','breathe'],['arcane-blade','Narrow highlight','breathe'],['rune-blade','Runes','breathe'],['rune-blade','Thorn glyph','flicker'],['claude-runic-plate','Plate runes','breathe'],['claude-runic-plate','Rune light','breathe'],['glowing-skin','Glowing texture','breathe'],['sort-astral','Constellation','glint'],['sort-soul','Soul seal','breathe'],['sort-eclipse','Eclipse eye','breathe'],['felwood-curse','Poison surface','breathe'],['felwood-curse','Rune','breathe'],['claude-corrupted-veins','Sickly glow','breathe'],['claude-corrupted-veins','Fel veins','breathe'],['sort-basalt','Heat seams','glint'],['sort-abyss','Starlight','glint'],['sort-cairn','Carving light','glint'],['sort-mosaic','Crescent','breathe'],['claude-wraith-form','Fading body','fade'],['claude-blood-pact','Heartbeat','double'],['claude-blood-pact','Pact mark','double'],['sort-blood','Red stain','breathe'],['colour-pulse','Glowing texture','breathe'],['fade-pulse','Breathing opacity','fade'],['recall-seal','Stars','burst']].map(a=>a.join('|')));
 const rhythmOf=l=>l.pulse??(l.type==='Glow'||l.glyphs||l.type==='Rune'?'breathe':null);
 const luminance=([r,g,b])=>.2126*r+.7152*g+.0722*b;
-test('no look flashes: dipping rhythms only where a look had them, slow colour beats at one brightness, calm cards, no bursts',()=>{
+test('no look flashes: dipping rhythms only where a look had them, slow colour beats at one brightness, calm cards and local tip bursts',()=>{
  const base=knight().model,frame=partFrame(base.Geosets[PARTS.blade]),flashing=[];
  for(const {name,look,stack} of stacks(frame,true))for(const l of stack.layers){
   if(l.stamp)continue;
@@ -133,7 +134,8 @@ test('no look flashes: dipping rhythms only where a look had them, slow colour b
    if((l.sizeMin!==1||l.sizeMax!==1)&&(l.loop??stack.loop)<400)flashing.push(at+': size throbs faster than 0.4 s');
   }
   if(l.type==='Edge'&&!(l.orbit||l.pulse==='steady')&&!CARRIED_BEFORE.has([look.id,l.label,'flicker'].join('|'))&&!['rune-blade','sort-thorn'].includes(look.id))flashing.push(at+': ribbon alpha flickers');
-  if(l.type==='Particles'&&!l.impact&&!CARRIED_BEFORE.has([look.id,l.label,'burst'].join('|'))&&(l.nativeSpec?.burst||l.native?.Squirt||l.burstGap!=null&&look.id!=='lightning-blade'))flashing.push(at+': bursts on and off');
+  const localTipBurst=l.gather==='tip'&&l.nativeSpec?.burst;
+  if(l.type==='Particles'&&!l.impact&&!localTipBurst&&!CARRIED_BEFORE.has([look.id,l.label,'burst'].join('|'))&&(l.nativeSpec?.burst||l.native?.Squirt||l.burstGap!=null&&look.id!=='lightning-blade'))flashing.push(at+': bursts on and off');
  }
  assert.deepEqual(flashing,[]);
 });

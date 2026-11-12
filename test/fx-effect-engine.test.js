@@ -112,3 +112,19 @@ test('existing airy fit and saved slab stacks compile identically to item 1',()=
   assert.equal(modelHash(model),expected);
  }
 });
+
+test('switching from Flame licks back to Surface flames restores the dense native defaults',()=>{
+ const model=strip(),part=5,frame=looks.partFrame(model.Geosets[part]),look=looks.findLook('flaming-sword');
+ let stack=looks.newStack(look,frame,'switch');
+ const flames=()=>model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('switch/2/')).map(p=>({
+  speed:p.Speed,gravity:p.Gravity,rate:p.EmissionRate,alpha:Array.from(p.Alpha),
+ }));
+ compileAnimation(model,part,stack);
+ const dense=flames();
+ stack=looks.withVariation(stack,frame,look,'flame-licks');
+ compileAnimation(model,part,stack);
+ assert.notDeepEqual(flames(),dense,'the airy variation has different defaults');
+ stack=looks.withVariation(stack,frame,look,'surface-flames');
+ compileAnimation(model,part,stack);
+ assert.deepEqual(flames(),dense,'switching back restores dense alpha, loft, gravity and rate');
+});

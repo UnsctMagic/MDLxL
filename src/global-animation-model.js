@@ -771,9 +771,9 @@ function particles(c,layer){
   }
   const first=fly&&!l.pictureOverride?9*16+7:0,end=fly?first:mist&&!l.pictureOverride?25:atlas*atlas-1,mid=fly?first:mist&&!l.pictureOverride?12:Math.floor(end*.4);
   p.LifeSpanUVAnim=Uint32Array.from([first,mid,1]);p.DecayUVAnim=Uint32Array.from([Math.min(end,mid+1),end,1]);
-  if(fireFit&&prior?.fireFit?.version===1&&prior.image===l.image&&current.Visibility?.GlobalSeqId!=null)
+  if(!c.recipeChanged&&fireFit&&prior?.fireFit?.version===1&&prior.image===l.image&&current.Visibility?.GlobalSeqId!=null)
    p.TextureID=current.TextureID; // Native-manager picture edits keep their model-local texture reference.
-  if(!fireFit&&prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
+  if(!c.recipeChanged&&!fireFit&&prior?.kind===l.kind&&current.Visibility?.GlobalSeqId!=null){
    // A layer adjustment preserves independent native fields already edited in EMTR.
    const samePicture=prior.image===l.image;
    for(const field of ['Flags','FilterMode','FrameFlags','Time','Variation','TailLength','TailUVAnim','TailDecayUVAnim'])p[field]=current[field];
@@ -1150,9 +1150,10 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
+  const recipeChanged=prior&&l.recipeOwner===draft.look&&before.variation!==draft.variation;
   // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
-  const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
+  const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,recipeChanged,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   context.autoSites=defaultSurfaceSites(context,l);
   context.siteLayout=completeEmitterSiteLayout(context,l);
   context.activeSites=activeEmitterSites(l,context.siteLayout||context.autoSites||[]);
@@ -1161,7 +1162,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   if(Array.isArray(l.activeSiteKeys)&&context.activeSites)saved.activeSiteKeys=[...context.activeSites];
   if(l.nativeSpec&&!l.impact)siteRateScales[l.id]=nativeEmitterBudget(context,l);
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
+  if(!recipeChanged&&!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
    const layout=context.siteLayout||context.autoSites;
    if(layout)context.sites.push(...layout);

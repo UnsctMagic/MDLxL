@@ -18,17 +18,27 @@ test('new stacks start with the chosen emitters and the listed defaults',()=>{
  assert.ok(!findLook('claude-fel-blade').layers.some(l=>l.label==='Fel edge'),'Fel fire has no Fel edge layer');
  assert.ok(LAYER_CHOICES.some(l=>l.label==='Fel edge'&&l.type==='Edge'),'Fel edge stays addable');
  const frost=findLook('frost-blade');
- assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark']);assert.equal(frost.loop,3200);
- for(const v of frost.variations){
+ assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark','vapour','shards']);assert.equal(frost.loop,3200);
+ for(const v of frost.variations.slice(0,3)){
   const stack=withVariation(newStack(frost,frame,'o'),frame,frost,v.id);
   assert.ok(stack.layers.some(l=>l.label==='Falling mist'&&l.enabled),v.id+' starts with its mist');
  }
  assert.deepEqual(newStack(frost,frame,'o').layers.map(l=>l.label),['Packed frost','Ice facets','Falling mist']);
  assert.equal(newStack(frost,frame,'o').variation,'ice');
  const water=findLook('claude-tidal-blade');
- assert.deepEqual(water.variations.map(v=>v.id),['running','currents']);assert.equal(water.loop,2600);
+ assert.deepEqual(water.variations.map(v=>v.id),['running','currents','spray']);assert.equal(water.loop,2600);
  assert.ok(started('claude-tidal-blade',frame).includes('Dripping water'));
  assert.ok(withVariation(newStack(water,frame,'o'),frame,water,'currents').layers.some(l=>l.label==='Dripping water'&&l.enabled));
+ for(const [look,ids] of Object.entries({
+  'flaming-sword':['surface-flames','flame-licks','enveloping-flames','fireball'],
+  'claude-fel-blade':['original','fel-surge','fel-sparks'],
+  'lightning-blade':['original','crackle','tip'],
+  'arcane-blade':['arcane','shimmer','swirl'],
+  'poison-skin':['original','venom','fumes'],
+  lava:['original','spitting','smoulder'],
+  'fx-lit-crystal':['light','team','sparkle'],
+ }))assert.deepEqual(findLook(look).variations.map(v=>v.id),ids,look);
+ for(const id of ['claude-magma-flow','fissures','crystal-veins','fx-liquid-body'])assert.equal(findLook(id).variations,undefined,id);
  const lightning=newStack(findLook('lightning-blade'),frame,'o').layers;
  assert.equal(lightning.find(l=>l.label==='Forked arcs').enabled,true);assert.equal(lightning.find(l=>l.label==='Blade arcs').enabled,false);
  assert.equal(newStack(findLook('glowing-skin'),frame,'o').layers[0].strength,4);
@@ -61,6 +71,21 @@ test('switching a variation swaps its layers and keeps what the user added',()=>
  assert.equal(withVariation(stack,frame,look,'steel').layers[0].enabled,false);
  // An unmarked variation carries no extra emitters of its own.
  assert.equal(currentVariation({layers:[{label:'Cold sheen'}]},look),'steel','a stack saved before variations shows its own finish');
+});
+
+test('a saved removed variation shows the first choice and keeps its layers across subsequent switches',()=>{
+ const {doc,frame}=fixture(),look=findLook('frost-blade');
+ const original={...newStack(look,frame,'removed'),variation:'technique-compact'};
+ original.layers=[{...original.layers[0],id:50,recipeRole:'structure',strength:.4}];
+ compileAnimation(doc.model,0,original);
+ const saved=readAnimationStack(openDocument(doc.serialize('mdx'),'removed.mdx').model,0);
+ assert.equal(currentVariation(saved,look),'ice');
+ const {recipeOwner,recipeRole,...extra}=saved.layers[0];
+ let next=saved;
+ for(const id of ['steel','dark']){
+  next=withVariation(next,frame,look,id);
+  assert.deepEqual(next.layers.find(l=>l.id===50),extra,'the saved layer survives as a user layer');
+ }
 });
 
 test('Add emitter offers the emitters of every variation first, once',()=>{

@@ -3,19 +3,19 @@
     {
       "label": "Blade flames",
       "id": 2,
-      "hash": "a1fecfaa82ba9a0945c00913e6374aa539ca393001f43bb0ad60dfc024f91469"
+      "hash": "00ea292bc101c041c125ea7cb688fe669249fcfbe74dcc483495b85c64af553a"
     },
     {
       "label": "Rising embers",
       "id": 3,
-      "hash": "49c65452475a15fbea0e53945f7f3c563a94d0f8b989b0c4a95877268b51d4a5"
+      "hash": "099a6665bc68b2bdbe16d91b03ec4c3ff556f819e00bdfabdc8339884acecdde"
     }
   ],
   "frost-blade": [
     {
       "label": "Falling mist",
       "id": 4,
-      "hash": "59c4d33aa59b4f39936480cc93f91f49f109085b7f26ce05f6be26c56ac955e4"
+      "hash": "ef42cd2475a00db706351c170f77d94380167cfc1674a4bd5da8cfae3b1bf299"
     }
   ],
   "lightning-blade": [],
@@ -23,7 +23,7 @@
     {
       "label": "Glow orbs",
       "id": 5,
-      "hash": "0129ca821bbcce9175fcff9c116da3173d27c76b94adc920f0bd40636471d442"
+      "hash": "94c73ad35609b470882cc009d8e14effbf26183aeb60a957fa30294a49c2870f"
     }
   ],
   "rune-blade": [],
@@ -40,7 +40,7 @@
     {
       "label": "Heavy drops",
       "id": 2,
-      "hash": "8b024fc58e6b7266e05ac81a8749ed60883e9248efba4cf4c2b029edcaf84425"
+      "hash": "503e4bb204aca07af7e15c11dc1d266b1901acc3378f4e6710bc5b841c9b5ef8"
     }
   ],
   "crystal-veins": [],
@@ -75,7 +75,7 @@
     {
       "label": "Falling mist",
       "id": 1,
-      "hash": "80a96d87212a3cd91d6d9490de9c57b9509ea8914c6206ab13bbf179e8682ea8"
+      "hash": "a99f2b93295b5f87293c7065ec40177037c03199f2552b706b6d39a3f0d1fc68"
     }
   ],
   "moving-own": [],
@@ -185,7 +185,7 @@
     {
       "label": "Fel flames",
       "id": 2,
-      "hash": "f7fc7d0e4665e0a0e060e1cff756ded8fb07acd527d610aa0713afdda8798c4d"
+      "hash": "19f76cb988d83cd57a20606f506382939928092de62e907f1a50193a5015f606"
     }
   ],
   "claude-tidal-blade": [
