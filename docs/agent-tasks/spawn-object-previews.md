@@ -88,10 +88,9 @@ HBS0 is in group D, so expect overlap.
 - Hand back with a test build that opens `TEST SPAWN OBJECTS 01.mdx` (a Footman
   copy with `SPNxUBGH` on Death and one group C object, e.g. `SPNxUEGG`), and a
   short click list for the owner.
-- **After the owner accepts, before merge:** add tests per
-  [TESTING-RULES.md](../TESTING-RULES.md) (real game files, fail on `19481b44`
-  first; one test walks every SpawnData row and asserts its group; named UBGH and
-  UEGG cases), then run them plus `pnpm run test:source` against the CI baseline.
+- Test tier: **small repair** (AGENTS.md "Build and verification"). No new
+  automated tests and no suites unless the owner asks; PR CI at merge is the
+  safety net.
 
 ## Revision and local state
 
