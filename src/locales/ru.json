@@ -7156,7 +7156,7 @@
   "Size of each visible particle.": "Размер каждой видимой частицы.",
   "Initial speed away from the part.": "Начальная скорость удаления от части.",
   "Pulls the particles down as they age.": "Тянет частицы вниз с течением времени.",
-  "Complete turns or texture passes within the loop.": "Число полных оборотов или проходов текстуры за цикл.",
+  "Texture passes per loop. Below 1 moves slower than the loop.": "Проходов текстуры за цикл. Меньше 1 — медленнее цикла.",
   "Direction of travel on the surface, in degrees.": "Направление движения по поверхности в градусах.",
   "Tiling": "Повторение",
   "How many times the skin repeats across the part.": "Сколько раз текстура повторяется на части.",

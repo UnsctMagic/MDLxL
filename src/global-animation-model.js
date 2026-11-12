@@ -49,6 +49,16 @@ function rhythmColour(c,l,colour){
  const map=l.steel?v=>.22+v*.31:l.crust?v=>.18+v*.22:v=>v,second=(l.tint2||secondTint(l.tint)).map(map);
  return keys(c.id,c.ms,rhythm.keys(Array.from(colour),second),rhythm.type);
 }
+/**
+ * Whole passes for a Speed: an integer speed runs that many passes on the layer clock (as always); a fractional
+ * one runs the next whole number of passes on a longer clock, so the texture still wraps seamlessly.
+ */
+function passClock(c,speed,perPass=1){
+ const passes=speed*perPass,whole=Math.max(1,Math.ceil(passes-1e-9));
+ if(Math.abs(passes-Math.round(passes))<1e-9&&passes>=1)return {turns:Math.round(passes),id:c.id,ms:c.ms};
+ const ms=Math.max(1,Math.round(c.ms*whole/passes));
+ return {turns:whole,id:clockFor(c.model,ms,c.createdClocks),ms};
+}
 function clockFor(m,ms,created){
  const owned=[...created,...m.Geosets.flatMap(g=>g._FxStack?.createdClockIds||[])];
  let id=owned.find(i=>m.GlobalSequences[i]===ms);
@@ -226,9 +236,10 @@ function skinLayer(c,l){
  g.TVertices=keepUV?previousShape.TVertices:[coords];
  let tex=own?structuredClone(original.TextureID):l.team?teamTexture(m,l.team,tag):texture(m,l.image,!rect,tag);
  if(l.frames){
-  const tids=l.frames.map(name=>texture(m,name,true,tag)),n=tids.length* Math.max(1,Math.round(l.speed*3));
+  // Three frame cycles per unit of Speed; a fractional count of cycles runs whole cycles on a longer clock.
+  const tids=l.frames.map(name=>texture(m,name,true,tag)),flip=l.speed>0?passClock(c,l.speed,3):{turns:1,id,ms},n=tids.length*flip.turns;
   // Speed 0 holds the first frame.
-  tex=l.speed===0?tids[0]:keys(id,ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
+  tex=l.speed===0?tids[0]:keys(flip.id,flip.ms,Array.from({length:n+1},(_,i)=>[i/n,tids[i%tids.length]]),0,Uint32Array);
  }
 
  const shape=l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||(l.type==='Glow'?curves.breathe:null),curveType=l.pulse==='soft'?3:1;
@@ -250,7 +261,8 @@ function skinLayer(c,l){
  const layer={TextureID:tex,CoordId:keepUV?(previous.CoordId??0):0,TVertexAnimId:null,FilterMode:l.filter??(l.base?2:3),Shading:shading(l.water?(l.base?1:0):l.bodyUV||l.steel?16:17,l),Alpha:alpha};
  if(layerMoves(l)&&l.speed!==0){
   // Whole tiles at wrap. The direction selects a lattice vector or a closed excursion for an atlas.
-  const turns=Math.max(1,Math.round(l.speed));
+  // A fractional Speed runs the next whole number of passes on a longer clock: slower, still whole at wrap.
+  const pass=l.speed>0?passClock(c,l.speed):{turns:Math.max(1,Math.round(l.speed)),id,ms},turns=pass.turns;
   // Painted unit atlases do not repeat. Drift a few texels and return to the same face.
   const extent=rect?[rect[2]*.09,rect[3]*.09]:paintedAtlas?[.014,.014]:null;
   const pairs=extent?Array.from({length:turns*4+1},(_,i)=>{
@@ -258,7 +270,7 @@ function skinLayer(c,l){
    return [i/(turns*4),[phase*extent[0]*Math.cos(angle),phase*extent[1]*Math.sin(angle),0]];
   }):[[0,[0,0,0]],[1,l.axis==='v'?[0,turns,0]:[turns,0,0]]];
   if(samePicture&&previous&&c.sameClock&&prior.speed===l.speed&&prior.direction===l.direction&&prior.fixed===l.fixed&&prior.pulse===l.pulse)layer.TVertexAnimId=previous.TVertexAnimId;
-  else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(id,ms,pairs)});
+  else layer.TVertexAnimId=resource(m.TextureAnims,tag+'/motion',{Translation:keys(pass.id,pass.ms,pairs)});
  }
  if(samePicture&&previous){
   if(typeof previous.TextureID==='number'&&!(l.frames&&prior.speed!==l.speed)||c.sameClock&&prior.speed===l.speed)layer.TextureID=previous.TextureID;
@@ -634,10 +646,13 @@ export function readAnimationStack(model,index){
     const colour=Array.from(rgb,v=>Math.max(0,Math.min(1,l.steel?(v-.22)/.31:l.crust?(v-.18)/.22:v)));
     if(colour.some((v,i)=>Math.abs(v-l.tint[i])>.001))l.tint=colour;
    }
-   const travel=model.TextureAnims[layer.TVertexAnimId]?.Translation?.Keys;
+   const track=model.TextureAnims[layer.TVertexAnimId]?.Translation,travel=track?.Keys;
    if(l.type==='Moving skin'&&!l.atlasRect&&travel?.length===2){
     const axis=l.axis==='v'?1:0,offset=travel[1].Vector[axis]-travel[0].Vector[axis];
-    if(Number.isInteger(offset)&&offset>=1&&offset<=8)read('speed',offset);
+    // Whole passes on the travel clock; a clock longer than the layer's loop is a fractional Speed.
+    const loop=l.loop??draft.loop,clock=model.GlobalSequences[track.GlobalSeqId],speed=clock>0?offset*loop/clock:offset;
+    // A clock rounded to whole milliseconds keeps the saved fraction.
+    if(Number.isInteger(offset)&&offset>=1&&offset<=8&&Math.abs(speed-l.speed)>speed/Math.max(1,clock)+1e-6)read('speed',Math.round(speed*100)/100);
    }
    continue;
   }

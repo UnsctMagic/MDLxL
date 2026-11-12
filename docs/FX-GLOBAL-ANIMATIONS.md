@@ -216,6 +216,11 @@ keep its count.
 - Fly swarm uses the five native `Flies.mdx` Hermite paths (1233 ms) and the
   `Doodads0` fly cell (12 rows, 16 columns, cell 151). Native Blend retains dark
   bodies and transparent corners. Amount is the total across skin regions.
+- Moving skin **Speed** takes fine values from 0 to 8 (step 0.05; owner, 12 November: slow
+  skins must still move). Whole speeds run that many passes on the layer clock, as before; a
+  fractional speed runs the next whole number of passes on a longer owned clock, so a pass
+  always wraps seamlessly. Frame flipbooks, atlas excursions and native cards follow the same
+  rule, and the value reopens unchanged from MDX and MDL (`test/fx-skin-speed.test.js`).
 - Maximum Glow uses up to four additive native material passes, with a fractional
   final pass. Intensity therefore changes continuously and survives reopening.
 - The six retired Attack recipes can be read from saved stacks. They are excluded from the library, folder counts and search.

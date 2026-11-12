@@ -7172,7 +7172,7 @@
   "Size of each visible particle.": "Tamaño de cada partícula visible.",
   "Initial speed away from the part.": "Velocidad inicial al alejarse de la pieza.",
   "Pulls the particles down as they age.": "Tira de las partículas hacia abajo con el tiempo.",
-  "Complete turns or texture passes within the loop.": "Vueltas completas o pasadas de textura dentro del ciclo.",
+  "Texture passes per loop. Below 1 moves slower than the loop.": "Pasadas de textura por ciclo. Por debajo de 1 se mueve más lento que el ciclo.",
   "Direction of travel on the surface, in degrees.": "Dirección del movimiento sobre la superficie, en grados.",
   "Tiling": "Repetición",
   "How many times the skin repeats across the part.": "Cuántas veces se repite la textura en la pieza.",

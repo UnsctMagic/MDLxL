@@ -147,7 +147,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={blend??''} onChange={e=>setLayer(withBlend(l,Number(e.target.value)))}>{blend==null&&<option value=""/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>}
   {surf&&<>
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
-   {controls.speed&&row('Speed','speed',0,8,1,'Complete turns or texture passes within the loop.')}
+   {controls.speed&&row('Speed','speed',0,8,.05,'Texture passes per loop. Below 1 moves slower than the loop.')}
    {controls.direction&&row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}
    {controls.tiling&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}
    {!l.glyphs&&!controls.area&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}

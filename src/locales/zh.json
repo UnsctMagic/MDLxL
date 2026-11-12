@@ -7074,7 +7074,7 @@
   "Size of each visible particle.": "每个可见粒子的大小。",
   "Initial speed away from the part.": "远离部件的初始速度。",
   "Pulls the particles down as they age.": "随粒子存在时间增加，将其向下拉。",
-  "Complete turns or texture passes within the loop.": "一个循环内的完整旋转或纹理移动次数。",
+  "Texture passes per loop. Below 1 moves slower than the loop.": "每个循环的纹理移动次数。小于 1 时比循环更慢。",
   "Direction of travel on the surface, in degrees.": "在表面上移动的方向，以度为单位。",
   "Tiling": "平铺",
   "How many times the skin repeats across the part.": "部件表面纹理的重复次数。",

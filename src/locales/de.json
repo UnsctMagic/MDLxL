@@ -7172,7 +7172,7 @@
   "Size of each visible particle.": "Größe jedes sichtbaren Partikels.",
   "Initial speed away from the part.": "Anfangsgeschwindigkeit vom Teil weg.",
   "Pulls the particles down as they age.": "Zieht die Partikel mit zunehmendem Alter nach unten.",
-  "Complete turns or texture passes within the loop.": "Volle Drehungen oder Texturdurchläufe pro Schleife.",
+  "Texture passes per loop. Below 1 moves slower than the loop.": "Texturdurchläufe pro Schleife. Unter 1 bewegt sich langsamer als die Schleife.",
   "Direction of travel on the surface, in degrees.": "Bewegungsrichtung auf der Oberfläche in Grad.",
   "Tiling": "Kachelung",
   "How many times the skin repeats across the part.": "Wie oft sich die Textur über das Teil wiederholt.",
