@@ -90,7 +90,7 @@ export const TECHNIQUE_LOOKS=[
  make('soul-vortex','Soul vortex',2800,[
   orbit('Soul stream',tex('RibbonBlur1'),soul,{orbitTurns:2,strength:.6,lasts:.6}),
   orbit('Second stream',tex('RibbonBlur1'),soul,{orbitTurns:2,loop:3100,fit:.75,strength:.6,lasts:.6}),
-  starts(spray('Inward souls',tex('Tornado2b'),[.75,.95,1],{flat:true,life:.8,rate:4,velocity:-.15,spread:.5,size:[1.3,.95,.28],alpha:[125,200,233]})),
+  starts(spray('Inward souls',tex('Tornado2b'),[.75,.95,1],{flat:true,life:.8,rate:4.5,velocity:-.15,spread:.5,size:[1.3,.95,.28],alpha:[100,160,186]},{ground:true})),
  ]),
  make('ground-glow','Ground glow',1600,[
   cardSpec('Ground glow','ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',{team:2,facing:'ground',count:2,sizeMin:.83,sizeMax:1.17,strength:.75,tint:[1,1,1]}),
@@ -98,7 +98,7 @@ export const TECHNIQUE_LOOKS=[
  make('rune-circle','Rune circle',1267,[
   cardSpec('Shadow disc','Units\\NightElf\\EvilIllidan\\Shadow.blp',{facing:'ground',filter:2,strength:.5,fit:1.75,sizeMin:1,sizeMax:1,unshaded:false,loop:1733,tint:[1,1,1]}),
   cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'ground',sizeMin:.83,sizeMax:1.06,spin:.1,spinEased:false,tint:[1,1,1]}),
-  starts(spray('Rune rings',tex('AuraRune7Green'),[.24,.82,.19],{flat:true,life:1.4,rate:2,velocity:.05,gravity:.05,size:[2.4,2.2,1.8],alpha:[0,255,40]},{ground:true})),
+  starts(spray('Rune rings',tex('AuraRune7Green'),[.24,.82,.19],{flat:true,life:1.4,rate:2.5,velocity:.05,gravity:.05,size:[2.592,2.376,1.944],alpha:[0,255,40]},{ground:true})),
  ]),
  make('liquid-body','Liquid body',1992,[
   skin('Water body',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:2,strength:.8,tint:[.65,.83,.99]}),
