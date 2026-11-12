@@ -191,6 +191,12 @@ folders and one new folder, Light:
 | Death & spirit | Ghost trails, Soul vortex, Dark smoke, Hollow shell |
 | Build your own | Tint (Colour wash / Team colour) |
 
+Glow shell's shell layer shows **Thickness** in its main controls (owner, 12 November: "Glow
+shell - add thickness"). It is the layer's Lift (`inflate`, model units along the normals), so
+that layer shows it once and not again under More. The range runs from 0 to a tenth of the
+part's length (`shellReach`), so a sword and a body both get a visible range. The look-only
+spec field `shell` marks the layer and is never saved.
+
 Ground glow is retired (owner, 12 November: "remove ground glow"): a look missing from
 `LIBRARY` is not listed, counted, searched or offered under Add layer, but a model saved with
 it still opens and edits, like Ice skin, Water skin and Thorn script.

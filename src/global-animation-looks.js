@@ -181,6 +181,8 @@ export function withOrbit(l,frame,loop,fit=1){
  const radius=l.orbitRadius??Math.max(1,girth*2.5,length*.14)*fit,turns=l.orbitTurns??2,turn=Math.max(100,(loop||3000)/turns),height=Math.max(1,radius*.55);
  return {...l,orbit:true,orbitRadius:radius,orbitTurns:turns,strength:.7,lasts:Math.min(1.2,Math.max(.45,turn*.5/1000)),upper:height,lower:height,smoothness:Math.max(l.smoothness??32,40)};
 }
+/** The largest Thickness of a shell layer: a tenth of the part's length, so small and large parts both get a visible range. */
+export const shellReach=(frame,inflate=0)=>Math.max(1,(frame?.length||10)*.1,inflate||0);
 export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
 export function withLayerSize(layer,next){
  if(next.size===layer.size||layer.kind==='flies'||!layer.native?.ParticleScaling)return next;
@@ -303,7 +305,8 @@ export function makeLayer(spec,frame,palette,id) {
  const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[.28,.26,.25]:tintFromHex(surfacePalette({palette})[0][1]));
  // scale: a look's multipliers of the part-fitted emitter values; fit: an orbit's share of the fitted radius.
- const {starts:_starts,fit=1,scale={},...saved}=structuredClone(spec);
+ // shell: the layer's Lift shows as Thickness in its main controls (read from the look, never saved).
+ const {starts:_starts,fit=1,scale={},shell:_shell,...saved}=structuredClone(spec);
  if(surfaceIngredient(spec)&&!spec.stamp){
   const rule=lightingRule(spec,layerFilter(spec));
   for(const key of ['unshaded','unfogged'])if(saved[key]==null&&rule[key]!=null)saved[key]=rule[key];

@@ -36,7 +36,7 @@ const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,size
 
 export const TECHNIQUE_LOOKS=[
  make('glow-shell','Glow shell',3333,[
-  glow('Glow shell',tex('GenericGlow64'),{atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength:1,tint:[.55,.8,1]}),
+  glow('Glow shell',tex('GenericGlow64'),{atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength:1,tint:[.55,.8,1],shell:true}),
   glow('Inner glow',null,{strength:.6,pulse:'soft',loop:5167,enabled:false}),
  ],{asOverlay:true}),
  make('star-flare','Star flare',1600,[
