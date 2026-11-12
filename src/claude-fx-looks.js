@@ -46,7 +46,7 @@ export const CLAUDE_LOOKS=[
  fx('Buffs & curses','corrupted-veins','Corrupted veins',2800,
   glow('Sickly glow',null,{pulse:'soft',strength:.42,tint:sick,inflate:.3,loop:3733}),
   skin('Fel veins',tex('Lightning2b'),{axis:'v',band:.32,pulse:'beat',strength:1,tint:fel}),
-  dust('Ichor drops','drops',tex('WaterBlobs1'),{tint:sick})),
+  dust('Ichor drops','drops',tex('WaterBlobs1'),{tint:sick,...DRIP})),
  fx('Buffs & curses','blood-pact','Blood pact',1700,
   glow('Heartbeat',null,{pulse:'double',strength:1.1,tint:blood,inflate:.3}),
   {...rune('Pact mark',tex('DemonRune3'),'beat',blood),tint2:[.85,.12,.3],loop:2267},

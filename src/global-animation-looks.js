@@ -8,7 +8,7 @@ import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
 
 import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,orbSpray,flameCards,lingeringEmbers} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,orbSpray,flameCards,lingeringEmbers} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -61,7 +61,7 @@ export const GLOBAL_LOOKS=[
  make('white-ice-skin','White ice','Skins',3900,'ice',[skin('Packed frost','TerrainArt\\Northrend\\North_Snow.blp',{atlasRect:[.625,.25,.125,.25],fixed:true,bodyUV:true,base:true,filter:2,tint:[1,1,1]}),glow('Ice facets',texture('Ice_IceDull'),{bodyUV:true,pulse:'crystal',strength:.42,tint:[1,1,1]})]),
  make('lava-skin','Lava skin','Skins',3350,'copper',[skin('Dark crust',existing('fissures').texture,{base:true,filter:0,atlasRect:existing('fissures').atlas,crust:true,bodyUV:true}),glow('Molten cracks',texture('HeroAvatarFlame'),{atlasRect:[.294,.079,.236,.105],pulse:'breathe',strength:.81,bodyUV:true,tint:[.72,.88,.50]}),embers(),fire('Fire',{enabled:false})]),
  make('glowing-skin','Glowing skin','Skins',2500,'azure',[glow('Glowing texture',null,{strength:4,pulse:'soft'})]),
- make('poison-skin','Poison skin','Skins',3400,'moss',[skin('Poison surface',existing('poison').texture,{base:true,strength:.9,nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1]}),dust('Heavy drops','drops',texture('WaterBlobs1'))]),
+ make('poison-skin','Poison skin','Skins',3400,'moss',[skin('Poison surface',existing('poison').texture,{base:true,strength:.9,nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1]}),dust('Heavy drops','drops',texture('WaterBlobs1'),{...DRIP})]),
  make('crystal-veins','Crystal veins','Terrain',3600,'glacier',[skin('Crystal veins',existing('glacial').texture,{atlasRect:existing('glacial').atlas,strength:.88,pulse:'soft',bodyUV:true}),shine({loop:2267})]),
  make('felwood-curse','Felwood curse','Buffs & curses',3100,'moss',[skin('Poison surface',existing('poison').texture,{atlasRect:existing('poison').atlas,strength:.7,pulse:'soft',bodyUV:true,tint:[1,1,1]}),glow('Rune',texture('DemonRune5'),{pulse:'beat',strength:.5,loop:2067,tint:[.55,.85,.3],tint2:[.75,.8,.25]})]),
  make('fly-swarm','Fly swarm','Around the unit',1233,'native',[dust('Orbiting flies','flies',texture('Abomination'))]),

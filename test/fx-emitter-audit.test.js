@@ -24,3 +24,12 @@ test('flames are fire coloured on a look without a fire palette, and offered onc
  assert.ok(middle[0]>.9&&middle[1]<.6&&middle[2]<.3,'orange, not white: '+middle);
  assert.equal(offered().filter(l=>l==='Fire'||l==='Blade flames'||/^Fire \(/.test(l)).length,1);
 });
+
+for(const label of ['Heavy drops','Ichor drops'])test(label+' fall like Dripping water: its amount, life, size and streak',()=>{
+ const water=addEmitter('Dripping water'),{layer,emitters}=addEmitter(label);
+ for(const key of ['amount','lasts','size','gravity'])assert.equal(layer[key],water.layer[key],key);
+ assert.deepEqual(layer.native,water.layer.native);
+ assert.equal(emitters[0].FrameFlags,3);
+ const inFlight=list=>list.reduce((a,p)=>a+(typeof p.EmissionRate==='number'?p.EmissionRate:p.EmissionRate.Keys.slice(0,-1).reduce((s,k)=>s+k.Vector[0],0)/(p.EmissionRate.Keys.length-1))*p.LifeSpan,0);
+ assert.ok(inFlight(emitters)>9,'drops in flight on the body: '+inFlight(emitters).toFixed(1));
+});
