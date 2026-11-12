@@ -55,6 +55,15 @@ function snapshot(scope='[aria-label="Auto Corpse preview"]'){
    await page.waitForFunction(()=>{const p=findFiberProps('[aria-label="Corpse piece handles"]',p=>p.snapshot&&p.pieces);return p?.pieces.some((piece,i)=>piece.kind==='torso'&&p.snapshot.marks[i+'s']&&p.snapshot.marks[i+'e']);});
    const spot=await page.evaluate(()=>{const el=document.querySelector('[aria-label="Corpse piece handles"]'),p=findFiberProps(el,p=>p.snapshot&&p.pieces),i=p.pieces.findIndex(p=>p.kind==='torso'),a=p.snapshot.marks[i+'s'],b=p.snapshot.marks[i+'e'],r=el.getBoundingClientRect();return [r.x+(a[0]+b[0])/2,r.y+(a[1]+b[1])/2];});
    await page.mouse.dblclick(...spot);const handle=dialog.getByRole('slider',{name:'Move this piece',exact:true});await handle.waitFor();
+   // Hovering a handle names its job next to it; moving off hides the word again.
+   const words=dialog.locator('.pe-handle-word:visible');
+   for(const [name,word,index] of [['Move this piece','Move',0],['Stretch from this end','Stretch',0],['Stretch from this end','Stretch',1],['Widen or narrow this piece','Width',0],['Raise or lower this piece','Raise',0]]){
+    await page.mouse.move(r.x+8,r.y+8);await words.first().waitFor({state:'hidden'});assert.equal(await words.count(),0,'No handle word shows until a handle is hovered');
+    const grip=dialog.getByRole('slider',{name,exact:true}).nth(index),b=await grip.locator('circle:not(.pe-grab)').boundingBox();
+    await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await grip.locator('.pe-handle-word').waitFor({state:'visible'});
+    assert.equal(await words.count(),1,`Only the hovered handle shows a word (${name})`);assert.equal(await grip.locator('.pe-handle-word').textContent(),word);
+   }
+   await page.mouse.move(r.x+8,r.y+8);row.hoverWords=true;
    const startDrag=async()=>{const h=await handle.boundingBox(),x=h.x+h.width/2,y=h.y+h.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+32,y+18,{steps:8});};
    const beforeDrag=await vertexState();await startDrag();await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))!==before,beforeDrag);
    await page.keyboard.press('Escape');await page.mouse.up();await page.waitForFunction(before=>JSON.stringify(window.readCorpsePreview().model.Geosets.map(g=>Array.from(g.Vertices)))===before,beforeDrag);assert.ok(await dialog.isVisible(),'Escape cancels a drag without closing the window');
