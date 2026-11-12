@@ -36,6 +36,39 @@ async function penStroke(cdp, from, to, pressure) {
   await settle();
 }
 
+async function checkBrushAdjustments() {
+  const size = page.getByLabel('Brush size value'), softness = page.getByLabel('Softness value');
+  const waitForBrush = (size, softness) => page.waitForFunction(({ size, softness }) =>
+    document.querySelector('[aria-label="Brush size value"]').valueAsNumber === size &&
+    document.querySelector('[aria-label="Softness value"]').valueAsNumber === softness, { size, softness }, { timeout: 3000 });
+  const originalSize = await size.inputValue(), originalSoftness = await softness.inputValue();
+  const setBrush = async (sizeValue, softnessValue) => {
+    for (const [field, value] of [[size, sizeValue], [softness, softnessValue]]) {
+      await field.click(); await page.keyboard.press('Control+a'); await page.keyboard.type(value);
+    }
+  };
+  const cancelled = [];
+  for (const [view, selector] of [['model', '[aria-label="3D model viewport"] canvas'], ['texture', '.paint-texture-scroll']]) {
+    await setBrush('14', '40');
+    const box = await page.locator('.paint-workspace ' + selector).boundingBox();
+    const x = Math.round(box.x + box.width / 3), y = Math.round(box.y + box.height / 2);
+    await page.mouse.move(x, y); await page.keyboard.down('Control'); await page.mouse.down({ button: 'right' });
+    await page.mouse.move(x + 120, y - 30);
+    await waitForBrush(28, 55);
+    await page.keyboard.press('Escape');
+    try { await waitForBrush(14, 40); } catch { cancelled.push(view); }
+    await page.mouse.up({ button: 'right' }); await page.keyboard.up('Control');
+    await setBrush('14', '40');
+    await page.mouse.move(x, y); await page.keyboard.down('Control'); await page.mouse.down({ button: 'right' });
+    await page.mouse.move(x + 120, y - 30); await page.mouse.up({ button: 'right' }); await page.keyboard.up('Control');
+    await waitForBrush(28, 55);
+    passed('Releasing the brush drag in the ' + view + ' view keeps the final size and softness');
+  }
+  await setBrush(originalSize, originalSoftness);
+  assert.deepEqual(cancelled, [], 'Escape restores the starting size and softness in both Paint views');
+  passed('Escape restores brush size and softness in both Paint views');
+}
+
 async function run() {
   ({ app, page, errors: result.errors } = await launchApp({ fixture, out, bounds: { x: -3000, y: 0, width: 1500, height: 1000 }, pageTimeout: 20000 }));
   await page.locator('[data-hotkey="paint"]').click(); await settle(500);
@@ -48,6 +81,7 @@ async function run() {
   });
   assert.equal(await page.evaluate(() => audit().project.paintAtlasVersion), 2);
   passed('New base coat uses the artist layout');
+  await checkBrushAdjustments();
 
   const stats = await page.evaluate(() => { const g = audit().props.model.Geosets[0], uv = g.TVertices.at(-1); let outside = 0; for (const v of uv) if (v < 0 || v > 1) outside++; return { outside, count: uv.length }; });
   assert.equal(stats.outside, 0); passed('every UV stays inside the image');

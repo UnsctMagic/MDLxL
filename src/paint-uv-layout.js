@@ -2,6 +2,7 @@
 // pieces that stay joined, cut at real edges, upright, packed large to small.
 // Edit the texture never comes here; the skin's own UVs stay as they are.
 import { applyAtlasToGeoset, packCharts, trianglesOverlap } from './paint-uv-atlas.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 const EPSILON = 1e-9;
 /** Normals further apart than this always stay in separate pieces. */
@@ -474,8 +475,19 @@ function shrink(chart, share) {
  * top centre of the model. Returns { geoset: { face: detail } }. */
 export const PAINT_DETAIL_MOST = 2.5;
 export function paintHeadDetail(model, geosetIndices) {
-  const bones = model.Bones || [], head = new Set(bones.filter(bone => /head/i.test(bone.Name || '')).map(bone => bone.ObjectId)), nodes = [...bones, ...(model.Helpers || [])], detail = {};
-  if (head.size) for (let changed = true; changed;) { changed = false; for (const node of nodes) if (!head.has(node.ObjectId) && head.has(node.Parent)) { head.add(node.ObjectId); changed = true; } }
+  const bones = model.Bones || [], detail = {};
+  const head = new Set(bones.filter(bone => /head/i.test(bone.Name || '')).map(bone => bone.ObjectId));
+  if (head.size) {
+    const { children } = nodeIndex(model, [...bones, ...(model.Helpers || [])]);
+    const pending = [...head];
+    while (pending.length) {
+      for (const node of children.get(pending.pop()) || []) {
+        if (head.has(node.ObjectId)) continue;
+        head.add(node.ObjectId);
+        pending.push(node.ObjectId);
+      }
+    }
+  }
   if (head.size) for (const index of geosetIndices) {
     const geoset = model.Geosets[index], onHead = (geoset.Groups || []).map(group => [...group].some(id => head.has(Number(id))));
     for (let face = 0; face < geoset.Faces.length / 3; face++) { let count = 0; for (let corner = 0; corner < 3; corner++) if (onHead[geoset.VertexGroup?.[geoset.Faces[face * 3 + corner]]]) count++; if (count >= 2) (detail[index] ||= {})[face] = PAINT_DETAIL_MOST; }

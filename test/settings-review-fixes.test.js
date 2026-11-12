@@ -57,8 +57,8 @@ test('the Classic and Orbit buttons keep Custom the way the bar does', () => {
   assert.match(settings, /data-hotkey="mouse:preset:classic" onClick=\{\(\) => pickPreset\('mouse', prefs, 'classic', commit, setMessage\)\}/);
   assert.match(settings, /data-hotkey="mouse:preset:orbit" onClick=\{\(\) => pickPreset\('mouse', prefs, 'orbit', commit, setMessage\)\}/);
   const bar = read('app/PresetBar.jsx');
-  assert.match(bar, /export function pickPreset\(domain, preferences, id, commit, say\) \{/);
-  assert.match(bar, /pickPreset\(domain, preferences, id, commit, say\);/, 'the select goes the same way');
+  assert.match(bar, /export function pickPreset\(domain, preferences, id, commit, say, requestConfirmation\) \{/);
+  assert.match(bar, /pickPreset\(domain, preferences, id, commit, say, requested => \{ setNaming\(false\); setConfirming\(requested\); \}\);/, 'the select goes the same way');
   assert.match(bar, /=== CUSTOM_PRESET\) unsavedCustom\.set\(domain, captureCustom\(domain, preferences\)\)/);
 });
 

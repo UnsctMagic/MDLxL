@@ -8,24 +8,18 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Fixes on seven local Codex branches; reviewed, rework needed on 2 to 7 | [Main review](main-review-2026-11-11.md), [fix verdicts](main-review-fix-verdicts.md) / Claude Code |
+| Review fix 7: BITZ Replace Part, Windows menu bar, translations (PRs #622 to #626) | Local review ready | [Contract 7](review-7-newest-five.md) / Codex |
+| Review fix 1: FX keeps the right geosets and clocks (serious) | References verified; FX window pending | [Contract 1](review-1-fx-references.md) / Codex |
+| Review fix 2: saves unblocked but never destroy the file quietly (serious) | Local review ready | [Contract 2](review-2-save-safety.md) / Codex |
+| Review fix 3: settings and keys cannot be wiped by accident | Local review ready | [Contract 3](review-3-settings-keys.md) / Codex |
+| Review fix 4: editor and preview fixes | Local review ready | [Contract 4](review-4-editors-previews.md) / Codex |
+| Review fix 5: Paint brush-size drag and live-drag guard list | Local review ready | [Contract 5](review-5-paint-drags.md) / Codex |
+| Review fix 6: housekeeping (task index, flail check, shared rules) | Local review ready; historical Flail03 reference needed | [Contract 6](review-6-housekeeping.md) / Codex |
 | Call Upon Forge in the Vertex editor | Ready for owner review; local branch only | [Workflow and checks](call-upon-forge.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
-| OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
-| Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
-| Local AI JavaScript workspace and model merges | In review | [Workspace and merges](ai-workspace-merge.md) / Codex |
-| Vertex Move in quad and orthographic views | In review | [Vertex Move regressions](vertex-move-regressions.md) / Codex |
-| Library textures: review fixes after PR #502 | Ready for review; awaiting merge approval ([PR #506](https://github.com/UnsctMagic/MDLxL/pull/506)) | [Library textures review fixes](library-textures-review-fixes.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
-| 0.37.0 packaged test fixes | Ready for review; awaiting merge approval | [Packaged test fixes](037-packaged-test-fixes.md) / Codex |
-| OptimizeXL world-space animation reduction | Ready for review; awaiting merge approval | [World budget](optimizexl-world-budget.md) / Codex |
-| AI motion measurement and size optimisation | Ready for review; awaiting merge approval | [AI motion measure](ai-motion-measure.md) / Codex |
-| AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
-| AI every-frame checks: MDLxL sweeps a rule over every animation | Ready for review; awaiting merge approval | [Every-frame checks](ai-every-frame-checks.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
-| FX global animation maker | PR #492 · sixth owner hand test; ready for retest | [Surface Effects](native-surface-effects.md) / Codex |
-| Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
-| Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
-| EMTR Particle Library browsing and placement | Main integration ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md), [Add like ribbons](emtr-add-like-ribbons.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

@@ -253,9 +253,9 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
       const count=shown.doc.model.Geosets.length,whole=geosets.size===count&&!shown.doc.revision;
       let bytes=shown.bytes;
       if(!whole){
-        const format=shown.entry.extension==='mdl'?'mdl':'mdx',copy=openDocument(shown.doc.serialize(format),shown.entry.name);
+        const format=shown.entry.extension==='mdl'?'mdl':'mdx',copy=openDocument(shown.doc.serialize(format, {strict:true}),shown.entry.name);
         copy.apply('Keep checked geosets',['Geosets','GeosetAnims','Gliders','Info'],model=>{for(let index=count-1;index>=0;index--)if(!geosets.has(index))deleteGeoset(model,index);});
-        bytes=copy.serialize(format);
+        bytes=copy.serialize(format, {strict:true});
       }
       await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes,textures:shown.textures});onClose?.();
     }catch(caught){setMessage(caught.message);}finally{setGeosetBusy(false);}

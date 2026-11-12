@@ -66,8 +66,8 @@ contextBridge.exposeInMainWorld('desktop', {
   particleDuplicate: id=>call('particles:duplicate',id),
   particleImport: ()=>call('particles:import'),
   particleExport: id=>call('particles:export',id),
-  presetOpenFile: ()=>call('presets:openFile'),
-  presetSaveFile: payload=>call('presets:saveFile',payload),
+  openPresetFile: ()=>call('preset:openFile'),
+  savePresetFile: payload=>call('preset:saveFile',payload),
   particleRead: id => call('particles:read',id),
   particleSave: payload => call('particles:save',payload),
   particleAnnotate: payload => call('particles:annotate',payload),
@@ -168,6 +168,6 @@ contextBridge.exposeInMainWorld('desktop', {
   recent: () => call('model:recent'),
   clearRecent: () => call('model:clearRecent'),
   openRecent: (path,showcase=false) => call('model:openRecent', path,showcase),
-  setDirty: (value) => ipcRenderer.send('model:dirty', value && typeof value === 'object' ? { dirty: value.dirty === true, saved: value.saved === true, name: value.name } : !!value),
+  setDirty: (value) => ipcRenderer.send('model:dirty', value && typeof value === 'object' ? { dirty: value.dirty === true, saved: value.saved === true, replacement: value.replacement === true, name: value.name } : !!value),
   onMenu: (callback) => subscribe('menu',callback),
 });

@@ -9,6 +9,7 @@ import { createForgeShape, transformForgeSelection, insetForgeFaces, extrudeForg
 import { bevelForgeShape, forgeMoldState, prepareForgeMold, previewForgeMold } from '../src/forge-molding.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 
 // Independent whole-geoset reference: use the shape owner directly, without
 // vertexForgeDraft's local extraction or its private remainder bookkeeping.
@@ -105,7 +106,7 @@ function regions(model) {
   });
 }
 
-for (const [tool, operation] of Object.entries(operations)) test(`citadel-footman: local ${tool} triangles match a whole-geoset draft`, t => {
+for (const [tool, operation] of Object.entries(operations)) test(`citadel-footman: local ${tool} triangles match a whole-geoset draft`, { skip: missing('citadel-footman') }, t => {
   const bytes = fs.readFileSync(fixturePath('citadel-footman'));
   const localModel = openDocument(bytes, 'Footman.mdx').model, wholeModel = openDocument(bytes, 'Footman.mdx').model;
   let compared = 0, rejected = 0, reduced = 0, empty = 0, maxDifference = 0;

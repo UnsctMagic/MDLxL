@@ -394,6 +394,14 @@ export function deleteGlobalSequence(model, globalSeqId) {
     },
   });
   model.GlobalSequences.splice(globalSeqId, 1);
+  for (const geoset of model.Geosets || []) {
+    const stack = geoset._FxStack;
+    if (!Array.isArray(stack?.createdClockIds)) continue;
+    stack.createdClockIds = stack.createdClockIds
+      .filter(id => id !== globalSeqId)
+      .map(id => id > globalSeqId ? id - 1 : id);
+    stack.createdClocks = [...new Set(stack.createdClockIds.map(id => model.GlobalSequences[id]).filter(Number.isFinite))];
+  }
   if (model.Info) recalculateExtents(model);
   return removedKeys;
 }

@@ -48,7 +48,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  uvDrag: DEFAULT_UV_DRAG, uvEachPiece: false,
+  uvDrag: DEFAULT_UV_DRAG, uvRightUpDefault: false, uvEachPiece: false,
   modifiers: DEFAULT_MODIFIERS, settingsPresets: DEFAULT_SETTINGS_PRESETS,
   toolbarMode: DEFAULT_TOOLBAR_MODE, toolbarHiddenNoted: false,
   language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, updateOfferAnswered: false, modelLookAnswered: false, disableSounds: false, saveCalculateExtents: false, showPressedKeys: false, showHotkeys: false, paintKeyLabels: true, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
@@ -197,7 +197,7 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    uvDrag: normalizeUVDrag(input.uvDrag), uvEachPiece: boolean(input.uvEachPiece, false),
+    uvDrag: normalizeUVDrag(input.uvDrag), uvRightUpDefault: boolean(input.uvRightUpDefault, false), uvEachPiece: boolean(input.uvEachPiece, false),
     modifiers: normalizeModifiers(input.modifiers), settingsPresets: normalizeSettingsPresets(input.settingsPresets),
     toolbarMode: normalizeToolbarMode(input.toolbarMode), toolbarHiddenNoted: boolean(input.toolbarHiddenNoted, false),
     language: ['ru', 'es', 'zh', 'fr', 'de', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), modelLookAnswered: boolean(input.modelLookAnswered, Object.keys(record(value)).length > 0), saveCalculateExtents: boolean(input.saveCalculateExtents, false), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), paintKeyLabels: boolean(input.paintKeyLabels, true), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
@@ -275,33 +275,45 @@ export function chordFromEvent(event) {
   return normalizeChord([event.ctrlKey && 'Ctrl', event.altKey && 'Alt', event.shiftKey && 'Shift', event.metaKey && 'Meta', key].filter(Boolean).join('+'));
 }
 export function formatChord(chord) { return normalizeChord(chord).replaceAll('Meta', 'Win').replaceAll('Arrow', '').replaceAll('Plus', '+'); }
-export function effectiveBindings(catalog = [], overrides = {}) {
-  const result = {};
+const bindingKeys = keys => [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
+export function effectiveBindings(catalog = [], overrides = {}, { keepConflictingDefaults = false } = {}) {
+  const result = {}, claimed = new Map(), explicit = new Map();
   for (const action of catalog) {
     if (!action?.id) continue;
-    const keys = own(overrides, action.id) ? overrides[action.id] : action.bindingCommand && own(overrides, action.bindingCommand) ? overrides[action.bindingCommand] : action.defaultKeys || action.keys || [];
-    result[action.id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
+    const id = own(overrides, action.id) ? action.id : action.bindingCommand;
+    if (id && own(overrides, id)) {
+      const keys = bindingKeys(overrides[id]);
+      explicit.set(action.id, keys);
+      if (!keepConflictingDefaults) for (const key of keys) {
+        if (!claimed.has(key)) claimed.set(key, []);
+        claimed.get(key).push(action);
+      }
+    }
   }
-  for (const [id, keys] of Object.entries(record(overrides))) if (!own(result, id)) result[id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
+  for (const action of catalog) {
+    if (!action?.id) continue;
+    result[action.id] = explicit.get(action.id) ?? bindingKeys(action.defaultKeys || action.keys).filter(key =>
+      !claimed.get(key)?.some(other => hotkeyScopesOverlap(action, other)));
+  }
+  for (const [id, keys] of Object.entries(record(overrides))) if (!own(result, id)) result[id] = bindingKeys(keys);
   return result;
 }
 /** Where a shortcut can fire: a control's own window (src/hotkey-allocation.js), Forge's shape tools, Paint, or the editor. */
 const hotkeyContext = action => action?.contextual ? action.group || 'editor' : action?.scope === 'forge-shapes' || action?.scope === 'paint' ? action.scope : 'editor';
-export function hotkeyConflicts(catalog, overrides, actionId, chord) {
+function hotkeyScopesOverlap(action, other) {
+  if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
+  // Settings keys also work over a window, but Paint's own key wins in Paint, so the two never fire together.
+  if ([action, other].some(item => item?.allowInModal === true)) return ![action, other].some(item => hotkeyContext(item) === 'paint');
+  const mine = hotkeyContext(action), theirs = hotkeyContext(other);
+  if (mine === theirs) return true;
+  // Forge and the shaping tools also show the editor's own buttons.
+  const showsEditor = (item, context) => !!item?.contextual && !!item.embedsEditor && ['editor', 'forge-shapes'].includes(context);
+  return showsEditor(action, theirs) || showsEditor(other, mine);
+}
+export function hotkeyConflicts(catalog, overrides, actionId, chord, bindings = effectiveBindings(catalog, overrides)) {
   const key = normalizeChord(chord); if (!key) return [];
   const action = catalog.find(action => action.id === actionId);
-  // The same key may serve different windows; it clashes only where both can fire.
-  const overlaps = other => {
-    if (action?.bindingCommand === other?.id || other?.bindingCommand === action?.id) return false;
-    // Settings keys also work over a window, but Paint's own key wins in Paint, so the two never fire together.
-    if ([action, other].some(item => item?.allowInModal === true)) return ![action, other].some(item => hotkeyContext(item) === 'paint');
-    const mine = hotkeyContext(action), theirs = hotkeyContext(other);
-    if (mine === theirs) return true;
-    // Forge and the shaping tools also show the editor's own buttons.
-    const showsEditor = (item, context) => !!item?.contextual && !!item.embedsEditor && ['editor', 'forge-shapes'].includes(context);
-    return showsEditor(action, theirs) || showsEditor(other, mine);
-  };
-  return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
+  return Object.entries(bindings).filter(([id, keys]) => id !== actionId && keys.includes(key) && hotkeyScopesOverlap(action, catalog.find(action => action.id === id))).map(([id]) => id);
 }
 /** The first shortcut an imported configuration gives to two commands that can fire together, or null.
  * Forge shape keys may share letters with editor commands, as in the defaults. */
