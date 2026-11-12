@@ -82,17 +82,16 @@ HBS0 is in group D, so expect overlap.
 
 - Branch `codex/spawn-object-previews` from `main` `19481b44` or newer. Local
   commits only; nothing goes online until the owner says "merge".
-- Tests follow [TESTING-RULES.md](../TESTING-RULES.md): they load real game files
-  the way the app does and fail on `19481b44` first. One test walks every
-  SpawnData row and asserts the group it lands in (A+B+C show, D/E are marked),
-  so a future regression in any row is caught. Group B and C each get a named
-  real-model case (UBGH, UEGG).
-- Run the focused tests plus `pnpm run test:source` against the CI baseline
-  before hand-back.
+- **Owner tests first (owner, 12 Nov).** Build and hand over; do not write or run
+  test suites at this stage. The only check before hand-over: open the packaged
+  build hidden, pick UBGH and UEGG once, confirm it does not crash.
 - Hand back with a test build that opens `TEST SPAWN OBJECTS 01.mdx` (a Footman
   copy with `SPNxUBGH` on Death and one group C object, e.g. `SPNxUEGG`), and a
-  short click list for the owner. Click every changed control in the packaged
-  build first.
+  short click list for the owner.
+- **After the owner accepts, before merge:** add tests per
+  [TESTING-RULES.md](../TESTING-RULES.md) (real game files, fail on `19481b44`
+  first; one test walks every SpawnData row and asserts its group; named UBGH and
+  UEGG cases), then run them plus `pnpm run test:source` against the CI baseline.
 
 ## Revision and local state
 
