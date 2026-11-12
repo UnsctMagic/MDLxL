@@ -209,7 +209,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   </>}</details>}
   {p&&!selectedSite&&!stack.impact&&<RangeField label="Formation" title="Pull the emitters together or spread them apart." min={0} max={2} step={.01} value={l.formation??1} output={v=>Math.round(v*100)+'%'} onCommit={v=>setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}
-  {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id)}>Open in EMTR</button>}
+  {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id,selectedSite)}>Open in EMTR</button>}
   </>}
  </>;
 }

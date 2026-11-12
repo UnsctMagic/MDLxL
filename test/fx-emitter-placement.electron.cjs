@@ -92,6 +92,14 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=requi
    await fx.getByLabel('Change emitter',{exact:true}).selectOption('Fire column');await ready();const changed=await read();
    const positions=nodes=>Object.fromEntries(nodes.map(n=>[n._FxTag.split('/').at(-1),n.PivotPoint]));assert.deepEqual(positions(changed.nodes),positions(all.nodes),'Change emitter keeps every remaining place');assert.equal(changed.nodes.length,all.nodes.length,'deleted sites do not return');await stage.screenshot({path:path.join(out,'apply-all.png')});
   }
+  if(step>=8){
+   await fx.locator('.fx-emitter-markers [role=button]').first().click();await ready();
+   const expected=await page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return p.props.model.Nodes[p.props.particleSelectedId]._FxTag;});
+   await button('Open in EMTR').click();const emtr=page.getByRole('dialog',{name:'Particle Editor',exact:true});await emtr.waitFor();
+   await page.waitForFunction(()=>{const p=mdlxlProbe('.pe-preview .game-preview-root');return p?.runtime?.captureApi.isReady;});
+   const opened=await page.evaluate(()=>{const p=mdlxlProbe('.pe-preview .game-preview-root');return p.props.model.Nodes[p.props.particleSelectedId]._FxTag;});assert.equal(opened,expected,'Open in EMTR selects the chosen stable emitter, not the layer representative');
+   await page.screenshot({path:path.join(out,'selected-emtr.png')});
+  }
   assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

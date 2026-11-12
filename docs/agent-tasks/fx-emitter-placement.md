@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: in progress in Codex; items 1–7 verified, items 8–9 pending
+Status: in progress in Codex; items 1–8 verified, item 9 and final gate pending
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -137,3 +137,5 @@ Item 4 follow-up: the extended large-drag check exposed a moving animation refer
 6. Snap to surface: reuses EMTR’s picker and label, takes precedence over part selection, and stores the picked triangle/barycentric attachment on the individual record. Existing regionParent samples the actual blended triangle motion; authored tracks are untouched. Four cross-part cases failed before; all target animations, endpoints and intermediate samples now stay within .04 model units. Build/group: 326/0/0. Hidden actual-sword double-click/playback passes (item-06-ui.log, item-06-capture-ui.log); out/placement/ui/snapped-sword.png. The sword is visible in Decay Flesh. Warcraft III itself is not exercised.
 
 7. Shared conflict dialog: only overlapping whole-layer edits ask; Keep preserves the individual record, Apply to all removes the touched value and returns hand placements to formation. Deleted sites remain deleted. Change emitter freezes the current automatic site layout and preserves hand positions/deletions across built-in/native changes. Three source fail-first cases, then 27 focused pass; UI failed first on missing dialog. Build/group: 329/0/0. Hidden both colour choices and Change emitter pass (item-07-ui.log); captures keep-individual.png and apply-all.png under out/placement/ui. Dialog strings/tooltips translated in all five catalogues.
+
+8. Open in EMTR now resolves the selected stable site after Apply, including node renumbering, and keeps the existing representative behavior for a whole layer. Hidden fail-first selected source14-0 instead of source0-1; item-08-ui.log now verifies the exact chosen tag. Build/group: 329/0/0. Capture out/placement/ui/selected-emtr.png. The permanent Footman fixture, supplied TEST FX EDITOR 02.mdx and our copy have the identical SHA-256 FA74AE722B151A1CF5E297BEBE17D5A734FB89225823E37E29A588ECAF527812.
