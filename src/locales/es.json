@@ -7476,7 +7476,7 @@
   "Left and right only": "Solo izquierda y derecha",
   "Zoom speed": "Velocidad de zoom",
   "Restore UV defaults": "Restaurar valores UV predeterminados",
-  "Each piece": "Cada pieza",
+  "Each Piece": "Cada pieza",
   "Fills in the settings below. Changing any of them makes this Custom.": "Rellena los ajustes de abajo. Si cambias alguno, pasa a Personalizado.",
   "Which mouse movement turns the selection.": "Qué movimiento del ratón gira la selección.",
   "How far the selection turns for the same mouse movement.": "Cuánto gira la selección con el mismo movimiento del ratón.",
@@ -7829,5 +7829,10 @@
   "Turn the cut direction.": "Girar la dirección del corte.",
   "Set the number of faces in the new shape.": "Ajustar el número de caras de la nueva forma.",
   "Keep this operation as one Undo step.": "Guardar esta operación como un paso de Deshacer.",
-  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Bisela aristas sólidas o todo el borde de una superficie delgada. Arrastra el control dorado para ajustar la anchura."
+  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Bisela aristas sólidas o todo el borde de una superficie delgada. Arrastra el control dorado para ajustar la anchura.",
+  "Preview RGB": "Vista previa RGB",
+  "Preview RGB {0}": "Vista previa RGB {0}",
+  "Reset preview RGB": "Restablecer vista previa RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Previsualiza RGB en el geoset activo (0–255). Los canales vacíos usan el RGB del modelo.",
+  "View All Emitters": "Mostrar todos los emisores"
 }

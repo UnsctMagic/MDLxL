@@ -24,7 +24,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
   const catalogs = [ru, es, zh, fr, de];
-  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7821, 7831, 7726, 7957, 7957]);
+  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7826, 7836, 7731, 7962, 7962]);
   for (const pack of catalogs) {
     assert.equal(Object.hasOwn(pack, 'Open the managers at Materials'), false);
     assert.equal(Object.hasOwn(pack, 'Loading managers…'), false);
@@ -108,5 +108,13 @@ test('Sanity Check labels, statuses and displayed Hive diagnostic templates are 
       const expected = pack[source].replace(/\{(\d+)\}/g, (_, index) => translate(values[index], locale));
       assert.equal(translate(populated, locale), expected, `${locale}: ${source}`);
     }
+  }
+});
+
+test('the UV preview and emitter visibility controls have translated labels', () => {
+  const controls = ['Preview RGB', 'Preview RGB R', 'Reset preview RGB',
+    'Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.', 'View All Emitters'];
+  for (const locale of ['ru', 'es', 'zh', 'fr', 'de']) {
+    for (const label of controls) assert.notEqual(translate(label, locale), label, `${locale}: ${label}`);
   }
 });

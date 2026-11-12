@@ -7466,7 +7466,7 @@
   "Left and right only": "Только влево и вправо",
   "Zoom speed": "Скорость масштабирования",
   "Restore UV defaults": "Сбросить настройки UV",
-  "Each piece": "Каждый кусок",
+  "Each Piece": "Каждый кусок",
   "Fills in the settings below. Changing any of them makes this Custom.": "Заполняет настройки ниже. Если изменить любую из них, здесь будет «Свой вариант».",
   "Which mouse movement turns the selection.": "Какое движение мыши поворачивает выделение.",
   "How far the selection turns for the same mouse movement.": "Насколько поворачивается выделение при том же движении мыши.",
@@ -7819,5 +7819,10 @@
   "Turn the cut direction.": "Повернуть направление разрезов.",
   "Set the number of faces in the new shape.": "Задать количество граней новой фигуры.",
   "Keep this operation as one Undo step.": "Применить операцию как один шаг отмены.",
-  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Создать фаску на рёбрах объёма или границе тонкой поверхности. Золотая ручка регулирует ширину."
+  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Создать фаску на рёбрах объёма или границе тонкой поверхности. Золотая ручка регулирует ширину.",
+  "Preview RGB": "Предпросмотр RGB",
+  "Preview RGB {0}": "Предпросмотр RGB {0}",
+  "Reset preview RGB": "Сбросить предпросмотр RGB",
+  "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели.",
+  "View All Emitters": "Показать все эмиттеры"
 }
