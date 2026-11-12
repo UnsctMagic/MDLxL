@@ -14,7 +14,7 @@
 - **Ver:** **Guías de ejes** en Vértices, Huesos, Movimiento y Animaciones. **Conjunto compacto** rellena por filas también en Movimiento y Huesos.
 - **Regiones de ShareX** (Ajustes > Captura) permite a ShareX capturar solo la vista o la caja de herramientas.
 - **Consola de IA:** los errores que ya tenía el modelo son avisos; los nuevos siguen bloqueando.
-- **Correcciones:** FX conserva sus partes tras borrar y fusionar. Un guardado ilegible conserva una copia del archivo reemplazado. Predeterminado en Atajos de teclado pide confirmación. Los movimientos de vértices en Animado siguen al ratón. Los arrastres del pincel en Pintar son fluidos y Escape los restaura. BITZ avisa antes de cerrar un reemplazo sin terminar.
+- **Correcciones:** FX conserva sus partes tras borrar y fusionar. Un guardado ilegible conserva una copia del archivo reemplazado. Predeterminado en Atajos de teclado pide confirmación. Los movimientos de vértices en Animado siguen al ratón. Los arrastres del pincel en Pintar son fluidos y Escape los restaura. BITZ avisa antes de cerrar un reemplazo sin terminar. EMTR conserva la vista previa al cambiar de emisor; las imágenes de **Componentes** vuelven a mostrar partículas y cintas.
 - En teclados alemanes y franceses, las teclas de letras reasignadas antes de la versión 0.39 pueden estar ahora en otra tecla. Revísalas en Ajustes > Atajos de teclado.
 
 Actualiza en Ajustes > Configuración > Buscar actualizaciones > Actualizar y reiniciar, o descarga el ZIP portátil completo desde la página de MDLxL.

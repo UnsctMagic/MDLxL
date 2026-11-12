@@ -14,7 +14,7 @@
 - **Vue :** **Guides d’axes** dans Sommets, Os, Mouvement et Animations. **Ensemble compact** remplit aussi par rangées dans Mouvement et Os.
 - **Zones ShareX** (Réglages > Capture) permet à ShareX de capturer seulement la vue ou la boîte à outils.
 - **Console IA :** les erreurs déjà présentes dans le modèle sont des avertissements ; les nouvelles bloquent toujours.
-- **Corrections :** FX garde ses parties après suppressions et fusions. Un enregistrement illisible garde une copie du fichier remplacé. Par défaut dans Raccourcis demande confirmation. Les déplacements de sommets en mode Animé suivent la souris. Les glissements du pinceau dans Peindre sont fluides et Échap les rétablit. BITZ prévient avant de fermer un remplacement inachevé.
+- **Corrections :** FX garde ses parties après suppressions et fusions. Un enregistrement illisible garde une copie du fichier remplacé. Par défaut dans Raccourcis demande confirmation. Les déplacements de sommets en mode Animé suivent la souris. Les glissements du pinceau dans Peindre sont fluides et Échap les rétablit. BITZ prévient avant de fermer un remplacement inachevé. EMTR garde son aperçu quand vous changez d’émetteur ; les images des **Éléments** montrent de nouveau particules et rubans.
 - Sur les claviers allemands et français, les raccourcis de lettres réattribués avant la version 0.39 peuvent désormais se trouver sur une autre touche. Vérifiez-les dans Paramètres > Raccourcis clavier.
 
 Mettez à jour via Réglages > Configuration > Rechercher des mises à jour > Mettre à jour et redémarrer, ou téléchargez le ZIP portable complet depuis la page MDLxL.

@@ -7952,5 +7952,11 @@
   "View All Emitters": "Показать все эмиттеры",
   "handle\u0004Drag": "Тянуть",
   "handle\u0004Center": "Центр",
-  "ALIGN": "ВЫРОВНЯТЬ"
+  "ALIGN": "ВЫРОВНЯТЬ",
+  "bone-side\u0004Left": "Слева",
+  "bone-side\u0004Right": "Справа",
+  "bone-namer\u0004Side": "Сторона",
+  "bone-namer\u0004Part": "Часть",
+  "bone-kind\u0004Copy": "Копия",
+  "bone-part\u0004Spine": "Позвоночник"
 }

@@ -14,7 +14,7 @@
 - **Ansicht:** **Achsenhilfen** in Scheitelpunkte, Knochen, Bewegung und Animationen. **Kompaktes Set** füllt auch in Bewegung und Knochen zeilenweise.
 - **ShareX-Bereiche** (Einstellungen > Aufnahme) lässt ShareX nur die Ansicht oder den Werkzeugkasten aufnehmen.
 - **KI-Konsole:** Fehler, die schon im Modell waren, sind Warnungen; neue Fehler blockieren weiterhin.
-- **Korrekturen:** FX behält seine Teile nach Löschen und Zusammenführen. Ein unlesbares Speichern behält eine Kopie der ersetzten Datei. Standard in Tasten fragt vorher nach. Vertex-Verschiebungen in Animiert folgen der Maus. Pinselziehen in Malen läuft flüssig, Escape stellt die Werte wieder her. BITZ warnt vor dem Schließen eines unfertigen Ersetzens.
+- **Korrekturen:** FX behält seine Teile nach Löschen und Zusammenführen. Ein unlesbares Speichern behält eine Kopie der ersetzten Datei. Standard in Tasten fragt vorher nach. Vertex-Verschiebungen in Animiert folgen der Maus. Pinselziehen in Malen läuft flüssig, Escape stellt die Werte wieder her. BITZ warnt vor dem Schließen eines unfertigen Ersetzens. EMTR behält die Vorschau beim Wechsel des Emitters; Bilder unter **Bestandteile** zeigen Partikel und Bänder wieder.
 - Auf deutschen und französischen Tastaturen können vor Version 0.39 neu belegte Buchstabenkürzel jetzt auf einer anderen Taste liegen. Prüfen Sie sie unter Einstellungen > Tastenkürzel.
 
 Aktualisiere über Einstellungen > Konfiguration > Nach Updates suchen > Update und Neustart, oder lade das vollständige portable ZIP von der MDLxL-Seite.

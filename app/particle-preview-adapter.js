@@ -7,6 +7,7 @@ import { teamColorPixels } from './viewport-quality.js';
 import { sampleTrack, skinGeoset, sampleGeosetAnimation } from '../src/animation.js';
 import {particleVertexSelection} from '../src/particle-selection.js';
 import { pickParticleSamples } from '../src/particle-handles.js';
+import { EFFECT_FAMILIES } from '../src/particle-recipes.js';
 import { resetPreviewEffects } from './warcraft-preview-adapter.js';
 
 
@@ -391,7 +392,7 @@ export class NativeParticleSimulation {
   refresh(){this.step(this.time,this.time,false,{poseOnly:true});}
 }
 
-function copyParticleSimulationToPreview(simulation,native,phase) {
+function copyParticleSimulationToPreview(simulation,native,phase,hiddenIds) {
   const source=simulation.native,particles=native.particlesController,ribbons=native.ribbonsController;
   // Evaluate model pose/materials at the displayed time without triggering FX twice.
   const savedParticleUpdate=particles.update,savedRibbonUpdate=ribbons.update;
@@ -400,6 +401,7 @@ function copyParticleSimulationToPreview(simulation,native,phase) {
   for(let i=0;i<native.model.GlobalSequences.length;i++)if(native.model.GlobalSequences[i]>0)native.rendererData.globalSequencesFrames[i]=phaseOf(phase.global,native.model.GlobalSequences[i]);
   try{native.update(0);}finally{particles.update=savedParticleUpdate;ribbons.update=savedRibbonUpdate;}
   for(const from of source.particlesController.emitters){
+    if(hiddenIds?.has(from.props.ObjectId))continue;
     const to=particles.emitters.find(e=>e.props.ObjectId===from.props.ObjectId);if(!to)continue;
     // Reserve modest buffers; actual particle count and exported data are never capped here.
     to.baseCapacity=Math.min(to.baseCapacity,256);
@@ -415,6 +417,7 @@ function copyParticleSimulationToPreview(simulation,native,phase) {
       if(from[field]&&to[field])to[field].set(from[field].subarray(0,from.particles.length*stride));
   }
   for(const from of source.ribbonsController.emitters){
+    if(hiddenIds?.has(from.props.ObjectId))continue;
     const to=ribbons.emitters.find(e=>e.props.ObjectId===from.props.ObjectId);if(!to)continue;
     to.baseCapacity=Math.min(to.baseCapacity,256);ribbons.resizeEmitterBuffers(to,Math.max(1,from.creationTimes.length));
     to.emission=from.emission;to.creationTimes=from.creationTimes.slice();
@@ -430,7 +433,22 @@ export class ParticleAuthoringPreview {
   constructor(native) {
     this.native=native;this.sequence=-1;this.target=0;this.timeline=[];this.simulation=null;this.pending=null;this.revision=0;this.linked=true;this.status={busy:false};
   }
-  makeSimulation(){this.limit=null;try{return new NativeParticleSimulation(this.native.model,this.sequence,{timeline:this.timeline});}catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return null;}}
+  makeSimulation(){
+    this.limit=null;
+    const source=this.native.model;
+    const model=this.hiddenIds?.size?{...source}:source;
+    if(model!==source)for(const family of EFFECT_FAMILIES)model[family]=(source[family]||[]).filter(node=>!this.hiddenIds.has(node.ObjectId));
+    try{return new NativeParticleSimulation(model,this.sequence,{timeline:this.timeline});}
+    catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return null;}
+  }
+  setHiddenIds(hiddenIds){
+    if(this.hiddenIds===hiddenIds)return;
+    this.hiddenIds=hiddenIds;
+    // Drop hidden samples immediately and replay only the visible effects.
+    for(const emitter of this.native.particlesController.emitters)if(hiddenIds?.has(emitter.props.ObjectId))emitter.particles.length=0;
+    for(const emitter of this.native.ribbonsController.emitters)if(hiddenIds?.has(emitter.props.ObjectId))emitter.creationTimes.length=0;
+    if(this.sequence>=0)this.pending=this.makeSimulation();
+  }
   phase(){return particleTimelineAt(this.timeline,this.target);}
   reset(sequence,frame){
     this.sequence=sequence;const start=this.native.model.Sequences[sequence].Interval[0];
@@ -438,7 +456,7 @@ export class ParticleAuthoringPreview {
     this.pending=this.makeSimulation();this.rates=null;
     // The first replay may need several frames. Initialize the visible pose
     // and material texture indices before GL renders that waiting frame.
-    if(!this.simulation&&this.pending)copyParticleSimulationToPreview(this.pending,this.native,particleTimelineAt(this.timeline,0));
+    if(!this.simulation&&this.pending)copyParticleSimulationToPreview(this.pending,this.native,particleTimelineAt(this.timeline,0),this.hiddenIds);
   }
   updateSource(source,field,id){
     const before=[...this.native.model.ParticleEmitters2,...this.native.model.RibbonEmitters].find(node=>node.ObjectId===id);
@@ -491,9 +509,9 @@ export class ParticleAuthoringPreview {
     if(visible){
       if(cameraPosition&&cameraQuaternion)visible.setCamera(cameraPosition,cameraQuaternion);
       if(visible!==candidate&&this.target>=visible.time)try{visible.advance(this.target,{budgetMs:Math.min(2,budgetMs)});}catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return this.status={busy:false,frame:this.native.getFrame(),global:phase.global,fx:phase.fx,ended:true,error:error.message,limit:error.limit};}
-      visible.refresh();copyParticleSimulationToPreview(visible,this.native,phase);
+      visible.refresh();copyParticleSimulationToPreview(visible,this.native,phase,this.hiddenIds);
     }
-    this.status={busy:!!this.pending||!result.complete,frame:phase.frame,global:phase.global,fx:phase.fx,ended,liveRibbons:visible?.native.ribbonsController.emitters.reduce((sum,e)=>sum+e.creationTimes.length,0)||0,liveParticles:visible?.native.particlesController.emitters.reduce((sum,e)=>sum+e.particles.length,0)||0};
+    this.status={busy:!!this.pending||!result.complete,frame:phase.frame,global:phase.global,fx:phase.fx,ended,liveRibbons:this.native.ribbonsController.emitters.reduce((sum,e)=>sum+e.creationTimes.length,0),liveParticles:this.native.particlesController.emitters.reduce((sum,e)=>sum+e.particles.length,0)};
     return this.status;
   }
 }

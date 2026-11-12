@@ -1,6 +1,7 @@
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {EFFECT_FAMILIES,effectNodes} from '../src/particle-recipes.js';
 import {activeParticleSample} from '../src/particle-sampling.js';
+import {prepareParticleLibraryMotion} from '../src/particle-library-motion.js';
 import { capturePreviewThumbnail } from './game-preview-capture.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 
@@ -15,7 +16,9 @@ export default function ParticleIngredients({source,assets,preferences,teamColor
     const model=structuredClone(source);
     for(const family of EFFECT_FAMILIES)model[family]=model[family].filter(node=>node.ObjectId===current.id);
     model.Geosets=[];model.GeosetAnims=[];
-    return {model,...activeParticleSample(model)};
+    // A ribbon on a still node draws nothing in a still picture; use the Library's preview-only trail motion.
+    const sample=activeParticleSample(model);prepareParticleLibraryMotion(model,sample);
+    return {model,...sample};
   },[source,current]);
   const prefs=useMemo(()=>({...preferences,graphics:{...preferences.graphics,pauseWhenHidden:false}}),[preferences]);
   const ready=useCallback(async api=>{
@@ -40,6 +43,6 @@ export default function ParticleIngredients({source,assets,preferences,teamColor
       <button aria-label={'Mute '+row.label} aria-pressed={muted.includes(row.id)} onClick={()=>onMute(row.id)}>{muted.includes(row.id)?'Unmute':'Mute'}</button>
       {images[row.id]?.error&&<small role="status">{images[row.id].error}</small>}
     </article>)}</div>
-    {preview&&<div className="pe-thumbnail-renderer" aria-hidden="true"><Suspense fallback={null}><GamePreview key={current.id} presentation="preview" model={preview.model} textureAssets={assets} preferences={prefs} teamColor={teamColor} particleAuthoring sequenceIndex={preview.sequence} time={preview.time} playing={false} showParticles showGrid={false} mode="textured" view="perspective" onCaptureReady={ready}/></Suspense></div>}
+    {preview&&<div className="pe-thumbnail-renderer" aria-hidden="true"><Suspense fallback={null}><GamePreview key={current.id} presentation="preview" model={preview.model} textureAssets={assets} preferences={prefs} teamColor={teamColor} particleAuthoring particleSweepRange={false} sequenceIndex={preview.sequence} time={preview.time} playing={false} showParticles showGrid={false} mode="textured" view="perspective" onCaptureReady={ready}/></Suspense></div>}
   </div>;
 }

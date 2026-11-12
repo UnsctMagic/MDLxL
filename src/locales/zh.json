@@ -7857,5 +7857,11 @@
   "View All Emitters": "显示所有发射器",
   "handle\u0004Drag": "拖动",
   "handle\u0004Center": "中心",
-  "ALIGN": "对齐"
+  "ALIGN": "对齐",
+  "bone-side\u0004Left": "左",
+  "bone-side\u0004Right": "右",
+  "bone-namer\u0004Side": "左右",
+  "bone-namer\u0004Part": "部位",
+  "bone-kind\u0004Copy": "副本",
+  "bone-part\u0004Spine": "脊柱"
 }

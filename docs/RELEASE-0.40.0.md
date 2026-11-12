@@ -14,7 +14,7 @@
 - **View:** **Axis guides** in Vertices, Bones, Movement and Animations. **Compact Set** fills rows first in Movement and Bones too.
 - **ShareX regions** (Settings > Capture) lets ShareX capture the viewport or toolbox alone.
 - **AI console:** errors already in the model are warnings; new errors still block.
-- **Fixes:** FX keeps its parts after deletes and merges. An unreadable save keeps a copy of the replaced file. Default in Hotkeys asks first. Animated vertex moves follow the mouse. Paint brush drags are smooth and Escape restores them. BITZ warns before closing an unfinished replacement.
+- **Fixes:** FX keeps its parts after deletes and merges. An unreadable save keeps a copy of the replaced file. Default in Hotkeys asks first. Animated vertex moves follow the mouse. Paint brush drags are smooth and Escape restores them. BITZ warns before closing an unfinished replacement. EMTR keeps its preview when you switch emitters; **Ingredients** pictures show particles and ribbons again.
 - On German and French keyboards, letter keys rebound before 0.39 may now be on a different key. Check them in Settings > Hotkeys.
 
 Update through Settings > Configuration > Search for updates > Update and restart, or download the full portable ZIP from the MDLxL page.

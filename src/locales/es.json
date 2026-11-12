@@ -7962,5 +7962,11 @@
   "View All Emitters": "Mostrar todos los emisores",
   "handle\u0004Drag": "Arrastrar",
   "handle\u0004Center": "Centro",
-  "ALIGN": "ALINEAR"
+  "ALIGN": "ALINEAR",
+  "bone-side\u0004Left": "Izquierda",
+  "bone-side\u0004Right": "Derecha",
+  "bone-namer\u0004Side": "Lado",
+  "bone-namer\u0004Part": "Parte",
+  "bone-kind\u0004Copy": "Copia",
+  "bone-part\u0004Spine": "Columna vertebral"
 }
