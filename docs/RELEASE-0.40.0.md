@@ -4,7 +4,7 @@
 - **Forge:** right-click, **Call Upon Forge** puts its tools in the Vertex editor.
 - **Bones:** **Bone Namer** gives a rig Blizzard's standard bone names.
 - **POSE:** main handles are **Circle**, **Square** or **Diamond**. Drag handles name their job (Move, Stretch…) on hover.
-- **UV Wrapper:** **Preview RGB** and **Hide Extras** in the unanimated preview. Fresh installs zoom right/up.
+- **UV Wrapper:** **Preview RGB** and **Hide extras** in the unanimated preview. Fresh installs zoom right/up.
 - **EMTR:** right-click for **Glow Up**, **EMTR Library** or **Manager**. The preview shows the selected emitter; **View All Emitters** shows all. **Review detected glow** excludes single glow pieces.
 - **FX:** **Pause** under the placement preview. Retuning keeps your texture and UV edits.
 - **LIBR:** right-click for **Textures**, **Models**, **Sounds** or **All**. **Save a copy…** in every viewer (DDS, BLP, PNG). **World Editor Style** lists each object once.

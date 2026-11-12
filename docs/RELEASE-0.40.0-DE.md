@@ -4,7 +4,7 @@
 - **Forge:** Rechtsklick, **Forge-Werkzeuge aufrufen** holt die Werkzeuge in den Scheitelpunkteditor.
 - **Knochen:** **Knochenbenennung** gibt einem Rig Blizzards Standard-Knochennamen.
 - **POSE:** Hauptgriffe sind **Kreis**, **Quadrat** oder **Raute**. Ziehgriffe nennen beim Darüberfahren ihre Aufgabe (Verschieben, Strecken…).
-- **UV Wrapper:** **RGB-Vorschau** und **Hide Extras** in der unanimierten Vorschau. Neue Installationen zoomen nach rechts oder oben.
+- **UV Wrapper:** **RGB-Vorschau** und **Extras aus** in der unanimierten Vorschau. Neue Installationen zoomen nach rechts oder oben.
 - **EMTR:** Rechtsklick für **Glow Up**, **EMTR-Bibliothek** oder **Verwaltung**. Die Vorschau zeigt den ausgewählten Emitter; **Alle Emitter anzeigen** zeigt alle. **Erkanntes Leuchten prüfen** schließt einzelne Leuchtteile aus.
 - **FX:** **Pause** unter der Platzierungsvorschau. Nachjustieren behält deine Textur- und UV-Änderungen.
 - **LIBR:** Rechtsklick für **Texturen**, **Modelle**, **Klänge** oder **Alle**. **Kopie speichern…** in jedem Betrachter (DDS, BLP, PNG). **World-Editor-Stil** listet jedes Objekt einmal.
