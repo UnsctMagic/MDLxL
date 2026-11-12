@@ -86,6 +86,71 @@ cost is worth a change to shared preview code.
 Private study of the reference flies: `D:\Claude\fx-fly-study\` (never name the reference
 models or their author in the repository).
 
+## Work order for Codex: emitter round 2
+
+Owner, 12 November 2026: Codex does this round, Claude reviews it.
+
+**Setup**
+- Base: the commit of `claude/fx-editor` that adds this work order (the revision in the owner's prompt).
+- Work in your own worktree `D:\Codex\fx-emitters` on a new branch `codex/fx-emitters` from that revision.
+- Do not check out `claude/fx-editor` itself; Claude's worktree has it.
+- Link `node_modules` with a junction. Remove the junction as a link before any cleanup.
+- Local commits only: no push, no PR. Report "saved on your PC, not online".
+
+**Read first**
+- `AGENTS.md`, `docs/FX-GLOBAL-ANIMATIONS.md`, `docs/TESTING-RULES.md` and this note. The owner decisions above are binding.
+- The audit `out\fx-review\emitters\FINDINGS.md` in Claude's worktree, read only. Its capture scripts and results are beside it; copy what you need into your own `out\`.
+- Previous round: commits `a8ba4cea`..`39632a18`. Its flags are `sharedSites`, `steadyRate` and `fromWhite`.
+
+**Rules**
+- Nothing flashes. Native game textures only. No flavour text. Use EMTR's own controls.
+- Every new UI string goes into all five catalogues in `src/locales/`.
+- Saved stacks compile byte-identically: `test/fx-legacy-snapshot.test.js` stays green and its fixture untouched. Put changes on new layers, through flags that `makeLayer` sets.
+- Tests that read private models skip when the file is missing.
+- Each new test must fail on the old code: run it against the old code to show this.
+- One item, one commit, with the tests green.
+
+**Items, in order**
+1. **Shared-site rule.** The native `sharedSites` share applies only to parts with more than four skin regions, matching `emissionShares` for built-in kinds. Parts with four or fewer keep the old per-region density. Ground and flat specs still compile once.
+2. **Invisible on the body.** Eye sparks, Heavy/Ichor drops and Blood beads are invisible on the Footman body (geoset 0) but visible on the sword.
+   - Measure the cause first: sites, positions against the surface, size against the body, alpha, blend, and whether particles spawn inside the mesh.
+   - Then fix it generally.
+   - Prove it in a capture. Blend emitters darken the image, so count changed pixels against the baseline.
+3. **Inward souls and Rune rings.** Tune the single emitter up to about the old body light: Rune rings 7.82, Inward souls .49.
+4. **Steady rate.** New built-in emitter layers of every kind get a steady rate. Blade crackle is excluded and stays exactly as it is.
+5. **Rising embers.** It becomes real embers:
+   - LavaLump picture.
+   - Few, slow and long-lived, rising gently.
+   - Alpha 200>150>80, Unfogged, cooling orange.
+   - New layers only, and the name stays.
+6. **New emitters.**
+   - Re-file Falling snow, Maple leaves, Falling feathers, Ash flecks, Coal sparks and Hot filings from `src/fx-sort-looks.js`. Fix each one's values so it reads as its name, steady and sized to the part.
+   - Add **Fire hair**: `Textures\clouds_anim1_bw.blp` 4x4. Follow the flame rules in the contract: 255>255>0, middle at half life, cooling colour, shrinking.
+   - Offer all of them in Add emitter and Change emitter. No Ground dust.
+7. **Names.**
+   - Apply the FINDINGS rename table and merge the duplicates. "Blade crackle" and "Rising embers" keep their names.
+   - Saved layers with old labels must still find their ingredient: check every lookup by label.
+   - Translate into all five catalogues and update `test/localization-catalogs.test.js`.
+8. **Options under More**, with EMTR's own components:
+   - Size for native kinds, emitter area Width/Length, middle-point Time, Priority plane and Unfogged.
+   - Keep them in `layer.native`, and each must make a visible change.
+9. **Flies on Death.** A switch "Rise on Death" on the Fly swarm layer, off by default.
+   - On: the swarm helper rises like native Flies.mdx across Death. It reaches 0.6 x unit height at 1.0 s and 2.5 x at 2.17 s, and the flies hide from 1.9 s.
+   - Scale those times to the Death length if Death is shorter.
+
+**Checks**
+- After each item:
+  - Run `pnpm run build` when app code changed.
+  - Run `node --test test/fx-*.test.js test/global-animations.test.js test/claude-fx-looks.test.js test/surface-effects.test.js test/localization-catalogs.test.js`. 290 pass at the base.
+- At the end:
+  - Package the app.
+  - Hidden, on a separate desktop, capture every changed or new emitter on the Footman body and sword (`D:\Claude\MDLxL\TestBuilds\test-models\TEST FX EDITOR 02.mdx`, copy it). Look at the images and give a verdict per emitter.
+  - Run hidden: `fx-click-sweep`, `fx-empty-emitters`, `fx-responsiveness`, `fx-cards`, `global-animations` and `fx-layer-editing`.
+  - Never the full suite.
+- Update the contract doc and row 5 of the status table in this note.
+
+**Report:** per item done or not done, before and after numbers, the verdict with capture paths, commits, test counts with the fail-first evidence, anything not verified, and the branch and revision for Claude's review.
+
 ## Not in scope
 
 The Raider rider split, POSE and Bone Namer work, and merging. Nothing goes online until the owner says "merge".
