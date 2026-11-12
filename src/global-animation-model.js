@@ -494,6 +494,8 @@ function scatterWeights(layer,planned,active){
  return weights.map(weight=>weight/mean);
 }
 function widthCapFor(layer,slot){
+ // Straight strips can carry their own cap so flames stay in proportion on thin blades.
+ if(layer.widthCapStrip!=null&&slot.strip&&slot.componentWidth>0)return slot.componentWidth*layer.widthCapStrip;
  if(layer.widthCap!=null&&(!layer.widthCapRimOnly||!slot.strip))return slot.componentWidth*layer.widthCap;
  return (layer.fireFit||layer.airyFit)?.version===1?slot.fireFit?.radius*.75:undefined;
 }

@@ -33,7 +33,7 @@ export const CLAUDE_LOOKS=[
  vary(fx('Blades','fel-blade','Fel blade',1500),[
   {id:'original',name:'Fel flames',layers:[
    skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
-   {...dust('Fel flames','flame',CLOUDS,{atlas:8,tint:fel}),starts:true,widthCap:.75,widthCapRimOnly:true},     // no airyFit (cbc)
+   {...dust('Fel flames','flame',CLOUDS,{atlas:8,tint:fel}),starts:true,widthCap:.75,widthCapRimOnly:true,widthCapStrip:1.6},     // no airyFit (cbc)
    FEL_FLAME_CARDS,
   ]},
   {id:'fel-surge',name:'Fel surge',layers:[
@@ -53,11 +53,11 @@ export const CLAUDE_LOOKS=[
   {id:'fel-sparks',name:'Fel sparks',layers:[
    skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
    nativeSpray('Rising sparks',tex('Star7b'),fel,
-    {life:.6,rate:40,velocity:.03,gravity:-2.2,spread:35,size:[.12,.1,0],alpha:[255,255,0]},
+    {life:.6,rate:55,velocity:.03,gravity:-2.2,spread:35,size:[.18,.15,0],alpha:[255,255,0]},
     {starts:true,birthRegion:true,widthCap:1,loop:1733,
      native:{Time:.45,Variation:1,Flags:U,SegmentColor:[[.95,1,.6],[.5,1,.1],[.2,.9,0]]}}),
    nativeSpray('Fel motes',tex('star4_32'),fel,
-    {life:1.4,rate:8,velocity:.1,gravity:-.4,spread:180,size:[.01,.04,.01],alpha:[0,255,0]},
+    {life:1.4,rate:14,velocity:.1,gravity:-.4,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
     {starts:true,birthRegion:true,birthAcross:1.4,loop:2933,
      native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[1,1,.8],[.6,1,.2],[.2,.85,0]]}}),
   ]},
