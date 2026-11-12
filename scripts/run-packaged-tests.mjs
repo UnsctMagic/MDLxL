@@ -62,6 +62,8 @@ const SPECIAL = {
   'settings-layout': { timeout: 10 * 60 * 1000 },
   // Named runs only (never all/core). MDLXL_SWEEP_SETUPS picks the setups; each has its own time limit.
   'click-sweep': { timeout: 24 * 60 * 60 * 1000 },
+  // Every FX look, variation and layer on three parts; FX_SWEEP_SETUPS / FX_SWEEP_LOOKS narrow it.
+  'fx-click-sweep': { needs: [footman, testModel('WH_WOC_WarriorSlaaneshDual01.mdx')], timeout: 3 * 60 * 60 * 1000 },
   // Mouse drag keys and keys pressed during a drag, about 7 app starts.
   'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
   // Each Rotate setting from its own seeded profile, about 30 app starts.
