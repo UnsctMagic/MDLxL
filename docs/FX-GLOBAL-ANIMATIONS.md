@@ -64,6 +64,11 @@ each run on owned global sequences; several cards use different, non-dividing le
 Fields and bounds live in `src/fx-cards.js`. Removing a Card stack leaves the model as it
 was before, including its bounds.
 
+12 November 2026: the owner's Card permission of 11 November together with "fly swarm - doesnt
+look good ... make it scaleable" covers the Fly swarm's owned quad geoset, bones and material
+(below, under the native implementation routes). It is a Card-like set of quads on path-driven
+billboarded bones and stays listed as the existing Particles ingredient, Orbiting flies.
+
 A particle layer exposes all three native segment **Color**, **Size** and
 **See-through %** values in EMTR's **Born / Halfway / End** control. Do not collapse
 multi-value native fields to one value. Reuse the actual EMTR component, wording,
@@ -131,7 +136,7 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | Fissures skin | The accepted Lava fissures surface replaces Lava skin in Skins. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
-| Fly swarm | Compare with the native fly swarm. Correct atlas cell, rows/columns and blend preserve transparent corners. A few dark flies follow separate irregular paths, never an orderly glowing ring. |
+| Fly swarm | Made the way native `Flies.mdx` is made: separate dark flies with transparent corners glide on different closed paths around one centre, never a ring of particle dots. It looks right on any part without touching a control and scales with Amount, Fly size, Swarm size and Speed. |
 | Motes / Rising embers / Frost mist | Distinct drifting points, rising sparks and falling mist respectively. |
 | Glacial fissures | Cold cracks brighten over a solid ice surface. The part remains visible through the whole pulse. |
 | Buffs & curses | Keep the good looks. Every emitter and ground ingredient is optional; ground starts off. |
@@ -230,9 +235,29 @@ keep its count.
   atlas phases. Ice skin uses a fixed section of Ice_Natural01. Glacial fissures
   keeps Ice_IceDull behind the Dungeon2 crack tile; only the cracks pulse.
   Poison skin continues to reuse Felwood poison.
-- Fly swarm uses the five native `Flies.mdx` Hermite paths (1233 ms) and the
-  `Doodads0` fly cell (12 rows, 16 columns, cell 151). Native Blend retains dark
-  bodies and transparent corners. Amount is the total across skin regions.
+- **Fly swarm (native Flies.mdx technique; owner, 12 November 2026: "fly swarm - doesnt look good
+  ... make it scaleable").** Flies are geometry, not particles: one owned geoset holds one quad
+  per fly, each quad entirely on its own owned billboarded bone (bone flags 264), under one owned
+  swarm bone at the part's centre that follows the part without tilting (Don't inherit rotation).
+  One owned material with one layer: Transparent (alpha key), two-sided, lit, priority plane 0,
+  native `Textures\Doodads0.blp` cell 151 of 12 rows x 16 columns. Each fly rides one of the five
+  native Hermite paths (`FLY_PATHS`, unchanged) as a closed translation track on an owned global
+  sequence. Flies come in sets of five; each further set (`FLY_SETS` in `src/fx-cards.js`) has
+  its own clock, yaw, time phase, width and height, so Amount above five never stacks flies and
+  the swarm never visibly repeats. Clocks are `1233 x sqrt(radius / 88) x [1, 1.16, .89, 1.05, .95,
+  1.11] / Speed` ms, all different. Five fly widths per set: Fly size x [.77, 1.12, .78, 1.47, .87].
+  Defaults: Fly size is 7% of the unit's Stand height, kept within 10-22 units; Swarm size (the
+  mean path radius) is .9 x the main skin region's radius or .3 x its length, never less than four
+  fly widths; a part split into many skin regions still gets one swarm around one centre. Controls:
+  **Amount** 5-30 in steps of 5, **Fly size**, **Swarm size**, **Speed** (0.25-4x, multiplies every
+  clock), colour (geoset colour, default no tint) and **Intensity** (layer alpha); the swarm is
+  moved and resized with the emitter placement handles. Flies are always visible while the layer is
+  on (no Death rise, no portrait hiding). Removing the swarm restores the model exactly, bounds
+  included; it reopens from MDX and MDL as the same editable stack (`test/fx-fly-swarm.test.js`).
+  **Compatibility:** a layer saved with the old emitter flies (no `swarm` field) keeps its emitter
+  flies and their old controls and compiles byte-identically; picking Fly swarm or Orbiting flies
+  fresh from the library, Add emitter or Change emitter gives the new swarm. A saved own look keeps
+  whichever kind it was saved with.
 - Moving skin **Speed** takes fine values from 0 to 8 (step 0.05; owner, 12 November: slow
   skins must still move). Whole speeds run that many passes on the layer clock, as before; a
   fractional speed runs the next whole number of passes on a longer owned clock, so a pass
