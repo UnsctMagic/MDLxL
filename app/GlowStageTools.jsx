@@ -2,6 +2,7 @@ import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
 import {holdGestureKey} from './gesture-keys.js';
 import { clamp } from '../src/math.js';
 import React,{useEffect,useRef} from 'react';
+import {HandleWord} from './ParticleStageHandle.jsx';
 import {particleAxisMapping} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
 import {turnWeaponEnds} from '../src/glow-up.js';
@@ -75,22 +76,22 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
   follow.current=applyMove;
   function end(){frame.current.flush();if(drag.current)onDrag?.(false);drag.current=null;}
   function abort(){frame.current.cancel();const d=drag.current;drag.current=null;if(d){set(d.before);onDrag?.(false);}}
-  const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  const handle=(point,kind,label,word)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
-  }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
+  }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><HandleWord point={point} word={word}/><title>{label}</title></g>;
   const square=marks.mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[marks.mid[0]+a*marks.mid[4],marks.mid[1]+b*marks.mid[4]]);
   return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Glow handles">
     {rings.targets}
     {glow.origin&&marks.origin&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>
-      {handle(marks.edge,'originSize','Resize origin glow')}
+      {handle(marks.edge,'originSize','Resize origin glow','Resize')}
       <g className="pe-move-emitter">{handle(marks.origin,'move','Move origin glow')}<text x={marks.origin[0]+12} y={marks.origin[1]+20}>Move</text></g>
     </>}
     {weapon&&<g>
       {ends&&<><line x1={marks.start[0]} y1={marks.start[1]} x2={marks.end[0]} y2={marks.end[1]}/>
-      {handle(marks.start,'weaponFrom','Weapon glow start')}{handle(marks.end,'weaponTo','Weapon glow end')}</>}
+      {handle(marks.start,'weaponFrom','Weapon glow start','Stretch')}{handle(marks.end,'weaponTo','Weapon glow end','Stretch')}</>}
       <polygon points={square.map(p=>p.join(',')).join(' ')}/>
-      {square.map((point,index)=><React.Fragment key={index}>{handle(point,'weaponSize',index===2?'Resize weapon glow':'Resize weapon glow corner '+(index+1))}</React.Fragment>)}
+      {square.map((point,index)=><React.Fragment key={index}>{handle(point,'weaponSize',index===2?'Resize weapon glow':'Resize weapon glow corner '+(index+1),'Resize')}</React.Fragment>)}
       <text x={square[0][0]} y={square[0][1]-8}>Size</text>
     </g>}
   </svg></>;
