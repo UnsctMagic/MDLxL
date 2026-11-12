@@ -3,12 +3,12 @@
     {
       "label": "Blade flames",
       "id": 2,
-      "hash": "ef6363b82bcb9f63b868ce042ab7138aa2b7b8edfea7a3fd75a1ecbb895397c8"
+      "hash": "a1fecfaa82ba9a0945c00913e6374aa539ca393001f43bb0ad60dfc024f91469"
     },
     {
       "label": "Rising embers",
       "id": 3,
-      "hash": "b4426449bf8ee7f5fae5e3e31bcae3b510430f2b71141b35b8cc44d13ac31590"
+      "hash": "5171a04ec74b0d2bf9cce2510b61a91a4ac4f0ae09bfdaad3c1137e232c04379"
     }
   ],
   "frost-blade": [
@@ -40,7 +40,7 @@
     {
       "label": "Heavy drops",
       "id": 2,
-      "hash": "5c2315977c208ebaf400ca6582b23a26c547661892888d14703a6db5441be5d1"
+      "hash": "8b024fc58e6b7266e05ac81a8749ed60883e9248efba4cf4c2b029edcaf84425"
     }
   ],
   "crystal-veins": [],
@@ -68,7 +68,7 @@
     {
       "label": "Rising embers",
       "id": 1,
-      "hash": "7cd985d18953294eaacc330047fefaf5129bcd5773f7ec0ad9ddd3d85122de54"
+      "hash": "dfbaed30a7dc142b66e5be90b298b453932ea7617df4f767de2e35a077d2134b"
     }
   ],
   "frost-mist": [
@@ -134,7 +134,7 @@
     {
       "label": "Fire",
       "id": 2,
-      "hash": "caf721629f072d038f51eecfbc3f606bbea491d4f8aee5d5ce05328b69dbf93b"
+      "hash": "78ae5179d769c81c417a7d1d60221fab3c543644678de3846eb5e41bc6573eb3"
     }
   ],
   "glacial": [],
@@ -185,14 +185,14 @@
     {
       "label": "Fel flames",
       "id": 2,
-      "hash": "9521559ab4b429db131ef352d8e927b3811320091bffe1682eb38426bfd1c489"
+      "hash": "f7fc7d0e4665e0a0e060e1cff756ded8fb07acd527d610aa0713afdda8798c4d"
     }
   ],
   "claude-tidal-blade": [
     {
       "label": "Dripping water",
       "id": 3,
-      "hash": "b8c1950ddefb7cc71bac7000d12837566302d4b4d1563071d496d8de438a9f84"
+      "hash": "4fc4d772a35b1456807bd86f325460a9c7b183b342f5d70fc5a03be5e6bf6f3d"
     }
   ],
   "claude-magma-flow": [],
@@ -207,7 +207,7 @@
     {
       "label": "Ichor drops",
       "id": 3,
-      "hash": "895c90da00f93424eb50eab5bb21ec97bde38940da0c78c2aee9e2036f383964"
+      "hash": "49d65a0ad85b35627515f7cc6373e53f2a5aea02ab8d88dca040113a828af46e"
     }
   ],
   "claude-blood-pact": [

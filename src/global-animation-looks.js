@@ -357,6 +357,9 @@ export function makeLayer(spec,frame,palette,id) {
  if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
  // A new native emitter shares its rate among the part's regions (saved layers without the flag compile as before).
  if(spec.type==='Particles'&&spec.kind==='native'&&!spec.impact)layer.sharedSites=true;
+ if(spec.type==='Particles'&&spec.kind!=='native'&&!spec.impact&&spec.burstGap==null)layer.steadyRate=true;
+ // Two drops in flight at each site avoid synchronized empty gaps between births.
+ if(spec.type==='Particles'&&spec.kind==='drops'&&!spec.impact){const sites=layer.count*Math.min(4,frame?.regions?.length||1);layer.amount=Math.max(layer.amount,Math.ceil(2*sites/layer.lasts));}
  // Preserve old placement on saved layers and the owner's accepted Blade crackle.
  if(spec.type==='Particles'&&!spec.impact&&!spec.ground&&!spec.nativeSpec?.flat&&!spec.nativeSpec?.orbit&&!['crackle','motes','flies'].includes(spec.kind))layer.surfaceSites=true;
  // New mist and motes emit at a steady rate (no rate swell). Mist puffs stay within about a third of the unit's height;
