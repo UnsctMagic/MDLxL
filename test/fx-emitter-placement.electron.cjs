@@ -66,6 +66,7 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=requi
    assert.equal(await fx.locator('.sfx-controls h4').count(),0,'layer button returns to the whole layer');
    assert.equal(await button('Position & size').getAttribute('aria-pressed'),'true','layer return keeps placement available');
   }
+  if(step>=5){const before=await read();await fx.locator('.fx-emitter-markers [role=button]').first().click();await ready();await drag('Move emitter',20,-15);await button('Delete emitter').click();await ready();assert.equal((await read()).nodes.length,before.nodes.length-1,'Delete after dragging removes exactly one emitter');assert.equal(await fx.locator('.sfx-controls h4').count(),0,'deleting returns to the layer');await stage.screenshot({path:path.join(out,'deleted-one.png')});}
   assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

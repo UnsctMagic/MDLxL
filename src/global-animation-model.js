@@ -354,6 +354,7 @@ function nativeParticles(c,layer){
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
   if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
   else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
+  if(layer.individuals?.[key]?.deleted)continue;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
@@ -452,6 +453,7 @@ function particles(c,layer){
   const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
   const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
   c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
+  if(layer.individuals?.[key]?.deleted)continue;
   let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
    if(!l.placement&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));

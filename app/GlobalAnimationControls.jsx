@@ -102,6 +102,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {l&&!selectedSite&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
   {selectedSite&&<h4>{translate(emitterName(l))+' '+((result?.ids.indexOf(selectedId)??0)+1)}</h4>}
+  {selectedSite&&<button onClick={()=>{const record=layer.individuals?.[selectedSite]||{};setStack({...stack,layers:stack.layers.map(v=>v.id===layer.id?{...layer,individuals:{...layer.individuals,[selectedSite]:{...record,deleted:true}}}:v)});select(layer.id);}}>Delete emitter</button>}
   {(p||swarm)&&!selectedSite&&!stack.impact&&<select aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
    const spec=emitterChoices.find(s=>menuName(s)===e.target.value);if(!spec||!frame)return;
    const next=makeLayer(spec,frame,look.palette,Math.max(...stack.layers.map(v=>v.id))+1);

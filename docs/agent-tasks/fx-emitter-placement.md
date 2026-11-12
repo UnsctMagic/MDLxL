@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: in progress in Codex; items 1–4 verified, items 5–9 pending
+Status: in progress in Codex; items 1–5 verified, items 6–9 pending
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -131,3 +131,5 @@ Merging FX, round 2 review fixes (Claude reviews round 2 separately), and new lo
 4. Individual emitter selection and editing: small existing-style markers, single particle clicks through the shared hit test (FX opt-in), the existing move handle, scoped Colour/Intensity/life/amount/size/More, numbered selection heading, layer-button and Escape return. Individual records use the source site key; unrelated sites stay byte-identical. Four new source cases failed before. Build/group: 318 pass, 0 fail/skip. Hidden markers, one-site drag, one-site red colour, real particle click away from markers, both returns and actual mouse orbit pass. Capture: out/placement/ui/individual-red.png. Live drag uses the existing frame-coalesced handle and particle update path.
 
 Item 4 follow-up: the extended large-drag check exposed a moving animation reference frame and stale selection snapshot. Reused EMTR’s hold-during-drag path and wait for the selected snapshot. Required source group rerun: 318/0/0 (out/placement/item-04-final-source.log). Two corrected hidden runs pass, including a 150 px individual drag and particle click (item-04-follow-ui.log, item-04-final-ui.log). Initial failures remain in item-04-pointer-check*.log.
+
+5. Delete emitter: removes only the selected stable site and returns to the layer. Deletion records survive compilation; stale keys are pruned. Four fail-first source cases; hidden old-package failure on missing Delete emitter. Build/group: 322/0/0. Hidden select → drag → Delete passes; out/placement/ui/deleted-one.png. New label translated in all five catalogues.

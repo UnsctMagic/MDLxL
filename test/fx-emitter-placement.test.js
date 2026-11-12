@@ -50,3 +50,15 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(l
   else assert.deepEqual(q,p,'unselected emitter remains byte-identical');
  }
 });
+
+for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(label+' deletes only the chosen site on part '+part,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[part]),stack=newStack(findLook('empty'),frame,'deleted');
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1);stack.layers=[layer];
+ const before=structuredClone(base),graph=compileAnimation(before,part,stack),sites=graph.layers[1].sites,key=sites[0].key;
+ layer.individuals={[key]:{deleted:true},missing:{position:[1,2,3]}};
+ const after=structuredClone(base),result=compileAnimation(after,part,stack),nodes=m=>m.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('deleted/1/'));
+ assert.equal(nodes(after).length,nodes(before).length-1,'only one emitter removed');
+ assert.ok(!nodes(after).some(n=>n._FxTag.endsWith('/'+key)),'deleted stable key absent');
+ assert.deepEqual(result.layers[1].sites.map(s=>s.key),sites.map(s=>s.key),'deleted slot remains addressable');
+ assert.deepEqual(after.Geosets[part]._FxStack.layers[0].individuals,{[key]:{deleted:true}},'prune records for nonexistent sites');
+});
