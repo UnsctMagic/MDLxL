@@ -1667,7 +1667,7 @@
   "Changes apply immediately.": "Изменения применяются сразу.",
   "Language": "Язык",
   "Forge": "Кузница",
-  "FORGE": "СОЗДАТЬ",
+  "FORGE": "FORGE",
   "Bend": "Изгиб",
   "Warp": "Скручивание",
   "Dome": "Купол",
@@ -7949,5 +7949,8 @@
   "Preview RGB {0}": "Предпросмотр RGB {0}",
   "Reset preview RGB": "Сбросить предпросмотр RGB",
   "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Предпросмотр RGB на активном геосете (0–255). Пустые каналы используют RGB модели.",
-  "View All Emitters": "Показать все эмиттеры"
+  "View All Emitters": "Показать все эмиттеры",
+  "handle\u0004Drag": "Тянуть",
+  "handle\u0004Center": "Центр",
+  "ALIGN": "ВЫРОВНЯТЬ"
 }

@@ -877,7 +877,7 @@
   "Frame model": "Encuadrar modelo",
   "Part": "Parte",
   "Geoset": "Geoset",
-  "Faces": "Rostros",
+  "Faces": "Caras",
   "Invert selection": "Invertir selección",
   "Protect pixels": "Proteger píxeles",
   "Hold to paint from outside the edge": "Mantén para pintar desde fuera",
@@ -1753,7 +1753,7 @@
   "Choose Warcraft III installation…": "Elegir instalación de Warcraft III…",
   "Forget saved folder": "Olvidar la carpeta guardada",
   "Changes apply immediately.": "Los cambios se aplican al instante.",
-  "FORGE": "FORJAR",
+  "FORGE": "FORGE",
   "Front": "Frontal",
   "Back": "Posterior",
   "navigation\u0004Back": "Atrás",
@@ -7959,5 +7959,8 @@
   "Preview RGB {0}": "Vista previa RGB {0}",
   "Reset preview RGB": "Restablecer vista previa RGB",
   "Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.": "Previsualiza RGB en el geoset activo (0–255). Los canales vacíos usan el RGB del modelo.",
-  "View All Emitters": "Mostrar todos los emisores"
+  "View All Emitters": "Mostrar todos los emisores",
+  "handle\u0004Drag": "Arrastrar",
+  "handle\u0004Center": "Centro",
+  "ALIGN": "ALINEAR"
 }
