@@ -16,51 +16,44 @@ const EXPANSION_TIPS = {
 };
 const SEARCH_LABELS = { SND: 'Search sounds', SPL: 'Search blood', FPT: 'Search footprints', UBR: 'Search uber splats', SPN: 'Search spawn objects' };
 
-const NO_SPAWN_MODEL = 'No model listed';
-const MISSING_SPAWN_MODEL = 'No model file in the game';
-const MISSING_SPAWN_TIP = 'Warcraft III lists this spawn object, but its model file is not in your game files, so it cannot be previewed.';
-
-function spawnOptionStatus(row, records) {
-  if (!row.definition) return NO_SPAWN_MODEL;
-  if (records && !records.has(gamePathKey(row.definition.resourcePath))) return MISSING_SPAWN_MODEL;
-  return '';
-}
-
 // Shows only the chosen event kind. Type, timing and node fields wait behind
 // one closed disclosure (children are the generic node fields).
-export default function NodeEventEditor({ node, model, modelPath, catalog, error: catalogError, edit, teamColor, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
+export default function NodeEventEditor({ node, model, modelPath, catalog, getSpawnChoices, error: catalogError, edit, teamColor, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
   const type = EVENT_TYPES[node.Name?.slice(0,3)] ? node.Name.slice(0,3) : 'SND', id = node.Name?.slice(4);
   const [query, setQuery] = useState(''), [audioSource, setAudioSource] = useState(null), [fileIndex, setFileIndex] = useState(0), [error, setError] = useState('');
   const [expansions, setExpansions] = useState(readExpansions);
   const audio = useRef(null), rows = catalog?.[type] || [], selected = rows.find(row => row.id === id);
-  const spawnRows = type === 'SPN' ? catalog?.SPN : null;
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [spawnLookup, setSpawnLookup] = useState(null);
+  const needsSpawnChoices = type === 'SPN' || settingsOpen;
   useEffect(() => {
-    if (!spawnRows?.length) return;
+    if (!needsSpawnChoices || !getSpawnChoices) return;
     let active = true;
-    const names = spawnRows.flatMap(row => row.definition ? [row.definition.resourcePath] : []);
-    window.desktop.resolveEventResources({ names, path: modelPath }).then(found => {
-      if (!active) return;
-      const records = new Map(found.filter(record => record.bytes?.byteLength).map(record => [gamePathKey(record.name), record]));
-      setSpawnLookup({ spawnRows, modelPath, records });
+    getSpawnChoices().then(result => {
+      if (active) setSpawnLookup({ source: getSpawnChoices, result });
     }, () => {
-      if (active) setSpawnLookup({ spawnRows, modelPath, error: 'Could not look up models in the game files' });
+      if (active) setSpawnLookup({ source: getSpawnChoices, error: 'Could not look up models in the game files' });
     });
     return () => { active = false; };
-  }, [spawnRows, modelPath]);
-  const lookup = spawnLookup?.spawnRows === spawnRows && spawnLookup?.modelPath === modelPath ? spawnLookup : null;
-  const spawnRecords = lookup?.records;
+  }, [needsSpawnChoices, getSpawnChoices]);
+  const lookup = spawnLookup?.source === getSpawnChoices ? spawnLookup : null;
+  const usable = lookup?.result?.usable;
+  const spawnChoices = useMemo(() => usable
+    ? catalog.SPN.filter(row => usable.has(gamePathKey(row.definition?.resourcePath)))
+    : [], [catalog, usable]);
   const selectedSpawnPath = type === 'SPN' ? selected?.definition?.resourcePath : null;
-  const spawnPreview = useMemo(() => {
-    if (!selectedSpawnPath) return null;
-    if (!spawnRecords) return lookup?.error ? { error: lookup.error } : null;
-    const record = spawnRecords.get(gamePathKey(selectedSpawnPath));
-    if (!record) return { error: 'Not found in the game files' };
-    try { return { model: parseEventRenderModel(record.bytes, selectedSpawnPath) }; }
-    catch { return { error: 'This model format cannot be previewed' }; }
-  }, [selectedSpawnPath, spawnRecords, lookup?.error]);
-  const selectedSpawnError = type === 'SPN' && selected && !selected.definition ? NO_SPAWN_MODEL : spawnPreview?.error;
-  const matches = rows.filter(row => row.label.toLowerCase().includes(query.toLowerCase()));
+  const selectedSpawnKey = gamePathKey(selectedSpawnPath);
+  const spawnRecord = usable?.get(selectedSpawnKey);
+  const spawnPreview = useMemo(() => spawnRecord ? parseEventRenderModel(spawnRecord.bytes, spawnRecord.name) : null, [spawnRecord]);
+  let spawnError = '';
+  if (type === 'SPN' && catalog) {
+    if (!selectedSpawnPath) spawnError = 'No model listed';
+    else if (lookup?.error) spawnError = lookup.error;
+    else if (lookup?.result?.unsupported.has(selectedSpawnKey)) spawnError = 'This model format cannot be previewed';
+    else if (usable && !spawnRecord) spawnError = 'Not found in the game files';
+  }
+  const matches = (type === 'SPN' ? spawnChoices : rows).filter(row => row.label.toLowerCase().includes(query.toLowerCase()));
+  const selectedSpawnShown = matches.some(row => row.id === id);
   const sounds = type === 'SND' ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
   const toggleExpansion = key => setExpansions(previous => {
     const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key);
@@ -85,19 +78,24 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
   return <div className="re-event-editor">
     {type === 'SND' && <div className="re-sound-expansions" role="group" aria-label="Expansions">{Object.entries(SOUND_EXPANSIONS).map(([key, name]) => <button type="button" key={key} aria-pressed={expansions.has(key)} title={EXPANSION_TIPS[key]} onClick={() => toggleExpansion(key)}>{key}<small>{rows.filter(row => row.expansion === key).length}</small></button>)}</div>}
     <input type="search" aria-label={SEARCH_LABELS[type]} placeholder={SEARCH_LABELS[type]} value={query} onChange={e=>setQuery(e.target.value)}/>
-    {type === 'SND' ? <EventSoundTree rows={sounds} selectedId={id} query={query} onSelect={next=>assign(type,next)}/> : <select size="7" aria-label={EVENT_TYPES[type]} value={id || ''} onChange={e=>assign(type,e.target.value)}>{!selected && <option value={id || ''}>{id || 'Select event data'}</option>}{matches.map(row => {
-      const status = type === 'SPN' ? spawnOptionStatus(row, spawnRecords) : '';
-      return <option key={row.id} value={row.id} className={status ? 're-sound-missing' : undefined} title={status === MISSING_SPAWN_MODEL ? MISSING_SPAWN_TIP : status || undefined}>{status ? row.label + ' · ' + status : row.label}</option>;
-    })}</select>}
+    {type === 'SND' ? <EventSoundTree rows={sounds} selectedId={id} query={query} onSelect={next=>assign(type,next)}/>
+      : type === 'SPN' ? <select size="7" aria-label={EVENT_TYPES.SPN} value={selectedSpawnShown ? id : ''} disabled={!matches.length} onChange={e=>assign(type,e.target.value)}>
+        {!selectedSpawnShown && <option value="" hidden disabled/>}
+        {matches.map(row => <option key={row.id} value={row.id}>{row.label}</option>)}
+      </select> : <select size="7" aria-label={EVENT_TYPES[type]} value={id || ''} onChange={e=>assign(type,e.target.value)}>{!selected && <option value={id || ''}>{id || 'Select event data'}</option>}{matches.map(row=><option key={row.id} value={row.id}>{row.label}</option>)}</select>}
     {file && <>{selected.files.length > 1 && <SelectField label="Sound file" value={fileIndex} options={selected.files.map((name,value)=>({value,label:name.split(/[\\/]/).at(-1)}))} onChange={v=>setFileIndex(Number(v))}/>}<audio key={file} ref={audio} aria-label="Sound preview" controls preload="auto" src={audioUrl || undefined} onError={()=>{if(audioUrl)setError('Sound format could not be played.');}}/></>}
     {selected?.definition && ['SPL','FPT','UBR'].includes(type) && <EventDecalPreview definition={selected.definition} modelPath={modelPath}/>}
-    {type === 'SPN' && <SpawnObjectPreview model={spawnPreview?.model} modelPath={modelPath} teamColor={teamColor} loading={!!selectedSpawnPath && !spawnPreview}/>}
+    {type === 'SPN' && <SpawnObjectPreview model={spawnPreview} modelPath={modelPath} teamColor={teamColor} loading={!!selectedSpawnPath && !lookup}/>}
     {type === 'SND' && selected?.missing && <p className="re-sound-missing" title={MISSING_SOUND_TIP}>{MISSING_SOUND}</p>}
-    {(error || selectedSpawnError || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || selectedSpawnError || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
+    {(error || spawnError || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || spawnError || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
     {global < 0 && <SelectField label="Preview animation" value={sequenceIndex} options={model.Sequences.map((seq,value)=>({value,label:seq.Name}))} onChange={v=>onSequenceChange(Number(v))}/>}
     <div className="re-event-frames"><span>Event tracks</span><div>{Array.from(node.EventTrack || []).map(at=><button key={at} aria-label={`Event frame ${at}`} onClick={()=>onSeek(at)}>{at}</button>)}</div><button onClick={()=>edit('Add event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,true))}>Add at {frame}</button><button disabled={!Array.from(node.EventTrack || []).includes(frame)} onClick={()=>edit('Remove event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,false))}>Remove</button></div>
-    <details className="re-event-settings"><summary title="Change the event type, global sequence, name, parent or pivot of this event node.">Node settings</summary>
-      <SelectField label="Type" value={type} options={Object.entries(EVENT_TYPES).map(([value,label])=>({value,label}))} onChange={next => { setQuery(''); if(catalog?.[next]?.length) assign(next,catalog[next][0].id); }}/>
+    <details className="re-event-settings" onToggle={e=>setSettingsOpen(e.currentTarget.open)}><summary title="Change the event type, global sequence, name, parent or pivot of this event node.">Node settings</summary>
+      <SelectField label="Type" value={type} options={Object.entries(EVENT_TYPES).filter(([value])=>value !== 'SPN' || type === 'SPN' || spawnChoices.length).map(([value,label])=>({value,label}))} onChange={next => {
+        setQuery('');
+        const first = (next === 'SPN' ? spawnChoices : catalog?.[next])?.[0];
+        if (first) assign(next,first.id);
+      }}/>
       <SelectField label="Global sequence" value={global} options={[{value:-1,label:'None'},...(model.GlobalSequences || []).map((_,value)=>({value,label:String(value+1)}))]} onChange={v=>edit('Set event global sequence',['Nodes'], current=>{const target=current.Nodes[node.ObjectId]; delete target.GlobalSequenceId;if(Number(v)<0)delete target.GlobalSeqId;else target.GlobalSeqId=Number(v);})}/>
       {children}
     </details>

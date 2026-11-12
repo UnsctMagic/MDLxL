@@ -90,6 +90,31 @@ export async function markMissingSounds(catalog, findMissing, modelPath) {
 export function loadEventCatalog(modelPath) {
   return window.desktop.resolveEventResources({ names: [...NODE_EVENT_TABLES, ...NATIVE_SOUND_TABLES], path: modelPath }).then(eventCatalog).then(catalog => markMissingSounds(catalog, window.desktop.missingEventSounds, modelPath));
 }
+/** Resolve and classify each distinct model once for the Node Manager picker. */
+export async function loadSpawnChoices(rows, modelPath) {
+  const names = [...new Set(rows.flatMap(row => row.definition ? [row.definition.resourcePath] : []))];
+  const records = await window.desktop.resolveEventResources({ names, path: modelPath });
+  const { hasEventRenderContent, parseEventRenderModel } = await import('./event-render-model.js');
+  const usable = new Map(), unsupported = new Set();
+  let sliceStart = performance.now();
+  for (const record of records) {
+    if (!record.bytes?.byteLength) continue;
+    const key = gamePathKey(record.name);
+    try {
+      const model = parseEventRenderModel(record.bytes, record.name);
+      if (hasEventRenderContent(model)) usable.set(key, record);
+      else unsupported.add(key);
+    } catch {
+      unsupported.add(key);
+    }
+    if (performance.now() - sliceStart >= 8) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      sliceStart = performance.now();
+    }
+  }
+  return { usable, unsupported };
+}
+
 export const MISSING_SOUND = 'No sound file in the game';
 export const MISSING_SOUND_TIP = 'Warcraft III lists this sound, but its file is not in your game files, so it cannot be played.';
 

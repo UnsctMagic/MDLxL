@@ -29,12 +29,16 @@ function freezeZeroLengthTracks(model) {
   });
 }
 
+export function hasEventRenderContent(model) {
+  return Boolean(model.Geosets?.length || model.ParticleEmitters2?.length || model.RibbonEmitters?.length);
+}
+
 function openModernEventMdx(bytes, resourcePath) {
   const doc = openDocument(bytes, resourcePath);
   if (doc.hdViewOnly || hdContentIssues(doc.model).length) throw new Error(HD_UNSUPPORTED_MESSAGE);
   if (doc.readOnly) throw new Error('This model format cannot be previewed.');
   const { model } = doc;
-  if (!model.Geosets?.length && !model.ParticleEmitters2?.length && !model.RibbonEmitters?.length) {
+  if (!hasEventRenderContent(model)) {
     throw new Error('This model has no effects the preview can display.');
   }
   freezeZeroLengthTracks(model);

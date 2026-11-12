@@ -1,6 +1,6 @@
 # Contract: Spawn Objects that show nothing
 
-Status: inline preview packaged, ready for owner hand test
+Status: usable-only picker implemented, package approval pending
 Owner / consolidator: Codex (fix), Claude Code (diagnosis, contract and review)
 Updated: 2026-11-12
 
@@ -53,16 +53,14 @@ HBS0 is in group D, so expect overlap.
    (imported library). HD content stays refused as now. If a model in this group
    still cannot render after reuse, list it here with the reason; do not invent a
    substitute effect.
-3. **Group D and E are honest.** Rows whose model cannot be found through the
-   app's resolver, and rows with no model, stay listed (the owner may want the
-   name for the game) but are marked as having nothing to preview, using the
-   wording and look the Sound list already uses for missing sounds
-   (`MISSING_SOUND` / `MISSING_SOUND_TIP` in
-   [node-event-data.js](../../app/node-event-data.js)). No new style.
-4. **No silent failure.** When the picked Spawn Object cannot show, Node Manager
-   says so under the list in the same `field-error` line it uses for sound
-   errors, with the short reason ("This model format cannot be previewed",
-   "Not found in the game files"). Plain words, no flavour text.
+3. **Only usable Spawn Objects appear in the picker.** The owner superseded
+   the earlier request to list unavailable rows. Omit empty model paths,
+   missing files, and models the event renderer cannot decode or display.
+   Search and switching to the Spawn Object type use those same choices.
+4. **Keep existing assignments.** An already-authored unavailable ID stays on
+   its node and shows the short reason in the existing error line, such as
+   "No model listed", "Not found in the game files" or
+   "This model format cannot be previewed".
 5. **Nothing else changes.** Group A renders byte-for-byte as before (same
    instances, lifespans, positions). Blood, Footprint, Uber Splat and Sound
    behaviour unchanged. Camera never moves on pick (AGENTS.md viewpoint rule).
@@ -111,8 +109,9 @@ authored event timing are independent of it.
   and the interval check fails. The host event clock was left as-is.
 - Format-1800 resources outside the existing particle-only layout use
   openDocument and its compatibility codec on the resource bytes in memory.
-  HD content remains unsupported. Node Manager marks empty model fields and
-  files missing after the app resolver, and shows a short error under the list.
+  HD content remains unsupported. Node Manager uses the app resolver and
+  the event decoder to filter choices. An unavailable assignment still has
+  a short error under the list.
 - Built and packaged on D:. Opened the packaged editor with the named model
   on the hidden desktop. Picked UBGH once and UEGG once, confirmed that both
   selected the corresponding event ID and that the editor stayed responsive.
@@ -122,7 +121,7 @@ authored event timing are independent of it.
   D:\Claude\MDLxL\TestBuilds\spawn-object-previews\Open Spawn Object Test.cmd.
   It uses a dedicated owner profile and the local Warcraft III installation.
 
-## Next action
+## Previous package verification
 
 The rebuilt package from 13e0fe94 is behind the existing launcher and uses
 the same owner profile. GPT-6 Luna checked the named Footman copy on the hidden
@@ -132,3 +131,9 @@ its target stayed fixed. TEST showed "Not found in the game files" and HBDH
 showed "No model listed". The missing picks cleared the inline preview.
 No suites were written or run. The full 104-row classification and group A
 regression check follow owner acceptance.
+
+## Next action
+
+The current package predates the usable-only picker. After approval, rebuild
+and check the filtered list, search, type switching and pre-existing
+unavailable assignments in the hidden app with the named test model.
