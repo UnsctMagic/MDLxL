@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| FX effect redesign after trial 06 | In progress; local branch `claude/fx-effects` | [Effect redesign](fx-effect-redesign.md) / Claude |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | OptimizeXL exact redundancy | Ready for review; awaiting merge approval ([PR #548](https://github.com/UnsctMagic/MDLxL/pull/548)) | [Exact cleanup](optimizexl-exact-cleanup.md) / Codex |
 | Citadel Paint: New base coat layout and pro controls | Ready for owner hand test; local branch only | [Layout and controls](citadel-new-base-coat-layout.md) / Claude |
