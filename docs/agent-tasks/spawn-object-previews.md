@@ -1,6 +1,6 @@
 # Contract: Spawn Objects that show nothing
 
-Status: inline preview implemented, package approval pending
+Status: inline preview packaged, ready for owner hand test
 Owner / consolidator: Codex (fix), Claude Code (diagnosis, contract and review)
 Updated: 2026-11-12
 
@@ -124,7 +124,11 @@ authored event timing are independent of it.
 
 ## Next action
 
-After approval, build and package the inline preview and check UBGH, UEGG,
-mouse rotation and the missing-model line in the hidden package. The first
-handoff package predates the inline preview. The full 104-row classification
-and the group A regression check still follow owner acceptance.
+The rebuilt package from 13e0fe94 is behind the existing launcher and uses
+the same owner profile. GPT-6 Luna checked the named Footman copy on the hidden
+desktop. Cropped captures showed UBGH and UEGG animating below the picker.
+An actual left-button mouse drag changed the inline camera position while
+its target stayed fixed. TEST showed "Not found in the game files" and HBDH
+showed "No model listed". The missing picks cleared the inline preview.
+No suites were written or run. The full 104-row classification and group A
+regression check follow owner acceptance.
