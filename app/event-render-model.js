@@ -1,6 +1,7 @@
 import { parseMDL, parseMDX } from 'war3-model';
 import { parseMdx, SUPPORTED_FORMAT_VERSIONS } from '../src/mdx-container.js';
-import { validateModel } from '../src/editor-document.js';
+import { openDocument, validateModel } from '../src/editor-document.js';
+import { visitTracks } from '../src/animation.js';
 import { hdContentIssues, HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
 import { convertMdxGeosetColorTracks } from '../src/geoset-color-codec.js';
 
@@ -17,6 +18,29 @@ const RENDERER_VERSIONS = [800, 900, 1000, 1100];
 // Newer layouts are previewed only as verified ParticleEmitter2-only scenes.
 const PARTICLE_SCENE_VERSIONS = SUPPORTED_FORMAT_VERSIONS.filter(version => version >= 1200);
 
+function freezeZeroLengthTracks(model) {
+  if (!model.GlobalSequences?.includes(0)) return;
+  visitTracks(model, track => {
+    const first = track.Keys[0];
+    // Upstream uses the first key as a constant if it lies beyond the global interval.
+    if (model.GlobalSequences[track.GlobalSeqId] === 0 && first?.Frame > 0) {
+      track.Keys = [{ ...first, Frame: 0 }];
+    }
+  });
+}
+
+function openModernEventMdx(bytes, resourcePath) {
+  const doc = openDocument(bytes, resourcePath);
+  if (doc.hdViewOnly || hdContentIssues(doc.model).length) throw new Error(HD_UNSUPPORTED_MESSAGE);
+  if (doc.readOnly) throw new Error('This model format cannot be previewed.');
+  const { model } = doc;
+  if (!model.Geosets?.length && !model.ParticleEmitters2?.length && !model.RibbonEmitters?.length) {
+    throw new Error('This model has no effects the preview can display.');
+  }
+  freezeZeroLengthTracks(model);
+  return model;
+}
+
 /** Decode a private event resource without downgrading its version or bytes. */
 export function parseEventRenderModel(input, resourcePath = '') {
   const bytes = input instanceof ArrayBuffer ? new Uint8Array(input) : new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
@@ -26,11 +50,12 @@ export function parseEventRenderModel(input, resourcePath = '') {
     container = parseMdx(bytes);
     if (PARTICLE_SCENE_VERSIONS.includes(container.version)) {
       if (container.hasErrors) throw new Error('Event model has damaged MDX chunks.');
-      if (container.chunks.some(chunk => (chunk.data.length || !chunk.known) && !PARTICLE_1200_CHUNKS.has(chunk.tag))) {
-        throw new Error(`Format ${container.version} event preview currently supports ParticleEmitter2 scenes only.`);
-      }
       if (container.chunks.filter(chunk => chunk.tag === 'VERS').length !== 1 || container.chunks.find(chunk => chunk.tag === 'VERS')?.data.length !== 4) {
         throw new Error('Event model has an invalid version chunk.');
+      }
+      if (container.chunks.some(chunk => (chunk.data.length || !chunk.known) && !PARTICLE_1200_CHUNKS.has(chunk.tag))) {
+        if (container.version === 1800) return openModernEventMdx(bytes, resourcePath);
+        throw new Error(`Format ${container.version} event preview currently supports ParticleEmitter2 scenes only.`);
       }
     } else if (!RENDERER_VERSIONS.includes(container.version)) throw unsupported(container.version);
   }
@@ -40,17 +65,23 @@ export function parseEventRenderModel(input, resourcePath = '') {
     if (!RENDERER_VERSIONS.includes(model.Version)) throw unsupported(model.Version);
     // HD models are unsupported, as in the editor; do not attempt to render them.
     if (hdContentIssues(model).length) throw new Error(HD_UNSUPPORTED_MESSAGE);
+    freezeZeroLengthTracks(model);
     return model;
   }
-  // Only MDX offers the complete chunk inventory needed to verify this narrow
-  // runtime profile. Unsupported geometry/lights remain visible diagnostics.
+  // Only MDX offers the complete chunk inventory needed to verify this profile.
   if (!container || !model.ParticleEmitters2?.length) throw new Error(`Format ${model.Version} event preview currently supports ParticleEmitter2 scenes only.`);
-  const invalid = validateModel(model).find(item => item.severity === 'error');
+  // Give only the save validator a positive duration. The renderer keeps the
+  // authored zero duration, which pins its clock to frame zero.
+  const validationModel = model.GlobalSequences?.includes(0)
+    ? { ...model, GlobalSequences: model.GlobalSequences.map(duration => duration === 0 ? 1 : duration) }
+    : model;
+  const invalid = validateModel(validationModel).find(item => item.severity === 'error');
   if (invalid) throw new Error(`Invalid event model: ${invalid.message}`);
   for (const emitter of model.ParticleEmitters2) {
     if (![emitter.Rows, emitter.Columns].every(value => Number.isInteger(value) && value > 0)
       || !(emitter.LifeSpan > 0) || ![0, 1, 2, 3, 4].includes(emitter.FilterMode)
       || ![1, 2, 3].includes(emitter.FrameFlags)) throw new Error('Event particle emitter has invalid rendering parameters.');
   }
+  freezeZeroLengthTracks(model);
   return model;
 }

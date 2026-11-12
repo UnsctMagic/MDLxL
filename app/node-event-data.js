@@ -58,7 +58,7 @@ export function eventCatalog(records) {
     if (existing < 0) catalog.SND.push(sound); else catalog.SND[existing] = sound;
   }
   for (const [type, name] of Object.entries(EVENT_TABLE_PATHS)) for (const [id, row] of table(name)) {
-    if (id === 'INIT') continue;
+    if (id === 'INIT' && type !== 'SPN') continue;
     const label = row.comment || row.Model || row.file || id;
     catalog[type].push({ id, label: `${label} · ${id}`, definition:resolveEventDefinition(`${type}x${id}`, tables) });
   }

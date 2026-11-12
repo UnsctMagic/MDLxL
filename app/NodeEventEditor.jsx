@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SelectField } from './Fields.jsx';
 import { EVENT_TYPES, SOUND_EXPANSIONS, assignEventData, setEventFrame, resolveEventSound, MISSING_SOUND, MISSING_SOUND_TIP } from './node-event-data.js';
 import EventSoundTree from './EventSoundTree.jsx';
 import EventDecalPreview from './EventDecalPreview.jsx';
+import { parseEventRenderModel } from './event-render-model.js';
+import { gamePathKey } from '../src/game-path.js';
 import { readStored, writeStored } from '../src/local-store.js';
 
 const EXPANSIONS_KEY = 'mdlxl-sound-expansions';
@@ -13,6 +15,16 @@ const EXPANSION_TIPS = {
 };
 const SEARCH_LABELS = { SND: 'Search sounds', SPL: 'Search blood', FPT: 'Search footprints', UBR: 'Search uber splats', SPN: 'Search spawn objects' };
 
+const NO_SPAWN_MODEL = 'No model listed';
+const MISSING_SPAWN_MODEL = 'No model file in the game';
+const MISSING_SPAWN_TIP = 'Warcraft III lists this spawn object, but its model file is not in your game files, so it cannot be previewed.';
+
+function spawnOptionStatus(row, records) {
+  if (!row.definition) return NO_SPAWN_MODEL;
+  if (records && !records.has(gamePathKey(row.definition.resourcePath))) return MISSING_SPAWN_MODEL;
+  return '';
+}
+
 // Shows only the chosen event kind. Type, timing and node fields wait behind
 // one closed disclosure (children are the generic node fields).
 export default function NodeEventEditor({ node, model, modelPath, catalog, error: catalogError, edit, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
@@ -20,6 +32,34 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
   const [query, setQuery] = useState(''), [audioSource, setAudioSource] = useState(null), [fileIndex, setFileIndex] = useState(0), [error, setError] = useState('');
   const [expansions, setExpansions] = useState(readExpansions);
   const audio = useRef(null), rows = catalog?.[type] || [], selected = rows.find(row => row.id === id);
+  const spawnRows = type === 'SPN' ? catalog?.SPN : null;
+  const [spawnLookup, setSpawnLookup] = useState(null);
+  useEffect(() => {
+    if (!spawnRows?.length) return;
+    let active = true;
+    const names = spawnRows.flatMap(row => row.definition ? [row.definition.resourcePath] : []);
+    window.desktop.resolveEventResources({ names, path: modelPath }).then(found => {
+      if (!active) return;
+      const records = new Map(found.filter(record => record.bytes?.byteLength).map(record => [gamePathKey(record.name), record]));
+      setSpawnLookup({ spawnRows, modelPath, records });
+    }, () => {
+      if (active) setSpawnLookup({ spawnRows, modelPath, error: 'Could not look up models in the game files' });
+    });
+    return () => { active = false; };
+  }, [spawnRows, modelPath]);
+  const lookup = spawnLookup?.spawnRows === spawnRows && spawnLookup?.modelPath === modelPath ? spawnLookup : null;
+  const spawnRecords = lookup?.records;
+  const selectedSpawnPath = type === 'SPN' ? selected?.definition?.resourcePath : null;
+  const spawnError = useMemo(() => {
+    if (!selectedSpawnPath) return '';
+    if (!spawnRecords) return lookup?.error || '';
+    const record = spawnRecords.get(gamePathKey(selectedSpawnPath));
+    if (!record) return 'Not found in the game files';
+    try { parseEventRenderModel(record.bytes, selectedSpawnPath); }
+    catch { return 'This model format cannot be previewed'; }
+    return '';
+  }, [selectedSpawnPath, spawnRecords, lookup?.error]);
+  const selectedSpawnError = type === 'SPN' && selected && !selected.definition ? NO_SPAWN_MODEL : spawnError;
   const matches = rows.filter(row => row.label.toLowerCase().includes(query.toLowerCase()));
   const sounds = type === 'SND' ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
   const toggleExpansion = key => setExpansions(previous => {
@@ -45,11 +85,14 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
   return <div className="re-event-editor">
     {type === 'SND' && <div className="re-sound-expansions" role="group" aria-label="Expansions">{Object.entries(SOUND_EXPANSIONS).map(([key, name]) => <button type="button" key={key} aria-pressed={expansions.has(key)} title={EXPANSION_TIPS[key]} onClick={() => toggleExpansion(key)}>{key}<small>{rows.filter(row => row.expansion === key).length}</small></button>)}</div>}
     <input type="search" aria-label={SEARCH_LABELS[type]} placeholder={SEARCH_LABELS[type]} value={query} onChange={e=>setQuery(e.target.value)}/>
-    {type === 'SND' ? <EventSoundTree rows={sounds} selectedId={id} query={query} onSelect={next=>assign(type,next)}/> : <select size="7" aria-label={EVENT_TYPES[type]} value={id || ''} onChange={e=>assign(type,e.target.value)}>{!selected && <option value={id || ''}>{id || 'Select event data'}</option>}{matches.map(row=><option key={row.id} value={row.id}>{row.label}</option>)}</select>}
+    {type === 'SND' ? <EventSoundTree rows={sounds} selectedId={id} query={query} onSelect={next=>assign(type,next)}/> : <select size="7" aria-label={EVENT_TYPES[type]} value={id || ''} onChange={e=>assign(type,e.target.value)}>{!selected && <option value={id || ''}>{id || 'Select event data'}</option>}{matches.map(row => {
+      const status = type === 'SPN' ? spawnOptionStatus(row, spawnRecords) : '';
+      return <option key={row.id} value={row.id} className={status ? 're-sound-missing' : undefined} title={status === MISSING_SPAWN_MODEL ? MISSING_SPAWN_TIP : status || undefined}>{status ? row.label + ' · ' + status : row.label}</option>;
+    })}</select>}
     {file && <>{selected.files.length > 1 && <SelectField label="Sound file" value={fileIndex} options={selected.files.map((name,value)=>({value,label:name.split(/[\\/]/).at(-1)}))} onChange={v=>setFileIndex(Number(v))}/>}<audio key={file} ref={audio} aria-label="Sound preview" controls preload="auto" src={audioUrl || undefined} onError={()=>{if(audioUrl)setError('Sound format could not be played.');}}/></>}
     {selected?.definition && ['SPL','FPT','UBR'].includes(type) && <EventDecalPreview definition={selected.definition} modelPath={modelPath}/>}
     {type === 'SND' && selected?.missing && <p className="re-sound-missing" title={MISSING_SOUND_TIP}>{MISSING_SOUND}</p>}
-    {(error || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
+    {(error || selectedSpawnError || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || selectedSpawnError || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
     {global < 0 && <SelectField label="Preview animation" value={sequenceIndex} options={model.Sequences.map((seq,value)=>({value,label:seq.Name}))} onChange={v=>onSequenceChange(Number(v))}/>}
     <div className="re-event-frames"><span>Event tracks</span><div>{Array.from(node.EventTrack || []).map(at=><button key={at} aria-label={`Event frame ${at}`} onClick={()=>onSeek(at)}>{at}</button>)}</div><button onClick={()=>edit('Add event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,true))}>Add at {frame}</button><button disabled={!Array.from(node.EventTrack || []).includes(frame)} onClick={()=>edit('Remove event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,false))}>Remove</button></div>
     <details className="re-event-settings"><summary title="Change the event type, global sequence, name, parent or pivot of this event node.">Node settings</summary>
