@@ -572,7 +572,7 @@ export default function Viewport({ children, ...inputProps }) {
       }
       if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
-      if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
+      if ((latest.current.onDoubleClickParts || down.action === 'parts') && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
       if (down.action === 'parts') { end.shift=partSnap(event); down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') { anchorMove = { down, rawEnd }; anchorFrame.schedule(); return; }
@@ -1222,6 +1222,39 @@ export default function Viewport({ children, ...inputProps }) {
       }
       state.dirty = true; state.scheduler?.invalidate();
       return;
+    }
+    // Forge operates inside this viewport. Its preview keeps the model's
+    // materials and rig, so replace only the edited geoset buffers, including
+    // topology changes. Other geosets, their materials and camera stay alive.
+    if (props.forgeGeometryPreview && before && before.shaded === shaded && before.lighting === graphics.lighting &&
+        !props.modelingOverlay && !before.modelingOverlay && before.model.Materials === model.Materials &&
+        state.entries.length === model.Geosets.length && state.entries.every((entry, i) => entry.geoset.MaterialID === model.Geosets[i].MaterialID)) {
+      for (const [i,entry] of state.entries.entries()) {
+        const g=model.Geosets[i];if(entry.geoset===g)continue;
+        const surfaces=[...new Set([entry.geometry,...entry.meshes.map(mesh=>mesh.geometry)])];
+        const markers=[entry.points,entry.hiddenPoints,entry.selectedPoints,entry.hiddenSelectedPoints,entry.hoverPoints];
+        const resized=entry.geometry.attributes.position.array.length!==g.Vertices.length;
+        if(resized)for(const geometry of new Set([...surfaces,...markers.map(mesh=>mesh.geometry)]))geometry.dispose();
+        const attribute=(geometry,name,values,size)=>{
+          const current=geometry.getAttribute(name);
+          if(current?.array.length===values.length){current.array.set(values);current.needsUpdate=true;return current;}
+          const next=new THREE.BufferAttribute(new Float32Array(values),size).setUsage(THREE.DynamicDrawUsage);geometry.setAttribute(name,next);return next;
+        };
+        const positions=attribute(entry.geometry,'position',g.Vertices,3),normals=attribute(entry.geometry,'normal',g.Normals,3);
+        if(entry.geometry.index.array.length===g.Faces.length){entry.geometry.index.array.set(g.Faces);entry.geometry.index.needsUpdate=true;}
+        else{if(!resized)for(const geometry of surfaces)geometry.dispose();entry.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(g.Faces),1));}
+        for(const [layer,mesh] of entry.meshes.entries()){
+          mesh.geometry.setAttribute('position',positions);mesh.geometry.setAttribute('normal',normals);mesh.geometry.setIndex(entry.geometry.index);
+          const uv=g.TVertices[entry.layers[layer].CoordId||0]||g.TVertices[0];
+          attribute(mesh.geometry,'uv',uv,2);mesh.userData.baseUV=new Float32Array(uv);
+        }
+        for(const marker of markers)marker.geometry.setAttribute('position',positions);
+        const sameFaces=entry.geoset.Faces.length===g.Faces.length&&g.Faces.every((v,i)=>v===entry.geoset.Faces[i]);
+        entry.geoset=g;
+        if(!sameFaces){entry.edgeIndices=uniqueEdges(g.Faces);entry.wireGeometry.dispose();}
+        entry.geometry.computeBoundingSphere();updateWideWireGeometry(entry);
+      }
+      state.selectionKey='';state.dirty=true;state.scheduler.invalidate();return;
     }
     if (state.drag) latest.current.onTransformPreview?.(null);
     state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true;

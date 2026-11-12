@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Folder, FolderOpen, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
 import { FOLDER_COLORS } from '../src/tree-appearance.js';
-import { soundFolders } from './node-event-data.js';
+import { soundFolders, MISSING_SOUND_TIP } from './node-event-data.js';
 
 const colors = Object.fromEntries(FOLDER_COLORS.map(([key]) => [key, `var(--tree-folders-${key})`]));
 const folderLabel = value => ({NightElf:'Night Elf', UI:'UI', AI:'AI'}[value] || value.replace(/([a-z])([A-Z])/g, '$1 $2'));
@@ -34,7 +34,7 @@ export default function EventSoundTree({ rows, selectedId, query, onSelect }) {
         {open && <div role="group">{render(folder, path, level + 1, tint)}</div>}
       </div>;
     })}
-    {branch.sounds.map(row => <button type="button" role="treeitem" aria-selected={row.id === selectedId} aria-label={row.label} data-sound-id={row.id} key={row.id} className="re-sound-item" style={{paddingLeft:19 + level * 14}} onClick={() => onSelect(row.id)}><Volume2 style={{color}}/><span>{row.label.split(' · ')[0]}</span><small>{row.expansion ? `${row.expansion} · ` : ''}{row.id}</small></button>)}
+    {branch.sounds.map(row => <button type="button" role="treeitem" aria-selected={row.id === selectedId} aria-label={row.label} data-sound-id={row.id} key={row.id} className={row.missing ? 're-sound-item re-sound-item-missing' : 're-sound-item'} title={row.missing ? MISSING_SOUND_TIP : undefined} style={{paddingLeft:19 + level * 14}} aria-disabled={row.missing || undefined} onClick={() => { if (!row.missing) onSelect(row.id); }}><Volume2 style={{color}}/><span>{row.label.split(' · ')[0]}</span><small>{row.expansion ? `${row.expansion} · ` : ''}{row.id}</small></button>)}
   </>;
   return <div className="re-sound-tree" role="tree" aria-label="Sound categories">{root.count ? render(root) : <p className="re-sound-empty">No sounds match.</p>}</div>;
 }

@@ -24,6 +24,45 @@ function soundCandidates(name, names, locales) {
     return rank(a) - rank(b) || a.localeCompare(b);
   });
 }
+const soundFile = stem => stem.slice(stem.lastIndexOf('\\') + 1);
+const soundFolder = stem => stem.slice(0, stem.lastIndexOf('\\') + 1);
+// Some rows of the game's sound table name a file Blizzard stored elsewhere:
+// the same file name in one other folder, or numbered variants (Name1, Name2)
+// beside it. Only an unambiguous match counts; nothing else is guessed.
+function soundFallbacks(name, names, locales) {
+  const requested = gamePathKey(name), stem = soundStem(requested), folder = soundFolder(stem), file = soundFile(stem);
+  const explicitModules = requested.split(':').slice(1, -1);
+  const usable = names.filter(candidate => {
+    const lower = candidate.toLowerCase(), locale = lower.match(/_locales\\([a-z]{4})\.w3mod:/)?.[1];
+    return explicitModules.every(module => lower.includes(module + ':')) && (!locale || locales.includes(locale));
+  });
+  const rank = value => { const lower = value.toLowerCase(); return lower.includes('_de.w3mod:') ? 30 : lower.includes('_hd.w3mod:') ? 20 : lower.includes('_sd.w3mod:') ? 10 : 0; };
+  const pick = test => {
+    const found = usable.filter(candidate => test(soundStem(candidate)));
+    return new Set(found.map(candidate => soundFolder(soundStem(candidate)))).size === 1 ? found.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true })) : [];
+  };
+  const moved = pick(candidate => soundFile(candidate) === file && soundFolder(candidate) !== folder);
+  if (moved.length || /\d$/.test(file)) return moved;
+  return pick(candidate => soundFolder(candidate) === folder && soundFile(candidate).startsWith(file) && /^\d+$/.test(soundFile(candidate).slice(file.length)));
+}
+// Listed sounds grouped by file name (and by name without a trailing number),
+// so a lookup only scans the few files that can match.
+function soundGroups(listing) {
+  if (listing.groups) return listing.groups;
+  const groups = new Map(), add = (key, value) => { if (!groups.has(key)) groups.set(key, []); groups.get(key).push(value); };
+  for (const value of listing.names || []) {
+    const file = soundFile(soundStem(value));
+    add(file, value);
+    const root = file.replace(/\d+$/, '');
+    if (root !== file) add(root, value);
+  }
+  Object.defineProperty(listing, 'groups', { value: groups });
+  return groups;
+}
+function soundMatches(name, listing, locales) {
+  const nearby = [...new Set(soundGroups(listing).get(soundFile(soundStem(gamePathKey(name)))) || [])];
+  return [...soundCandidates(name, nearby, locales), ...soundFallbacks(name, nearby, locales)];
+}
 
 class CascReader {
   constructor(folder, cwd) {
@@ -84,12 +123,10 @@ class CascTextures {
       const direct = await this.lookup(name, folders);
       if (direct) return {bytes:direct, sourceName:name};
       for (const folder of folders || []) {
-        let build; try { build = await fs.readFile(path.join(folder, '.build.info')); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-        const install = installKey(folder, build);
-        let index = this.soundIndexes.get(install);
-        if (!index) { index = (await this.cachedListing(folder, 'sounds', LISTINGS.sounds, install)).listing; this.soundIndexes.set(install, index); }
-        const locales = buildLocales(build);
-        for (const candidate of soundCandidates(name, index.names, locales)) {
+        const source = await this.soundIndex(folder);
+        if (!source) continue;
+        const { install, index, locales } = source;
+        for (const candidate of soundMatches(name, index, locales)) {
           const key = index.keys?.[candidate.toLowerCase()];
           if (!/^[a-f0-9]{32}$/i.test(key || '')) continue;
           const bytes = await this.lookup('@ckey:' + key, [folder], new Map([[folder, install]]));
@@ -97,6 +134,23 @@ class CascTextures {
         }
       }
       return null;
+    });
+    this.queue = operation; return operation;
+  }
+  async soundIndex(folder) {
+    let build; try { build = await fs.readFile(path.join(folder, '.build.info')); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+    const install = installKey(folder, build);
+    let index = this.soundIndexes.get(install);
+    if (!index) { index = (await this.cachedListing(folder, 'sounds', LISTINGS.sounds, install)).listing; this.soundIndexes.set(install, index); }
+    return { install, index, locales: buildLocales(build) };
+  }
+  /** Sound paths no listed installation has a file for. Without an installation nothing is reported missing. */
+  missingSounds(names, folders) {
+    const operation = this.queue.catch(() => {}).then(async () => {
+      const sources = [];
+      for (const folder of [...new Set(folders || [])]) { const source = await this.soundIndex(folder); if (source) sources.push(source); }
+      if (!sources.length) return [];
+      return names.filter(name => sources.every(({ index, locales }) => !soundMatches(name, index, locales).some(candidate => index.keys?.[candidate.toLowerCase()])));
     });
     this.queue = operation; return operation;
   }
@@ -223,4 +277,4 @@ class CascTextures {
   }
   async close() { await this.queue.catch(() => {}); for (const {reader,timer} of this.readers.values()) { clearTimeout(timer); reader.close(); } this.readers.clear(); }
 }
-module.exports = { CascReader, CascTextures, soundCandidates, installKey, buildLocales };
+module.exports = { CascReader, CascTextures, soundCandidates, soundFallbacks, installKey, buildLocales };

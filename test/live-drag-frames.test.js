@@ -93,7 +93,7 @@ const coalescedDrags = [
   { name: 'Movable window drag', file: 'app/useMovableWindow.js', from: 'onPointerMove:', to: 'onPointerUp:', forbidden: /setPosition|getBoundingClientRect/ },
   { name: 'Timeline scrub', file: 'app/KeyframeTimeline.jsx', from: 'const move = pointer => {', to: 'const end = pointer =>', forbidden: /\bseek\(/ },
   { name: 'Viewport hover', file: 'app/Viewport.jsx', from: 'hoverMove = { event:', to: "if (down.action === 'sketch')", forbidden: /hoverParts\(|inspectHoveredGeoset\(/ },
-  { name: 'Forge part drags', file: 'app/Viewport.jsx', from: "if (down.action === 'parts') {", to: "if (down.action === 'normalizer')", forbidden: /\.update\(/ },
+  { name: 'Forge part drags (standalone and Vertex toolset)', file: 'app/Viewport.jsx', from: "if (down.action === 'parts') {", to: "if (down.action === 'normalizer')", forbidden: /\.update\(/ },
   { name: 'Zoom anchor marquee', file: 'app/Viewport.jsx', from: "if (down.action === 'anchor') {", to: "if (down.action === 'zoom')", forbidden: /anchorVertexInMarquee|showBox|setBox/ },
   { name: 'AI sketch line', file: 'app/viewport-sketch.js', from: 'stroke.onSurface.push(hit.surface);', to: 'const lineFrame', forbidden: /lineFor\(|dispose\(/ },
   { name: 'Preview bone and POSE drag', file: 'app/GamePreview.jsx', from: 'nodeMove = { gesture: nodeGesture', to: 'const applyNodeMove', forbidden: /applyMovementTransform|previewPoseGesture\(nodeGesture|setGestureLabel/ },

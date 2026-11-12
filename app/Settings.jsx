@@ -18,7 +18,7 @@ import { appearanceEdit, appearanceLook } from '../src/settings-presets.js';
 import { modifierLabel, modifierRows } from '../src/modifier-bindings.js';
 import { TOOLBAR_MODE_LABELS } from '../src/toolbar-mode.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
-import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
+import { CONTROLLER_SHAPES, HANDLE_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
 import { updateStatusText } from './UpdatePrompt.jsx';
 import { BONE_INFLUENCE_TIP } from './bone-display.js';
@@ -460,7 +460,7 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
         <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
           <ControllerPreview appearance={prefs.viewportAppearance.controllers}/>
           {[['moveGizmo', 'Move gizmo', ['Classic', 'Today', 'Bold']], ['rotateHandles', 'Rotate handles', ['Lines', 'Rings', 'Arcs']]].map(([key, label, choices]) => <label className="settings-select" key={key} title={key === 'rotateHandles' ? 'Lines swing as levers; Rings and Arcs turn around their axis.' : 'Choose the thickness and heads of the Move handles.'}><span>{label}</span><select aria-label={label} value={prefs.viewportAppearance.controllers[key]} onChange={event => viewportPart('controllers', { [key]: event.target.value })}>{choices.map(name => <option key={name} value={name.toLowerCase()}>{name}</option>)}</select></label>)}
-          <div className="settings-controller-shapes">{[['shape', 'Handle shape'], ['bodyShape', 'Body shape'], ['bendShape', 'Bend shape']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={label} value={prefs.viewportAppearance.controllers[key]} onChange={event => viewportPart('controllers', { [key]: event.target.value })}>{CONTROLLER_SHAPES.map(shape => <option key={shape} value={shape}>{shape[0].toUpperCase() + shape.slice(1)}</option>)}</select></label>)}</div>
+          <div className="settings-controller-shapes">{[['shape', 'Handle shape'], ['bodyShape', 'Body shape'], ['bendShape', 'Bend shape']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={label} value={prefs.viewportAppearance.controllers[key]} onChange={event => viewportPart('controllers', { [key]: event.target.value })}>{(key === 'shape' ? HANDLE_SHAPES : CONTROLLER_SHAPES).map(shape => <option key={shape} value={shape}>{shape[0].toUpperCase() + shape.slice(1)}</option>)}</select></label>)}</div>
           <label className="settings-select"><span>Pin button</span><select aria-label="Pin button style" value={prefs.viewportAppearance.controllers.pinStyle} onChange={event => viewportPart('controllers', { pinStyle: event.target.value })}>{PIN_STYLES.map((style, index) => <option key={style} value={style}>{['Icon and label', 'Square icon', 'Round icon'][index]}</option>)}</select></label>
           <Toggle label="Show body-part symbols" checked={prefs.viewportAppearance.controllers.symbols} onChange={symbols => viewportPart('controllers', { symbols })}/>
           <Numeric label="Controller size" min={12} max={24} unit="px" value={prefs.viewportAppearance.controllers.size} onChange={size => viewportPart('controllers', { size })}/>

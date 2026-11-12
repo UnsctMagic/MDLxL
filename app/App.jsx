@@ -1,6 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
+import { appendVertexForgeShape } from '../src/forge-vertex.js';
+import { buildForgePrimitive } from '../src/forge-primitives.js';
+const ForgeVertexTools = lazy(() => import('./ForgeVertexTools.jsx'));
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
@@ -230,6 +233,7 @@ export default function App() {
   const [hiddenByUser, setHiddenByUser] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
   const [normalizer, setNormalizer] = useState(null), normalizerKeepRef = useRef(null);
+  const [forgeToolsOpen,setForgeToolsOpen]=useState(false),[forgePreview,setForgePreview]=useState(null),[forgePicking,setForgePicking]=useState(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
@@ -440,6 +444,7 @@ export default function App() {
   const editable = !doc.readOnly && mode !== 'animation' && mode !== 'paint' && mode !== 'showcase' && !saving;
   const edit = (label, sections, operation, options = {}) => {
     if (savingRef.current) return false;
+    forgePreview?.cancel();
     try {
       const ticket = selectionHistory.captureEdit(selectionState), guard = captureUVPreviewGuard(doc.model, session.uvPreviews);
       const result = doc.apply(label, sections, m => {
@@ -654,6 +659,7 @@ export default function App() {
   };
 
   const setWorkTool = next => {
+    forgePreview?.cancel();
     sketchStore.clearTool();
     const movement = next === 'translate' ? 'move' : next;
     if (uvEditing) { uvAction('tool', movement); return; }
@@ -1961,7 +1967,8 @@ export default function App() {
       setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
       placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); },
-      onHiddenTeamColor: () => setLauncherQuery(translate('Team color'))
+      onHiddenTeamColor: () => setLauncherQuery(translate('Team color')),
+      onCallForge: async () => { await selectMode('vertices'); setNormalizer(null); setForgeToolsOpen(true); }
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     <Addons open={addonsOpen} onClose={() => setAddonsOpen(false)} onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/>
     {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={options => {
@@ -1971,7 +1978,15 @@ export default function App() {
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
-    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view" ref={captureViewport}>
+    <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}>
+      {mode==='vertices'&&forgeToolsOpen&&<Suspense fallback={null}><ForgeVertexTools key={session.id} model={model} revision={doc.revision} selection={validSelection} selectable={selectable} activeGeoset={activeGeoset} readOnly={doc.readOnly||saving} onPreview={setForgePreview} onPick={setForgePicking} onSelection={setSelection} onWorkTool={setWorkTool} onClose={()=>setForgeToolsOpen(false)} onCommit={(label,result,revision)=>{
+        if(doc.revision!==revision)return false;
+        const changed=edit(`Forge ${label}`,['Geosets'],m=>{for(let i=0;i<result.Geosets.length;i++)if(result.Geosets[i]!==model.Geosets[i])m.Geosets[i]=result.Geosets[i];});
+        if(changed!==false)setSelection(previous=>({...previous,...result.forgeSelection}));return changed;
+      }} onAdd={settings=>{
+        const added=edit('Forge add '+settings.shape,['Geosets'],m=>appendVertexForgeShape(m,activeGeoset,validSelection[activeGeoset]||[],buildForgePrimitive(settings),selectionCount?centroid:[0,0,0]),{rethrow:true});
+        if(added){setSelection(added.selection);setSelectable(previous=>new Set([...previous,activeGeoset]));setTool('translate');}return added;
+      }}/></Suspense>}<section className="classic-view" ref={captureViewport}>
       <WarningToasts messages={warnings} onDismiss={id => setWarnings(previous => previous.filter(item => item.id !== id))} actionWarning={duplicateAnimations.length ? { id: session.id, message: 'Duplicate geoset animations', title: 'Some geosets have more than one animation record. The model works; click to choose which record to keep.', onAction: () => setDialog({ type: 'geosetRepair' }) } : null}/>
       <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
@@ -1992,10 +2007,11 @@ export default function App() {
         highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView} onViewChange={setView}
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={bitReplacement?.original.id || session.id}
-        hoveredGeoset={highlightedFromSelection} model={normalizerModel || previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
-        selectedVertices={validSelection[activeGeoset] || []}
-        visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={validSelection}
-        onSelectionChange={next => {setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
+        onSelectParts={forgePicking?.select} forgeGeometryPreview={!!forgePreview} editHandles={forgePreview?.editHandles} onStartPartDrag={forgePreview?.onStartPartDrag} onCancelPartDrag={forgePreview?.cancel}
+        hoveredGeoset={highlightedFromSelection} model={forgePreview?.model || normalizerModel || previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
+        selectedVertices={forgePreview?.model?.forgeSelection?.[activeGeoset] || validSelection[activeGeoset] || []}
+        visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={forgePreview ? {...validSelection,...forgePreview.model.forgeSelection} : validSelection}
+        onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
         normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
@@ -2004,7 +2020,7 @@ export default function App() {
         workplane={workplane} transformMode={tool}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor({ ...next, kind: choosingZoomAnchor }); setChoosingZoomAnchor(false); say(choosingZoomAnchor === 'align' ? 'Align vertex selected.' : 'Anchor vertex selected.'); } }}
-        rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
+        rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={forgePreview ? null : vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}>
           {bitReplacement && <div className="bit-replacement-actions" role="group" aria-label="Replace Part">
             <ReplacementRgb model={model} geosetIds={bitRgbGeosets} disabled={!!dialog || !!settingsTab || saving}
