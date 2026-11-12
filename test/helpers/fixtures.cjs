@@ -12,6 +12,7 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
   'glow-eye-effect': ['MDLXL_GLOW_EYE_MODEL', testModel('glow-up/WH_VC_ZombieDragonVCarstein02.mdx')],
+  'glow-dual-weapon': ['MDLXL_GLOW_DUAL_MODEL', testModel('WH_WOC_WarriorSlaaneshDual01.mdx')],
   'optimizexl-exact-unit': ['MDLXL_EXACT_UNIT', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionUnit03_1.mdx')],
   'optimizexl-exact-hero': ['MDLXL_EXACT_HERO', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionHero03_1.mdx')],
   'optimizexl-pivots': ['MDLXL_OPTIMIZEXL_PIVOTS_MODEL', testModel('optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx')],
