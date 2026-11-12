@@ -463,7 +463,7 @@ function particles(c,l){
   Object.assign(p,{Squirt:false,Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,
    Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
-   EmissionRate:fly?1.3/l.lasts:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,rate*(.76+.24*Math.cos((k%8)*Math.PI/4+wave*1.7))])),
+   EmissionRate:fly?1.3/l.lasts:l.steadyRate?rate:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,rate*(.76+.24*Math.cos((k%8)*Math.PI/4+wave*1.7))])),
    Visibility:keys(id,ms,[[0,1],[1,1]]),FrameFlags:1,Time:fly?.5:.36,SegmentColor:colors.map(vec),
    ParticleScaling:vec(fly?[size,size,size]:flame?[size*.94,size,size*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
    Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});

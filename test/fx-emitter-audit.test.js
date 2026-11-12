@@ -56,3 +56,21 @@ for(const [label,size] of [['Eye sparks',[.18,.14,.1]],['Blood beads',[.12,.32,.
  const {emitters}=addEmitter(label);
  assert.ok(emitters.length>0&&emitters.every(p=>p.ParticleScaling[1]>0));
 });
+for(const label of ['Falling mist','Drifting lights','Orbiting stars'])test(label+' emits at a steady rate with no swell',()=>{
+ const {emitters}=addEmitter(label);
+ assert.ok(emitters.length>0&&emitters.every(p=>typeof p.EmissionRate==='number'&&p.EmissionRate>0));
+});
+test('Falling mist puffs stay within about a third of the unit height',()=>{
+ const doc=knight(),frame=partFrame(doc.model.Geosets[0]);frame.unitHeight=60;
+ const layer=makeLayer(choice('Falling mist'),frame,'glacier',1);
+ assert.ok(layer.size*1.38<=60*.35+1e-9,'largest puff '+(layer.size*1.38).toFixed(1));
+});
+test('motes are larger and emit at least two per second at every orbit',()=>{
+ const {layer,emitters}=addEmitter('Drifting lights'),plain=makeLayer({...choice('Drifting lights'),size:1},partFrame(knight().model.Geosets[37]),'native',1);
+ assert.ok(emitters.every(p=>p.EmissionRate>=2-1e-9),'per orbit '+emitters.map(p=>p.EmissionRate.toFixed(2)));
+ assert.equal(plain.size,1,'a look that sets its own size keeps it');assert.ok(layer.size>1);
+});
+test('Plague haze is additive, not a mud-coloured blend',()=>{
+ const {emitters}=addEmitter('Plague haze');
+ assert.ok(emitters.every(p=>p.FilterMode===1&&Math.max(...p.Alpha)<=120));
+});

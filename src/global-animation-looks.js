@@ -331,6 +331,18 @@ export function makeLayer(spec,frame,palette,id) {
  if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
  // A new native emitter shares its rate among the part's regions (saved layers without the flag compile as before).
  if(spec.type==='Particles'&&spec.kind==='native'&&!spec.impact)layer.sharedSites=true;
+ // New mist and motes emit at a steady rate (no rate swell). Mist puffs stay within about a third of the unit's height;
+ // motes are half as large again with at least two per second at every orbit (emitter audit, 12 November).
+ if(spec.type==='Particles'&&(spec.kind==='mist'||spec.kind==='motes')&&!spec.burstGap){
+  layer.steadyRate=true;
+  const tall=frame?.unitHeight;
+  if(spec.kind==='mist'&&tall>0&&spec.size==null)layer.size=Math.min(layer.size,tall*.35/1.38);
+  if(spec.kind==='motes'){
+   if(spec.size==null)layer.size*=1.5;
+   const sites=layer.count*Math.min(4,frame?.regions?.length||1);
+   if(spec.amount==null)layer.amount=Math.max(layer.amount,2*sites);
+  }
+ }
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
  return layer;
 }

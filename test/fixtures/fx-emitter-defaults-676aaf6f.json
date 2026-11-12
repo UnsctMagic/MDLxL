@@ -15,7 +15,7 @@
     {
       "label": "Falling mist",
       "id": 4,
-      "hash": "b1c62e39a0993a482430bce863a8dfb5a64bbb7da873743977ed5e0a0f25f787"
+      "hash": "59c4d33aa59b4f39936480cc93f91f49f109085b7f26ce05f6be26c56ac955e4"
     }
   ],
   "lightning-blade": [],
@@ -56,7 +56,7 @@
     {
       "label": "Drifting lights",
       "id": 1,
-      "hash": "01a6ca19bb8f37f254ad52f65b85bcacfb099ca2d67a4a348b5cb49556d1059c"
+      "hash": "8a581a55c63de174396ad1cf17f8f1bb559e01df5379efb8c6f77f04f5c9045e"
     },
     {
       "label": "Glow orbs",
@@ -75,7 +75,7 @@
     {
       "label": "Falling mist",
       "id": 1,
-      "hash": "a9fc5751bfaac73b22a97659300d983c4444cdb08d3205d28bd3ebc0c3bfff16"
+      "hash": "80a96d87212a3cd91d6d9490de9c57b9509ea8914c6206ab13bbf179e8682ea8"
     }
   ],
   "moving-own": [],
@@ -221,7 +221,7 @@
     {
       "label": "Plague haze",
       "id": 1,
-      "hash": "3d08232b5b069540d68a798a54935be1814058b28cece2f2940e55982e1ae3b0"
+      "hash": "e7a4eafcfd93b1d9c3a19846563f257169eb287f126c6df7730c6f50b6a2df7d"
     }
   ],
   "claude-runic-plate": [],

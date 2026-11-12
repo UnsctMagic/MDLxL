@@ -52,7 +52,7 @@ export const CLAUDE_LOOKS=[
   {...rune('Pact mark',tex('DemonRune3'),'beat',blood),tint2:[.85,.12,.3],loop:2267},
   spray('Blood beads','BloodBlobs1',[.85,.2,.15],{life:.72,rate:7,area:.4,gravity:1.8,spread:16,filter:0,size:[.12,.32,.12]})),
  fx('Around the unit','plague-swarm','Plague swarm',3000,
-  spray('Plague haze','CloudSingle',sick,{life:1.5,rate:8,area:.55,velocity:.3,filter:0,size:[.2,.45,.65],alpha:[0,185,0]})),
+  spray('Plague haze','CloudSingle',sick,{life:1.5,rate:8,area:.55,velocity:.3,size:[.2,.45,.65],alpha:[0,120,0]})),
  armour('runic-plate','Runic plate',4200,
   {...rune('Plate runes','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp','beat',rune_),tint2:[.6,.68,1]},
   glow('Rune light',tex('GenericGlow64'),{pulse:'soft',strength:.35,tint:rune_,inflate:.3,loop:2900})),

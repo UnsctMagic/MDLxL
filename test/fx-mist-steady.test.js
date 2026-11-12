@@ -11,7 +11,8 @@ import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-ani
 // appeared and vanished. Every site now keeps at least the density of a four-region weapon.
 const knight=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 // The nominal emission rate: its keys swell between .52 and 1 of it over the loop, .76 on average.
-const mean=track=>(typeof track==='number'?track:track.Keys.slice(0,-1).reduce((a,k)=>a+k.Vector[0],0)/(track.Keys.length-1))/.76;
+// A steady (number) rate is its own nominal value.
+const mean=track=>typeof track==='number'?track:track.Keys.slice(0,-1).reduce((a,k)=>a+k.Vector[0],0)/(track.Keys.length-1)/.76;
 function apply(doc,part,label){
  const frame=partFrame(doc.model.Geosets[part]),stack=newStack(findLook('empty'),frame,'mist');
  stack.layers=[makeLayer(LAYER_CHOICES.find(s=>s.label===label),frame,'glacier',1)];
