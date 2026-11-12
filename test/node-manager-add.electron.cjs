@@ -68,6 +68,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     const emtr = page.getByRole('dialog', { name: 'Particle Editor', exact: true });
     assert.equal(await emtr.getByRole('button', { name: 'Library', exact: true }).getAttribute('aria-pressed'), 'true');
     await emtr.getByRole('button', { name: 'Close Particle Editor', exact: true }).click();
+    await emtr.waitFor({ state: 'detached' });
     await openManager();
     assert.deepEqual(await nodes(), afterLight);
 
@@ -91,7 +92,9 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       const position = mdlxlProbe(selector).runtime?.controls?.object?.position;
       return position && Math.hypot(position.x - initial[0], position.y - initial[1], position.z - initial[2]) > 1;
     }, { selector: beforeStage, initial: initialCamera });
+    const sphereomancerClosed = popup.waitForEvent('close');
     await popup.getByRole('button', { name: 'Close', exact: true }).click();
+    await sphereomancerClosed;
     await openManager();
     assert.deepEqual(await nodes(), afterLight, 'opening Sphereomancer leaves the model intact');
     await manager.getByRole('button', { name: 'Close Node Manager', exact: true }).click();
