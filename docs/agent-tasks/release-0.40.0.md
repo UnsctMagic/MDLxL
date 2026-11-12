@@ -12,7 +12,10 @@ Updated: 2026-11-12
   through PRs once checks pass; release and publication stay within the recorded approval
   and release gates. Pause at 08:00 and wait.
 - No recorded approval to tag or publish was found in this session's sources; nothing was
-  tagged or published. Done when the release standard holds for the final build and the
+  tagged or published.
+- Owner, 12 Nov 2026 (after the pause): "Do not release without FX, its stilll being worked
+  on". 0.40.0 waits for the FX editor (`claude/fx-editor`) to be finished and merged; then
+  merge main into this branch and rerun the tests FX touches. Done when the release standard holds for the final build and the
   owner publishes.
 
 ## Merged into main on 12 Nov
