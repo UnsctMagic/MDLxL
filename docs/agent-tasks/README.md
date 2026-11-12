@@ -17,6 +17,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Review fix 5: Paint brush-size drag and live-drag guard list | Local review ready | [Contract 5](review-5-paint-drags.md) / Codex |
 | Review fix 6: housekeeping (task index, flail check, shared rules) | Local review ready; historical Flail03 reference needed | [Contract 6](review-6-housekeeping.md) / Codex |
 | Call Upon Forge in the Vertex editor | Ready for owner review; local branch only | [Workflow and checks](call-upon-forge.md) / Codex |
+| Spawn Objects that show nothing (75 of 104 never preview) | Ready for Codex; one owner choice pending | [Spawn object previews](spawn-object-previews.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
