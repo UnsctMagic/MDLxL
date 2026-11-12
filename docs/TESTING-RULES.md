@@ -55,6 +55,19 @@ request that breaks a rule below is not reviewed. It goes back.
 7. **Measure, don't eyeball.** Motion with MDLxL's own playback
    (`src/ai-motion-compare.js`), size from the saved bytes, every animation, and
    first/last poses. Stills hide bad motion.
+8. **Read after the app has caught up.** A drag is drawn once per display frame
+   and a recovery copy is written a moment after the edit, so a read taken right
+   after the last `page.mouse.move`, or a single look for a file, can see an
+   earlier step. Before sampling a live preview, poll with a time limit until
+   the expected position is reached or two reads 50 ms apart are identical, and
+   compare the state after release only with that sample. Wait for something on
+   disk by polling from the test (`page.evaluate` in a loop): an async function
+   passed to `page.waitForFunction` returns a Promise, which counts as true, so
+   it reads once. This is waiting for a result, not a fixed wait (rule 2). A
+   failing comparison prints its numbers. On 11 and 12 Nov 2026 three harnesses
+   failed on a correct app for this reason; see the settled reads in
+   [vertex-animated-preview](../test/vertex-animated-preview.electron.cjs) and
+   the checkpoint poll in [review-bitz](../test/review-bitz.electron.cjs).
 
 ## Never
 
