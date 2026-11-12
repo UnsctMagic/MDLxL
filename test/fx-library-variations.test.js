@@ -69,8 +69,8 @@ test('Add emitter offers the emitters of every variation first, once',()=>{
  const frost=emitterChoices(findLook('frost-blade'));assert.equal(frost[0].spec.label,'Falling mist');assert.equal(frost.filter(c=>c.spec.label==='Falling mist').length,1);
 });
 
-test('stacks saved with the retired skins reopen, edit and compile as before',()=>{
- for(const id of ['ice-skin','water-skin','sort-thorn']){
+test('stacks saved with the retired skins and Ground glow reopen, edit and compile as before',()=>{
+ for(const id of ['ice-skin','water-skin','sort-thorn','fx-ground-glow']){
   assert.ok(findLook(id),id+' resolves');assert.ok(!GLOBAL_LOOKS.some(l=>l.id===id),id+' is not in the library');
   const {doc,frame}=fixture(),look=findLook(id),stack={...newStack(look,frame,'old'),layers:look.layers.map((s,i)=>makeLayer(s,frame,look.palette,i+1))};
   compileAnimation(doc.model,0,stack);
@@ -88,6 +88,6 @@ test('one table files every library look once, in the owner order',()=>{
  assert.deepEqual(ids,listed,'every library look is filed exactly once, in table order');
  assert.equal(new Set(ids).size,ids.length);
  for(const [group,rows] of LIBRARY)for(const [id,name] of rows){const look=GLOBAL_LOOKS.find(l=>l.id===id);assert.equal(look.group,group);if(name)assert.equal(look.name,name);}
- for(const id of ['ice-skin','water-skin','sort-thorn','white-ice-skin','lava-skin'])assert.ok(!ids.includes(id)&&findLook(id),id);
+ for(const id of ['ice-skin','water-skin','sort-thorn','white-ice-skin','lava-skin','fx-ground-glow'])assert.ok(!ids.includes(id)&&findLook(id),id);
  assert.equal(GLOBAL_LOOKS[0].id,'flaming-sword','a fresh part opens on the first look of the first folder');
 });

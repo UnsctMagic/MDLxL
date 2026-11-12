@@ -104,14 +104,15 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  const i=GLOBAL_LOOKS.findIndex(l=>l.id==='claude-tidal-blade'),tidal=GLOBAL_LOOKS[i],drip=tidal.layers.find(l=>l.label==='Dripping water');
  GLOBAL_LOOKS[i]=vary(tidal,[{id:'running',name:'Running water',layers:tidal.layers},{id:'currents',name:'Crossing currents',layers:[...retiredLooks.find(l=>l.id==='water-skin').layers,drip]}]);
 }
-// The one table that files the library: folder, order and display name. A look missing here is not filed.
+// The one table that files the library: folder, order and display name. A look missing here is retired:
+// not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
  ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['fx-burning-cracks'],['fx-fire-column'],['fissures','Fissures'],['claude-magma-flow'],['lava'],['claude-forge-hot','Forge heat'],['rising-embers']]],
  ['Ice',[['frost-blade','Frost'],['fx-lit-crystal'],['glacial'],['crystal-veins'],['frost-mist']]],
  ['Water',[['claude-tidal-blade','Water'],['fx-liquid-body'],['sort-tide']]],
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift'],['claude-void-cracked','Void cracks']]],
  ['Arcane',[['arcane-blade','Arcane'],['fx-energy-flow'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['fx-rune-circle'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
- ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-ground-glow'],['fx-eye-glow']]],
+ ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-eye-glow']]],
  ['Poison & nature',[['poison-skin','Poison'],['poison'],['felwood-curse'],['venom-seep'],['claude-corrupted-veins'],['sort-briar'],['sort-ink'],['fly-swarm'],['claude-plague-swarm']]],
  ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
  ['Death & spirit',[['claude-wraith-form'],['fx-ghost-trails'],['fx-soul-vortex'],['fx-dark-smoke'],['fx-hollow-shell'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],
@@ -119,7 +120,8 @@ export const LIBRARY=[
 ];
 {
  const all=new Map(GLOBAL_LOOKS.map(l=>[l.id,l])),listed=new Set(LIBRARY.flatMap(([,rows])=>rows.map(([id])=>id)));
- GLOBAL_LOOKS.splice(0,GLOBAL_LOOKS.length,...LIBRARY.flatMap(([group,rows])=>rows.filter(([id])=>all.has(id)).map(([id,name])=>({...all.get(id),group,...(name?{name}:{})}))),...[...all.values()].filter(l=>!listed.has(l.id)));
+ retiredLooks.push(...[...all.values()].filter(l=>!listed.has(l.id)));
+ GLOBAL_LOOKS.splice(0,GLOBAL_LOOKS.length,...LIBRARY.flatMap(([group,rows])=>rows.filter(([id])=>all.has(id)).map(([id,name])=>({...all.get(id),group,...(name?{name}:{})}))));
 }
 // A saved impact remains editable. It is never offered in the library or search.
 export const findLook=id=>GLOBAL_LOOKS.find(e=>e.id===id)||retiredLooks.find(e=>e.id===id)||retiredImpacts.find(e=>e.id===id)||SORT_LOOKS.find(e=>e.id===id);

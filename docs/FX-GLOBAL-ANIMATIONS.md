@@ -187,9 +187,13 @@ folders and one new folder, Light:
 | Water | Liquid body (two frame speeds and glint cards) |
 | Lightning | Lightning cage (jittering zap cards, orbiting arcs) |
 | Arcane | Energy flow (two crossing scrolls), Rune circle (ground rune card over a shadow disc, contracting rune rings) |
-| Light | Glow shell, Star flare, Glow orb, Ground glow (team glow cards sized from the footprint), Eye glow (two small cards to drag onto the eyes) |
+| Light | Glow shell, Star flare, Glow orb, Eye glow (two small cards to drag onto the eyes) |
 | Death & spirit | Ghost trails, Soul vortex, Dark smoke, Hollow shell |
 | Build your own | Tint (Colour wash / Team colour) |
+
+Ground glow is retired (owner, 12 November: "remove ground glow"): a look missing from
+`LIBRARY` is not listed, counted, searched or offered under Add layer, but a model saved with
+it still opens and edits, like Ice skin, Water skin and Thorn script.
 
 Look-only spec fields read by `makeLayer` and never saved: Card `fit` (share of the
 part-fitted size; ground cards fit the unit's footprint), emitter `scale` (multipliers of
