@@ -67,6 +67,21 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=requi
    assert.equal(await button('Position & size').getAttribute('aria-pressed'),'true','layer return keeps placement available');
   }
   if(step>=5){const before=await read();await fx.locator('.fx-emitter-markers [role=button]').first().click();await ready();await drag('Move emitter',20,-15);await button('Delete emitter').click();await ready();assert.equal((await read()).nodes.length,before.nodes.length-1,'Delete after dragging removes exactly one emitter');assert.equal(await fx.locator('.sfx-controls h4').count(),0,'deleting returns to the layer');await stage.screenshot({path:path.join(out,'deleted-one.png')});}
+  if(step>=6){
+   await fx.getByLabel('Preview animation',{exact:true}).selectOption({label:'Decay Flesh'});await ready();await button('Pause').click();
+   await fx.locator('.fx-emitter-markers [role=button]').first().click();await ready();
+   await button('Snap to surface').click();
+   const points=await page.evaluate(()=>{
+    const p=mdlxlProbe('.sfx-stage .game-preview-root'),n=p.runtime.native,g=n.model.Geosets[2],snap=findFiberState('.sfx-stage .game-preview-root',v=>v?.marks&&v?.camera,{current:true}),box=document.querySelector('.sfx-stage').getBoundingClientRect();
+    const transform=(v,m)=>[0,1,2].map(i=>m[i]*v[0]+m[4+i]*v[1]+m[8+i]*v[2]+m[12+i]);
+    const points=Array.from({length:g.Vertices.length/3},(_,v)=>{const pos=Array.from(g.Vertices.slice(v*3,v*3+3)),bones=g.Groups[g.VertexGroup[v]],world=[0,0,0];for(const id of bones){const p=transform(pos,n.rendererData.nodes[id].matrix);p.forEach((x,i)=>world[i]+=x/bones.length);}const view=transform(world,snap.camera.matrixWorldInverse.elements),m=snap.camera.projectionMatrix.elements,w=m[3]*view[0]+m[7]*view[1]+m[11]*view[2]+m[15],screen=transform(view,m);return [box.x+(1+screen[0]/w)*box.width/2,box.y+(1-screen[1]/w)*box.height/2];});
+    const faces=[];for(let i=0;i<g.Faces.length;i+=3){const [a,b,c]=[0,1,2].map(j=>points[g.Faces[i+j]]),area=Math.abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]));if(area>5)faces.push({x:(a[0]+b[0]+c[0])/3,y:(a[1]+b[1]+c[1])/3,area});}return faces.sort((a,b)=>b.area-a.area).slice(0,12);
+   });
+   assert.ok(points.length,'actual sword has a visible projected surface');let snapped=false;
+   for(const point of points){if(await button('Snap to surface').count())await button('Snap to surface').click();await page.mouse.dblclick(point.x,point.y);await ready();const current=await read();snapped=Object.values(current.stack.layers[0].individuals||{}).some(r=>r.surface?.geoset===2);if(snapped)break;}
+   assert.ok(snapped,'double-click snaps to the actual sword');assert.equal(await fx.getByLabel('Geoset',{exact:true}).inputValue(),'0','snap does not select the sword part');
+   await button('Play').click();const before=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame());await page.waitForFunction(t=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame()>t+150,before);await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return p.runtime.native.particlesController.emitters.some(e=>e.props.ObjectId===p.props.particleSelectedId&&e.particles.length>0);});await stage.screenshot({path:path.join(out,'snapped-sword.png')});
+  }
   assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -355,7 +355,7 @@ function nativeParticles(c,layer){
   if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
   else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
   if(layer.individuals?.[key]?.deleted)continue;
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
   if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
@@ -371,6 +371,12 @@ function groundSeal(c,l){
 }
 // PRE2 has one parent. A blended skin region needs an attachment translation under
 // that parent; sample the existing skin evaluator without changing any authored key.
+function siteParent(c,layer,key,region,point,fallback){
+ const surface=layer.individuals?.[key]?.surface,source=surface&&c.model.Geosets[surface.geoset];
+ if(!source)return regionParent(c,region,point,fallback);
+ const weights=new Map();surface.vertices.forEach((v,i)=>vertexBoneWeights(source,v).forEach(([id,w])=>weights.set(id,(weights.get(id)||0)+w*surface.barycentric[i])));
+ return regionParent({...c,source,surfaceKey:'snap/'+surface.geoset+'/'+surface.vertices.join(',')+'/'+surface.barycentric.join(',')},{vertices:surface.vertices,weights:[...weights],surface},point,'snap-'+key);
+}
 function regionParent(c,region,point,key){
  const parent=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
  if(region.weights.length<2)return parent;
@@ -380,7 +386,7 @@ function regionParent(c,region,point,key){
  if(known){bone.Translation={LineType:1,GlobalSeqId:null,Keys:known.map(([Frame,v])=>({Frame,Vector:vec(v)}))};return bone.ObjectId;}
  const keys=[],plain=[];
  for(const [sequence,clip] of c.model.Sequences.entries()){
-  const value=frame=>{const key=sequence+':'+frame;let matrices=samples.get(key);if(!matrices){matrices=sampleNodeMatrices(c.model,frame,sequence,frame);samples.set(key,matrices);}const world=point.clone().applyMatrix4(geosetSkinMatrix(c.source,region.vertices[0],matrices));const inverse=matrices.get(parent)?.clone().invert();if(inverse)world.applyMatrix4(inverse);return world.sub(point);};
+  const value=frame=>{const key=sequence+':'+frame;let matrices=samples.get(key);if(!matrices){matrices=sampleNodeMatrices(c.model,frame,sequence,frame);samples.set(key,matrices);}const skin=geosetSkinMatrix(c.source,region.vertices[0],matrices),world=point.clone().applyMatrix4(skin);if(region.surface){const bind=new Vector3(),posed=new Vector3();region.surface.vertices.forEach((v,i)=>{const at=new Vector3().fromArray(c.source.Vertices,v*3),weight=region.surface.barycentric[i];bind.addScaledVector(at,weight);posed.addScaledVector(at.applyMatrix4(geosetSkinMatrix(c.source,v,matrices)),weight);});world.add(posed).sub(bind.applyMatrix4(skin));}const inverse=matrices.get(parent)?.clone().invert();if(inverse)world.applyMatrix4(inverse);return world.sub(point);};
   const result=new Map(),sample=t=>{if(!result.has(t))result.set(t,value(t));return result.get(t);};
   const split=(a,b)=>{const mid=Math.floor((a+b)/2);if(mid===a)return;const error=sample(mid).distanceTo(sample(a).clone().lerp(sample(b),(mid-a)/(b-a)));if(b-a>80||error>Math.max(.005,c.frame.length*.0003)){split(a,mid);split(mid,b);}else result.delete(mid);};
   const [a,b]=clip.Interval;sample(a);sample(b);split(a,b);
@@ -454,7 +460,7 @@ function particles(c,layer){
   const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
   c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
+  let parent=siteParent(c,layer,key,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
    if(!l.placement&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));
    const orbit=nodeFor(c,'Bones','Bone','orbit'+regionIndex+'-'+i,l.label+' orbit '+(i+1),pos,parent);

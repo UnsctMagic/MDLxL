@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import {Vector3} from 'three';
+import {sampleNodeMatrices,geosetSkinMatrix} from '../src/animation.js';
+import {vertexBoneWeights} from '../src/part-bones.js';
 import {openDocument} from '../src/editor-document.js';
 import {findLook,newStack,makeLayer,partFrame,layerIngredient} from '../src/global-animation-looks.js';
 import {compileAnimation} from '../src/global-animation-model.js';
@@ -61,4 +63,19 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(l
  assert.ok(!nodes(after).some(n=>n._FxTag.endsWith('/'+key)),'deleted stable key absent');
  assert.deepEqual(result.layers[1].sites.map(s=>s.key),sites.map(s=>s.key),'deleted slot remains addressable');
  assert.deepEqual(after.Geosets[part]._FxStack.layers[0].individuals,{[key]:{deleted:true}},'prune records for nonexistent sites');
+});
+
+for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(label+' snapped site follows another part in every animation from part '+part,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[part]),stack=newStack(findLook('empty'),frame,'snapped'),target=part===0?2:0,geo=base.Geosets[target];
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1);stack.layers=[layer];
+ const initial=structuredClone(base),graph=compileAnimation(initial,part,stack),key=graph.layers[1].sites[0].key;
+ let face=0;if(target===0){for(let i=0;i<geo.Faces.length;i+=3)if(vertexBoneWeights(geo,geo.Faces[i]).length>1){face=i;break;}}
+ const vertices=Array.from(geo.Faces.slice(face,face+3)),barycentric=[.2,.3,.5],position=[0,1,2].map(axis=>vertices.reduce((n,v,i)=>n+geo.Vertices[v*3+axis]*barycentric[i],0));
+ layer.individuals={[key]:{position,surface:{geoset:target,vertices,barycentric}}};
+ const model=structuredClone(base);compileAnimation(model,part,stack);const emitter=model.ParticleEmitters2.find(n=>n._FxTag==='snapped/1/'+key);
+ for(const [sequence,clip] of model.Sequences.entries())for(const frame of [...new Set([...clip.Interval, ...Array.from({length:9},(_,i)=>Math.round(clip.Interval[0]+(clip.Interval[1]-clip.Interval[0])*i/8))])]){
+  const matrices=sampleNodeMatrices(model,frame,sequence,frame),actual=new Vector3().fromArray(emitter.PivotPoint).applyMatrix4(matrices.get(emitter.ObjectId)),expected=new Vector3();
+  vertices.forEach((v,i)=>expected.addScaledVector(new Vector3().fromArray(geo.Vertices,v*3).applyMatrix4(geosetSkinMatrix(geo,v,matrices)),barycentric[i]));
+  assert.ok(actual.distanceTo(expected)<.04,clip.Name+' '+frame+': attached point error '+actual.distanceTo(expected));
+ }
 });

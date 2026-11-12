@@ -7,7 +7,7 @@ import {translate} from '../src/localization.js';
 import {emitterName} from '../src/global-animation-looks.js';
 import {withEmitterPlacement,withEmitterPosition,emitterSitePoint} from '../src/fx-emitter-placement.js';
 
-export default function GlobalAnimationStage({Preview,graph,layer,placing,onLayer,selectedSite,selectSite,onDrag,...props}){
+export default function GlobalAnimationStage({Preview,graph,layer,placing,onLayer,selectedSite,selectSite,surfaceSnap,setSurfaceSnap,onDrag,...props}){
  const [snap,setSnap]=useState(null),[draft,setDraft]=useState(null),gesture=useRef(null),capture=useRef(null);
  const captureReady=useCallback(api=>{capture.current=api;props.onCaptureReady?.(api);},[props.onCaptureReady]);
  const value=draft||layer,result=graph?.layers?.[layer?.id],prefix=graph?.model?.Geosets[graph.geoset]?._FxStack?.owner+'/'+layer?.id+'/';
@@ -54,6 +54,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  const emitter=value&&{ObjectId:real?.ObjectId,Translation:individual?(value.individuals?.[selectedSite]?.position||Array.from(individual.PivotPoint)):value.offset,ParticleScaling:[value.size,value.size,value.size],HeightAbove:value.upper,HeightBelow:value.lower};
  const pick=(id,hits=[id])=>{const node=nodes.find(n=>n.ObjectId===id)||nodes.find(n=>hits.includes(n.ObjectId));if(node)selectSite(keyOf(node));};
  return <><Preview {...props} particleLiveModel={liveModel} particleLiveRevision={draft} onCaptureReady={captureReady}
+  onParticleSurfacePlace={active&&individual&&surfaceSnap?(_,hit)=>{onLayer({...layer,individuals:{...layer.individuals,[selectedSite]:{...layer.individuals?.[selectedSite],position:hit.bindPosition,surface:{geoset:hit.geoset,vertices:hit.vertices,barycentric:hit.barycentric}}}});setSurfaceSnap(false);}:undefined}
   particleAnchorId={active?anchorId:undefined} keepBillboards={card||!!layer?.swarm} particleSelectedId={active?real.ObjectId:undefined}
   particlePickOnClick={!!active&&nodes.length>0} onParticlePick={active&&nodes.length?pick:undefined} particleStageMarks={marks} onParticleStage={active?s=>setSnap({...s,site:selectedSite,layerId:layer.id}):undefined}/>
  {active&&nodes.length>0&&snap&&<svg className="pe-stage-tools fx-emitter-markers" viewBox={'0 0 '+snap.width+' '+snap.height}>{nodes.map((node,i)=>{

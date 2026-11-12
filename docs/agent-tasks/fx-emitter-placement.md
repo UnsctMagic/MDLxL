@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: in progress in Codex; items 1–5 verified, items 6–9 pending
+Status: in progress in Codex; items 1–6 verified, items 7–9 pending
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -133,3 +133,5 @@ Merging FX, round 2 review fixes (Claude reviews round 2 separately), and new lo
 Item 4 follow-up: the extended large-drag check exposed a moving animation reference frame and stale selection snapshot. Reused EMTR’s hold-during-drag path and wait for the selected snapshot. Required source group rerun: 318/0/0 (out/placement/item-04-final-source.log). Two corrected hidden runs pass, including a 150 px individual drag and particle click (item-04-follow-ui.log, item-04-final-ui.log). Initial failures remain in item-04-pointer-check*.log.
 
 5. Delete emitter: removes only the selected stable site and returns to the layer. Deletion records survive compilation; stale keys are pruned. Four fail-first source cases; hidden old-package failure on missing Delete emitter. Build/group: 322/0/0. Hidden select → drag → Delete passes; out/placement/ui/deleted-one.png. New label translated in all five catalogues.
+
+6. Snap to surface: reuses EMTR’s picker and label, takes precedence over part selection, and stores the picked triangle/barycentric attachment on the individual record. Existing regionParent samples the actual blended triangle motion; authored tracks are untouched. Four cross-part cases failed before; all target animations, endpoints and intermediate samples now stay within .04 model units. Build/group: 326/0/0. Hidden actual-sword double-click/playback passes (item-06-ui.log, item-06-capture-ui.log); out/placement/ui/snapped-sword.png. The sword is visible in Decay Flesh. Warcraft III itself is not exercised.

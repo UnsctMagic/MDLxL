@@ -20,7 +20,7 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
@@ -102,6 +102,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {l&&!selectedSite&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
   {selectedSite&&<h4>{translate(emitterName(l))+' '+((result?.ids.indexOf(selectedId)??0)+1)}</h4>}
+  {selectedSite&&<button aria-pressed={surfaceSnap} onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>}
   {selectedSite&&<button onClick={()=>{const record=layer.individuals?.[selectedSite]||{};setStack({...stack,layers:stack.layers.map(v=>v.id===layer.id?{...layer,individuals:{...layer.individuals,[selectedSite]:{...record,deleted:true}}}:v)});select(layer.id);}}>Delete emitter</button>}
   {(p||swarm)&&!selectedSite&&!stack.impact&&<select aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
    const spec=emitterChoices.find(s=>menuName(s)===e.target.value);if(!spec||!frame)return;
