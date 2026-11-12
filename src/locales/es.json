@@ -877,7 +877,7 @@
   "Frame model": "Encuadrar modelo",
   "Part": "Parte",
   "Geoset": "Geoset",
-  "Faces": "Rostros",
+  "Faces": "Caras",
   "Invert selection": "Invertir selección",
   "Protect pixels": "Proteger píxeles",
   "Hold to paint from outside the edge": "Mantén para pintar desde fuera",
@@ -1753,7 +1753,7 @@
   "Choose Warcraft III installation…": "Elegir instalación de Warcraft III…",
   "Forget saved folder": "Olvidar la carpeta guardada",
   "Changes apply immediately.": "Los cambios se aplican al instante.",
-  "FORGE": "FORJAR",
+  "FORGE": "FORGE",
   "Front": "Frontal",
   "Back": "Posterior",
   "navigation\u0004Back": "Atrás",
@@ -7954,5 +7954,8 @@
   "Turn the cut direction.": "Girar la dirección del corte.",
   "Set the number of faces in the new shape.": "Ajustar el número de caras de la nueva forma.",
   "Keep this operation as one Undo step.": "Guardar esta operación como un paso de Deshacer.",
-  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Bisela aristas sólidas o todo el borde de una superficie delgada. Arrastra el control dorado para ajustar la anchura."
+  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Bisela aristas sólidas o todo el borde de una superficie delgada. Arrastra el control dorado para ajustar la anchura.",
+  "handle\u0004Drag": "Arrastrar",
+  "handle\u0004Center": "Centro",
+  "ALIGN": "ALINEAR"
 }

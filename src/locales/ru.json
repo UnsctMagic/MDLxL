@@ -1667,7 +1667,7 @@
   "Changes apply immediately.": "Изменения применяются сразу.",
   "Language": "Язык",
   "Forge": "Кузница",
-  "FORGE": "СОЗДАТЬ",
+  "FORGE": "FORGE",
   "Bend": "Изгиб",
   "Warp": "Скручивание",
   "Dome": "Купол",
@@ -7944,5 +7944,8 @@
   "Turn the cut direction.": "Повернуть направление разрезов.",
   "Set the number of faces in the new shape.": "Задать количество граней новой фигуры.",
   "Keep this operation as one Undo step.": "Применить операцию как один шаг отмены.",
-  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Создать фаску на рёбрах объёма или границе тонкой поверхности. Золотая ручка регулирует ширину."
+  "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "Создать фаску на рёбрах объёма или границе тонкой поверхности. Золотая ручка регулирует ширину.",
+  "handle\u0004Drag": "Тянуть",
+  "handle\u0004Center": "Центр",
+  "ALIGN": "ВЫРОВНЯТЬ"
 }
