@@ -133,7 +133,8 @@ function planOnce(model, originals) {
       && Vector.some((value, index) => value !== -first[index]))) continue;
     const skin = movementBoneVertexCenter(model, id, matrices);
     const parentY = meshEndYs.get(parent) ?? points.get(parent).y;
-    if (skin && (Math.abs(skin.center.y) <= 1e-4 || Math.sign(skin.center.y) === Math.sign(parentY))) assign(id, 'mesh');
+    // Only a sided parent gives the piece a side to agree with; trunk parts (Pelvis, Head, Neck...) have none.
+    if (skin && (!SIDED.has(parentPart) || Math.abs(skin.center.y) <= 1e-4 || Math.sign(skin.center.y) === Math.sign(parentY))) assign(id, 'mesh');
   }
   const rows = bones.map(node => ({ id: node.ObjectId, current: (parts.get(node.ObjectId) || 'keep') === 'keep' ? originals.get(node.ObjectId) : node.Name, part: parts.get(node.ObjectId) || 'keep', side: null, position: null,
     actor: tree.ancestors(node.ObjectId, true).find(id => bodies.has(id)) ?? null, name: node.Name }));
