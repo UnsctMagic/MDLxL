@@ -609,11 +609,11 @@ export default function App() {
     if (mode === 'vertices') setRGBPreview(false);
   };
   const clearZoomAnchor = () => { setZoomAnchor(null); setChoosingZoomAnchor(false); };
-  const openOptimizeXL = () => {
+  const openOptimizeXL = initialStage => {
     if (dialog?.type === 'optimizeModel' && dialog.child && !dialog.child.closed) { dialog.child.focus(); return; }
     const child = openOptimizeXLWindow(window);
     if (!child) { say('The OptimizeXL window could not be opened.', true); return; }
-    setPlaying(false); setDialog({ type:'optimizeModel', child });
+    setPlaying(false); setDialog({ type:'optimizeModel', child, initialStage });
   };
   // Animations does not show the bones picked in Movement or Bones, yet any
   // node selection takes Visibility & Color away from the checked geosets.
@@ -1971,7 +1971,7 @@ export default function App() {
     <AppToolbar {...{
       animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
       dialog, displayMode, doc, inputStrength, menuChecks, mode, model, openLibrary, bitReplacement,
-      openOptimizeXL, openParticles, preferences, pressedKeysIcon, resources,
+      openOptimizeXL: () => openOptimizeXL(), openParticles, preferences, pressedKeysIcon, resources,
       runCommand, runLatest, saving, selectAnimationPanel, selectMode,
       setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
@@ -2096,7 +2096,7 @@ export default function App() {
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
       forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
       importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
-      openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
+      openLibrary, openOptimizeXL, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
       removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
       selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,
       sequence, session, setActiveGeoset, setAnchor, setDialog, setHistoryMB, setHistorySteps,

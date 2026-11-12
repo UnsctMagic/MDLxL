@@ -59,7 +59,7 @@ test('dragging the Node Manager to the top keeps the title bar reachable in both
   });
 });
 
-test('Node Manager opens with full hierarchy and Bone while Emitter Manager is open', async () => {
+test('Node Manager opens with full hierarchy and event categories while Emitter Manager is open', async () => {
   await withModel('emtr-manager', async (_app, page) => {
     const emitter = page.getByRole('button', { name: 'Emitter Editor', exact: true });
     await click(page, emitter, 'right');
@@ -69,7 +69,9 @@ test('Node Manager opens with full hierarchy and Bone while Emitter Manager is o
     const manager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
     await manager.waitFor();
     assert.ok(await manager.getByLabel('Show hierarchy').isChecked());
-    assert.equal(await manager.getByLabel('New node type').inputValue(), 'Bone');
+    await click(page, manager.getByRole('button', { name: 'New', exact: true }));
+    const events = manager.getByRole('group', { name: 'Event objects', exact: true });
+    assert.equal(await events.getByRole('button', { name: 'Blood Splat', exact: true }).isVisible(), true);
   }, fixturePath('ribbon-attachment'));
 });
 

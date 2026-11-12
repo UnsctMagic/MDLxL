@@ -34,10 +34,10 @@ const shapeRow=(node,size)=>node.Shape===0?Array.from(node.Vertices,v=>v/size):[
 const BOX_FIELDS=['Min X','Min Y','Min Z','Max X','Max Y','Max Z'];
 function NumberSetting({label,value,onChange,min=0,max=100000,step=.001}) {return <label className="ox-setting"><OptimizeXLHelp label={label}/><input aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={e=>onChange(Math.max(min,Math.min(max,Number(e.target.value)||0)))}/></label>;}
 
-export default function OptimizeXL({doc,workplane,workplaneEnabled,filePath,textureAssets,preferences,teamColor,onSave,onCommit,onClose}) {
+export default function OptimizeXL({doc,workplane,workplaneEnabled,filePath,textureAssets,preferences,teamColor,initialStage=STAGES[0].id,onSave,onCommit,onClose}) {
   const [initial] = useState(()=>{try{return {session:new OptimizeXLSession(prepareOptimizeXL(doc),doc.name)}}catch(e){return {error:e.message}}});
-  const session=initial.session, [revision,refresh]=useState(0), [stage,setStage]=useState(STAGES[0].id),[advanced,setAdvanced]=useState(false),[strength,setStrength]=useState(0),[custom,setCustom]=useState(false);
-  const [settings,setSettings]=useState(()=>session?freshSettings(STAGES[0].id,openDocument(session.accepted,'before.mdx').model):{});
+  const session=initial.session, [revision,refresh]=useState(0), [stage,setStage]=useState(initialStage),[advanced,setAdvanced]=useState(false),[strength,setStrength]=useState(0),[custom,setCustom]=useState(false);
+  const [settings,setSettings]=useState(()=>session?freshSettings(initialStage,openDocument(session.accepted,'before.mdx').model):{});
   const [candidate,setCandidate]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(initial.error||''),[saved,setSaved]=useState(null),[saving,setSaving]=useState(false);
   const [sequence,setSequence]=useState(0),[clock,setClock]=useState({time:0,globalTime:0}),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState(100),[seekId,setSeekId]=useState(0),[loop,setLoop]=useState(true);
   const {time,globalTime}=clock;
