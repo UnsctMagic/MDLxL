@@ -48,7 +48,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(Number(await page.getByLabel('Particle preview playhead',{exact:true}).inputValue()),heldTime,'The frame holds during the drag');
     assert.equal(await page.locator('.pe-size-proxy polygon').getAttribute('points'),pinnedPoints,'Proxy remains pinned while its source particle ages and dies');
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Stationary pointer does not change data during playback');
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Pinned sample');
     await page.mouse.move(point.x+point.width/2+40,point.y+point.height/2-20,{steps:4});await page.mouse.up();
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize));
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();
@@ -62,7 +62,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const cancelPoint=await handle.locator('circle').boundingBox();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2,cancelPoint.y+cancelPoint.height/2);await page.mouse.down();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2+50,cancelPoint.y+cancelPoint.height/2-20);
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
     await page.waitForFunction(before=>Number(document.querySelector('[aria-label="Halfway size"]').value)>before,Number(beforeSize));
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize),'The drag changes the size before Escape');
     await page.keyboard.press('Escape');await page.mouse.up();
@@ -70,7 +70,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Escape restores value');
     assert.equal(await page.getByRole('dialog',{name:'Particle Editor',exact:true}).isVisible(),true,'Escape cancels gesture without closing editor');
     assert.equal(await transport.getByRole('button',{name:'Play',exact:true}).isVisible(),true,'Escape leaves the editor paused');
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Halfway','Escape releases the pinned sample');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Halfway','Escape releases the pinned sample');
     await transport.getByRole('button',{name:'Play',exact:true}).click();
     console.log('Stage gesture: pinned, committed in one undo, cancelled without document change');
     const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+5));await size.press('Enter');
