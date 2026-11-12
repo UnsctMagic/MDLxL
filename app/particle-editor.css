@@ -79,3 +79,4 @@
 .pe-glow{gap:10px}.pe-glow .pe-glow-toggle{flex-direction:row;align-items:center;gap:6px;font-weight:600}.pe-glow small{color:var(--ui-muted,#666)}
 .pe-glow .pe-glow-piece{max-width:100%}
 .pe-glow .pe-glow-faults{display:flex;flex-wrap:wrap;gap:6px}.pe-glow .pe-glow-faults ul{flex-basis:100%;margin:0;padding-left:18px;font-size:.92em}
+.pe-stage-tools .pe-handle-word{display:none;pointer-events:none}.pe-stage-tools g:hover>.pe-handle-word,.pe-stage-tools g:focus-visible>.pe-handle-word{display:inline}
