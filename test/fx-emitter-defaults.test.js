@@ -25,11 +25,11 @@ for(const look of looks.GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+'
  assert.deepEqual(stack.layers,look.layers.flatMap((spec,i)=>starts(spec,i)?[looks.makeLayer(spec,frame,look.palette,i+1)]:[]),'only emitter-only presets and marked emitters start');
  assert.equal(stack.layers.filter(l=>l.type==='Particles').length,look.layers.filter((spec,i)=>spec.type==='Particles'&&starts(spec,i)).length,look.name+' has its intended Particles default');
  assert.deepEqual(choices.slice(0,own.length).map(c=>c.spec),own,'own emitters retain their order and full specifications');
- assert.deepEqual(choices.slice(0,own.length).map(c=>c.label),own.map((spec,i)=>spec.label+(i===0?' (recommended)':'')));
+ assert.deepEqual(choices.slice(0,own.length).map(c=>c.label),own.map((spec,i)=>looks.emitterName(spec)+(i===0?' (recommended)':'')));
  assert.equal(choices.filter(c=>c.label.endsWith(' (recommended)')).length,own.length?1:0);
  const rest=choices.slice(own.length);
- assert.deepEqual(rest.map(c=>c.spec),looks.LAYER_CHOICES.filter(s=>s.type==='Particles'&&!own.some(o=>o.label===s.label&&o.image===s.image&&o.kind===s.kind&&o.stamp===s.stamp&&o.nativeSurface?.id===s.nativeSurface?.id)),'other ingredients keep their existing order and values');
- assert.deepEqual(rest.map(c=>c.label),rest.map(c=>c.spec.menuLabel||c.spec.label));
+ assert.deepEqual(rest.map(c=>c.spec),looks.LAYER_CHOICES.filter(s=>s.type==='Particles'&&!own.some(o=>looks.emitterName(o)===looks.emitterName(s))),'other ingredients keep their existing order and values');
+ assert.deepEqual(rest.map(c=>c.label),rest.map(c=>looks.emitterName(c.spec)));
  for(const [i,reference] of baseline[look.id].entries())assert.equal(hash(looks.makeLayer(choices[i].spec,frame,look.palette,reference.id)),reference.hash,reference.label+' has the exact pre-change values and fit');
  const count=doc.model.ParticleEmitters2.length;
  compileAnimation(doc.model,0,stack);

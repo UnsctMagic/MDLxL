@@ -39,7 +39,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await page.getByRole('button',{name:'Use picture',exact:true}).click();await search.waitFor({state:'hidden'});await ready();
   const checkImage=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack,l=s.layers.find(l=>l.label==='Ink seal'),g=m.Geosets.find(g=>g._FxTag===s.owner+'/'+l.id+'/shape');return m.Textures[m.Materials[g.MaterialID].Layers[0].TextureID].Image;});
   assert.match(await checkImage(),/DemonRune5\.blp$/i);
-  await choose('Briar binding');await addEmitter(page,fx,'Pollen (recommended)',ready);await addEmitter(page,fx,'Spores',ready);await fx.getByLabel('Enable Spores',{exact:true}).check();await ready();await select('Spores');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
+  await choose('Briar binding');await addEmitter(page,fx,'Pollen (recommended)',ready);await addEmitter(page,fx,'Bubbles',ready);await fx.getByLabel('Enable Bubbles',{exact:true}).check();await ready();await select('Bubbles');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
   assert.equal(await fx.getByLabel('Enable Rising embers',{exact:true}).isChecked(),true);
   const particle=fx.getByRole('slider',{name:'Intensity',exact:true});await particle.scrollIntoViewIfNeeded();const pb=await particle.boundingBox();
   await page.mouse.move(pb.x+pb.width-7,pb.y+pb.height/2);await page.mouse.down();await page.mouse.move(pb.x+1,pb.y+pb.height/2,{steps:8});
@@ -53,7 +53,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   let depth=await embers();assert.equal(depth.native.FrameFlags,3,'Draw as is kept on the layer');assert.ok(depth.nodes.length&&depth.nodes.every(([frames])=>frames===3),'every emitter draws sprites and streaks: '+JSON.stringify(depth.nodes));
   const carry=fx.getByRole('button',{name:/^(Carry particles|Leave behind)$/});const carried=depth.nodes[0][1];await carry.click();await ready();
   depth=await embers();assert.ok(depth.nodes.every(([,bit])=>bit!==carried),'Carry toggles every emitter: '+JSON.stringify(depth.nodes));
-  await choose('Fire');await select('Blade flames');await ready();
+  await choose('Fire');await select('Flames');await ready();
   if(await fx.locator('details.fx-more').getAttribute('open')===null)await fx.locator('details.fx-more>summary').click();await ready();await page.waitForTimeout(600);
   // The narrow controls column fits EMTR's rows: it never scrolls sideways.
   const column=await fx.locator('.sfx-controls').evaluate(e=>({scroll:e.scrollWidth,client:e.clientWidth,wide:[...e.querySelectorAll('*')].filter(n=>n.getBoundingClientRect().right>e.getBoundingClientRect().left+e.clientWidth+.5).slice(0,6).map(n=>n.tagName+'.'+n.className+' '+Math.round(n.getBoundingClientRect().width))}));

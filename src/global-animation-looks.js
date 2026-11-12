@@ -183,10 +183,29 @@ for(const look of GLOBAL_LOOKS){
   if(!LAYER_CHOICES.some(other=>(other.menuLabel||other.label)===menuLabel))LAYER_CHOICES.push({...choice,menuLabel});
  }
 }
+const EMITTER_NAMES={
+ 'Blade flames':'Flames',Fire:'Flames','Lingering embers':'Embers','Column embers':'Embers',
+ 'Rift splinters':'Splinters','Void splinters':'Splinters','Glow orbs':'Glow orb','Orb light':'Glow orb',
+ 'Heavy drops':'Drops','Ichor drops':'Drops',Spores:'Bubbles','Star sparks':'Spark spray',
+ 'Orbiting stars':'Circling stars','Drifting lights':'Circling lights','Storm cloud':'Grey cloud',
+ 'Lantern flame':'Ghost flames','Rune sparks':'Rune discs',Stars:'Falling stars','Light sparks':'Sparkles',
+ 'Eye sparks':'Flare sparks','Spirit wisps':'Ghost wisps',Wisps:'Light wisps','Inward souls':'Inward swirl',
+ 'Hex glyphs':'Rising glyphs',Sparks:'Small sparks','Plague haze':'Green haze','Rune rings':'Ground rune rings',
+};
+// Display names can change without changing the ingredient identity stored in a model.
+export const emitterName=spec=>spec.type==='Particles'?(EMITTER_NAMES[spec.label]||spec.menuLabel||spec.label):(spec.menuLabel||spec.label);
+const ingredients=[...LAYER_CHOICES,...GLOBAL_LOOKS.flatMap(look=>look.variations?look.variations.flatMap(v=>v.layers):look.layers)];
+export function layerIngredient(look,layer){
+ const own=look.variations?look.variations.flatMap(v=>v.layers):look.layers;
+ return own.find(s=>s.type===layer.type&&s.label===layer.label)||ingredients.find(s=>s.type===layer.type&&s.label===layer.label);
+}
+const uniqueEmitters=specs=>specs.filter((spec,i,all)=>spec.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&emitterName(o)===emitterName(spec))===i);
+const offered=new Set(uniqueEmitters(LAYER_CHOICES));
+for(let i=LAYER_CHOICES.length-1;i>=0;i--)if(LAYER_CHOICES[i].type==='Particles'&&!offered.has(LAYER_CHOICES[i]))LAYER_CHOICES.splice(i,1);
 export function emitterChoices(look) {
- const own=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((spec,i,all)=>spec.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&o.label===spec.label&&o.image===spec.image&&o.kind===spec.kind&&o.stamp===spec.stamp&&o.nativeSurface?.id===spec.nativeSurface?.id)===i);
- const other=LAYER_CHOICES.filter(spec=>spec.type==='Particles'&&!own.some(layer=>layer.label===spec.label&&layer.image===spec.image&&layer.kind===spec.kind&&layer.stamp===spec.stamp&&layer.nativeSurface?.id===spec.nativeSurface?.id));
- return [...own.map((spec,i)=>({spec,label:spec.label+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:spec.menuLabel||spec.label}))];
+ const own=uniqueEmitters(look.variations?look.variations.flatMap(v=>v.layers):look.layers);
+ const other=LAYER_CHOICES.filter(spec=>spec.type==='Particles'&&!own.some(layer=>emitterName(layer)===emitterName(spec)));
+ return [...own.map((spec,i)=>({spec,label:emitterName(spec)+(i===0?' (recommended)':'')})),...other.map(spec=>({spec,label:emitterName(spec)}))];
 }
 /** An Edge switched to Orbit: a loop wide and bright enough to see at once (study: Additive, alpha .6-.7, life about half a turn, rate 35-40). */
 export function withOrbit(l,frame,loop,fit=1){

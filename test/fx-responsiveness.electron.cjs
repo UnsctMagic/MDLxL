@@ -101,7 +101,7 @@ const round=v=>Math.round(v*10)/10;
      await measure('Add emitter pick','change',()=>add.selectOption(first));
      await measure('Add','pointerdown',()=>fx.getByRole('button',{name:'Add',exact:true}).click());
      // Dragging an emitter slider: frames while the hand moves, then the release.
-     await layerButton('Blade flames').click();
+     await layerButton('Flames').click();
      const slider=fx.getByRole('slider',{name:'Speed',exact:true}).first();await slider.scrollIntoViewIfNeeded();const sbox=await slider.boundingBox();
      await frames('dragging a slider',async()=>{await page.mouse.move(sbox.x+sbox.width*.3,sbox.y+sbox.height/2);await page.mouse.down();for(let i=0;i<=90;i++)await page.mouse.move(sbox.x+sbox.width*(.3+.5*i/90+.05*Math.sin(i/6)),sbox.y+sbox.height/2);});
      await measure('slider release','pointerup',()=>page.mouse.up());

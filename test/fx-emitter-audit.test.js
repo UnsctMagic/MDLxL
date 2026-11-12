@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {openDocument} from '../src/editor-document.js';
-import {findLook,newStack,partFrame,makeLayer,LAYER_CHOICES} from '../src/global-animation-looks.js';
+import {findLook,newStack,partFrame,makeLayer,LAYER_CHOICES,emitterName,layerIngredient} from '../src/global-animation-looks.js';
 import {compileAnimation,FX_SECTIONS} from '../src/global-animation-model.js';
 
 // Owner, 12 November: "EMITTERS ... they are good but some are very bad, im lacking options and names are not
 // descriptive." Fixes from the emitter audit, each on new layers only.
 const knight=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
-const choice=label=>LAYER_CHOICES.find(s=>s.type==='Particles'&&s.label===label);
-const offered=()=>LAYER_CHOICES.filter(s=>s.type==='Particles').map(s=>s.menuLabel||s.label);
+const choice=label=>layerIngredient(findLook('empty'),{type:'Particles',label});
+const offered=()=>LAYER_CHOICES.filter(s=>s.type==='Particles').map(emitterName);
 export function addEmitter(label,part=37,palette='native'){
  const doc=knight(),frame=partFrame(doc.model.Geosets[part]),stack=newStack(findLook('empty'),frame,'audit');
  stack.layers=[makeLayer(choice(label),frame,palette,1)];
@@ -22,7 +22,7 @@ test('flames are fire coloured on a look without a fire palette, and offered onc
  assert.deepEqual(layer.tint,[1,.463,.173]);
  const middle=Array.from(emitters[0].SegmentColor[1]);
  assert.ok(middle[0]>.9&&middle[1]<.6&&middle[2]<.3,'orange, not white: '+middle);
- assert.equal(offered().filter(l=>l==='Fire'||l==='Blade flames'||/^Fire \(/.test(l)).length,1);
+ assert.equal(offered().filter(l=>l==='Flames').length,1);
 });
 
 for(const label of ['Heavy drops','Ichor drops'])test(label+' fall like Dripping water: its amount, life, size and streak',()=>{

@@ -11,7 +11,7 @@ import {NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit,shellReach} from '../src/global-animation-looks.js';
+import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit,shellReach,emitterName,layerIngredient} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
@@ -34,7 +34,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const surface=graph?.model.Geosets[result?.geoset];
  const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
  const uvAsset=assets?.get(gamePathKey(nativeImage||l?.image||''));
- const ingredient=l&&((look.variations?look.variations.flatMap(v=>v.layers):look.layers).find(s=>s.label===l.label)||LAYER_CHOICES.find(s=>s.label===l.label));
+ const ingredient=l&&layerIngredient(look,l);
  const defaultTint=l?.defaultTint||ingredient?.tint||tintFromHex(surfacePalette(look)[0][1]);
  const baseGlyph=ingredient?.glyphs?ingredient.image:l?.image;
  const runeImages=baseGlyph&&!RUNE_IMAGES.some(([,path])=>path===baseGlyph)?[[l.label,baseGlyph],...RUNE_IMAGES]:RUNE_IMAGES;
@@ -61,7 +61,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    begin={()=>{gesture.current={key};}} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
    finish={()=>{const g=gesture.current;gesture.current=null;setLive(null);if(g?.value!=null)update(key,Math.max(min,Math.min(max,g.value)));}} cancel={()=>{gesture.current=null;setLive(null);}}/></div>;
  }
- const menuName=spec=>spec.menuLabel||spec.label;
+ const menuName=emitterName;
  const choices=stack.impact?[]:LAYER_CHOICES;
  const emitterChoices=choices.filter(choice=>choice.type==='Particles');
  const surfaceChoices=choices.filter(choice=>choice.type!=='Particles');
@@ -92,7 +92,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {look.variations&&<label className="field"><span>Variation</span><select aria-label="Variation" value={currentVariation(stack,look)} onChange={e=>setStack(withVariation(stack,frame,look,e.target.value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
-  <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+item.label} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{item.label}<small>{layerType(item)}</small></button></div>)}</div>
+  <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
   {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><select aria-label="Add emitter" value={trial?.label||''} onChange={e=>tryEmitter(e.target.value)}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</select></label>}
   {!stack.impact&&trial&&<button className="fx-keep-emitter" title="Keep the previewed emitter as a layer." onClick={keepTrial}>Add</button>}
   <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value="" onChange={e=>addLayer(choices.find(s=>menuName(s)===e.target.value))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</select>}
@@ -104,7 +104,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?{...next,enabled:l.enabled,offset:l.offset,upper:l.upper,lower:l.lower}:v)});select(next.id);
   }}><option value="">Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</select>}
   {!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
-  {!edge&&!l.stamp&&<ColourControl hint={translate('Changes the colour of {0}.').replace('{0}',translate(l.label).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
+  {!edge&&!l.stamp&&<ColourControl hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}

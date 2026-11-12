@@ -18,7 +18,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await stubDialogs(app,{message:1});await open();
   await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Fire global animation').click();await ready();
   // Fire starts with its Blade flames (owner, 11 Nov), so only the embers are added.
-  await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade flames/}).click();
+  await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Flames/}).click();
   // Hot core, Blade flames, Flame cards (offered, off since 11 Nov) and the added embers.
   const previous=await stack();assert.equal(previous.layers.length,4);
   const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
@@ -63,7 +63,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
    }
    await button('Cancel').click();await fx.waitFor({state:'hidden'});
   }
-  await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await ready();await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/Blade flames/}).click();await button('Open in EMTR').click();
+  await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await ready();await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/Flames/}).click();await button('Open in EMTR').click();
   await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();assert.deepEqual(errors,[]);
   console.log('Both blade ends, colour, clock, four clips, actual orbit, Apply, Undo, re-edit, MDX and EMTR passed.');
  }catch(error){console.error((await page.locator('body').innerText()).slice(-1100));await page.screenshot({path:path.join(out,'failure.jpg')});throw error;}
