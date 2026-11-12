@@ -1,8 +1,8 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: fix branch `36dbb578` is sound and O2 is settled; before merging it needs `main` `11cd04c7` merged in (conflicts with Forge, resolution given to Codex)
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Claude Code (review), Codex (rework)
-Updated: 2026-11-11 (night)
+Updated: 2026-11-12
 
 ## Owner decisions O2 and O7, and the new main (12 Nov)
 

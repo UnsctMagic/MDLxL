@@ -1,6 +1,6 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: completed — merged via PR #631 (owner said "merge", 12 Nov 2026). Rounds 1–4 plus the trunk-part side fix; QA: 69/69 source, library gate 0 of 941, packaged workflow.
+Status: completed — merged via PR #631 at ee63f627 (owner said "merge", 12 Nov 2026). Rounds 1–4 plus the trunk-part side fix; QA: 69/69 source, library gate 0 of 941, packaged workflow.
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
 Updated: 2026-11-12
 

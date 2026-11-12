@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: main at 3dbf8f48 and Claude’s notes are merged locally. The requested checks passed. Ready for Claude’s final review.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-12
 

@@ -1,8 +1,8 @@
 # Contract 3: settings and keys cannot be wiped by accident
 
-Status: reworked and ready for Claude re-check. O5 wording is ready for the next release-branch update.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings C1 to C4 and owner decisions O3, O4, O5 and O10 of the
 [main review](main-review-2026-11-11.md), all from PR #602 (O10: #623).

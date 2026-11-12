@@ -1,8 +1,8 @@
 # Contract 2: saves stay unblocked, but never destroy the file quietly
 
-Status: reworked and ready for Claude re-check. O12 implemented as decided by the owner.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings B1 to B6 of the [main review](main-review-2026-11-11.md). Read its "Rules for
 every contract" first. Map rows: "Open, save, import/export MDL/MDX; undo", "AI chat".

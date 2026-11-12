@@ -1,8 +1,8 @@
 # Contract 6: housekeeping after the review
 
-Status: reworked and ready for Claude re-check. The documented Flail03 reference is missing.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings G1 to G3 of the [main review](main-review-2026-11-11.md). Read its "Rules for
 every contract" first.

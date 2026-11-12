@@ -1,8 +1,8 @@
 # Contract 1: FX keeps pointing at the right geosets and clocks
 
-Status: A1/A2 complete and ready for Claude review. Part B (A3–A5) waiting for claude/fx-editor.
+Status: completed — merged via PR #635 at c1548e40. Part A (A1, A2) is merged; Part B (A3–A5) is still open and waits for `claude/fx-editor`.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings A1, A2, A3, A4, A5 of the [main review](main-review-2026-11-11.md). Read its
 "Rules for every contract" first. Required reading: [FX contract](../FX-GLOBAL-ANIMATIONS.md),
