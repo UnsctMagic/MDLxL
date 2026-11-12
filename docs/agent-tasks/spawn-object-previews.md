@@ -1,6 +1,6 @@
 # Contract: Spawn Objects that show nothing
 
-Status: ready for owner hand test
+Status: inline preview implemented, package approval pending
 Owner / consolidator: Codex (fix), Claude Code (diagnosis, contract and review)
 Updated: 2026-11-12
 
@@ -67,16 +67,13 @@ HBS0 is in group D, so expect overlap.
    instances, lifespans, positions). Blood, Footprint, Uber Splat and Sound
    behaviour unchanged. Camera never moves on pick (AGENTS.md viewpoint rule).
 
-## Owner decision pending (do not build until answered)
+## Live picker preview
 
-- **Spawn Object picture in Node Manager.** Blood/Footprint/Uber Splat show a
-  flat picture under the list; Spawn Objects are 3D models. Options: (a) none,
-  rely on the main preview playing it after the fix; (b) picking an entry plays
-  it once on the model in the main preview, using the existing event test path
-  `eventPreview.trigger()` in [event-preview-runtime.js](../../app/event-preview-runtime.js),
-  which today accepts only SPL/UBR. Claude recommends (b): it reuses an existing
-  path and adds no panel. A small 3D box would need mouse rotation and is a new
-  control; not recommended.
+The owner reported that the picker still gave no live preview while browsing
+Great Unclean Dude. The manager sits over the main model, so the selected
+game effect now loops under the list in the existing rotatable 3D viewer.
+The preview has its own animation clock and camera. The editor viewport and
+authored event timing are independent of it.
 
 ## Rules
 
@@ -127,7 +124,7 @@ HBS0 is in group D, so expect overlap.
 
 ## Next action
 
-Owner hand test first. Visual playback, the full 104-row classification,
-any remaining group C failures, and the group A regression check are pending.
-After acceptance, propose the focused checks and source suite before merge.
-The separate decision about a picker preview remains with the owner.
+After approval, build and package the inline preview and check UBGH, UEGG,
+mouse rotation and the missing-model line in the hidden package. The first
+handoff package predates the inline preview. The full 104-row classification
+and the group A regression check still follow owner acceptance.

@@ -3,6 +3,7 @@ import { SelectField } from './Fields.jsx';
 import { EVENT_TYPES, SOUND_EXPANSIONS, assignEventData, setEventFrame, resolveEventSound, MISSING_SOUND, MISSING_SOUND_TIP } from './node-event-data.js';
 import EventSoundTree from './EventSoundTree.jsx';
 import EventDecalPreview from './EventDecalPreview.jsx';
+import SpawnObjectPreview from './SpawnObjectPreview.jsx';
 import { parseEventRenderModel } from './event-render-model.js';
 import { gamePathKey } from '../src/game-path.js';
 import { readStored, writeStored } from '../src/local-store.js';
@@ -27,7 +28,7 @@ function spawnOptionStatus(row, records) {
 
 // Shows only the chosen event kind. Type, timing and node fields wait behind
 // one closed disclosure (children are the generic node fields).
-export default function NodeEventEditor({ node, model, modelPath, catalog, error: catalogError, edit, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
+export default function NodeEventEditor({ node, model, modelPath, catalog, error: catalogError, edit, teamColor, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
   const type = EVENT_TYPES[node.Name?.slice(0,3)] ? node.Name.slice(0,3) : 'SND', id = node.Name?.slice(4);
   const [query, setQuery] = useState(''), [audioSource, setAudioSource] = useState(null), [fileIndex, setFileIndex] = useState(0), [error, setError] = useState('');
   const [expansions, setExpansions] = useState(readExpansions);
@@ -50,16 +51,15 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
   const lookup = spawnLookup?.spawnRows === spawnRows && spawnLookup?.modelPath === modelPath ? spawnLookup : null;
   const spawnRecords = lookup?.records;
   const selectedSpawnPath = type === 'SPN' ? selected?.definition?.resourcePath : null;
-  const spawnError = useMemo(() => {
-    if (!selectedSpawnPath) return '';
-    if (!spawnRecords) return lookup?.error || '';
+  const spawnPreview = useMemo(() => {
+    if (!selectedSpawnPath) return null;
+    if (!spawnRecords) return lookup?.error ? { error: lookup.error } : null;
     const record = spawnRecords.get(gamePathKey(selectedSpawnPath));
-    if (!record) return 'Not found in the game files';
-    try { parseEventRenderModel(record.bytes, selectedSpawnPath); }
-    catch { return 'This model format cannot be previewed'; }
-    return '';
+    if (!record) return { error: 'Not found in the game files' };
+    try { return { model: parseEventRenderModel(record.bytes, selectedSpawnPath) }; }
+    catch { return { error: 'This model format cannot be previewed' }; }
   }, [selectedSpawnPath, spawnRecords, lookup?.error]);
-  const selectedSpawnError = type === 'SPN' && selected && !selected.definition ? NO_SPAWN_MODEL : spawnError;
+  const selectedSpawnError = type === 'SPN' && selected && !selected.definition ? NO_SPAWN_MODEL : spawnPreview?.error;
   const matches = rows.filter(row => row.label.toLowerCase().includes(query.toLowerCase()));
   const sounds = type === 'SND' ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
   const toggleExpansion = key => setExpansions(previous => {
@@ -91,6 +91,7 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
     })}</select>}
     {file && <>{selected.files.length > 1 && <SelectField label="Sound file" value={fileIndex} options={selected.files.map((name,value)=>({value,label:name.split(/[\\/]/).at(-1)}))} onChange={v=>setFileIndex(Number(v))}/>}<audio key={file} ref={audio} aria-label="Sound preview" controls preload="auto" src={audioUrl || undefined} onError={()=>{if(audioUrl)setError('Sound format could not be played.');}}/></>}
     {selected?.definition && ['SPL','FPT','UBR'].includes(type) && <EventDecalPreview definition={selected.definition} modelPath={modelPath}/>}
+    {type === 'SPN' && <SpawnObjectPreview model={spawnPreview?.model} modelPath={modelPath} teamColor={teamColor} loading={!!selectedSpawnPath && !spawnPreview}/>}
     {type === 'SND' && selected?.missing && <p className="re-sound-missing" title={MISSING_SOUND_TIP}>{MISSING_SOUND}</p>}
     {(error || selectedSpawnError || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || selectedSpawnError || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
     {global < 0 && <SelectField label="Preview animation" value={sequenceIndex} options={model.Sequences.map((seq,value)=>({value,label:seq.Name}))} onChange={v=>onSequenceChange(Number(v))}/>}
