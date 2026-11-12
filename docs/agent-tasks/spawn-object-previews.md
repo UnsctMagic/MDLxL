@@ -1,6 +1,6 @@
 # Contract: Spawn Objects that show nothing
 
-Status: usable-only picker implemented, package approval pending
+Status: merge requested, awaiting approval for pre-merge verification
 Owner / consolidator: Codex (fix), Claude Code (diagnosis, contract and review)
 Updated: 2026-11-12
 
@@ -17,7 +17,7 @@ guide: [RESOURCE-MANAGERS-XL.md](../RESOURCE-MANAGERS-XL.md).
 
 Picking a Spawn Object does rename the node and the preview does rebuild. The
 picked effect then fails to load and the only sign is a small brown line at the
-bottom of the preview. Every one of the 104 `Splats\SpawnData.slk` rows was loaded
+bottom of the preview. Every one of the 103 `Splats\SpawnData.slk` rows was loaded
 through the same code the preview uses (`resolveEventDefinition` →
 `parseEventRenderModel` in [event-render-model.js](../../app/event-render-model.js)).
 Only 29 can show:
@@ -129,11 +129,13 @@ desktop. Cropped captures showed UBGH and UEGG animating below the picker.
 An actual left-button mouse drag changed the inline camera position while
 its target stayed fixed. TEST showed "Not found in the game files" and HBDH
 showed "No model listed". The missing picks cleared the inline preview.
-No suites were written or run. The full 104-row classification and group A
+No suites were written or run. The full 103-row classification and group A
 regression check follow owner acceptance.
 
 ## Next action
 
-The current package predates the usable-only picker. After approval, rebuild
-and check the filtered list, search, type switching and pre-existing
-unavailable assignments in the hidden app with the named test model.
+The current handoff package predates the usable-only picker. The branch now
+includes main 40a37825 and applies the filter in both New Event and existing
+node editing. The owner requested merge. The real-game catalog and packaged
+picker checks are written and await approval to run fail-first and against
+the combined branch, with the source suite checked against the CI baseline.

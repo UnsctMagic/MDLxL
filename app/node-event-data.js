@@ -112,7 +112,8 @@ export async function loadSpawnChoices(rows, modelPath) {
       sliceStart = performance.now();
     }
   }
-  return { usable, unsupported };
+  const choices = rows.filter(row => usable.has(gamePathKey(row.definition?.resourcePath)));
+  return { choices, usable, unsupported };
 }
 
 export const MISSING_SOUND = 'No sound file in the game';
