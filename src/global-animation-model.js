@@ -1,6 +1,6 @@
 import {Quaternion,Vector3} from 'three';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
-import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
+import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -322,8 +322,9 @@ export function impactDefaults(model,_index,sequence,hit){
  return seq<0?{sequence:-1,hit:0,contact:null}:attackContact(model,seq,hit);
 }
 /** Freeze the geometry offer by recipe inputs and selected surface for this model revision. */
-const usesSiteGeometry=layer=>layer.widthCap!=null;
+const usesSiteGeometry=layer=>layer.widthCap!=null||layer.aim!=null;
 function defaultSurfaceSites(c,layer){
+ if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
  if(layer.birthRegion&&!layer.siteLayout)return birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
  if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
@@ -335,6 +336,20 @@ function defaultSurfaceSites(c,layer){
  const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'surface'+index})),fireFit,usesSiteGeometry(layer));
  const result=sites.length?sites:null;
  cache.set(offerKey,result);
+ return result;
+}
+function tipEmitterSites(c){
+ const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
+ const key='emitter-tip|'+surfaceKey;
+ if(cache.has(key))return cache.get(key);
+ const pivotFor=(vertices,barycentric)=>{
+  const parent=dominantWeight(surfaceWeights(source,vertices,barycentric))??c.parent;
+  return new Vector3().fromArray(model.PivotPoints[parent]??frame.center.toArray());
+ };
+ const samples=suggestTipEmitterSites(emitterSurface(c),pivotFor,frame.unitHeight,(frame.regions?.length??1)>4);
+ const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'tip'+index})),false,true);
+ const result=sites.length?sites:null;
+ cache.set(key,result);
  return result;
 }
 // Rectangles use native local X/Y half extents. Only one rigid connected
@@ -382,19 +397,23 @@ function attachEmitterSites(c,samples,fireFit,geometry=false){
   triangleStart+=part.Faces.length/3;
   return range;
  });
- return samples.map(({key,point,vertices,triangle,barycentric,fit,componentWidth})=>{
+ return samples.map(({key,point,vertices,triangle,barycentric,fit,componentWidth,normal,tipDirection})=>{
   if(!vertices)return {key,point,region:0,ground:true};
   const part=parts.findLast(entry=>entry.triangleStart<=triangle);
   const local=vertices.map(vertex=>vertex-part.vertexStart);
   const byWeight=[0,1,2].sort((a,b)=>barycentric[b]-barycentric[a]);
   const region=byWeight.map(i=>regionByVertex.get(vertices[i])).find(Number.isInteger)??0;
   return {key,point,region,ground:false,surface:{geoset:part.geoset,triangle:triangle-part.triangleStart,vertices:local,barycentric},attachmentPoint:point,
-   ...(fireFit&&fit?{fireFit:fit}:{}),...(geometry?{componentWidth,strip:!!fit?.strip}:{})};
+   ...(fireFit&&fit?{fireFit:fit}:{}),...(geometry?{componentWidth,strip:!!fit?.strip,normal,...(tipDirection?{tipDirection}:{})}:{})};
  });
 }
 function completeEmitterSiteLayout(c,layer){
- const layout=layer.siteLayout;
+ let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
+ if(layer.gather==='tip'&&layout.some(site=>!site.point)){
+  const tips=tipEmitterSites(c)||[];
+  layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
+ }
  const missing=layout.filter(site=>!site.point);
  if(!missing.length)return layout;
  if(layer.birthRegion){
@@ -440,6 +459,7 @@ function completeEmitterSiteLayout(c,layer){
 function emitterSiteRecord(slot,point,region,ground){
  return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),...(slot.fireFit?{fireFit:slot.fireFit}:{}),...(slot.birth?{birth:slot.birth}:{}),
   ...(slot.componentWidth!=null?{componentWidth:slot.componentWidth,strip:!!slot.strip}:{}),
+  ...(slot.normal?{normal:slot.normal}:{}),...(slot.tipDirection?{tipDirection:slot.tipDirection}:{}),
   ...(slot.surface?{surface:slot.surface,attachmentPoint:slot.attachmentPoint??slot.point}:{})};
 }
 function nativeEmitterRegions(c,layer,contact,source){
@@ -500,7 +520,23 @@ function birthRegionRateScale(layer,planned,active,weights){
 }
 function hasRecipeEmitterDefaults(layer){
  return layer.recipeOwner||layer.airyFit||layer.fireFit?.version===1||layer.rampTint||layer.rampPinned||layer.widthCap!=null||
-  layer.surfaceFit?.siteCount!=null||layer.scatter||layer.birthRegionFit;
+  layer.surfaceFit?.siteCount!=null||layer.scatter||layer.birthRegionFit||layer.gather||layer.aim;
+}
+function applyRecipeAim(c,layer,slot,node,slabRotation){
+ if(layer.native?.Rotation!=null)return;
+ if(layer.aim){
+  let direction=layer.aim==='outward'?slot.normal:slot.tipDirection;
+  if(!direction&&layer.aim==='tip'){
+   const axis=c.frame.axis,point=new Vector3(...node.PivotPoint);
+   direction=axis.clone().multiplyScalar(point.sub(c.frame.center).dot(axis)<0?-1:1).toArray();
+  }
+  if(direction&&new Vector3(...direction).lengthSq()>0){
+   const rotation=new Quaternion().setFromUnitVectors(z,new Vector3(...direction).normalize());
+   node.Rotation=emitterRotationTrack(c.model,rotation.toArray());
+   return;
+  }
+ }
+ if(c.prior?.aim&&!slabRotation)delete node.Rotation;
 }
 function nativeParticles(c,layer){
  const l=layer;
@@ -548,6 +584,7 @@ function nativeParticles(c,layer){
   if(layer.individuals?.[key]?.deleted)continue;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
+  applyRecipeAim(c,l,slot,p,slot.birth?.rotation);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,recipeNativeValue(l,key,value),m,c.createdClocks);
   if(!l.native?.ParticleScaling){
    p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
@@ -574,17 +611,22 @@ function siteParent(c,layer,key,region,point,fallback,slot){
  const anchor=slot?.surface&&!manual?(slot.attachmentPoint??slot.point):record?.attachmentPoint;
  if(anchor)point=new Vector3(...anchor);
  if(!source)return regionParent(c,region,point,fallback);
- const weights=new Map();
- surface.vertices.forEach((v,i)=>{
-  if(!manual&&surface.barycentric[i]<=0)return;
-  vertexBoneWeights(source,v).forEach(([id,w])=>weights.set(id,(weights.get(id)||0)+w*surface.barycentric[i]));
- });
+ const weights=surfaceWeights(source,surface.vertices,surface.barycentric,manual);
  const kind=manual?'snap':'surface';
  const surfaceKey=kind+'/'+surface.geoset+'/'+surface.vertices.join(',')+'/'+surface.barycentric.join(',');
- return regionParent({...c,source,surfaceKey},{vertices:surface.vertices,weights:[...weights],surface},point,kind+'-'+key);
+ return regionParent({...c,source,surfaceKey},{vertices:surface.vertices,weights,surface},point,kind+'-'+key);
 }
+function surfaceWeights(source,vertices,barycentric,manual){
+ const weights=new Map();
+ vertices.forEach((v,i)=>{
+  if(!manual&&barycentric[i]<=0)return;
+  vertexBoneWeights(source,v).forEach(([id,w])=>weights.set(id,(weights.get(id)||0)+w*barycentric[i]));
+ });
+ return [...weights];
+}
+const dominantWeight=weights=>weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0];
 function regionParent(c,region,point,key){
- const parent=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
+ const parent=dominantWeight(region.weights)??c.parent;
  if(region.weights.length<2)return parent;
  const bone=nodeFor(c,'Bones','Bone','binding-'+key,'Skin attachment '+key,point,parent),samples=c.attachmentCache;
  // The same part, vertex, parent and point always sample to the same keys; reuse them from the caller's cache.
@@ -743,6 +785,7 @@ function particles(c,layer){
    }
    if(l.siteCount===prior.siteCount&&l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
   }
+  applyRecipeAim(c,l,slot,p);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,recipeNativeValue(l,key,value),m,c.createdClocks);
   ids.push(p.ObjectId);
  }

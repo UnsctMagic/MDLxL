@@ -111,7 +111,7 @@ function triangleSection(triangle,along,station) {
  return {triangle,barycentric,weight,point:pointOnTriangle(triangle,barycentric)};
 }
 
-function stripSites(part,count,footprint) {
+function stripSites(part,count,footprint,stationAt) {
  const {axis,center,length}=part.frame;
  const direction=Math.abs(axis.z)<.9?UP.clone():new Vector3(1,0,0);
  direction.addScaledVector(axis,-direction.dot(axis)).normalize();
@@ -122,7 +122,7 @@ function stripSites(part,count,footprint) {
  const sites=[],active=new Set();
  let next=0;
  for(let i=0;i<count;i++){
-  const station=count===1?0:length*.9*(i/(count-1)-.5);
+  const station=stationAt?.(i)??(count===1?0:length*.9*(i/(count-1)-.5));
   while(next<spans.length&&spans[next].min<=station+EPS)active.add(spans[next++]);
   const section=[];
   for(const span of active){
@@ -163,7 +163,7 @@ function siteAt({triangle,barycentric,point,normal},clearance,fit,componentWidth
 
 // A compact piece gets its own rim. A body spends its coverage on the upper
 // lateral silhouette first, even if small pieces make up the visible shoulders.
-function rimSites(shape,footprint,limit,unitHeight) {
+function rimSites(shape,footprint,limit,unitHeight,tip) {
  const {components,centre,bounds,span}=shape;
  const across=span.y>=span.x*.8?'y':'x',other=across==='x'?'y':'x';
  const breadth=Math.max(bounds.max[across]-centre[across],centre[across]-bounds.min[across],EPS);
@@ -172,13 +172,14 @@ function rimSites(shape,footprint,limit,unitHeight) {
  const [first,second]=span.toArray().sort((a,b)=>b-a);
  const coverage=body?span[across]*.85+span[other]*.35:(first+second)*1.15;
  const count=Math.min(limit,Math.max(body?2:1,Math.round(coverage/spacing)));
- const grid=new Map(),cell=spacing*.34;
+ const grid=new Map(),cell=spacing*.34,extrema=new Map();
+ const samples=tip?[[1,0,0],[0,1,0],[0,0,1]]:[[1/3,1/3,1/3],[.76,.12,.12],[.12,.76,.12],[.12,.12,.76]];
  for(const part of components){
   const partScale=Math.max(EPS,part.span.length()*.5);
   const importance=Math.min(1,Math.sqrt(part.area)/spacing)*.12;
   for(const triangle of part.triangles){
    // Include near-corner samples so sparse triangles still offer their rim.
-   for(const barycentric of [[1/3,1/3,1/3],[.76,.12,.12],[.12,.76,.12],[.12,.12,.76]]){
+   for(const barycentric of samples){
     const point=pointOnTriangle(triangle,barycentric);
     const radial=point.clone().sub(part.centre),normal=triangle.normal.clone();
     if(normal.dot(radial)<-EPS)normal.negate();
@@ -187,6 +188,17 @@ function rimSites(shape,footprint,limit,unitHeight) {
     const lateral=(point[across]-centre[across])/breadth;
     const height=(point.z-bounds.min.z)/Math.max(span.z,EPS);
     const shoulder=height>=.48&&Math.abs(lateral)>=.25;
+    if(tip){
+     const root=tip.pivotFor(triangle.ids,barycentric),distance=point.distanceToSquared(root);
+     const side=tip.many?Math.sign(lateral):0,prior=extrema.get(side);
+     const preferred=tip.many&&shoulder;
+     if(!prior||preferred&&!prior.preferred||preferred===prior.preferred&&distance>prior.distance){
+      const axis=part.frame?.axis,away=point.clone().sub(root);
+      const direction=axis&&Math.abs(axis.dot(away))>EPS?axis.clone().multiplyScalar(Math.sign(axis.dot(away))):away.normalize();
+      extrema.set(side,{triangle,barycentric,point,normal,distance,preferred,partScale,radius:part.radius,direction});
+     }
+     continue;
+    }
     const upper=clamp01(1-Math.abs(height-.78)/.45);
     const exposure=.55*Math.max(0,outward)+.25*Math.max(0,normal.z);
     const score=rim+exposure+importance+(body?2.5*upper*Math.abs(lateral):.25*upper);
@@ -195,6 +207,12 @@ function rimSites(shape,footprint,limit,unitHeight) {
      grid.set(key,{triangle,barycentric,point,normal,score,lateral,shoulder,partScale,radius:part.radius});
    }
   }
+ }
+ if(tip){
+  const sides=tip.many?[-1,1]:[0];
+  const chosen=sides.map(side=>extrema.get(side)).filter(Boolean);
+  if(!chosen.length&&extrema.has(0))chosen.push(extrema.get(0));
+  return chosen.map(site=>({...siteAt(site,Math.max(.04,Math.min(footprint*.10,site.partScale*.12)),{radius:site.radius}),tipDirection:site.direction.toArray()}));
  }
  const candidates=[...grid.values()].sort((a,b)=>b.score-a.score);
  const shoulders=body?candidates.filter(candidate=>candidate.shoulder):[];
@@ -213,18 +231,34 @@ function rimSites(shape,footprint,limit,unitHeight) {
  return chosen.map(site=>siteAt(site,Math.max(.04,Math.min(footprint*.10,site.partScale*.12)),{radius:site.radius}));
 }
 
+function surfaceStrips(shape){
+ return shape.components.filter(part=>part.frame&&part.area>=shape.area*.04&&part.frame.length>=5.2*Math.max(part.radius,EPS));
+}
+
+export function suggestTipEmitterSites(shape,pivotFor,unitHeight,many){
+ if(!shape)return [];
+ const strips=surfaceStrips(shape);
+ const footprint=Math.max(1,shape.span.length()*.04);
+ if(!many&&strips.reduce((sum,part)=>sum+part.area,0)>=shape.area*.65){
+  const strip=strips.reduce((a,b)=>a.frame.length>=b.frame.length?a:b);
+  const {axis,length}=strip.frame;
+  const ends=stripSites(strip,2,footprint,i=>length*.45*(i?1:-1));
+  if(ends.length===2){
+   const distance=site=>new Vector3(...site.point).distanceToSquared(pivotFor(site.vertices,site.barycentric));
+   const end=distance(ends[0])>distance(ends[1])?0:1;
+   return [{...ends[end],tipDirection:axis.clone().multiplyScalar(end?1:-1).toArray()}];
+  }
+ }
+ return rimSites(shape,footprint,many?2:1,unitHeight,{pivotFor,many});
+}
+
 export function suggestEmitterSites(shape,fit,unitHeight) {
  if(!shape)return [];
  const footprint=Math.max(1,fit.siteCount?shape.span.length()/fit.siteCount:fit.footprint);
  // Split one layer's existing emission budget while keeping enough live
  // particles at each site for a continuous effect.
  const limit=clamp(fit.siteCount??Math.floor(fit.liveParticles/4),1,MAX_SITES);
- const strips=[];
- for(const part of shape.components){
-  if(!part.frame||part.area<shape.area*.04)continue;
-  if(part.frame.length>=5.2*Math.max(part.radius,EPS))
-   strips.push({...part,count:1,desired:fit.siteCount??Math.max(1,Math.round(part.frame.length/footprint))});
- }
+ const strips=surfaceStrips(shape).map(part=>({...part,count:1,desired:fit.siteCount??Math.max(1,Math.round(part.frame.length/footprint))}));
  if(strips.reduce((sum,part)=>sum+part.area,0)>=shape.area*.65){
   const active=strips.sort((a,b)=>b.frame.length-a.frame.length).slice(0,limit);
   for(let allocated=active.length;allocated<limit;allocated++){

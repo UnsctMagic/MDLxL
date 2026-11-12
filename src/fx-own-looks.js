@@ -97,7 +97,7 @@ export function stackFromOwnLook(record,frame,owner){
    // Refit automatic slots in a different model. An explicit point keeps its
    // layout, but a triangle binding belongs only to its source model.
    next.siteLayout=next.siteLayout.map(({surface:_surface,attachmentPoint:_anchor,fireFit:_fireFit,birth:_birth,...site})=>{
-    if(next.siteCount!=null&&site.refit){delete site.point;delete site.componentWidth;delete site.strip;}
+    if(next.siteCount!=null&&site.refit){delete site.point;delete site.componentWidth;delete site.strip;delete site.normal;delete site.tipDirection;}
     return site;
    });
   }
