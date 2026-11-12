@@ -1,6 +1,6 @@
 # Review of main, 11 November 2026
 
-Status: latest main merged locally. O2 verified, O7 approved, and the combined branch is ready for Claude’s final review.
+Status: main at 3dbf8f48 and Claude’s notes are merged locally. The requested checks passed. Ready for Claude’s final review.
 Owner / consolidator: Claude Code (review), Codex (fixes)
 Updated: 2026-11-12
 
@@ -445,3 +445,49 @@ the joint and honors a pin. O7’s three behaviors are approved as they are.
 
 Claude’s next step is a local review only. FX Part B and the missing
 historical Flail03 reference remain as recorded above.
+
+## Local integration of `3dbf8f48`, 12 November 2026
+
+The tested tip is `c1468723` on `codex/main-review-20261111-all` in
+`D:\Codex\mdlxl-main-review-20261111-all`. From `36dbb578`, the first
+plain merge brought in local `origin/main` at `3dbf8f48` as `ff9283fc`.
+The second brought in Claude’s documentation-only `c3bcd96d` cleanly.
+The commit after `c1468723` updates this handoff only.
+
+The first merge had the eight expected file conflicts. The pointer-move
+handler keeps main’s drag threshold for parts and the fix branch’s
+`partSnap(event)`. The task index keeps both sets of rows. Each of the
+five locale catalogs preserves every translation from both sides,
+including all 44 incoming keys per language, with CRLF in the checkout
+and the project’s catalog order. Recounted in ru/es/zh/fr/de order,
+the sizes are **7,902 / 7,912 / 7,807 / 8,035 / 8,035**. The CI
+failure baseline, locked UV tests and flail files match `36dbb578`.
+
+| Check | Result |
+| --- | --- |
+| `pnpm run build` | Passed with Vite’s chunk-size warning |
+| `pnpm run test:source` | 3,376 passed, 0 failed, 10 skipped |
+| `pnpm test` | 57 passed, 0 failed, 0 skipped |
+| CI reporter and `.github/check-test-baseline.mjs` | 3,386 passing events including skips, 0 failing, 0 baseline entries, 0 new |
+| `vertex-animated-preview` | Passed, worst of ten hotkey switches 25 ms |
+| `forge-detail-editing`, default and `MDLXL_TEST_FORGE_REBOUND=1` | Passed, 12 checks in each run |
+| `billboard-vertex-drag` | Passed in normal and quad views |
+| `review-settings` | 7 checks passed |
+| `pose-sd-controls` | 11 checks passed |
+| PR #630 Bevel hand-test replay | `forge-vertex` and `forge-shield` passed |
+| PR #632 packaged checks | `event-sound-missing`, `event-sound-scroll`, `event-focus`, `manager-simplification` and `anim-xl` passed |
+
+PR #628 lists source checks only. The three controller handle-shape
+checks passed. For PR #630, the saved PR description lists the owner’s
+Bevel hand-test and a skim of the other tools. The replay used the
+existing Vertex Forge and shield harnesses.
+
+All 13 packaged runs used the same offline build of `c1468723` on the
+hidden desktop, once each, with 0 failures and 0 skips. The ten source
+skips were the same seven optional fixture/corpus checks and three
+platform checks (SIGTERM, symlink privilege and 8.3 short paths).
+Logs are in `out/main-3dbf8f48`. The temporary package and profiles were
+removed. Verification covered the named checks only.
+
+Claude can continue the review from the local branch. Main, the remote
+and releases were left alone.
