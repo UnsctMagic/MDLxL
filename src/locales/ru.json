@@ -4781,6 +4781,8 @@
   "The sound list needs the desktop app and your Warcraft III game files (Settings).": "Для списка звуков нужны настольное приложение и файлы Warcraft III, указанные в настройках.",
   "No sounds found in the configured game files.": "В указанных файлах игры звуки не найдены.",
   "Sound not found: {0}": "Звук не найден: {0}",
+  "No sound file in the game": "В игре нет файла звука",
+  "Warcraft III lists this sound, but its file is not in your game files, so it cannot be played.": "Warcraft III перечисляет этот звук, но его файла нет в ваших файлах игры, поэтому его нельзя воспроизвести.",
   "Showing the original animation.": "Показана исходная анимация.",
   "Click bones in the preview to add or remove them.": "Нажимайте на кости в предпросмотре, чтобы добавить или убрать их.",
   "{0} bones shaped · {1} keys": "Изменено костей: {0} · Ключей: {1}",

@@ -69,6 +69,7 @@
 .resource-editor.re-xl [data-node-type=CollisionShapes] .re-node-icon{color:var(--tree-nodes-collision)}
 .resource-editor.re-xl .re-sound-expansions{display:flex;gap:4px}.resource-editor.re-xl .re-sound-expansions button{flex:1;display:flex;justify-content:center;align-items:baseline;gap:4px;padding:3px 4px;font-weight:600}.resource-editor.re-xl .re-sound-expansions small{font-weight:400;opacity:.75;font-size:10px}
 .resource-editor.re-xl .re-sound-empty{margin:8px;color:var(--ui-muted)}
+.resource-editor.re-xl .re-sound-tree .re-sound-item-missing{opacity:.5;cursor:default}.resource-editor.re-xl .re-sound-missing{margin:4px 0;color:var(--ui-muted)}
 .resource-editor.re-xl .re-event-settings{border-top:1px solid var(--ui-border);padding-top:4px}.resource-editor.re-xl .re-event-settings>summary{cursor:pointer;color:var(--ui-link);padding:3px 0}.resource-editor.re-xl .re-event-settings[open]{display:flex;flex-direction:column;gap:7px}
 
 /* Match Library's quiet tabs and section hierarchy inside the existing window. */

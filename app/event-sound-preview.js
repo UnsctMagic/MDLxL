@@ -7,7 +7,9 @@ export function createEventSoundPreview({ model, modelPath, onWarning, desktop =
   const events = (model.EventObjects || []).filter(node => node.Name?.slice(0,3).toUpperCase() === 'SND');
   const ready = events.length && desktop?.resolveEventResources ? loadEventCatalog(modelPath).then(async catalog => {
     await Promise.all([...new Set(events.map(node => node.Name))].map(async name => {
-      const file = catalog.SND.find(sound => sound.id === name.slice(4))?.files?.[0];
+      const row = catalog.SND.find(sound => sound.id === name.slice(4));
+      if (row?.missing) return;
+      const file = row?.files?.[0];
       if (!file) { onWarning?.(`Sound definition unavailable: ${name}`); return; }
       const sound = await resolveEventSound(desktop.resolveEventResources,file,modelPath);
       if (disposed) return;
