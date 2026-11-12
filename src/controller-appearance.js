@@ -1,15 +1,15 @@
 import themes from './application-themes.json' with { type: 'json' };
 import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_SET_IDS } from './pose-symbol-sets.js';
 
-export const CONTROLLER_SHAPES = Object.freeze(['circle', 'square', 'diamond', 'triangle']);
+export const CONTROLLER_SHAPES = Object.freeze(['circle', 'square', 'diamond']);
 export const PIN_STYLES = Object.freeze(['label', 'icon', 'round']);
 const looks = {
-  light: ['circle', 'diamond', 'triangle', 'label', '#174aa1', '#995400', '#198054'],
-  dark: ['square', 'diamond', 'triangle', 'icon', '#ffb765', '#fff0db', '#ffd166'],
+  light: ['circle', 'diamond', 'diamond', 'label', '#174aa1', '#995400', '#198054'],
+  dark: ['square', 'diamond', 'diamond', 'icon', '#ffb765', '#fff0db', '#ffd166'],
   'warm-dark': ['square', 'square', 'diamond', 'label', '#e6bd86', '#fff0dc', '#e7a358'],
-  nord: ['diamond', 'circle', 'triangle', 'round', '#88c0d0', '#eceff4', '#a3be8c'],
+  nord: ['diamond', 'circle', 'diamond', 'round', '#88c0d0', '#eceff4', '#a3be8c'],
   'solarized-light': ['circle', 'diamond', 'square', 'label', '#006b9a', '#b34c1b', '#687700'],
-  'gruvbox-dark': ['triangle', 'square', 'diamond', 'icon', '#b8bb26', '#fbf1c7', '#fabd2f'],
+  'gruvbox-dark': ['diamond', 'square', 'diamond', 'icon', '#b8bb26', '#fbf1c7', '#fabd2f'],
   'catppuccin-mocha': ['diamond', 'circle', 'circle', 'round', '#cba6f7', '#f5e0dc', '#a6e3a1'],
 };
 export function controllerAppearanceForTheme(id = 'light') {
@@ -26,7 +26,7 @@ export function normalizeControllerAppearance(value, fallback = DEFAULT_CONTROLL
   for (const key of ['color', 'selected', 'pinned', 'background', 'skeleton', 'outline', 'axisX', 'axisY', 'axisZ']) output[key] = /^#[0-9a-f]{6}$/i.test(input[key]) ? input[key].toLowerCase() : base[key];
   // Profiles saved before the Symbol Color existed drew the symbol in the Handle colour; keep that look.
   output.symbolColor = /^#[0-9a-f]{6}$/i.test(input.symbolColor) ? input.symbolColor.toLowerCase() : /^#[0-9a-f]{6}$/i.test(input.color) ? input.color.toLowerCase() : base.symbolColor;
-  for (const key of ['shape', 'bodyShape', 'bendShape']) output[key] = CONTROLLER_SHAPES.includes(input[key]) ? input[key] : base[key];
+  for (const key of ['shape', 'bodyShape', 'bendShape']) output[key] = CONTROLLER_SHAPES.includes(input[key]) ? input[key] : input[key] === 'triangle' ? 'diamond' : base[key];
   output.pinStyle = PIN_STYLES.includes(input.pinStyle) ? input.pinStyle : base.pinStyle;
   output.symbols = typeof input.symbols === 'boolean' ? input.symbols : base.symbols;
   output.symbolSet = POSE_SYMBOL_SET_IDS.includes(input.symbolSet) ? input.symbolSet : POSE_SYMBOL_SET_IDS.includes(base.symbolSet) ? base.symbolSet : DEFAULT_POSE_SYMBOL_SET;
@@ -41,6 +41,5 @@ export function normalizeControllerAppearance(value, fallback = DEFAULT_CONTROLL
 export function controllerShapePoints(shape, radius) {
   if (shape === 'square') return [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]];
   if (shape === 'diamond') return [[0, -radius], [radius, 0], [0, radius], [-radius, 0]];
-  if (shape === 'triangle') return [[0, -radius], [radius, radius], [-radius, radius]];
   return null;
 }
