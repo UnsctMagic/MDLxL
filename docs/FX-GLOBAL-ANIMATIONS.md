@@ -210,8 +210,42 @@ Under **More**, native kinds gain **Size**, and all particle kinds gain **Spawn 
 **Spawn length** and the **Halfway point** marker, using EMTR's existing components.
 Values are stored in `layer.native`; Size scales all three life stages together.
 **Unfogged and Priority plane: left out, preview cannot show them** (owner clarification).
-The shared preview is unchanged. This omission concerns controls, not the explicitly
+These omitted controls add no shared-preview behavior. This omission concerns controls, not the explicitly
 requested Unfogged flag in the Rising embers recipe.
+
+Individual emitter placement (`src/fx-emitter-placement.js`) keeps the offered sites stable during edits.
+Position & size uses the shared EMTR move and span handles; Formation commits on release.
+Selecting a small marker or its particles scopes the existing controls to that stable site.
+Escape or the layer button returns to the layer. Delete removes one site; Snap to surface
+uses the existing double-click picker and records the target triangle, including blended
+skin. Whole-layer edits ask only when they overlap an individual value: Apply to all
+resets the touched override and hand placement; Keep individual changes leaves it exact.
+Change emitter retains the site layout, hand placements and deletions across recipes.
+Open in EMTR resolves the selected site after node renumbering. Native values edited
+there return to that individual on the next FX edit. The stack stores these records in
+both MDX and MDL; untouched legacy stacks keep their original compiler output. Fly swarm
+is still geometry on bones, with its existing controls rather than particle-site editing.
+The Emitters slider and Add extra emitter button change the number of sites in
+one particle layer. They do not add a new layer or change the Amount control's
+particle-rate meaning. A count edit freezes stable siteLayout keys with siteCount;
+parked slots retain their edits, while explicit deletions stay deleted. Additional
+sites use the existing shape analysis only when requested. siteRateScale preserves
+the existing aggregate recipe density for older native layouts. Automatic slots
+refit when an own look is loaded on another model; foreign triangle bindings do
+not travel with it. Count zero remains recoverable through these controls.
+
+Rotate reuses EMTR's aim rings and native Rotation binding. It changes emitter
+aim, individually or across the layer, while keeping pivots in place. The same
+individual-edit conflict policy applies. Static quaternion values in the stack
+compile to valid native tracks for the destination model.
+
+Surface Effects keeps one pending target preview. Switching surface/group drops
+its unapplied draft and loads applied document FX or a fresh fit of the chosen
+look. Apply effect and the explicit Open in EMTR apply-and-open action write the
+document; ordinary browsing does not. The owner deferred this polish's behavioral
+QA until release packaging; source review is not visual acceptance.
+
+See [placement work order and evidence](agent-tasks/fx-emitter-placement.md).
 
 New looks from these techniques (`src/fx-technique-looks.js`), filed in the existing
 folders and one new folder, Light:

@@ -5,6 +5,7 @@ import {SURFACE_EFFECTS} from './surface-effects.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 import {layerBasis,LAYER_UNIT_FALLBACK,swarmRadiusFor} from './fx-layer-basis.js';
 import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
+import {surfaceFitInputs} from './fx-emitter-surface.js';
 
 import {SORT_LOOKS,SORT_EMITTERS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
@@ -398,6 +399,9 @@ export function makeLayer(spec,frame,palette,id) {
   }
  }
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
+ // Raised native weather/cloud recipes have an authored launch height.
+ if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt)
+  layer.surfaceFit=surfaceFitInputs(layer,basis);
  return layer;
 }
 export function newStack(look,frame,owner) {

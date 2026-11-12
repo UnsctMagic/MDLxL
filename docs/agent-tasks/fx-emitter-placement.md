@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: in progress in Codex; items 1–8 verified, item 9 and final gate pending
+Status: owner tried trial 02 and accepted the placement direction; final count/rotation/single-preview polish coded and source-reviewed; QA deferred to release packaging
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -139,3 +139,116 @@ Item 4 follow-up: the extended large-drag check exposed a moving animation refer
 7. Shared conflict dialog: only overlapping whole-layer edits ask; Keep preserves the individual record, Apply to all removes the touched value and returns hand placements to formation. Deleted sites remain deleted. Change emitter freezes the current automatic site layout and preserves hand positions/deletions across built-in/native changes. Three source fail-first cases, then 27 focused pass; UI failed first on missing dialog. Build/group: 329/0/0. Hidden both colour choices and Change emitter pass (item-07-ui.log); captures keep-individual.png and apply-all.png under out/placement/ui. Dialog strings/tooltips translated in all five catalogues.
 
 8. Open in EMTR now resolves the selected stable site after Apply, including node renumbering, and keeps the existing representative behavior for a whole layer. Hidden fail-first selected source14-0 instead of source0-1; item-08-ui.log now verifies the exact chosen tag. Build/group: 329/0/0. Capture out/placement/ui/selected-emtr.png. The permanent Footman fixture, supplied TEST FX EDITOR 02.mdx and our copy have the identical SHA-256 FA74AE722B151A1CF5E297BEBE17D5A734FB89225823E37E29A588ECAF527812.
+
+9. Persistence: individual records survive Apply, FX reopen, real MDX/MDL file close/reopen, re-edit and Undo. Native baselines keep subsequent EMTR edits on their own site; a new quick edit supersedes its earlier native override. The new matrix covers 48 look/menu recipes in both formats, four EMTR cases (selected and sibling), two saved surface bindings, one quick-after-native case and two blended-drag cases. The geometry-only Fly swarm keeps its existing workflow. Final build and source group: 386/0/0 (out/item-placement-09-final-tests.log), including the sibling EMTR cases and the precision/first-use picking corrections below.
+
+Final interaction checks found and corrected two cases missed by the earlier simple path: a blended-skin drag shifted about 19 px on release in Attack (source: roughly 5.95 world units), and first-use particle picking lacked texture coverage until a later edit. Manual offsets now retain the attachment frame used during the live drag, and FX registers the existing picker before textures load. Fail-first evidence: item-09-drag-baseline.log, item-09-drag-ui-fail-first.log, item-09-first-pick-fail-first.log. No whole-stack compilation is added to pointer moves. Two additional fail-first cases exposed EMTR edits to another site in a mixed layer being lost on FX re-edit; native baselines now track every live site in that layer (item-09-sibling-fail-first.log, then 4/0/0 selected/sibling EMTR checks).
+
+The full local handoff, per-item captures/verdicts, source logs, package hashes and final harness results are in out/placement/REPORT.md. The frozen legacy fixture remains unchanged (Git blob 32818eaa8b4bbaae1c00be35854bb2542dd7c4b6). The owner's already-open round 2 app/profile are preserved; only this task's hidden test package/profiles and scratch copies are disposable.
+
+## Owner follow-up: usability and first-click placement (12 November)
+
+The owner stopped the final regression rerun to try the app. Pre-follow-up build
+and source group passed 386/0/0; the full body/sword placement workflows passed.
+The interrupted latest click sweep reached 489 sword + 489 body clicks with no
+failures; it did not complete the remaining final gate. These results do not
+verify the new work below.
+
+Keep all requested controls and add:
+- Easier small-marker picking and quick hide/show.
+- The current shared EMTR handle indications; sideways/depth layer stretching.
+- Keyboard Delete for the selected individual, including after a drag.
+- Remember the overlap-dialog choice for this FX, with direct access to change
+  it back to Apply to all without another prompt.
+- Mouse-wheel cycling of preview dropdown choices through the existing owner.
+
+The first-click offer must also respect actual geometry. Restore continuous
+sword coverage and derive site count/placement from covered shape and surface
+extent. Armour should favour shoulder shells and exposed rims, not the centre
+of the abdomen. The owner's target is 90% satisfactory first-click offers;
+this percentage is a future visual acceptance target, not a measured result.
+
+Read-only study found the concrete sword regression in the owner's
+WH_DOC_GreatUCO1C (2).mdx, displayed geoset 11 (index 10): seven sites are still
+requested across a 160.47-unit rigid blade, but the exterior-vertex lookup from
+e99f89c0 moves stations toward the ends. Release-style axial positions were
+[-45,-33,-16,0,16,34,47]% of length from centre; current positions were
+[-51,-51,-38,18,45,46,46]%. Repair the sampling, not merely the count. Reuse the
+existing strip frame, actual triangles and skin attachment path. New geometry
+suggestions must be opt-in for fresh layers; retain saved-stack/site identities.
+
+User assigned Astra to coordinate/review and GPT-6.1 Sol xhigh to code. Shape
+study used GPT-6.1 Sol medium. No automated tests/builds/packages for this new
+round are approved. Propose a cheaper suitable agent, exact scope and expected
+cost, then stop for approval before any such round. The next intended handoff
+is an owner-visible test build; QA remains for later.
+
+Preserve the open owner apps and their models/profiles, including the placement
+app under out/placement/pkg and out/placement/owner-test. Do not rebuild or
+remove either while the owner is using it.
+
+### Follow-up source design
+
+The usability patch adds larger invisible marker hit targets, the shared hover
+words, Width/Depth formation handles, Delete through the same selected-site
+command as the button, a per-effect remembered conflict policy, and controlled
+wheel choice callbacks in the existing dropdown owner. Action menus still need a deliberate click. These changes were in owner trial 02.
+
+The geometry sampler lives in src/fx-emitter-surface.js and reuses a pure
+physical-surface-component query from geoset-operations.js. The selected geometry
+is divided across matching physical edges before classifying strips; indexed UV
+islands are not physical parts. Slaanesh Dual G29 has two physical blades even
+though the whole-geoset principal axis runs across their gap. Its G10 has four
+compact shoulder shells. Footman G1 contains a narrow island with only 9.4% of
+the surface area, so one narrow component must not classify the body as a blade.
+Nurgle G9 has small upper/lateral shoulder pieces despite 86% of its area being
+in larger lower pieces; pure area allocation misses the requested accents.
+
+Fresh eligible layers freeze versioned surfaceFit recipe inputs (footprint and
+live-particle budget). The initial slots are derived deterministically from the
+selected geometry and cached with its surface identity. Colour/size/amount edits
+do not reallocate those slots. Own-look refits recompute these inputs for their
+target geometry. Legacy layers and explicit siteLayout keep precedence. Default
+triangle/barycentric anchors use the existing skin attachment path separately
+from manual individual records. The owner tried trial 02 and rated the direction about 85%; this is owner feedback, not measured accuracy. Preserve those accepted automatic defaults.
+
+### Current handoff boundary
+
+The owner approved GPT-6 Luna low to build/package one isolated manual trial.
+Trial 02 built and opened with copied sword/body models under
+out/placement/trial-02; its report.txt records the launch and setup limitation.
+The owner then tried it and requested only this final polish:
+
+- Add emitter sites inside the selected layer and an Emitters count slider,
+  separate from particle output/intensity. Retain existing positions and edits.
+- One pending preview across surfaces; switching targets discards the previous
+  unapplied draft. Preserve effects already applied to the actual model.
+- Reuse EMTR rotation rings for emitter aim, individually and across the layer.
+- Preserve the accepted shape placement. Further study must demonstrate a
+  useful correction before changing defaults; no speculative retuning.
+
+GPT-6.1 Sol xhigh implemented the polish; Astra reviewed the source. Claude is requested
+for a bounded source/regression review, with the handoff and response through
+computer use as explicitly authorized by the owner while AFK. This authorizes
+review communication, not Git push, merge, publication or new QA execution.
+No new tests, linters, builds or app checks are authorized for this polish.
+The owner deferred QA until release packaging to avoid duplicate expenditure.
+Any future testing round still needs the owner's specific agent/scope approval.
+Historical 386/0/0 source results and earlier captures predate these follow-ups.
+Review checkpoint: the local commit containing this note follows 49c61d59 and
+includes item 9 persistence plus the owner usability, geometry and final-polish
+follow-ups. No new test pass is claimed. Latest polish capture count: zero.
+
+Emitters (0-64) parks/restores stable site keys and records; explicit Delete stays
+deleted. Add extra emitter selects the new/restored site. Rotation is aim-only,
+using shared EMTR rings and native Rotation, and does not orbit the formation.
+The preview adapter exposes its existing global rotation clock in the snapshot;
+rendering behavior and the omitted Unfogged/Priority plane controls are unchanged.
+Open in EMTR retains its explicit apply-and-open behavior. The new control labels
+and tooltips are in all five translated catalogues. Existing test files in this
+commit are the earlier item 9 evidence, not new polish tests.
+
+Trial 02 and the older placement trial have closed. Their disposable packages
+and profiles were removed after a process/path check; copied models/textures,
+logs and captures remain. The active out/pkg app and out/owner-test-profile were
+preserved. Do not disturb that owner app or other tasks' processes.

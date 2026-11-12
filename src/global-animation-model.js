@@ -1,5 +1,6 @@
 import {Quaternion,Vector3} from 'three';
-import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint} from './fx-emitter-placement.js';
+import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
+import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -320,30 +321,122 @@ export function impactDefaults(model,_index,sequence,hit){
  const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));
  return seq<0?{sequence:-1,hit:0,contact:null}:attackContact(model,seq,hit);
 }
+/** Freeze the geometry offer by recipe inputs and selected surface for this model revision. */
+function defaultSurfaceSites(c,layer){
+ const fit=layer.surfaceFit;
+ if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
+ const {attachmentCache:cache,surfaceKey,frame}=c;
+ const offerKey='emitter-surface|'+fit.version+'|'+surfaceKey+'|'+fit.footprint+'|'+fit.liveParticles;
+ if(cache.has(offerKey))return cache.get(offerKey);
+ const samples=suggestEmitterSites(emitterSurface(c),fit,frame.unitHeight);
+ const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'surface'+index})));
+ const result=sites.length?sites:null;
+ cache.set(offerKey,result);
+ return result;
+}
+function emitterSurface(c){
+ const key='emitter-surface|'+SURFACE_FIT_VERSION+'|'+c.surfaceKey;
+ if(!c.attachmentCache.has(key))c.attachmentCache.set(key,analyseEmitterSurface(c.source));
+ return c.attachmentCache.get(key);
+}
+function attachEmitterSites(c,samples){
+ const {frame}=c,regionByVertex=new Map();
+ frame.regions?.forEach((region,index)=>region.vertices.forEach(vertex=>regionByVertex.set(vertex,index)));
+ // Convert the combined geometry's triangle back to its original geoset/indices.
+ let vertexStart=0,triangleStart=0;
+ const parts=[c.index,...(c.stack.group||[])].map(geoset=>{
+  const part=c.model.Geosets[geoset];
+  const range={geoset,vertexStart,triangleStart};
+  vertexStart+=part.Vertices.length/3;
+  triangleStart+=part.Faces.length/3;
+  return range;
+ });
+ return samples.map(({key,point,vertices,triangle,barycentric})=>{
+  if(!vertices)return {key,point,region:0,ground:true};
+  const part=parts.findLast(entry=>entry.triangleStart<=triangle);
+  const local=vertices.map(vertex=>vertex-part.vertexStart);
+  const byWeight=[0,1,2].sort((a,b)=>barycentric[b]-barycentric[a]);
+  const region=byWeight.map(i=>regionByVertex.get(vertices[i])).find(Number.isInteger)??0;
+  return {key,point,region,ground:false,surface:{geoset:part.geoset,triangle:triangle-part.triangleStart,vertices:local,barycentric},attachmentPoint:point};
+ });
+}
+function completeEmitterSiteLayout(c,layer){
+ const layout=layer.siteLayout;
+ if(!layout||!Number.isInteger(layer.siteCount))return layout;
+ const missing=layout.filter(site=>!site.point);
+ if(!missing.length)return layout;
+ const {frame,attachmentCache:cache}=c;
+ const fit=layer.surfaceFit||{footprint:Math.max(1,frame.girth*.55),liveParticles:32};
+ const fixed=layout.filter(site=>site.point);
+ const ground=fixed.find(site=>site.ground!=null)?.ground??!!(layer.ground||layer.nativeSpec?.flat);
+ const groundZ=ground?(fixed.find(site=>site.ground)?.point[2]??1.5):undefined;
+ const key='emitter-extra|'+c.surfaceKey+'|'+JSON.stringify([fit,groundZ,layout]);
+ if(cache.has(key))return cache.get(key);
+ const samples=suggestAdditionalEmitterSites(emitterSurface(c),fit,frame.unitHeight,fixed.map(site=>site.point),missing.length,groundZ);
+ const extra=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:missing[index].key})));
+ const byKey=new Map(extra.map(site=>[site.key,site]));
+ const completed=layout.map((slot,index)=>{
+  if(slot.point)return slot;
+  const sample=byKey.get(slot.key);
+  if(sample)return {...slot,...sample};
+  // Empty/degenerate geometry has no triangle to attach to. Keep the slot
+  // usable along the fitted part instead of losing its identity.
+  const point=frame.at(frame.length*((index+.5)/layout.length-.5)).toArray();
+  if(ground)point[2]=groundZ;
+  return {...slot,point,region:0,ground};
+ });
+ cache.set(key,completed);
+ return completed;
+}
+function emitterSiteRecord(slot,point,region,ground){
+ return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),
+  ...(slot.surface?{surface:slot.surface,attachmentPoint:slot.attachmentPoint??slot.point}:{})};
+}
+function nativeEmitterRegions(c,layer,contact,source){
+ const regions=contact?[{frame:null,vertices:[contact.vertex],weights:vertexBoneWeights(source,contact.vertex)}]:
+  c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ // A ground/flat recipe has one emitter at the longest region, not one copy per region.
+ if(layer.sharedSites&&!contact&&regions.length>1&&(layer.ground||layer.nativeSpec?.flat))
+  return [regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)];
+ return regions;
+}
+/** A count edit distributes the same recipe budget that was active before it. */
+function nativeEmitterBudget(c,layer){
+ if(layer.siteCount!=null)return layer.siteRateScale??1;
+ const surviving=key=>!layer.individuals?.[key]?.deleted;
+ if(c.autoSites)return c.autoSites.filter(site=>surviving(site.key)).length/c.autoSites.length||1;
+ if(c.siteLayout)return c.siteLayout.filter(site=>surviving(site.key)).length||1;
+ const regions=nativeEmitterRegions(c,layer,null,c.source);
+ const shares=layer.sharedSites?emissionShares(regions,1):null;
+ return regions.reduce((sum,_,index)=>sum+(surviving('source'+index)?(shares?.[index]??1):0),0)||1;
+}
 function nativeParticles(c,layer){
  const l=layer;
  const {model:m,tag,id,ms}=c,contact=l.impact?c.stack.contact:null;
  if(l.impact&&!contact)throw Error('Choose an Attack animation.');
  const sourceGeo=contact?m.Geosets[contact.geoset]:c.source;
- let regions=contact?[{frame:null,vertices:[contact.vertex],weights:vertexBoneWeights(sourceGeo,contact.vertex)}]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
- // A layer made with sharedSites shares its rate among the part's regions as built-in kinds do, and a ground
- // or flat (XYQuad) emitter is one emitter at the longest region instead of one stacked copy per region.
- if(l.sharedSites&&!contact&&regions.length>1&&(l.ground||l.nativeSpec?.flat))regions=[regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)];
+ const regions=nativeEmitterRegions(c,l,contact,sourceGeo),ids=[];
  const shares=l.sharedSites&&!contact&&!l.impact?emissionShares(regions,1):null;
- const planned=layer.siteLayout?layer.siteLayout.map(slot=>({...slot,region:c.frame.regions?.[slot.region]||regions[0]})):regions.map((region,i)=>({region,key:'source'+i}));
+ const layout=c.siteLayout||c.autoSites,active=activeEmitterSites(layer,layout||[]);
+ const planned=layout?layout.map(slot=>({...slot,regionIndex:slot.region??0,region:c.frame.regions?.[slot.region]||regions[0]})):regions.map((region,i)=>({region,key:'source'+i}));
  for(const [i,slot] of planned.entries()){
-  const region=slot.region;if(!layer.siteLayout&&shares&&!shares[i])continue;
+  const region=slot.region;if(!layout&&shares&&!shares[i])continue;
+  if(active&&!active.has(slot.key)){
+   c.sites.push(emitterSiteRecord(slot,new Vector3(...slot.point),slot.regionIndex,!!slot.ground));
+   continue;
+  }
   const key=slot.key,l=individualEmitterLayer(layer,key);
   const f=region.frame;
   const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
-  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*(layer.siteLayout?1:shares?shares[i]:1),tint:l.tint,sequence:c.stack.sequence};
+  const share=active?(layer.siteRateScale??1)/active.size:c.autoSites?1/planned.length:layout?1:shares?shares[i]:1;
+  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*share,tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});
   const texCount=m.Textures.length;
   source.TextureID=importer.textureRef(source.TextureID);importer.globalRef(source);
   for(let t=texCount;t<m.Textures.length;t++)m.Textures[t]._FxTag=tag+'/native-texture'+t;
   const clearance=l.surfaceSites?Math.max(.1,Math.max(...source.ParticleScaling)*.3+Math.hypot(source.Width,source.Length)*.5):0;
-  const pos=contact?new Vector3().fromArray(sourceGeo.Vertices,3*contact.vertex):f.surfaceAt(0,clearance,c.frame.center);
+  const pos=slot.point?new Vector3(...slot.point):contact?new Vector3().fromArray(sourceGeo.Vertices,3*contact.vertex):f.surfaceAt(0,clearance,c.frame.center);
   if(l.impact){
    const interval=m.Sequences[c.stack.sequence]?.Interval;if(!interval)throw Error('Choose an Attack animation.');
    source.Squirt=true;source.EmissionRate={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap(s=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([0])})))};
@@ -353,14 +446,13 @@ function nativeParticles(c,layer){
    source.EmissionRate.Keys=source.EmissionRate.Keys.filter((k,j,all)=>!(k.Frame<interval[1]&&k.Vector[0]===0&&j>0&&all[j-1].Vector[0]>0&&k.Frame===all[j-1].Frame+1));
    source.Visibility={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap((s,j)=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([j===c.stack.sequence?1:0])})))};
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
-  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);}
-  if(slot.point)pos.fromArray(slot.point);
-  c.sites.push({key,point:pos.toArray(),region:Math.max(0,c.frame.regions?.indexOf(region)??0),ground:slot.ground??!!l.ground});
+  if(!slot.point&&!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);}
+  c.sites.push(emitterSiteRecord(slot,pos,Math.max(0,c.frame.regions?.indexOf(region)??0),slot.ground??!!l.ground));
   if(!l.impact||l.placement||layer.individuals?.[key]?.position)pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i));
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m);
   if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
   ids.push(p.ObjectId);
  }
@@ -374,11 +466,22 @@ function groundSeal(c,l){
 }
 // PRE2 has one parent. A blended skin region needs an attachment translation under
 // that parent; sample the existing skin evaluator without changing any authored key.
-function siteParent(c,layer,key,region,point,fallback){
- const surface=layer.individuals?.[key]?.surface,source=surface&&c.model.Geosets[surface.geoset];
+function siteParent(c,layer,key,region,point,fallback,slot){
+ const record=layer.individuals?.[key],manual=record?.surface;
+ const surface=manual||slot?.surface,source=surface&&c.model.Geosets[surface.geoset];
+ // Keep the same attachment frame throughout a drag, including when an
+ // automatic site already uses a blended triangle or was frozen by Change emitter.
+ const anchor=slot?.surface&&!manual?(slot.attachmentPoint??slot.point):record?.attachmentPoint;
+ if(anchor)point=new Vector3(...anchor);
  if(!source)return regionParent(c,region,point,fallback);
- const weights=new Map();surface.vertices.forEach((v,i)=>vertexBoneWeights(source,v).forEach(([id,w])=>weights.set(id,(weights.get(id)||0)+w*surface.barycentric[i])));
- return regionParent({...c,source,surfaceKey:'snap/'+surface.geoset+'/'+surface.vertices.join(',')+'/'+surface.barycentric.join(',')},{vertices:surface.vertices,weights:[...weights],surface},point,'snap-'+key);
+ const weights=new Map();
+ surface.vertices.forEach((v,i)=>{
+  if(!manual&&surface.barycentric[i]<=0)return;
+  vertexBoneWeights(source,v).forEach(([id,w])=>weights.set(id,(weights.get(id)||0)+w*surface.barycentric[i]));
+ });
+ const kind=manual?'snap':'surface';
+ const surfaceKey=kind+'/'+surface.geoset+'/'+surface.vertices.join(',')+'/'+surface.barycentric.join(',');
+ return regionParent({...c,source,surfaceKey},{vertices:surface.vertices,weights:[...weights],surface},point,kind+'-'+key);
 }
 function regionParent(c,region,point,key){
  const parent=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
@@ -402,7 +505,8 @@ function regionParent(c,region,point,key){
 export const EMITTER_DEPTH=['Latitude','Variation','FilterMode','Flags','FrameFlags','TailLength','Rows','Columns','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim','Squirt'];
 const UV_RANGES=new Set(['LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim']);
 /** A layer.native value as the emitter field it sets. */
-function nativeValue(key,value){
+function nativeValue(key,value,model){
+ if(key==='Rotation')return emitterRotationTrack(model,structuredClone(value));
  return key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):UV_RANGES.has(key)?Uint32Array.from(value):structuredClone(value);
 }
 /** The values a fresh compile writes for EMITTER_DEPTH, so an edit made in EMTR can be told apart from them. */
@@ -450,21 +554,23 @@ function particles(c,layer){
  const ids=[];
  const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const shares=fly||l.burstGap!=null?null:emissionShares(regions,count);
- const planned=layer.siteLayout?layer.siteLayout.map((slot,index)=>({...slot,regionIndex:slot.region??0,region:regions[slot.region??0]||regions[0],i:index,regionCount:layer.siteLayout.length})):regions.flatMap((region,regionIndex)=>{
+ const layout=c.siteLayout||c.autoSites,active=activeEmitterSites(layer,layout||[]);
+ const planned=layout?layout.map((slot,index)=>({...slot,regionIndex:slot.region??0,region:regions[slot.region??0]||regions[0],i:index,regionCount:layout.length})):regions.flatMap((region,regionIndex)=>{
   const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
   return Array.from({length:regionCount},(_,i)=>({regionIndex,region,i,regionCount,key:'source'+regionIndex+'-'+i}));
  });
+ let emitted=0;
  for(const [site,slot] of planned.entries()){
   const {regionIndex,region,i,regionCount,key}=slot,frame=region.frame,l=individualEmitterLayer(layer,key);
   // Shared sites sit evenly along their own region.
   const span=l.placement||l;
   const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-span.lower+(span.upper+span.lower)*(i+.20)/(count-.60);
-  const rate=layer.siteLayout?l.amount/planned.length:shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
-  const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
-  if(slot.point)pos.fromArray(slot.point);
-  c.sites.push({key,point:pos.toArray(),region:regionIndex,ground:!!slot.ground});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
-  if(layer.individuals?.[key]?.deleted)continue;
-  let parent=slot.ground&&!layer.individuals?.[key]?.surface?null:siteParent(c,layer,key,region,pos,'particles-'+regionIndex+'-'+i);
+  const rate=active?l.amount/Math.max(1,active.size):layout?l.amount/planned.length:shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
+  const pos=slot.point?new Vector3(...slot.point):fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
+  c.sites.push(emitterSiteRecord(slot,pos,regionIndex,!!slot.ground));pos.copy(emitterSitePoint(c.frame,layer,key,pos));
+  if(layer.individuals?.[key]?.deleted||active&&!active.has(key))continue;
+  const ordinal=emitted++;
+  let parent=slot.ground&&!layer.individuals?.[key]?.surface?null:siteParent(c,layer,key,region,pos,'particles-'+regionIndex+'-'+i,slot);
   if(fly||mote){
    if(!l.placement&&!slot.point&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));
    const orbit=nodeFor(c,'Bones','Bone','orbit'+regionIndex+'-'+i,l.label+' orbit '+(i+1),pos,parent);
@@ -490,8 +596,8 @@ function particles(c,layer){
   if(l.kind==='crackle'&&l.burstGap!=null){
    // Each site gets one turn, alternating limbs before advancing along the blade.
    const span=Math.max(60,Math.round(l.burstWindow*1000)),period=span+Math.max(100,Math.round(l.burstGap*1000));
-   const cycle=period*count*regions.length,clock=clockFor(m,cycle,c.createdClocks);
-   const start=(i*regions.length+regionIndex)*period+40;
+   const cycle=period*(active?active.size:count*regions.length),clock=clockFor(m,cycle,c.createdClocks);
+   const start=(active?ordinal:i*regions.length+regionIndex)*period+40;
    p.EmissionRate=keys(clock,cycle,[[0,0],[start/cycle,l.amount*1000/span],[(start+span)/cycle,0],[1,0]],0);
   }
   if(l.kind==='crackle'){
@@ -512,9 +618,9 @@ function particles(c,layer){
    for(const [option,fields] of Object.entries({size:['ParticleScaling','Width','Length'],lasts:['LifeSpan'],velocity:['Speed'],gravity:['Gravity'],strength:['Alpha'],tint:['SegmentColor']})){
     if(JSON.stringify(l[option])===JSON.stringify(prior[option])&&(option!=='size'||l.spriteSize===prior.spriteSize))for(const field of fields)p[field]=current[field];
    }
-   if(l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
+   if(l.siteCount===prior.siteCount&&l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
   }
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m);
   ids.push(p.ObjectId);
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
@@ -751,6 +857,9 @@ export function animationPart(model,index){
  const part=model.Geosets.findIndex(g=>g._FxStack?.owner===owner);
  return part<0?index:part;
 }
+const INDIVIDUAL_NATIVE_FIELDS=[...EMITTER_DEPTH,'Time','LifeSpan','Width','Length','ParticleScaling','SegmentColor','Alpha','Speed','Gravity','EmissionRate','Rotation'];
+const plainEmitterValue=value=>value===undefined?undefined:JSON.parse(JSON.stringify(value,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v));
+const sameEmitterValue=(a,b)=>a&&b&&typeof a==='object'&&typeof b==='object'?Object.keys(a).length===Object.keys(b).length&&Object.keys(a).every(k=>sameEmitterValue(a[k],b[k])):sameDepth(a,b);
 /** Read quick-control values from their native managers. More complex authored tracks stay intact. */
 export function readAnimationStack(model,index){
  const saved=model.Geosets[index]?._FxStack;
@@ -758,7 +867,17 @@ export function readAnimationStack(model,index){
  const draft=structuredClone(saved);
  for(const l of draft.layers){
   const prefix=draft.owner+'/'+l.id+'/';
-  if(l.individuals)continue; // A chosen site's values must not become defaults for its siblings.
+  if(l.individuals){
+   // Native-manager edits come back to their own site, never to sibling defaults.
+   for(const [key,baseline] of Object.entries(l.emitterState||{})){
+    const node=model.ParticleEmitters2.find(n=>n._FxTag===prefix+key);if(l.individuals[key]?.deleted||!node)continue;
+    for(const field of INDIVIDUAL_NATIVE_FIELDS)if(node[field]!==undefined&&!sameEmitterValue(plainEmitterValue(node[field]),baseline[field])){
+     const record=l.individuals[key]||(l.individuals[key]={});
+     record.values={...record.values,native:{...record.values?.native,[field]:plainEmitterValue(node[field])}};
+    }
+   }
+   continue;
+  }
   const emitters=[...model.ParticleEmitters2,...model.RibbonEmitters].filter(n=>n._FxTag?.startsWith(prefix));
   const node=emitters[Math.floor(emitters.length/2)];
   const read=(key,v)=>{if(Number.isFinite(v)&&Math.abs(v-l[key])>1e-4*Math.max(1,Math.abs(v)))l[key]=v;};
@@ -846,16 +965,22 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   }
   source.MaterialID=resource(model.Materials,owner+'/underlay',{PriorityPlane:0,RenderMode:0,Layers:underlay});
  }
- const results={},sites={};
+ const results={},sites={},siteRateScales={};
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
   // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
   const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
+  context.autoSites=defaultSurfaceSites(context,l);
+  context.siteLayout=completeEmitterSiteLayout(context,l);
+  if(context.siteLayout!==l.siteLayout)state.layers.find(item=>item.id===l.id).siteLayout=context.siteLayout;
+  if(l.nativeSpec&&!l.impact)siteRateScales[l.id]=nativeEmitterBudget(context,l);
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(!l.placement&&!l.individuals&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(!l.placement&&!l.individuals&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
+   const layout=context.siteLayout||context.autoSites;
+   if(layout)context.sites.push(...layout);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);
   else if(l.nativeSpec)nativeParticles(context,l);
@@ -891,7 +1016,14 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
-  results[l.id]={siteIds:Object.fromEntries(emitters.map(n=>[n._FxTag.slice(prefix.length),n.ObjectId])),sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i]),region:l.nativeSpec&&(l.ground||l.nativeSpec.flat)?frame.regions.indexOf(frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)):Number(n._FxTag.slice(prefix.length).match(/^source(\d+)/)?.[1]||0),ground:!!l.ground})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
+  const saved=state.layers.find(item=>item.id===l.id);
+  if(saved.individuals){
+   const live=emitters.map(n=>[n._FxTag.slice(prefix.length),Object.fromEntries(INDIVIDUAL_NATIVE_FIELDS.filter(key=>n[key]!==undefined).map(key=>[key,plainEmitterValue(n[key])]))]);
+   const slots=new Set(saved.siteLayout?.map(site=>site.key));
+   const retained=saved.siteCount!=null?Object.entries(saved.emitterState||{}).filter(([key])=>slots.has(key)):[];
+   saved.emitterState=Object.fromEntries([...retained,...live]);
+  }
+  results[l.id]={...(siteRateScales[l.id]!=null?{siteRateScale:siteRateScales[l.id]}:{}),siteIds:Object.fromEntries(emitters.map(n=>[n._FxTag.slice(prefix.length),n.ObjectId])),sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i]),region:l.nativeSpec&&(l.ground||l.nativeSpec.flat)?frame.regions.indexOf(frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)):Number(n._FxTag.slice(prefix.length).match(/^source(\d+)/)?.[1]||0),ground:!!l.ground})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

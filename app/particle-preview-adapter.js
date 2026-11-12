@@ -157,7 +157,8 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
   // so a world-axis turn can be written into the emitter's own Rotation.
   const worldTurn=id=>{const matrix=id==null?null:native.rendererData.nodes[id]?.matrix,turn=new Quaternion();if(matrix)new Matrix4().fromArray(matrix).decompose(new Vector3(),turn,new Vector3());return turn.toArray();};
   const turning=node||ribbon;
-  const turn=turning&&{world:new Vector3().fromArray(turning.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[turning.ObjectId]?.matrix||new Matrix4().elements)).toArray(),parent:worldTurn(turning.Parent)};
+  const turn=turning&&{world:new Vector3().fromArray(turning.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[turning.ObjectId]?.matrix||new Matrix4().elements)).toArray(),parent:worldTurn(turning.Parent),
+    globalTime:native.rendererData.globalSequencesFrames[turning.Rotation?.GlobalSeqId]??native.getFrame()};
   let sweep;
   if(options.sweepRange){
     const key=selectedId+':'+native.getSequence()+':'+options.sweepRange.join(':');let cached=sweepCache.get(native);

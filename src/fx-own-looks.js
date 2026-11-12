@@ -2,6 +2,7 @@
 import {sanitizePresetName} from './settings-presets.js';
 import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
 import {boundedCard,cardSize} from './fx-cards.js';
+import {surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 
 export const MAX_OWN_LOOKS=200,MAX_OWN_LAYERS=32,MAX_OWN_LOOK_BYTES=256*1024;
 export const OWN_LOOK_SCHEMA='mdlxl-fx-look',OWN_LOOK_ID=/^own-[a-z0-9-]{1,64}$/;
@@ -54,7 +55,10 @@ export function ownLookId(name,taken=[]){
 /** Keep a stack as a look. Everything that belongs to one model (owner, base material, clocks, group, attack timing) stays behind, and so does the value the compile step writes back onto each layer (unitAlphaPeak). */
 export function ownLookFrom(stack,frame,name){
  const {length,girth,radius}=layerBasis(frame),layers=structuredClone(stack.layers);
- for(const layer of layers)delete layer.unitAlphaPeak;
+ for(const layer of layers){
+  delete layer.unitAlphaPeak;
+  delete layer.emitterState;
+ }
  return {id:ownLookId(name),name:sanitizePresetName(name)||'Custom look',loop:stack.loop,...(stack.asOverlay!=null?{asOverlay:stack.asOverlay}:{}),...(stack.variation!=null?{variation:stack.variation}:{}),frame:{length,girth,radius},layers};
 }
 const ratio=(from,to)=>from>0&&to>0?to/from:1;
@@ -85,6 +89,21 @@ export function stackFromOwnLook(record,frame,owner){
    for(const key of ['Speed','Gravity','Width','Length'])if(key in next.native)next.native[key]=scaleValue(next.native[key],k);
    if(Array.isArray(next.native.ParticleScaling))next.native.ParticleScaling=scaleNumbers(next.native.ParticleScaling,l.kind==='flies'?sprite:size);
   }
+  if(next.siteLayout){
+   // Refit automatic slots in a different model. An explicit point keeps its
+   // layout, but a triangle binding belongs only to its source model.
+   next.siteLayout=next.siteLayout.map(({surface:_surface,attachmentPoint:_anchor,...site})=>{
+    if(next.siteCount!=null&&site.refit)delete site.point;
+    return site;
+   });
+  }
+  delete next.emitterState;
+  for(const individual of Object.values(next.individuals||{})){
+   delete individual.surface;
+   delete individual.attachmentPoint;
+  }
+  if(next.surfaceFit?.version===SURFACE_FIT_VERSION&&(!next.siteLayout||next.siteLayout.some(site=>site.refit)))
+   next.surfaceFit=surfaceFitInputs(next,now);
   return next;
  });
  return {owner,look:record.id,name:record.name,loop:record.loop,...(record.asOverlay!=null?{asOverlay:record.asOverlay}:{}),...(record.variation!=null?{variation:record.variation}:{}),impact:false,layers};

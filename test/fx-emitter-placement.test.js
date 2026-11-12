@@ -100,3 +100,26 @@ for(const [from,to] of [['Blade flames','Fire column'],['Fire column','Blade fla
  const sites=m=>Object.fromEntries(m.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('replace/')).map(n=>[n._FxTag.split('/').at(-1),Array.from(n.PivotPoint)]));
  assert.deepEqual(sites(after),sites(before),'every surviving place is exact');assert.deepEqual(after.Geosets[0]._FxStack.layers[0].individuals,layer.individuals,'hand place and deletion remain keyed by original sites');
 });
+
+test('an individual quick Life edit replaces its earlier native LifeSpan override',{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const model=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(model.Geosets[0]),layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label:'Blade flames'}),frame,'native',1),stack={...newStack(findLook('empty'),frame,'quick-life'),layers:[layer]},graph=compileAnimation(model,0,stack),key=graph.layers[1].sites[0].key;
+ layer.individuals={[key]:{values:{native:{LifeSpan:.7}}}};const current=placement.individualEmitterLayer(layer,key),changed=placement.withIndividualEmitter(layer,key,current,{...current,lasts:.3});
+ compileAnimation(model,0,{...stack,layers:[changed]});assert.equal(model.ParticleEmitters2.find(n=>n._FxTag==='quick-life/1/'+key).LifeSpan,.3,'quick Life takes effect after native editing');
+});
+
+for(const label of ['Blade flames','Fire column'])test(label+' blended-skin drag commits at the live handle position',{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[0]),layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1),stack={...newStack(findLook('empty'),frame,'precision'),layers:[layer]},before=structuredClone(base);
+ let graph=compileAnimation(before,0,stack),node=graph.layers[1].ids.map(id=>before.Nodes[id]).find(n=>before.Nodes[n.Parent]?._FxTag?.includes('/binding-'));
+ if(!node){
+  // Shared native sites use single bones on this fixture; snap one onto real blended skin first.
+  const probeSequence=base.Sequences.findIndex(s=>s.Name.startsWith('Attack')),probeClip=base.Sequences[probeSequence],probeTime=(probeClip.Interval[0]+probeClip.Interval[1])/2,probeMatrices=sampleNodeMatrices(base,probeTime,probeSequence,probeTime),probeDelta=new Vector3(15,-9,12),direction=matrix=>probeDelta.clone().applyMatrix4(matrix).sub(new Vector3().applyMatrix4(matrix));
+  const geo=base.Geosets[0],face=Array.from(geo.Faces).findIndex((v,i)=>{const weights=vertexBoneWeights(geo,v);return i%3===0&&weights.length>1&&direction(geosetSkinMatrix(geo,v,probeMatrices)).distanceTo(direction(probeMatrices.get(weights.slice().sort((a,b)=>b[1]-a[1])[0][0])))>1;});
+  assert.ok(face>=0,'fixture has skin rotations that differ from the dominant bone');
+  const vertex=geo.Faces[face],vertices=Array.from(geo.Faces.slice(face,face+3)),barycentric=vertices.map(v=>v===vertex?1:0),position=Array.from(geo.Vertices.slice(vertex*3,vertex*3+3)),key=before.Nodes[graph.layers[1].ids[0]]._FxTag.split('/').at(-1);
+  layer.individuals={[key]:{position,surface:{geoset:0,vertices,barycentric}}};graph=compileAnimation(before,0,stack);node=before.ParticleEmitters2.find(n=>n._FxTag==='precision/1/'+key);
+ }
+ assert.ok(before.Nodes[node.Parent]?._FxTag?.includes('/binding-'),'real fixture has a blended attachment');const key=node._FxTag.split('/').at(-1),delta=new Vector3(15,-9,12),point=new Vector3().fromArray(node.PivotPoint),sequence=before.Sequences.findIndex(s=>s.Name.startsWith('Attack')),clip=before.Sequences[sequence],time=(clip.Interval[0]+clip.Interval[1])/2,old=sampleNodeMatrices(before,time,sequence,time);
+ const expected=point.clone().applyMatrix4(old.get(node.ObjectId)).add(delta.clone().applyMatrix4(old.get(node.Parent)).sub(new Vector3().applyMatrix4(old.get(node.Parent))));
+ const changed=placement.withEmitterPosition(layer,key,point.clone().add(delta).toArray(),point.toArray()),after=structuredClone(base);compileAnimation(after,0,{...stack,layers:[changed]});const emitter=after.ParticleEmitters2.find(n=>n._FxTag===node._FxTag),matrices=sampleNodeMatrices(after,time,sequence,time),actual=new Vector3().fromArray(emitter.PivotPoint).applyMatrix4(matrices.get(emitter.ObjectId));
+ assert.ok(actual.distanceTo(expected)<.001,'release must keep the live handle position: '+actual.distanceTo(expected));
+});

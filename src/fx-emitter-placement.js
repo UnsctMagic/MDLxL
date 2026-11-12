@@ -1,37 +1,52 @@
 import {Vector3} from 'three';
+import {constantTrack} from './plain-track-values.js';
 
 /** Opt in only after a placement edit; old saved upper/lower values keep their original compiler. */
 export function withEmitterPlacement(previous,next){
  if(previous.type!=='Particles')return next;
  return {...next,placement:previous.placement||{upper:previous.upper,lower:previous.lower}};
 }
+/** Two perpendicular axes across the part's length, shared by the handles and compiler. */
+export function emitterFormationAxes(frame){
+ const width=Math.abs(frame.axis.x)<.8?new Vector3(1,0,0):new Vector3(0,1,0);
+ width.addScaledVector(frame.axis,-width.dot(frame.axis)).normalize();
+ return [width,new Vector3().crossVectors(frame.axis,width)];
+}
+export const emitterFormationCenter=(frame,layer)=>layer.ground?new Vector3(0,0,1.5):frame.center;
 export function layerEmitterPoint(frame,layer,point){
  const at=point.clone();
  if(layer.placement){
-  const centre=layer.ground?new Vector3(0,0,1.5):frame.center,along=at.clone().sub(centre).dot(frame.axis);
+  const centre=emitterFormationCenter(frame,layer),along=at.clone().sub(centre).dot(frame.axis);
   const base=layer.placement,span=base.upper+base.lower;
   const fitted=span>0?-layer.lower+(layer.upper+layer.lower)*(along+base.lower)/span:(layer.upper-layer.lower)/2;
   at.addScaledVector(frame.axis,fitted-along);
+  if(layer.formationWidth!=null||layer.formationDepth!=null){
+   const [width,depth]=emitterFormationAxes(frame),delta=at.clone().sub(centre);
+   at.addScaledVector(width,delta.dot(width)*((layer.formationWidth??1)-1));
+   at.addScaledVector(depth,delta.dot(depth)*((layer.formationDepth??1)-1));
+  }
   if(layer.formation!=null)at.sub(centre).multiplyScalar(layer.formation).add(centre);
  }
  return at.add(new Vector3(...layer.offset));
 }
 
 
+const QUICK_NATIVE={tint:['SegmentColor'],size:['ParticleScaling','Width','Length'],spriteSize:['ParticleScaling'],lasts:['LifeSpan'],amount:['EmissionRate'],velocity:['Speed'],gravity:['Gravity'],strength:['Alpha']};
 /** Per-site values never replace the shared layer defaults. */
 export function individualEmitterLayer(layer,key){
  if(!layer)return layer;
  const values=layer.individuals?.[key]?.values;
  if(!values)return layer;
  const result={...layer,...values,native:{...layer.native,...values.native}};
- if(Object.hasOwn(values,'tint')&&!Object.hasOwn(values.native||{},'SegmentColor'))delete result.native.SegmentColor;
+ for(const [quick,fields] of Object.entries(QUICK_NATIVE))if(Object.hasOwn(values,quick))for(const field of fields)if(!Object.hasOwn(values.native||{},field))delete result.native[field];
  return result;
 }
 export function withIndividualEmitter(layer,key,previous,next){
- const record=layer.individuals?.[key]||{},values={...record.values};
+ const record=layer.individuals?.[key]||{},values={...record.values,...(record.values?.native?{native:{...record.values.native}}:{})};
  for(const field of ['tint','size','spriteSize','lasts','amount','strength','particleStrength','opacityBase','velocity','gravity','spread','burstGap','burstWindow']){
   if(JSON.stringify(previous[field])===JSON.stringify(next[field]))continue;
   if(next[field]===undefined)delete values[field];else values[field]=structuredClone(next[field]);
+  for(const native of QUICK_NATIVE[field]||[])if(values.native)delete values.native[native];
  }
  if(JSON.stringify(previous.native)!==JSON.stringify(next.native)){
   values.native={...values.native};
@@ -42,8 +57,9 @@ export function withIndividualEmitter(layer,key,previous,next){
  }
  return {...layer,individuals:{...layer.individuals,[key]:{...record,values}}};
 }
-export function withEmitterPosition(layer,key,position){
- return {...layer,individuals:{...layer.individuals,[key]:{...layer.individuals?.[key],position:[...position]}}};
+export function withEmitterPosition(layer,key,position,attachmentPoint){
+ const record=layer.individuals?.[key]||{};
+ return {...layer,individuals:{...layer.individuals,[key]:{...record,...(attachmentPoint?{attachmentPoint:record.attachmentPoint||[...attachmentPoint]}:{}),position:[...position]}}};
 }
 export function emitterSitePoint(frame,layer,key,point){
  const own=layer.individuals?.[key]?.position;
@@ -51,12 +67,25 @@ export function emitterSitePoint(frame,layer,key,point){
 }
 
 
-const VALUE_GROUPS=[['tint','native.SegmentColor'],['strength','particleStrength','opacityBase','native.Alpha'],['lasts','native.LifeSpan'],['amount','native.EmissionRate'],['velocity','native.Speed'],['gravity','native.Gravity'],['size','spriteSize','native.ParticleScaling','native.Width','native.Length']];
+/** Static aim stays portable in the stack and compiles to valid Warcraft keys. */
+export function emitterRotationTrack(model,rotation){
+ return Array.isArray(rotation)?constantTrack(model,rotation):rotation;
+}
+export function withEmitterAim(layer,key,rotation){
+ const current=individualEmitterLayer(layer,key);
+ const next={...current,native:{...current.native,Rotation:rotation}};
+ return key?withIndividualEmitter(layer,key,current,next):{...next,individuals:layer.individuals||{}};
+}
+
+const VALUE_GROUPS=[['tint','native.SegmentColor'],['strength','particleStrength','opacityBase','native.Alpha'],['lasts','native.LifeSpan'],['amount','native.EmissionRate'],['velocity','native.Speed'],['gravity','native.Gravity'],['spread','native.Latitude'],['burstGap'],['burstWindow'],['size','spriteSize','native.ParticleScaling']];
 const at=(value,key)=>key.startsWith('native.')?value.native?.[key.slice(7)]:value[key];
 function touchedEmitterFields(previous,next){
  const fields=new Set([...VALUE_GROUPS.flat(),...Object.keys(previous.native||{}).map(k=>'native.'+k),...Object.keys(next.native||{}).map(k=>'native.'+k)]),changed=new Set([...fields].filter(k=>JSON.stringify(at(previous,k))!==JSON.stringify(at(next,k))));
+ // The quick Size changes sprite and spawn area; native Width and Length are independent edits.
+ if(changed.has('size')){changed.add('native.Width');changed.add('native.Length');}
  for(const group of VALUE_GROUPS)if(group.some(k=>changed.has(k)))for(const key of group)changed.add(key);
- const position=['offset','upper','lower','formation'].some(k=>JSON.stringify(previous[k])!==JSON.stringify(next[k]));
+ const position=['offset','upper','lower','formation'].some(k=>JSON.stringify(previous[k])!==JSON.stringify(next[k]))
+  ||['formationWidth','formationDepth'].some(k=>(previous[k]??1)!==(next[k]??1));
  return {changed,position};
 }
 export function emitterEditOverlaps(previous,next){
@@ -64,11 +93,12 @@ export function emitterEditOverlaps(previous,next){
  return Object.values(previous.individuals||{}).some(record=>!record.deleted&&(position&&record.position||[...changed].some(k=>at(record.values||{},k)!==undefined)));
 }
 export function resolveEmitterEdit(previous,next,applyAll){
- if(!applyAll)return next;
- const {changed}=touchedEmitterFields(previous,next),individuals=structuredClone(previous.individuals||{});
+ if(!applyAll)return {...next,individuals:previous.individuals};
+ const {changed,position}=touchedEmitterFields(previous,next),individuals=structuredClone(previous.individuals||{});
+ const aimOnly=!position&&changed.size===1&&changed.has('native.Rotation');
  for(const [key,record] of Object.entries(individuals)){
   if(record.deleted)continue;
-  delete record.position;delete record.surface;
+  if(!aimOnly){delete record.position;delete record.surface;delete record.attachmentPoint;}
   for(const field of changed)if(field.startsWith('native.')){if(record.values?.native)delete record.values.native[field.slice(7)];}else if(record.values)delete record.values[field];
   if(record.values?.native&&!Object.keys(record.values.native).length)delete record.values.native;
   if(record.values&&!Object.keys(record.values).length)delete record.values;
@@ -76,10 +106,42 @@ export function resolveEmitterEdit(previous,next,applyAll){
  }
  return {...next,individuals};
 }
-/** Freeze the current automatic offer, retaining its stable sites across recipe changes. */
+export const MAX_EMITTER_SITES=64;
+
+/** Retain inactive sites and their records so lowering the count is reversible. */
+export function withEmitterSiteCount(layer,result,count){
+ const sites=result.sites.map(site=>layer.siteLayout?site:{...site,refit:true});
+ const siteRateScale=layer.siteRateScale??result.siteRateScale??1;
+ const available=sites.filter(site=>!layer.individuals?.[site.key]?.deleted);
+ const keys=new Set(sites.map(site=>site.key));
+ for(let ordinal=1;available.length<count;ordinal++){
+  const key='extra'+ordinal;
+  if(keys.has(key))continue;
+  const site={key,refit:true};
+  keys.add(key);sites.push(site);available.push(site);
+ }
+ return {
+  layer:{...layer,siteCount:count,siteLayout:sites,individuals:layer.individuals||{},
+   ...(layer.nativeSpec&&siteRateScale!==1?{siteRateScale}:{})},
+  site:available[count-1]?.key
+ };
+}
+
+export function activeEmitterSites(layer,sites){
+ if(!Number.isInteger(layer.siteCount))return null;
+ const available=sites.filter(site=>!layer.individuals?.[site.key]?.deleted);
+ return new Set(available.slice(0,Math.max(0,layer.siteCount)).map(site=>site.key));
+}
+export function deleteEmitterSite(layer,key){
+ const individual={...layer.individuals?.[key],deleted:true};
+ const count=Number.isInteger(layer.siteCount)?{siteCount:Math.max(0,layer.siteCount-1)}:{};
+ return {...layer,...count,individuals:{...layer.individuals,[key]:individual}};
+}
+
+/** Bake the current formation, including width and depth, into stable sites across recipe changes. */
 export function replaceEmitter(layer,next,graph){
  const sites=graph.layers[layer.id]?.sites||[];
  if(!sites.length)return {...next,enabled:layer.enabled,offset:layer.offset,upper:layer.upper,lower:layer.lower};
  return {...next,enabled:layer.enabled,offset:[0,0,0],upper:layer.upper,lower:layer.lower,placement:{upper:layer.upper,lower:layer.lower},formation:1,
-  siteLayout:sites.map(site=>({...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()})),...(layer.individuals?{individuals:structuredClone(layer.individuals)}:{})};
+  ...(Number.isInteger(layer.siteCount)?{siteCount:layer.siteCount}:{}),siteLayout:sites.map(site=>({...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()})),...(layer.individuals?{individuals:structuredClone(layer.individuals)}:{})};
 }

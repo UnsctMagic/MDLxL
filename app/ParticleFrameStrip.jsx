@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {ChoiceSelect} from './Fields.jsx';
 import {particlePictureCanvas} from './particle-picture-canvas.js';
 import {detectPictureGrid} from './sprite-detect.js';
 import {framesAcrossLife,playedFrames,spriteGridValues,framePatterns,playsPattern} from '../src/sprite-frames.js';
@@ -14,7 +15,7 @@ function Stepper({label,value,onChange}){
 }
 
 /** Frames: one choice and the sprite playing it. Custom… is the only way into the grid and frame picking. */
-export default function ParticleFrameStrip({emitter,asset,pictureName,replaceableId,teamColor,patch}){
+export default function ParticleFrameStrip({emitter,asset,pictureName,replaceableId,teamColor,patch,wheel=false}){
  const [image,setImage]=useState(null),[detected,setDetected]=useState(null),[drag,setDrag]=useState(null),[custom,setCustom]=useState(false),preview=useRef(null);
  const rows=Math.max(1,emitter.Rows||1),columns=Math.max(1,emitter.Columns||1),count=rows*columns,saved=playedFrames(emitter);
  const [first,last]=drag?[Math.min(drag.anchor,drag.at),Math.max(drag.anchor,drag.at)]:[saved.first,saved.last];
@@ -31,9 +32,9 @@ export default function ParticleFrameStrip({emitter,asset,pictureName,replaceabl
  const finish=()=>{if(!drag)return;const a=Math.min(drag.anchor,drag.at),b=Math.max(drag.anchor,drag.at);setDrag(null);if(a!==saved.first||b!==saved.last)patch(framesAcrossLife(emitter,a,b,saved.repeat));};
  return <div className="pe-frame-strip">
   <div className="pe-frame-pick">
-   <label>Frames<select aria-label="Frames" value={showCustom?'Custom…':current} onChange={e=>{const pick=patterns.find(p=>p.name===e.target.value);if(pick){setCustom(false);patch(pick.values);}else setCustom(true);}}>
-    {patterns.map(pattern=><option key={pattern.name}>{pattern.name}</option>)}<option>Custom…</option>
-   </select></label>
+   <label>Frames<ChoiceSelect wheel={wheel} aria-label="Frames" value={showCustom?'Custom…':current} onChange={value=>{const pick=patterns.find(p=>p.name===value);if(pick){setCustom(false);patch(pick.values);}else setCustom(true);}}>
+    {patterns.map(pattern=><option key={pattern.name} value={pattern.name}>{pattern.name}</option>)}<option value="Custom…">Custom…</option>
+   </ChoiceSelect></label>
    {count>1&&<canvas ref={preview} className="pe-frame-preview" width="40" height="40" aria-label="Frame preview"/>}
   </div>
   {showCustom&&<>

@@ -67,14 +67,32 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   follow.current=applyMove;
   function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();onDrag?.(false);}}
   function abort(){frame.current.cancel();const active=!!drag.current,size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();if(active)onDrag?.(false);}
-  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  // Hover word per handle job; ribbons already label Move permanently.
+  const handleWords={Translation:ribbon?null:'Move',ParticleScaling:'Resize',HeightAbove:'Upper edge',HeightBelow:'Lower edge',Width:'Width',Length:'Length',Latitude:'Spread',FormationWidth:'Width',FormationDepth:'Depth'};
+  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} word={handleWords[field]} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):Math.max(0,value(field)+delta));finish();}
   }}/>;
+  const formationOrigin=guide?.origin,formationGrips=[formationOrigin,guide?.upper,guide?.lower];
+  const formationHandle=(field,label,point,unit)=>{
+    if(!formationOrigin||!point||!unit)return null;
+    const basis=particleAxisMapping(point,unit);if(!basis)return null;
+    // Like CORP, leave room to grab the handle on small/distant parts. The
+    // drag still uses the true projected axis, with its basis latched at press.
+    const dx=basis.dx*basis.unitsPerPixel,dy=basis.dy*basis.unitsPerPixel;
+    let distance=Math.max(34,(point[0]-formationOrigin[0])*dx+(point[1]-formationOrigin[1])*dy);
+    const at=()=>[formationOrigin[0]+dx*distance,formationOrigin[1]+dy*distance];
+    let grip=at();
+    for(let i=0;i<5&&formationGrips.some(p=>p&&Math.hypot(grip[0]-p[0],grip[1]-p[1])<20);i++){distance+=20;grip=at();}
+    formationGrips.push(grip);
+    return <g><line x1={formationOrigin[0]} y1={formationOrigin[1]} x2={grip[0]} y2={grip[1]}/>{handle(grip,field,label,basis)}</g>;
+  };
   return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
     {rings.targets}
     {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}{ribbon&&<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text>}</g>}
     {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Born','Halfway','End'][lifeStage]:'Size'}</text></g>}
     {(ribbon||spanHandles)&&guide?.upper&&guide?.lower&&<g className={sizeKey?'pe-size-key':undefined}><line x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]}/>{snapshot.anchor&&!sizeKey&&<line className="pe-ribbon-grab" x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]} onPointerDown={event=>start(event,'Translation',snapshot.anchor.point,snapshot.anchor)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort}><title>Drag the ribbon to move it</title></line>}{handle(guide.upper,'HeightAbove','Ribbon upper edge',particleAxisMapping(guide.upper,guide.upperUnit))}{handle(guide.lower,'HeightBelow','Ribbon lower edge',particleAxisMapping(guide.lower,guide.lowerUnit))}</g>}
+    {spanHandles&&formationHandle('FormationWidth','Formation width',guide?.formationWidth,guide?.formationWidthUnit)}
+    {spanHandles&&formationHandle('FormationDepth','Formation depth',guide?.formationDepth,guide?.formationDepthUnit)}
     {!ribbon&&tool==='Motion'&&guide?.area&&<g><polygon points={guide.area.map(p=>p.slice(0,2).join(',')).join(' ')}/>
       {handle(guide.widthHandle,'Width','Spawn width handle',particleAxisMapping(guide.widthHandle,guide.widthUnit))}
       {handle(guide.lengthHandle,'Length','Spawn length handle',particleAxisMapping(guide.lengthHandle,guide.lengthUnit))}

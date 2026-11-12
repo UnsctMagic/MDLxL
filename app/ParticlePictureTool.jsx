@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {ChoiceSelect} from './Fields.jsx';
 import {particleBlendNames,particlePictureShared} from '../src/particle-picture.js';
 import {particlePictureCanvas} from './particle-picture-canvas.js';
 import ParticleBlendComparisons from './ParticleBlendComparisons.jsx';
@@ -9,12 +10,12 @@ function PictureTile({asset,replaceableId,teamColor,label,selected,onClick}){
  return <button className="pe-picture-tile" onClick={onClick} aria-pressed={selected} aria-label={label}><canvas ref={canvas} width="48" height="48"/><span>{missing?'Missing picture':label}</span></button>;
 }
 /** EMTR's Draw as field: sprites (head), streaks (tail) or both. */
-export function DrawAsField({emitter,update}){
- return <label>Draw as<select data-hotkey="particle-picture:draw-as" data-hotkey-manual data-hotkey-label="Draw as" aria-label="Draw as" value={emitter.FrameFlags} onChange={e=>update('FrameFlags',Number(e.target.value))}><option value={1}>Sprites</option><option value={2}>Streaks</option><option value={3}>Both</option></select></label>;
+export function DrawAsField({emitter,update,wheel=false}){
+ return <label>Draw as<ChoiceSelect wheel={wheel} data-hotkey="particle-picture:draw-as" data-hotkey-manual data-hotkey-label="Draw as" aria-label="Draw as" value={emitter.FrameFlags} onChange={value=>update('FrameFlags',Number(value))}><option value={1}>Sprites</option><option value={2}>Streaks</option><option value={3}>Both</option></ChoiceSelect></label>;
 }
 /** EMTR's Blend look field. */
-export function BlendLookField({emitter,update}){
- return <label>Blend look<select data-hotkey="particle-picture:blend-look" data-hotkey-manual data-hotkey-label="Blend look" aria-label="Blend look" value={emitter.FilterMode} onChange={e=>update('FilterMode',Number(e.target.value))}>{particleBlendNames.map((name,i)=><option key={name} value={i}>{name}</option>)}</select></label>;
+export function BlendLookField({emitter,update,wheel=false}){
+ return <label>Blend look<ChoiceSelect wheel={wheel} data-hotkey="particle-picture:blend-look" data-hotkey-manual data-hotkey-label="Blend look" aria-label="Blend look" value={emitter.FilterMode} onChange={value=>update('FilterMode',Number(value))}>{particleBlendNames.map((name,i)=><option key={name} value={i}>{name}</option>)}</ChoiceSelect></label>;
 }
 /** The picture once, small. Frames sit right below it, only for sprite sheets. */
 export default function ParticlePictureTool({model,emitter,assets,preferences,teamColor,sequence,frame,update,onImport,onLibrary,onChoosePicture,onRemovePicture,onTeamPicture,onDemo,demo}){
