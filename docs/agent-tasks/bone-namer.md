@@ -1,8 +1,8 @@
 # Bone Namer: standard bone names from what POSE recognises
 
-Status: ready to test (Claude QA passed on main's POSE; owner hand test pending)
+Status: completed — merged via PR #631 (owner said "merge", 12 Nov 2026). Rounds 1–4 plus the trunk-part side fix; QA: 69/69 source, library gate 0 of 941, packaged workflow.
 Owner / consolidator: Claude Code (brain, contract, QA); Codex builds the feature
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 ## Goal and completion criteria
 
