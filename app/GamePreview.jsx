@@ -1808,7 +1808,11 @@ export default function GamePreview(inputProps) {
         while (!disposed) {
           const entry = backgroundState.current, human = portraitFrame.current, layers = layerAPI.current; await Promise.all([entry.promise, texturePromise, eventPreview.ready, layers?.whenReady(), (portraitHasFrame(latest.current) || latest.current.preparePortraitFrame) ? human.promise : undefined]);
           if (disposed) break;
-          if (entry === backgroundState.current && layers === layerAPI.current && (!portraitHasFrame(latest.current) || human === portraitFrame.current)) { if (entry.status === 'failed') throw entry.error; if(particleAuthor?.status.error)throw Error(particleAuthor.status.error);if(particleAuthor&&(!particleAuthor.simulation||particleAuthor.status.busy)){render(performance.now(),0,{captureOnly:true});await new Promise(resolve=>setTimeout(resolve,0));continue;} return; }
+          if (entry === backgroundState.current && layers === layerAPI.current && (!portraitHasFrame(latest.current) || human === portraitFrame.current)) { if (entry.status === 'failed') throw entry.error; if(particleAuthor?.status.error)throw Error(particleAuthor.status.error);if(particleAuthor&&(!particleAuthor.simulation||particleAuthor.status.busy)){render(performance.now(),0,{captureOnly:true});await new Promise(resolve=>setTimeout(resolve,0));continue;}
+            // The replay can finish in the first draw, before the shown particles hold its
+            // sparks. Draw once more so Fit and the capture see the finished replay.
+            if(particleAuthor)render(performance.now(),0,{captureOnly:true});
+            return; }
         }
         throw new Error('This animation preview is no longer open.');
       },

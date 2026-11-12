@@ -48,7 +48,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(Number(await page.getByLabel('Particle preview playhead',{exact:true}).inputValue()),heldTime,'The frame holds during the drag');
     assert.equal(await page.locator('.pe-size-proxy polygon').getAttribute('points'),pinnedPoints,'Proxy remains pinned while its source particle ages and dies');
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Stationary pointer does not change data during playback');
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Pinned sample');
     await page.mouse.move(point.x+point.width/2+40,point.y+point.height/2-20,{steps:4});await page.mouse.up();
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize));
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();
@@ -62,7 +62,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const cancelPoint=await handle.locator('circle').boundingBox();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2,cancelPoint.y+cancelPoint.height/2);await page.mouse.down();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2+50,cancelPoint.y+cancelPoint.height/2-20);
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Pinned sample','The cancellation test must begin a real handle drag');
     await page.waitForFunction(before=>Number(document.querySelector('[aria-label="Halfway size"]').value)>before,Number(beforeSize));
     assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize),'The drag changes the size before Escape');
     await page.keyboard.press('Escape');await page.mouse.up();
@@ -70,7 +70,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Escape restores value');
     assert.equal(await page.getByRole('dialog',{name:'Particle Editor',exact:true}).isVisible(),true,'Escape cancels gesture without closing editor');
     assert.equal(await transport.getByRole('button',{name:'Play',exact:true}).isVisible(),true,'Escape leaves the editor paused');
-    assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Halfway','Escape releases the pinned sample');
+    assert.equal(await page.locator('.pe-size-proxy > text').textContent(),'Halfway','Escape releases the pinned sample');
     await transport.getByRole('button',{name:'Play',exact:true}).click();
     console.log('Stage gesture: pinned, committed in one undo, cancelled without document change');
     const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+5));await size.press('Enter');
@@ -319,7 +319,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.keyboard.press('Control+z');assert.deepEqual(await readLab(),beforeIngredients,'Inspection keyboard undo does not change the document');
     await page.screenshot({path:path.join(out,'ingredients.png')});
     await page.getByRole('button',{name:'Edit Particle 2',exact:true}).click();
-    const waitIngredientCount=count=>page.waitForFunction(count=>{const el=document.querySelector('.pe-preview>.game-preview-root');if(!el)return false;const native=mdlxlProbe(el).runtime?.native;if(native)return native.model.ParticleEmitters2.length===count;return false;},count,{timeout:10000});
+    const waitIngredientCount=count=>page.waitForFunction(count=>{const el=document.querySelector('.pe-preview>.game-preview-root');if(!el)return false;const author=mdlxlProbe(el).runtime?.particleAuthor;if(!author?.simulation||author.status.busy)return false;return author.simulation.native.model.ParticleEmitters2.length===count;},count,{timeout:10000});
     await waitIngredientCount(1);assert.equal(Number(await page.getByLabel('Effect ingredient',{exact:true}).inputValue()),beforeIngredients.model.ParticleEmitters2[1].ObjectId);
     assert.deepEqual(await readLab(),beforeIngredients);assert.deepEqual(await readModel(),targetBeforeIngredients);
     await page.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByText('Whole effect · 2 ingredients',{exact:true}).waitFor();
@@ -327,7 +327,9 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const savedGroup=fs.readdirSync(path.join(testLibrary,'mine')).filter(f=>f.endsWith('.json')).map(f=>JSON.parse(fs.readFileSync(path.join(testLibrary,'mine',f)))).find(r=>r.name==='Complete layered glow');
     assert.equal(savedGroup.native.ParticleEmitters2.length,2,'Preview mute must not remove the ingredient from a saved recipe');
     assert.deepEqual(savedGroup.native.ParticleEmitters2.map(p=>p.Visibility),beforeIngredients.model.ParticleEmitters2.map(p=>p.Visibility));
-    await page.getByRole('button',{name:'Ingredients · 1 muted',exact:true}).click();await page.getByRole('button',{name:'Mute Particle 1',exact:true}).click();await page.getByRole('button',{name:'Close ingredients',exact:true}).click();await waitIngredientCount(2);
+    await page.getByRole('button',{name:'Ingredients · 1 muted',exact:true}).click();await page.getByRole('button',{name:'Mute Particle 1',exact:true}).click();await page.getByRole('button',{name:'Close ingredients',exact:true}).click();
+    // EMTR starts with the selected emitter; View All Emitters shows the unmuted rest.
+    await waitIngredientCount(1);await page.getByRole('button',{name:'View All Emitters',exact:true}).click();await waitIngredientCount(2);
     assert.deepEqual((await readLab()).model,beforeIngredients.model);assert.equal((await readLab()).undo,beforeIngredients.undo);assert.deepEqual(await readModel(),targetBeforeIngredients);
     console.log('On-demand ingredient captures, selection, preview mute and complete-group save preserve native data');
 
