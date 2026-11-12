@@ -280,7 +280,7 @@ Appearance uses collapsed sections and a color-set picker in every section.
 A whole appearance preset also sets the controllers. Controllers can then use
 a separate set, for example Blackrock controls with a Lordaeron interface.
 Lordaeron remains the default. Handle, body and bend shapes offer circles,
-squares and diamonds; symbols, size, state colors, XYZ colors
+squares, diamonds and triangles; symbols, size, state colors, XYZ colors
 and the handle background (which can be switched off) are adjustable. The symbols
 come in five sets chosen under Controllers: Modern (the default: 13 transparent PNG
 masks in `app/assets/pose-symbols`, a 256 px and a `-64` file each, drawn by
