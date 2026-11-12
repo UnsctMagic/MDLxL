@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import { translate } from '../src/localization.js';
 
 export function projectEditHandle(point,camera,width,height) {
   const p=new Vector3(...point).project(camera);
@@ -19,6 +20,8 @@ export function drawEditHandles(canvas,handles,camera,width,height,ratio) {
   for(const h of handles.points){
     const p=project(h.position);if(!p.visible)continue;
     c.beginPath();c.arc(p.x,p.y,7,0,Math.PI*2);c.fillStyle=h.color||'#ffd166';c.fill();c.strokeStyle='#3f311c';c.stroke();
-    c.lineWidth=3;c.strokeStyle='#f6f1e9';c.strokeText(h.label,p.x+11,p.y-9);c.fillStyle='#38250d';c.fillText(h.label,p.x+11,p.y-9);c.lineWidth=2;
+    // Canvas text skips the JSX adapter; the handle context keeps e.g. Drag apart from AnimXL's Drag.
+    const label=translate('handle\u0004'+h.label);
+    c.lineWidth=3;c.strokeStyle='#f6f1e9';c.strokeText(label,p.x+11,p.y-9);c.fillStyle='#38250d';c.fillText(label,p.x+11,p.y-9);c.lineWidth=2;
   }
 }

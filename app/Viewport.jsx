@@ -1126,7 +1126,7 @@ export default function Viewport({ children, ...inputProps }) {
           if (anchorPoint) {
             context.font = 'bold 12px Tahoma, Arial, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'bottom';
             context.fillStyle = p.zoomAnchor.kind === 'align' ? '#ff4fd8' : '#39ff14';
-            context.fillText(p.zoomAnchor.kind === 'align' ? 'ALIGN' : 'ANCHOR', (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
+            context.fillText(translate(p.zoomAnchor.kind === 'align' ? 'ALIGN' : 'ANCHOR'), (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
           }
         } else if (anchorCanvas) { anchorCanvas.remove(); anchorCanvas = null; }
       }
