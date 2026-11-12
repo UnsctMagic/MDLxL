@@ -20,8 +20,12 @@ export function layerBasis(frame){
 export const flyQuadSize=height=>Math.max(10,Math.min(22,(Number(height)||0)*.07));
 /** Default swarm radius: the part's main piece, but never so small that flies of that size crowd into one blot. */
 export const swarmRadiusFor=(basis,flyQuad=basis.flyQuad)=>Math.max(basis.swarmRadius,flyQuad*4);
-/** The unit's height from its Stand bounds (or the model's), or null when the model stores none. */
+/** The unit's height: the height of its own mesh at rest (FX pieces left out), else its Stand bounds, else the model's; null when none. */
 export function unitHeight(model){
+ // Stored bounds are often far taller than the mesh (a Footman: 186 against a 104-unit body), so the mesh comes first.
+ let lo=Infinity,hi=-Infinity;
+ for(const g of model?.Geosets||[])if(!g._FxTag&&g.Vertices)for(let i=2;i<g.Vertices.length;i+=3){lo=Math.min(lo,g.Vertices[i]);hi=Math.max(hi,g.Vertices[i]);}
+ if(hi>lo)return hi-lo;
  const sane=item=>item?.MinimumExtent&&item?.MaximumExtent&&[0,1,2].every(k=>Math.abs(item.MinimumExtent[k])<1e7&&Math.abs(item.MaximumExtent[k])<1e7)&&item.MaximumExtent[2]>item.MinimumExtent[2];
  const stand=(model?.Sequences||[]).find(s=>/^stand/i.test(s.Name||'')&&sane(s));
  const item=stand||(sane(model?.Info)?model.Info:null);

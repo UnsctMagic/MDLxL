@@ -246,7 +246,8 @@ keep its count.
   its own clock, yaw, time phase, width and height, so Amount above five never stacks flies and
   the swarm never visibly repeats. Clocks are `1233 x sqrt(radius / 88) x [1, 1.16, .89, 1.05, .95,
   1.11] / Speed` ms, all different. Five fly widths per set: Fly size x [.77, 1.12, .78, 1.47, .87].
-  Defaults: Fly size is 7% of the unit's Stand height, kept within 10-22 units; Swarm size (the
+  Defaults: Fly size is 7% of the height of the unit's own mesh (stored bounds only without
+  one), kept within 10-22 units; Swarm size (the
   mean path radius) is .9 x the main skin region's radius or .3 x its length, never less than four
   fly widths; a part split into many skin regions still gets one swarm around one centre. Controls:
   **Amount** 5-30 in steps of 5, **Fly size**, **Swarm size**, **Speed** (0.25-4x, multiplies every
