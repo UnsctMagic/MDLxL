@@ -29,6 +29,9 @@ export const lingeringEmbers=(label='Lingering embers',tint=[1,.62,.25])=>spray(
 const glowOrb=(label,tint)=>spray(label,tex('GenericGlowX'),tint,{life:.8,rate:6,area:.05,velocity:.04,spread:2,size:[.05,.35,.6],alpha:[150,220,100]},{native:{Flags:EMITTER_CARRIED}});
 export const FEL_FLAME_CARDS={...flameCards(FEL),enabled:false},FIRE_FLAME_CARDS={...flameCards(FIRE),enabled:false};
 export const orbSpray=()=>glowOrb('Glow orbs',[.75,.62,1]);
+export const fireHair=()=>spray('Fire hair',tex('clouds_anim1_bw'),FIRE,
+ {atlas:4,life:1.8,rate:12,area:.2,velocity:.3,gravity:-.12,spread:14,size:[.4,.28,.06],alpha:[255,255,0]},
+ {native:{...FLAME_NATIVE,LifeSpanUVAnim:[0,7,1],DecayUVAnim:[8,15,1],SegmentColor:[[1,.85,.45],FIRE,[.6,.08,.01]]}});
 
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,inflate:.11,tint:crystal,strength:1});

@@ -59,3 +59,18 @@ export const SORT_LOOKS=[
   cardSpec('Rift zaps',tex('Zap1'),{count:3,jitter:140,fit:.7,sizeMin:.85,sizeMax:1.1,loop:1133,tint:[.85,.6,1]}),
   spray('Rift splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.14,.28,.04]})),
 ];
+
+// Only these retired ingredients were approved for Add/Change emitter. Keep the
+// retired looks themselves intact so old stacks still resolve their old recipe.
+const emitterValues={
+ 'Falling snow':{life:3.2,rate:4,velocity:-.03,gravity:.08,size:[.09,.12,.1],alpha:[160,235,100]},
+ 'Maple leaves':{life:7,rate:1,velocity:-.02,gravity:.04,size:[.16,.16,.13],alpha:[160,235,100]},
+ 'Falling feathers':{life:3.2,rate:1.5,filter:0,velocity:-.04,gravity:.08,size:[.2,.25,.2],alpha:[160,230,80]},
+ 'Ash flecks':{life:2,rate:4,filter:0,velocity:.12,gravity:.04,size:[.07,.14,.06],alpha:[180,196,80]},
+ 'Coal sparks':{life:2.4,rate:3,velocity:.12,gravity:-.04,size:[.24,.17,.06],alpha:[200,150,80]},
+ 'Hot filings':{life:.9,rate:8,velocity:.75,gravity:1.2,size:[.09,.07,.01],alpha:[255,240,0]},
+};
+export const SORT_EMITTERS=Object.entries(emitterValues).map(([label,values])=>{
+ const source=SORT_LOOKS.flatMap(l=>l.layers).find(s=>s.type==='Particles'&&s.label===label);
+ return {...source,...(label==='Ash flecks'?{tint:[.3,.28,.26]}:{}),nativeSpec:{...source.nativeSpec,...values}};
+});

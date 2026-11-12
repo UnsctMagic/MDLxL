@@ -21,6 +21,9 @@ const PARTS={blade:18,body:15};
 const CATALOGUE=new Set(JSON.parse(fs.readFileSync(new URL('../electron/data/texture-library-catalog.json',import.meta.url),'utf8')).items.map(i=>gamePathKey(i.path)));
 // Game files the library used before this rule that the classic catalogue does not list (newer game data).
 const LISTED_BEFORE=['Textures\\Lightning2b.blp','Textures\\FX\\Flare\\FlareNarrow.blp','Textures\\Lightning4b.blp','Textures\\FX\\Flare\\DiamondNarrow.blp','Textures\\FX\\v\\EclipseRingMidnight.blp','Textures\\Star10_Alpha.blp','Textures\\MoonCrescentGlow.blp','Textures\\FX\\Swirl\\T_FX_Whisps.blp'].map(gamePathKey);
+// Approved retired ingredients re-filed in emitter round 2. Read from the installed
+// game's CASC on 12 November 2026: 349680, 11088 and 87536 bytes respectively.
+const VERIFIED_EMITTER_TEXTURES=['Textures\\FX\\v\\LeafGold8x8.blp','Textures\\Feather.blp','Textures\\FX\\v\\EmberGlowSharp.blp'].map(gamePathKey);
 
 const variations=look=>look.variations?look.variations.map(v=>({id:v.id,name:v.name,layers:v.layers})):[{id:null,name:null,layers:look.layers}];
 /** Every look and variation as a fresh stack on a frame; all=true switches the offered layers on too. */
@@ -94,7 +97,7 @@ test('every looping track ends where it starts, on its clock\'s last frame',()=>
 
 test('every look uses native game textures only',()=>{
  const foreign=[];
- const check=(who,p)=>{if(p&&!CATALOGUE.has(gamePathKey(p))&&!LISTED_BEFORE.includes(gamePathKey(p)))foreign.push(who+': '+p);};
+ const check=(who,p)=>{if(p&&!CATALOGUE.has(gamePathKey(p))&&!LISTED_BEFORE.includes(gamePathKey(p))&&!VERIFIED_EMITTER_TEXTURES.includes(gamePathKey(p)))foreign.push(who+': '+p);};
  for(const look of GLOBAL_LOOKS)for(const v of variations(look))for(const s of v.layers)for(const p of [s.image,...(s.frames||[]),s.nativeSpec?.texture,s.nativeSurface?.texture,...(s.nativeSurface?.layers||[]).map(l=>l.texture)])check(look.id+' '+s.label,p);
  for(const s of looks.LAYER_CHOICES)check('Add layer '+s.label,s.image);
  assert.deepEqual([...new Set(foreign)],[]);

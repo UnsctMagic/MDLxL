@@ -6,9 +6,9 @@ import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 import {layerBasis,LAYER_UNIT_FALLBACK,swarmRadiusFor} from './fx-layer-basis.js';
 import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
 
-import {SORT_LOOKS,inkSeal} from './fx-sort-looks.js';
+import {SORT_LOOKS,SORT_EMITTERS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -168,6 +168,7 @@ export const LAYER_CHOICES=[
  embers(),dust('Star sparks','sparks',texture('Star4')),dust('Orbiting stars','motes',texture('Star2')),
  powerArcs(),crackle(),frost(),edge(),inkSeal,...ICE_VARIANTS.dark,FEL_EDGE,...CLAUDE_EMITTERS,
  cardSpec('Card',texture('GenericGlow64')),flameCards(),lingeringEmbers(),
+ ...SORT_EMITTERS,fireHair(),
 ];
 // The compact menu can start any ingredient independently of its original preset.
 for(const look of GLOBAL_LOOKS){
