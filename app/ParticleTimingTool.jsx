@@ -4,12 +4,12 @@ import {particleValue} from '../src/particle-bindings.js';
 import {particleBurstTrack} from '../src/particle-sweep.js';
 import {isGlobalTrack} from '../src/animation.js';
 /** EMTR's Continuous / Burst choice (Squirt). */
-export function EmitModeButtons({emitter,update}){
- return <div className="pe-timing-mode"><button aria-pressed={!emitter.Squirt} onClick={()=>update('Squirt',false)}>Continuous</button><button aria-pressed={!!emitter.Squirt} onClick={()=>update('Squirt',true)}>Burst</button></div>;
+export function EmitModeButtons({emitter,update,unavailable=false}){
+ return <div className="pe-timing-mode"><button disabled={unavailable} title={unavailable?'N/A':undefined} aria-pressed={!unavailable&&!emitter.Squirt} onClick={()=>update('Squirt',false)}>Continuous</button><button disabled={unavailable} title={unavailable?'N/A':undefined} aria-pressed={!unavailable&&!!emitter.Squirt} onClick={()=>update('Squirt',true)}>Burst</button></div>;
 }
 /** EMTR's Carry particles / Leave behind toggle (ModelSpace). */
-export function CarryButton({emitter,update}){
- return <button onClick={()=>update('Flags',emitter.Flags^524288)} aria-pressed={!!(emitter.Flags&524288)}>{emitter.Flags&524288?'Carry particles':'Leave behind'}</button>;
+export function CarryButton({emitter,update,unavailable=false}){
+ return <button disabled={unavailable} title={unavailable?'N/A':undefined} onClick={()=>update('Flags',emitter.Flags^524288)} aria-pressed={!!(emitter.Flags&524288)}>{emitter.Flags&524288?'Carry particles':'Leave behind'}</button>;
 }
 export default function ParticleTimingTool({emitter,options,begin,change,finish,cancel,update,patch,onSeek,impactOnly=false}){
  // A model without animations has no interval: bursts need one, everything else still edits.

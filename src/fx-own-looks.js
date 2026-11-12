@@ -64,7 +64,7 @@ export function ownLookFrom(stack,frame,name){
 const ratio=(from,to)=>from>0&&to>0?to/from:1;
 const scaleNumbers=(list,k)=>Array.isArray(list)?list.map(x=>typeof x==='number'?x*k:x):list;
 // A plain number, or a track of plain keys; any other shape stays as it is.
-function scaleValue(v,k){
+export function scaleValue(v,k){
  if(typeof v==='number')return v*k;
  if(plain(v)&&Array.isArray(v.Keys))return {...v,Keys:v.Keys.map(key=>plain(key)?{...key,...(key.Vector?{Vector:scaleNumbers(key.Vector,k)}:{}),...(key.InTan?{InTan:scaleNumbers(key.InTan,k)}:{}),...(key.OutTan?{OutTan:scaleNumbers(key.OutTan,k)}:{})}:key)};
  return v;
@@ -77,6 +77,10 @@ export function stackFromOwnLook(record,frame,owner){
  const layers=structuredClone(record.layers).map(l=>{
   const size=ratio(sizeOf(was,l),sizeOf(now,l)),sprite=ratio(spriteOf(was,l),spriteOf(now,l)),moving=l.type==='Particles'||l.type==='Edge';
   const next={...l};
+  // An exported gesture track carries its duration, not a foreign model's index.
+  const portable=value=>{if(!value||typeof value!=='object')return;if(value.Keys&&value._FxGlobalDuration>0)value.GlobalSeqId=null;for(const child of Object.values(value))portable(child);};
+  portable(next.native);portable(next.individuals);
+
   if(Array.isArray(l.offset))next.offset=scaleNumbers(l.offset,k);
   if(typeof l.orbitRadius==='number')next.orbitRadius=l.orbitRadius*k;
   for(const key of ['upper','lower'])if(typeof l[key]==='number')next[key]=l[key]*r;
@@ -92,7 +96,7 @@ export function stackFromOwnLook(record,frame,owner){
   if(next.siteLayout){
    // Refit automatic slots in a different model. An explicit point keeps its
    // layout, but a triangle binding belongs only to its source model.
-   next.siteLayout=next.siteLayout.map(({surface:_surface,attachmentPoint:_anchor,fireFit:_fireFit,...site})=>{
+   next.siteLayout=next.siteLayout.map(({surface:_surface,attachmentPoint:_anchor,fireFit:_fireFit,birth:_birth,...site})=>{
     if(next.siteCount!=null&&site.refit)delete site.point;
     return site;
    });

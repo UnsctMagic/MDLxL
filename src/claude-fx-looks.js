@@ -9,7 +9,7 @@ const rune=(label,image,pulse,tint)=>({type:'Rune',label,image,glyphs:true,stren
 const edge=(label,tint,strength=.32)=>({type:'Edge',label,image:tex('RibbonBlur1'),tint,strength});
 const stone=(label,path)=>({type:'Moving skin',label,image:'TerrainArt\\'+path+'.blp',atlasRect:[.625,.25,.125,.25],bodyUV:true,fixed:true,base:true,filter:2,strength:1,tint:[1,1,1]});
 const spray=(label,name,tint,spec)=>({type:'Particles',label,kind:'native',image:tex(name),tint,nativeSpec:{texture:tex(name),...spec}});
-import {DRIP,FEL_FLAME_CARDS} from './fx-technique-looks.js';
+import {elementTechnique,DRIP,FEL_FLAME_CARDS} from './fx-technique-looks.js';
 const flames=(label,tint)=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint});
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
@@ -29,16 +29,16 @@ export const CLAUDE_EMITTERS=[
 ];
 
 export const CLAUDE_LOOKS=[
- fx('Blades','fel-blade','Fel blade',1500,
+ {...fx('Blades','fel-blade','Fel blade',1500,
   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
-  {...flames('Fel flames',fel),starts:true},FEL_FLAME_CARDS),
- fx('Blades','tidal-blade','Tidal blade',2600,
+  {...flames('Fel flames',fel),starts:true,airyFit:{version:1}},FEL_FLAME_CARDS),element:'fel'},
+ {...fx('Blades','tidal-blade','Tidal blade',2600,
   skin('Running water',water[0],{frames:water,water:true,axis:'v',strength:.85,tint:sea}),
   glow('Wet sheen',tex('Ice3b'),{pulse:'soft',strength:.45,tint:sea,loop:1733}),
-  dust('Dripping water','drops',tex('WaterBlobs1'),{tint:sea,starts:true,...DRIP})),
+  dust('Dripping water','drops',tex('WaterBlobs1'),{tint:sea,starts:true,...DRIP})),element:'water'},
  {...fx('Skins','magma-flow','Magma flow',3000,
   stone('Cooled rock','Dungeon\\Cave_DarkRocks'),
-  skin('Lava flow',tex('Flame4'),{bodyUV:true,direction:90,strength:1,tint:lava})),asOverlay:true},
+  skin('Lava flow','TerrainArt\\Dungeon\\Cave_Lava.blp',{bodyUV:true,direction:90,speed:.2,strength:1,tint:lava}),...elementTechnique('lava','moving').filter(l=>l.type==='Particles')),asOverlay:true,element:'lava'},
  fx('Buffs & curses','wraith-form','Wraith form',3400,
   skin('Fading body',null,{base:true,own:true,pulse:'fade'}),
   skin('Drifting mist',tex('CloudsTile1'),{bodyUV:true,strength:.6,tint:ghost,loop:4533}),

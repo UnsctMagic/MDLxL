@@ -323,10 +323,11 @@ export function impactDefaults(model,_index,sequence,hit){
 }
 /** Freeze the geometry offer by recipe inputs and selected surface for this model revision. */
 function defaultSurfaceSites(c,layer){
+ if(layer.birthRegion&&!layer.siteLayout)return birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
  if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
  const {attachmentCache:cache,surfaceKey,frame}=c;
- const fireFit=layer.fireFit?.version===1;
+ const fireFit=(layer.fireFit||layer.airyFit)?.version===1;
  const offerKey='emitter-surface|'+surfaceKey+'|'+JSON.stringify([fit,fireFit]);
  if(cache.has(offerKey))return cache.get(offerKey);
  const samples=suggestEmitterSites(emitterSurface(c),fit,frame.unitHeight);
@@ -334,6 +335,32 @@ function defaultSurfaceSites(c,layer){
  const result=sites.length?sites:null;
  cache.set(offerKey,result);
  return result;
+}
+// Rectangles use native local X/Y half extents. Only one rigid connected
+// straight piece can share a long rectangle; skin bindings stay separate.
+function birthRegionSites(c,layer){
+ const sites=[];
+ for(const [regionIndex,region] of (c.frame.regions?.length?c.frame.regions:[{frame:c.frame,geometry:c.source,weights:[[c.parent,1]]}]).entries()){
+  const shape=analyseEmitterSurface(region.geometry);
+  const components=shape?.components||[];
+  for(const [componentIndex,part] of components.entries()){
+   const straight=region.weights.length===1&&part.frame&&part.frame.length>=5.2*Math.max(part.radius,.001);
+   if(straight){
+    const rotation=new Quaternion().setFromUnitVectors(y,part.frame.axis).toArray();
+    sites.push({key:'region'+regionIndex+'-'+componentIndex,point:part.frame.center.toArray(),region:regionIndex,ground:false,
+     birth:{width:Math.max(.05,part.radius*.7),length:part.frame.length*.45,rotation}});
+   }else{
+    // Curves and blended regions keep surface anchors rather than spanning air.
+    const fit={footprint:Math.max(1,part.radius*.7),liveParticles:16};
+    const local={...shape,components:[part],area:part.area,centre:part.centre};
+    for(const [i,site] of suggestEmitterSites(local,fit,c.frame.unitHeight).entries())
+     sites.push({key:'region'+regionIndex+'-'+componentIndex+'-'+i,point:site.point,region:regionIndex,ground:false,birth:{width:.05,length:.05}});
+   }
+  }
+  // A narrow skin binding may contain vertices but no complete triangles.
+  if(!components.length)sites.push({key:'region'+regionIndex,point:region.frame.surfaceAt(0).toArray(),region:regionIndex,ground:false,birth:{width:.05,length:.05}});
+ }
+ return sites.length?sites:null;
 }
 function emitterSurface(c){
  const key='emitter-surface|'+SURFACE_FIT_VERSION+'|'+c.surfaceKey;
@@ -367,12 +394,28 @@ function completeEmitterSiteLayout(c,layer){
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
  const missing=layout.filter(site=>!site.point);
  if(!missing.length)return layout;
+ if(layer.birthRegion){
+  const regions=birthRegionSites(c,layer);
+  if(regions?.length){
+   let ordinal=0;
+   return layout.map(slot=>{
+    if(slot.point)return slot;
+    const index=ordinal++,base=regions[index%regions.length],copies=Math.ceil((missing.length-index%regions.length)/regions.length),copy=Math.floor(index/regions.length);
+    const birth={...base.birth},point=new Vector3(...base.point);
+    if(birth.rotation&&copies>1){
+     const axis=y.clone().applyQuaternion(new Quaternion(...birth.rotation));
+     point.addScaledVector(axis,birth.length*2*((copy+.5)/copies-.5));birth.length/=copies;
+    }
+    return {...slot,...base,key:slot.key,refit:slot.refit,point:point.toArray(),birth};
+   });
+  }
+ }
  const {frame,attachmentCache:cache}=c;
  const fit=layer.surfaceFit||{footprint:Math.max(1,frame.girth*.55),liveParticles:32};
  const fixed=layout.filter(site=>site.point);
  const ground=fixed.find(site=>site.ground!=null)?.ground??!!(layer.ground||layer.nativeSpec?.flat);
  const groundZ=ground?(fixed.find(site=>site.ground)?.point[2]??1.5):undefined;
- const fireFit=layer.fireFit?.version===1;
+ const fireFit=(layer.fireFit||layer.airyFit)?.version===1;
  const key='emitter-extra|'+c.surfaceKey+'|'+JSON.stringify([fit,groundZ,layout,fireFit]);
  if(cache.has(key))return cache.get(key);
  const samples=suggestAdditionalEmitterSites(emitterSurface(c),fit,frame.unitHeight,fixed.map(site=>site.point),missing.length,groundZ);
@@ -392,7 +435,7 @@ function completeEmitterSiteLayout(c,layer){
  return completed;
 }
 function emitterSiteRecord(slot,point,region,ground){
- return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),...(slot.fireFit?{fireFit:slot.fireFit}:{}),
+ return {key:slot.key,point:point.toArray(),region,ground,...(slot.refit?{refit:true}:{}),...(slot.fireFit?{fireFit:slot.fireFit}:{}),...(slot.birth?{birth:slot.birth}:{}),
   ...(slot.surface?{surface:slot.surface,attachmentPoint:slot.attachmentPoint??slot.point}:{})};
 }
 function nativeEmitterRegions(c,layer,contact,source){
@@ -434,6 +477,8 @@ function nativeParticles(c,layer){
   const share=active?(layer.siteRateScale??1)/active.size:c.autoSites?1/planned.length:layout?1:shares?shares[i]:1;
   const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*share,tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
+  if(slot.birth){source.Width=slot.birth.width;source.Length=slot.birth.length;if(slot.birth.rotation)source.Rotation=emitterRotationTrack(m,slot.birth.rotation);}
+  if(l.airyFit)source.EmissionRate*=1+.06*(i%5-2);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});
   const texCount=m.Textures.length;
   source.TextureID=importer.textureRef(source.TextureID);importer.globalRef(source);
@@ -455,8 +500,8 @@ function nativeParticles(c,layer){
   if(layer.individuals?.[key]?.deleted)continue;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m);
-  if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m,c.createdClocks);
+  if(!l.native?.ParticleScaling){p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));if(l.airyFit&&slot.fireFit?.radius>0){const peak=Math.max(...p.ParticleScaling),cap=slot.fireFit.radius*.75;if(peak>cap)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*cap/peak));}}
   ids.push(p.ObjectId);
  }
  return {id:ids[0],ids};
@@ -508,7 +553,13 @@ function regionParent(c,region,point,key){
 export const EMITTER_DEPTH=['Latitude','Variation','FilterMode','Flags','FrameFlags','TailLength','Rows','Columns','LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim','Squirt'];
 const UV_RANGES=new Set(['LifeSpanUVAnim','DecayUVAnim','TailUVAnim','TailDecayUVAnim']);
 /** A layer.native value as the emitter field it sets. */
-function nativeValue(key,value,model){
+function nativeValue(key,value,model,created){
+ if(value?.Keys&&value._FxGlobalDuration>0){
+  value=structuredClone(value);
+  if(value.GlobalSeqId==null||model.GlobalSequences[value.GlobalSeqId]==null)value.GlobalSeqId=clockFor(model,value._FxGlobalDuration,created);
+  delete value._FxGlobalDuration;
+ }
+
  if(key==='Rotation')return emitterRotationTrack(model,structuredClone(value));
  return key==='SegmentColor'?value.map(vec):key==='Alpha'?Uint8Array.from(value):key==='ParticleScaling'?vec(value):UV_RANGES.has(key)?Uint32Array.from(value):structuredClone(value);
 }
@@ -562,7 +613,7 @@ function particles(c,layer){
   const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
   return Array.from({length:regionCount},(_,i)=>({regionIndex,region,i,regionCount,key:'source'+regionIndex+'-'+i}));
  });
- const fireFit=layer.fireFit?.version===1?layer.fireFit:null;
+ const fireFit=(layer.fireFit||layer.airyFit)?.version===1?(layer.fireFit||layer.airyFit):null;
  // Keep the layer's emission budget, with slightly different steady rates to
  // break up identical birth intervals along a straight strip.
  const rateWeights=fireFit&&planned.some(slot=>slot.fireFit?.strip)?planned.map((slot,i)=>slot.fireFit?.strip?1+.06*(i%5-2):1):null;
@@ -637,7 +688,7 @@ function particles(c,layer){
    }
    if(l.siteCount===prior.siteCount&&l.amount===prior.amount&&l.burstGap===prior.burstGap&&l.burstWindow===prior.burstWindow&&c.sameClock&&l.lasts===prior.lasts)p.EmissionRate=current.EmissionRate;
   }
-  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m);
+  for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value,m,c.createdClocks);
   ids.push(p.ObjectId);
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
@@ -882,15 +933,19 @@ export function readAnimationStack(model,index){
  const saved=model.Geosets[index]?._FxStack;
  if(!saved||typeof saved.look!=='string')return null;
  const draft=structuredClone(saved);
+ // Refresh only explicit portable gesture metadata after an authored clock edit.
+ const refreshClock=value=>{if(!value||typeof value!=='object')return;if(value.Keys&&value._FxGlobalDuration>0&&model.GlobalSequences[value.GlobalSeqId]!=null)value._FxGlobalDuration=model.GlobalSequences[value.GlobalSeqId];for(const child of Object.values(value))refreshClock(child);};
+ for(const layer of draft.layers){refreshClock(layer.native);refreshClock(layer.individuals);}
  for(const l of draft.layers){
   const prefix=draft.owner+'/'+l.id+'/';
-  if(l.individuals||l.fireFit?.version===1&&l.emitterState){
+  if(l.type==='Particles'&&!l.swarm&&(l.individuals||(l.fireFit?.version===1||l.recipeOwner||l.airyFit)&&l.emitterState)){
    // Native-manager edits come back to their own site, never to sibling defaults.
    for(const [key,baseline] of Object.entries(l.emitterState||{})){
     const node=model.ParticleEmitters2.find(n=>n._FxTag===prefix+key);if(l.individuals?.[key]?.deleted||!node)continue;
     for(const field of INDIVIDUAL_NATIVE_FIELDS)if(node[field]!==undefined&&!sameEmitterValue(plainEmitterValue(node[field]),baseline[field])){
      const individuals=l.individuals||(l.individuals={});
      const record=individuals[key]||(individuals[key]={});
+     if(record.groupFields)record.groupFields=record.groupFields.filter(key=>key!==field);
      record.values={...record.values,native:{...record.values?.native,[field]:plainEmitterValue(node[field])}};
     }
    }
@@ -1048,7 +1103,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
   const saved=state.layers.find(item=>item.id===l.id);
-  if(saved.individuals||saved.fireFit?.version===1){
+  if(saved.type==='Particles'&&!saved.swarm&&(saved.individuals||saved.fireFit?.version===1||saved.recipeOwner||saved.airyFit)){
    const live=emitters.map(n=>[n._FxTag.slice(prefix.length),Object.fromEntries(INDIVIDUAL_NATIVE_FIELDS.filter(key=>n[key]!==undefined).map(key=>[key,plainEmitterValue(n[key])]))]);
    const slots=new Set(saved.siteLayout?.map(site=>site.key));
    const retained=saved.siteCount!=null?Object.entries(saved.emitterState||{}).filter(([key])=>slots.has(key)):[];

@@ -1,5 +1,18 @@
 # FX contract: the Global Animation Maker
 
+12 November 2026 owner update: all nine elemental looks offer the same reusable
+techniques through the existing Variation control. Lightning and Crystal omit
+Enveloping. Element data owns art and motion; technique data owns roles and birth
+geometry. Fresh defaults may improve; saved values never migrate on open/save.
+Only deliberate Variation replaces a recipe, with explicit ownership and conservative
+unique structural legacy recognition. User-added duplicates and ambiguous layers stay.
+Particles use one fixed control layout, including native emitters and geometry-based
+fly swarms. Inapplicable fields remain disabled in place. Native fields/curves are
+authoritative; actual local/global clocks are latched for gestures. Detailed current
+implementation and unrun acceptance gates are in the [placement note](agent-tasks/fx-emitter-placement.md).
+This owner update supersedes older default-tuning restrictions below; it does not
+waive saved-data preservation or authorize testing/builds/packages.
+
 Owner-defined contract for PR #492, updated from the complete 1 November 2026
 owner hand-test round. That round supersedes the earlier promise to keep every
 card. The owner allocates another 15% to these corrections and visual quality.

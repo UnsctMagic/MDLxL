@@ -1,5 +1,85 @@
 # FX: place and edit each emitter of a layer
 
+## Current source checkpoint: element techniques and shared controls
+
+Owner authorization: implement all nine elements, preserve saved values, and use
+one control layout. No tests, lint, builds, packages, app launches or captures are
+authorized in this round. The local checkpoint is on `codex/fx-emitters`, after
+`112cb8d3a098e1cb70a7a8986b362c2e6d6cf938`; root source review approved
+a local commit, explicitly untested. Nothing was pushed.
+
+- Fire, Frost, Lightning, Arcane, Fel, Poison, Lava, Water and Crystal declare
+  element data and use compact, enveloping, moving-surface and airy techniques.
+  Lightning and Crystal omit enveloping. Existing Fire/Arcane variation IDs stay;
+  technique identities prevent duplicate choices. Native catalogue paths are used;
+  catalogue presence is not runtime availability or visual acceptance.
+- Compact roles share a tight anchor. Enveloping and moving particle layers use
+  independent native local-X/local-Y half extents. Long rectangles are limited to
+  rigid connected straight pieces; different skin bindings, disconnected pieces
+  and curved regions retain separate surface sites. Count additions and own-look
+  refits regenerate geometry hints; explicit native fields take precedence.
+- Fresh Fire/Fel use generic airy fit; saved `fireFit` keeps its prior behavior.
+  Frost keeps fixed structure with reduced vapour, Lightning uses softer broken
+  arcs, Arcane retains crossing energy and its corrected shimmer, Poison separates
+  rising bubbles from haze, Lava has slow flow/heavy particles, Water retains
+  running surfaces/drips and Liquid body gains spray, and Crystal facets stay fixed.
+- New starting layers have explicit recipe owners and stable role IDs. A deliberate
+  variation switch replaces explicit owners and unique structural legacy matches.
+  Duplicate or changed-identity legacy layers stay as extras. No ownership inference
+  runs on plain open/save. Legacy aliases cover the earlier Fireball/enveloping labels.
+- Particle primary rows stay Colour; Intensity; Emitters; Formation; Born/Halfway/End;
+  Amount; Lasts; Size; Speed; Rise/Fall. More has the same existing fields/order.
+  Native Size is primary. Fly swarm remains quads on bones: Amount=count,
+  Size=sprite width, Speed=path multiplier, Formation=extent; PRE2 fields are disabled
+  N/A. Loading/error is unavailable, not zero; actual zero sites remains recoverable.
+- Whole-layer Amount shows the sum of actual sites; selected Amount is that site's
+  value. Native gestures latch each site's own binding/curve. The existing conflict
+  dialog receives ephemeral operation metadata; Keep preserves only relevant
+  individual fields, while group-produced bindings do not manufacture new conflicts.
+- The only GamePreview change is a read-only accessor for its actual local/global
+  clocks. No renderer/simulation/camera behavior changed. Explicit gesture copies
+  carry global duration metadata; current valid global IDs stay linked, including
+  same-duration distinct authored clocks. Own-look import resolves portable durations
+  with the existing clock owner; local tracks remain local.
+- Shared EMTR components gained opt-in disabled/N/A rendering; normal EMTR callers
+  keep their previous defaults. New labels/menu labels/tooltips are in five locales.
+
+Final source review corrections: Born/Halfway/End now uses each site's own native
+binding and selected life stage; other stages survive, with per-site opacity baseline
+updates and the existing conflict policy. Swarm uses the actual ParticleSlider for
+Amount/Size/Speed. Local draft values update once per frame, including Changeover.
+Shared edits clear only affected group-produced bindings, so subsequent colour or
+intensity edits are not masked. Unaffected layers acquire no empty individual map.
+Count edits rescale every parked/live group rate through the existing track-scaling
+helper, including tangents; zero count retains the last nonzero normalization.
+Portable gesture duration metadata refreshes from valid authored clock IDs at read,
+without retiming keys or replacing valid same-duration/duration-edited clocks.
+
+Zero-unit-rate limit: if a native recipe's actual rate conversion is zero (for example,
+its recipe speed multiplier is zero), a deliberate Amount gesture edits existing native
+rates but leaves the shared recipe amount unchanged rather than dividing by zero.
+New sites retain the zero-speed recipe until its motion is edited. A zero Amount with
+a positive recipe unit rate uses the requested total divided by that unit rate.
+
+| Item | Tests | Builds/packages | App runs | Captures |
+| --- | ---: | ---: | ---: | ---: |
+| Nine-element recipes and native paths | 0 | 0 | 0 | 0 |
+| Native birth geometry and count/refit lifecycle | 0 | 0 | 0 | 0 |
+| Shared controls, conflict ownership and clocks | 0 | 0 | 0 | 0 |
+| Saved values, own looks and five locales | 0 | 0 | 0 | 0 |
+
+Remaining acceptance, after a separately approved testing proposal: source syntax
+and focused FX checks; save/reopen MDX/MDL with authored local/global tracks and
+same-duration clocks; old `fireFit` equivalence; all nine variation menus including
+added duplicates; native zero-site recovery/loading; every primary/More control;
+whole/individual Keep/Apply scalar/RGB/Bezier edits and repeated group edits;
+aggregate Amount then count down/up, count-to-zero/restore and parked-rate curves; own-look refit
+with explicit count/width/length/aim; native rectangular births on rigid/mixed/curved
+parts; GreatUnclean G9 compared with protected G17/G27/G31; normal mouse rotation;
+reference playback and texture availability. The reported Enveloping zero-emitter
+runtime cause remains unproven. No claim of visual parity or Warcraft acceptance.
+Open owner Trial 03/04/05 apps, models and unsaved work were not touched.
+
 Status: Fire/Arcane variations, fresh Fire defaults and closed-menu wheel preview implemented for source review. Owner visual acceptance and release QA are pending.
 Branch / checkout: `codex/fx-emitters` in `D:\Codex\fx-emitters`. Trial 04 was built from count and controls checkpoint `4902d535`. The current recipe and dropdown changes follow that revision.
 Owner / consolidator: Claude reviews; Codex builds

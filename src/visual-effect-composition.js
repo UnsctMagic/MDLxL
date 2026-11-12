@@ -126,7 +126,7 @@ export function addParticles(source,target,spec,effect,options,radius){
   const p=createNode(source,'ParticleEmitter2'),speed=options.speed,life=spec.life/speed;
   p.TextureID=spec.team?teamTexture(source):nativeTexture(source,target,spec.texture);
   p.Flags|=32768|(spec.flat?1048576:0);
-  Object.assign(p,{Squirt:false,LifeSpan:life,FilterMode:spec.filter??1,Time:.43,Width:(spec.area??0)*radius,Length:(spec.area??0)*radius,
+  Object.assign(p,{Squirt:false,LifeSpan:life,FilterMode:spec.filter??1,Time:.43,Width:(spec.width??spec.area??0)*radius,Length:(spec.length??spec.area??0)*radius,
     Speed:(spec.velocity??0)*radius*speed,Gravity:(spec.gravity??0)*radius*speed*speed,Latitude:spec.spread??0,
     Variation:spec.velocity ? .22 : 0,ParticleScaling:vec(spec.size.map(v=>v*radius)),Alpha:Uint8Array.from(spec.alpha||[235,180,0],v=>Math.round(v*options.opacity)),
     EmissionRate:(spec.rate??8)*options.density*speed,FrameFlags:spec.tail?3:1,TailLength:(spec.tail||0)/speed});

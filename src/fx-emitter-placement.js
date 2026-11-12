@@ -1,3 +1,4 @@
+import {scaleValue} from './fx-own-looks.js';
 import {Vector3} from 'three';
 import {constantTrack} from './plain-track-values.js';
 
@@ -55,7 +56,9 @@ export function withIndividualEmitter(layer,key,previous,next,touched){
    if(next.native?.[field]===undefined)delete values.native[field];else values.native[field]=structuredClone(next.native[field]);
   }
  }
- return {...layer,individuals:{...layer.individuals,[key]:{...record,values}}};
+ const changedNative=Object.keys(next.native||{}).filter(field=>JSON.stringify(previous.native?.[field])!==JSON.stringify(next.native?.[field]));
+ const groupFields=(record.groupFields||[]).filter(field=>!changedNative.includes(field)&&!Object.entries(QUICK_NATIVE).some(([quick,fields])=>fields.includes(field)&&JSON.stringify(previous[quick])!==JSON.stringify(next[quick])));
+ return {...layer,individuals:{...layer.individuals,[key]:{...record,values,...(record.groupFields?{groupFields}:{})}}};
 }
 export function withEmitterPosition(layer,key,position,attachmentPoint){
  const record=layer.individuals?.[key]||{};
@@ -90,12 +93,41 @@ function touchedEmitterFields(previous,next){
   ||['formationWidth','formationDepth'].some(k=>(previous[k]??1)!==(next[k]??1));
  return {changed,position};
 }
-export function emitterEditOverlaps(previous,next){
- const {changed,position}=touchedEmitterFields(previous,next);
- return Object.values(previous.individuals||{}).some(record=>!record.deleted&&(position&&record.position||[...changed].some(k=>at(record.values||{},k)!==undefined)));
+const hasIndividualField=(record,field)=>!record?.groupFields?.includes(field)&&(record?.values?.native?.[field]!==undefined||Object.entries(QUICK_NATIVE).some(([quick,fields])=>fields.includes(field)&&record?.values?.[quick]!==undefined));
+export function clearGroupFieldEdits(previous,next){
+ const {changed}=touchedEmitterFields(previous,next);
+ if(!changed.size||!Object.values(next.individuals||{}).some(record=>record.groupFields?.some(field=>changed.has('native.'+field))))return next;
+ const individuals=structuredClone(next.individuals||{});
+ for(const record of Object.values(individuals)){
+  const cleared=(record.groupFields||[]).filter(field=>changed.has('native.'+field));
+  for(const field of cleared)if(record.values?.native)delete record.values.native[field];
+  if(cleared.includes('Alpha')&&record.values){delete record.values.opacityBase;delete record.values.particleStrength;}
+  if(cleared.length)record.groupFields=record.groupFields.filter(field=>!cleared.includes(field));
+ }
+ return {...next,individuals};
 }
-export function resolveEmitterEdit(previous,next,applyAll){
- if(!applyAll)return {...next,individuals:previous.individuals};
+export function emitterEditOverlaps(previous,next,operation){
+ if(operation?.layerId===previous.id)return operation.sites.some(key=>{const record=previous.individuals?.[key];return !record?.deleted&&hasIndividualField(record,operation.field);});
+ const {changed,position}=touchedEmitterFields(previous,next);
+ return Object.values(previous.individuals||{}).some(record=>!record.deleted&&(position&&record.position||[...changed].some(k=>k.startsWith('native.')?hasIndividualField(record,k.slice(7)):at(record.values||{},k)!==undefined&&!QUICK_NATIVE[k]?.every(field=>record.groupFields?.includes(field)))));
+}
+export function resolveEmitterEdit(previous,next,applyAll,operation){
+ if(operation?.layerId===previous.id){
+  if(applyAll)return next;
+  const individuals=structuredClone(next.individuals||{});
+  for(const key of operation.sites){
+   const record=previous.individuals?.[key];
+   if(record?.deleted||!hasIndividualField(record,operation.field))continue;
+   individuals[key].values.native[operation.field]=structuredClone(operation.baselines[key]);
+   individuals[key].groupFields=(individuals[key].groupFields||[]).filter(field=>field!==operation.field);
+   if(operation.field==='Alpha')for(const field of ['opacityBase','particleStrength']){if(record.values[field]===undefined)delete individuals[key].values[field];else individuals[key].values[field]=structuredClone(record.values[field]);}
+  }
+  return {...next,individuals};
+ }
+
+ // The caller already cleared only group-produced bindings. True individual
+ // records are unchanged; restoring the entire old map would mask the edit again.
+ if(!applyAll)return next;
  const {changed,position}=touchedEmitterFields(previous,next),individuals=structuredClone(previous.individuals||{});
  const aimOnly=!position&&changed.size===1&&changed.has('native.Rotation');
  for(const [key,record] of Object.entries(individuals)){
@@ -123,7 +155,11 @@ export function withEmitterSiteCount(layer,result,count){
  }
  // A slider change deliberately redistributes the live sites.
  const {activeSiteKeys:_active,...shared}=layer;
- return {...shared,siteCount:count,siteLayout:sites,individuals:layer.individuals||{},
+ const individuals=structuredClone(layer.individuals||{});
+ const previousCount=layer.groupRateCount||result.ids?.length||layer.siteCount||1;
+ if(count>0)for(const record of Object.values(individuals))if(record.groupFields?.includes('EmissionRate')&&record.values?.native?.EmissionRate!=null)
+  record.values.native.EmissionRate=scaleValue(record.values.native.EmissionRate,previousCount/count);
+ return {...shared,siteCount:count,siteLayout:sites,individuals,...(layer.groupRateCount?{groupRateCount:count||previousCount}:{}),
   ...(layer.nativeSpec&&siteRateScale!==1?{siteRateScale}:{})};
 }
 

@@ -1,4 +1,5 @@
-import React,{useMemo,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {createFrameCoalescer} from './viewport-performance.js';
 import {translate} from '../src/localization.js';
 import {MAX_EMITTER_SITES,withEmitterSiteCount,withEmitterPlacement,individualEmitterLayer,withIndividualEmitter,replaceEmitter} from '../src/fx-emitter-placement.js';
 import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
@@ -20,12 +21,15 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);
+ const liveFrame=useRef(null);
+ if(!liveFrame.current)liveFrame.current=createFrameCoalescer(()=>{const g=gesture.current;if(g){const emitter=g.displayParameter?{...g.emitter,[g.field]:g.displayParameter.change(g.value)}:undefined;setLive({field:g.field,value:g.value,emitter});}});
+ useEffect(()=>()=>liveFrame.current.cancel(),[]);
  const setLayer=(next,touched)=>{const changed=selectedSite?withIndividualEmitter(layer,selectedSite,l,next,touched):next;setStack({...stack,layers:stack.layers.map(v=>v.id===changed.id?changed:v)});};
  const update=(key,val)=>{
   const next={...l,[key]:val},fireQuick=l.fireFit?.version===1&&['size','velocity','gravity'].includes(key);
@@ -39,7 +43,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
  const swarm=!!l?.swarm&&l?.type==='Particles';
  const result=graph?.layers?.[l?.id],p=l?.type==='Particles'&&!swarm,edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card';
- const selectedId=selectedSite?result?.ids.find(id=>graph.model.Nodes[id]._FxTag.endsWith('/'+selectedSite)):result?.id;
+ const selectedId=selectedSite?result?.ids?.find(id=>graph.model.Nodes[id]._FxTag.endsWith('/'+selectedSite)):result?.id;
  const real=selectedId!=null?graph.model.Nodes[selectedId]:null;
  const surface=graph?.model.Geosets[result?.geoset];
  const nativeImage=surface&&graph.model.Textures[graph.model.Materials[surface.MaterialID]?.Layers[0]?.TextureID]?.Image;
@@ -66,36 +70,6 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const resetArea=()=>{const next={...l};delete next.uvMatrix;if(l.nativeSurface||!startArea)delete next.atlasRect;else next.atlasRect=[...startArea];setLayer(next);};
  const blend=l&&(layerFilter(l)??compiled?.FilterMode);
  const unshaded=l?.unshaded??!!(compiled?.Shading&1);
- function particle(field,key,min,max,step,title){
-  const fitted=l.fireFit?.version===1&&['size','velocity','gravity'].includes(key);
-  const nativeMotion=fitted&&(field==='Speed'||field==='Gravity')&&l.native?.[field]!=null;
-  // A layer gesture edits the shared authored value, even if the representative site has its own override.
-  const emitter=nativeMotion?{...real,[field]:l.native[field]}:real;
-  const timing={frame:previewFrame,interval:graph?.model.Sequences[previewSequence]?.Interval,globalSequences:authoredClocks,stage:1};
-  const value=fitted&&emitter?particleValue(emitter,field,timing):l[key];
-  const begin=()=>{
-   let parameter;
-   if(nativeMotion){
-    const track=emitter[field],interval=timing.interval;
-    // Offset this clip's existing curve so the sampled value changes while its motion stays intact.
-    // The shared key mode starts the curve if this clip has no keys.
-    const hasKeys=track.Keys?.some(k=>authoredClocks?.[track.GlobalSeqId]>0||!interval||k.Frame>=interval[0]&&k.Frame<=interval[1]);
-    parameter=beginParticleParameter(emitter,field,{...timing,scope:hasKeys?'track':'key'});
-   }
-   gesture.current={key,parameter};
-  };
-  const finish=()=>{
-   const g=gesture.current;gesture.current=null;setLive(null);
-   if(g?.value==null)return;
-   if(g.parameter){
-    const native=JSON.parse(JSON.stringify(g.parameter.change(g.value),(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v));
-    setLayer({...l,native:{...l.native,[field]:native}});
-   }else update(key,Math.max(min,Math.min(max,g.value)));
-  };
-  return <div title={title}><ParticleSlider decimals={2} field={field} disabled={nativeMotion&&!real} value={live?.key===key?live.value:value} min={min} max={max} step={step}
-   begin={begin} change={value=>{if(gesture.current){gesture.current.value=value;setLive({key,value});}}}
-   finish={finish} cancel={()=>{gesture.current=null;setLive(null);}}/></div>;
- }
  const menuName=emitterName;
  const choices=stack.impact?[]:LAYER_CHOICES;
  const emitterChoices=choices.filter(choice=>choice.type==='Particles');
@@ -103,7 +77,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const additions=presetEmitterChoices(look);
  const nextId=()=>Math.max(0,...stack.layers.map(x=>x.id))+1;
  const findSurfaceChoice=label=>surfaceChoices.find(spec=>menuName(spec)===label);
- const currentEmitter=emitterChoices.find(spec=>l?.menuLabel&&spec.menuLabel===l.menuLabel&&spec.kind===l.kind)||
+ const currentEmitter=(l?.recipeKey&&emitterChoices.find(s=>s.recipeKey===l.recipeKey))||emitterChoices.find(spec=>l?.menuLabel&&spec.menuLabel===l.menuLabel&&spec.kind===l.kind)||
   emitterChoices.find(spec=>spec.label===l?.label&&spec.kind===l?.kind&&spec.image===l?.image)||
   emitterChoices.find(spec=>spec.label===l?.label&&spec.kind===l?.kind)||
   emitterChoices.find(spec=>menuName(spec)===menuName(l||{})&&spec.kind===l?.kind);
@@ -129,17 +103,68 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  };
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
  const positional=p||swarm||edge||l?.ground||card;
- const siteCount=result?.ids.length??0;
+ const siteCount=result?.ids?.length??layer?.siteCount;
+ const particleLayer=p||swarm;
  const countable=p&&!selectedSite&&!stack.impact&&l.enabled!==false&&!!result;
  const changeSiteCount=count=>setLayer(withEmitterSiteCount(layer,result,count));
  const cardValue=key=>l[key]??CARD_DEFAULTS[key];
  // An emitter field set under More (EMTR's own controls) is kept in layer.native.
  const plainValues=values=>Object.fromEntries(Object.entries(values).map(([key,value])=>[key,ArrayBuffer.isView(value)?Array.from(value):value]));
  const depth=(field,value)=>setLayer({...l,native:{...l.native,...plainValues({[field]:value})}});
- const timingOptions={frame:stack.hit,interval:graph?.model.Sequences[stack.sequence]?.Interval,globalSequences:graph?.model.GlobalSequences};
- const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined,parameter:field==='ParticleScaling'?beginParticleParameter(real,field,{...timingOptions,stage}):null};};
- const nativeChange=value=>{const g=gesture.current;if(g)g.value=g.parameter?Array.from(g.parameter.change(value)):value;};
- const nativeFinish=()=>{const g=gesture.current;gesture.current=null;if(g?.value===undefined)return;if(g.field==='EmissionRate'&&stack.impact){const hit=g.value?.Keys?.find(k=>k.Vector[0]>0)?.Frame;if(hit!=null)setStack({...stack,...impactDefaults(graph.model,graph.geoset,stack.sequence,hit)});else setLayer({...l,burst:g.value});}else setLayer({...l,native:{...l.native,[g.field]:g.value}});};
+ const clock=()=>{const sample=readPreviewClock?.();return {frame:sample?.frame??previewFrame,globalTime:sample?.globalTime,interval:graph?.model.Sequences[sample?.sequence??previewSequence]?.Interval,globalSequences:graph?.model.GlobalSequences||authoredClocks};};
+ const timingOptions=clock();
+ const plain=value=>JSON.parse(JSON.stringify(value,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v?.Keys&&v.GlobalSeqId>=0?{...v,_FxGlobalDuration:graph.model.GlobalSequences[v.GlobalSeqId]}:v));
+ const nativeBegin=(field,stage)=>{
+  if(!real)return;
+  const options={...clock(),stage,scope:'track'};
+  if(stage?.raw){gesture.current={field,raw:true};return;}
+  const aggregate=field==='EmissionRate'&&!selectedSite;
+  const emitters=!selectedSite?(result?.ids||[]).map(id=>graph.model.Nodes[id]):[real];
+  const parameters=emitters.map(emitter=>({emitter,parameter:beginParticleParameter(emitter,field,options)}));
+  gesture.current={field,stage,emitter:real,displayParameter:beginParticleParameter(real,field,options),parameters,aggregate,group:!selectedSite,representative:particleValue(real,field,options),total:parameters.reduce((sum,p)=>sum+p.parameter.sampled,0)};
+ };
+ const nativeChange=value=>{if(gesture.current){gesture.current.value=value;liveFrame.current.schedule();}};
+ const nativeFinish=()=>{
+  liveFrame.current.flush();const g=gesture.current;gesture.current=null;setLive(null);if(g?.value===undefined)return;
+  if(g.swarmKey){update(g.swarmKey,Math.max(g.min,Math.min(g.max,g.swarmKey==='amount'?Math.round(g.value/5)*5:g.value)));return;}
+  if(g.raw){const hit=g.value?.Keys?.find(k=>k.Vector[0]>0)?.Frame;if(stack.impact&&hit!=null)setStack({...stack,...impactDefaults(graph.model,graph.geoset,stack.sequence,hit)});else depth(g.field,g.value);return;}
+  if(g.group){
+   let next=layer;
+   for(const {emitter,parameter} of g.parameters){
+    let value=Array.isArray(g.value)?g.value.map((v,i)=>Math.max(0,Math.min(1,parameter.sampled[i]+v-g.representative[i]))):g.aggregate?(g.total?g.value*parameter.sampled/g.total:g.value/g.parameters.length):g.field==='ParticleScaling'&&g.representative?g.value*parameter.sampled/g.representative:parameter.sampled+g.value-g.representative;
+    if(g.field==='Alpha')value=Math.max(0,Math.min(255,value));
+    else if(g.field==='Time')value=Math.max(0,Math.min(1,value));
+    else if(g.field==='Latitude')value=Math.max(0,Math.min(180,value));
+    else if(['ParticleScaling','EmissionRate','Width','Length','TailLength'].includes(g.field))value=Math.max(0,value);
+    else if(g.field==='LifeSpan')value=Math.max(.001,value);
+    const key=emitter._FxTag.slice(emitter._FxTag.lastIndexOf('/')+1),own=individualEmitterLayer(next,key);
+    next=withIndividualEmitter(next,key,own,{...own,native:{...own.native,[g.field]:plain(parameter.change(value))}});
+    if(g.field==='Alpha'){next.individuals[key].values.opacityBase=plain(next.individuals[key].values.native.Alpha);next.individuals[key].values.particleStrength=1;}
+    next.individuals[key].groupFields=[...new Set([...(next.individuals[key].groupFields||[]),g.field])];
+   }
+   if(g.aggregate){
+    const unitRate=l.nativeSpec?((l.nativeSpec.rate??8)/24)*(l.speed??1)*(result.siteRateScale??1):1;
+    next.amount=g.total>0?layer.amount*g.value/g.total:unitRate>0?g.value/unitRate:layer.amount;
+    next.groupRateCount=g.parameters.length;
+   }
+   if(g.field==='Alpha'){delete next.opacityBase;next.particleStrength=1;}
+
+   setStack({...stack,layers:stack.layers.map(item=>item.id===next.id?next:item)},false,{layerId:layer.id,field:g.field,sites:g.parameters.map(p=>p.emitter._FxTag.slice(p.emitter._FxTag.lastIndexOf('/')+1)),baselines:Object.fromEntries(g.parameters.map(p=>[p.emitter._FxTag.slice(p.emitter._FxTag.lastIndexOf('/')+1),plain(p.parameter.baseline)]))});
+  }else if(g.parameters?.length){
+   const value=plain(g.parameters[0].parameter.change(g.value));
+   setLayer({...l,native:{...l.native,[g.field]:value},...(g.field==='Alpha'?{opacityBase:plain(value),particleStrength:1}:{})});
+  }
+ };
+ const nativeSlider=(field,disabled=false)=>{
+  disabled=disabled||real?.[field]?.GlobalSeqId>=0&&timingOptions.globalTime==null;
+  const value=real?(field==='EmissionRate'&&!selectedSite?(result?.ids||[]).reduce((sum,id)=>sum+particleValue(graph.model.Nodes[id],field,timingOptions),0):particleValue(real,field,timingOptions)):undefined;
+  const title=field==='EmissionRate'?(selectedSite?'Particles emitted by this emitter.':'Particles emitted across this layer.')+' '+(real?.Squirt?'Particles per burst.':'Particles per second.'):undefined;
+  return <div key={field} title={title}><ParticleSlider decimals={2} field={field} value={live?.field===field?live.value:value} disabled={disabled||!real} unavailable={disabled||!real} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
+ };
+ const swarmSlider=(field,key,min,max,step,title)=><div title={title}><ParticleSlider field={field} units={title} decimals={2} min={min} max={max} step={step} value={live?.field===field?live.value:l[key]??1}
+  begin={()=>{gesture.current={field,swarmKey:key,min,max};}} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
+ const unavailable=label=><div key={label}><NumberField label={label} disabled value={undefined} placeholder="N/A"/></div>;
+
  return <>
   <h3>{look.name}</h3>
   {lookActions&&<FxLookBar look={look} stack={stack} actions={lookActions}/>}
@@ -163,51 +188,33 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
-  {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
+  {!edge&&!l.stamp&&<RangeField disabled={p&&!real} key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v,selectedSite)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
-  {countable&&<RangeField label="Emitters" title="Number of emitter sites in this layer." min={0} max={Math.max(MAX_EMITTER_SITES,siteCount)} step={1} value={siteCount} output={value=>value} onCommit={changeSiteCount}/>}
-  {p&&!selectedSite&&!stack.impact&&<RangeField label="Formation" title="Pull the emitters together or spread them apart." min={0} max={2} step={.01} value={l.formation??1} output={v=>Math.round(v*100)+'%'} onCommit={v=>setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
+  {particleLayer&&<RangeField disabled={!countable} label="Emitters" title="Number of emitter sites in this layer." min={0} max={Math.max(MAX_EMITTER_SITES,siteCount??0)} step={1} value={siteCount??0} output={value=>swarm||siteCount==null?'N/A':value} onCommit={changeSiteCount}/>}
+  {particleLayer&&<RangeField disabled={!!selectedSite||!!stack.impact} label="Formation" title="Pull the emitters together or spread them apart." min={swarm?4:0} max={swarm?Math.max(200,(frame?.length||100)*2,l.size):2} step={swarm ? .5 : .01} value={swarm?l.size:l.formation??1} output={v=>swarm?v.toFixed(1):Math.round(v*100)+'%'} onCommit={v=>swarm?update('size',v):setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {shell&&<RangeField key={l.id+'thickness'} title="Distance of this layer above the surface." label="Thickness" output={v=>v.toFixed(1)} min={0} max={shellReach(frame,l.inflate)} step={.05} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
-  {p&&<>
-   {real&&<LifeTable emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
-    begin={(field,stage)=>{gesture.current={field,stage,emitter:structuredClone(real)};}}
-    change={value=>{const g=gesture.current;if(g){g.emitter[g.field][g.stage]=g.field==='SegmentColor'?Float32Array.from(value):value;setLive({emitter:g.emitter});}}}
-    finish={()=>{const g=gesture.current;gesture.current=null;setLive(null);if(g){const native={...l.native,[g.field]:g.field==='SegmentColor'?g.emitter[g.field].map(v=>Array.from(v)):Array.from(g.emitter[g.field])};const next={...l,native};if(g.field==='Alpha'){delete next.opacityBase;delete next.particleStrength;}setLayer(next);}}}
-    cancel={()=>{gesture.current=null;setLive(null);}}/>}
-   {l.burstGap!=null&&<>
-    {row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}
-    {row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}
-    {row('Bolts per burst','amount',1,32,1,'Total bolts emitted at one point during each burst.')}
-    {row('Spread (°)','spread',1,90,1,'How far the lightning can spread around the blade.')}
-   </>}
-   {l.burstGap==null&&l.kind!=='native'&&particle('EmissionRate','amount',2,fly?9:Math.max(32,l.count*20),1,fly?'How many separate flies circle the part.':'Particles emitted each second across the whole layer.')}
-   {!fly&&l.kind!=='native'&&particle('LifeSpan','lasts',.08,l.kind==='flame'?.84:2.2,.01,'How long each particle stays visible.')}
-   {l.kind!=='native'&&particle('ParticleScaling','size',fly?frame?.radius*.6:.15,fly?frame?.radius*2.2:Math.max(2,frame?.length*.28),.1,fly?'How far the flies circle from the part.':'Size of each visible particle.')}
-   {!fly&&l.kind!=='native'&&particle('Speed','velocity',l.kind==='drops'||l.kind==='mist'?-(frame?.length||30):0,l.kind==='drops'||l.kind==='mist'?0:(frame?.length||30),.1,'Initial speed away from the part.')}
-   {!fly&&l.kind!=='native'&&particle('Gravity','gravity',l.kind==='drops'||l.kind==='mist'?0:-(frame?.length||30)*2,(frame?.length||30)*2,.1,'Pulls the particles down as they age.')}
-  </>}
-  {p&&l.kind==='native'&&real&&<>
-   {stack.impact&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={(field,value)=>setLayer({...l,native:{...l.native,[field]:value}})} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
-   {(stack.impact?['LifeSpan','Speed','Gravity']:['EmissionRate','LifeSpan','Speed','Gravity']).map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
-  </>}
-  {p&&real&&!stack.impact&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
-   {/* EMTR's own fields; each value is kept in layer.native. */}
-   {[...(l.kind==='native'?['ParticleScaling']:[]),'Width','Length',...(l.burstGap==null?['Latitude','Variation']:['Variation'])].map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
-   <ParticleLifeMarker value={real.Time} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} onSelect={setLifeStage}/>
-   <BlendLookField emitter={real} update={depth} wheel/>
-   <CarryButton emitter={real} update={depth}/>
-   <DrawAsField emitter={real} update={depth} wheel/>
-   {(real.FrameFlags&2)?<ParticleSlider decimals={2} field="TailLength" value={particleValue(real,'TailLength',timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>:null}
-   <ParticleFrameStrip emitter={real} wheel asset={assets?.get(gamePathKey(graph.model.Textures[real.TextureID]?.Image||''))} pictureName={graph.model.Textures[real.TextureID]?.Image} replaceableId={real.ReplaceableId||graph.model.Textures[real.TextureID]?.ReplaceableId||0} patch={values=>values&&setLayer({...l,native:{...l.native,...plainValues(values)}})}/>
-   <EmitModeButtons emitter={real} update={depth}/>
-  </>}</details>}
-  {swarm&&<>
-   <label><input type="checkbox" checked={!!l.riseOnDeath} onChange={e=>update('riseOnDeath',e.target.checked)}/>Rise on Death</label>
-   <RangeField key={l.id+'amount'} title="How many flies. Each five more fly on their own clock and paths." label="Amount" output={v=>String(Math.round(v))} min={FLY_BOUNDS.amount[0]} max={FLY_BOUNDS.amount[1]} step={5} value={l.amount} onCommit={v=>update('amount',Math.round(v/5)*5)}/>
-   <RangeField key={l.id+'fly'} title="Width of each fly." label="Fly size" output={v=>v.toFixed(1)} min={FLY_BOUNDS.spriteSize[0]} max={Math.max(FLY_BOUNDS.spriteSize[1],l.spriteSize)} step={.5} value={l.spriteSize} onCommit={v=>update('spriteSize',v)}/>
-   <RangeField key={l.id+'swarm'} title="How far the flies circle from the centre. The round handle in the preview drags it too." label="Swarm size" output={v=>v.toFixed(1)} min={4} max={Math.max(200,(frame?.length||100)*2,l.size)} step={.5} value={l.size} onCommit={v=>update('size',v)}/>
-   <RangeField key={l.id+'speed'} title="How fast the flies circle. Every fly keeps its own pace." label="Speed" output={v=>v.toFixed(2)+'×'} min={FLY_BOUNDS.speed[0]} max={FLY_BOUNDS.speed[1]} step={.05} value={l.speed??1} onCommit={v=>update('speed',v)}/>
+  {particleLayer&&<>
+   <LifeTable unavailable={!real||swarm} emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
+    begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/>
+   {swarm?swarmSlider('EmissionRate','amount',FLY_BOUNDS.amount[0],FLY_BOUNDS.amount[1],5,'How many flies. Each five more fly on their own clock and paths.'):nativeSlider('EmissionRate')}
+   {nativeSlider('LifeSpan',swarm)}
+   {swarm?swarmSlider('ParticleScaling','spriteSize',FLY_BOUNDS.spriteSize[0],Math.max(FLY_BOUNDS.spriteSize[1],l.spriteSize),.5,'Width of each fly.'):nativeSlider('ParticleScaling')}
+   {swarm?swarmSlider('Speed','speed',FLY_BOUNDS.speed[0],FLY_BOUNDS.speed[1],.05,'How fast the flies circle. Every fly keeps its own pace.'):nativeSlider('Speed')}
+   {nativeSlider('Gravity',swarm)}
+   <details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
+    {['Width','Length','Latitude','Variation'].map(field=>nativeSlider(field,swarm))}
+    {l.burstGap!=null?<>{row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}{row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}</>:<>{unavailable('Burst duration (s)')}{unavailable('Time between bursts (s)')}</>}
+    {<ParticleLifeMarker unavailable={!real||swarm} value={live?.field==='Time'?live.value:real?.Time??.5} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} onSelect={setLifeStage}/>}
+    <BlendLookField unavailable={!real||swarm} emitter={real||{}} update={depth} wheel/>
+    <CarryButton unavailable={!real||swarm} emitter={real||{}} update={depth}/>
+    <DrawAsField unavailable={!real||swarm} emitter={real||{}} update={depth} wheel/>
+    {nativeSlider('TailLength',swarm||!(real?.FrameFlags&2))}
+    {<ParticleFrameStrip unavailable={!real||swarm} emitter={real||{}} wheel asset={assets?.get(gamePathKey(graph?.model.Textures[real?.TextureID]?.Image||''))} pictureName={graph?.model.Textures[real?.TextureID]?.Image} replaceableId={real?.ReplaceableId||graph?.model.Textures[real?.TextureID]?.ReplaceableId||0} patch={values=>values&&setLayer({...l,native:{...l.native,...plainValues(values)}})}/>}
+    <EmitModeButtons unavailable={!real||swarm} emitter={real||{}} update={depth}/>
+    {stack.impact&&real&&<ParticleTimingTool impactOnly emitter={real} options={timingOptions} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} update={depth} patch={values=>values&&setLayer({...l,native:{...l.native,...values}})}/>}
+    <label><input type="checkbox" disabled={!swarm} checked={swarm&&!!l.riseOnDeath} onChange={e=>update('riseOnDeath',e.target.checked)}/>Rise on Death</label>
+   </>}</details>
   </>}
   {card&&<>
    <label className="field" title="Which way the card faces: the camera, the ground, or fixed to the part."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part'}[id]}</option>)}</ChoiceSelect></label>

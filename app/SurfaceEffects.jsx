@@ -1,5 +1,5 @@
 import Dialog from './Dialog.jsx';
-import {deleteEmitterSite,emitterEditOverlaps,resolveEmitterEdit} from '../src/fx-emitter-placement.js';
+import {deleteEmitterSite,emitterEditOverlaps,resolveEmitterEdit,clearGroupFieldEdits} from '../src/fx-emitter-placement.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Folder,FolderOpen,Sparkles} from 'lucide-react';
 import ToolWindow from './ToolWindow.jsx';
@@ -36,9 +36,9 @@ const withEmitterEditPolicy=(stack,policy)=>{
  if(policy==='ask')delete next.emitterEditPolicy;else next.emitterEditPolicy=policy;
  return next;
 };
-const applyEmitterEditPolicy=(before,next,all)=>({...next,layers:next.layers.map(layer=>{
+const applyEmitterEditPolicy=(before,next,all,operation)=>({...next,layers:next.layers.map(layer=>{
  const old=before.layers.find(l=>l.id===layer.id);
- return old&&emitterEditOverlaps(old,layer)?resolveEmitterEdit(old,layer,all):layer;
+ return old&&emitterEditOverlaps(old,layer,operation)?resolveEmitterEdit(old,layer,all,operation):layer;
 })});
 function TintPicker({value,onCommit,resetKey,label='RGB tint'}) {
  const input=useRef(null);
@@ -73,17 +73,18 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const selectSite=key=>{setSelectedSite(key);setSurfaceSnap(false);};
  const selectLayer=id=>{setSelectedLayer(id);selectSite(null);setRotating(false);};
  const [pendingEdit,setPendingEdit]=useState(null),[colourRevision,setColourRevision]=useState(0);
- const changeStack=(next,aimOnly=false)=>{
+ const changeStack=(next,aimOnly=false,operation)=>{
   setOriginal(false);
-  if(!selectedSite&&stack.layers.some(old=>{const changed=next.layers.find(l=>l.id===old.id);return changed&&emitterEditOverlaps(old,changed);})){
-   if(stack.emitterEditPolicy==='keep'||stack.emitterEditPolicy==='all')setStack(applyEmitterEditPolicy(stack,next,stack.emitterEditPolicy==='all'));
-   else setPendingEdit({before:stack,next,remember:false,aimOnly});
+  if(!selectedSite&&!operation)next={...next,layers:next.layers.map(layer=>{const old=stack.layers.find(l=>l.id===layer.id);return old?clearGroupFieldEdits(old,layer):layer;})};
+  if(!selectedSite&&stack.layers.some(old=>{const changed=next.layers.find(l=>l.id===old.id);return changed&&emitterEditOverlaps(old,changed,operation);})){
+   if(stack.emitterEditPolicy==='keep'||stack.emitterEditPolicy==='all')setStack(applyEmitterEditPolicy(stack,next,stack.emitterEditPolicy==='all',operation));
+   else setPendingEdit({before:stack,next,remember:false,aimOnly,operation});
    return;
   }
   setStack(next);
  };
  const resolvePending=policy=>{
-  const next=applyEmitterEditPolicy(pendingEdit.before,pendingEdit.next,policy==='all');
+  const next=applyEmitterEditPolicy(pendingEdit.before,pendingEdit.next,policy==='all',pendingEdit.operation);
   setStack(pendingEdit.remember?withEmitterEditPolicy(next,policy):next);setPendingEdit(null);
  };
  const deleteEmitter=()=>{
@@ -222,7 +223,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} selectedSite={selectedSite} selectSite={selectSite} deleteEmitter={deleteEmitter} windowRef={windowRef} showMarkers={showMarkers} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} placing={placing&&!original} rotating={rotating} onDrag={holdFrame} onLayer={(next,aimOnly)=>{changeStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)},aimOnly);}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={time} onTimeChange={setTime} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><ChoiceSelect data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={value=>setSequence(Number(value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</ChoiceSelect><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} colourRevision={colourRevision} setStack={changeStack} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} deleteEmitter={deleteEmitter} showMarkers={showMarkers} toggleMarkers={()=>setShowMarkers(v=>!v)} setEmitterEditPolicy={policy=>setStack(current=>withEmitterEditPolicy(current,policy))} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} recipeFrame={recipeFrame} previewFrame={time} previewSequence={sequence} authoredClocks={doc.model.GlobalSequences} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value){selectSite(null);setRotating(false);}}} rotating={rotating} setRotating={setRotating} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} colourRevision={colourRevision} setStack={changeStack} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} deleteEmitter={deleteEmitter} showMarkers={showMarkers} toggleMarkers={()=>setShowMarkers(v=>!v)} setEmitterEditPolicy={policy=>setStack(current=>withEmitterEditPolicy(current,policy))} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} recipeFrame={recipeFrame} readPreviewClock={()=>capture.current?.playbackClock()} previewFrame={time} previewSequence={sequence} authoredClocks={doc.model.GlobalSequences} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value){selectSite(null);setRotating(false);}}} rotating={rotating} setRotating={setRotating} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

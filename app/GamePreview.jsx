@@ -1702,6 +1702,7 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      playbackClock() { return disposed?null:{frame:native.getFrame(),globalTime:globalClock,sequence:native.getSequence()}; },
       previewParticleAlpha(ids,alpha) {
         if(disposed)return;
         for(const id of ids)ownedModel.Nodes[id].Alpha=Uint8Array.from(alpha);
