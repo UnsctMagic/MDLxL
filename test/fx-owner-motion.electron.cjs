@@ -24,11 +24,12 @@ const {testModel}=require('./helpers/fixtures.cjs');
     await button('Fit selection').click();const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
     await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.wheel(0,BLADES.has(look.id)||look.impact?430:300);
     const entry={model,look:look.id,part:part+1,clips:[]};
-    const staticDefault=look.id==='sort-briar',sequenceClock=look.impact||staticDefault;
+    // A look whose started layers are all still surfaces (Briar binding, Tint) owns no clock.
+    const staticDefault=!look.impact&&look.layers.some(l=>l.type==='Moving skin')&&look.layers.every(l=>l.type==='Moving skin'&&l.fixed&&!l.pulse&&!l.frames||l.type==='Particles'&&!l.starts),sequenceClock=look.impact||staticDefault;
     const ownedClocks=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets.find(g=>g._FxStack)._FxStack.createdClockIds);
     if(staticDefault){
-     assert.ok(look.layers.filter(l=>l.type!=='Particles').every(l=>l.fixed&&!l.pulse&&!l.frames),'Briar binding retains fixed surface layers');
-     assert.deepEqual(ownedClocks,[],'The static Briar default has no unused FX clock');
+     assert.ok(look.layers.filter(l=>l.type!=='Particles').every(l=>l.fixed&&!l.pulse&&!l.frames),look.name+' retains fixed surface layers');
+     assert.deepEqual(ownedClocks,[],'The static '+look.name+' default has no unused FX clock');
     }else assert.ok(ownedClocks.length>0,look.name+' owns an animation clock');
     for(const name of (process.env.FX_CLIPS||'Stand,Walk,Attack').split(',')){
      const seq=await fx.getByLabel('Preview animation').locator('option').evaluateAll((a,n)=>a.find(o=>o.textContent.startsWith(n))?.value,name);if(seq==null)throw Error(model+' missing '+name);
