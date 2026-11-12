@@ -23,3 +23,16 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column','Orbiti
  }
 });
 
+
+for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(label+' formation scales sites about the layer centre on part '+part,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[part]),stack=newStack(findLook('empty'),frame,'formation');
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1);stack.layers=[layer];
+ const before=structuredClone(base);compileAnimation(before,part,stack);
+ layer.placement={upper:layer.upper,lower:layer.lower};layer.formation=.35;
+ const after=structuredClone(base);compileAnimation(after,part,stack);
+ for(const p of before.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('formation/1/'))){
+  const q=after.ParticleEmitters2.find(n=>n._FxTag===p._FxTag),expected=new Vector3().fromArray(p.PivotPoint).sub(frame.center).multiplyScalar(.35).add(frame.center);
+  assert.ok(expected.distanceTo(new Vector3().fromArray(q.PivotPoint))<.001,'formation tightens '+p._FxTag);
+ }
+});
+

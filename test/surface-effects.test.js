@@ -70,7 +70,7 @@ test('FX sliders rebuild the preview on release only',async()=>{
  const {readFile}=await import('node:fs/promises');
  const source=await readFile(new URL('../app/GlobalAnimationControls.jsx',import.meta.url),'utf8');
  const sliders=source.match(/<RangeField\b.*?\/>/gs);
- assert.equal(sliders.length,11,'Intensity, Thickness, the fly swarm sliders, the rune layout sliders, Lift, the orbit Radius and Turns, and the card sliders');
+ assert.equal(sliders.length,12,'Formation, Intensity, Thickness, the fly swarm sliders, the rune layout sliders, Lift, the orbit Radius and Turns, and the card sliders');
  for(const slider of sliders)assert.ok(slider.includes('onCommit=')&&!slider.includes('onChange='),'FX RangeField uses onCommit');
 });
 

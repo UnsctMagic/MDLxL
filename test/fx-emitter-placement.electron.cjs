@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=require('./helpers/fixtures.cjs'),{addEmitter}=require('./helpers/fx-input.cjs');
 (async()=>{
- const out=path.join(root,'out/placement/ui');fs.mkdirSync(out,{recursive:true});
+ const step=Number(process.env.FX_PLACEMENT_STEP||2),out=path.join(root,'out/placement/ui');fs.mkdirSync(out,{recursive:true});
  const {app,page,errors}=await launchApp({fixture:fixturePath('footman'),out,bounds:{x:0,y:0,width:1450,height:960},settings:{preferences:{language:'en',learn:{enabled:false}}}});
  const fx=page.getByRole('dialog',{name:'Surface Effects',exact:true}),stage=fx.locator('.sfx-stage'),button=name=>fx.getByRole('button',{name,exact:true});
  const ready=()=>page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return p?.runtime?.captureApi.isReady&&p.runtime.particleSourceModel===p.props.model&&!document.querySelector('.sfx-apply')?.disabled;});
@@ -24,6 +24,14 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=requi
   assert.ok(Math.hypot(...after.camera.map((v,i)=>v-before.camera[i]))<1e-8,'placement preserves the camera (floating-point orbit recomposition only)');
   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.filter(e=>e.props._FxTag).reduce((n,e)=>n+e.particles.length,0)>20);
   await stage.screenshot({path:path.join(out,'span-after.png')});
+  if(step>=3){
+   const slider=fx.getByRole('slider',{name:'Formation',exact:true});assert.equal(await slider.count(),1,'Formation slider is offered');
+   const before=await read(),box=await slider.boundingBox();await page.mouse.click(box.x+box.width*.25,box.y+box.height/2);await ready();
+   const after=await read();assert.ok(after.stack.layers[0].formation>.3&&after.stack.layers[0].formation<.7,'formation commits on release');
+   assert.notDeepEqual(after.nodes.map(n=>n.PivotPoint),before.nodes.map(n=>n.PivotPoint),'formation changes the actual sites');
+   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.filter(e=>e.props._FxTag).reduce((n,e)=>n+e.particles.length,0)>20);
+   await stage.screenshot({path:path.join(out,'formation-tight.png')});
+  }
   assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

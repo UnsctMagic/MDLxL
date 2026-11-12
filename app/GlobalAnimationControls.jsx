@@ -1,5 +1,6 @@
 import React,{useMemo,useRef,useState} from 'react';
 import {translate} from '../src/localization.js';
+import {withEmitterPlacement} from '../src/fx-emitter-placement.js';
 import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
 import {BlendLookField,DrawAsField} from './ParticlePictureTool.jsx';
 import ParticleFrameStrip from './ParticleFrameStrip.jsx';
@@ -202,6 +203,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><select aria-label="Blend" value={l.filter??CARD_DEFAULTS.filter} onChange={e=>update('filter',Number(e.target.value))}>{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
+  {p&&!stack.impact&&<RangeField label="Formation" title="Pull the emitters together or spread them apart." min={0} max={2} step={.01} value={l.formation??1} output={v=>Math.round(v*100)+'%'} onCommit={v=>setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {positional&&<button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>}
   {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id)}>Open in EMTR</button>}
   </>}

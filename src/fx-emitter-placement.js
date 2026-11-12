@@ -12,6 +12,7 @@ export function layerEmitterPoint(frame,layer,point){
   const base=layer.placement,span=base.upper+base.lower;
   const fitted=span>0?-layer.lower+(layer.upper+layer.lower)*(along+base.lower)/span:(layer.upper-layer.lower)/2;
   at.addScaledVector(frame.axis,fitted-along);
+  if(layer.formation!=null)at.sub(centre).multiplyScalar(layer.formation).add(centre);
  }
  return at.add(new Vector3(...layer.offset));
 }
