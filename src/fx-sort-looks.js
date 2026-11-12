@@ -37,12 +37,12 @@ export const SORT_LOOKS=[
  make('ink','Living ink',3800,surface('Ink clouds','CloudsTile1',{filter:2,bodyUV:true,strength:.86,tint:[.18,.13,.23]})),
  make('phoenix','Phoenix quill',1850,surface('Feather light','Units\\Human\\Phoenix\\Phoenix2',{base:true,filter:2,atlasRect:[.03,.12,.43,.4],strength:1}),spray('Falling feathers','Feather',gold,{life:1.45,rate:8,filter:1,area:.6,velocity:.28,gravity:.62,spread:50,size:[.07,.24,.09],alpha:[40,235,0]})),
  make('soul','Soul lantern',2700,{...mark('Soul seal','Rune6b','beat',mint),uvMatrix:[0,1.10305,-1.14151,0,1.07555,-.16473],loop:1900},spray('Lantern flame','Ghost1',mint,{life:.95,rate:9,orbit:.56,velocity:.21,size:[.12,.28,.02]})),
- // The glyph keeps its glow and beats between two greens; the trail is additive and steady.
- make('thorn','Thorn script',2450,{...mark('Thorn glyph','DemonRune4','embers',mint),tint2:[.12,.62,.2],loop:2450},{...trail('Thorn trail','RibbonNE1_White',mint,.5,.32),filter:3,pulse:'steady'}),
- make('astral','Astral chart',5400,stone('Black stone','Cityscape\\City_BlackMarble'),surface('Star field','Units\\Undead\\FrostWyrm\\Starfield',{bodyUV:true,direction:26,strength:1,tint:white}),{...mark('Constellation','Rune4','beat',gold),tint2:[1,1,.85],loop:3133}),
+ // The glyph keeps its glow and moves slowly between two greens; the trail is additive and steady.
+ make('thorn','Thorn script',2450,{...mark('Thorn glyph','DemonRune4','beat',mint),tint2:[.3,1,.45],loop:2450},{...trail('Thorn trail','RibbonNE1_White',mint,.5,.32),filter:3,pulse:'steady'}),
+ make('astral','Astral chart',5400,stone('Black stone','Cityscape\\City_BlackMarble'),surface('Star field','Units\\Undead\\FrostWyrm\\Starfield',{bodyUV:true,direction:26,strength:1,tint:white}),{...mark('Constellation','Rune4','beat',gold),tint2:[.85,.8,.55],loop:3133}),
  make('prism','Prism sweep',2850,surface('Prism band','CrystalOpaque',{base:true,filter:2,atlasRect:[0,0,1,1],strength:1}),surface('Polished ridge','FX\\Flare\\DiamondNarrow',{axis:'v',band:.38,tint:[1,.28,.71],strength:1}),light('Prism flash','FX\\v\\RainbowLenseFlare_BW','glint',1.7,silver)),
  make('oath','Oathfire',2100,mark('Oath mark','Rune1','double',gold),spray('Oath flames','Flame4',gold,{life:.48,rate:15,area:.28,velocity:.52,spread:17,size:[.13,.27,.03]})),
- make('tide','Tide etching',3100,surface('Tide lines','BlueWaves',{base:true,filter:2,axis:'v',band:.76,tint:[.76,.96,1],strength:1}),{...mark('Tide mark','Rune4b','beat',silver),tint2:[.4,.7,1],loop:2033}),
+ make('tide','Tide etching',3100,surface('Tide lines','BlueWaves',{base:true,filter:2,axis:'v',band:.76,tint:[.76,.96,1],strength:1}),{...mark('Tide mark','Rune4b','beat',silver),tint2:[.62,.85,1],loop:2033}),
  make('snowfall','Windborne snow',3250,spray('Falling snow','Snowflake2',white,{life:1.6,rate:16,area:.94,height:.46,velocity:.12,gravity:.65,spread:48,size:[.055,.17,.10],alpha:[0,242,0]})),
  make('bubbles','Diving bell',3800,spray('Rising bubbles','Bubble',silver,{life:1.6,rate:10,area:.65,velocity:.49,spread:18,size:[.06,.24,.28],alpha:[0,222,0]}),light('Water reflection','ShockwaveWater1','breathe',.43,silver)),
  make('dust','Dust devil',2200,spray('Dust spiral','Dust3', [1,.82,.57],{life:.72,rate:16,orbit:.64,velocity:.32,area:.12,filter:0,size:[.08,.32,.45],alpha:[0,152,0]})),
@@ -52,10 +52,10 @@ export const SORT_LOOKS=[
  make('crescent','Twin crescents',3600,spray('Outer crescent','MoonCrescentGlow',silver,{life:.39,rate:9,orbit:.73,size:[.19,.31,.04]}),spray('Inner star','Star4',gold,{life:.24,rate:9,orbit:.41,phase:.5,height:.19,size:[.10,.17,.02]})),
  make('veil','Ash veil',4350,spray('Ash veil','CloudSingle',[.62,.57,.57],{life:1.5,rate:9,area:.55,velocity:.38,filter:0,size:[.18,.48,.69],alpha:[0,155,0]}),spray('Ash flecks','Dust3x',silver,{life:.85,rate:12,velocity:.68,spread:60,size:[.07,.12,.02],alpha:[0,196,0]})),
  make('dew','Dew pearls',4600,light('Dew sheen','FX\\Flare\\DiamondNarrow','glint',.55,mint),spray('Dew pearls','WaterBlobs1',silver,{life:.93,rate:9,area:.67,gravity:.83,spread:28,filter:0,size:[.04,.16,.07]})),
- // A dark underlay, a crack with an uneven colour beat, jittering zap cards and splinters drawn in.
+ // A dark underlay, a crack moving slowly between two colours, softly crackling zap cards; the splinters stay as they were.
  make('rift','Rift seam',1600,
   surface('Dark rift','CloudsTile2',{filter:2,axis:'v',band:.5,strength:.85,tint:[.1,.03,.16],loop:4733}),
-  surface('Rift seam','Lightning4b',{axis:'v',band:.25,tint:violet,tint2:[.45,.75,1],pulse:'embers'}),
+  surface('Rift seam','Lightning4b',{axis:'v',band:.25,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),
   cardSpec('Rift zaps',tex('Zap1'),{count:3,jitter:140,fit:.7,sizeMin:.85,sizeMax:1.1,loop:1133,tint:[.85,.6,1]}),
-  {...spray('Rift splinters','Star7b',violet,{life:.55,rate:12,area:.9,velocity:-.2,spread:180,tail:.06,size:[.14,.08,.01],alpha:[0,255,0]}),starts:true}),
+  spray('Rift splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.07,.14,.02]})),
 ];

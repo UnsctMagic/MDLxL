@@ -2,7 +2,8 @@
 export const LAYER_UNIT_FALLBACK=[1,24,.12,1,0,1];
 /** Sizes taken from a part frame ({length,girth,radius}, or a split frame, whose first region is used). */
 export function layerBasis(frame){
- frame=frame.regions?.[0]?.frame||frame;
+ // Sizes come from the part's longest skin region: the first region can be a small piece (a buckle on a body).
+ frame=frame.regions?.length?frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a).frame:frame;
  const {length,girth,radius}=frame,unit=Math.max(1,Math.min(length*.23,Math.max(length*.055,girth*.82)));
  const properties={
   flame:[7,104,.46,unit*2.2,-unit*9,Math.min(length*.19,unit*2.38)],embers:[4,46,.72,unit*3.6,-unit*5,unit*.40],

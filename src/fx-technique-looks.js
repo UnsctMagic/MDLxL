@@ -24,7 +24,7 @@ export const EMBER_NATIVE={Alpha:[200,150,80],Flags:EMITTER_UNFOGGED};
 export const DRIP={amount:12,lasts:1.1,scale:{size:2.8,gravity:1.3},native:{Alpha:[255,245,0],FrameFlags:3,TailLength:.08,Time:.5}};
 const FIRE=[1,.55,.15],FEL=[.52,1,0];
 /** Flipbook flame cards: a 4x4 smoke picture stepped every 75 ms, each card throbbing on its own fast clock. */
-export const flameCards=(tint=FIRE)=>cardSpec('Flame cards',tex('clouds_anim1_bw'),{count:3,rows:4,columns:4,frameMs:75,sizeMin:.88,sizeMax:1.25,loop:190,fit:.6,tint});
+export const flameCards=(tint=FIRE)=>cardSpec('Flame cards',tex('clouds_anim1_bw'),{count:3,rows:4,columns:4,frameMs:105,sizeMin:.9,sizeMax:1.12,loop:520,fit:.6,tint});
 export const lingeringEmbers=(label='Lingering embers',tint=[1,.62,.25])=>spray(label,tex('LavaLump'),tint,{life:2.5,rate:4,area:.6,velocity:.12,gravity:-.25,spread:40,size:[.09,.055,.018],alpha:[200,150,80]},{native:EMBER_NATIVE});
 const glowOrb=(label,tint)=>spray(label,tex('GenericGlowX'),tint,{life:.8,rate:6,area:.05,velocity:.04,spread:2,size:[.05,.35,.6],alpha:[150,220,100]},{native:{Flags:EMITTER_CARRIED}});
 export const FEL_FLAME_CARDS={...flameCards(FEL),enabled:false},FIRE_FLAME_CARDS={...flameCards(FIRE),enabled:false};
@@ -32,7 +32,7 @@ export const orbSpray=()=>glowOrb('Glow orbs',[.75,.62,1]);
 
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,inflate:.11,tint:crystal,strength:1});
-const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.5,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
+const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
 
 export const TECHNIQUE_LOOKS=[
  make('glow-shell','Glow shell',3333,[
@@ -49,13 +49,13 @@ export const TECHNIQUE_LOOKS=[
   starts(glowOrb('Orb light',[.7,.85,1])),
  ]),
  make('burning-cracks','Burning cracks',2000,[
-  skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.1,0],inflate:.12,strength:1}),
-  glow('Crack heat','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{bodyUV:true,filter:4,pulse:'embers',tint:[1,.55,.1],tint2:[1,.2,0],inflate:.2,strength:.7,loop:3333}),
+  skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.22,.12],inflate:.12,strength:1}),
+  glow('Crack heat','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{bodyUV:true,filter:4,pulse:'beat',tint:[1,.55,.1],tint2:[1,.42,.3],inflate:.2,strength:.7,loop:3333}),
   starts(lingeringEmbers()),
   FIRE_FLAME_CARDS,
  ],{asOverlay:true}),
  make('fire-column','Fire column',1500,[
-  starts(spray('Fire column',tex('Clouds8x8Fire'),[1,.6,.2],{atlas:8,life:.6,rate:40,area:.25,velocity:1.1,gravity:-1.5,spread:12,size:[.42,.34,.14],alpha:[255,255,0]},{native:FLAME_NATIVE})),
+  starts(spray('Fire column',tex('Clouds8x8Fire'),[1,.6,.2],{atlas:8,life:.6,rate:40,area:.25,velocity:1.1,gravity:-1.5,spread:12,size:[.42,.34,.14],alpha:[255,255,0]},{native:{Time:.5,Flags:EMITTER_UNFOGGED}})),
   starts(lingeringEmbers('Column embers')),
   glow('Heat glow',null,{pulse:'soft',strength:.5,inflate:.3,tint:[1,.5,.15],enabled:false}),
   FIRE_FLAME_CARDS,

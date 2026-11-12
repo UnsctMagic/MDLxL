@@ -107,6 +107,34 @@ test('every folder, look, variation and layer name has all five translations',()
  assert.deepEqual([...missing],[]);
 });
 
+// Rhythms that dip the light (alpha flicker, flashes, deep breathing, fades) stay only where a look carried them
+// before 12 November 2026; nothing new may flash. Owner: "I hate flashing things."
+const DIPPING=['flicker','lightning','glint','double','embers','fade','breathe'];
+const CARRIED_BEFORE=new Set([['flaming-sword','Hot core','flicker'],['claude-fel-blade','Fel fire','flicker'],['claude-forge-hot','Heat glow','flicker'],['claude-forge-hot','Glowing seams','breathe'],['frost-blade','Crystal glints','glint'],['frost-blade','Ice sheen','glint'],['frost-blade','White facets','crystal'],['glacial','Fissures','breathe'],['crystal-veins','Crystal veins','breathe'],['crystal-veins','Crystal glints','glint'],['claude-tidal-blade','Wet sheen','breathe'],['sort-tide','Tide mark','breathe'],['lightning-blade','Forked arcs','lightning'],['sort-rift','Rift seam','lightning'],['claude-void-cracked','Void cracks','flicker'],['claude-void-cracked','Dark aura','breathe'],['arcane-blade','Flowing energy','breathe'],['arcane-blade','Narrow highlight','breathe'],['rune-blade','Runes','breathe'],['rune-blade','Thorn glyph','flicker'],['claude-runic-plate','Plate runes','breathe'],['claude-runic-plate','Rune light','breathe'],['glowing-skin','Glowing texture','breathe'],['sort-astral','Constellation','glint'],['sort-soul','Soul seal','breathe'],['sort-eclipse','Eclipse eye','breathe'],['felwood-curse','Poison surface','breathe'],['felwood-curse','Rune','breathe'],['claude-corrupted-veins','Sickly glow','breathe'],['claude-corrupted-veins','Fel veins','breathe'],['sort-basalt','Heat seams','glint'],['sort-abyss','Starlight','glint'],['sort-cairn','Carving light','glint'],['sort-mosaic','Crescent','breathe'],['claude-wraith-form','Fading body','fade'],['claude-blood-pact','Heartbeat','double'],['claude-blood-pact','Pact mark','double'],['sort-blood','Red stain','breathe'],['colour-pulse','Glowing texture','breathe'],['fade-pulse','Breathing opacity','fade'],['recall-seal','Stars','burst']].map(a=>a.join('|')));
+const rhythmOf=l=>l.pulse??(l.type==='Glow'||l.glyphs||l.type==='Rune'?'breathe':null);
+const luminance=([r,g,b])=>.2126*r+.7152*g+.0722*b;
+test('no look flashes: dipping rhythms only where a look had them, slow colour beats at one brightness, calm cards, no bursts',()=>{
+ const base=knight().model,frame=partFrame(base.Geosets[PARTS.blade]),flashing=[];
+ for(const {name,look,stack} of stacks(frame,true))for(const l of stack.layers){
+  if(l.stamp)continue;
+  const at=name+' '+l.label,rhythm=rhythmOf(l);
+  if(DIPPING.includes(rhythm)&&!CARRIED_BEFORE.has([look.id,l.label,rhythm].join('|')))flashing.push(at+': '+rhythm+' dips the light');
+  if(['beat','shift'].includes(rhythm)){
+   const ratio=luminance(l.tint2||looks.secondTint(l.tint))/Math.max(1e-6,luminance(l.tint));
+   if(ratio<.8||ratio>1.25)flashing.push(at+': its two colours differ in brightness ('+ratio.toFixed(2)+')');
+   if((l.loop??stack.loop)<1500)flashing.push(at+': colour changes faster than 1.5 s');
+  }
+  if(l.type==='Card'){
+   if(l.frameMs>0&&l.frameMs<100)flashing.push(at+': flipbook faster than 100 ms a frame');
+   if(l.sizeMax!=null&&(l.sizeMax/(l.sizeMin||1)>1.45))flashing.push(at+': size swings more than 45 %');
+   if((l.sizeMin!==1||l.sizeMax!==1)&&(l.loop??stack.loop)<400)flashing.push(at+': size throbs faster than 0.4 s');
+  }
+  if(l.type==='Edge'&&!(l.orbit||l.pulse==='steady')&&!CARRIED_BEFORE.has([look.id,l.label,'flicker'].join('|'))&&!['rune-blade','sort-thorn'].includes(look.id))flashing.push(at+': ribbon alpha flickers');
+  if(l.type==='Particles'&&!l.impact&&!CARRIED_BEFORE.has([look.id,l.label,'burst'].join('|'))&&(l.nativeSpec?.burst||l.native?.Squirt||l.burstGap!=null&&look.id!=='lightning-blade'))flashing.push(at+': bursts on and off');
+ }
+ assert.deepEqual(flashing,[]);
+});
+
 test('applying and then removing any look leaves the model exactly as before',()=>{
  const changed=[];
  for(const [shape,index] of Object.entries(PARTS)){
@@ -130,4 +158,18 @@ test('every look survives MDX save and reopen as the same editable stack',()=>{
   try{compileAnimation(reopened,PARTS.blade,{...read,loop:read.loop+100});}catch(e){lost.push(name+': '+e.message);}
  }
  assert.deepEqual(lost,[]);
+});
+
+// Owner, 12 November: Falling mist showed on a large sword but not on a Footman. A body has many skin regions;
+// emitter sizes came from whichever region was first (a small piece), so the mist was a few units wide.
+const FOOTMAN=new URL('file:///D:/Claude/MDLxL-TestModels/pose/Footman.mdx');
+test('emitters on a many-region part are sized from its main region, so a Footman body shows its mist',{skip:!fs.existsSync(FOOTMAN)&&'Footman fixture not on this PC'},()=>{
+ const model=openDocument(fs.readFileSync(FOOTMAN),'footman.mdx').model,sizes={};
+ for(const [name,index] of [['body',0],['weapon',1]]){
+  const frame=partFrame(model.Geosets[index]),stack=newStack(looks.findLook('frost-blade'),frame,'q'),mist=stack.layers.find(l=>l.label==='Falling mist');
+  assert.ok(mist&&mist.enabled!==false,name+' starts with Falling mist');
+  const main=frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a).frame;
+  assert.ok(frame.regions.length>8,'the Footman '+name+' has many skin regions');
+  sizes[name]=mist.size;assert.ok(mist.size>=main.length*.12,name+' mist is a visible size: '+mist.size.toFixed(1)+' for a region '+main.length.toFixed(0)+' long');
+ }
 });

@@ -9,8 +9,8 @@ const rune=(label,image,pulse,tint)=>({type:'Rune',label,image,glyphs:true,stren
 const edge=(label,tint,strength=.32)=>({type:'Edge',label,image:tex('RibbonBlur1'),tint,strength});
 const stone=(label,path)=>({type:'Moving skin',label,image:'TerrainArt\\'+path+'.blp',atlasRect:[.625,.25,.125,.25],bodyUV:true,fixed:true,base:true,filter:2,strength:1,tint:[1,1,1]});
 const spray=(label,name,tint,spec)=>({type:'Particles',label,kind:'native',image:tex(name),tint,nativeSpec:{texture:tex(name),...spec}});
-import {FLAME_NATIVE,DRIP,FEL_FLAME_CARDS} from './fx-technique-looks.js';
-const flames=(label,tint)=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint,native:FLAME_NATIVE});
+import {DRIP,FEL_FLAME_CARDS} from './fx-technique-looks.js';
+const flames=(label,tint)=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint});
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
 const rune_=[.4,.75,1],ember=[1,.5,.14],violet=[.72,.5,1];
@@ -46,21 +46,21 @@ export const CLAUDE_LOOKS=[
  fx('Buffs & curses','corrupted-veins','Corrupted veins',2800,
   glow('Sickly glow',null,{pulse:'soft',strength:.42,tint:sick,inflate:.3,loop:3733}),
   skin('Fel veins',tex('Lightning2b'),{axis:'v',band:.32,pulse:'beat',strength:1,tint:fel}),
-  dust('Ichor drops','drops',tex('WaterBlobs1'),{tint:sick,...DRIP})),
+  dust('Ichor drops','drops',tex('WaterBlobs1'),{tint:sick})),
  fx('Buffs & curses','blood-pact','Blood pact',1700,
   glow('Heartbeat',null,{pulse:'double',strength:1.1,tint:blood,inflate:.3}),
-  {...rune('Pact mark',tex('DemonRune3'),'beat',blood),tint2:[.45,.04,.03],loop:1133},
+  {...rune('Pact mark',tex('DemonRune3'),'beat',blood),tint2:[.85,.12,.3],loop:2267},
   spray('Blood beads','BloodBlobs1',[.85,.2,.15],{life:.72,rate:7,area:.4,gravity:1.8,spread:16,filter:0,size:[.06,.16,.06]})),
  fx('Around the unit','plague-swarm','Plague swarm',3000,
   spray('Plague haze','CloudSingle',sick,{life:1.5,rate:8,area:.55,velocity:.3,filter:0,size:[.2,.45,.65],alpha:[0,185,0]})),
  armour('runic-plate','Runic plate',4200,
-  {...rune('Plate runes','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp','beat',rune_),tint2:[.75,.95,1]},
+  {...rune('Plate runes','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp','beat',rune_),tint2:[.6,.68,1]},
   glow('Rune light',tex('GenericGlow64'),{pulse:'soft',strength:.35,tint:rune_,inflate:.3,loop:2900})),
  armour('void-cracked','Void-cracked plate',2200,
-  glow('Void cracks',tex('Lightning2b'),{pulse:'embers',strength:1.6,tint:violet,tint2:[.4,.3,1]}),
+  glow('Void cracks',tex('Lightning2b'),{pulse:'beat',strength:1.6,tint:violet,tint2:[.5,.5,1],loop:2633}),
   glow('Dark aura',null,{pulse:'soft',strength:.4,tint:[.45,.3,.8],inflate:.3,loop:3133}),
-  {...spray('Void splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.07,.14,.02]}),loop:2900}),
+  spray('Void splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.07,.14,.02]})),
  armour('forge-hot','Forge-hot plate',1900,
   glow('Heat glow',null,{pulse:'soft',strength:.8,tint:ember,inflate:.3}),
-  glow('Glowing seams',tex('Lightning2b'),{pulse:'beat',strength:1.6,tint:ember,tint2:[1,.1,0],loop:2033})),
+  glow('Glowing seams',tex('Lightning2b'),{pulse:'beat',strength:1.6,tint:ember,tint2:[1,.38,.3],loop:2033})),
 ];

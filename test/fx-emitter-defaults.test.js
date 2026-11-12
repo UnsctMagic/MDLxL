@@ -7,7 +7,8 @@ import {openDocument} from '../src/editor-document.js';
 import {compileAnimation} from '../src/global-animation-model.js';
 
 // Captured from makeLayer at 676aaf6f on this checked-in, real Knight model. Entries were renewed
-// only where an emitter deliberately changed or a look was added (flames, embers, drips, 11 November 2026).
+// only for new looks, the native-card emitters given names (same values), and Water's drip, which the owner
+// asked to make visible (12 November 2026). Every other emitter keeps its 676aaf6f values.
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 const hash=layer=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
