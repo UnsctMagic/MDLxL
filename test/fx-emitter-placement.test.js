@@ -36,3 +36,17 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(l
  }
 });
 
+
+for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(label+' individual position and values affect only its stable site on part '+part,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[part]),stack=newStack(findLook('empty'),frame,'individual');
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1);stack.layers=[layer];
+ const before=structuredClone(base);compileAnimation(before,part,stack);
+ const nodes=before.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('individual/1/')),chosen=nodes[0],key=chosen._FxTag.split('/').at(-1);
+ layer.individuals={[key]:{position:[23,-14,81],values:{tint:[1,0,0],amount:layer.amount*2,lasts:.4,size:layer.size*1.5,native:{LifeSpan:.4,Time:.7,Width:12,Length:4}}}};
+ const after=structuredClone(base);compileAnimation(after,part,stack);
+ for(const p of nodes){
+  const q=after.ParticleEmitters2.find(n=>n._FxTag===p._FxTag);
+  if(p===chosen){assert.deepEqual(Array.from(q.PivotPoint),[23,-14,81],'only the selected site moves');assert.equal(q.LifeSpan,.4);assert.equal(q.Time,.7);assert.equal(q.Width,12);assert.equal(q.Length,4);assert.equal(q.SegmentColor[1][1],0);assert.ok(q.EmissionRate>p.EmissionRate,'individual Amount changes its own rate');}
+  else assert.deepEqual(q,p,'unselected emitter remains byte-identical');
+ }
+});

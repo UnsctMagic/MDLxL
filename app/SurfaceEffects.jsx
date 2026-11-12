@@ -58,12 +58,17 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  // Each part as first shown: only a change from that is unapplied work.
  const baselines=useRef(new Map());if(!baselines.current.has(part))baselines.current.set(part,JSON.stringify(stack));
  const unapplied=[...drafts.current].some(([index,draft])=>JSON.stringify(draft)!==baselines.current.get(index));
- const [selectedLayer,selectLayer]=useState(()=>stack.layers.find(l=>l.kind==='flame')?.id||stack.layers[0]?.id);
+ const [selectedLayer,setSelectedLayer]=useState(()=>stack.layers.find(l=>l.kind==='flame')?.id||stack.layers[0]?.id);
+ const [selectedSite,selectSite]=useState(null);
+ const selectLayer=id=>{setSelectedLayer(id);selectSite(null);};
  const [picture,setPicture]=useState(null),strengthDrag=useRef(null);
  const [loadGlobal]=useState(()=>createGlobalLibrary()),[search,setSearch]=useState('');
  const [folders,setFolders]=useState(()=>new Set([lookOf(stack).group]));
  const [loaded,setLoaded]=useState(null),[error,setError]=useState(''),[previewError,setPreviewError]=useState(''),[ready,setReady]=useState(false);
  const [playing,setPlaying]=useState(true),[sequence,setSequence]=useState(()=>sequenceIndex>=0?sequenceIndex:standSequenceIndex(doc.model));
+ const [time,setTime]=useState(()=>doc.model.Sequences[sequence]?.Interval[0]??0),heldPlay=useRef(false);
+ useEffect(()=>setTime(doc.model.Sequences[sequence]?.Interval[0]??0),[sequence]);
+ const holdFrame=active=>{if(active){heldPlay.current=playing;if(playing)setPlaying(false);}else{if(heldPlay.current)setPlaying(true);heldPlay.current=false;}};
  const [cameraMode,setCameraMode]=useState('work'),[placing,setPlacing]=useState(false),[original,setOriginal]=useState(false),[solo,setSolo]=useState(false),[highlight,setHighlight]=useState(false);
  // A picked emitter shows in the preview (and Apply) before Add keeps it as a layer.
  const [trial,setTrial]=useState(null);
@@ -77,11 +82,11 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const attachments=useMemo(()=>new Map(),[doc,doc.revision]);
  const graph=useMemo(()=>{if(loading)return null;try{const model=structuredClone(doc.model);return {model,...compileAnimation(model,part,previewStack,{...loaded,attachments})};}catch(cause){return {error:cause.message};}},[doc,doc.revision,part,previewStack,loaded,loading,attachments]);
  const lastModel=useRef(doc.model);if(graph?.model)lastModel.current=graph.model;
- function previewStrength(layer,value){
+ function previewStrength(layer,value,siteKey){
   if(layer.type==='Particles'&&!layer.swarm){
    const result=graph?.layers?.[layer.id],api=capture.current;if(!api||result?.id==null)return;
-   const original=graph.model.Nodes[result.id].Alpha;
-   api.previewParticleAlpha(result.ids,value==null?original:withParticleStrength(layer,original,value).native.Alpha);return;
+   const ids=siteKey?result.ids.filter(id=>graph.model.Nodes[id]._FxTag.endsWith('/'+siteKey)):result.ids,original=graph.model.Nodes[ids[0]].Alpha;
+   api.previewParticleAlpha(ids,value==null?original:withParticleStrength(layer,original,value).native.Alpha);return;
   }
   const index=graph?.model?.Geosets[graph.layers[layer.id]?.geoset]?.MaterialID;
   const api=capture.current;if(index==null||!api)return;
@@ -153,10 +158,10 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     </section>;})}{!matches.length&&<span className="sfx-empty">No matching effects</span>}</div>
    </aside>
    <main className="sfx-center"><div className="sfx-stage">
-    <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} placing={placing&&!original} onLayer={next=>{setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={doc.model.Sequences[sequence]?.Interval[0]??0} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
+    <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} selectedSite={selectedSite} selectSite={selectSite} placing={placing&&!original} onDrag={holdFrame} onLayer={next=>{setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={time} onTimeChange={setTime} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><select data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={e=>setSequence(Number(e.target.value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</select><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={setPlacing} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value)selectSite(null);}} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

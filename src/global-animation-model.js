@@ -1,5 +1,5 @@
 import {Quaternion,Vector3} from 'three';
-import {layerEmitterPoint} from './fx-emitter-placement.js';
+import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint} from './fx-emitter-placement.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -320,7 +320,8 @@ export function impactDefaults(model,_index,sequence,hit){
  const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));
  return seq<0?{sequence:-1,hit:0,contact:null}:attackContact(model,seq,hit);
 }
-function nativeParticles(c,l){
+function nativeParticles(c,layer){
+ const l=layer;
  const {model:m,tag,id,ms}=c,contact=l.impact?c.stack.contact:null;
  if(l.impact&&!contact)throw Error('Choose an Attack animation.');
  const sourceGeo=contact?m.Geosets[contact.geoset]:c.source;
@@ -331,6 +332,7 @@ function nativeParticles(c,l){
  const shares=l.sharedSites&&!contact&&!l.impact?emissionShares(regions,1):null;
  for(const [i,region] of regions.entries()){
   if(shares&&!shares[i])continue;
+  const key='source'+i,l=individualEmitterLayer(layer,key);
   const f=region.frame;
   const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
   const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*(shares?shares[i]:1),tint:l.tint,sequence:c.stack.sequence};
@@ -350,8 +352,8 @@ function nativeParticles(c,l){
    source.EmissionRate.Keys=source.EmissionRate.Keys.filter((k,j,all)=>!(k.Frame<interval[1]&&k.Vector[0]===0&&j>0&&all[j-1].Vector[0]>0&&k.Frame===all[j-1].Frame+1));
    source.Visibility={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap((s,j)=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([j===c.stack.sequence?1:0])})))};
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
-  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));}
-  else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));}
+  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
+  else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
@@ -431,7 +433,8 @@ function emissionShares(regions,count){
  for(let k=0,left=total-shares.reduce((a,b)=>a+b,0);k<left;k++)shares[order[k]]++;
  return shares;
 }
-function particles(c,l){
+function particles(c,layer){
+ const l=layer;
  const {model:m,id,ms,tag}=c,fly=l.kind==='flies',mote=l.kind==='motes';
  const count=fly?Math.max(1,Math.round(l.amount)):l.count;
  const ids=[];
@@ -442,15 +445,16 @@ function particles(c,l){
  const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
  const frame=region.frame;
  for(let i=0;i<regionCount;i++,site++){
+  const key='source'+regionIndex+'-'+i,l=individualEmitterLayer(layer,key);
   // Shared sites sit evenly along their own region.
   const span=l.placement||l;
   const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-span.lower+(span.upper+span.lower)*(i+.20)/(count-.60);
   const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
-  const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,l.surfaceSites?Math.max(.1,l.size*.5):0,c.frame.center);
-  c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));
+  const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
+  c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
-   if(!l.placement)pos.copy(frame.center).add(new Vector3(...l.offset));
+   if(!l.placement&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));
    const orbit=nodeFor(c,'Bones','Bone','orbit'+regionIndex+'-'+i,l.label+' orbit '+(i+1),pos,parent);
    const r=fly?l.size:Math.max(frame.girth*.9,frame.length*.25),phase=i*2.39996,tilt=(i%3-1)*.38+.16;
    const wind=i%2?-1:1,steps=32,turns=1+i%3;
@@ -463,7 +467,7 @@ function particles(c,l){
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+regionIndex+'-'+i,l.label+' '+(i+1),pos,parent);
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
   const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
-  const current={...p},prior=c.prior;
+  const current={...p},prior=individualEmitterLayer(c.prior,key);
   Object.assign(p,{Squirt:false,Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,
    Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
@@ -743,6 +747,7 @@ export function readAnimationStack(model,index){
  const draft=structuredClone(saved);
  for(const l of draft.layers){
   const prefix=draft.owner+'/'+l.id+'/';
+  if(l.individuals)continue; // A chosen site's values must not become defaults for its siblings.
   const emitters=[...model.ParticleEmitters2,...model.RibbonEmitters].filter(n=>n._FxTag?.startsWith(prefix));
   const node=emitters[Math.floor(emitters.length/2)];
   const read=(key,v)=>{if(Number.isFinite(v)&&Math.abs(v-l[key])>1e-4*Math.max(1,Math.abs(v)))l[key]=v;};
@@ -838,7 +843,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
   const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(!l.placement&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(!l.placement&&!l.individuals&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);
@@ -849,6 +854,10 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   else if(l.type==='Rune')runeLayer(context,l);
   else if(l.type==='Card')cardLayer(context,l);
   else skinLayer(context,l);
+  if(l.individuals&&sites[l.id].length){
+   const keys=new Set(sites[l.id].map(site=>site.key)),saved=state.layers.find(item=>item.id===l.id);
+   saved.individuals=Object.fromEntries(Object.entries(l.individuals).filter(([key])=>keys.has(key)));
+  }
  }
  for(let i=originalClockCount;i<model.GlobalSequences.length;i++)if(!created.includes(i))created.push(i);
  if(!draft.layers.length)delete source._FxStack;

@@ -17,3 +17,36 @@ export function layerEmitterPoint(frame,layer,point){
  return at.add(new Vector3(...layer.offset));
 }
 
+
+/** Per-site values never replace the shared layer defaults. */
+export function individualEmitterLayer(layer,key){
+ if(!layer)return layer;
+ const values=layer.individuals?.[key]?.values;
+ if(!values)return layer;
+ const result={...layer,...values,native:{...layer.native,...values.native}};
+ if(Object.hasOwn(values,'tint')&&!Object.hasOwn(values.native||{},'SegmentColor'))delete result.native.SegmentColor;
+ return result;
+}
+export function withIndividualEmitter(layer,key,previous,next){
+ const record=layer.individuals?.[key]||{},values={...record.values};
+ for(const field of ['tint','size','spriteSize','lasts','amount','strength','particleStrength','opacityBase','velocity','gravity','spread','burstGap','burstWindow']){
+  if(JSON.stringify(previous[field])===JSON.stringify(next[field]))continue;
+  if(next[field]===undefined)delete values[field];else values[field]=structuredClone(next[field]);
+ }
+ if(JSON.stringify(previous.native)!==JSON.stringify(next.native)){
+  values.native={...values.native};
+  for(const field of new Set([...Object.keys(previous.native||{}),...Object.keys(next.native||{})])){
+   if(JSON.stringify(previous.native?.[field])===JSON.stringify(next.native?.[field]))continue;
+   if(next.native?.[field]===undefined)delete values.native[field];else values.native[field]=structuredClone(next.native[field]);
+  }
+ }
+ return {...layer,individuals:{...layer.individuals,[key]:{...record,values}}};
+}
+export function withEmitterPosition(layer,key,position){
+ return {...layer,individuals:{...layer.individuals,[key]:{...layer.individuals?.[key],position:[...position]}}};
+}
+export function emitterSitePoint(frame,layer,key,point){
+ const own=layer.individuals?.[key]?.position;
+ return own?new Vector3(...own):layerEmitterPoint(frame,layer,point);
+}
+
