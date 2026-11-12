@@ -1,4 +1,5 @@
 import {Quaternion,Vector3} from 'three';
+import {layerEmitterPoint} from './fx-emitter-placement.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -349,7 +350,8 @@ function nativeParticles(c,l){
    source.EmissionRate.Keys=source.EmissionRate.Keys.filter((k,j,all)=>!(k.Frame<interval[1]&&k.Vector[0]===0&&j>0&&all[j-1].Vector[0]>0&&k.Frame===all[j-1].Frame+1));
    source.Visibility={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap((s,j)=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([j===c.stack.sequence?1:0])})))};
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
-  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.add(new Vector3(...l.offset));pos.z+=radius*(spec.height||0);}
+  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));}
+  else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));}
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact?null:regionParent({...c,source:sourceGeo,parent:contact?null:c.parent},region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
@@ -441,13 +443,14 @@ function particles(c,l){
  const frame=region.frame;
  for(let i=0;i<regionCount;i++,site++){
   // Shared sites sit evenly along their own region.
-  const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-l.lower+(l.upper+l.lower)*(i+.20)/(count-.60);
+  const span=l.placement||l;
+  const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-span.lower+(span.upper+span.lower)*(i+.20)/(count-.60);
   const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
   const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,l.surfaceSites?Math.max(.1,l.size*.5):0,c.frame.center);
-  pos.add(new Vector3(...l.offset));
+  c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(layerEmitterPoint(c.frame,l,pos));
   let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
-   pos.copy(frame.center).add(new Vector3(...l.offset));
+   if(!l.placement)pos.copy(frame.center).add(new Vector3(...l.offset));
    const orbit=nodeFor(c,'Bones','Bone','orbit'+regionIndex+'-'+i,l.label+' orbit '+(i+1),pos,parent);
    const r=fly?l.size:Math.max(frame.girth*.9,frame.length*.25),phase=i*2.39996,tilt=(i%3-1)*.38+.16;
    const wind=i%2?-1:1,steps=32,turns=1+i%3;
@@ -637,7 +640,7 @@ function flySwarm(c,l){
  const {model:m,tag}=c,count=Math.round(Math.max(FLY_BOUNDS.amount[0],Math.min(FLY_BOUNDS.amount[1],l.amount||5)));
  const radius=Math.max(1,l.size||1),width=Math.max(.5,l.spriteSize||10),speed=Math.max(FLY_BOUNDS.speed[0],Math.min(FLY_BOUNDS.speed[1],l.speed??1));
  const tall=c.frame.unitHeight??c.frame.length,scale=radius/FLY_PATH_RADIUS,spread=radius/88*.45;
- const centre=c.frame.center.clone().add(new Vector3(...l.offset));
+ const centre=layerEmitterPoint(c.frame,l,c.frame.center);
  const swarm=nodeFor(c,'Bones','Bone','swarm',l.label,centre,c.parent);
  swarm.Flags=256|2;for(const key of ['Translation','Rotation','Scaling'])delete swarm[key];
  // The measured corner layout and picture area of the native fly pictures; another picture shows whole.
@@ -827,15 +830,15 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   }
   source.MaterialID=resource(model.Materials,owner+'/underlay',{PriorityPlane:0,RenderMode:0,Layers:underlay});
  }
- const results={};
+ const results={},sites={};
  for(const l of draft.layers){
   if(l.enabled===false)continue;
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
   // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
-  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
+  const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(!l.placement&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
   }else if(l.stamp)groundSeal(context,l);
   else if(l.nativeSurface)nativeSurface(context,l);
@@ -868,7 +871,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
-  results[l.id]={id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
+  results[l.id]={sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i])})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

@@ -123,3 +123,5 @@ Merging FX, round 2 review fixes (Claude reviews round 2 separately), and new lo
 ## Codex implementation evidence
 
 1. Default offer: unchanged from round 2 head a8216288. Existing preset/default tests cover picking looks and emitter ingredients; no new behavior or invented fail-first test. Required source group: 302 pass, 0 fail, 0 skip (out/placement/item-01-tests.log). No app edit, so no rebuild for this item.
+
+2. Layer position/span: opt-in placement mapping now affects built-in and native sites on body and sword; untouched saved stacks keep their old compiler path. Existing EMTR handles update the live emitter pivots without recompiling per move. Eight source cases failed before and pass after. Build and focused group: 310 pass, 0 fail/skip. Hidden real upper-handle drag failed on round 2 (native pivots unchanged), passes on item 2, with playback captures in out/placement/ui/span-*.png. Camera recomposition differed by under 1e-12 world units; the check allows 1e-8, not a visible view change. Full placement acceptance remains at the final gate.

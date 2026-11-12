@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {Vector3} from 'three';
+import {openDocument} from '../src/editor-document.js';
+import {findLook,newStack,makeLayer,partFrame,layerIngredient} from '../src/global-animation-looks.js';
+import {compileAnimation} from '../src/global-animation-model.js';
+const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs'),file=fixturePath('footman');
+for(const part of [0,2])for(const label of ['Blade flames','Fire column','Orbiting stars','Blood beads'])test(label+' layer span moves every site on Footman part '+part,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[part]),stack=newStack(findLook('empty'),frame,'placement');
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1);stack.layers=[layer];
+ const before=structuredClone(base);compileAnimation(before,part,stack);
+ layer.placement={upper:layer.upper,lower:layer.lower};layer.upper*=1.8;layer.lower*=.4;layer.offset=[7,-9,13];
+ const after=structuredClone(base);compileAnimation(after,part,stack);
+ const nodes=m=>m.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('placement/1/'));
+ assert.equal(nodes(after).length,nodes(before).length,'placement does not add or remove sites');
+ for(const p of nodes(before)){
+  const q=nodes(after).find(n=>n._FxTag===p._FxTag),at=new Vector3().fromArray(p.PivotPoint),along=at.clone().sub(frame.center).dot(frame.axis);
+  const fitted=-layer.lower+(layer.upper+layer.lower)*(along+layer.placement.lower)/(layer.placement.upper+layer.placement.lower);
+  const expected=at.addScaledVector(frame.axis,fitted-along).add(new Vector3(...layer.offset));
+  assert.ok(expected.distanceTo(new Vector3().fromArray(q.PivotPoint))<.001,'top/bottom and move place '+p._FxTag);
+ }
+});
+
