@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: in progress in Codex; items 1–6 verified, items 7–9 pending
+Status: in progress in Codex; items 1–7 verified, items 8–9 pending
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -135,3 +135,5 @@ Item 4 follow-up: the extended large-drag check exposed a moving animation refer
 5. Delete emitter: removes only the selected stable site and returns to the layer. Deletion records survive compilation; stale keys are pruned. Four fail-first source cases; hidden old-package failure on missing Delete emitter. Build/group: 322/0/0. Hidden select → drag → Delete passes; out/placement/ui/deleted-one.png. New label translated in all five catalogues.
 
 6. Snap to surface: reuses EMTR’s picker and label, takes precedence over part selection, and stores the picked triangle/barycentric attachment on the individual record. Existing regionParent samples the actual blended triangle motion; authored tracks are untouched. Four cross-part cases failed before; all target animations, endpoints and intermediate samples now stay within .04 model units. Build/group: 326/0/0. Hidden actual-sword double-click/playback passes (item-06-ui.log, item-06-capture-ui.log); out/placement/ui/snapped-sword.png. The sword is visible in Decay Flesh. Warcraft III itself is not exercised.
+
+7. Shared conflict dialog: only overlapping whole-layer edits ask; Keep preserves the individual record, Apply to all removes the touched value and returns hand placements to formation. Deleted sites remain deleted. Change emitter freezes the current automatic site layout and preserves hand positions/deletions across built-in/native changes. Three source fail-first cases, then 27 focused pass; UI failed first on missing dialog. Build/group: 329/0/0. Hidden both colour choices and Change emitter pass (item-07-ui.log); captures keep-individual.png and apply-all.png under out/placement/ui. Dialog strings/tooltips translated in all five catalogues.

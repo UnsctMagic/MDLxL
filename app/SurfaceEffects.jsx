@@ -1,3 +1,5 @@
+import Dialog from './Dialog.jsx';
+import {emitterEditOverlaps,resolveEmitterEdit} from '../src/fx-emitter-placement.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Folder,FolderOpen,Sparkles} from 'lucide-react';
 import ToolWindow from './ToolWindow.jsx';
@@ -29,9 +31,9 @@ const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const overlays={bones:false,nodes:false,particles:false,attachments:false};
 const idleSelection=[];
-function TintPicker({value,onCommit,label='RGB tint'}) {
+function TintPicker({value,onCommit,resetKey,label='RGB tint'}) {
  const input=useRef(null);
- useEffect(()=>{input.current.value=value;},[value]);
+ useEffect(()=>{input.current.value=value;},[value,resetKey]);
  useEffect(()=>{
   const element=input.current;
   function commit(){onCommit('tint',tintFromHex(element.value));}
@@ -40,9 +42,9 @@ function TintPicker({value,onCommit,label='RGB tint'}) {
  },[onCommit]);
  return <input ref={input} type="color" aria-label={label} title="Choose a custom RGB colour" defaultValue={value}/>;
 }
-function ColourControl({tint,defaultTint,update,hint,label='Colour',pickerLabel,resetLabel='Reset colour'}) {
+function ColourControl({tint,defaultTint,update,hint,resetKey,label='Colour',pickerLabel,resetLabel='Reset colour'}) {
  const hex=hexFromTint(tint);
- return <div className="sfx-custom-colour" title={hint}><label>{label} <TintPicker value={hex} onCommit={update} label={pickerLabel}/></label><button aria-label={resetLabel} title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
+ return <div className="sfx-custom-colour" title={hint}><label>{label} <TintPicker resetKey={resetKey} value={hex} onCommit={update} label={pickerLabel}/></label><button aria-label={resetLabel} title="Restore this layer's default colour." disabled={hex===hexFromTint(defaultTint)} onClick={()=>update('tint',[...defaultTint])}>Reset</button></div>;
 }
 export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],textureAssets,modelPath,preferences,changePreferences,teamColor,sequenceIndex,onPlaced,onOpenEmitter,onClose}){
  // Two or more geosets checked in the editor are offered as one surface, chosen by default.
@@ -62,6 +64,13 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const [selectedSite,setSelectedSite]=useState(null),[surfaceSnap,setSurfaceSnap]=useState(false);
  const selectSite=key=>{setSelectedSite(key);setSurfaceSnap(false);};
  const selectLayer=id=>{setSelectedLayer(id);selectSite(null);};
+ const [pendingEdit,setPendingEdit]=useState(null),[colourRevision,setColourRevision]=useState(0);
+ const changeStack=next=>{
+  setOriginal(false);
+  if(!selectedSite&&stack.layers.some(old=>{const changed=next.layers.find(l=>l.id===old.id);return changed&&emitterEditOverlaps(old,changed);})){setPendingEdit({before:stack,next});return;}
+  setStack(next);
+ };
+ const resolvePending=all=>{setStack({...pendingEdit.next,layers:pendingEdit.next.layers.map(next=>{const old=pendingEdit.before.layers.find(l=>l.id===next.id);return old&&emitterEditOverlaps(old,next)?resolveEmitterEdit(old,next,all):next;})});setPendingEdit(null);};
  const [picture,setPicture]=useState(null),strengthDrag=useRef(null);
  const [loadGlobal]=useState(()=>createGlobalLibrary()),[search,setSearch]=useState('');
  const [folders,setFolders]=useState(()=>new Set([lookOf(stack).group]));
@@ -144,11 +153,11 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const groups=[...new Set(matches.map(e=>e.group))];
  const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(!previewStack.layers.length&&!readAnimationStack(doc.model,part)){onClose();return;}if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+lookOf(stack).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,{...loaded,attachments}));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
  return <ToolWindow title="Surface Effects" overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose} unapplied={unapplied}
-  after={picture!=null&&<Suspense fallback={null}><TextureLibrary model={doc.model} onClose={()=>setPicture(null)} selectLabel="Use picture" onSelectTexture={async asset=>{
+  after={<>{pendingEdit&&<Dialog title="Individual emitter changes" onClose={()=>{setPendingEdit(null);setColourRevision(v=>v+1);}} footer={<><button title="Use the layer value and return hand-placed emitters to the formation." onClick={()=>resolvePending(true)}>Apply to all</button><button title="Keep each emitter's own values and placement." onClick={()=>resolvePending(false)}>Keep individual changes</button></>}/>}{picture!=null&&<Suspense fallback={null}><TextureLibrary model={doc.model} onClose={()=>setPicture(null)} selectLabel="Use picture" onSelectTexture={async asset=>{
    const [file]=await resolveGameFiles([asset.name]);if(!file)throw Error('Choose a native Warcraft texture.');
    setStack(current=>({...current,layers:current.layers.map(l=>l.id===picture?withLayerTexture(l,asset.name):l)}));
    setPicture(null);setOriginal(false);
-  }}/></Suspense>}>
+  }}/></Suspense>}</>}>
   <div className="sfx-target"><SelectField label="Geoset" value={combined?-1:part} onChange={value=>pickTarget(Number(value))} options={targetOptions}/><label title="Highlight the selected part in the preview."><input data-hotkey="surface-effects:highlight-geoset" data-hotkey-manual data-hotkey-label="Highlight geoset" type="checkbox" checked={highlight} onChange={e=>setHighlight(e.target.checked)}/>Highlight geoset</label><span>Double-click a surface to select it.</span></div>
   <div className="sfx-body">
    <aside className="sfx-library">
@@ -159,10 +168,10 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     </section>;})}{!matches.length&&<span className="sfx-empty">No matching effects</span>}</div>
    </aside>
    <main className="sfx-center"><div className="sfx-stage">
-    <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} selectedSite={selectedSite} selectSite={selectSite} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} placing={placing&&!original} onDrag={holdFrame} onLayer={next=>{setStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={time} onTimeChange={setTime} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
+    <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} selectedSite={selectedSite} selectSite={selectSite} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} placing={placing&&!original} onDrag={holdFrame} onLayer={next=>{changeStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)});}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={time} onTimeChange={setTime} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><select data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={e=>setSequence(Number(e.target.value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</select><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} setStack={next=>{setOriginal(false);setStack(next);}} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value)selectSite(null);}} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} colourRevision={colourRevision} setStack={changeStack} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value)selectSite(null);}} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

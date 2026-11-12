@@ -330,12 +330,13 @@ function nativeParticles(c,layer){
  // or flat (XYQuad) emitter is one emitter at the longest region instead of one stacked copy per region.
  if(l.sharedSites&&!contact&&regions.length>1&&(l.ground||l.nativeSpec?.flat))regions=[regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)];
  const shares=l.sharedSites&&!contact&&!l.impact?emissionShares(regions,1):null;
- for(const [i,region] of regions.entries()){
-  if(shares&&!shares[i])continue;
-  const key='source'+i,l=individualEmitterLayer(layer,key);
+ const planned=layer.siteLayout?layer.siteLayout.map(slot=>({...slot,region:c.frame.regions?.[slot.region]||regions[0]})):regions.map((region,i)=>({region,key:'source'+i}));
+ for(const [i,slot] of planned.entries()){
+  const region=slot.region;if(!layer.siteLayout&&shares&&!shares[i])continue;
+  const key=slot.key,l=individualEmitterLayer(layer,key);
   const f=region.frame;
   const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
-  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*(shares?shares[i]:1),tint:l.tint,sequence:c.stack.sequence};
+  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*(layer.siteLayout?1:shares?shares[i]:1),tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});
   const texCount=m.Textures.length;
@@ -352,10 +353,12 @@ function nativeParticles(c,layer){
    source.EmissionRate.Keys=source.EmissionRate.Keys.filter((k,j,all)=>!(k.Frame<interval[1]&&k.Vector[0]===0&&j>0&&all[j-1].Vector[0]>0&&k.Frame===all[j-1].Frame+1));
    source.Visibility={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap((s,j)=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([j===c.stack.sequence?1:0])})))};
   }else source.Visibility=keys(id,ms,[[0,1],[1,1]]);
-  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
-  else if(l.placement){c.sites.push({key:'source'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));}
+  if(!l.impact){if(l.ground)pos.set(0,0,1.5);pos.z+=radius*(spec.height||0);}
+  if(slot.point)pos.fromArray(slot.point);
+  c.sites.push({key,point:pos.toArray(),region:Math.max(0,c.frame.regions?.indexOf(region)??0),ground:slot.ground??!!l.ground});
+  if(!l.impact||l.placement||layer.individuals?.[key]?.position)pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+i,l.label,pos,l.ground&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i));
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
   if(!l.native?.ParticleScaling)p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
@@ -447,22 +450,23 @@ function particles(c,layer){
  const ids=[];
  const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const shares=fly||l.burstGap!=null?null:emissionShares(regions,count);
- let site=0;
- for(const [regionIndex,region] of regions.entries()){
- const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
- const frame=region.frame;
- for(let i=0;i<regionCount;i++,site++){
-  const key='source'+regionIndex+'-'+i,l=individualEmitterLayer(layer,key);
+ const planned=layer.siteLayout?layer.siteLayout.map((slot,index)=>({...slot,regionIndex:slot.region??0,region:regions[slot.region??0]||regions[0],i:index,regionCount:layer.siteLayout.length})):regions.flatMap((region,regionIndex)=>{
+  const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
+  return Array.from({length:regionCount},(_,i)=>({regionIndex,region,i,regionCount,key:'source'+regionIndex+'-'+i}));
+ });
+ for(const [site,slot] of planned.entries()){
+  const {regionIndex,region,i,regionCount,key}=slot,frame=region.frame,l=individualEmitterLayer(layer,key);
   // Shared sites sit evenly along their own region.
   const span=l.placement||l;
   const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-span.lower+(span.upper+span.lower)*(i+.20)/(count-.60);
-  const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
+  const rate=layer.siteLayout?l.amount/planned.length:shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
   const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,layer.surfaceSites?Math.max(.1,layer.size*.5):0,c.frame.center);
-  c.sites.push({key:'source'+regionIndex+'-'+i,point:pos.toArray()});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
+  if(slot.point)pos.fromArray(slot.point);
+  c.sites.push({key,point:pos.toArray(),region:regionIndex,ground:!!slot.ground});pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  let parent=siteParent(c,layer,key,region,pos,'particles-'+regionIndex+'-'+i);
+  let parent=slot.ground&&!layer.individuals?.[key]?.surface?null:siteParent(c,layer,key,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
-   if(!l.placement&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));
+   if(!l.placement&&!slot.point&&!layer.individuals?.[key]?.position)pos.copy(frame.center).add(new Vector3(...l.offset));
    const orbit=nodeFor(c,'Bones','Bone','orbit'+regionIndex+'-'+i,l.label+' orbit '+(i+1),pos,parent);
    const r=fly?l.size:Math.max(frame.girth*.9,frame.length*.25),phase=i*2.39996,tilt=(i%3-1)*.38+.16;
    const wind=i%2?-1:1,steps=32,turns=1+i%3;
@@ -471,8 +475,8 @@ function particles(c,layer){
     return [k/steps,[Math.cos(b)*rr,Math.sin(b)*rr*(.76+.12*Math.sin(phase)),Math.sin(b+tilt)*tilt*r+.16*r*Math.sin(3*a+phase)+.07*r*Math.cos(7*a-phase)]];
    });
    orbit.Translation=fly?{LineType:2,GlobalSeqId:id,Keys:FLY_PATHS[i%FLY_PATHS.length].map(k=>({Frame:Math.round(k[0]*ms),Vector:vec(k.slice(1,4).map(v=>v*r)),InTan:vec(k.slice(4,7).map(v=>v*r)),OutTan:vec(k.slice(7,10).map(v=>v*r))}))}:keys(id,ms,path);parent=orbit.ObjectId;
-  }else if(l.kind==='drops'&&!l.surfaceSites)pos.z-=frame.girth*.35;
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+regionIndex+'-'+i,l.label+' '+(i+1),pos,parent);
+  }else if(l.kind==='drops'&&!l.surfaceSites&&!slot.point&&!layer.individuals?.[key]?.position)pos.z-=frame.girth*.35;
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label+' '+(i+1),pos,parent);
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
   const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
   const current={...p},prior=individualEmitterLayer(c.prior,key);
@@ -512,7 +516,6 @@ function particles(c,layer){
   }
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,value);
   ids.push(p.ObjectId);
- }
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
 }
@@ -888,7 +891,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClocks=[...new Set(g._FxStack.createdClockIds.map(i=>model.GlobalSequences[i]).filter(Number.isFinite))];
  for(const l of draft.layers){
   const prefix=owner+'/'+l.id+'/',nodes=model.Nodes.filter(n=>n?._FxTag?.startsWith(prefix)),emitters=nodes.filter(n=>model.ParticleEmitters2.includes(n)||model.RibbonEmitters.includes(n));
-  results[l.id]={sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i])})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
+  results[l.id]={sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i]),region:l.nativeSpec&&(l.ground||l.nativeSpec.flat)?frame.regions.indexOf(frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)):Number(n._FxTag.slice(prefix.length).match(/^source(\d+)/)?.[1]||0),ground:!!l.ground})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

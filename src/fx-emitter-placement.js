@@ -50,3 +50,36 @@ export function emitterSitePoint(frame,layer,key,point){
  return own?new Vector3(...own):layerEmitterPoint(frame,layer,point);
 }
 
+
+const VALUE_GROUPS=[['tint','native.SegmentColor'],['strength','particleStrength','opacityBase','native.Alpha'],['lasts','native.LifeSpan'],['amount','native.EmissionRate'],['velocity','native.Speed'],['gravity','native.Gravity'],['size','spriteSize','native.ParticleScaling','native.Width','native.Length']];
+const at=(value,key)=>key.startsWith('native.')?value.native?.[key.slice(7)]:value[key];
+function touchedEmitterFields(previous,next){
+ const fields=new Set([...VALUE_GROUPS.flat(),...Object.keys(previous.native||{}).map(k=>'native.'+k),...Object.keys(next.native||{}).map(k=>'native.'+k)]),changed=new Set([...fields].filter(k=>JSON.stringify(at(previous,k))!==JSON.stringify(at(next,k))));
+ for(const group of VALUE_GROUPS)if(group.some(k=>changed.has(k)))for(const key of group)changed.add(key);
+ const position=['offset','upper','lower','formation'].some(k=>JSON.stringify(previous[k])!==JSON.stringify(next[k]));
+ return {changed,position};
+}
+export function emitterEditOverlaps(previous,next){
+ const {changed,position}=touchedEmitterFields(previous,next);
+ return Object.values(previous.individuals||{}).some(record=>!record.deleted&&(position&&record.position||[...changed].some(k=>at(record.values||{},k)!==undefined)));
+}
+export function resolveEmitterEdit(previous,next,applyAll){
+ if(!applyAll)return next;
+ const {changed}=touchedEmitterFields(previous,next),individuals=structuredClone(previous.individuals||{});
+ for(const [key,record] of Object.entries(individuals)){
+  if(record.deleted)continue;
+  delete record.position;delete record.surface;
+  for(const field of changed)if(field.startsWith('native.')){if(record.values?.native)delete record.values.native[field.slice(7)];}else if(record.values)delete record.values[field];
+  if(record.values?.native&&!Object.keys(record.values.native).length)delete record.values.native;
+  if(record.values&&!Object.keys(record.values).length)delete record.values;
+  if(!Object.keys(record).length)delete individuals[key];
+ }
+ return {...next,individuals};
+}
+/** Freeze the current automatic offer, retaining its stable sites across recipe changes. */
+export function replaceEmitter(layer,next,graph){
+ const sites=graph.layers[layer.id]?.sites||[];
+ if(!sites.length)return {...next,enabled:layer.enabled,offset:layer.offset,upper:layer.upper,lower:layer.lower};
+ return {...next,enabled:layer.enabled,offset:[0,0,0],upper:layer.upper,lower:layer.lower,placement:{upper:layer.upper,lower:layer.lower},formation:1,
+  siteLayout:sites.map(site=>({...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()})),...(layer.individuals?{individuals:structuredClone(layer.individuals)}:{})};
+}

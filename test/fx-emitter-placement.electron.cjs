@@ -82,6 +82,16 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{fixturePath}=requi
    assert.ok(snapped,'double-click snaps to the actual sword');assert.equal(await fx.getByLabel('Geoset',{exact:true}).inputValue(),'0','snap does not select the sword part');
    await button('Play').click();const before=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame());await page.waitForFunction(t=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.getFrame()>t+150,before);await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return p.runtime.native.particlesController.emitters.some(e=>e.props.ObjectId===p.props.particleSelectedId&&e.particles.length>0);});await stage.screenshot({path:path.join(out,'snapped-sword.png')});
   }
+  if(step>=7){
+   await fx.getByLabel('RGB tint').fill('#ff0000');await ready();const individual=Object.entries((await read()).stack.layers[0].individuals).find(([,r])=>r.surface),key=individual[0];
+   await page.keyboard.press('Escape');await ready();await fx.getByLabel('RGB tint').fill('#0000ff');
+   const conflict=page.getByRole('dialog',{name:'Individual emitter changes',exact:true});await conflict.waitFor();await conflict.getByRole('button',{name:'Keep individual changes',exact:true}).click();await ready();
+   assert.deepEqual((await read()).stack.layers[0].individuals[key],individual[1],'Keep preserves red colour and the snapped place exactly');await stage.screenshot({path:path.join(out,'keep-individual.png')});
+   await fx.getByLabel('RGB tint').fill('#00ff00');await conflict.waitFor();await conflict.getByRole('button',{name:'Apply to all',exact:true}).click();await ready();
+   const all=await read();assert.ok(all.nodes.every(n=>n.SegmentColor[1][0]===0&&n.SegmentColor[1][1]===1),'Apply all gives every surviving emitter the layer colour');assert.ok(!all.stack.layers[0].individuals[key]?.position,'Apply all returns the hand-placed emitter to formation');
+   await fx.getByLabel('Change emitter',{exact:true}).selectOption('Fire column');await ready();const changed=await read();
+   const positions=nodes=>Object.fromEntries(nodes.map(n=>[n._FxTag.split('/').at(-1),n.PivotPoint]));assert.deepEqual(positions(changed.nodes),positions(all.nodes),'Change emitter keeps every remaining place');assert.equal(changed.nodes.length,all.nodes.length,'deleted sites do not return');await stage.screenshot({path:path.join(out,'apply-all.png')});
+  }
   assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

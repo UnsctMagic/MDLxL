@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import {Vector3} from 'three';
+import * as placement from '../src/fx-emitter-placement.js';
 import {sampleNodeMatrices,geosetSkinMatrix} from '../src/animation.js';
 import {vertexBoneWeights} from '../src/part-bones.js';
 import {openDocument} from '../src/editor-document.js';
@@ -78,4 +79,24 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(l
   vertices.forEach((v,i)=>expected.addScaledVector(new Vector3().fromArray(geo.Vertices,v*3).applyMatrix4(geosetSkinMatrix(geo,v,matrices)),barycentric[i]));
   assert.ok(actual.distanceTo(expected)<.04,clip.Name+' '+frame+': attached point error '+actual.distanceTo(expected));
  }
+});
+
+test('whole-layer conflicts ask only for overlapping individual values and resolve both choices',()=>{
+ const previous={type:'Particles',tint:[1,1,1],size:2,offset:[0,0,0],individuals:{source0:{position:[9,8,7],surface:{geoset:2},values:{tint:[1,0,0],native:{Width:4}}},source1:{deleted:true}}};
+ const changed={...previous,tint:[0,1,0]};
+ assert.equal(placement.emitterEditOverlaps(previous,{...previous,lasts:2}),false,'unrelated life edit asks nothing');
+ assert.equal(placement.emitterEditOverlaps(previous,changed),true,'own colour overlaps');
+ assert.equal(placement.emitterEditOverlaps(previous,{...previous,offset:[1,0,0]}),true,'hand placement overlaps layer movement');
+ assert.deepEqual(placement.resolveEmitterEdit(previous,changed,false).individuals,previous.individuals,'Keep leaves individual records exact');
+ const all=placement.resolveEmitterEdit(previous,changed,true);assert.deepEqual(all.individuals.source0,{values:{native:{Width:4}}},'Apply all resets colour and hand placement while preserving unrelated Width');assert.deepEqual(all.individuals.source1,{deleted:true});
+});
+for(const [from,to] of [['Blade flames','Fire column'],['Fire column','Blade flames']])test('Change emitter preserves automatic, hand-placed and deleted sites: '+from+' to '+to,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+ const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[0]),stack=newStack(findLook('empty'),frame,'replace');
+ const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label:from}),frame,'native',1);stack.layers=[layer];
+ const first=structuredClone(base),initial=compileAnimation(first,0,stack),keys=initial.layers[1].sites.map(s=>s.key);
+ layer.placement={upper:layer.upper,lower:layer.lower};layer.formation=.4;layer.offset=[4,5,6];layer.individuals={[keys[0]]:{position:[18,25,92]},[keys[1]]:{deleted:true}};
+ const before=structuredClone(base),graph={model:before,...compileAnimation(before,0,stack)},next=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label:to}),frame,'native',2);
+ stack.layers=[placement.replaceEmitter(layer,next,graph)];const after=structuredClone(base);compileAnimation(after,0,stack);
+ const sites=m=>Object.fromEntries(m.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('replace/')).map(n=>[n._FxTag.split('/').at(-1),Array.from(n.PivotPoint)]));
+ assert.deepEqual(sites(after),sites(before),'every surviving place is exact');assert.deepEqual(after.Geosets[0]._FxStack.layers[0].individuals,layer.individuals,'hand place and deletion remain keyed by original sites');
 });

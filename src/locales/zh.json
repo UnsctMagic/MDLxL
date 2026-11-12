@@ -7866,5 +7866,10 @@
   "Rise on Death": "死亡时升起",
   "Formation": "排列",
   "Pull the emitters together or spread them apart.": "将发射器聚拢或分散。",
-  "Delete emitter": "删除发射器"
+  "Delete emitter": "删除发射器",
+  "Individual emitter changes": "单独发射器更改",
+  "Apply to all": "应用到全部",
+  "Keep individual changes": "保留单独更改",
+  "Use the layer value and return hand-placed emitters to the formation.": "使用图层值，并将手动放置的发射器归回队形。",
+  "Keep each emitter's own values and placement.": "保留各个发射器自己的数值和位置。"
 }

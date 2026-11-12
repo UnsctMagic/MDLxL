@@ -7970,5 +7970,10 @@
   "Rise on Death": "Elevarse al morir",
   "Formation": "Formación",
   "Pull the emitters together or spread them apart.": "Acerca o separa los emisores.",
-  "Delete emitter": "Eliminar emisor"
+  "Delete emitter": "Eliminar emisor",
+  "Individual emitter changes": "Cambios individuales de emisores",
+  "Apply to all": "Aplicar a todos",
+  "Keep individual changes": "Conservar cambios individuales",
+  "Use the layer value and return hand-placed emitters to the formation.": "Usa el valor de la capa y devuelve los emisores colocados a mano a la formación.",
+  "Keep each emitter's own values and placement.": "Conserva los valores y la posición de cada emisor."
 }

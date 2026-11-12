@@ -1,6 +1,6 @@
 import React,{useMemo,useRef,useState} from 'react';
 import {translate} from '../src/localization.js';
-import {withEmitterPlacement,individualEmitterLayer,withIndividualEmitter} from '../src/fx-emitter-placement.js';
+import {withEmitterPlacement,individualEmitterLayer,withIndividualEmitter,replaceEmitter} from '../src/fx-emitter-placement.js';
 import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
 import {BlendLookField,DrawAsField} from './ParticlePictureTool.jsx';
 import ParticleFrameStrip from './ParticleFrameStrip.jsx';
@@ -20,7 +20,7 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,colourRevision,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
@@ -95,7 +95,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {look.variations&&<label className="field"><span>Variation</span><select aria-label="Variation" value={currentVariation(stack,look)} onChange={e=>setStack(withVariation(stack,frame,look,e.target.value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>}
   {stack.impact&&<label className="field"><span>Attack</span><select aria-label="Attack animation" value={stack.sequence} onChange={e=>{const sequence=Number(e.target.value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</select></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
-  <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setLayer({...item,enabled:e.target.checked})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);if(!selectedSite)setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
+  <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setStack({...stack,layers:stack.layers.map(l=>l.id===item.id?{...item,enabled:e.target.checked}:l)})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);if(!selectedSite)setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
   {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><select aria-label="Add emitter" value={trial?.label||''} onChange={e=>tryEmitter(e.target.value)}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</select></label>}
   {!stack.impact&&trial&&<button className="fx-keep-emitter" title="Keep the previewed emitter as a layer." onClick={keepTrial}>Add</button>}
   <div className="fx-layer-actions">{!stack.impact&&<select aria-label="Add layer" title="Add one editable layer to this part." value="" onChange={e=>addLayer(choices.find(s=>menuName(s)===e.target.value))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</select>}
@@ -107,11 +107,11 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {(p||swarm)&&!selectedSite&&!stack.impact&&<select aria-label="Change emitter" title="Replace this emitter and keep its position." value="" onChange={e=>{
    const spec=emitterChoices.find(s=>menuName(s)===e.target.value);if(!spec||!frame)return;
    const next=makeLayer(spec,frame,look.palette,Math.max(...stack.layers.map(v=>v.id))+1);
-   setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?{...next,enabled:l.enabled,offset:l.offset,upper:l.upper,lower:l.lower}:v)});select(next.id);
+   setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?replaceEmitter(l,next,graph):v)});select(next.id);
   }}><option value="">Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</select>}
   {!l.stamp&&!selectedSite&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
-  {!edge&&!l.stamp&&<ColourControl hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
-  {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
+  {!edge&&!l.stamp&&<ColourControl resetKey={colourRevision} hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
+  {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"

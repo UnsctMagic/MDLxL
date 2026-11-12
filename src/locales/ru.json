@@ -7960,5 +7960,10 @@
   "Rise on Death": "Подняться при смерти",
   "Formation": "Построение",
   "Pull the emitters together or spread them apart.": "Сближает или раздвигает эмиттеры.",
-  "Delete emitter": "Удалить эмиттер"
+  "Delete emitter": "Удалить эмиттер",
+  "Individual emitter changes": "Индивидуальные изменения эмиттеров",
+  "Apply to all": "Применить ко всем",
+  "Keep individual changes": "Сохранить индивидуальные изменения",
+  "Use the layer value and return hand-placed emitters to the formation.": "Использовать значение слоя и вернуть размещённые вручную эмиттеры в строй.",
+  "Keep each emitter's own values and placement.": "Сохранить собственные значения и положение каждого эмиттера."
 }
