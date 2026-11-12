@@ -5,7 +5,7 @@
 - **Os :** **Nommage des os** donne à un rig les noms d’os standard de Blizzard.
 - **POSE :** les poignées principales sont **Cercle**, **Carré** ou **Losange**. Les poignées de glissement nomment leur rôle (Déplacer, Étirer…) au survol.
 - **Éditeur UV :** **Aperçu RVB** et **Sans extras** dans l’aperçu sans animation. Les nouvelles installations zooment vers la droite ou le haut.
-- **EMTR :** clic droit pour **Glow Up**, **Bibliothèque EMTR** ou **Gestionnaire**. L’aperçu montre l’émetteur sélectionné ; **Afficher tous les émetteurs** les montre tous. **Examiner la lueur détectée** exclut des éléments de lueur un par un.
+- **EMTR :** clic droit pour **Lueur de héros**, **Bibliothèque EMTR** ou **Gestionnaire**. L’aperçu montre l’émetteur sélectionné ; **Afficher tous les émetteurs** les montre tous. **Examiner la lueur détectée** exclut des éléments de lueur un par un.
 - **FX :** **Pause** sous l’aperçu de placement. Un nouveau réglage conserve vos modifications de texture et d’UV.
 - **LIBR :** clic droit pour **Textures**, **Modèles**, **Sons** ou **Tout**. **Enregistrer une copie…** dans chaque visionneuse (DDS, BLP, PNG). **Style World Editor** affiche chaque objet une fois.
 - **BITZ :** **Gérer** les fichiers et dossiers Bitz. **Remplacer une pièce** ouvre la vue quad avec RVB, **Annuler** et **Appliquer**.
