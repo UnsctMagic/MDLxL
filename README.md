@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.40.0 adds a frozen Animated pose preview to Vertices, RGB and Hide Extras to UV preview, and individual hero glow review. It also shows the selected emitter first in EMTR and keeps texture and UV edits when retuning FX. See [the release notes](docs/RELEASE-0.40.0.md).
+Version 0.40.0 adds an Animated pose preview to Vertices, Forge tools in the Vertex editor (Call Upon Forge), Bone Namer, right-click menus for EMTR and LIBR, Bitz library management, Preview RGB and Hide Extras in the UV Wrapper, hero glow review, and handles that name their job on hover. See [the release notes](docs/RELEASE-0.40.0.md).
 
 From 0.39.0: this release adds a new Citadel Paint New base coat layout with Detail, one Calculate extents, Rotate handles and native weapon ribbons in EMTR, emitter preview in FX, OptimizeXL Remove exact redundancy, and Wiggle for checking bone binding. See [the release notes](docs/RELEASE-0.39.0.md).
 

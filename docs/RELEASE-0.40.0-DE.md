@@ -1,12 +1,20 @@
 # MDLxL 0.40.0
 
-- **Scheitelpunkte** — **Animiert** (Umschalt+Leertaste) zeigt beim Bearbeiten der Grundpose eine eingefrorene Animationspose. Mit dem Pfeil wählst du eine Sequenz. Mit einem Rechtsklick auf die Schaltfläche wählst du das Bild. Die Abspielposition im Bewegungseditor bleibt unabhängig.
-- **Jedes Teil** steht im Scheitelpunkteditor und in Forge neben **Arbeitsebenenbindung**. Der UV Wrapper behält seinen eigenen Schalter **Jedes Teil**.
-- **Ansicht** — Achsenhilfen sind in den Editoren für Vertices, Knochen, Bewegung und Animationen verfügbar.
-- **UV-Editor** — **RGB-Vorschau** färbt das aktive Geoset in der Vorschau. Mit **Extras verbergen** bleiben die bearbeiteten Geosets sichtbar und andere Effekte werden ausgeblendet. Die Vorschau zeigt das Modell ohne Animation. Neue Installationen starten mit Zoom nach rechts oder oben. Bestehende Profile behalten ihre Einstellungen.
-- **EMTR** — Die Vorschau zeigt zuerst den ausgewählten Emitter. **Alle Emitter anzeigen** blendet die übrigen ein. **Glow Up** unterscheidet Heldenglühen von kleinen Augeneffekten. Unter **Erkanntes Leuchten prüfen** lassen sich einzelne Teile ausschließen und wieder aufnehmen.
-- **FX** — Das Nachjustieren eines angewendeten Effekts erhält deine Textur- und UV-Änderungen. Die Texturbibliothek sieht in FX und EMTR wie gewohnt aus. Der Welteditor-Stil zeigt jedes Objekt einmal.
-- **Rig-Editoren** — **Kompaktes Set** ordnet die Geosets zeilenweise an.
-- **KI-Konsole** — Die Prüfung meldet Fehler, die schon im Ausgangsmodell vorhanden waren, und blockiert weiterhin neue Fehler.
+- **Scheitelpunkte:** **Animiert** (Umschalt+Leertaste) zeigt beim Bearbeiten eine Animationspose. **Jedes Teil** steht neben **Arbeitsebenenbindung**, auch in Forge.
+- **Forge:** Rechtsklick, **Forge-Werkzeuge aufrufen** holt die Werkzeuge in den Scheitelpunkteditor.
+- **Knochen:** **Knochenbenennung** gibt einem Rig Blizzards Standard-Knochennamen.
+- **POSE:** Hauptgriffe sind **Kreis**, **Quadrat** oder **Raute**. Ziehgriffe nennen beim Darüberfahren ihre Aufgabe (Verschieben, Strecken…).
+- **UV Wrapper:** **RGB-Vorschau** und **Hide Extras** in der unanimierten Vorschau. Neue Installationen zoomen nach rechts oder oben.
+- **EMTR:** Rechtsklick für **Glow Up**, **EMTR-Bibliothek** oder **Verwaltung**. Die Vorschau zeigt den ausgewählten Emitter; **Alle Emitter anzeigen** zeigt alle. **Erkanntes Leuchten prüfen** schließt einzelne Leuchtteile aus.
+- **FX:** **Pause** unter der Platzierungsvorschau. Nachjustieren behält deine Textur- und UV-Änderungen.
+- **LIBR:** Rechtsklick für **Texturen**, **Modelle**, **Klänge** oder **Alle**. **Kopie speichern…** in jedem Betrachter (DDS, BLP, PNG). **World-Editor-Stil** listet jedes Objekt einmal.
+- **BITZ:** **Verwalten** von Bitz-Dateien und -Ordnern. **Teil ersetzen** öffnet die Vierfachansicht mit RGB, **Abbrechen** und **Anwenden**.
+- **Menüs:** Der Verwaltungs-Reiter ist ins obere Menü **Verwaltung** gewandert. Menüs zeigen Tastenkürzel; Alt+K öffnet **Oberflächeneffekte**.
+- **Klänge:** Fünf verschobene Spielklänge werden wieder abgespielt. Klänge ohne Datei im Spiel sind mit **Keine Klangdatei im Spiel** markiert.
+- **Ansicht:** **Achsenhilfen** in Scheitelpunkte, Knochen, Bewegung und Animationen. **Kompaktes Set** füllt auch in Bewegung und Knochen zeilenweise.
+- **ShareX-Bereiche** (Einstellungen > Aufnahme) lässt ShareX nur die Ansicht oder den Werkzeugkasten aufnehmen.
+- **KI-Konsole:** Fehler, die schon im Modell waren, sind Warnungen; neue Fehler blockieren weiterhin.
+- **Korrekturen:** FX behält seine Teile nach Löschen und Zusammenführen. Ein unlesbares Speichern behält eine Kopie der ersetzten Datei. Standard in Tasten fragt vorher nach. Vertex-Verschiebungen in Animiert folgen der Maus. Pinselziehen in Malen läuft flüssig, Escape stellt die Werte wieder her. BITZ warnt vor dem Schließen eines unfertigen Ersetzens.
+- Auf deutschen und französischen Tastaturen können vor Version 0.39 neu belegte Buchstabenkürzel jetzt auf einer anderen Taste liegen. Prüfen Sie sie unter Einstellungen > Tastenkürzel.
 
-Suche in den Einstellungen nach Updates oder lade die vollständige portable ZIP herunter.
+Aktualisiere über Einstellungen > Konfiguration > Nach Updates suchen > Update und Neustart, oder lade das vollständige portable ZIP von der MDLxL-Seite.

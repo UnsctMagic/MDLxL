@@ -1,12 +1,20 @@
 # MDLxL 0.40.0
 
-- **Vertices:** **Animated** (Shift+Space) previews a frozen animation pose while you edit the base pose. Use the arrow to pick a sequence, or right-click **Animated** to choose its frame. The Movement playhead stays independent.
-- **Each Piece** now sits beside **Workplane Constraints** in Vertices and Forge. The label uses the same capitalization in the UV Wrapper.
-- **View:** **Axis guides** are available in Vertices, Bones, Movement and Animations.
-- **UV Wrapper:** **Preview RGB** tints the active geoset for preview only. **Hide Extras** keeps working geosets visible while hiding other effects. The preview uses the unanimated model appearance. Fresh installs start with right/up Zoom. Existing profiles keep their settings.
-- **EMTR:** The preview starts with the selected emitter. **View All Emitters** shows the rest. **Glow Up** distinguishes hero glow from small eye effects. Use **Review detected glow** to exclude or restore individual pieces.
-- **FX:** Retuning an applied effect keeps your texture and UV edits. The texture library uses its normal look in FX and EMTR, and World Editor Style lists each object once.
-- **Rig editors:** Compact Set fills geosets across rows.
-- **AI console:** Review warns about errors already present in the starting model and still blocks newly introduced errors.
+- **Vertices:** **Animated** (Shift+Space) previews an animation pose while you edit. **Each Piece** sits beside **Workplane Constraints**, also in Forge.
+- **Forge:** right-click, **Call Upon Forge** puts its tools in the Vertex editor.
+- **Bones:** **Bone Namer** gives a rig Blizzard's standard bone names.
+- **POSE:** main handles are **Circle**, **Square** or **Diamond**. Drag handles name their job (Move, Stretch…) on hover.
+- **UV Wrapper:** **Preview RGB** and **Hide Extras** in the unanimated preview. Fresh installs zoom right/up.
+- **EMTR:** right-click for **Glow Up**, **EMTR Library** or **Manager**. The preview shows the selected emitter; **View All Emitters** shows all. **Review detected glow** excludes single glow pieces.
+- **FX:** **Pause** under the placement preview. Retuning keeps your texture and UV edits.
+- **LIBR:** right-click for **Textures**, **Models**, **Sounds** or **All**. **Save a copy…** in every viewer (DDS, BLP, PNG). **World Editor Style** lists each object once.
+- **BITZ:** **Manage** your Bitz files and folders. **Replace Part** opens Quad View with RGB, **Cancel** and **Commit**.
+- **Menus:** the Managers tab moved into the top **Managers** menu. Menus show hotkeys; Alt+K opens **Surface Effects**.
+- **Sounds:** five moved game sounds now play. Sounds with no game file are marked **No sound file in the game**.
+- **View:** **Axis guides** in Vertices, Bones, Movement and Animations. **Compact Set** fills rows first in Movement and Bones too.
+- **ShareX regions** (Settings > Capture) lets ShareX capture the viewport or toolbox alone.
+- **AI console:** errors already in the model are warnings; new errors still block.
+- **Fixes:** FX keeps its parts after deletes and merges. An unreadable save keeps a copy of the replaced file. Default in Hotkeys asks first. Animated vertex moves follow the mouse. Paint brush drags are smooth and Escape restores them. BITZ warns before closing an unfinished replacement.
+- On German and French keyboards, letter keys rebound before 0.39 may now be on a different key. Check them in Settings > Hotkeys.
 
-Use **Search for updates** in Settings, or download the full portable ZIP.
+Update through Settings > Configuration > Search for updates > Update and restart, or download the full portable ZIP from the MDLxL page.
