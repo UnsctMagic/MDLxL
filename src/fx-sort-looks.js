@@ -48,7 +48,7 @@ export const SORT_LOOKS=[
  make('dust','Dust devil',2200,spray('Dust spiral','Dust3', [1,.82,.57],{life:.72,rate:16,orbit:.64,velocity:.32,area:.12,filter:0,size:[.08,.32,.45],alpha:[0,152,0]})),
  make('sparks','Arc welder',980,spray('Arc spray','LightningBall',silver,{life:.18,rate:12,velocity:.31,spread:68,size:[.13,.32,.11]}),spray('Hot filings','Star4',gold,{life:.54,rate:17,tail:.09,velocity:.95,gravity:1.7,spread:52,size:[.05,.09,.005]})),
  make('maple','Maple drift',4900,spray('Maple leaves','FX\\v\\LeafGold8x8',white,{life:1.8,rate:7,atlas:8,area:.88,height:.58,velocity:.20,gravity:.62,spread:67,filter:0,size:[.09,.25,.14],alpha:[0,240,0]})),
- make('blood','Sanguine drip',2550,spray('Blood beads','BloodBlobs1',[.87,.24,.18],{life:.72,rate:9,area:.43,gravity:1.8,spread:16,filter:0,size:[.06,.18,.06]}),light('Red stain','BloodPool','soft',.64,[1,.35,.28])),
+ make('blood','Sanguine drip',2550,spray('Blood beads','BloodBlobs1',[.87,.24,.18],{life:.72,rate:9,area:.43,gravity:1.8,spread:16,filter:0,size:[.12,.36,.12]}),light('Red stain','BloodPool','soft',.64,[1,.35,.28])),
  make('crescent','Twin crescents',3600,spray('Outer crescent','MoonCrescentGlow',silver,{life:.39,rate:9,orbit:.73,size:[.19,.31,.04]}),spray('Inner star','Star4',gold,{life:.24,rate:9,orbit:.41,phase:.5,height:.19,size:[.10,.17,.02]})),
  make('veil','Ash veil',4350,spray('Ash veil','CloudSingle',[.62,.57,.57],{life:1.5,rate:9,area:.55,velocity:.38,filter:0,size:[.18,.48,.69],alpha:[0,155,0]}),spray('Ash flecks','Dust3x',silver,{life:.85,rate:12,velocity:.68,spread:60,size:[.07,.12,.02],alpha:[0,196,0]})),
  make('dew','Dew pearls',4600,light('Dew sheen','FX\\Flare\\DiamondNarrow','glint',.55,mint),spray('Dew pearls','WaterBlobs1',silver,{life:.93,rate:9,area:.67,gravity:.83,spread:28,filter:0,size:[.04,.16,.07]})),
@@ -57,5 +57,5 @@ export const SORT_LOOKS=[
   surface('Dark rift','CloudsTile2',{filter:2,axis:'v',band:.5,strength:.85,tint:[.1,.03,.16],loop:4733}),
   surface('Rift seam','Lightning4b',{axis:'v',band:.25,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),
   cardSpec('Rift zaps',tex('Zap1'),{count:3,jitter:140,fit:.7,sizeMin:.85,sizeMax:1.1,loop:1133,tint:[.85,.6,1]}),
-  spray('Rift splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.07,.14,.02]})),
+  spray('Rift splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.14,.28,.04]})),
 ];

@@ -9,7 +9,7 @@ import {compileAnimation} from '../src/global-animation-model.js';
 // Captured from makeLayer at 676aaf6f on this checked-in, real Knight model. Entries were renewed
 // only for new looks, the native-card emitters given names (same values), and Water's drip, which the owner
 // asked to make visible (12 November 2026), and Orbiting flies, rebuilt as a quad swarm on billboarded bones
-// (owner, 12 November 2026: "fly swarm - doesnt look good"), and the emitter audit fixes the owner asked for the same day ("EMITTERS ... some are very bad"): flames' own fire colour, Water's drip values on Heavy and Ichor drops, a steady rate for Stars, additive white-to-tint Rune sparks. Every other emitter keeps its 676aaf6f values.
+// (owner, 12 November 2026: "fly swarm - doesnt look good"), and the emitter audit fixes the owner asked for the same day ("EMITTERS ... some are very bad"): flames' own fire colour, Water's drip values on Heavy and Ichor drops, a steady rate for Stars, additive white-to-tint Rune sparks, larger Eye sparks, Blood beads, splinters and embers. Every other emitter keeps its 676aaf6f values.
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 // sharedSites (12 November emitter audit) marks a new native layer; it changes how sites share the rate, not its values.

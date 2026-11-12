@@ -171,14 +171,14 @@
     {
       "label": "Blood beads",
       "id": 1,
-      "hash": "96f2a61bd4d5a794daa3529982b83db155e136b88ed2b772888a6d7ad6fd46c8"
+      "hash": "1c2c11b39c671684ffb70018e7d2dc8c2ada614f93e8f7d826ca0580e1412b6b"
     }
   ],
   "sort-rift": [
     {
       "label": "Rift splinters",
       "id": 2,
-      "hash": "c7b1604bffc9256327803a6b4b8b6c7da2ce64dc401f8b71d9d010b385c8a31b"
+      "hash": "0204d49c25d00bb4e2f529117c5a188015489561e81276704bf2eccb759e1ed4"
     }
   ],
   "claude-fel-blade": [
@@ -214,7 +214,7 @@
     {
       "label": "Blood beads",
       "id": 3,
-      "hash": "c93215c92a5db18796bbc8cf061034623aab5ec542b513cdda8cf8eb6b591984"
+      "hash": "b48a8c0eefd0edd639b2bb3a4b86011be2a1f32dfaddf252c19e745f11fe0a80"
     }
   ],
   "claude-plague-swarm": [
@@ -229,7 +229,7 @@
     {
       "label": "Void splinters",
       "id": 3,
-      "hash": "59c25efb61cb442f516d4934354df918445256d5aa16d3fd59be96933dd7dda2"
+      "hash": "1fadda95ea58a234779ea0c6d6d7804d4ecae12f43b45d4c77bfc9a5c55f282b"
     }
   ],
   "claude-forge-hot": [],
@@ -237,7 +237,7 @@
     {
       "label": "Lingering embers",
       "id": 3,
-      "hash": "952fb77c3f86af5eb213f495e1c72b5b05d3579edf802513f9e3b2609745ba1b"
+      "hash": "53347a37b40f6dbe61ba82282164393bfd3646cf84acd42c5a569f92936a41a8"
     }
   ],
   "fx-fire-column": [
@@ -249,7 +249,7 @@
     {
       "label": "Column embers",
       "id": 2,
-      "hash": "75ebf7cc056f6e61e28dbb9888b2b78cf34095e0fdbe667ce9b7af9e10daf5ea"
+      "hash": "38495139597eb33975c8300abd1e3e737febf23c820ee6af5c5796832d1db8a4"
     }
   ],
   "fx-lit-crystal": [],
@@ -277,7 +277,7 @@
     {
       "label": "Eye sparks",
       "id": 3,
-      "hash": "c3f942586aa3e4059be604bb102a9e667e043e1eae792746bb11c4e77f1e7f67"
+      "hash": "1e310e607f1dd7b067ce61169660f5a0a684b83fe71676384fdf2eafe9b177f3"
     }
   ],
   "fx-ghost-trails": [],

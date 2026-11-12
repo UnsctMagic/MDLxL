@@ -25,7 +25,7 @@ export const DRIP={amount:12,lasts:1.1,scale:{size:2.8,gravity:1.3},native:{Alph
 const FIRE=[1,.55,.15],FEL=[.52,1,0];
 /** Flipbook flame cards: a 4x4 smoke picture stepped every 75 ms, each card throbbing on its own fast clock. */
 export const flameCards=(tint=FIRE)=>cardSpec('Flame cards',tex('clouds_anim1_bw'),{count:3,rows:4,columns:4,frameMs:105,sizeMin:.9,sizeMax:1.12,loop:520,fit:.6,tint});
-export const lingeringEmbers=(label='Lingering embers',tint=[1,.62,.25])=>spray(label,tex('LavaLump'),tint,{life:2.5,rate:4,area:.6,velocity:.12,gravity:-.25,spread:40,size:[.09,.055,.018],alpha:[200,150,80]},{native:EMBER_NATIVE});
+export const lingeringEmbers=(label='Lingering embers',tint=[1,.62,.25])=>spray(label,tex('LavaLump'),tint,{life:2.5,rate:4,area:.6,velocity:.12,gravity:-.25,spread:40,size:[.16,.1,.04],alpha:[200,150,80]},{native:EMBER_NATIVE});
 const glowOrb=(label,tint)=>spray(label,tex('GenericGlowX'),tint,{life:.8,rate:6,area:.05,velocity:.04,spread:2,size:[.05,.35,.6],alpha:[150,220,100]},{native:{Flags:EMITTER_CARRIED}});
 export const FEL_FLAME_CARDS={...flameCards(FEL),enabled:false},FIRE_FLAME_CARDS={...flameCards(FIRE),enabled:false};
 export const orbSpray=()=>glowOrb('Glow orbs',[.75,.62,1]);
@@ -108,7 +108,7 @@ export const TECHNIQUE_LOOKS=[
  make('eye-glow','Eye glow',1300,[
   cardSpec('Left eye',tex('Flare'),{fit:.25,sizeMin:.9,sizeMax:1.1,tint:[1,.3,.12]}),
   cardSpec('Right eye',tex('Flare'),{fit:.25,sizeMin:.9,sizeMax:1.1,loop:1433,tint:[1,.3,.12]}),
-  spray('Eye sparks',tex('Flare'),[1,.3,.12],{life:.5,rate:10,velocity:.15,size:[.09,.07,.05],alpha:[200,180,150]},{native:{Flags:EMITTER_CARRIED}}),
+  spray('Eye sparks',tex('Flare'),[1,.3,.12],{life:.5,rate:10,velocity:.15,size:[.18,.14,.1],alpha:[200,180,150]},{native:{Flags:EMITTER_CARRIED}}),
  ]),
  vary(make('tint','Tint',3000,[]),[
   {id:'wash',name:'Colour wash',layers:[skin('Colour wash',null,{own:true,fixed:true,filter:2,strength:.5,tint:[.55,.75,1]})]},
