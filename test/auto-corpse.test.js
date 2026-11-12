@@ -551,10 +551,10 @@ for (const cycle of ['self', 'pair']) test(`a Tail ${cycle} parent cycle cannot 
   await boundedCorpseBuild(model, [0], 1);
 });
 
-test('a self-parented wing root leaves the other wing available', async () => {
+test('a self-parented wing root leaves the other wing available', {skip: !dragonModel() && 'owner dragon not in the test models'}, async () => {
   const {openDocument} = await import('../src/editor-document.js');
   const {suggestPoseRig} = await import('../src/pose-ik.js');
-  const file = testModel('corpse-fixtures/VampireDragon_Corpse_FlyingDeath.mdx');
+  const file = dragonModel();
   const {model} = openDocument(readFileSync(file), file);
   const death = model.Sequences.findIndex(sequence => sequence.Name === 'Death');
   const rig = suggestPoseRig(model, model.Sequences[death].Interval[1], death);
