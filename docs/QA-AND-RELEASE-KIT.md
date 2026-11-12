@@ -187,9 +187,9 @@ profile folder with particles. A skipped test is a gap: list it in the report.
 
 | Layer | Command | When |
 | --- | --- | --- |
-| Compatibility | `node --test tests/*.test.js` | every change |
-| Source | `node --test test/*.test.js`, or the named files | named files per change; all before a PR |
-| Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | every visible change |
+| Compatibility | `node --test tests/*.test.js` | new features while being built; CI runs it on every PR |
+| Source | `node --test test/*.test.js`, or the named files | new features before hand-back; CI runs it on every PR |
+| Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | new features while being built; small repairs only when the owner asks ([tiers](../AGENTS.md#build-and-verification)) |
 | Core under other machines | `node scripts/run-packaged-tests.mjs <variant> core` | rendering, timing or layout changes; release |
 | Full packaged suite | `node scripts/run-packaged-tests.mjs default all` | release only, about 2 hours |
 | Click sweep | [`node scripts/run-packaged-tests.mjs default click-sweep`](#the-click-sweep-script) | every release, `footman`; other setups only when the owner asks |

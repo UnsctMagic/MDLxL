@@ -18,10 +18,12 @@ request that breaks a rule below is not reviewed. It goes back.
 
 ## Before merging
 
-- For code changes, build and run focused checks of the affected behavior,
-  proportional to the change. UI behavior needs the relevant real interaction
-  checks below. Documentation-only changes need link, path and rule-consistency
-  checks, not an application rebuild.
+- How much to test follows the tiers in [AGENTS.md](../AGENTS.md#build-and-verification):
+  small repairs and a feature's polish phase are tested by the owner by hand
+  (build, a one-click no-crash check, hand over); a new feature being built gets
+  tests for its new behaviour plus the source suite; the release runs everything.
+  When tests are written, they follow every rule below. Documentation-only
+  changes need link, path and rule-consistency checks, not an application rebuild.
 - Do not require the full release regression or packaged-app suite, or a separate
   Claude/second-agent rerun, solely to merge a change. Required configured CI
   checks still apply; use their results rather than repeat them locally.
