@@ -417,7 +417,7 @@ function nativeParticles(c,layer){
  const sourceGeo=contact?m.Geosets[contact.geoset]:c.source;
  const regions=nativeEmitterRegions(c,l,contact,sourceGeo),ids=[];
  const shares=l.sharedSites&&!contact&&!l.impact?emissionShares(regions,1):null;
- const layout=c.siteLayout||c.autoSites,active=activeEmitterSites(layer,layout||[]);
+ const layout=c.siteLayout||c.autoSites,active=c.activeSites;
  const planned=layout?layout.map(slot=>({...slot,regionIndex:slot.region??0,region:c.frame.regions?.[slot.region]||regions[0]})):regions.map((region,i)=>({region,key:'source'+i}));
  for(const [i,slot] of planned.entries()){
   const region=slot.region;if(!layout&&shares&&!shares[i])continue;
@@ -554,7 +554,7 @@ function particles(c,layer){
  const ids=[];
  const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const shares=fly||l.burstGap!=null?null:emissionShares(regions,count);
- const layout=c.siteLayout||c.autoSites,active=activeEmitterSites(layer,layout||[]);
+ const layout=c.siteLayout||c.autoSites,active=c.activeSites;
  const planned=layout?layout.map((slot,index)=>({...slot,regionIndex:slot.region??0,region:regions[slot.region??0]||regions[0],i:index,regionCount:layout.length})):regions.flatMap((region,regionIndex)=>{
   const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
   return Array.from({length:regionCount},(_,i)=>({regionIndex,region,i,regionCount,key:'source'+regionIndex+'-'+i}));
@@ -984,7 +984,10 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   context.autoSites=defaultSurfaceSites(context,l);
   context.siteLayout=completeEmitterSiteLayout(context,l);
-  if(context.siteLayout!==l.siteLayout)state.layers.find(item=>item.id===l.id).siteLayout=context.siteLayout;
+  context.activeSites=activeEmitterSites(l,context.siteLayout||context.autoSites||[]);
+  const saved=state.layers.find(item=>item.id===l.id);
+  if(context.siteLayout!==l.siteLayout)saved.siteLayout=context.siteLayout;
+  if(Array.isArray(l.activeSiteKeys)&&context.activeSites)saved.activeSiteKeys=[...context.activeSites];
   if(l.nativeSpec&&!l.impact)siteRateScales[l.id]=nativeEmitterBudget(context,l);
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
   if(!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
@@ -1001,7 +1004,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   else if(l.type==='Card')cardLayer(context,l);
   else skinLayer(context,l);
   if(l.individuals&&sites[l.id].length){
-   const keys=new Set(sites[l.id].map(site=>site.key)),saved=state.layers.find(item=>item.id===l.id);
+   const keys=new Set(sites[l.id].map(site=>site.key));
    saved.individuals=Object.fromEntries(Object.entries(l.individuals).filter(([key])=>keys.has(key)));
   }
  }

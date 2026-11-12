@@ -20,7 +20,7 @@
 
 .surface-effects .sfx-stage svg.pe-stage-tools{display:block}
 .fx-emitter-markers circle{cursor:pointer}.fx-emitter-markers [role=button]:hover>circle:not(.pe-grab),.fx-emitter-markers [role=button]:focus-visible>circle:not(.pe-grab){stroke:#ffb835;stroke-width:3}
-.sfx-controls .sfx-placement{flex-wrap:wrap}.sfx-controls .sfx-place{flex:1}.sfx-controls .fx-emitter-policy{grid-template-columns:minmax(0,1fr)}.fx-emitter-policy select{width:100%;min-width:0}
+.sfx-controls .sfx-placement{flex-wrap:wrap}.sfx-controls .sfx-place{flex:1 1 auto}.sfx-controls .fx-emitter-policy{grid-template-columns:minmax(0,1fr)}.fx-emitter-policy select{width:100%;min-width:0}
 
 
 .fx-starters,.fx-layer-list{display:grid;gap:3px}.fx-starters h4{margin:5px 0 1px}.fx-starters button,.fx-layer-list button{text-align:left}

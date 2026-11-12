@@ -7874,8 +7874,6 @@
   "Ask each time": "每次询问",
   "Emitter markers": "发射器标记",
   "Number of emitter sites in this layer.": "此图层中发射器位置的数量。",
-  "Add one emitter to this layer.": "向此图层添加一个发射器。",
-  "Add extra emitter": "再添加一个发射器",
   "Rotate the emitter aim.": "旋转发射方向。",
   "Use the layer aim for all emitters.": "让所有发射器使用图层的发射方向。",
   "Formation width": "排列宽度",

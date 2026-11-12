@@ -20,7 +20,7 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,selectSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
@@ -81,11 +81,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const positional=p||swarm||edge||l?.ground||card;
  const siteCount=result?.ids.length??0;
  const countable=p&&!selectedSite&&!stack.impact&&l.enabled!==false&&!!result;
- const changeSiteCount=(count,selectAdded=false)=>{
-  const next=withEmitterSiteCount(layer,result,count);
-  setLayer(next.layer);
-  if(selectAdded&&next.site){selectSite(next.site);setRotating(false);setPlacing(true);}
- };
+ const changeSiteCount=count=>setLayer(withEmitterSiteCount(layer,result,count));
  const cardValue=key=>l[key]??CARD_DEFAULTS[key];
  // An emitter field set under More (EMTR's own controls) is kept in layer.native.
  const plainValues=values=>Object.fromEntries(Object.entries(values).map(([key,value])=>[key,ArrayBuffer.isView(value)?Array.from(value):value]));
@@ -124,6 +120,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {!edge&&!l.stamp&&(!p||real)&&<RangeField key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v,selectedSite)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
+  {countable&&<RangeField label="Emitters" title="Number of emitter sites in this layer." min={0} max={Math.max(MAX_EMITTER_SITES,siteCount)} step={1} value={siteCount} output={value=>value} onCommit={changeSiteCount}/>}
+  {p&&!selectedSite&&!stack.impact&&<RangeField label="Formation" title="Pull the emitters together or spread them apart." min={0} max={2} step={.01} value={l.formation??1} output={v=>Math.round(v*100)+'%'} onCommit={v=>setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {shell&&<RangeField key={l.id+'thickness'} title="Distance of this layer above the surface." label="Thickness" output={v=>v.toFixed(1)} min={0} max={shellReach(frame,l.inflate)} step={.05} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
   {p&&<>
    {real&&<LifeTable emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
@@ -214,11 +212,6 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><ChoiceSelect aria-label="Blend" value={l.filter??CARD_DEFAULTS.filter} onChange={value=>update('filter',Number(value))}>{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
-  {countable&&<>
-   <RangeField label="Emitters" title="Number of emitter sites in this layer." min={0} max={Math.max(MAX_EMITTER_SITES,siteCount)} step={1} value={siteCount} output={value=>value} onCommit={changeSiteCount}/>
-   <button disabled={siteCount>=MAX_EMITTER_SITES} title="Add one emitter to this layer." onClick={()=>changeSiteCount(siteCount+1,true)}>Add extra emitter</button>
-  </>}
-  {p&&!selectedSite&&!stack.impact&&<RangeField label="Formation" title="Pull the emitters together or spread them apart." min={0} max={2} step={.01} value={l.formation??1} output={v=>Math.round(v*100)+'%'} onCommit={v=>setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
    {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
    {p&&placing&&real&&<button aria-pressed={showMarkers} onClick={toggleMarkers}>Emitter markers</button>}</div>}

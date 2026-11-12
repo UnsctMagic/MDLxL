@@ -225,14 +225,21 @@ Open in EMTR resolves the selected site after node renumbering. Native values ed
 there return to that individual on the next FX edit. The stack stores these records in
 both MDX and MDL; untouched legacy stacks keep their original compiler output. Fly swarm
 is still geometry on bones, with its existing controls rather than particle-site editing.
-The Emitters slider and Add extra emitter button change the number of sites in
-one particle layer. They do not add a new layer or change the Amount control's
-particle-rate meaning. A count edit freezes stable siteLayout keys with siteCount;
-parked slots retain their edits, while explicit deletions stay deleted. Additional
-sites use the existing shape analysis only when requested. siteRateScale preserves
-the existing aggregate recipe density for older native layouts. Automatic slots
-refit when an own look is loaded on another model; foreign triangle bindings do
-not travel with it. Count zero remains recoverable through these controls.
+The Emitters and Formation sliders sit directly below Intensity on the selected
+particle layer and commit on release. Emitters changes the site count, including
+zero. Amount still controls particle output. One active site uses the offered
+point nearest the layout centre. Two use the widest pair. Higher counts add the
+site farthest from its nearest active neighbour until the requested count is
+reached. When the count reaches the number available, every nondeleted site is
+active. Site keys and offered positions remain stable, so parked records retain
+their values and hand placements.
+
+Explicit Delete keeps the other live keys, and Change emitter retains the current
+live set. The stack saves these keys as `activeSiteKeys`. A deliberate Emitters
+slider change clears the saved selection and redistributes coverage. Deleted sites
+stay deleted. Additional sites use the existing shape analysis only when requested,
+and `siteRateScale` preserves the aggregate recipe budget for older native layouts.
+Automatic slots refit on another model without carrying foreign triangle bindings.
 
 Rotate reuses EMTR's aim rings and native Rotation binding. It changes emitter
 aim, individually or across the layer, while keeping pivots in place. The same

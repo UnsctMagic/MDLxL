@@ -112,29 +112,80 @@ export const MAX_EMITTER_SITES=64;
 export function withEmitterSiteCount(layer,result,count){
  const sites=result.sites.map(site=>layer.siteLayout?site:{...site,refit:true});
  const siteRateScale=layer.siteRateScale??result.siteRateScale??1;
- const available=sites.filter(site=>!layer.individuals?.[site.key]?.deleted);
+ let available=sites.filter(site=>!layer.individuals?.[site.key]?.deleted).length;
  const keys=new Set(sites.map(site=>site.key));
- for(let ordinal=1;available.length<count;ordinal++){
+ for(let ordinal=1;available<count;ordinal++){
   const key='extra'+ordinal;
   if(keys.has(key))continue;
-  const site={key,refit:true};
-  keys.add(key);sites.push(site);available.push(site);
+  keys.add(key);sites.push({key,refit:true});available++;
  }
- return {
-  layer:{...layer,siteCount:count,siteLayout:sites,individuals:layer.individuals||{},
-   ...(layer.nativeSpec&&siteRateScale!==1?{siteRateScale}:{})},
-  site:available[count-1]?.key
- };
+ // A slider change deliberately redistributes the live sites.
+ const {activeSiteKeys:_active,...shared}=layer;
+ return {...shared,siteCount:count,siteLayout:sites,individuals:layer.individuals||{},
+  ...(layer.nativeSpec&&siteRateScale!==1?{siteRateScale}:{})};
 }
 
 export function activeEmitterSites(layer,sites){
  if(!Number.isInteger(layer.siteCount))return null;
  const available=sites.filter(site=>!layer.individuals?.[site.key]?.deleted);
- return new Set(available.slice(0,Math.max(0,layer.siteCount)).map(site=>site.key));
+ const count=Math.max(0,layer.siteCount);
+ if(!count)return new Set();
+ if(count>=available.length)return new Set(available.map(site=>site.key));
+
+ // Explicit Delete keeps the other live keys. Ignore stale or deleted keys.
+ const retained=new Set(Array.isArray(layer.activeSiteKeys)?layer.activeSiteKeys:[]),active=new Set();
+ const fill=choices=>{
+  for(const site of choices){
+   if(active.size===count)break;
+   active.add(site.key);
+  }
+  return active;
+ };
+ fill(available.filter(site=>retained.has(site.key)));
+ if(active.size===count)return active;
+
+ // Use the stored offer, so moving or snapping an emitter never changes
+ // which keys are active. The compiler completes extra slots before ranking.
+ const candidates=available.filter(site=>site.point?.length===3&&site.point.every(Number.isFinite))
+  .map(site=>({key:site.key,point:new Vector3(...site.point)}));
+ if(candidates.length<=count){
+  fill(candidates);
+  return fill(available);
+ }
+ if(count===1){
+  const centre=candidates.reduce((sum,site)=>sum.add(site.point),new Vector3()).multiplyScalar(1/candidates.length);
+  const closest=candidates.reduce((best,site)=>site.point.distanceToSquared(centre)<best.point.distanceToSquared(centre)?site:best);
+  return new Set([closest.key]);
+ }
+
+ // Cover the greatest span first, then fill the largest remaining gaps.
+ // Strict comparisons keep ties in the original layout order.
+ if(!active.size){
+  let first=0,second=1,span=-1;
+  for(let i=0;i<candidates.length;i++)for(let j=i+1;j<candidates.length;j++){
+   const distance=candidates[i].point.distanceToSquared(candidates[j].point);
+   if(distance>span){first=i;second=j;span=distance;}
+  }
+  active.add(candidates[first].key);active.add(candidates[second].key);
+ }
+ const anchors=candidates.filter(site=>active.has(site.key));
+ const nearest=candidates.map(site=>anchors.reduce((distance,anchor)=>Math.min(distance,site.point.distanceToSquared(anchor.point)),Infinity));
+ while(active.size<count){
+  let next=-1;
+  for(let i=0;i<candidates.length;i++)
+   if(!active.has(candidates[i].key)&&(next<0||nearest[i]>nearest[next]))next=i;
+  if(next<0)break;
+  const site=candidates[next];
+  active.add(site.key);
+  candidates.forEach((other,i)=>{nearest[i]=Math.min(nearest[i],site.point.distanceToSquared(other.point));});
+ }
+ return fill(available);
 }
-export function deleteEmitterSite(layer,key){
+export function deleteEmitterSite(layer,key,sites=layer.siteLayout||[]){
  const individual={...layer.individuals?.[key],deleted:true};
- const count=Number.isInteger(layer.siteCount)?{siteCount:Math.max(0,layer.siteCount-1)}:{};
+ const active=activeEmitterSites(layer,sites);
+ const count=active?{siteCount:Math.max(0,layer.siteCount-1)}:{};
+ if(active?.delete(key))count.activeSiteKeys=[...active];
  return {...layer,...count,individuals:{...layer.individuals,[key]:individual}};
 }
 
@@ -144,7 +195,7 @@ export function replaceEmitter(layer,next,graph){
  const sites=compiled?.length?compiled:layer.siteLayout||[];
  const active=activeEmitterSites(layer,sites);
  const siteRateScale=active&&next.nativeSpec?(layer.nativeSpec?layer.siteRateScale??1:Math.max(1,active.size)):1;
- const count=active?{siteCount:layer.siteCount,...(siteRateScale!==1?{siteRateScale}:{})}:{};
+ const count=active?{siteCount:layer.siteCount,activeSiteKeys:[...active],...(siteRateScale!==1?{siteRateScale}:{})}:{};
  if(!sites.length)return {...next,...count,enabled:layer.enabled,offset:layer.offset,upper:layer.upper,lower:layer.lower};
  return {...next,...count,enabled:layer.enabled,offset:[0,0,0],upper:layer.upper,lower:layer.lower,placement:{upper:layer.upper,lower:layer.lower},formation:1,
   siteLayout:sites.map(site=>site.point?{...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()}:site),

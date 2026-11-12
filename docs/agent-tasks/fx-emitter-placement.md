@@ -1,7 +1,7 @@
 # FX: place and edit each emitter of a layer
 
-Status: owner tried trial 02 and accepted the placement direction; final polish and two Claude review corrections coded and source-reviewed; QA deferred to release packaging
-Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
+Status: trial 03 feedback addressed in the count and controls checkpoint; ready for the next approved owner trial; recipe and sizing follow-up queued; release QA deferred
+Branch / checkout: `codex/fx-emitters` in `D:\Codex\fx-emitters`. Trial 03 was built from `32dfa08c`. The count and controls correction follows that revision.
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
 
@@ -212,7 +212,7 @@ target geometry. Legacy layers and explicit siteLayout keep precedence. Default
 triangle/barycentric anchors use the existing skin attachment path separately
 from manual individual records. The owner tried trial 02 and rated the direction about 85%; this is owner feedback, not measured accuracy. Preserve those accepted automatic defaults.
 
-### Current handoff boundary
+### Trial 02 handoff (historical)
 
 The owner approved GPT-6 Luna low to build/package one isolated manual trial.
 Trial 02 built and opened with copied sword/body models under
@@ -239,9 +239,10 @@ Review checkpoint: the local commit containing this note follows 49c61d59 and
 includes item 9 persistence plus the owner usability, geometry and final-polish
 follow-ups. No new test pass is claimed. Latest polish capture count: zero.
 
-Emitters (0-64) parks/restores stable site keys and records; explicit Delete stays
-deleted. Add extra emitter selects the new/restored site. Rotation is aim-only,
-using shared EMTR rings and native Rotation, and does not orbit the formation.
+Trial 02 polish added a 0–64 Emitters count that parked and restored stable site
+keys and records. It also added an extra-emitter button that selected the new or
+restored site. Trial 03 feedback later removed that button. Rotation uses the
+shared EMTR rings and native Rotation to change aim without moving the formation.
 The preview adapter exposes its existing global rotation clock in the snapshot;
 rendering behavior and the omitted Unfogged/Priority plane controls are unchanged.
 Open in EMTR retains its explicit apply-and-open behavior. The new control labels
@@ -266,9 +267,9 @@ handoff; full report: out/placement/CLAUDE-REVIEW.md. Two concrete corrections:
 
 Two findings did not justify changes. Global-sequence reorder/delete traverse
 track-shaped emitterState baselines through sequence-editor.js visitModel, so
-normal clock renumbering updates both sides of the readback comparison. Add extra
-emitter uses a synchronous graph compile and selects the new individual in the
-same render, hiding the button; the proposed stale double-click window is absent.
+normal clock renumbering updates both sides of the readback comparison. The
+extra-emitter button then used a synchronous graph compile and selected the new
+individual in the same render, hiding the button before a second click.
 
 Pre-existing absolute manual positions in own looks are outside this polish;
 do not silently discard them. Preserving arbitrary earlier manager overrides on
@@ -277,3 +278,36 @@ not claim to solve it. Release QA must exercise count/delete/add/save/reopen,
 Change emitter density, native aim timing, ordinary mouse camera rotation and
 single-preview surface/group switching. No new tests/build/captures ran for these
 corrections. The owner must approve the eventual release testing round and agent.
+
+### Trial 03 feedback and current count correction
+
+The owner approved the isolated build, package and launch of `32dfa08c`.
+`out/placement/trial-03/report.txt` records its setup and logs. Trial 03 remains
+the owner's active copy. It is an earlier revision than the correction below.
+
+Low counts kept the first slots in the offer, which bunched Fire at one end.
+The owner asked for the slider alone and for Emitters and Formation immediately
+below Intensity. The source correction ranks the existing offered points. One
+site uses the point nearest the centre, two use the widest pair, and additional
+sites fill the largest remaining gaps. The next slider edit redistributes
+coverage. Explicit Delete and Change emitter keep the current surviving live
+keys through `activeSiteKeys`. All slot keys, hand placements, parked edits,
+deletions and native recipe budgets retain their existing meaning. The
+extra-emitter button was removed. The placement row wraps whole controls when
+space is tight, so Position & size can keep its natural width.
+
+This checkpoint has source review only. Tests, builds, packages, app runs and
+captures for the correction are all zero. Check low counts on the sword and
+armour, explicit Delete and Change emitter, and the control order and wrapping in
+the next separately approved owner trial.
+
+### Queued after the count and controls trial
+
+The read-only four-model study is complete at
+`out/placement/reference-study-04/STUDY.md`. The owner wants improvements to the
+existing choices and a small set of Fire wrap presets through the existing
+Variation control. DragonBlade belongs to non-elemental energy. Use only native
+textures. The study identifies oversized fresh Fire on horns G9 and uniform
+Fire on straight sword G11. Preserve the accepted curved scythe G17 and G27/G31
+offers. Shape, default size, recipe and preset changes remain queued until the
+owner sees the count and controls correction.
