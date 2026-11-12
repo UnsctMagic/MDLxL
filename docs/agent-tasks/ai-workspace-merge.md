@@ -1,6 +1,8 @@
 # AI workspace and model merges
 
-Branch `codex/ai-local-workspace` starts at `7612078a`. Ready for independent QA and owner review.
+Status: completed, merged in #598 at 26d75208
+
+Branch `codex/ai-local-workspace` started at `7612078a`.
 
 The chat header enables a local JavaScript workspace for new jobs. All embedded tool-capable providers share the same tool. With the switch off, a provider can explain a specific benefit in a green Yes/No card. The answer applies to the current job. The workspace uses the protected model-script runner, bounded per-job scratch files and selection-only candidate previews.
 

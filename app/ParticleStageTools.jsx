@@ -67,9 +67,11 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   follow.current=applyMove;
   function end(){frame.current.flush();if(drag.current){const size=drag.current.size;drag.current=null;setPinned(null);if(!size)finish();onDrag?.(false);}}
   function abort(){frame.current.cancel();const active=!!drag.current,size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();if(active)onDrag?.(false);}
-  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} word={handleWords[field]} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):Math.max(0,value(field)+delta));finish();}
   }}/>;
+  // Hover word per handle job; ribbons already label Move permanently.
+  const handleWords={Translation:ribbon?null:'Move',ParticleScaling:'Resize',HeightAbove:'Upper edge',HeightBelow:'Lower edge',Width:'Width',Length:'Length',Latitude:'Spread'};
   return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
     {rings.targets}
     {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}{ribbon&&<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text>}</g>}

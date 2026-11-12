@@ -5,6 +5,7 @@ import { usePreferencesContext } from './PreferencesContext.jsx';
 import { dragKeys, isModifierKey, modifierSentence } from '../src/modifier-bindings.js';
 import { Trash2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
+import { HandleWord } from './ParticleStageHandle.jsx';
 import { moveCollision, resizeCollision } from '../src/model-collisions.js';
 import { movementDragAmount } from './movement-overlay.js';
 import { createFrameCoalescer } from './viewport-performance.js';
@@ -124,10 +125,11 @@ export function useCollisionGesture({ selected, readOnly, stage, selectedId, set
 export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect, onRemove, gesture, className = '' }) {
   const { preferences } = usePreferencesContext(), lockHint = modifierSentence('Hold {0} to lock direction.', 'drag.move.axisLock', preferences);
   if (!stage) return null;
-  const grab=(point,handle,label,kind,caption)=> <g className={kind} aria-label={label} {...gesture.handleProps(handle)}>
+  const grab=(point,handle,label,kind,caption,word)=> <g className={kind} aria-label={label} {...gesture.handleProps(handle)}>
     <circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/>
     <circle cx={point[0]} cy={point[1]} r="7"/>
     {caption&&<text x={point[0]+12} y={point[1]+20}>{caption}</text>}
+    <HandleWord point={point} word={word}/>
     <title>{handle.move?['Move.',lockHint].filter(Boolean).join(' '):'Drag to resize'}</title>
   </g>;
   const selectedRow = stage.rows.find(row => row.id === selectedId);
@@ -155,7 +157,7 @@ export default function CollisionOverlay({ stage, selectedId, readOnly, onSelect
     </g>)}
     {/* Selected controls are painted last so another shape cannot swallow a grab or trash click. */}
     {selectedRow && !readOnly && <g key={selectedId} className="mm-selected">
-      {gesture.resizeHandles(selectedRow).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,selectedRow.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle')}</React.Fragment>)}
+      {gesture.resizeHandles(selectedRow).map(handle => <React.Fragment key={`${handle.axis}:${handle.sign}`}>{grab(handle.point,handle,selectedRow.outlines.length===1?'Resize sphere radius':`Resize ${['X', 'Y', 'Z'][handle.axis]} ${handle.sign > 0 ? 'positive' : 'negative'}`,'mm-handle',undefined,'Resize')}</React.Fragment>)}
       {selectedRow.move && visible(selectedRow.center) && <g className="pe-move-emitter">
         {grab(selectedRow.center,{move:selectedRow.move},'Move collision shape','mm-center','Move')}
         <foreignObject x={selectedRow.center[0]-30} y={selectedRow.center[1]+28} width="60" height="25" className="mm-recenter"><button type="button" aria-label="Center" title="Center horizontally and keep the current height." onPointerDown={event=>event.stopPropagation()} onClick={()=>gesture.center(selectedRow.centerDelta)}>Center</button></foreignObject>

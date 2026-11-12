@@ -1,5 +1,7 @@
 # Vertex Move in quad and orthographic views
 
+Status: completed, merged in #514 at 7612078a
+
 Owner: Codex. Branch `codex/vertex-move-quad-and-clipping` from `66e38f5`.
 
 Both regressions were reproduced with the Footman MDX1800, displayed geoset 1 and all 447 vertices selected. In #512, the threshold for an ordinary quad Move still read the removed `drag.move.point`. It threw before the draw and prevented the edit from committing. Separately, the orthographic camera could clip the selection in either depth direction while it still projected inside the viewport. That occurred on #512 and its parent.

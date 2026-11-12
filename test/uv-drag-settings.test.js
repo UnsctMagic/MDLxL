@@ -338,3 +338,14 @@ test('Each piece: thousands of separate triangles group quickly', () => {
   const start = performance.now(), pieces = uvPieces(geoset, 0, all, all), elapsed = performance.now() - start;
   assert.equal(pieces.length, count); assert.ok(elapsed < 1000, `took ${elapsed.toFixed(0)} ms`);
 });
+
+test('the MDLxL UV preset and Restore follow the profile’s original Zoom default', async () => {
+  const { activePreset, applyPreset, restoreDomain } = await import('../src/settings-presets.js');
+  for (const [uvRightUpDefault, zoomStyle] of [[true, 'rightUp'], [undefined, 'centre']]) {
+    const prefs = normalizePreferences({ uvRightUpDefault, uvDrag: { ...DEFAULT_UV_DRAG, zoomStyle } });
+    assert.equal(activePreset('uv', prefs), 'mdlxl');
+    const edited = normalizePreferences({ ...prefs, uvDrag: { ...prefs.uvDrag, zoomStyle: 'upDown', zoomSpeed: 200 } });
+    assert.deepEqual(restoreDomain('uv', edited).uvDrag, { ...DEFAULT_UV_DRAG, zoomStyle });
+    assert.deepEqual(applyPreset('uv', edited, 'mdlxl').uvDrag, { ...DEFAULT_UV_DRAG, zoomStyle });
+  }
+});

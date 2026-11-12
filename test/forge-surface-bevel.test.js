@@ -10,6 +10,7 @@ import {bevelForgeShape,forgeMoldState,previewForgeMold} from '../src/forge-mold
 import {vertexForgeDraft,vertexForgeResult} from '../src/forge-vertex.js';
 import {sub,cross,dot} from '../src/vec.js';
 const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 const plate=Array.from({length:14},(_,i)=>253+i);
 const shield=[...Array.from({length:7},(_,i)=>225+i),...plate,...Array.from({length:10},(_,i)=>425+i)];
 const document=()=>openDocument(fs.readFileSync(fixturePath('citadel-footman')),'Footman.mdx');
@@ -29,7 +30,7 @@ const edges=shape=>{
 };
 const border=shape=>[...edges(shape).values()].filter(uses=>uses.length===1).map(uses=>uses[0].map(i=>position(shape.vertices[i])).sort().join('|')).sort();
 
-for(const detached of [false,true])for(const round of [false,true])test(`actual shield plate has a continuous ${round?'rounded':'angled'} rim ${detached?'as a separate geoset':'inside the Footman'}`,()=>{
+for(const detached of [false,true])for(const round of [false,true])test(`actual shield plate has a continuous ${round?'rounded':'angled'} rim ${detached?'as a separate geoset':'inside the Footman'}`,{skip:missing('citadel-footman')},()=>{
  const doc=document(),model=doc.model;
  let gi=0,selected=plate;
  if(detached){detachFaces(model,0,plate);gi=5;selected=Array.from({length:model.Geosets[5].Vertices.length/3},(_,i)=>i);}
@@ -52,7 +53,7 @@ for(const detached of [false,true])for(const round of [false,true])test(`actual 
  assert.deepEqual(source,snapshot,'preview is immutable');
 });
 
-test('whole shield selection bevels the plate rim even with its strap and boss present',()=>{
+test('whole shield selection bevels the plate rim even with its strap and boss present',{skip:missing('citadel-footman')},()=>{
  const model=document().model,draft=vertexForgeDraft(model,{0:shield}),source=draft.shapes[0];
  const plateIds=new Set(plate.map(i=>source.sourceVertices[i]));
  const faces=source.faces.filter(f=>f.triangles.every(t=>t.vertices.every(i=>plateIds.has(i))));
@@ -68,7 +69,7 @@ test('whole shield selection bevels the plate rim even with its strap and boss p
  }
 });
 
-test('sheet bevel preserves authored UV streams, bindings, unrelated faces and save/Undo',()=>{
+test('sheet bevel preserves authored UV streams, bindings, unrelated faces and save/Undo',{skip:missing('citadel-footman')},()=>{
  const doc=document(),model=doc.model,g=model.Geosets[0];
  g.TVertices.push(Float32Array.from(g.TVertices[0],n=>n*.4+.17));
  const before=structuredClone(model),draft=vertexForgeDraft(model,{0:plate}),state={...forgeMoldState(draft,'Bevel'),amount:2,round:true};

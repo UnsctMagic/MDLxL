@@ -11,6 +11,7 @@ import { cutForgeShape } from '../src/forge-shape-editing.js';
 import { weldSelectedVertices } from '../src/classic-mesh.js';
 import { addTriangle } from '../src/editor-commands.js';
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 
 const cube = () => {
   const g = buildForgePrimitive({ shape: 'Cube', width: 40, height: 40, depth: 40 }).geosets[0];
@@ -24,14 +25,14 @@ const all = g => Array.from({ length: g.Vertices.length / 3 }, (_, i) => i);
 // centre (-3.2208, -26.5781, 46.5484), including its strap and central boss.
 const shield = [...Array.from({length:7},(_,i)=>225+i),...Array.from({length:14},(_,i)=>253+i),...Array.from({length:10},(_,i)=>425+i)];
 const shieldDocument = () => openDocument(fs.readFileSync(fixturePath('citadel-footman')), 'Footman.mdx');
-test('Footman shield bevel works on either side of the drag origin', () => {
+test('Footman shield bevel works on either side of the drag origin', { skip: missing('citadel-footman') }, () => {
   const model=shieldDocument().model,draft=vertexForgeDraft(model,{0:shield});
   const preview=amount=>{const state={...forgeMoldState(draft,'Bevel'),amount};return vertexForgeResult(model,draft,previewForgeMold(draft,draft,state));};
   const inward=preview(-1),outward=preview(1);
   assert.notDeepEqual(inward.Geosets[0].Vertices,model.Geosets[0].Vertices,'inward drag bevels the shield');
   assert.deepEqual(inward.Geosets,outward.Geosets,'both drag directions produce the same bevel width');
 });
-test('shield bevel width is independent of tiny edges in the rest of the Footman', () => {
+test('shield bevel width is independent of tiny edges in the rest of the Footman', { skip: missing('citadel-footman') }, () => {
   const model=shieldDocument().model,detached=structuredClone(model);detachFaces(detached,0,shield);
   const edited=(m,gi,ids)=>{const draft=vertexForgeDraft(m,{[gi]:ids}),state={...forgeMoldState(draft,'Bevel'),amount:1};const result=vertexForgeResult(m,draft,previewForgeMold(draft,draft,state));return result.forgeSelection[gi].map(id=>Array.from(result.Geosets[gi].Vertices.slice(id*3,id*3+3))).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));};
   assert.deepEqual(edited(model,0,shield),edited(detached,5,all(detached.Geosets[5])),'same shield and width before and after detaching');
@@ -62,7 +63,7 @@ test('new objects join the active geoset with its material and selected binding'
   assert.equal(g.MaterialID, 3); assert.ok(result.selection[0].every(id => id >= count));
   for (const id of result.selection[0]) assert.equal(g.SkinWeights[id*8], 300);
 });
-test('real Footman can taper in place without changing rig, animation or other geosets', () => {
+test('real Footman can taper in place without changing rig, animation or other geosets', { skip: missing('citadel-footman') }, () => {
   const doc = openDocument(fs.readFileSync(fixturePath('citadel-footman')), 'Footman.mdx'), model = doc.model, before = structuredClone(model);
   const draft = vertexForgeDraft(model, { 0: all(model.Geosets[0]) });
   const state = { ...forgeMoldState(draft, 'Taper'), amount: .08 };
@@ -104,7 +105,7 @@ test('cuts interpolate mixed HD skin weights and every UV set without resetting 
   }
   assert.ok(middle>0);
 });
-test('Forge objects weld to authored vertices, accept faces, and survive editor Undo/Redo and both save formats', () => {
+test('Forge objects weld to authored vertices, accept faces, and survive editor Undo/Redo and both save formats', { skip: missing('citadel-footman') }, () => {
   const doc=openDocument(fs.readFileSync(fixturePath('citadel-footman')),'Footman.mdx'),before=structuredClone(doc.model);
   const added=doc.apply('Forge cube',['Geosets'],m=>appendVertexForgeShape(m,0,[0],buildForgePrimitive({shape:'Cube',width:8,height:8,depth:8}),[0,0,150]));
   const ids=added.selection[0],retained=doc.apply('Weld',['Geosets'],m=>weldSelectedVertices(m.Geosets[0],[0,ids[0]])).selection[0];

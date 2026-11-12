@@ -118,6 +118,9 @@ const coalescedDrags = [
   { name: 'Paint texture rectangle mask and UV draft', file: 'app/PaintTextureCanvas.jsx', from: 'for(const sample of samples?.length?samples:[e])onMove(hit(sample));return;}drag.pending=p;', to: 'dragFrame.current.schedule();', forbidden: /onMask|combineSelection|shapeSelection|setDraft/ },
   { name: 'Paint cutout crop, lasso and polygon hover', file: 'app/PaintCutoutEditor.jsx', from: "const pointer=point(event);if(tool==='polygon'){hover.current=pointer;", to: 'current.redraw=true;dragFrame.current.schedule();', forbidden: /setHoverPoint|setCrop|setMask|cropMask|setPoints/ },
   { name: 'Paint view divider', file: 'app/PaintStudioLayout.jsx', from: 'onPointerMove={e=>{if(e.buttons===1){splitDrag.current=', to: 'splitFrame.current.schedule();}}}', forbidden: /onSplit|getBoundingClientRect/ },
+  { name: 'Paint model brush adjustment', file: 'app/PaintViewport.jsx', from: "if (down?.action === 'brushAdjust') {", to: "if(down.action==='paintLamp'){down.pendingLamp=", forbidden: /onBrushAdjust|setBrush/ },
+  { name: 'Paint texture brush adjustment', file: 'app/usePaintImageNavigation.js', from: "if(p.type==='brush'){", to: '// A zoom drag', forbidden: /onBrushAdjust|setBrush/ },
+  { name: 'Stage Rotate drag', file: 'app/StageRotate.jsx', from: 'function move(event)', to: 'function end()', forbidden: /onTurn/ },
   { name: 'Paint image zoom drag', file: 'app/usePaintImageNavigation.js', from: "if(p.type==='zoom'){p.clientY", to: 'zoomFrame.current.schedule();}', forbidden: /setZoom|getBoundingClientRect/ },
   { name: 'Forge image mask drag', file: 'app/Forge.jsx', from: 'const move = e => {', to: 'applyMove.current = () => {', forbidden: /setPan|setZoom|setPoints|cropContour|polygonMask|onSelected/ },
 ];
@@ -132,4 +135,15 @@ for (const { name, file, from, to, forbidden } of coalescedDrags) test(`${name} 
   assert.match(source, /createFrameCoalescer\(/);
   assert.match(body, /\.schedule\(\)/);
   assert.doesNotMatch(body, forbidden, 'expensive work runs per pointer event');
+});
+
+test('Paint navigation and lamp drags read the rebound mouse keys', () => {
+  const source = file => readFileSync(new URL('../app/' + file, import.meta.url), 'utf8');
+  const viewport = source('PaintViewport.jsx'), image = source('usePaintImageNavigation.js');
+  const cameraAction = viewport.slice(viewport.indexOf('function cameraAction(event)'), viewport.indexOf('function paintHit(event'));
+  assert.doesNotMatch(cameraAction, /event\.altKey/, 'cameraAction must not depend on the physical Alt key');
+  assert.doesNotMatch(viewport, /paintMode\s*&&\s*event\.altKey/, 'OrbitControls must also use the rebound camera key');
+  assert.match(viewport, /lampFine:\s*dragKeys\(event, 'rotate', p\.preferences\)\.shiftKey/);
+  assert.match(image, /pointerSensitivityValue\(preferences\?\.pointerSensitivity\)\*\(e\.altKey\?/, 'the slow texture-view drag keeps Alt');
+  assert.match(source('viewport-performance.js'), /altMiddleFree\s*&&\s*modifierHeld\(event, 'view\.orbit', getPreferences\(\)\)/);
 });

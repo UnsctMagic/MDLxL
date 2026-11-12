@@ -9,7 +9,9 @@ export function prepareModelSave(doc, format = doc.format, name = doc.name) {
   const impact = doc.saveImpact(format);
   const unknown = impact.preservedUnknown.filter(tag => !EDITOR_ONLY_CHUNKS.has(tag));
   if (format !== doc.format && unknown.length) throw new Error(`Cannot convert this file container without losing unrecognized source data: ${unknown.join(', ')}. Save in its original ${doc.format.toUpperCase()} format.`);
-  const bytes = doc.serialize(format), stripped = removeEditorData(bytes, format);
-  return { format, notes: [...impact.leftOut, ...doc.lastSaveWarnings || []], name: name.replace(/\.(mdl|mdx)$/i, '') + '.' + format, bytes,
+  const bytes = doc.serialize(format), unreadable = doc.lastSaveUnreadable;
+  const stripped = unreadable ? { removedBytes: 0 } : removeEditorData(bytes, format);
+  const verificationWarnings = doc.lastSaveWarnings;
+  return { format, notes: [...impact.leftOut, ...verificationWarnings], verificationWarnings, unreadable, name: name.replace(/\.(mdl|mdx)$/i, '') + '.' + format, bytes,
     editorDataBytes: stripped.removedBytes, withoutEditorData: stripped.removedBytes ? stripped.bytes : null };
 }
