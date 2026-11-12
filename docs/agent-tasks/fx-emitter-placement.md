@@ -1,6 +1,6 @@
 # FX: place and edit each emitter of a layer
 
-Status: owner tried trial 02 and accepted the placement direction; final count/rotation/single-preview polish coded and source-reviewed; QA deferred to release packaging
+Status: owner tried trial 02 and accepted the placement direction; final polish and two Claude review corrections coded and source-reviewed; QA deferred to release packaging
 Branch / checkout: Codex continues `codex/fx-emitters` in `D:\Codex\fx-emitters` (round 2 head `a8216288`, not yet reviewed by Claude)
 Owner / consolidator: Claude reviews; Codex builds
 Background: [fx-owner-test-02.md](fx-owner-test-02.md) (round 2 work order), [FX contract](../FX-GLOBAL-ANIMATIONS.md)
@@ -252,3 +252,28 @@ Trial 02 and the older placement trial have closed. Their disposable packages
 and profiles were removed after a process/path check; copied models/textures,
 logs and captures remain. The active out/pkg app and out/owner-test-profile were
 preserved. Do not disturb that owner app or other tasks' processes.
+
+### Claude review reconciliation (source only)
+
+Claude reviewed local checkpoint 846b5f1b through the owner-approved computer-use
+handoff; full report: out/placement/CLAUDE-REVIEW.md. Two concrete corrections:
+
+- Change emitter now preserves siteRateScale for counted native-to-native layers;
+  counted built-in-to-native replacement follows the existing frozen-layout budget.
+- Registering the first empty individual record for Open in EMTR retains an
+  otherwise identical, unplaced layer's existing native nodes. Normal baseline
+  capture then records them. Other retain predicates remain unchanged.
+
+Two findings did not justify changes. Global-sequence reorder/delete traverse
+track-shaped emitterState baselines through sequence-editor.js visitModel, so
+normal clock renumbering updates both sides of the readback comparison. Add extra
+emitter uses a synchronous graph compile and selects the new individual in the
+same render, hiding the button; the proposed stale double-click window is absent.
+
+Pre-existing absolute manual positions in own looks are outside this polish;
+do not silently discard them. Preserving arbitrary earlier manager overrides on
+a later real recompile needs a separate migration design; the narrow Open fix does
+not claim to solve it. Release QA must exercise count/delete/add/save/reopen,
+Change emitter density, native aim timing, ordinary mouse camera rotation and
+single-preview surface/group switching. No new tests/build/captures ran for these
+corrections. The owner must approve the eventual release testing round and agent.

@@ -140,8 +140,13 @@ export function deleteEmitterSite(layer,key){
 
 /** Bake the current formation, including width and depth, into stable sites across recipe changes. */
 export function replaceEmitter(layer,next,graph){
- const sites=graph.layers[layer.id]?.sites||[];
- if(!sites.length)return {...next,enabled:layer.enabled,offset:layer.offset,upper:layer.upper,lower:layer.lower};
- return {...next,enabled:layer.enabled,offset:[0,0,0],upper:layer.upper,lower:layer.lower,placement:{upper:layer.upper,lower:layer.lower},formation:1,
-  ...(Number.isInteger(layer.siteCount)?{siteCount:layer.siteCount}:{}),siteLayout:sites.map(site=>({...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()})),...(layer.individuals?{individuals:structuredClone(layer.individuals)}:{})};
+ const compiled=graph.layers[layer.id]?.sites;
+ const sites=compiled?.length?compiled:layer.siteLayout||[];
+ const active=activeEmitterSites(layer,sites);
+ const siteRateScale=active&&next.nativeSpec?(layer.nativeSpec?layer.siteRateScale??1:Math.max(1,active.size)):1;
+ const count=active?{siteCount:layer.siteCount,...(siteRateScale!==1?{siteRateScale}:{})}:{};
+ if(!sites.length)return {...next,...count,enabled:layer.enabled,offset:layer.offset,upper:layer.upper,lower:layer.lower};
+ return {...next,...count,enabled:layer.enabled,offset:[0,0,0],upper:layer.upper,lower:layer.lower,placement:{upper:layer.upper,lower:layer.lower},formation:1,
+  siteLayout:sites.map(site=>site.point?{...site,ground:site.ground??!!layer.ground,point:layerEmitterPoint(graph.frame,layer,new Vector3(...site.point)).toArray()}:site),
+  ...(layer.individuals?{individuals:structuredClone(layer.individuals)}:{})};
 }

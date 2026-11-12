@@ -927,6 +927,16 @@ export function readAnimationStack(model,index){
  }
  return draft;
 }
+function sameLayerForRetention(prior,layer){
+ if(!prior)return false;
+ if(!layer.individuals)return JSON.stringify(prior)===JSON.stringify(layer);
+ if(prior.individuals||layer.type!=='Particles'||layer.swarm)return false;
+ // Open in EMTR adds one empty record to start tracking this layer's native
+ // values. Keep the existing nodes so registering that baseline cannot edit them.
+ const {individuals,...shared}=layer;
+ const records=Object.values(individuals);
+ return records.length===1&&records[0]&&Object.keys(records[0]).length===0&&JSON.stringify(prior)===JSON.stringify(shared);
+}
 /**
  * Builds the stack into model. attachments (optional) is a Map the caller keeps for one model revision:
  * skin-attachment samples of the model's own bones are reused from it instead of recomputed, with the same result.
@@ -977,7 +987,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   if(context.siteLayout!==l.siteLayout)state.layers.find(item=>item.id===l.id).siteLayout=context.siteLayout;
   if(l.nativeSpec&&!l.impact)siteRateScales[l.id]=nativeEmitterBudget(context,l);
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(!l.placement&&!l.individuals&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
+  if(!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
    const layout=context.siteLayout||context.autoSites;
    if(layout)context.sites.push(...layout);

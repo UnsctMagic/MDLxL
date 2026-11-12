@@ -21,7 +21,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | AI chat context diet: deterministic steering test | Ready for review; awaiting merge approval | [AI chat loop fixes](ai-chat-loop-fixes.md) / Codex |
 | AI every-frame checks: MDLxL sweeps a rule over every animation | Ready for review; awaiting merge approval | [Every-frame checks](ai-every-frame-checks.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
-| FX global animation maker | Owner polish coded; local Claude source review; QA deferred to release packaging | [Emitter placement](fx-emitter-placement.md), [Surface Effects](native-surface-effects.md) / Codex |
+| FX global animation maker | Claude source review reconciled; polish ready for next approved trial; QA deferred | [Emitter placement](fx-emitter-placement.md), [Surface Effects](native-surface-effects.md) / Codex |
 | Remove Offload Mode (AI birds); keep several tabs working at once | Ready for review; awaiting merge approval ([PR #501](https://github.com/UnsctMagic/MDLxL/pull/501)) | [Remove birds](remove-offload-birds.md) / Codex |
 | Rotate: one drag rule along the ring, equal speed on every axis | In review; awaiting merge approval | [MdlVis-style Rotate drag](mdlvis-style-rotate-drag.md) / Claude Code |
 | EMTR Particle Library browsing and placement | Main integration ready for review; awaiting merge approval | [World Editor origins](emtr-library-browse.md), [Add like ribbons](emtr-add-like-ribbons.md) / Codex |
