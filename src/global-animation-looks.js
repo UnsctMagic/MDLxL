@@ -218,7 +218,7 @@ export function withLayerTexture(layer,image){
 }
 export const surfaceIngredient=l=>l.type==='Moving skin'||l.type==='Glow'||l.glyphs;
 export const createsOverlay=stack=>stack.asOverlay??!stack.layers.some(l=>l.base&&l.enabled!==false);
-export function partFrame(geometry,split=true) {
+export function partFrame(geometry,split=true,surfaceGeometry=geometry) {
  const points=Array.from({length:geometry.Vertices.length/3},(_,i)=>Array.from(geometry.Vertices.subarray(i*3,i*3+3)));
  const frame=weaponStripFrame(points);
  if(!frame){if(!split)return null;throw Error('Select a part with a visible length.');}
@@ -236,16 +236,42 @@ export function partFrame(geometry,split=true) {
  const girth=(slice.length?slice:samples).reduce((r,s)=>Math.max(r,s.v.clone().sub(middle).addScaledVector(axis,-s.along).length()),length*.035);
  // On hooked or disconnected blades the centre line can cross air. Emit from the closest
  // triangle on the selected part. Deliberate handle extensions can still reach beyond it.
- function surfaceAt(distance){
+ function surfaceAt(distance,clearance=0,origin=center){
   const target=at(distance);
+  // Like accentFrame, use an exterior vertex carried by this binding. Projecting
+  // the centre onto the nearest face often picks the inward side of a limb;
+  // split bindings can also contain no complete triangle at all.
+  if(clearance>0&&geometry.Normals&&Math.abs(distance)<=length/2){
+   const outward=target.clone().sub(origin);outward.z*=.25;
+   if(outward.lengthSq()<1e-8)outward.set(1,0,.35);
+   target.addScaledVector(outward.normalize(),Math.max(girth,radius)*2);
+   const ordered=samples.map((s,i)=>({i,d:s.v.distanceToSquared(target)})).sort((a,b)=>a.d-b.d);
+   const tri=new Triangle(),hit=new Vector3(),nearest=new Vector3(),normal=new Vector3();
+   let best=null,bestSide=-Infinity;
+   for(const {i} of ordered){
+    const candidate=samples[i].v.clone().addScaledVector(new Vector3().fromArray(geometry.Normals,i*3).normalize(),clearance);
+    let distance=Infinity;
+    for(let j=0;j<surfaceGeometry.Faces.length;j+=3){
+     tri.a.fromArray(surfaceGeometry.Vertices,3*surfaceGeometry.Faces[j]);
+     tri.b.fromArray(surfaceGeometry.Vertices,3*surfaceGeometry.Faces[j+1]);
+     tri.c.fromArray(surfaceGeometry.Vertices,3*surfaceGeometry.Faces[j+2]);
+     tri.closestPointToPoint(candidate,hit);const d=hit.distanceToSquared(candidate);
+     if(d<distance){distance=d;nearest.copy(hit);tri.getNormal(normal);}
+    }
+    const side=candidate.clone().sub(nearest).dot(normal);
+    if(side>.01)return candidate;
+    if(side>bestSide){bestSide=side;best=candidate;}
+   }
+   return best;
+  }
   if(Math.abs(distance)>length/2||!geometry.Faces?.length)return target;
-  const tri=new Triangle(),candidate=new Vector3(),best=target.clone();let closest=Infinity;
+  const tri=new Triangle(),candidate=new Vector3(),best=target.clone(),normal=new Vector3();let closest=Infinity;
   for(let i=0;i<geometry.Faces.length;i+=3){
    tri.set(samples[geometry.Faces[i]].v,samples[geometry.Faces[i+1]].v,samples[geometry.Faces[i+2]].v);
    tri.closestPointToPoint(target,candidate);
-   const d=candidate.distanceToSquared(target);if(d<closest){closest=d;best.copy(candidate);}
+   const d=candidate.distanceToSquared(target);if(d<closest){closest=d;best.copy(candidate);tri.getNormal(normal);}
   }
-  return best;
+  return best.addScaledVector(normal,clearance);
  }
  const result={center,axis,length,radius,girth,at,surfaceAt};
  if(split&&geometry.Groups){
@@ -258,9 +284,9 @@ export function partFrame(geometry,split=true) {
    if(vertices.length<3)return [];
    const remap=new Map(vertices.map((v,i)=>[v,i])),faces=[];
    for(let i=0;i<geometry.Faces.length;i+=3){const tri=Array.from(geometry.Faces.subarray(i,i+3));if(tri.every(v=>remap.has(v)))faces.push(...tri.map(v=>remap.get(v)));}
-   const region={Vertices:Float32Array.from(vertices.flatMap(v=>points[v])),Faces:Uint16Array.from(faces)};
+   const region={Vertices:Float32Array.from(vertices.flatMap(v=>points[v])),Faces:Uint16Array.from(faces),...(geometry.Normals?{Normals:Float32Array.from(vertices.flatMap(v=>Array.from(geometry.Normals.subarray(v*3,v*3+3))))}:{})};
    // Coincident seam vertices have no surface span to fit an emitter along.
-   const f=partFrame(region,false);return f?[{frame:f,weights,vertices,geometry:region}]:[];
+   const f=partFrame(region,false,geometry);return f?[{frame:f,weights,vertices,geometry:region}]:[];
   });
  }
  return result;
@@ -331,6 +357,8 @@ export function makeLayer(spec,frame,palette,id) {
  if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
  // A new native emitter shares its rate among the part's regions (saved layers without the flag compile as before).
  if(spec.type==='Particles'&&spec.kind==='native'&&!spec.impact)layer.sharedSites=true;
+ // Preserve old placement on saved layers and the owner's accepted Blade crackle.
+ if(spec.type==='Particles'&&!spec.impact&&!spec.ground&&!spec.nativeSpec?.flat&&!spec.nativeSpec?.orbit&&!['crackle','motes','flies'].includes(spec.kind))layer.surfaceSites=true;
  // New mist and motes emit at a steady rate (no rate swell). Mist puffs stay within about a third of the unit's height;
  // motes are half as large again with at least two per second at every orbit (emitter audit, 12 November).
  if(spec.type==='Particles'&&(spec.kind==='mist'||spec.kind==='motes')&&!spec.burstGap){

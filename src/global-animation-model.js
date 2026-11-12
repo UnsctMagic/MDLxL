@@ -338,7 +338,8 @@ function nativeParticles(c,l){
   const texCount=m.Textures.length;
   source.TextureID=importer.textureRef(source.TextureID);importer.globalRef(source);
   for(let t=texCount;t<m.Textures.length;t++)m.Textures[t]._FxTag=tag+'/native-texture'+t;
-  const pos=contact?new Vector3().fromArray(sourceGeo.Vertices,3*contact.vertex):f.surfaceAt(0);
+  const clearance=l.surfaceSites?Math.max(.1,Math.max(...source.ParticleScaling)*.3+Math.hypot(source.Width,source.Length)*.5):0;
+  const pos=contact?new Vector3().fromArray(sourceGeo.Vertices,3*contact.vertex):f.surfaceAt(0,clearance,c.frame.center);
   if(l.impact){
    const interval=m.Sequences[c.stack.sequence]?.Interval;if(!interval)throw Error('Choose an Attack animation.');
    source.Squirt=true;source.EmissionRate={LineType:0,GlobalSeqId:null,Keys:m.Sequences.flatMap(s=>Array.from(s.Interval,Frame=>({Frame,Vector:vec([0])})))};
@@ -442,7 +443,7 @@ function particles(c,l){
   // Shared sites sit evenly along their own region.
   const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-l.lower+(l.upper+l.lower)*(i+.20)/(count-.60);
   const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
-  const pos=fly||mote?frame.center.clone():frame.surfaceAt(along);
+  const pos=fly||mote?frame.center.clone():frame.surfaceAt(along,l.surfaceSites?Math.max(.1,l.size*.5):0,c.frame.center);
   pos.add(new Vector3(...l.offset));
   let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
   if(fly||mote){
@@ -455,7 +456,7 @@ function particles(c,l){
     return [k/steps,[Math.cos(b)*rr,Math.sin(b)*rr*(.76+.12*Math.sin(phase)),Math.sin(b+tilt)*tilt*r+.16*r*Math.sin(3*a+phase)+.07*r*Math.cos(7*a-phase)]];
    });
    orbit.Translation=fly?{LineType:2,GlobalSeqId:id,Keys:FLY_PATHS[i%FLY_PATHS.length].map(k=>({Frame:Math.round(k[0]*ms),Vector:vec(k.slice(1,4).map(v=>v*r)),InTan:vec(k.slice(4,7).map(v=>v*r)),OutTan:vec(k.slice(7,10).map(v=>v*r))}))}:keys(id,ms,path);parent=orbit.ObjectId;
-  }else if(l.kind==='drops')pos.z-=frame.girth*.35;
+  }else if(l.kind==='drops'&&!l.surfaceSites)pos.z-=frame.girth*.35;
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2','source'+regionIndex+'-'+i,l.label+' '+(i+1),pos,parent);
   const size=fly?l.spriteSize:l.size,atlas=l.atlas||1,flame=l.kind==='flame',mist=l.kind==='mist';
   const colors=flame?[l.tint.map(v=>Math.min(1,v*.37+.63)),l.tint,l.tint.map((v,j)=>v*[.98,.42,.08][j])]:[l.tint,l.tint,mist?l.tint:l.tint.map(v=>v*.75)];
