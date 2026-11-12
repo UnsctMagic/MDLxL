@@ -352,7 +352,7 @@ async function saveArtifact(payload){
   return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }
 ipcMain.handle('artifact:save',(_,payload)=>{const operation=artifactSaveQueue.catch(()=>{}).then(()=>saveArtifact(payload));artifactSaveQueue=operation;return operation;});
-async function resolveTextures(payload, extensions){
+async function resolveTextures(payload, extensions, method='resolve'){
   if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');
   if(!payload.names.length)return [];
   const root=payload.path&&(openedPaths.has(path.resolve(payload.path))||bitsAndPartsLibrary?.openedPaths.has(path.resolve(payload.path)))?path.dirname(path.resolve(payload.path)):null;
@@ -366,7 +366,7 @@ async function resolveTextures(payload, extensions){
   // first (Settings promises they override installed game data), then the
   // Settings folder, then other installations.
   const custom=discovered.customSources||{archives:[],cascFolders:[]};
-  return textureResolver.resolve(payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
+  return textureResolver[method](payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
 }
 // Texture-source resets wait for these lookups before closing the old reader.
 function trackTextureOperation(operation){textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;}
@@ -374,6 +374,7 @@ ipcMain.handle('texture:resolve',(_,payload)=>trackTextureOperation(resolveTextu
 // Event previews use the same installed-game lookup and cache as textures.
 // Limit this separate read-only endpoint to resources consumed by that preview.
 ipcMain.handle('preview:eventResources',(_,payload)=>trackTextureOperation(resolveTextures(payload,[...IMAGE_EXTENSIONS,'slk','mdl','mdx','wav','mp3','ogg','flac'])));
+ipcMain.handle('preview:missingSounds',(_,payload)=>trackTextureOperation(resolveTextures(payload,null,'missingSounds')));
 ipcMain.handle('preview:humanPortraitFrame',()=>trackTextureOperation(resolveTextures({names:HUMAN_PORTRAIT_RESOURCES},[...IMAGE_EXTENSIONS,'fdf','txt']).then(validateHumanPortraitResources)));
 async function textureLibraryContext(payload){
     const modelPath=typeof payload?.modelPath==='string'&&openedPaths.has(path.resolve(payload.modelPath))?path.resolve(payload.modelPath):null;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SelectField } from './Fields.jsx';
-import { EVENT_TYPES, SOUND_EXPANSIONS, assignEventData, setEventFrame, resolveEventSound } from './node-event-data.js';
+import { EVENT_TYPES, SOUND_EXPANSIONS, assignEventData, setEventFrame, resolveEventSound, MISSING_SOUND, MISSING_SOUND_TIP } from './node-event-data.js';
 import EventSoundTree from './EventSoundTree.jsx';
 import EventDecalPreview from './EventDecalPreview.jsx';
 import { readStored, writeStored } from '../src/local-store.js';
@@ -28,7 +28,7 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
     writeStored(EXPANSIONS_KEY, [...next]);
     return next;
   });
-  const file = selected?.files?.[fileIndex] || selected?.files?.[0];
+  const file = selected?.missing ? null : selected?.files?.[fileIndex] || selected?.files?.[0];
   const audioUrl = audioSource && audioSource.file === file ? audioSource.url : '';
   useEffect(() => { setFileIndex(0); setError(''); }, [node.ObjectId, node.Name]);
   useEffect(() => {
@@ -48,7 +48,8 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, error
     {type === 'SND' ? <EventSoundTree rows={sounds} selectedId={id} query={query} onSelect={next=>assign(type,next)}/> : <select size="7" aria-label={EVENT_TYPES[type]} value={id || ''} onChange={e=>assign(type,e.target.value)}>{!selected && <option value={id || ''}>{id || 'Select event data'}</option>}{matches.map(row=><option key={row.id} value={row.id}>{row.label}</option>)}</select>}
     {file && <>{selected.files.length > 1 && <SelectField label="Sound file" value={fileIndex} options={selected.files.map((name,value)=>({value,label:name.split(/[\\/]/).at(-1)}))} onChange={v=>setFileIndex(Number(v))}/>}<audio key={file} ref={audio} aria-label="Sound preview" controls preload="auto" src={audioUrl || undefined} onError={()=>{if(audioUrl)setError('Sound format could not be played.');}}/></>}
     {selected?.definition && ['SPL','FPT','UBR'].includes(type) && <EventDecalPreview definition={selected.definition} modelPath={modelPath}/>}
-    {(error || catalogError || type === 'SND' && selected && !file) && <p className="field-error" role="alert">{error || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
+    {type === 'SND' && selected?.missing && <p className="re-sound-missing" title={MISSING_SOUND_TIP}>{MISSING_SOUND}</p>}
+    {(error || catalogError || type === 'SND' && selected && !selected.missing && !file) && <p className="field-error" role="alert">{error || catalogError || `Sound definition unavailable: ${selected.label}`}</p>}
     {global < 0 && <SelectField label="Preview animation" value={sequenceIndex} options={model.Sequences.map((seq,value)=>({value,label:seq.Name}))} onChange={v=>onSequenceChange(Number(v))}/>}
     <div className="re-event-frames"><span>Event tracks</span><div>{Array.from(node.EventTrack || []).map(at=><button key={at} aria-label={`Event frame ${at}`} onClick={()=>onSeek(at)}>{at}</button>)}</div><button onClick={()=>edit('Add event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,true))}>Add at {frame}</button><button disabled={!Array.from(node.EventTrack || []).includes(frame)} onClick={()=>edit('Remove event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,false))}>Remove</button></div>
     <details className="re-event-settings"><summary title="Change the event type, global sequence, name, parent or pivot of this event node.">Node settings</summary>

@@ -53,6 +53,7 @@ const SPECIAL = {
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
   // The owner's Graveguard WIP model (supplied from Downloads), copied to out/graveguard.
   'event-sound-scroll': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'event-sound-missing': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'manager-simplification': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },

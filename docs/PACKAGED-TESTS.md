@@ -181,7 +181,7 @@ to every Electron launch.
 | OptimizeXL review model `WH_WOC_KnightKhorneFlail03.mdx` | `optimizexl-review/` | `MDLXL_OPTIMIZEXL_REVIEW_MODEL` | optimizexl-review, optimizexl-playback |
 | A model whose geoset index 4 uses Materials[4] with 3 layers and that has 11+ textures (the original archer is gone; the Hive model `Mecha-CL.mdx` fits) | `material-fixture/Mecha-CL.mdx` | `MDLXL_SUITE_ARCHER` | material-presets |
 | Pre-empty-default Flaming sword saves, reproduced with source `676aaf6f`; SHA-256 checked by `fx-legacy-fixtures.mjs` | `fx-legacy/legacy-flaming-sword.mdx` and `.mdl` | — | fx-empty-emitters |
-| The owner's `graveguard_Optimized Weapon (1).mdx` (private) | `graveguard/` | `MDLXL_TEST_MODEL` per test | event-sound-scroll, manager-simplification, tree-appearance |
+| The owner's `graveguard_Optimized Weapon (1).mdx` (private) | `graveguard/` | `MDLXL_TEST_MODEL` per test | event-sound-scroll, event-sound-missing, manager-simplification, tree-appearance |
 | `WH_WOC_KnightKhorneFlail03.mdx` | `effect-fixture/` | `MDLXL_EFFECT_MODEL` | showcase-effects |
 | SD Chaos Knight (with hoofprint events) from the Warcraft III CASC install | `corpus-sd/human__knight.mdx` | `MDLXL_SUITE_HOOFPRINT` | footprint-travel |
 | Google Chrome | `C:/Program Files/Google/Chrome/Application/chrome.exe` | `MDLXL_CHROMIUM_PATH` | module-button-labels.browser |

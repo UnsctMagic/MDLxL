@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('desktop', {
   onSaveBeforeClose: callback => answer('app:saveBeforeClose', 'app:saveBeforeCloseReady', async () => ({ saved: await callback() === true })),
   resolveTextures: payload => call('texture:resolve',payload),
   resolveEventResources: payload => call('preview:eventResources',payload),
+  missingEventSounds: payload => call('preview:missingSounds',payload),
   loadHumanPortraitFrame: () => call('preview:humanPortraitFrame'),
   textureLibraryCatalog: payload => call('texture:library',payload),
   textureLibraryPreview: payload => call('texture:libraryPreview',payload),

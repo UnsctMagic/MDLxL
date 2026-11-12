@@ -4793,6 +4793,8 @@
   "The sound list needs the desktop app and your Warcraft III game files (Settings).": "La liste des sons nécessite l’application de bureau et les fichiers Warcraft III (Réglages).",
   "No sounds found in the configured game files.": "Aucun son trouvé dans les données configurées.",
   "Sound not found: {0}": "Son introuvable : {0}",
+  "No sound file in the game": "Aucun fichier son dans le jeu",
+  "Warcraft III lists this sound, but its file is not in your game files, so it cannot be played.": "Warcraft III répertorie ce son, mais son fichier est absent de vos fichiers de jeu ; il ne peut donc pas être lu.",
   "Showing the original animation.": "Affichage de l’animation d’origine.",
   "Click bones in the preview to add or remove them.": "Cliquez les os dans l’aperçu pour les ajouter ou retirer.",
   "{0} bones shaped · {1} keys": "{0} os modifiés · {1} clés",
