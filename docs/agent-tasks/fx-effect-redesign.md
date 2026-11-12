@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: ready for the owner's hand test (test build `TestBuilds\fx-effects`, model `TestBuilds\test-models\TEST FX EFFECTS 01.mdx`). Local branch only.
+Status: polish pass `d00ca4f3` saved locally (Fireball, continuous cover); compiled only, needs a test build for the owner. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -40,6 +40,35 @@ Trial 06 (`7e9660b2`) rejected: "everything looks trash", "a serious regression 
 - Render workbench: `out\fx-look\run.ps1 -Plan <plan.json> -Out <folder> [-Exe <MDLxL.exe>]` (hidden desktop). Round plans `out\fx-look\round1..3-plan.json`; captures under `out\fx-look\round1..3`.
 - Seen and accepted in renders: every variation on Great Unclean Dude geosets 10 and 11 (wide blades).
 - Open: on a large many-region body (Great Unclean Dude G6) particle layers are small next to the coloured skin from the default top-down view. The Tzeentch thin-sword test was contaminated by that model's own saved FX flames; a clean thin sword is still untested. Rendered here only; Warcraft III itself not checked.
+
+## Polish pass after the owner's hand test (12 November 2026, evening)
+
+Owner: Fireball unclear and badly adapted from the Moarg mace; emitters "spread out poorly" (Ice shards, Crackling arcs, body sites). Pause works for the owner; no Pause change was made.
+
+Done in `d00ca4f3` (compiles; **not run, rendered or tested**: the owner reviews by eye):
+
+- **`gather:'head'`** (`suggestHeadEmitterSites` in `src/fx-emitter-surface.js`, `headEmitterSites` in `src/global-animation-model.js`). Every gathered layer of a look shares 2 sites (flat blade: one off each face) or 4 sites (round head) around the part's head: the widest mass of the far half from the parent bone (outer part of a blade, a mace or axe head), or the top 30% of a body with more than 4 skin regions. `componentWidth` = head half-width, kept between 10% and 20% of the part's length, so `widthCap` reads in head widths.
+- **Fireball** = the Moarg five on that source: Fire core (cap 1.5 head widths), Core glow (2.6), Spat embers (.16), Falling sparks (1), Heat shade (1.7). Proportions follow the reference's 40 : 70 : 4 : 40.
+- **Fel surge** = the same compact source in fel (cores 1.4, streaks .5, glow 2.4).
+- **`cover:'surface'|'around'`** (`coverSites` in the model). Fresh layers only. Straight rigid piece: birth lines along the whole length; `surface` puts one line just outside each face (4 sides on a round piece) launching away from it, `around` is the earlier single slab. Any other piece: at most 16 surface patches shared by area, each patch reaching its neighbours. Rate follows covered area (`birth.share`). `birthRegion:true` recipes now get `cover:'around'` on fresh layers.
+- **No separate dots by default**: a fresh native emitter whose default sites cannot reach each other (`separateSites`, nearest pair farther than 2.5 x sprite plus birth area) is covered instead (`coverFit`). The Emitters slider and saved layers are untouched.
+- Recipes moved from fixed `siteCount` dots to cover: Ice shards, Crackling arcs, Arcane Glow orbs, Bubbles (Dripping venom, Toxic fumes), Spitting lava, Sea spray, Sparkling facets, Burning cracks embers. Rates raised because births now spread over the whole part and both faces.
+
+What the owner should look at (look > variation > expected):
+
+- Fire > Fireball on the sword, a mace/axe and the body: one dense ball of fire around the blade's outer part / weapon head / top of the body, red outside and yellow inside, slow embers drifting out, sparks falling.
+- Fel fire > Fel surge: the same ball in green with streaks.
+- Frost > Ice shards: crystals and glints blooming anywhere over the blade, flakes falling from its whole length; no row of blobs.
+- Lightning > Crackling arcs: bursts and sparks at random places along the blade.
+- Fire > Burning cracks on the body: embers from the whole body, not two spots.
+- Arcane (first), Molten lava > Spitting lava, Water > Sea spray, Lit crystal > Sparkling facets, Poison > Dripping venom / Toxic fumes: no fixed dots.
+
+Next steps for whoever continues:
+
+1. Run the build once and open each look above; a runtime error in `coverSites` or `headEmitterSites` would show as the effect not applying (nothing was executed here).
+2. Unit tests that assert the old `siteCount` sites or `gather:'tip'` for Fireball need their expectations updated (`test/fx-*.test.js`); `test/fx-legacy-snapshot.test.js` must stay untouched and green.
+3. Document `gather:'head'`, `cover` and `coverFit` in [the recipe reference](fx-effect-recipe-reference.md) section 3.3.
+4. Not reviewed yet in this pass: Tip discharge (still `gather:'tip'`), body sizes of the head source, and whether hugging sprites clear the faces (raise the clearance in `coverSites` if they are half hidden).
 
 ## Rules carried over
 
