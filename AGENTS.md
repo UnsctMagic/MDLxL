@@ -55,6 +55,10 @@ separate and are not a shared handover.
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
   Do not add unsolicited panels, dashboards, toolbars, menu redesigns or apps.
   Preserve existing sidebars, widths and controls unless explicitly requested.
+- Every right-click menu on the top toolbar's module icons uses the shared
+  icon menu in [AppToolbar.jsx](app/AppToolbar.jsx). Reuse the Learn menu's
+  styling, placement, focus, and dismissal. Add only the icon's menu items to
+  the shared menu.
 - One way of doing things. When a feature has an existing counterpart, reuse
   its controls exactly: same handles, look, drag behaviour, keys and wording.
   Never invent a new control scheme for a familiar job (for example sliders

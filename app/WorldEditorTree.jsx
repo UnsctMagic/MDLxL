@@ -42,10 +42,10 @@ export function worldEditorTree(variant,signature){
 }
 
 
-export function FolderStyle({style,onChange,standardTitle}){
+export function FolderStyle({style,onChange,standardTitle,worldEditorTitle}){
  return <div className="gf-style" role="group" aria-label="Folder layout">
   <button type="button" aria-pressed={style==='standard'} title={standardTitle||"The game's own folders, as they are stored"} onClick={()=>onChange('standard')}>Standard</button>
-  <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>onChange('worldeditor')}>World Editor Style</button>
+  <button type="button" aria-pressed={style==='worldeditor'} title={worldEditorTitle||"Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset"} onClick={()=>onChange('worldeditor')}>World Editor Style</button>
  </div>;
 }
 export function worldEditorResults(catalog,query){

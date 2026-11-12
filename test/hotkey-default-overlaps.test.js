@@ -138,7 +138,7 @@ test('the launcher and toolbar commands have their agreed keys, and those keys a
   assert.equal(by('launcher').label, 'Search commands');
   assert.deepEqual(by('toolbarCycle').defaultKeys, ['Shift+F3']);
   assert.equal(by('toolbarCycle').label, 'Next toolbar style');
-  for (const id of ['showcase', 'managers', 'autoCorpse', 'visToggle']) assert.deepEqual(by(id).defaultKeys, [], id);
+  for (const id of ['showcase', 'autoCorpse', 'visToggle']) assert.deepEqual(by(id).defaultKeys, [], id);
   for (const key of ['Ctrl+F2', 'Shift+F3']) assert.equal(catalog.filter(action => (!action.contextual && action.scope === 'editor' || action.group === 'editor') && keysOf(action).includes(key)).length, 1, key);
 });
 

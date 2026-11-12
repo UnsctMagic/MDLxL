@@ -10,7 +10,7 @@ const keyCount = chord => chord.split('+').length;
 test('every core action has a default of one or two keys, unique where it works, and original MDLVis shortcuts retain their command', () => {
   const assigned = { editor: new Map(), forge: new Map(), paint: new Map() };
   for (const action of COMMANDS) {
-    if(['surfaceEffects','showcase','managers','autoCorpse','visToggle'].includes(action.id))assert.deepEqual(action.defaultKeys,[],`${action.id} has no default key, by decision`);
+    if(['showcase','autoCorpse','visToggle'].includes(action.id))assert.deepEqual(action.defaultKeys,[],`${action.id} has no default key, by decision`);
     else assert.ok(action.defaultKeys.length, `${action.id} needs a default`);
     for (const key of action.defaultKeys) {
       assert.equal(hotkeyCode(key), '', `${action.id} has a generated code`);

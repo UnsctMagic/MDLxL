@@ -16,7 +16,7 @@ const headless=process.env.MDLVIS_HEADLESS==='1';
 const userRun=app.isPackaged&&!process.env.MDLXL_PROFILE&&!headless;
 const {RecoveryStore}=require('./recovery.cjs');
 const {SettingsStore}=require('./settings.cjs');
-const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
+const {buildMenuTemplate,normalizeMenuChecks,normalizeMenuKeys,presentMenu}=require('./menu.cjs');
 const {GameDataDiscovery,selectedGameDataSources,orderedCascFolders}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
 const {CascTextures,CascReader}=require('./casc.cjs');
@@ -76,6 +76,8 @@ let settingsStore,preferenceApi,commandCatalog;
 const fileTypes=userRun&&process.platform==='win32'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
 function registerFileTypes(claim=false){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
+const drawMenuInEditor = process.platform === 'win32';
+let editorMenu;
 let translateText=value=>value;
 let nativeLanguages=[];
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -131,6 +133,10 @@ const captureOperations=new Set();
 const previewRecordings=new PreviewRecordingStore({destination:showcaseRecordings});
 function captureOperation(operation){captureOperations.add(operation);operation.finally(()=>captureOperations.delete(operation)).catch(()=>{});return operation;}
 // Requests from other windows are refused: with a message, an error; without one, false.
+const captureRegions = new WeakMap();
+ipcMain.on('capture:regions', (event, edges) => {
+  if (editorOnly(event)) captureRegions.get(win)?.(edges);
+});
 function editorOnly(event,message){if(event.sender===win?.webContents)return true;if(message)throw Error(message);return false;}
 // Native save dialog. The chosen path always ends in `extension` (without the
 // dot) when one is given; null when the user cancels.
@@ -223,7 +229,8 @@ ipcMain.handle('preview:openModel',async event=>{
   const result=await dialog.showOpenDialog(win,{title:'Load Showcase model',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
   return result.canceled?null:readModel(result.filePaths[0],false);
 });
-ipcMain.handle('parts:list',()=>getBitsAndPartsLibrary().list());
+ipcMain.handle('parts:list',(_,manage)=>getBitsAndPartsLibrary().list(manage === true));
+ipcMain.handle('parts:change',(_,data)=>getBitsAndPartsLibrary().change(data,file=>shell.trashItem(file)));
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));
 ipcMain.handle('parts:save',(_,data)=>getBitsAndPartsLibrary().save(data));
 ipcMain.handle('parts:folder',async()=>openFolder((await getBitsAndPartsLibrary().list()).directory));
@@ -262,10 +269,16 @@ ipcMain.handle('model:openRecent',async(_,p,showcase=false)=>{
   }
 });
 ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(value,modelCloseState);win?.setDocumentEdited(modelCloseState.dirty);sessionJournal.setDirty(modelCloseState.dirty).catch(error=>console.warn('Session journal: '+error.message));});
+ipcMain.on('menu:ready', (event, ready) => {
+  if (drawMenuInEditor && ready && editorOnly(event) && editorMenu) sendToEditor('menu:items', editorMenu.items);
+});
+ipcMain.on('menu:click', (event, id) => {
+  if (drawMenuInEditor && editorOnly(event)) editorMenu?.commands.get(id)?.click();
+});
 ipcMain.on('menu:state',(event,value)=>{
   if(!editorOnly(event)||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
-  const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
+  const checks=normalizeMenuChecks(value.checks),menuKeys=normalizeMenuKeys(value.menuKeys,preferenceApi.normalizeChord);
+  const next={readOnly:value.readOnly,saving:value.saving,surfaceEffectsEnabled:value.surfaceEffectsEnabled===true,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks,menuKeys,toolbarMode:['trim','hidden'].includes(value.toolbarMode)?value.toolbarMode:'graphic',language:typeof value.language==='string'?value.language:'en',disabledCommands:Array.isArray(value.disabledCommands)?value.disabledCommands.filter(id=>typeof id==='string'):[]};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
@@ -374,6 +387,17 @@ async function textureLibraryContext(payload){
 }
 ipcMain.handle('texture:library',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>context.catalog)));
 ipcMain.handle('texture:libraryPreview',(_,payload)=>trackTextureOperation(textureLibraryContext(payload).then(context=>previewCatalog(context.catalog,payload?.format==='blp'?'blp':'all'))));
+async function libraryTextureSelection(payload){
+  const {catalog,readAsset}=await textureLibraryContext(payload);
+  const item=catalog.items.find(item=>item.cacheKey===payload?.key);
+  if(!item)throw Error('The texture sources changed. Select the texture again.');
+  return {name:path.basename(item.lookupName.split(':').at(-1)),read:()=>readAsset(item)};
+}
+ipcMain.handle('texture:libraryRead',(_,payload)=>trackTextureOperation(libraryTextureSelection(payload).then(({read})=>read())));
+ipcMain.handle('texture:libraryExport',async(_,payload)=>{
+  const {name,read}=await trackTextureOperation(libraryTextureSelection(payload));
+  return saveLibraryCopy(name,()=>trackTextureOperation(read()).then(({bytes})=>bytes));
+});
 // The Library's game-file browser reads one installation: the folder chosen in
 // Settings first, then added CASC sources, then discovered installations.
 async function gameFileIndex(){
@@ -383,7 +407,7 @@ async function gameFileIndex(){
   const index=await library.load(folder?[folder]:[]);
   return {library,index,folder:folder||null};
 }
-const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
+const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',worldEditor:payload?.worldEditor===true,offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
 ipcMain.handle('gameFiles:summary',()=>trackTextureOperation(gameFileIndex().then(({library,index,folder})=>({...library.summary(index),folder}))));
 ipcMain.handle('gameFiles:browse',(_,payload)=>trackTextureOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
 ipcMain.handle('gameFiles:read',(_,payload)=>trackTextureOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
@@ -404,12 +428,18 @@ ipcMain.handle('gameFiles:findPath',(_,payload)=>trackTextureOperation(gameFileI
   const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
   return entry?{...library.publicEntry(entry),signature:index.signature}:null;
 })));
+async function saveLibraryCopy(name,readBytes){
+  const extension=path.extname(name).slice(1).toLowerCase();
+  const destination=await chooseSavePath({title:'Save a copy of '+name,defaultPath:name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
+  if(!destination)return null;
+  const bytes=await readBytes();
+  if(!bytes?.length)throw Error(name+' could not be read.');
+  await fs.writeFile(destination,bytes);
+  return destination;
+}
 ipcMain.handle('gameFiles:export',async(_,payload)=>{
   const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
-  const extension=path.extname(entry.name).slice(1).toLowerCase();
-  const destination=await chooseSavePath({title:'Save a copy of '+entry.name,defaultPath:entry.name,extension,filterName:extension.toUpperCase(),buttonLabel:'Save copy'});
-  if(!destination)return null;
-  await fs.writeFile(destination,await library.read(index,entry));return destination;
+  return saveLibraryCopy(entry.name,()=>trackTextureOperation(library.read(index,entry)));
 });
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
@@ -538,8 +568,14 @@ async function updateSettings(value){
 }
 function refreshMenu(){
   if(!win||win.isDestroyed())return;
-  const bindings=preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys);
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages})));
+  const bindings={...nativeEditorState.menuKeys,...preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys)};
+  const menu=Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>sendToEditor('menu',id),process.platform,recents,text=>translateText(text,settings.preferences.language),{...nativeEditorState,languages:nativeLanguages}));
+  Menu.setApplicationMenu(menu);
+  if (drawMenuInEditor) {
+    win.removeMenu();
+    editorMenu = presentMenu(menu, preferenceApi.formatChord);
+    sendToEditor('menu:items', editorMenu.items);
+  }
 }
 // Headless test runs keep the scriptable native message box; people get the
 // themed prompt whose Cancel and Close are colored and set apart.
@@ -669,9 +705,10 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
 });
 async function createWindow(bounds={}){
   externalModelsReady=false;
-  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
+  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,autoHideMenuBar:drawMenuInEditor,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
   if(!headless)current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
+  if (process.platform === 'win32') captureRegions.set(current, require('./capture-regions.cjs').captureRegionsFor(current));
   current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && frameName==='MDLxL-OptimizeXL' ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:1280,height:800,minWidth:950,minHeight:500,show:!headless,title:'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(!headless)child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
@@ -681,6 +718,7 @@ async function createWindow(bounds={}){
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
+    captureRegions.get(current)?.(Array(8).fill(0));
     textureDecoder=null;texturePreviews.cancel();rejectThumbnailRequests('Editor renderer closed.');
     await Promise.allSettled([...captureOperations]);
     await previewRecordings.closeOwner(current.webContents.id);

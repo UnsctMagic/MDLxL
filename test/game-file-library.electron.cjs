@@ -45,7 +45,9 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-librar
     await preview.click();
     // The choice is a small popup: one button per material that shows the texture, one click decides.
     const choice=page.getByRole('dialog',{name:'Texture already in the model'});await choice.waitFor();
-    assert.equal(await page.locator('.tl-details select').count(),0,'no material dropdown in the details column');
+    const format=picker.getByRole('combobox',{name:'Texture save format',exact:true});
+    assert.deepEqual(await format.locator('option').allInnerTexts(),['DDS','BLP','PNG']);
+    assert.equal(await picker.locator('.tl-details select').count(),1,'the save format is the only dropdown in the details column');
     const existingMaterial=choice.getByRole('button',{name:/^Material \d+ · geoset 1$/});
     assert.equal(await existingMaterial.count(),1);
     await shot(page,'uv-picker-material-choice');
@@ -88,7 +90,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-librar
     checks.push('Add texture on an existing texture pops up the choice and "New material" adds one');
     // Models, World Editor Style: races with icons, one central view that glides between models.
     const row=name=>page.locator('.gf-row').filter({has:page.locator('.gf-name',{hasText:new RegExp('^'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first();
-    const stageClip=async()=>{const box=await page.locator('.gf-stage').boundingBox();return {x:box.x,y:box.y,width:box.width,height:box.height};};
+    const stageClip=async()=>{const box=await page.locator('.gf-stage').boundingBox();return {x:Math.round(box.x),y:Math.round(box.y),width:Math.round(box.width),height:Math.round(box.height)};};
+    const stageShot=async clip=>Buffer.from(await app.evaluate(async({BrowserWindow},clip)=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(clip,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'),clip),'base64');
     const waitModel=name=>page.waitForFunction(value=>document.querySelector('.gf-info h3')?.textContent===value&&!document.querySelector('.gf-stage-busy')&&document.querySelector('[aria-label="Model animation"]'),name,{timeout:45000});
     await page.getByRole('tab',{name:'Models',exact:true}).click();
     await page.getByRole('button',{name:'World Editor Style',exact:true}).waitFor();
@@ -99,19 +102,19 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/game-file-librar
     await page.waitForFunction(()=>[...document.querySelectorAll('.gf-row img.gf-icon')].filter(img=>img.naturalWidth>0).length>=8,null,{timeout:45000});
     await row('Footman').click();await waitModel('Footman');
     await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2500);
-    const clip=await stageClip(),shownFootman=await page.screenshot({clip});
+    const clip=await stageClip(),shownFootman=await stageShot(clip);
     await row('Heroes').click();await row('Units').click();await row('Buildings').click();await row('Normal').click();await settlePage(page, 1500);
-    assert.ok(shownFootman.equals(await page.screenshot({clip})),'opening folders leaves the central view alone');
+    assert.ok(shownFootman.equals(await stageShot(clip)),'opening folders leaves the central view alone');
     await shot(page,'we-tree');
     checks.push('World Editor Style: Human … Items, Doodads with game icons; opening folders leaves the view unchanged');
     const box=await page.locator('.gf-stage canvas').first().boundingBox();
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+140,box.y+box.height/2+40,{steps:12});await page.mouse.up();
     await settlePage(page, 2000);
-    assert.ok(!shownFootman.equals(await page.screenshot({clip})),'a mouse drag turns the camera');
+    assert.ok(!shownFootman.equals(await stageShot(clip)),'a mouse drag turns the camera');
     checks.push('A real mouse drag turns the camera in the central view');
     // A much larger model: the camera keeps its turned angle and glides out to frame it.
     await row('Altar of Kings').click();
-    const frames=[];for(let i=0;i<8;i++){frames.push(await page.screenshot({clip}));await nextFrame(page);}
+    const frames=[];for(let i=0;i<8;i++){frames.push(await stageShot(clip));await nextFrame(page);}
     await waitModel('Altar of Kings');await page.getByRole('button',{name:'Pause',exact:true}).click();await settlePage(page, 2000);
     frames.forEach((frame,i)=>fs.writeFileSync(path.join(out,`glide-${i}.png`),frame));await shot(page,'glide-end');
     checks.push('Choosing another model keeps the turned angle and glides to frame it (frames saved)');
@@ -165,15 +168,15 @@ return null;});
     assert.ok(hoveredRow,'hovering the model in the preview highlights its geoset in the list');
     await shot(page,'geosets-hover-preview');
     await page.mouse.move(5,5);await settlePage(page, 800);
-    const plain=await page.screenshot({clip});
+    const plain=await stageShot(clip);
     await page.locator('.gf-geosets .geoset-row').nth(0).hover();await settlePage(page, 800);
-    assert.ok(!plain.equals(await page.screenshot({clip})),'hovering a geoset in the list highlights it in the preview');
+    assert.ok(!plain.equals(await stageShot(clip)),'hovering a geoset in the list highlights it in the preview');
     await page.mouse.move(5,5);await settlePage(page, 500);
     checks.push('Highlight Geoset is on by default and highlights the hovered geoset in the preview and the list');
-    const fullView=await page.screenshot({clip});
+    const fullView=await stageShot(clip);
     await page.locator('.gf-geosets').getByRole('button',{name:'Clear',exact:true}).click();await boxes.nth(0).check();
     await page.getByLabel('View selected only',{exact:true}).check();await settlePage(page, 1500);
-    assert.ok(!fullView.equals(await page.screenshot({clip})),'View selected only hides the other geosets');
+    assert.ok(!fullView.equals(await stageShot(clip)),'View selected only hides the other geosets');
     await shot(page,'geosets-selected-only');
     await page.getByLabel('View selected only',{exact:true}).uncheck();
     await page.locator('.gf-geosets').getByRole('button',{name:'All',exact:true}).click();
