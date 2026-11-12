@@ -19,6 +19,8 @@ import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,graph,ColourControl,placing,setPlacing,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout}){
+ // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
+ if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),l=stack.layers.find(item=>item.id===selected),frame=graph?.frame;
  const [lifeStage,setLifeStage]=useState(1);
  const [live,setLive]=useState(null),gesture=useRef(null),[more,setMore]=useState(false);

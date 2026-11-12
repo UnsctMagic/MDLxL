@@ -76,7 +76,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const lastModel=useRef(doc.model);if(graph?.model)lastModel.current=graph.model;
  function previewStrength(layer,value){
   if(layer.type==='Particles'){
-   const result=graph?.layers[layer.id],api=capture.current;if(!api||result?.id==null)return;
+   const result=graph?.layers?.[layer.id],api=capture.current;if(!api||result?.id==null)return;
    const original=graph.model.Nodes[result.id].Alpha;
    api.previewParticleAlpha(result.ids,value==null?original:withParticleStrength(layer,original,value).native.Alpha);return;
   }

@@ -1,5 +1,5 @@
 import {Quaternion,Vector3} from 'three';
-import {appendGeosetGeometry,createNode,removeGeosets,recalculateExtents,updateCounts,geosetBounds} from './editor-document.js';
+import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN} from './fx-cards.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
@@ -568,7 +568,9 @@ function cardLayer(c,l){
  const reachOf=list=>{const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const p of list)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],p[a]-reach);hi[a]=Math.max(hi[a],p[a]+reach);}return [lo,hi];};
  const [lo,hi]=reachOf(centres.map(p=>p.toArray()));
  Object.assign(g,geosetBounds(Float32Array.from([...lo,...hi])));
- g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];if(!own?.MinimumExtent)return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
+ g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
+  // A sequence without usable bounds of its own (missing, or the empty ±3.4e38 box some files store) takes the cards' bounds.
+  if(!own?.MinimumExtent||!own?.MaximumExtent||![0,1,2].every(k=>Math.abs(own.MinimumExtent[k])<1e7&&Math.abs(own.MaximumExtent[k])<1e7&&own.MinimumExtent[k]<=own.MaximumExtent[k]))return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
  return {geoset:overlay(c,g,material,rhythmColour({...c,id,ms:base},l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
 }
 function runeLayer(c,l){

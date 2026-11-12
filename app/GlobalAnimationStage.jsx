@@ -7,7 +7,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,onLaye
  // A card's size is its half width: the same round size handle emitters use.
  const card=layer?.type==='Card',flat=layer?.ground||card&&layer.facing==='ground';
  const radius=flat||layer?.kind==='flies'||layer?.kind==='native'||card;
- const real=graph?.model.Nodes[result?.id];
+ const real=graph?.model?.Nodes[result?.id];
  // An orbiting Edge rides three helpers; its handles stay with the part the helpers hang from.
  let parentNode=real?.Parent,anchorId=result?.id;if(layer?.orbit&&layer.type==='Edge')for(let i=0;i<3&&parentNode!=null;i++){anchorId=parentNode;parentNode=graph.model.Nodes[parentNode]?.Parent;}
  const frame=graph?.frame.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;

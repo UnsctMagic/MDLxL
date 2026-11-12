@@ -163,3 +163,14 @@ test('saved Card fields are kept inside their bounds',()=>{
  assert.ok(l.sizeMax>=l.sizeMin);
  assert.deepEqual(cardFields({}),{...CARD_DEFAULTS},'an empty card uses the defaults');
 });
+
+// Owner, 12 November: every Card look crashed the editor on a Footman. Its file stores an empty sequence box as
+// ±3.4e38; the card bounds took it as real and overflowed. Such a sequence now takes the cards' own bounds.
+test('a part whose file stores an empty ±3.4e38 sequence box still takes Cards',()=>{
+ const {model}=knight(),own=model.Geosets[0];
+ own.Anims=(model.Sequences||[]).map(()=>({MinimumExtent:Float32Array.from([3.40282e38,3.40282e38,3.40282e38]),MaximumExtent:Float32Array.from([-3.40282e38,-3.40282e38,-3.40282e38]),BoundsRadius:0}));
+ assert.ok(own.Anims.length,'the knight has sequences');
+ compileAnimation(model,0,cardStack(model,{count:3}));
+ const card=model.Geosets.find(g=>g._FxTag?.endsWith('/shape'));
+ assert.ok(card.Anims.every(a=>Number.isFinite(a.BoundsRadius)&&a.BoundsRadius>0&&a.BoundsRadius<1e6));
+});
