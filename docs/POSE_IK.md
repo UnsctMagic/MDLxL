@@ -242,6 +242,24 @@ solely by that mesh. Posing keeps the grip in place with native endpoint
 Translation/Rotation keys; the authored pivot and skin weights stay intact.
 Setup preserves that grip while editing the same endpoint.
 
+### Bone Namer depends on this recognition
+
+[Bone Namer](BONE-NAMER.md) names bones from what `suggestPoseRig` / `poseRole`
+recognise, and POSE then reads those new names. **Every change to POSE recognition
+(`src/pose-ik.js`, `src/pose-recognition.js`, `src/rig-names.js`) reruns the
+Bone Namer gates before it merges** (owner, 12 Nov 2026):
+
+- `node scripts/bone-namer-corpus.mjs` (about a minute): renames every test model
+  with Bone Namer's defaults and re-runs POSE. It must report 0 failing models: no
+  handle lost, moved or ungripped after renaming, and a second rename changes
+  nothing. Review items (gains, re-rooted limbs) are listed, not failures.
+- `node --test test/bone-namer.test.js`.
+
+Known regressions this caught: a name prefix hiding tail tips from the `^bone[ _]`
+filter, hand/foot meshes losing their skin grip once named `Bone_`, Head moving to
+the neck, the zergling's Root pair and the Lord of Change's wings changing role
+once their joints were named.
+
 ## Focus and appearance
 
 During POSE, Focused Skeleton shows a compact control skeleton: mapped body
