@@ -235,6 +235,63 @@ function surfaceStrips(shape){
  return shape.components.filter(part=>part.frame&&part.area>=shape.area*.04&&part.frame.length>=5.2*Math.max(part.radius,EPS));
 }
 
+/**
+ * The cross-section of points about a line: its thin and wide directions (both
+ * perpendicular to the axis) and how far the points reach along each.
+ */
+export function crossSection(points,centre,axis) {
+ const e1=(Math.abs(axis.z)<.9?UP.clone():new Vector3(1,0,0)).addScaledVector(axis,-(Math.abs(axis.z)<.9?axis.z:axis.x)).normalize();
+ const e2=axis.clone().cross(e1).normalize();
+ const flat=points.map(point=>{const delta=point.clone().sub(centre);return [delta.dot(e1),delta.dot(e2)];});
+ let xx=0,xy=0,yy=0;
+ for(const [x,y] of flat){xx+=x*x;xy+=x*y;yy+=y*y;}
+ const angle=.5*Math.atan2(2*xy,xx-yy),cos=Math.cos(angle),sin=Math.sin(angle);
+ const wide=e1.clone().multiplyScalar(cos).addScaledVector(e2,sin),thin=e1.clone().multiplyScalar(-sin).addScaledVector(e2,cos);
+ const reach=direction=>points.reduce((most,point)=>Math.max(most,point.clone().sub(centre).dot(direction)),0);
+ const sides=[thin,thin.clone().negate(),wide,wide.clone().negate()].map(direction=>({direction,reach:reach(direction)}));
+ return {sides,thin:Math.max(sides[0].reach,sides[1].reach),wide:Math.max(sides[2].reach,sides[3].reach)};
+}
+
+/**
+ * One compact source around the part's head: the widest mass of its far half
+ * (the outer part of a blade, a mace or axe head), or the top of a body. The
+ * sites surround the head, so the sprites merge into one source from any side.
+ */
+export function suggestHeadEmitterSites(points,axis,many) {
+ if(points.length<3)return null;
+ const toward=many?UP.clone():axis.clone().normalize();
+ const along=points.map(point=>point.dot(toward));
+ const min=Math.min(...along),max=Math.max(...along),length=max-min;
+ if(!(length>EPS))return null;
+ const all=points.map((_,i)=>i),from=min+length*(many?.7:.5);
+ let far=all.filter(i=>along[i]>=from);
+ if(far.length<3)far=all;
+ const mean=ids=>ids.reduce((sum,i)=>sum.add(points[i]),new Vector3()).multiplyScalar(1/ids.length);
+ let head=far,station=null;
+ if(!many){
+  // Weight by distance from the centre line: a mace or axe head outweighs its shaft.
+  const line=mean(far);
+  let total=0,sum=0;
+  for(const i of far){
+   const delta=points[i].clone().sub(line),weight=delta.addScaledVector(toward,-delta.dot(toward)).lengthSq()+EPS;
+   total+=weight;sum+=weight*along[i];
+  }
+  station=sum/total;
+  const near=far.filter(i=>Math.abs(along[i]-station)<=length*.14);
+  if(near.length>=3)head=near;
+ }
+ const centre=mean(head);
+ if(station!=null)centre.addScaledVector(toward,station-centre.dot(toward));
+ const section=crossSection(head.map(i=>points[i]),centre,toward);
+ // The source is at least a tenth of the part long and never wider than a fifth of it.
+ const width=clamp(section.wide,length*.1,length*.2);
+ const flat=section.thin<section.wide*.35;
+ const clearance=Math.max(.1,width*.25);
+ const sites=section.sides.slice(0,flat?2:4).map(({direction,reach})=>({
+  point:centre.clone().addScaledVector(direction,reach+clearance).toArray(),normal:direction.toArray()}));
+ return {sites,vertices:head,width,axis:toward.toArray()};
+}
+
 export function suggestTipEmitterSites(shape,pivotFor,unitHeight,many){
  if(!shape)return [];
  const strips=surfaceStrips(shape);

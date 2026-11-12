@@ -1,6 +1,6 @@
-import {Quaternion,Vector3} from 'three';
+import {Box3,Matrix4,Quaternion,Vector3} from 'three';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
-import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
+import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -324,8 +324,9 @@ export function impactDefaults(model,_index,sequence,hit){
 /** Freeze the geometry offer by recipe inputs and selected surface for this model revision. */
 const usesSiteGeometry=layer=>layer.widthCap!=null||layer.aim!=null;
 function defaultSurfaceSites(c,layer){
+ if(layer.gather==='head'&&!layer.siteLayout)return headEmitterSites(c);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
- if(layer.birthRegion&&!layer.siteLayout)return birthRegionSites(c,layer);
+ if(layer.birthRegion&&!layer.siteLayout)return layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
  if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
  const {attachmentCache:cache,surfaceKey,frame}=c;
@@ -333,9 +334,120 @@ function defaultSurfaceSites(c,layer){
  const offerKey='emitter-surface|'+surfaceKey+'|'+JSON.stringify([fit,fireFit,usesSiteGeometry(layer)]);
  if(cache.has(offerKey))return cache.get(offerKey);
  const samples=suggestEmitterSites(emitterSurface(c),fit,frame.unitHeight);
+ // Separate dots are never the default: sites that cannot reach each other cover the part instead.
+ if(layer.coverFit&&layer.nativeSpec&&separateSites(c,layer,samples)){
+  const covered=coverSites(c,{...layer,cover:'surface'});
+  if(covered){cache.set(offerKey,covered);return covered;}
+ }
  const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'surface'+index})),fireFit,usesSiteGeometry(layer));
  const result=sites.length?sites:null;
  cache.set(offerKey,result);
+ return result;
+}
+function separateSites(c,layer,samples){
+ if(samples.length<2)return false;
+ const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame}];
+ const radius=Math.max(2,Math.min(55,.48*Math.max(...regions.map(region=>region.frame.length))));
+ const spec=layer.nativeSpec;
+ const reach=layer.surfaceFit.footprint+Math.max(spec.area??0,spec.width??0,spec.length??0)*radius;
+ let nearest=Infinity;
+ for(const [i,a] of samples.entries())for(const b of samples.slice(i+1))
+  nearest=Math.min(nearest,Math.hypot(a.point[0]-b.point[0],a.point[1]-b.point[1],a.point[2]-b.point[2]));
+ return nearest>reach*2.5;
+}
+// One compact source for every gathered layer of a look: the sites surround the part's head.
+function headEmitterSites(c){
+ const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
+ const key='emitter-head|'+surfaceKey;
+ if(cache.has(key))return cache.get(key);
+ const points=Array.from({length:source.Vertices.length/3},(_,i)=>new Vector3().fromArray(source.Vertices,i*3));
+ const pivot=new Vector3().fromArray(model.PivotPoints[c.parent]??frame.center.toArray());
+ const axis=frame.axis.clone();
+ if(frame.center.clone().sub(pivot).dot(axis)<0)axis.negate();
+ const head=suggestHeadEmitterSites(points,axis,(frame.regions?.length??1)>4);
+ let result=null;
+ if(head){
+  const owner=new Map(),votes=new Map();
+  frame.regions?.forEach((region,index)=>region.vertices.forEach(vertex=>owner.set(vertex,index)));
+  for(const vertex of head.vertices)if(owner.has(vertex))votes.set(owner.get(vertex),(votes.get(owner.get(vertex))||0)+1);
+  const region=[...votes].sort((a,b)=>b[1]-a[1])[0]?.[0]??0;
+  result=head.sites.map((site,index)=>({key:'head'+index,point:site.point,region,ground:false,componentWidth:head.width,strip:false,normal:site.normal,tipDirection:head.axis}));
+ }
+ cache.set(key,result);
+ return result;
+}
+const PATCH_SITES=16;
+/**
+ * Continuous cover for fresh layers. A straight rigid piece gets birth lines along
+ * its whole length (on each face when the layer hugs the surface); any other piece
+ * gets surface patches that reach their neighbours. Rates follow each piece's area.
+ */
+function coverSites(c,layer){
+ const {attachmentCache:cache,surfaceKey,frame}=c;
+ const key='emitter-cover|'+surfaceKey+'|'+JSON.stringify([layer.cover,layer.birthAcross??null,layer.widthCap??null,layer.size,layer.nativeSpec?.size,layer.nativeSpec?.alpha,layer.native?.ParticleScaling,layer.native?.Alpha]);
+ if(cache.has(key))return cache.get(key);
+ const regions=frame.regions?.length?frame.regions:[{frame,geometry:c.source,weights:[[c.parent,1]]}];
+ const pieces=regions.flatMap((region,regionIndex)=>{
+  const shape=analyseEmitterSurface(region.geometry);
+  return (shape?.components||[]).map((part,componentIndex)=>({region,regionIndex,shape,part,componentIndex,
+   straight:region.weights.length===1&&!!part.frame&&part.frame.length>=5.2*Math.max(part.radius,.001)}));
+ });
+ const total=pieces.reduce((sum,piece)=>sum+piece.part.area,0);
+ const width=layer.widthCap!=null,sites=[];
+ const largest=pieces.reduce((a,b)=>!a||b.part.area>a.part.area?b:a,null);
+ for(const piece of pieces){
+  if(!piece.straight||piece.part.area<total*.04&&piece!==largest)continue;
+  const {part,regionIndex,componentIndex}=piece,{axis,center,length}=part.frame;
+  const name='cover'+regionIndex+'-'+componentIndex;
+  if(layer.cover!=='surface'){
+   sites.push({key:name,point:center.toArray(),region:regionIndex,ground:false,area:part.area,
+    birth:{width:Math.max(.05,part.radius*(layer.birthAcross??.7)),length:length*.45,rotation:new Quaternion().setFromUnitVectors(y,axis).toArray()},
+    ...(width?{componentWidth:part.radius}:{})});
+   continue;
+  }
+  // Lines just outside each face, launching away from it. A round piece is covered from four sides.
+  const section=crossSection([...new Set(part.triangles.flatMap(triangle=>triangle.points))],center,axis);
+  const flat=section.thin<section.wide*.5,lines=section.sides.slice(0,flat?2:4);
+  const sprite=Math.min(surfaceFitInputs(layer,piece.region.frame).footprint,width?section.wide*layer.widthCap:Infinity);
+  const clearance=Math.max(.1,Math.min(sprite*.35,section.wide*.5));
+  for(const [i,{direction,reach}] of lines.entries()){
+   const across=i<2?section.wide:section.thin;
+   const rotation=new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(axis.clone().cross(direction).normalize(),axis,direction)).toArray();
+   sites.push({key:name+'-'+i,point:center.clone().addScaledVector(direction,reach+clearance).toArray(),region:regionIndex,ground:false,area:part.area/lines.length,
+    birth:{width:Math.max(.05,across*(layer.birthAcross??(flat?.85:.5))),length:length*.45,rotation},
+    ...(width?{componentWidth:section.wide}:{})});
+  }
+ }
+ // Every other piece shares a fixed number of patches by area, largest pieces first.
+ const curved=pieces.filter(piece=>!piece.straight).sort((a,b)=>b.part.area-a.part.area);
+ const curvedArea=curved.reduce((sum,piece)=>sum+piece.part.area,0);
+ if(curvedArea>0){
+  const exact=curved.map(piece=>PATCH_SITES*piece.part.area/curvedArea),counts=exact.map(Math.floor);
+  const order=exact.map((_,i)=>i).sort((a,b)=>exact[b]-counts[b]-(exact[a]-counts[a])||a-b);
+  for(let k=0,left=PATCH_SITES-counts.reduce((a,b)=>a+b,0);k<left&&k<order.length;k++)counts[order[k]]++;
+  for(const [index,piece] of curved.entries()){
+   const count=counts[index];if(!count)continue;
+   const {part,shape,regionIndex,componentIndex}=piece;
+   const bounds=new Box3().setFromPoints(part.triangles.flatMap(triangle=>triangle.points));
+   const local={...shape,components:[part],area:part.area,centre:part.centre,bounds,span:bounds.getSize(new Vector3())};
+   const samples=suggestEmitterSites(local,{siteCount:count,footprint:1,liveParticles:4*count},frame.unitHeight);
+   for(const [i,sample] of samples.entries()){
+    const nearest=samples.reduce((least,other)=>other===sample?least:Math.min(least,Math.hypot(sample.point[0]-other.point[0],sample.point[1]-other.point[1],sample.point[2]-other.point[2])),Infinity);
+    const reach=Math.max(.05,Number.isFinite(nearest)?nearest*.55:Math.min(local.span.length()*.3,Math.sqrt(part.area)*.35));
+    const rotation=new Quaternion().setFromUnitVectors(z,new Vector3(...sample.normal).normalize()).toArray();
+    sites.push({key:'cover'+regionIndex+'-'+componentIndex+'-p'+i,point:sample.point,region:regionIndex,ground:false,area:part.area/samples.length,
+     birth:{width:reach,length:reach,rotation,patch:true},normal:sample.normal,
+     ...(width?{componentWidth:sample.componentWidth}:{})});
+   }
+  }
+ }
+ let result=null;
+ if(sites.length){
+  // Each site's share of the layer's rate follows the area it covers.
+  const mean=sites.reduce((sum,site)=>sum+site.area,0)/sites.length;
+  result=sites.map(({area,...site})=>({...site,birth:{...site.birth,share:mean>0?area/mean:1}}));
+ }else result=birthRegionSites(c,layer);
+ cache.set(key,result);
  return result;
 }
 function tipEmitterSites(c){
@@ -410,21 +522,21 @@ function attachEmitterSites(c,samples,fireFit,geometry=false){
 function completeEmitterSiteLayout(c,layer){
  let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
- if(layer.gather==='tip'&&layout.some(site=>!site.point)){
-  const tips=tipEmitterSites(c)||[];
+ if(layer.gather&&layout.some(site=>!site.point)){
+  const tips=(layer.gather==='head'?headEmitterSites(c):tipEmitterSites(c))||[];
   layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
  }
  const missing=layout.filter(site=>!site.point);
  if(!missing.length)return layout;
  if(layer.birthRegion){
-  const regions=birthRegionSites(c,layer);
+  const regions=layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
   if(regions?.length){
    let ordinal=0;
    return layout.map(slot=>{
     if(slot.point)return slot;
     const index=ordinal++,base=regions[index%regions.length],copies=Math.ceil((missing.length-index%regions.length)/regions.length),copy=Math.floor(index/regions.length);
     const birth={...base.birth},point=new Vector3(...base.point);
-    if(birth.rotation&&copies>1){
+    if(birth.rotation&&!birth.patch&&copies>1){
      const axis=y.clone().applyQuaternion(new Quaternion(...birth.rotation));
      point.addScaledVector(axis,birth.length*2*((copy+.5)/copies-.5));birth.length/=copies;
     }
@@ -512,7 +624,7 @@ function recipeNativeValue(layer,key,value){
 }
 function birthRegionRateScale(layer,planned,active,weights){
  if(!layer.birthRegionFit||layer.nativeSpec.burst)return 1;
- const points=planned.filter(slot=>slot.birth&&!slot.birth.rotation&&(active?active.has(slot.key):!layer.individuals?.[slot.key]?.deleted));
+ const points=planned.filter(slot=>slot.birth&&(!slot.birth.rotation||slot.birth.patch)&&(active?active.has(slot.key):!layer.individuals?.[slot.key]?.deleted));
  if(!points.length)return 1;
  const rate=(layer.nativeSpec.rate??8)*layer.amount/24*(layer.siteRateScale??1);
  const count=active?.size??planned.length;
@@ -563,6 +675,7 @@ function nativeParticles(c,layer){
   const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*share*floor,tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
   if(slot.birth){source.Width=slot.birth.width;source.Length=slot.birth.length;if(slot.birth.rotation)source.Rotation=emitterRotationTrack(m,slot.birth.rotation);}
+  if(slot.birth?.share&&typeof source.EmissionRate==='number')source.EmissionRate*=slot.birth.share;
   if(weights&&typeof source.EmissionRate==='number')source.EmissionRate*=weights[i];
   else if(l.airyFit)source.EmissionRate*=1+.06*(i%5-2);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});

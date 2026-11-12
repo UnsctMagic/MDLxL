@@ -49,7 +49,7 @@ const stormSteel=()=>glow('Storm steel',texture('Ice3b'),{base:true,filter:2,str
 const enchanted=()=>glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,strength:.91,pulse:'steel',steel:true});
 const VENOM=[.5,.82,.22];
 const poisonFilm=(extra={})=>skin('Poison surface','TerrainArt\\Felwood\\Felwood_Poison.blp',{nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1],...extra});
-const bubbles=(rate,sites)=>spray('Bubbles',texture('Bubble'),[.45,.9,.25],{life:.45,rate,area:.06,velocity:.1,spread:60,size:[.012,.035,.045],alpha:[0,200,0]},{starts:true,siteCount:sites,scatter:.4,widthCap:.35,loop:1933,native:{Time:.6,Variation:.4,Flags:C,SegmentColor:[[.7,1,.4],[.45,.9,.25],[.3,.72,.33]]}});
+const bubbles=rate=>spray('Bubbles',texture('Bubble'),[.45,.9,.25],{life:.45,rate,velocity:.1,spread:60,size:[.012,.035,.045],alpha:[0,200,0]},{starts:true,cover:'surface',widthCap:.35,loop:1933,native:{Time:.6,Variation:.4,Flags:C,SegmentColor:[[.7,1,.4],[.45,.9,.25],[.3,.72,.33]]}});
 const thorn=SORT_LOOKS.find(l=>l.id==='sort-thorn');
 export const GLOBAL_LOOKS=[
  vary(make('flaming-sword','Flaming sword','Blades',1760,'copper',[]),[
@@ -82,23 +82,30 @@ export const GLOBAL_LOOKS=[
   ]},
   {id:'fireball',name:'Fireball',legacyLayers:[legacyParticle('Fireball',texture('Clouds8x8')),legacyParticle('Fireball glow',texture('Red_Glow3')),legacyParticle('Fireball sparks',texture('LavaLump'))],layers:[
    skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
+   // The Moarg Overlord mace fire: five emitters on one spot. Sizes are capped in head widths (widthCap),
+   // so the ball surrounds a blade's outer part, a mace or axe head, or the top of a body.
+   // Core 1.5, glow 2.6, embers .16 and sparks 1 keep the reference's 40 : 70 : 4 : 40 proportions.
    spray('Fire core',CLOUDS,[1,.55,.15],
-    {atlas:8,life:.5,rate:40,velocity:.4,spread:8,size:[.26,.2,.12],alpha:[220,150,80]},
-    {starts:true,gather:'tip',aim:'tip',widthCap:1.2,
-     native:{Time:.5,Variation:.2,Flags:U,SegmentColor:[[1,.25,.05],[1,.55,.12],[1,.9,.55]]}}),
+    {atlas:8,life:.5,rate:50,velocity:.28,gravity:-.6,spread:8,size:[.8,.6,.4],alpha:[230,150,90]},
+    {starts:true,gather:'head',aim:'outward',widthCap:1.5,
+     native:{Time:.5,Variation:.25,Flags:U,SegmentColor:[[1,.25,.05],[1,.55,.12],[1,.9,.55]]}}),
    spray('Core glow',texture('Red_Glow3'),[1,.4,.12],
-    {life:.5,rate:7,velocity:.08,spread:2,size:[.36,.3,.22],alpha:[90,70,30]},
-    {starts:true,gather:'tip',aim:'tip',widthCap:1.7,
+    {life:.5,rate:8,velocity:.06,spread:2,size:[1.4,1,.8],alpha:[130,100,45]},
+    {starts:true,gather:'head',aim:'outward',widthCap:2.6,
      native:{Time:.5,Flags:C,SegmentColor:[[1,.3,.08],[1,.5,.12],[1,.8,.4]]}}),
    spray('Spat embers',texture('LavaLump'),[1,.62,.25],
-    {life:4,rate:3,velocity:.18,gravity:-.03,spread:90,size:[.04,.03,.02],alpha:[255,200,100]},
-    {starts:true,gather:'tip',loop:3133,
+    {life:4,rate:6,velocity:.3,gravity:-.03,spread:90,size:[.08,.06,.04],alpha:[255,200,100]},
+    {starts:true,gather:'head',aim:'outward',widthCap:.16,loop:3133,
      native:{Time:.5,Variation:.3,Flags:U,SegmentColor:[[1,.6,.15],[1,.85,.3],[1,.95,.6]]}}),
    spray('Falling sparks',texture('Sparkle_Anim'),[1,.7,.2],
-    {atlas:4,life:1.9,rate:5,area:.15,velocity:.19,gravity:.38,spread:20,size:[.3,.15,.01],alpha:[100,150,0]},
-    {starts:true,gather:'tip',aim:'tip',loop:2533,
+    {atlas:4,life:1.9,rate:8,area:.2,velocity:.3,gravity:.6,spread:20,size:[.5,.25,.02],alpha:[100,150,0]},
+    {starts:true,gather:'head',aim:'outward',widthCap:1,loop:2533,
      native:{Time:.5,Variation:.25,Flags:U,LifeSpanUVAnim:[0,0,1],DecayUVAnim:[0,0,1],
              SegmentColor:[[1,.25,.05],[1,.8,.2],[1,.9,.3]]}}),
+   // Modulate shade behind the ball keeps it orange on light ground, as in Enveloping flames.
+   spray('Heat shade',texture('Clouds8x8ModFire'),[1,1,1],
+    {atlas:8,filter:2,life:.9,rate:5,velocity:.1,spread:30,size:[.8,.9,.7],alpha:[150,140,0]},
+    {starts:true,gather:'head',aim:'outward',widthCap:1.7,loop:2267,native:{Time:.5,SegmentColor:[[1,1,1],[1,1,1],[1,1,1]]}}),
   ]},
  ]),
  vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
@@ -119,16 +126,16 @@ export const GLOBAL_LOOKS=[
   {id:'shards',name:'Ice shards',layers:[
    ...ICE_VARIANTS.dark,
    spray('Frost cores',texture('Frost3'),[.55,.82,1],
-    {life:.7,rate:26,velocity:.04,spread:180,size:[.03,.15,.05],alpha:[0,220,0]},
-    {starts:true,siteCount:5,scatter:.25,widthCap:1,
+    {life:.8,rate:44,velocity:.04,spread:180,size:[.04,.2,.06],alpha:[0,220,0]},
+    {starts:true,cover:'surface',widthCap:1.1,
      native:{Time:.4,Variation:.3,Flags:C,SegmentColor:[[1,1,1],[.3,.84,.9],[.1,.35,1]]}}),
    spray('Core glints',texture('Blue_Star2'),[.8,.92,1],
-    {life:.67,rate:9,size:[.04,.17,.03],alpha:[0,255,0]},
-    {starts:true,siteCount:5,scatter:.4,widthCap:1.2,loop:2267,
+    {life:.6,rate:16,size:[.04,.2,.03],alpha:[0,255,0]},
+    {starts:true,cover:'surface',widthCap:1.3,loop:2267,
      native:{Time:.75,Flags:C,SegmentColor:[[1,1,1],[1,1,1],[.7,.85,1]]}}),
    spray('Falling shards',texture('snowflake'),[.82,.95,1],
-    {life:1.5,rate:10,area:.04,velocity:.22,gravity:.7,spread:70,size:[.07,.055,.02],alpha:[255,255,0]},
-    {starts:true,siteCount:5,scatter:.3,loop:2933,
+    {life:1.5,rate:16,velocity:.22,gravity:.7,spread:70,size:[.07,.055,.02],alpha:[255,255,0]},
+    {starts:true,cover:'around',birthAcross:1,widthCap:1,loop:2933,
      native:{Time:.5,Variation:.3,Flags:U,SegmentColor:[[.91,.98,1],[.32,.77,1],[.53,.71,1]]}}),
   ]},
  ]),
@@ -142,16 +149,16 @@ export const GLOBAL_LOOKS=[
    stormSteel(),
    skin('Forked arcs',LIGHTNING4B,{pulse:'soft',strength:.6,axis:'v',band:.32,tint:[.75,.89,1],loop:1033}),
    spray('Arc bursts',texture('LightningBall'),[.62,.72,1],
-    {life:.24,rate:14,velocity:.3,spread:85,size:[.2,.14,.05],alpha:[255,255,0]},
-    {starts:true,siteCount:9,scatter:.45,widthCap:1.4,
+    {life:.24,rate:28,velocity:.3,spread:85,size:[.2,.14,.05],alpha:[255,255,0]},
+    {starts:true,cover:'surface',widthCap:1.4,
      native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.36,.6,.9],[.37,.09,.95]]}}),
    spray('Jumping sparks',texture('Zap1'),[.6,.75,1],
-    {life:.3,rate:12,velocity:1.3,spread:86,tail:.3,size:[.01,.16,.02],alpha:[0,255,0]},
-    {starts:true,siteCount:9,scatter:.45,aim:'outward',loop:1533,
+    {life:.3,rate:22,velocity:1.3,spread:86,tail:.3,size:[.01,.16,.02],alpha:[0,255,0]},
+    {starts:true,cover:'surface',loop:1533,
      native:{Time:.4,Variation:.4,Flags:U,SegmentColor:[[1,1,1],[.45,.56,.9],[.52,0,1]]}}),
    spray('Charge glow',texture('Blue_Glow2'),[.45,.7,1],
-    {life:.9,rate:8,size:[.14,.18,.12],alpha:[40,70,0]},
-    {starts:true,siteCount:4,widthCap:1.2,loop:2133,native:{Time:.5,Flags:C}}),
+    {life:.9,rate:14,size:[.14,.18,.12],alpha:[40,70,0]},
+    {starts:true,cover:'surface',widthCap:1.2,loop:2133,native:{Time:.5,Flags:C}}),
   ]},
   {id:'tip',name:'Tip discharge',layers:[
    stormSteel(),
@@ -180,8 +187,8 @@ export const GLOBAL_LOOKS=[
    skin('Crossing energy',CLOUDSTILE,{strength:.55,pulse:'beat',tint:[.4,.6,1],tint2:[.75,.5,1],direction:120,speed:2,loop:3733}),
    cardSpec('Arcane star',texture('star5tga'),{spin:1,fit:.8,sizeMin:.85,sizeMax:1.15,loop:1400,tint:[.9,.75,1]}),
    spray('Glow orbs',texture('GenericGlowX'),[.75,.62,1],
-    {life:.8,rate:10,area:.05,velocity:.04,spread:2,size:[.05,.2,.3],alpha:[110,170,60]},
-    {starts:true,siteCount:4,scatter:.3,widthCap:.9,native:{Flags:C}}),
+    {life:.8,rate:14,velocity:.04,spread:2,size:[.05,.2,.3],alpha:[110,170,60]},
+    {starts:true,cover:'surface',widthCap:.9,native:{Flags:C}}),
    glow('Narrow highlight',texture('FX\\Flare\\DiamondNarrow'),{strength:.3,loop:1767,enabled:false}),
   ]},
   {id:'shimmer',name:'Shimmering energy',layers:[
@@ -219,7 +226,7 @@ export const GLOBAL_LOOKS=[
   {id:'venom',name:'Dripping venom',layers:[
    poisonFilm({strength:.7}),                                      // overlay: no base
    dust('Venom drips','drops',texture('WaterBlobs1'),{tint:VENOM,starts:true,...DRIP}),
-   bubbles(20,8),
+   bubbles(30),
   ]},
   {id:'fumes',name:'Toxic fumes',layers:[
    poisonFilm({strength:.7}),
@@ -230,7 +237,7 @@ export const GLOBAL_LOOKS=[
    spray('Fume glow',texture('CloudSingle'),[.55,.9,.15],
     {life:1.1,rate:10,velocity:.08,gravity:-.1,spread:180,size:[.12,.2,.26],alpha:[0,60,0]},
     {starts:true,birthRegion:true,loop:2633,native:{Time:.4,Variation:.3,Flags:U}}),
-   bubbles(10,5),
+   bubbles(16),
   ]},
  ]),
  make('crystal-veins','Crystal veins','Terrain',3600,'glacier',[skin('Crystal veins',existing('glacial').texture,{atlasRect:existing('glacial').atlas,strength:.88,pulse:'soft',bodyUV:true}),shine({loop:2267})]),
@@ -252,16 +259,16 @@ const nativeSurfaceVariations={
   {id:'spitting',name:'Spitting lava',layers:[
    molten(),
    spray('Molten beads',texture('LavaLump'),[1,.5,.12],
-    {life:1.6,rate:16,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
-    {starts:true,siteCount:8,scatter:.3,widthCap:.8,
+    {life:1.6,rate:30,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
+    {starts:true,cover:'surface',widthCap:.8,
      native:{Time:.5,Flags:C,SegmentColor:[[1,.85,.4],[1,.5,.12],[.7,.1,.02]]}}),
    spray('Lava spit',texture('LavaLump2'),[1,.8,.4],
-    {life:.9,rate:9,velocity:.75,gravity:2.4,spread:32,tail:.12,size:[.085,.065,.02],alpha:[255,255,0]},
-    {starts:true,siteCount:4,scatter:.4,aim:'outward',loop:2267,
+    {life:.9,rate:12,velocity:.75,gravity:2.4,spread:32,tail:.12,size:[.085,.065,.02],alpha:[255,255,0]},
+    {starts:true,cover:'surface',loop:2267,
      native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,1,.85],[1,.75,.3],[1,.3,.05]]}}),
    spray('Lava drips',texture('LavaLump'),[1,.55,.15],
-    {life:1.3,rate:6,velocity:.02,gravity:1.5,spread:180,tail:.1,size:[.06,.05,.03],alpha:[255,230,60]},
-    {starts:true,siteCount:5,scatter:.4,loop:2933,
+    {life:1.3,rate:9,velocity:.02,gravity:1.5,spread:180,tail:.1,size:[.06,.05,.03],alpha:[255,230,60]},
+    {starts:true,cover:'around',birthAcross:1,loop:2933,
      native:{Time:.5,Flags:U,SegmentColor:[[1,.8,.35],[1,.45,.1],[.6,.08,.01]]}}),
   ]},
   {id:'smoulder',name:'Smouldering',layers:[
@@ -322,12 +329,12 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
   {id:'spray',name:'Sea spray',layers:[
    ...tidal.layers.slice(0,2),
    spray('Splashes',texture('WaterBlobs1'),sea,
-    {filter:0,life:.55,rate:42,velocity:.9,gravity:2.6,spread:34,size:[.2,.14,.03],alpha:[215,255,0]},
-    {starts:true,siteCount:6,scatter:.35,aim:'outward',widthCap:1.2,
+    {filter:0,life:.55,rate:56,velocity:.9,gravity:2.6,spread:34,size:[.2,.14,.03],alpha:[215,255,0]},
+    {starts:true,cover:'surface',widthCap:1.2,
      native:{Time:.5,Variation:.35,Flags:U,SegmentColor:[[.26,.76,1],[.71,.88,1],[1,1,1]]}}),
    spray('Spray mist',texture('White_64_Foam1'),[.85,.95,1],
-    {filter:0,life:.8,rate:18,velocity:.5,gravity:1.2,spread:60,size:[.07,.11,.13],alpha:[230,200,0]},
-    {starts:true,siteCount:6,scatter:.35,aim:'outward',loop:2133,
+    {filter:0,life:.8,rate:26,velocity:.5,gravity:1.2,spread:60,size:[.07,.11,.13],alpha:[230,200,0]},
+    {starts:true,cover:'surface',loop:2133,
      native:{Time:.5,Variation:.3,Flags:U,SegmentColor:[[.55,.68,.97],[.85,.89,.99],[1,1,1]]}}),
    {...drip,amount:8},
   ]},
@@ -639,10 +646,14 @@ export function makeLayer(spec,frame,palette,id) {
  }
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
  // Raised native weather/cloud recipes have an authored launch height.
- if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt)
+ if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt){
   layer.surfaceFit={...surfaceFitInputs(layer,basis),...(spec.siteCount!=null?{siteCount:spec.siteCount}:{})};
+  // A fresh emitter never starts as separate dots: sites that cannot reach each other cover the part instead.
+  if(spec.kind==='native')layer.coverFit=1;
+ }
  if(spec.fireFit===1)layer.fireFit={version:1};
- if(spec.birthRegion){delete layer.surfaceFit;layer.surfaceSites=false;layer.birthRegionFit=true;}
+ // cover: births over the whole part. 'around' fills the space about it, 'surface' sits on its faces.
+ if(spec.birthRegion||spec.cover){delete layer.surfaceFit;delete layer.coverFit;layer.surfaceSites=false;layer.birthRegionFit=true;layer.birthRegion=true;layer.cover=spec.cover||'around';}
  if(spec.airyFit)layer.airyFit={...spec.airyFit};
  return layer;
 }
