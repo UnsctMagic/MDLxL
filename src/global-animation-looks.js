@@ -18,7 +18,8 @@ const glow=(label,image,extra={})=>({type:'Glow',label,image,...extra});
 const dust=(label,kind,image,extra={})=>({type:'Particles',label,kind,image,...extra});
 const frost=()=>dust('Falling mist','mist','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint:[.96,.98,1]});
 // The library's emitters keep the values they had; new looks bring their own.
-const fire=(label,extra={})=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,...extra});
+// Flames carry their own fire colour, so they read as fire on any look (emitter audit, 12 November).
+const fire=(label,extra={})=>dust(label,'flame','ReplaceableTextures\\Weather\\Clouds8x8.blp',{atlas:8,tint:[1,.463,.173],...extra});
 const embers=()=>dust('Rising embers','embers',texture('Star4'));
 const shine=(extra={})=>glow('Crystal glints',texture('FX\\Flare\\FlareNarrow'),{pulse:'glint',strength:.56,...extra});
 const pulse=()=>glow('Glowing texture',null,{strength:.56,pulse:'breathe'});
@@ -163,6 +164,8 @@ export const LAYER_CHOICES=[
 for(const look of GLOBAL_LOOKS){
  for(const spec of look.variations?look.variations.flatMap(v=>v.layers):look.layers){
   const choice={...spec};delete choice.enabled;delete choice.starts;
+  // An emitter that differs from one already offered only by its name is offered once.
+  if(choice.type==='Particles'&&LAYER_CHOICES.some(other=>{if(other.type!=='Particles')return false;const {menuLabel:_m,label:_a,...a}=other,{label:_b,...b}=choice;return JSON.stringify(a)===JSON.stringify(b);}))continue;
   const matches=LAYER_CHOICES.filter(other=>other.label===choice.label);
   if(matches.some(other=>other.type===choice.type&&other.image===choice.image&&other.kind===choice.kind&&other.stamp===choice.stamp&&other.nativeSurface?.id===choice.nativeSurface?.id))continue;
   const generic=/^(Surface|Particles|Ground piece) \d+$/.test(choice.label);
