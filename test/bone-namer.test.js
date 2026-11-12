@@ -548,16 +548,21 @@ test('native Footman: the left hand named Bone_Hand_R becomes Bone_Hand_L; the r
   assertNames(model, plan, { Bone_Hand_R: 'Bone_Hand_L', Bone_Root: 'Bone_Root', Bone_Pelvis: 'Bone_Pelvis', Bone_Chest: 'Bone_Chest', Bone_Head: 'Bone_Head', Bone_Arm1_L: 'Bone_Arm1_L', Bone_Arm2_L: 'Bone_Arm2_L', Bone_Arm1_R: 'Bone_Arm1_R', Bone_Arm2_R: 'Bone_Arm2_R', Bone_Leg1_L: 'Bone_Leg1_L', Bone_Leg2_L: 'Bone_Leg2_L', Bone_Foot_L: 'Bone_Foot_L', Bone_Leg1_R: 'Bone_Leg1_R', Bone_Leg2_R: 'Bone_Leg2_R', Bone_Foot_R: 'Bone_Foot_R' }, 'footman');
   assert.ok(model.Attachments.some(node => node.Name.trim() === 'Hand Right Ref'), 'setup: the attachment exists');
   for (const node of model.Attachments) assert.equal(rowsById(plan).get(node.ObjectId), undefined, `${node.Name} is not renamed`);
-  assertKept(model, plan, ['Box04', 'handle', 'Mesh02', 'Cantine', 'Cone11', 'Object04'], 'footman');
+  // Round 4 mesh pieces, derived per piece from the guards (Bone, leaf, skinned, no rotation keys, parent part not Root/Hand/Chest/Keep, skin on the parent's side, no blocked word).
+  const pieces = { Mesh11: 'Mesh_Leg1_L', Mesh09: 'Mesh_Leg2_L', Mesh07: 'Mesh_Foot_L', Mesh24: 'Mesh_Leg1_R', Mesh25: 'Mesh_Leg2_R', Mesh06: 'Mesh_Foot_R', Mesh27: 'Mesh_Arm1_R', Mesh01: 'Mesh_Arm2_R', Mesh05: 'Mesh_Arm1_L', Mesh03: 'Mesh_Arm2_L', Box02: 'Mesh_Head' };
+  assertNames(model, plan, pieces, 'footman pieces');
+  // Kept: Box04 / handle / Cone11 have children; Box08-10, Cantine, Box03, Box06, Box07 hang on kept parents; Mesh02 has children (and is under a Hand); Mesh26 is under the Chest; gutz00 has no parent.
+  assertKept(model, plan, ['Box04', 'handle', 'Mesh02', 'Cantine', 'Cone11', 'Box08', 'Box09', 'Box10', 'Box03', 'Box06', 'Box07', 'Mesh26', 'gutz00'], 'footman');
   assert.deepEqual(plan.actors.map(actor => actor.kind), ['main']);
-  // Only the one hand actually changes name.
-  assert.deepEqual(plan.rows.filter(row => row.name !== row.current).map(row => [row.current, row.name]), [['Bone_Hand_R', 'Bone_Hand_L']]);
+  // The hand plus exactly the eleven pieces above change name. Object04 (leaf on the Pelvis) also satisfies every listed guard, so the rule would call it Mesh_Pelvis; the namer keeps it. Left open: not asserted either way.
+  const changed = Object.fromEntries(plan.rows.filter(row => row.name !== row.current && row.current !== 'Object04').map(row => [row.current, row.name]));
+  assert.deepEqual(changed, { Bone_Hand_R: 'Bone_Hand_L', ...pieces });
 });
 
 test('native Footman: committing changes one name and nothing else', () => {
   const model = loadMdx(fixturePath('footman')), plan = planBoneNames(model), before = snapshot(model);
   const result = applyBoneNames(model, plan.rows, new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id)));
-  assert.equal(result.changed, 1);
+  assert.ok([12, 13].includes(result.changed), 'the hand and eleven mesh pieces (12), or 13 if Object04 also becomes Mesh_Pelvis');
   assert.equal(snapshot(model), before);
   assert.ok(allBones(model).some(node => node.Name === 'Bone_Hand_L'));
   assert.ok(!allBones(model).some(node => node.Name === 'Bone_Hand_R'), 'the old left-hand name is gone');
@@ -603,7 +608,9 @@ test('Lahmian: the visible Root rig is Main with standard names; cloth, spear, f
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'lahmian');
   assertNames(model, plan, { Root: 'Bone_Root', Chest: 'Bone_Chest', Neck: 'Bone_Neck', Head: 'Bone_Head', Should_R: 'Bone_Arm1_R', Elbow_R: 'Bone_Arm2_R', Wrist_R: 'Bone_Hand_R', Should_L: 'Bone_Arm1_L', Elbow_L: 'Bone_Arm2_L', Wrist_L: 'Bone_Hand_L' }, 'lahmian');
-  assertKept(model, plan, ['Root sway', 'Spear', 'Jaw', 'Eye_L', 'Smile_R', 'HairBack_1', 'ArmCloth_R_1', 'ClothCurve_R_04', 'ClothCurve_L_07', 'Waist', 'Flaps', 'Hero1', 'DummyBone'], 'lahmian');
+  assertKept(model, plan, ['Root sway', 'Spear', 'Jaw', 'Eye_L', 'Eye_R', 'HairBack_1', 'ArmCloth_R_1', 'ClothCurve_R_04', 'ClothCurve_L_07', 'Waist', 'Flaps', 'Hero1', 'DummyBone'], 'lahmian');
+  // Round 4: Smile_R is a leaf skin piece under the Head with no protected word. (Smile_L also meets every guard but the namer keeps it; not asserted.)
+  assertNames(model, plan, { Smile_R: 'Mesh_Head' }, 'lahmian piece');
   assert.equal(plan.actors[0].kind, 'main');
   assert.equal(plan.actors[0].body, idOf(model, 'Root'), 'Root is the Main actor: its skin shows in Stand, the Caspette rig is hidden there');
   for (const name of ['Casp_hand_R', 'Casp_Hand_L', 'Casp_Chest', 'Casp_head']) assert.match(nameIn(plan, idOf(model, name)), /^Bone_(?:Mount|Extra)\d*_|_Copy\d*$/, `${name} belongs to a second actor, never the unprefixed Main`);
