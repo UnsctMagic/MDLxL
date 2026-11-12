@@ -122,10 +122,11 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | Use the surface defaults from `44f8c6c8`. Storm steel and Blade arcs start enabled. Forked arcs starts off. Use the original replacement material by default. The Particles choice starts empty. The Blade arcs surface has no direct burst-duration, burst-interval or flash-count controls. |
-| Arcane blade | Energy flows along the blade with a pulse. |
-| Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
-| Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
+| Lightning blade | Use the surface defaults from `44f8c6c8`. Storm steel and Forked arcs start enabled; Blade arcs starts off (owner, 11 November). Use the original replacement material by default. The Particles choice starts empty. The Blade arcs surface has no direct burst-duration, burst-interval or flash-count controls. |
+| Arcane | Two energy layers cross on two clocks with a violet/blue colour beat; a spinning star card and a few glow orbs. Narrow highlight is offered, off. |
+| Runes | Show the native glyph in the UV editor. The three icon tools position it. Runes and Glowing runes start with a slow colour beat at constant light; Thorn script keeps its glow with a slow colour beat. |
+| Water | Running water with a soft sheen on a shorter clock, and visible drips: drops form along the part and fall with streak tails. Crossing currents crosses a highlight on a 0.66x clock over the surface. |
+| Rift seam | A dark underlay, the crack moving slowly between two colours, softly crackling zap cards; the splinters keep their values and start off. |
 | Ice skin | One Dark ice / White ice selector, with White ice selected for new stacks. Keep the accepted dark striations. White ice uses native Northrend frost and fractured ice. Falling mist is available in both finishes. |
 | Fissures skin | The accepted Lava fissures surface replaces Lava skin in Skins. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
@@ -134,6 +135,66 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | Motes / Rising embers / Frost mist | Distinct drifting points, rising sparks and falling mist respectively. |
 | Glacial fissures | Cold cracks brighten over a solid ice surface. The part remains visible through the whole pulse. |
 | Buffs & curses | Keep the good looks. Every emitter and ground ingredient is optional; ground starts off. |
+
+## Library quality rules (11-12 November 2026)
+
+The study of hand-made native effects (section 2 of the study kept outside Git) set these
+rules for every look in the library. `test/fx-look-quality.test.js` checks the general ones
+over every look and variation.
+
+- **Own clocks.** Every moving layer runs on its own clock, and the lengths never divide
+  each other (sets such as 1000/1133/1200/1300 ms, or the look's loop x 0.66, 1.133, 1.333).
+  A layer's own Loop length is an explicit field on the look; surfaces, Cards, Edges and
+  native emitters can carry one. No two moving layers of a look share a clock.
+- **Nothing flashes (owner, 12 November: "I hate flashing things").** No preset may strobe:
+  no light that drops to near zero and comes back, no hard on/off alpha, no bursts, no
+  flipbook faster than 100 ms a frame, no card size throb faster than 0.4 s or wider than
+  45 %. Flicker, Flash, Lightning, Double pulse, Pulse and Fade stay only on the layers that
+  carried them before 12 November; Uneven beat is used by no preset. New glows use Soft
+  pulse (alpha .78-1); runes and cracks use Colour beat: a slow change (1.5 s or longer)
+  between two colours of the same brightness (luminance within 0.8-1.25). Lightning-type
+  looks crackle softly: zap cards jitter in angle, never in brightness.
+- **Emitters of existing looks keep their values.** The quality pass does not change a
+  look's emitter (texture, timing, alpha, frames, rate). The one exception is Water's
+  Dripping water, which the owner asked to make visible. New looks bring their own emitters.
+- Steadiness is measured, not judged: `out/fx-review/fx-measure.cjs` samples the preview
+  36 times about 100 ms apart against the Original view; an existing look may not swing
+  more than it did before, and a new look's largest step stays small.
+- **Emissive layers** are Unshaded and Unfogged; glow overlays are lifted about .3 off
+  the skin. One pass per material, two (Add alpha + Add of the same texture) for extra
+  bright; the owner's Glow look keeps its 400 % start.
+- **New flame and ember emitters** (Fire column, Lingering embers) hold alpha 255>255>0 with
+  the middle at half life, a cooling colour ramp and shrinking particles; embers are few,
+  slow and long-lived (alpha 200>150>80). Fire's Blade flames keep their own values.
+- **Ribbons** are Add with a steady alpha (about .5); orbiting ribbons ride three helpers
+  on clocks that never line up. Switching Orbit on gives a loop clear of the part.
+- **Water** runs two frame speeds: the highlight on a clock about 0.66x the surface.
+  Water's drips are large enough to see, fall with gravity and draw a short streak tail.
+- **Sizes follow the part's main piece.** Emitter, card and orbit sizes come from the
+  longest skin region of the selected part (before 12 November the first region, which on a
+  Footman body was a small piece, so its mist was a few units wide).
+- Native game textures only; every folder, look, variation and layer name is translated
+  in all five catalogues. Applying and then removing a look leaves the model exactly as
+  before; every look survives MDX save and reopen as the same editable stack.
+
+New looks from these techniques (`src/fx-technique-looks.js`), filed in the existing
+folders and one new folder, Light:
+
+| Folder | Looks |
+| --- | --- |
+| Fire | Burning cracks (crack shell with a slow ember colour beat, lingering embers), Fire column; Flame cards offered in Fire, Fel fire, Burning cracks and Fire column |
+| Ice | Lit crystal (Inner light / Team colour core) |
+| Water | Liquid body (two frame speeds and glint cards) |
+| Lightning | Lightning cage (jittering zap cards, orbiting arcs) |
+| Arcane | Energy flow (two crossing scrolls), Rune circle (ground rune card over a shadow disc, contracting rune rings) |
+| Light | Glow shell, Star flare, Glow orb, Ground glow (team glow cards sized from the footprint), Eye glow (two small cards to drag onto the eyes) |
+| Death & spirit | Ghost trails, Soul vortex, Dark smoke, Hollow shell |
+| Build your own | Tint (Colour wash / Team colour) |
+
+Look-only spec fields read by `makeLayer` and never saved: Card `fit` (share of the
+part-fitted size; ground cards fit the unit's footprint), emitter `scale` (multipliers of
+the part-fitted size, speed and gravity), and Edge `orbit` (starts as Orbit switched on).
+Saved stacks made before per-layer editing compile byte-identically.
 
 The good terrain looks are the quality bar. Reuse their technique when it produces
 a better skin, including Felwood poison. Do not preserve a weak card merely to
