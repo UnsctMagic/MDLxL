@@ -2,7 +2,9 @@ import test from 'node:test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_NAMES, POSE_SYMBOL_SETS, POSE_SYMBOL_SET_IDS, isPoseMaskSet, poseMaskFile, poseSymbolLayers, poseSymbolSetId } from '../src/pose-symbol-sets.js';
-import { DEFAULT_CONTROLLER_APPEARANCE, controllerAppearanceForTheme, normalizeControllerAppearance } from '../src/controller-appearance.js';
+import { CONTROLLER_SHAPES, DEFAULT_CONTROLLER_APPEARANCE, controllerAppearanceForTheme, controllerShapePoints, normalizeControllerAppearance } from '../src/controller-appearance.js';
+import themeData from '../src/application-themes.json' with { type: 'json' };
+const themeIds = () => themeData;
 import { normalizePreferences } from '../src/preferences.js';
 import { BUILT_IN_VIEWPORT_PRESETS } from '../src/viewport-appearance.js';
 import { poseSymbolName } from '../app/pose-overlay.js';
@@ -128,4 +130,15 @@ test('Symbol Color is its own appearance colour next to the Ring Color', () => {
   const again = normalizePreferences(JSON.parse(JSON.stringify(normalizePreferences({ viewportAppearance: { controllers: saved } })))).viewportAppearance.controllers;
   assert.equal(again.symbolColor, '#778899');
   assert.equal(normalizePreferences({}).viewportAppearance.controllers.symbolColor, DEFAULT_CONTROLLER_APPEARANCE.symbolColor);
+});
+
+test('triangle handles are gone: not offered, saved triangles become diamonds', () => {
+  assert.ok(!CONTROLLER_SHAPES.includes('triangle'));
+  assert.equal(controllerShapePoints('triangle', 10), null);
+  for (const id of Object.keys(themeIds())) {
+    const look = controllerAppearanceForTheme(id);
+    for (const key of ['shape', 'bodyShape', 'bendShape']) assert.ok(CONTROLLER_SHAPES.includes(look[key]), `${id} ${key}`);
+  }
+  const saved = normalizeControllerAppearance({ shape: 'triangle', bodyShape: 'triangle', bendShape: 'triangle' }, controllerAppearanceForTheme('nord'));
+  assert.deepEqual([saved.shape, saved.bodyShape, saved.bendShape], ['diamond', 'diamond', 'diamond']);
 });
