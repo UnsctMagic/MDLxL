@@ -1,5 +1,6 @@
 import { modifierHeld } from '../src/modifier-bindings.js';
 import { unanimatedTrackValue } from '../src/animation.js';
+import { uvRestTextureID } from '../src/uv-tools.js';
 import { TEXTURE_SLOTS } from '../src/mdx-compatibility.js';
 
 /** Prepare the UV renderer's private model for a bind-pose view. */
@@ -11,7 +12,7 @@ export function applyUVRestAppearance(model) {
   }
   for (const material of model.Materials || []) for (const layer of material.Layers || []) {
     for (const slot of TEXTURE_SLOTS) {
-      if (layer[slot]?.Keys) layer[slot] = unanimatedTrackValue(layer, slot, 0);
+      if (layer[slot]?.Keys) layer[slot] = uvRestTextureID(layer, slot);
     }
     layer.TVertexAnimId = null;
   }

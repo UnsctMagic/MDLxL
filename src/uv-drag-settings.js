@@ -5,6 +5,9 @@ export const DEFAULT_UV_DRAG = Object.freeze({
   zoomStyle: 'centre', zoomSpeed: 100, zoomSnap: 0
 });
 
+const RIGHT_UP_UV_DRAG = Object.freeze({ ...DEFAULT_UV_DRAG, zoomStyle: 'rightUp' });
+export const defaultUVDrag = preferences => preferences?.uvRightUpDefault ? RIGHT_UP_UV_DRAG : DEFAULT_UV_DRAG;
+
 const UV_ROTATE_STYLES = Object.freeze(['circle', 'leftRight', 'both']);
 const UV_ZOOM_STYLES = Object.freeze(['centre', 'rightUp', 'leftRight', 'upDown']);
 export const UV_ROTATE_SNAPS = Object.freeze([0, 1, 5, 15, 45, 90]);
@@ -49,8 +52,9 @@ export function normalizeUVDrag(value) {
 }
 
 /** The built-in all nine current settings match, or 'custom'. */
-export function uvDragPreset(value) {
+export function uvDragPreset(value, preferences) {
   const settings = normalizeUVDrag(value);
-  const match = Object.entries(UV_DRAG_PRESETS).find(([, preset]) => Object.entries(preset).every(([key, entry]) => settings[key] === entry));
+  const match = Object.entries(UV_DRAG_PRESETS).find(([id, preset]) =>
+    Object.entries(id === 'mdlxl' ? defaultUVDrag(preferences) : preset).every(([key, entry]) => settings[key] === entry));
   return match ? match[0] : 'custom';
 }

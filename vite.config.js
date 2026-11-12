@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import { build as bundleNode } from 'esbuild';
-import { mkdtemp, readFile, rm, rmdir } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, rmdir } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
-import { tmpdir } from 'node:os';
+
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -20,10 +20,18 @@ export default defineConfig({ base: './', esbuild:{jsxFactory:'localizedCreateEl
   name: 'windows-capture-regions',
   async generateBundle() {
     if (process.platform !== 'win32') return;
-    const temp = await mkdtemp(path.join(tmpdir(), 'mdlxl-capture-regions-'));
+    const csc = path.join(process.env.WINDIR, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
+    try { await access(csc); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      this.warn('Capture regions helper skipped because csc.exe was not found.');
+      return;
+    }
+    const out = path.resolve('out');
+    await mkdir(out, { recursive: true });
+    const temp = await mkdtemp(path.join(out, 'capture-regions-'));
     const output = path.join(temp, 'capture-regions.exe');
     try {
-      const csc = path.join(process.env.WINDIR, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
       await promisify(execFile)(csc, [
         '/nologo', '/optimize+', '/target:winexe', '/platform:x64',
         '/reference:System.Windows.Forms.dll', `/win32manifest:${path.resolve('electron/capture-regions.manifest')}`,

@@ -8,10 +8,11 @@ import { bevelForgeShape } from '../src/forge-molding.js';
 import { transformForgeSelection } from '../src/forge-shape-editing.js';
 import { forgeTangents } from '../src/geoset-tangents.js';
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 const streams = g => [[g.Vertices,3],[g.Normals,3],...g.TVertices.map(uv=>[uv,2]),...(g.VertexGroup?.length?[[g.VertexGroup,1]]:[]),...(g.SkinWeights?.length?[[g.SkinWeights,8]]:[]),...(g.Tangents?.length?[[g.Tangents,4]]:[])];
 const bytes = (stream,index,width) => Buffer.from(stream.buffer,stream.byteOffset+index*width*stream.BYTES_PER_ELEMENT,width*stream.BYTES_PER_ELEMENT);
 
-for (const name of ['citadel-footman','forge-hd-footman']) test(`small ${name} edit preserves every untouched vertex index and stream byte`,()=>{
+for (const name of ['citadel-footman','forge-hd-footman']) test(`small ${name} edit preserves every untouched vertex index and stream byte`,{skip:missing(name)},()=>{
   const model=openDocument(fs.readFileSync(fixturePath(name)),'Footman.mdx').model;
   const gi=model.Geosets.reduce((best,g,i)=>g.Vertices.length>model.Geosets[best].Vertices.length?i:best,0),g=model.Geosets[gi];
   if(name==='forge-hd-footman')assert.ok(g.SkinWeights.length&&g.Tangents.length,'genuine HD fixture');
@@ -27,13 +28,13 @@ for (const name of ['citadel-footman','forge-hd-footman']) test(`small ${name} e
   assert.equal(result.Vertices.length/3,count+appended.size,'only referenced new vertices increase the count');
 });
 
-test('HD tangent updates match the full owner calculation for changed indices',()=>{
+test('HD tangent updates match the full owner calculation for changed indices',{skip:missing('forge-hd-footman')},()=>{
   const g=openDocument(fs.readFileSync(fixturePath('forge-hd-footman')),'Footman.mdx').model.Geosets[0],ids=new Set([0,1,3,500,6900]);
   const full=forgeTangents(g),part=forgeTangents(g,ids);
   for(const i of ids)assert.deepEqual(part.slice(i*4,i*4+4),full.slice(i*4,i*4+4));
 });
 
-test('face picking reuses unaffected geosets and detects in-place edits',()=>{
+test('face picking reuses unaffected geosets and detects in-place edits',{skip:missing('citadel-footman')},()=>{
   const model=openDocument(fs.readFileSync(fixturePath('citadel-footman')),'Footman.mdx').model,cache=new Map(),selectable=new Set([0,1]);
   const first=vertexForgePickEntries(model,selectable,cache),again=vertexForgePickEntries(model,selectable,cache);
   assert.equal(first[0],again[0]);assert.equal(first[1],again[1]);
@@ -42,7 +43,7 @@ test('face picking reuses unaffected geosets and detects in-place edits',()=>{
   assert.notEqual(edited[0],first[0]);assert.equal(edited[1],first[1]);
 });
 
-test('a local move updates existing slots and retains authored duplicates and free vertices',()=>{
+test('a local move updates existing slots and retains authored duplicates and free vertices',{skip:missing('citadel-footman')},()=>{
   const model=openDocument(fs.readFileSync(fixturePath('citadel-footman')),'Footman.mdx').model,g=model.Geosets[0],count=g.Vertices.length/3;
   // Append two exact authored copies; one referenced, one free.
   for(const [stream,width] of streams(g)){

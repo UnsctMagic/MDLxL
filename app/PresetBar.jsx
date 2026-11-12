@@ -13,14 +13,18 @@ const SELECT_TIP = 'Picks a set of the settings on this page. Changing any of th
 const hotkey = (domain, part) => ({ 'data-hotkey': `preset:${domain}:${part}`, 'data-hotkey-manual': '' });
 
 /** Picks a preset as the bar's select does, so Custom left behind can be picked again. `say` receives the status line. */
-export function pickPreset(domain, preferences, id, commit, say) {
+export function pickPreset(domain, preferences, id, commit, say, requestConfirmation) {
+  if (requestConfirmation && presetRestoreQuestion(domain) && listPresets(domain, preferences).some(preset => preset.id === id && preset.builtIn)) {
+    requestConfirmation(id);
+    return;
+  }
   const change = applyPreset(domain, preferences, id);
   if (activePreset(domain, preferences, lastChosen.get(domain)) === CUSTOM_PRESET) unsavedCustom.set(domain, captureCustom(domain, preferences));
   lastChosen.set(domain, change.presetId); commit(change); say(change.status);
 }
 
 async function writePresetFile(name, text) {
-  if (globalThis.desktop?.presetSaveFile) return !!await globalThis.desktop.presetSaveFile({ name, text });
+  if (globalThis.desktop?.savePresetFile) return !!await globalThis.desktop.savePresetFile({ name, text });
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), link = document.createElement('a');
   link.href = url; link.download = `${name.replace(/[<>:"/\\|?*]/g, '_')}.${PRESET_EXTENSION}`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -48,7 +52,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   const root = useRef(null), fileInput = useRef(null);
   const [naming, setNaming] = useState(false), [confirming, setConfirming] = useState(false), [name, setName] = useState(''), [status, setStatus] = useState('');
   const presets = listPresets(domain, preferences), builtIns = presets.filter(preset => preset.builtIn), saved = presets.filter(preset => !preset.builtIn);
-  const active = activePreset(domain, preferences, lastChosen.get(domain)), desktopFiles = !!globalThis.desktop?.presetOpenFile;
+  const active = activePreset(domain, preferences, lastChosen.get(domain)), desktopFiles = !!globalThis.desktop?.openPresetFile;
   const left = active === CUSTOM_PRESET ? undefined : unsavedCustom.get(domain);
   const showUnsaved = left !== undefined && activePreset(domain, { ...preferences, ...restoreCustom(domain, preferences, left) }) === CUSTOM_PRESET;
   const question = presetRestoreQuestion(domain), label = presetDomainLabel(domain);
@@ -61,8 +65,9 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   const use = change => { if (change.presetId) lastChosen.set(domain, change.presetId); else lastChosen.delete(domain); commit(change); say(change.status); };
 
   const choose = id => attempt(() => {
+    if (confirming) setConfirming(false);
     if (id === UNSAVED_OPTION) { use(restoreCustom(domain, preferences, unsavedCustom.get(domain))); return; }
-    pickPreset(domain, preferences, id, commit, say);
+    pickPreset(domain, preferences, id, commit, say, requested => { setNaming(false); setConfirming(requested); });
   });
   const save = () => attempt(() => { use(savePreset(domain, preferences, name)); closeRows(); });
   const saveFile = async () => {
@@ -76,7 +81,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
   });
   const load = async () => {
     if (!desktopFiles) { fileInput.current?.click(); return; }
-    try { const file = await globalThis.desktop.presetOpenFile(); if (file) loadText(file.text); }
+    try { const file = await globalThis.desktop.openPresetFile(); if (file) loadText(file.text); }
     catch (error) { say(error.message); }
   };
   const loadPicked = async event => {
@@ -89,6 +94,10 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
     } catch (error) { say(error.message); }
   };
   const restore = () => attempt(() => { const change = restoreDomain(domain, preferences); keepCustom(); use(change); closeRows(); });
+  const confirm = () => {
+    if (typeof confirming !== 'string') { restore(); return; }
+    attempt(() => { pickPreset(domain, preferences, confirming, commit, say); closeRows(); });
+  };
   const remove = () => attempt(() => use(deletePreset(domain, preferences, active)));
 
   useWindowKeyClaim(({ event, localWindow }) => {
@@ -114,7 +123,7 @@ export default function PresetBar({ domain, preferences, commit, catalog = NO_AC
     </div>
     {!desktopFiles && <input ref={fileInput} className="preset-bar-file" type="file" accept=".mdlxl-preset,.json" aria-label="Preset file" onChange={loadPicked}/>}
     {naming && !onSaveAs && <PresetNameRow domain={domain} name={name} onName={setName} onSave={save} onSaveFile={saveFile} onClose={closeRows}/>}
-    {confirming && <div className="preset-bar-row"><span>{question}</span><button type="button" {...hotkey(domain, 'restore-confirm')} onClick={restore}>Restore all defaults</button><button type="button" {...hotkey(domain, 'restore-cancel')} onClick={closeRows}>Cancel</button></div>}
+    {confirming && <div className="preset-bar-row"><span>{question}</span><button type="button" {...hotkey(domain, 'restore-confirm')} onClick={confirm}>Restore all defaults</button><button type="button" {...hotkey(domain, 'restore-cancel')} onClick={closeRows}>Cancel</button></div>}
     {!onMessage && status && <div className="preset-bar-status" role="status">{status}</div>}
   </div>;
 }

@@ -10,12 +10,13 @@ import {forgeMoldHandles} from '../app/forge-mold-handles.js';
 import {dot,sub,cross} from '../src/vec.js';
 import {Triangle,Vector3} from 'three';
 const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 const draft=()=>{const doc=openDocument(fs.readFileSync(fixturePath('citadel-footman')),'Footman.mdx');return{doc,edit:vertexForgeFaces(vertexForgeDraft(doc.model,{0:Array.from({length:14},(_,i)=>253+i)}))};};
-test('Inset handle distances use the same model units as the drag',()=>{
+test('Inset handle distances use the same model units as the drag',{skip:missing('citadel-footman')},()=>{
  const {edit}=draft(),state=forgeMoldState(edit,'Inset'),before=forgeMoldHandles(state).points[0].position;
  for(const amount of [-20,-1,1,20]){const after=forgeMoldHandles({...state,amount}).points[0].position;assert.ok(Math.abs(after[state.direction]-before[state.direction]-amount)<1e-8,'one world unit of drag moves the handle one world unit');}
 });
-test('actual curved shield plate insets with intact outline, surface height, UV streams and bindings',()=>{
+test('actual curved shield plate insets with intact outline, surface height, UV streams and bindings',{skip:missing('citadel-footman')},()=>{
  const {doc,edit}=draft(),source=edit.shapes[0],ids=edit.selection[0],before=structuredClone(doc.model);
  doc.model.Geosets[0].TVertices.push(Float32Array.from(doc.model.Geosets[0].TVertices[0],n=>n*.4+.17));
  const original=source.faces.filter(f=>ids.includes(f.id)),border=new Map();

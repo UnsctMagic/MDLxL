@@ -2,6 +2,8 @@
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { appTarget, bundleHashes, launchApp, closeApp, sha256File: hash } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
+const { setTimeout: delay } = require('node:timers/promises');
+const { isDeepStrictEqual } = require('node:util');
 
 (async () => {
   const { ObjectLoader } = await import('three');
@@ -41,10 +43,14 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // Finish that paint before measuring a control, without showing the window.
     const paint = async () => { await app.evaluate(async ({ BrowserWindow }) => { await BrowserWindow.getAllWindows()[0].webContents.capturePage(); }); await settle(); };
     const shot = async name => { await paint(); const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')); fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(png, 'base64')); };
-    async function handles() {
+    async function poseViewport() {
       const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnap().model, config: props.poseConfig, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight }; });
       const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      return projectPoseHandles(data.model, data.config, 500, 0, camera, data.width, data.height);
+      return { ...data, camera };
+    }
+    async function handles() {
+      const { model, config, camera, width, height } = await poseViewport();
+      return projectPoseHandles(model, config, 500, 0, camera, width, height);
     }
     async function select(kind, key) {
       await tool('Select').click();
@@ -100,6 +106,81 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
         assertModelEquivalent(after.model, preview.model);
       }
       return { before, after };
+    }
+    async function moveBend(chain) {
+      const limb = chain.kind === 'arm' ? 'arm Elbow' : 'leg Knee';
+      await select('endpoint', chain.key);
+      await select('bend', chain.key);
+      await tool('Move').click();
+      const before = await snap(), pose = samplePoseChain(before.model, chain, 500, 0);
+      const { config, camera, width, height } = await poseViewport(), rect = await box();
+      const handle = projectPoseHandles(before.model, config, 500, 0, camera, width, height)
+        .find(item => item.kind === 'bend' && item.key === chain.key);
+      assert.ok(handle?.visible, limb + ' Move handle is visible');
+      const project = point => {
+        const screen = point.clone().project(camera);
+        return [(screen.x + 1) * width / 2, (1 - screen.y) * height / 2];
+      };
+      // Drag along the projected tangent of the bend around its root-to-end axis.
+      const tangent = pose.end.clone().sub(pose.root).cross(pose.middle.clone().sub(pose.root)).normalize();
+      const [startX, startY] = project(pose.middle);
+      const [sideX, sideY] = project(pose.middle.clone().addScaledVector(tangent, handle.unitsPerPixel * 36));
+      const length = Math.hypot(sideX - startX, sideY - startY);
+      assert.ok(length > 1, `${limb} projected drag direction is ${length} px`);
+      const dx = 36 * (sideX - startX) / length, dy = 36 * (sideY - startY) / length;
+      const measure = (sample, phase) => {
+        const [jointX, jointY] = project(sample.middle);
+        const data = {
+          limb, phase, drag: [dx, dy], endpointError: sample.end.distanceTo(pose.end),
+          rootMotion: sample.root.distanceTo(pose.root), bendMotion: sample.middle.distanceTo(pose.middle),
+          bendTowardDragPx: ((jointX - startX) * dx + (jointY - startY) * dy) / 36,
+        };
+        const numbers = JSON.stringify(data);
+        assert.ok(data.endpointError < .004, limb + ' Move keeps the endpoint fixed: ' + numbers);
+        assert.ok(data.rootMotion < .004, limb + ' Move keeps the root joint fixed: ' + numbers);
+        assert.ok(data.bendMotion > .005 && data.bendTowardDragPx > 0, limb + ' Move aims the bend toward the drag: ' + numbers);
+        results.measurements.push(data);
+      };
+      const readPreview = async () => {
+        const { model, status } = await page.evaluate(() => ({
+          model: posePlain(poseProbe().runtime.native.model),
+          status: document.querySelector('.game-preview-root [role=status]')?.textContent,
+        }));
+        const { root, middle, end } = samplePoseChain(model, chain, 500, 0);
+        return { root, middle, end, status };
+      };
+
+      const x = rect.x + handle.x, y = rect.y + handle.y;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + dx, y + dy, { steps: 8 });
+      const deadline = performance.now() + 5000;
+      let previous = await readPreview(), settled;
+      while (performance.now() + 50 <= deadline) {
+        await delay(50);
+        const current = await readPreview();
+        if (current.status && isDeepStrictEqual(current, previous)) {
+          settled = current;
+          break;
+        }
+        previous = current;
+      }
+      assert.ok(settled, `${limb} Move preview did not settle within 5 s: ${JSON.stringify({ drag: [dx, dy], last: previous })}`);
+      measure(settled, 'preview');
+      await page.mouse.up();
+      await page.waitForFunction(steps => poseSnap().undo > steps, before.undo, { timeout: 5000 }).catch(async error => {
+        throw Error(`${limb} Move undo steps: actual ${(await snap()).undo}, expected ${before.undo + 1}`, { cause: error });
+      });
+      const after = await snap();
+      assert.equal(after.undo, before.undo + 1, `${limb} Move undo steps: actual ${after.undo}, expected ${before.undo + 1}`);
+      measure(samplePoseChain(after.model, chain, 500, 0), 'commit');
+      await page.keyboard.press('Control+z');
+      await page.waitForFunction(steps => poseSnap().undo < steps, after.undo, { timeout: 5000 }).catch(async error => {
+        throw Error(`${limb} Undo steps: actual ${(await snap()).undo}, expected ${before.undo}`, { cause: error });
+      });
+      const restored = await snap();
+      assert.equal(restored.undo, before.undo, `${limb} Undo steps: actual ${restored.undo}, expected ${before.undo}`);
+      assert.deepEqual(restored.model, before.model, `${limb} Undo restores the exact model (undo steps ${after.undo} to ${restored.undo})`);
     }
     async function pinCheck(chain, view) {
       await select('endpoint', chain.key); await tool('Move').click(); await paint();
@@ -189,6 +270,8 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.deepEqual(await snap(), initial); await shot('01-compact-default');
     results.checks.push('POSE starts in Move, no setup gate, compact default, expandable statistics, unchanged sidebar width, no keys');
     const chains = await page.evaluate(() => poseProbe().props.poseConfig.chains), limbs = [chains.find(chain => chain.kind === 'arm'), chains.find(chain => chain.kind === 'leg')];
+    for (const chain of limbs) await moveBend(chain);
+    results.checks.push('Elbow and Knee Move aim the bend with the hand/foot and shoulder/hip fixed, one undo step and exact Undo');
     for (let view = 0; view < 3; view++) {
       for (const chain of limbs) {
         const result = await swivel(chain, 'commit', `02-${chain.kind}-view-${view}`);

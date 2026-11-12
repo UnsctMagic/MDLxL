@@ -1,6 +1,6 @@
 # Citadel Paint: New base coat layout and pro controls
 
-State: ready for owner hand test; local branch `claude/paint-layout`, no PR.
+Status: completed, merged in #600 at ff95df76
 Contract: [Citadel Paint design](../citadel-paint/DESIGN.md).
 
 ## What changed

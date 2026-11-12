@@ -37,3 +37,4 @@
 .mm-overlay .mm-sphere-select:focus rect{stroke:#ffb835;stroke-width:3}
 .mm-overlay .mm-sphere-select text{fill:white;stroke:none;font:bold 12px sans-serif;pointer-events:none}
 .mm-overlay .mm-recenter{pointer-events:all}.mm-overlay .mm-recenter button{width:60px;height:25px;padding:2px 5px;cursor:pointer}
+.mm-overlay .pe-handle-word{display:none;pointer-events:none}.mm-overlay g:hover>.pe-handle-word,.mm-overlay g:focus-visible>.pe-handle-word{display:inline}

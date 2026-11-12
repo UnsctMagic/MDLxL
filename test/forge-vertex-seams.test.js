@@ -8,6 +8,7 @@ import { transformForgeSelection } from '../src/forge-shape-editing.js';
 import { forgeMoldState, prepareForgeMold, previewForgeMold } from '../src/forge-molding.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 const positionKey = (g, i) => Array.from(g.Vertices.slice(i * 3, i * 3 + 3), v => Math.round(v * 1e4)).join(':');
 
 // The same seam neighborhoods as Claude's seam-probe.mjs, without its open-edge
@@ -40,7 +41,7 @@ const operations = {
 };
 
 for (const fixture of ['citadel-footman', 'forge-hd-footman']) for (const [tool, operation] of Object.entries(operations)) {
-  test(`${fixture}: ${tool} keeps UV seam copies together and their UVs unchanged`, t => {
+  test(`${fixture}: ${tool} keeps UV seam copies together and their UVs unchanged`, { skip: missing(fixture) }, t => {
     const model = openDocument(fs.readFileSync(fixturePath(fixture)), 'Footman.mdx').model;
     const failures = [];
     let cases = 0;

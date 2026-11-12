@@ -1,3 +1,5 @@
+import { EditorDocument } from '../src/editor-document.js';
+import { prepareModelSave } from '../src/save-target.js';
 // An AI task works on its own model tab while the user works on another one:
 // edits, Undo, selection, views and pictures go to the task's tab; steps that
 // need the program on screen wait; the tab on screen is never touched.
@@ -409,4 +411,28 @@ test('a follow-up captured before the AI commit advances only over that AI own e
   const afterAI = bridge.context();
   a.doc.apply('Owner edit', ['Geosets'], m => { m.Geosets[0].Vertices[0] = 20; });
   assert.throws(() => bridge.requireTarget(afterAI.target), /model or selection changed/);
+});
+
+
+test('AI validation reports actual save-verification loss in the other format', async () => {
+  const { a, bridge } = editor();
+  a.doc.apply('Model animation file', ['Info'], model => { model.Info.AnimationFile = 'Animations.mdx'; });
+  const { target } = bridge.context();
+  const previous = globalThis.Worker;
+  globalThis.Worker = class {
+    postMessage({ snapshot, format, name }) {
+      Promise.resolve().then(() => this.onmessage({
+        data: prepareModelSave(EditorDocument.restoreRecoveryState(snapshot), format, name),
+      }));
+    }
+    terminate() {}
+  };
+  try {
+    const { results } = await bridge.call('mdlxl_document', { target, action: 'validate' });
+    assert.equal(results[0].format, 'mdx');
+    assert.equal(results[0].error, undefined);
+    assert.equal(results[0].readOnly, false);
+    assert.equal(results[1].format, 'mdl');
+    assert.match(results[1].error, /Save verification failed: .*Info\.AnimationFile/);
+  } finally { globalThis.Worker = previous; }
 });

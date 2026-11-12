@@ -6,7 +6,8 @@ const geoset = (...values) => ({ Vertices: new Float32Array(values), MinimumExte
 const base = () => ({ Info: { BlendTime: 150, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), BoundsRadius: 0 }, Geosets: Array.from({ length: 3 }, () => geoset(...new Array(120).fill(1))), Sequences: [{ Rarity: 0 }] });
 
 function setup(editUser, editAi, options = {}) {
-  const recovery = { model: base(), revision: 1 }, live = base(), candidate = base();
+  const model = options.model ?? base();
+  const recovery = { model, revision: 1 }, live = structuredClone(model), candidate = structuredClone(model);
   editUser(live); editAi(candidate);
   const edits = [];
   const source = { id: 'tab', doc: { model: live, revision: options.revision ?? 2 }, assets: new Map(), uvPreviews: options.uvPreviews ?? {}, animationDrafts: options.animationDrafts ?? {}, paintWorkingRevision: 0, ...options.source };
@@ -96,4 +97,29 @@ test('no live edit still delivers as a plain AI result', () => {
 test('an editor failure without a live edit still surfaces', () => {
   const run = setup(() => {}, m => { m.Geosets[1].Vertices[0] = 9; }, { revision: 1, reject: true });
   assert.throws(() => run.result(), /Rejected by the editor/);
+});
+
+
+test('deleting a texture prevents the AI merge from pointing at a different image', () => {
+  const model = { ...base(), Textures: [{ Image: 'one.blp' }, { Image: 'two.blp' }, { Image: 'three.blp' }], Materials: [{ Layers: [{ TextureID: 0 }] }] };
+  conflict(setup(m => m.Textures.shift(), m => { m.Materials[0].Layers[0].TextureID = 1; }, { model }));
+});
+
+test('deleting a material prevents the AI merge from pointing at a different material', () => {
+  const model = { ...base(), Materials: [{ PriorityPlane: 0 }, { PriorityPlane: 1 }, { PriorityPlane: 2 }] };
+  conflict(setup(m => m.Materials.shift(), m => { m.Geosets[0].MaterialID = 1; }, { model }));
+});
+
+test('deleting a node prevents the AI merge from using a different parent', () => {
+  const model = { ...base(), Nodes: [{ ObjectId: 0 }, { ObjectId: 1 }], Helpers: [{ ObjectId: 2, Parent: 0 }] };
+  conflict(setup(m => { delete m.Nodes[0]; }, m => { m.Helpers[0].Parent = 1; }, { model }));
+});
+
+for (const key of [
+  'Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'Geosets', 'GeosetAnims',
+  'Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters',
+  'ParticleEmitters2', 'ParticleEmitterPopcorns', 'Lights', 'RibbonEmitters', 'PivotPoints',
+]) test('adding a record to ' + key + ' asks before combining the job', () => {
+  const model = { ...base(), [key]: [] };
+  conflict(setup(m => m[key].push(5), m => { m.Info.BlendTime = 321; }, { model }));
 });

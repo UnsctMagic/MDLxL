@@ -394,3 +394,21 @@ test('marking detected pieces as not glow releases the picker and leaves those p
   assert.deepEqual(m.Geosets[index], before);
   assert.ok(findHeroGlow(m, excluded).weapon.pieces.every(piece => piece.geoset !== index));
 });
+
+test('an existing additive team glow without a square opens with both glow choices clear', () => {
+  const model = structuredClone(hero().model);
+  const glowTexture = model.Textures.push({ ReplaceableId: 2, Image: '', Flags: 0 }) - 1;
+  const material = model.Materials.push({ Layers: [{ FilterMode: 3, TextureID: glowTexture, Alpha: 1 }] }) - 1;
+  const glow = structuredClone(model.Geosets[0]);
+  glow.MaterialID = material;
+  model.Geosets.push(glow);
+  assert.equal(hasHeroGlow(model), true);
+  assert.ok(!findHeroGlow(model)?.pieces.length, 'the box glow is not a recognized square plane');
+  const start = glowStart(model);
+  assert.equal(start.origin, false);
+  assert.equal(start.weapon, false);
+  const before = structuredClone(model);
+  assert.deepEqual(glowUp(model, start).geosetIndices, []);
+  assert.deepEqual(glowUp(model).geosetIndices, []);
+  assert.deepEqual(model, before);
+});

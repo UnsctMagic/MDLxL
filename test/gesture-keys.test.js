@@ -206,7 +206,8 @@ test('UV drags commit exactly what the map shows', () => {
   assert.equal(uvDragChanged(original, Float32Array.from(original), [0, 1]), false, 'a click that changed nothing adds no undo step');
   assert.equal(uvDragChanged(original, shown, [2]), false, 'only the dragged coordinates count');
   const uv = source('UVEditor.jsx');
-  assert.match(uv, /'scale'\]\.includes\(drag\.type\) && uvDragChanged\(drag\.original, s\.uv, drag\.indices\)\) p\.onChange/);
+  assert.match(uv, /const commit = p\.wrapperControls \? uvDragChanged\(drag\.original, s\.uv, drag\.indices\)\s*:\s*Math\.hypot\(drag\.endX - drag\.x, drag\.endY - drag\.y\) > 1;/);
+  assert.match(uv, /if \(commit\) p\.onChange/);
   assert.doesNotMatch(uv, /drag\.moved/, 'no second opinion on whether the drag changed anything');
 });
 

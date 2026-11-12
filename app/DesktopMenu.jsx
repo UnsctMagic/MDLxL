@@ -55,7 +55,7 @@ function MenuPopup({ entry, path, expanded, trigger, onHover, onClick }) {
   </div>;
 }
 
-export default function DesktopMenu({ desktop }) {
+export default function DesktopMenu({ desktop, classic }) {
   const root = useRef(null);
   const previousFocus = useRef(null);
   const pendingFocus = useRef(null);
@@ -175,7 +175,7 @@ export default function DesktopMenu({ desktop }) {
     return true;
   }, -25);
 
-  return <nav ref={root} role="menubar" aria-label="Application menu" className="desktop-menu">
+  return <nav ref={root} role="menubar" aria-label="Application menu" className={classic ? "desktop-menu classic-menu" : "desktop-menu"}>
     {items.map((item, index) => <button key={index} type="button" tabIndex={index === topTab ? 0 : -1} role="menuitem"
       aria-haspopup="menu" aria-expanded={index === openPath[0]} data-menu-path={index} translate="no"
       onPointerDown={rememberFocus}

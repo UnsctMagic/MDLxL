@@ -1,4 +1,5 @@
 import React,{useEffect,useRef} from 'react';
+import {HandleWord} from './ParticleStageHandle.jsx';
 import {useMousePressLost,useWindowKeyClaim} from './Hotkeys.jsx';
 import {holdGestureKey} from './gesture-keys.js';
 import {createFrameCoalescer} from './viewport-performance.js';
@@ -87,22 +88,22 @@ export default function CorpseStageTools({snapshot,pieces,selected,moveOnly=fals
   follow.current=applyMove;
   function end(){frame.current.flush();if(drag.current)onDrag?.(false);drag.current=null;}
   function abort(){frame.current.cancel();const d=drag.current;drag.current=null;if(d){onChange(selected,d.before);onDrag?.(false);}}
-  const handle=(point,kind,label,className)=>point&&<g role="slider" tabIndex={0} aria-label={label} className={className} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  const handle=(point,kind,label,className,word)=>point&&<g role="slider" tabIndex={0} aria-label={label} className={className} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(event.key==='Escape'&&drag.current){event.preventDefault();event.stopPropagation();abort();}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
-  }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
+  }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><HandleWord point={point} word={word}/><title>{label}</title></g>;
   return <svg className="pe-stage-tools acp-stage-tools" viewBox={'0 0 '+snapshot.width+' '+snapshot.height} aria-label="Corpse piece handles">
     {moveOnly&&pieces.map((_,k)=>k!==selected&&marks[k+'s']&&<circle key={'d'+k} className="acp-blood-dot" cx={marks[k+'s'][0]} cy={marks[k+'s'][1]} r="5" onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this blood</title></circle>)}
-    {piece&&moveOnly&&handle(marks.mid,'move','Move this blood','pe-move-emitter')}
+    {piece&&moveOnly&&handle(marks.mid,'move','Move this blood','pe-move-emitter','Move')}
     {piece&&!moveOnly&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>
       <line x1={marks[selected+'s'][0]} y1={marks[selected+'s'][1]} x2={marks[selected+'e'][0]} y2={marks[selected+'e'][1]}/>
-      {handle(grips[0],'start','Stretch from this end')}
-      {handle(grips[1],'end','Stretch from this end')}
-      {handle(grips[2],'width','Widen or narrow this piece')}
+      {handle(grips[0],'start','Stretch from this end',undefined,'Stretch')}
+      {handle(grips[1],'end','Stretch from this end',undefined,'Stretch')}
+      {handle(grips[2],'width','Widen or narrow this piece',undefined,'Width')}
       {raised&&<line x1={marks.mid[0]} y1={marks.mid[1]} x2={raised[0]} y2={raised[1]}/>}
-      {raised&&handle(raised,'raise','Raise or lower this piece')}
-      {handle(marks.mid,'move','Move this piece','pe-move-emitter')}
+      {raised&&handle(raised,'raise','Raise or lower this piece',undefined,'Raise')}
+      {handle(marks.mid,'move','Move this piece','pe-move-emitter','Move')}
     </>}
   </svg>;
 }

@@ -319,6 +319,7 @@ export default function Viewport({ children, ...inputProps }) {
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(); raycaster.layers.enable(MODEL_LAYER);
     let down = null, editClicks = 0, partHover = null;
     function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height, shift: !!event.shiftKey }; }
+    const partSnap = event => dragKeys(event, 'translate', latest.current.preferences).shiftKey;
     function clearHoveredGeoset() {
       if (state.hoveredGeoset === null) return;
       state.hoveredGeoset = null; latest.current.onHoverGeoset?.(null);
@@ -440,7 +441,10 @@ export default function Viewport({ children, ...inputProps }) {
       // camera navigation only, so no edit can target the wrong vertices.
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
-      if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
+      if (p.onStartPartDrag) {
+        down.action = 'parts'; start.shift = partSnap(event);
+        down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return;
+      }
       const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const previewFrame = p.vertexPreviewSequence != null ? p.vertexPreviewFrame : undefined;
@@ -455,8 +459,8 @@ export default function Viewport({ children, ...inputProps }) {
       }
       if (p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const animated = p.vertexPreviewSequence != null;
-      const posedEditing = !animated && state.nodes.some(node => node.Flags & 120);
-      if (posedEditing) applyPreviewPose(p, camera);
+      const posedEditing = animated || state.nodes.some(node => node.Flags & 120);
+      if (!animated && posedEditing) applyPreviewPose(p, camera);
       const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3();
       const editedPose = animated ? {} : null, visiblePivot = new THREE.Vector3(), vertex = new THREE.Vector3();
       let count = 0, posedSelection = false, poseInvertible = true;
@@ -494,8 +498,14 @@ export default function Viewport({ children, ...inputProps }) {
         pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
         if (animated) visiblePivot.fromBufferAttribute(state.entries[anchor.geosetIndex].geometry.attributes.position, anchor.vertexIndex);
       }
-      // Screen handles follow the frozen mesh. The transform pivot stays in the base pose.
       const viewPivot = animated ? visiblePivot : pivot;
+      const animatedWorldEdit = animated && posedSelection && poseInvertible;
+      if (animatedWorldEdit) {
+        for (const key of Object.keys(selectedMap)) {
+          snapshots[key] = new Float32Array(state.entries[key].geometry.attributes.position.array);
+        }
+        pivot.copy(visiblePivot);
+      }
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(viewPivot, start);
@@ -510,7 +520,7 @@ export default function Viewport({ children, ...inputProps }) {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: viewPivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor, ctrl: dragKeys(event, 'rotate', p.preferences).ctrlKey, reach: screenPivot => selectionReach(selectedMap, animated ? null : snapshots, animated ? null : rotatePieces, screenPivot, start) });
       }
-      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, animatedWorldEdit, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
       if (down.rotationDrag?.straight) invalidate();
     }
     /** Big selections: how far the selection reaches on screen from its pivot, or each piece from its own centre. */
@@ -557,13 +567,13 @@ export default function Viewport({ children, ...inputProps }) {
         // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
         const orbitHeld = modifierHeld(event, 'view.orbit', latest.current.preferences);
         if (sketch.tool && altHover !== orbitHeld) { altHover = orbitHeld; invalidate(); }
-        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
+        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: partSnap(event), altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
         hoverFrame.schedule(); return;
       }
       if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       if ((latest.current.onDoubleClickParts || down.action === 'parts') && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
-      if (down.action === 'parts') { down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
+      if (down.action === 'parts') { end.shift=partSnap(event); down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') { anchorMove = { down, rawEnd }; anchorFrame.schedule(); return; }
       if (down.action === 'zoom') {
@@ -659,13 +669,21 @@ export default function Viewport({ children, ...inputProps }) {
         }
         const positions=constrained?.modelPositions?.[key];
         if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
+        if (drag.animatedWorldEdit) {
+          // The gesture is solved on the frozen mesh. Keep its inverse-skinned
+          // base positions for commit and for any resample during the drag.
+          for (const [slot, index] of indices.entries()) {
+            vertex.fromBufferAttribute(position, index).applyMatrix4(drag.poseInverses[key][slot]);
+            position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+          }
+        }
         if (drag.editedPose) skinEditedVertices(entry, drag, key);
         display.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
-      if (drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
+      if (drag.animatedWorldEdit || drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
         const modelPositions = {};
         for (const [key, indices] of Object.entries(drag.selections)) {
-          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.poseInverses?.[key], values = [];
+          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.editedPose ? null : drag.poseInverses?.[key], values = [];
           for (let slot = 0; slot < indices.length; slot++) {
             vertex.fromBufferAttribute(position, indices[slot]); if (inverses) vertex.applyMatrix4(inverses[slot]);
             values.push(vertex.x, vertex.y, vertex.z);
@@ -817,12 +835,19 @@ export default function Viewport({ children, ...inputProps }) {
         const redraw = last && (['translate', 'rotate'].includes(kind) && keys.shiftKey !== last.shiftKey || (kind === 'scale' || held.rotationDrag?.snap) && keys.ctrlKey !== last.ctrlKey);
         if (redraw) { transformMove = {...last, ...keys}; transformFrame.schedule(); invalidate(); }
       }
-      if(event.key==='Shift') {
-        const shift=event.type==='keydown';
-        // A frame still waiting from the last move carries the old Shift; replace it now.
-        if(down?.action==='parts'&&down.traveled){partsFrame.cancel();partsMove=null;down.parts?.update({...down.partsEnd,shift});}
-        else if(!down&&hoverMove){hoverMove.event.shiftKey=shift;hoverFrame.flush();}
-        else if(!down&&partHover)latest.current.onHoverParts?.({...partHover,end:{...partHover.end,shift}});
+      if (isModifierKey(event.key)) {
+        const shift = partSnap(event);
+        // A frame waiting from the last move carries the previous lock key state.
+        if (down?.action === 'parts' && down.traveled && down.partsEnd.shift !== shift) {
+          partsFrame.cancel(); partsMove = null;
+          down.partsEnd = { ...down.partsEnd, shift };
+          down.parts?.update(down.partsEnd);
+        } else if (!down && hoverMove && hoverMove.event.shiftKey !== shift) {
+          hoverMove.event.shiftKey = shift; hoverFrame.flush();
+        } else if (!down && !hoverMove && partHover && partHover.end.shift !== shift) {
+          partHover = { ...partHover, end: { ...partHover.end, shift } };
+          latest.current.onHoverParts?.(partHover);
+        }
       }
       if (!quad) return;
       if (event.key === 'Escape' && event.type === 'keydown' && down) { cancelGesture(); event.preventDefault(); event.stopPropagation(); }
