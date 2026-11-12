@@ -24,7 +24,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
   const catalogs = [ru, es, zh, fr, de];
-  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7777, 7787, 7682, 7913, 7913]);
+  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7819, 7829, 7724, 7955, 7955]);
   for (const pack of catalogs) {
     assert.equal(Object.hasOwn(pack, 'Open the managers at Materials'), false);
     assert.equal(Object.hasOwn(pack, 'Loading managers…'), false);
@@ -42,6 +42,17 @@ test('each language catalog has the expected size and only usable entries', () =
     assert.equal(source, source.trim(), `${locale}: ${source}`);
     assert.ok(typeof value === 'string' && value.trim() && !/�|undefined/.test(value), `${locale}: ${source}`);
   }
+});
+
+test('Call Upon Forge controls and actionable errors are translated in every catalog',()=>{
+  for(const pack of [ru,es,zh,fr,de])for(const key of [
+    'Enter the Forge','Call Upon Forge','Forge tools','Forge selection','Vertices','Edges','Faces','Commit','Cancel','Sections','Turn cuts',
+    'Drag a selected face to extrude.','Select vertices to work on.','Select a complete face to use {0}.',
+    'Select faces that follow the same surface to inset.','Choose between 2 and 64 sections.',
+    'This operation exceeds the 65536-vertex geoset limit.','Select individual vertices.','Select complete edges.','Select complete faces.',
+    'Number of sections made by the cuts.','Turn the cut direction.','Set the number of faces in the new shape.',
+    'Keep this operation as one Undo step.','Discard this preview.',
+  ])assert.ok(Object.hasOwn(pack,key)&&pack[key].trim(),key);
 });
 
 // The new catalogs use the same ordered union, including community Chinese-only labels.

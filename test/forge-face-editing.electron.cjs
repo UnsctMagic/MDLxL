@@ -20,7 +20,11 @@ function readView(selector='.forge-dialog .forge-editor'){
  const click=async name=>{await d.getByRole('button',{name,exact:true}).click();await settle(page, 150);};
  const fill=async(label,value)=>{const i=d.getByLabel(label,{exact:true});await i.fill(String(value));await i.press('Tab');await settle(page, 150);};
  const drag=async(x,y,dx,dy,button='left',modifier)=>{if(modifier)await page.keyboard.down(modifier);await page.mouse.move(x,y);await page.mouse.down({button});for(let i=1;i<=4;i++){await page.mouse.move(x+dx*i/4,y+dy*i/4);await settle(page, 125);}await page.mouse.up({button});if(modifier)await page.keyboard.up(modifier);await settle(page, 150);};
- await click('Cube');assert.equal(await d.locator('.forge-control-points .forge-selection-scope button').count(),3);const box=await d.boundingBox(),viewport=page.viewportSize()||await page.evaluate(()=>({width:innerWidth,height:innerHeight}));assert.equal(box.x,0);assert.equal(box.y,0);assert.equal(box.width,viewport.width);assert.equal(box.height,viewport.height);checks.push('Full application area');
+ await click('Cube');assert.equal(await d.locator('.forge-control-points .forge-selection-scope button').count(),3);const box=await d.boundingBox(),viewport=page.viewportSize()||await page.evaluate(()=>({width:innerWidth,height:innerHeight}));
+ // The shared application menu remains above full-window tools (25 px in
+ // current desktop-menu.css); Forge fills the exact remaining workspace.
+ const menuBottom=await page.getByRole('menubar',{name:'Application menu',exact:true}).evaluate(element=>element.getBoundingClientRect().bottom);
+ assert.equal(box.x,0);assert.equal(box.y,menuBottom);assert.equal(box.width,viewport.width);assert.equal(box.height,viewport.height-menuBottom);checks.push('Full workspace below the application menu');
  await d.getByLabel('View direction',{exact:true}).selectOption('right');await d.getByLabel('Workplane Constraints',{exact:true}).uncheck();
  let state=await page.evaluate(readView);await drag(650,450,60,0);let moved=await page.evaluate(readView);assert.ok(moved.model.Geosets[0].Vertices[0]>state.model.Geosets[0].Vertices[0]);
  await page.keyboard.press('Control+z');assert.deepEqual((await page.evaluate(readView)).model.Geosets,state.model.Geosets);await page.keyboard.press('Control+y');assert.deepEqual((await page.evaluate(readView)).model.Geosets,moved.model.Geosets);checks.push('Mouse move follows pointer; Ctrl+Z/Ctrl+Y use Forge history');
