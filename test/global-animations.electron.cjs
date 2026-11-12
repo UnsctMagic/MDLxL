@@ -56,7 +56,8 @@ const {testModel}=require('./helpers/fixtures.cjs');
    if(name==='Fly swarm'){
     // Flies are quads on billboarded bones (native Flies.mdx technique); Amount adds sets of five.
     await fx.getByRole('slider',{name:'Amount',exact:true}).fill('15');await ready();assert.equal((await stack()).layers.at(-1).amount,15);
-    assert.equal(await page.evaluate(()=>{const m=mdlxlProbe(document.querySelector('.sfx-stage .game-preview-root')).props.model;return m.Bones.filter(b=>/\/fly\d+$/.test(b._FxTag||'')&&b.Flags===264).length;}),15,'fifteen billboarded fly bones in the preview');
+    // The look starts with its own five-fly swarm; the added layer has fifteen of its own.
+    assert.equal(await page.evaluate(()=>{const m=mdlxlProbe(document.querySelector('.sfx-stage .game-preview-root')).props.model,s=m.Geosets.find(g=>g._FxStack?.layers.some(l=>l.swarm))._FxStack,l=s.layers.at(-1),prefix=s.owner+'/'+l.id+'/fly';return m.Bones.filter(b=>b._FxTag?.startsWith(prefix)&&b.Flags===264).length;}),15,'fifteen billboarded fly bones for the added swarm');
    }
    await button('Cancel').click();await fx.waitFor({state:'hidden'});
   }
