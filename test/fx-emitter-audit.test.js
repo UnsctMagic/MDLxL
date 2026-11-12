@@ -42,3 +42,11 @@ test('Stars emit at a steady rate instead of a burst once a loop',()=>{
   assert.ok(Math.min(...values)>0&&Math.max(...values)===Math.min(...values),'steady rate: '+values);
  }
 });
+test('Rune sparks are additive and turn from white to their tint',()=>{
+ const {layer,emitters}=addEmitter('Rune sparks',37,'azure');
+ for(const p of emitters){
+  assert.equal(p.FilterMode,1,'additive');
+  assert.deepEqual(Array.from(p.SegmentColor[0]),[1,1,1]);
+  assert.deepEqual(Array.from(p.SegmentColor[2]).map(v=>+v.toFixed(4)),layer.tint.map(v=>+Math.fround(v).toFixed(4)));
+ }
+});

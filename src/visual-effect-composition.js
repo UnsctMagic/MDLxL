@@ -131,7 +131,7 @@ export function addParticles(source,target,spec,effect,options,radius){
     Variation:spec.velocity ? .22 : 0,ParticleScaling:vec(spec.size.map(v=>v*radius)),Alpha:Uint8Array.from(spec.alpha||[235,180,0],v=>Math.round(v*options.opacity)),
     EmissionRate:(spec.rate??8)*options.density*speed,FrameFlags:spec.tail?3:1,TailLength:(spec.tail||0)/speed});
   const tint=spec.team?[1,1,1]:options.tint;
-  p.SegmentColor=[vec(tint.map(v=>Math.min(1,v*1.17+.025))),vec(tint),vec(tint.map(v=>v*.56))];
+  p.SegmentColor=spec.fromWhite?[vec([1,1,1]),vec(tint),vec(tint)]:[vec(tint.map(v=>Math.min(1,v*1.17+.025))),vec(tint),vec(tint.map(v=>v*.56))];
   if(spec.atlas){
     const end=spec.atlas**2-1;
     p.Rows=p.Columns=spec.atlas;
