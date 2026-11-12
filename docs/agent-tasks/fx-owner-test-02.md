@@ -153,4 +153,19 @@ Owner, 12 November 2026: Codex does this round, Claude reviews it.
 
 ## Not in scope
 
+## Codex round 2 evidence
+
+Local branch `codex/fx-emitters`, based on `cbc17f49`, in `D:\Codex\fx-emitters`.
+
+1. Shared sites: already correct at the requested base. `emissionShares` returns
+   null for one through four regions; native emitters then retain their full
+   per-region rate. Ground/flat specs collapse before sharing. The existing
+   real-model regression covers 1, 4 and 17 regions. The audit's Footman "sword"
+   (geoset index 1) actually has **9** skin regions, so the owner's more-than-four
+   rule deliberately reduces its Fire column from 216 to 96 in flight. The body
+   has 27 regions and also yields 96. No code change or invented fail-first claim.
+   Base focused group: **290 passed, 0 failed, 0 skipped**; build passed.
+   Evidence: `out/item-01-tests.log`, `out/item-01-build.log`,
+   `out/fx-review/emitters/inventory-before.json`.
+
 The Raider rider split, POSE and Bone Namer work, and merging. Nothing goes online until the owner says "merge".
