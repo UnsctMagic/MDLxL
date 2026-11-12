@@ -101,7 +101,21 @@ export class EditorCameraControls extends OrbitControls {
     // OrbitControls caches its up-vector transform at construction. View presets
     // and editable roll change up later, so keep that cached basis synchronized.
     if (this._quat) { this._quat.setFromUnitVectors(this.object.up.clone().normalize(), new Vector3(0, 1, 0)); this._quatInverse.copy(this._quat).invert(); }
-    return super.update(deltaTime);
+    // Idle frames leave the camera alone: OrbitControls' spherical round trip can move an
+    // unchanged camera by one rounding step per call, and the render loop calls this every frame.
+    const settled = this._settledCamera, key = this._cameraKey();
+    if (settled && !this.enableDamping && !this.autoRotate && this._scale === 1 && !this._performCursorZoom &&
+        !this._sphericalDelta.theta && !this._sphericalDelta.phi && this._panOffset.lengthSq() === 0 &&
+        settled.length === key.length && settled.every((value, index) => value === key[index])) return false;
+    const changed = super.update(deltaTime);
+    this._settledCamera = this._cameraKey();
+    return changed;
+  }
+  _cameraKey() {
+    const camera = this.object;
+    return [camera, ...camera.position.toArray(), ...camera.quaternion.toArray(), ...camera.up.toArray(), camera.zoom,
+      ...this.target.toArray(), ...this.cursor.toArray(), this.minPolarAngle, this.maxPolarAngle, this.minAzimuthAngle, this.maxAzimuthAngle,
+      this.minDistance, this.maxDistance, this.minZoom, this.maxZoom, this.minTargetRadius, this.maxTargetRadius];
   }
   _startScreenDrag(event) {
     const point={x:event.clientX,y:event.clientY};
