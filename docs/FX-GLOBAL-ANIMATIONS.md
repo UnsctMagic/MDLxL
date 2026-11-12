@@ -189,6 +189,30 @@ over every look and variation.
   in all five catalogues. Applying and then removing a look leaves the model exactly as
   before; every look survives MDX save and reopen as the same editable stack.
 
+**Emitter round 2 (owner, 12 November 2026).** These changes apply to new layers;
+saved stacks retain their recipe and compile byte-identically. Native emitters share
+their rate only above four skin regions; ground/flat emitters compile once. New
+surface emitters start clear of the selected mesh, including overlapping skin regions.
+Inward swirl and Ground rune rings use stronger single ground emitters. All new
+built-in emission rates are steady, except **Blade crackle**, which the owner explicitly
+kept unchanged. New drops start with at least two nominal particles alive per site so
+their lifetimes do not leave synchronized empty gaps; saved rates remain unchanged.
+**Rising embers** keeps its name and uses LavaLump, a low rate, long life,
+gentle rise, alpha 200>150>80, Unfogged and a cooling orange ramp.
+
+Add emitter and Change emitter also offer **Falling snow, Maple leaves, Falling feathers,
+Ash flecks, Coal sparks, Hot filings and Fire hair**; Ground dust is excluded. Fire hair
+uses `Textures\clouds_anim1_bw.blp`, 4x4, alpha 255>255>0, middle time .5, cooling colour
+and shrinking particles. Display names merge duplicate choices; stored ingredient labels
+remain unchanged and still resolve through `layerIngredient`.
+
+Under **More**, native kinds gain **Size**, and all particle kinds gain **Spawn width**,
+**Spawn length** and the **Halfway point** marker, using EMTR's existing components.
+Values are stored in `layer.native`; Size scales all three life stages together.
+**Unfogged and Priority plane: left out, preview cannot show them** (owner clarification).
+The shared preview is unchanged. This omission concerns controls, not the explicitly
+requested Unfogged flag in the Rising embers recipe.
+
 New looks from these techniques (`src/fx-technique-looks.js`), filed in the existing
 folders and one new folder, Light:
 
@@ -258,8 +282,11 @@ keep its count.
   fly widths; a part split into many skin regions still gets one swarm around one centre. Controls:
   **Amount** 5-30 in steps of 5, **Fly size**, **Swarm size**, **Speed** (0.25-4x, multiplies every
   clock), colour (geoset colour, default no tint) and **Intensity** (layer alpha); the swarm is
-  moved and resized with the emitter placement handles. Flies are always visible while the layer is
-  on (no Death rise, no portrait hiding). Removing the swarm restores the model exactly, bounds
+  moved and resized with the emitter placement handles. **Rise on Death** is off by default.
+  When on, the swarm helper rises by .6 unit height at 1 s and 2.5 at 2.17 s into Death;
+  its owned material hides the flies from 1.9 s. All three times scale proportionally for
+  a Death shorter than 2.17 s. Other clips keep their normal swarm, and original geoset
+  visibility remains intact. There is no portrait hiding. Removing the swarm restores the model exactly, bounds
   included; it reopens from MDX and MDL as the same editable stack (`test/fx-fly-swarm.test.js`).
   **Compatibility:** a layer saved with the old emitter flies (no `swarm` field) keeps its emitter
   flies and their old controls and compiles byte-identically; picking Fly swarm or Orbiting flies

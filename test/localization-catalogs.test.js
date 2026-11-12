@@ -23,7 +23,8 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7958, 7968, 7864, 8094, 8094]);
+  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [7959, 7969, 7865, 8095, 8095]);
+  for (const pack of [ru, es, zh, fr, de]) assert.ok(pack['Rise on Death']);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Fire hair','Flames','Embers','Splinters','Glow orb','Drops','Bubbles','Spark spray','Circling stars','Circling lights','Grey cloud','Ghost flames','Rune discs','Falling stars','Sparkles','Flare sparks','Ghost wisps','Light wisps','Inward swirl','Rising glyphs','Small sparks','Green haze','Ground rune rings']) assert.ok(pack[label],label);
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
   for (const pack of [ru, es, zh, fr, de]) for (const key of [

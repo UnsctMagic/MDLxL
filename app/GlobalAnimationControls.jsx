@@ -147,6 +147,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <EmitModeButtons emitter={real} update={depth}/>
   </>}</details>}
   {swarm&&<>
+   <label><input type="checkbox" checked={!!l.riseOnDeath} onChange={e=>update('riseOnDeath',e.target.checked)}/>Rise on Death</label>
    <RangeField key={l.id+'amount'} title="How many flies. Each five more fly on their own clock and paths." label="Amount" output={v=>String(Math.round(v))} min={FLY_BOUNDS.amount[0]} max={FLY_BOUNDS.amount[1]} step={5} value={l.amount} onCommit={v=>update('amount',Math.round(v/5)*5)}/>
    <RangeField key={l.id+'fly'} title="Width of each fly." label="Fly size" output={v=>v.toFixed(1)} min={FLY_BOUNDS.spriteSize[0]} max={Math.max(FLY_BOUNDS.spriteSize[1],l.spriteSize)} step={.5} value={l.spriteSize} onCommit={v=>update('spriteSize',v)}/>
    <RangeField key={l.id+'swarm'} title="How far the flies circle from the centre. The round handle in the preview drags it too." label="Swarm size" output={v=>v.toFixed(1)} min={4} max={Math.max(200,(frame?.length||100)*2,l.size)} step={.5} value={l.size} onCommit={v=>update('size',v)}/>

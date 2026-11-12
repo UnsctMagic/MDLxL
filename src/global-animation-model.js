@@ -663,6 +663,28 @@ function flySwarm(c,l){
  }
  // One layer like the native flies: alpha-keyed (Transparent), two-sided and lit by the map.
  const layer={TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:1,Shading:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
+ if(l.riseOnDeath){
+  const motion=[],visibility=[];
+  // A local Z translation is turned downward by a falling parent in native playback.
+  // Keep the centre following that parent, but write its rise in model space.
+  const parent=swarm.Parent;swarm.Parent=null;
+  for(const [sequence,clip] of m.Sequences.entries()){
+   const [start,end]=clip.Interval,death=/^death\b/i.test(clip.Name),time=Math.min(1,(end-start)/2170);
+   visibility.push([start,layer.Alpha],[end,death?0:layer.Alpha]);
+   if(death)visibility.push([start+Math.round(1900*time),0]);
+   const first=start+Math.round(1000*time),last=start+Math.round(2170*time);
+   const value=frame=>{const key=sequence+':'+frame;let matrices=c.attachmentCache.get(key);if(!matrices){matrices=sampleNodeMatrices(m,frame,sequence,frame);c.attachmentCache.set(key,matrices);}const at=centre.clone(),matrix=matrices.get(parent);if(matrix)at.applyMatrix4(matrix);at.sub(centre);if(death)at.z+=tall*(frame<=first?.6*(frame-start)/Math.max(1,first-start):.6+1.9*Math.min(1,(frame-first)/Math.max(1,last-first)));return at;};
+   const samples=new Map(),sample=t=>{if(!samples.has(t))samples.set(t,value(t));return samples.get(t);};
+   const split=(a,b)=>{const mid=Math.floor((a+b)/2);if(mid===a)return;const error=sample(mid).distanceTo(sample(a).clone().lerp(sample(b),(mid-a)/(b-a)));if(b-a>80||error>Math.max(.005,tall*.0003)){split(a,mid);split(mid,b);}else samples.delete(mid);};
+   const stops=[...new Set(death?[start,first,last,end]:[start,end])].sort((a,b)=>a-b);
+   for(const stop of stops)sample(stop);for(let i=1;i<stops.length;i++)split(stops[i-1],stops[i]);
+   for(const [frame,at] of samples)motion.push([frame,at.toArray()]);
+  }
+  const ordered=pairs=>[...new Map(pairs)].sort((a,b)=>a[0]-b[0]);
+  swarm.Translation=keys(null,1,ordered(motion));
+  layer.Alpha=keys(null,1,ordered(visibility),0);
+  points.push(...points.map(p=>[p[0],p[1],p[2]+tall*2.5]));
+ }
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:[layer]});
  const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
  if(m.Version>=900)g.LevelOfDetail=0;
