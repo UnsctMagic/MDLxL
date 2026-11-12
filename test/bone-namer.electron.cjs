@@ -105,10 +105,10 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
       .map(element => [element.children[1].textContent, element.children[2].textContent])));
     const sorted = names => JSON.stringify(Object.entries(names).sort(([a], [b]) => a.localeCompare(b)));
     // Fix round 4: mesh pieces take the name of the joint they hang on (Mesh_ + the joint's name without Bone_).
-    // Box02 hangs on the head; Mesh02 hangs on the hand and Mesh26 on the chest, which the contract excludes.
-    const DEFAULT_PROPOSAL = { Bone_Hand_R: 'Bone_Hand_L', Box02: 'Mesh_Head', Mesh11: 'Mesh_Leg1_L', Mesh09: 'Mesh_Leg2_L', Mesh07: 'Mesh_Foot_L', Mesh24: 'Mesh_Leg1_R', Mesh25: 'Mesh_Leg2_R', Mesh06: 'Mesh_Foot_R', Mesh27: 'Mesh_Arm1_R', Mesh01: 'Mesh_Arm2_R', Mesh05: 'Mesh_Arm1_L', Mesh03: 'Mesh_Arm2_L' };
+    // Box02 hangs on the head and Object04 on the pelvis (trunk parts have no side to check); Mesh02 hangs on the hand and Mesh26 on the chest, which the contract excludes.
+    const DEFAULT_PROPOSAL = { Bone_Hand_R: 'Bone_Hand_L', Box02: 'Mesh_Head', Mesh11: 'Mesh_Leg1_L', Mesh09: 'Mesh_Leg2_L', Mesh07: 'Mesh_Foot_L', Mesh24: 'Mesh_Leg1_R', Mesh25: 'Mesh_Leg2_R', Mesh06: 'Mesh_Foot_R', Mesh27: 'Mesh_Arm1_R', Mesh01: 'Mesh_Arm2_R', Mesh05: 'Mesh_Arm1_L', Mesh03: 'Mesh_Arm2_L', Object04: 'Mesh_Pelvis' };
     const firstProposal = await proposed();
-    check(sorted(firstProposal) === sorted(DEFAULT_PROPOSAL), `the default proposal ticks the hand and the 11 mesh pieces (${sorted(firstProposal)})`);
+    check(sorted(firstProposal) === sorted(DEFAULT_PROPOSAL), `the default proposal ticks the hand and the 12 mesh pieces (${sorted(firstProposal)})`);
     check(await partOf('Mesh11') === 'Mesh piece' && await row('Mesh11').getByRole('combobox', { name: 'Side' }).isDisabled() && await newName('Mesh11') === 'Mesh_Leg1_L' && await ticked('Mesh11'),
       `a mesh-piece row shows Part "Mesh piece" with Side disabled (Mesh11: ${await partOf('Mesh11')}, ${await newName('Mesh11')})`);
     for (const kept of ['Box04', 'Mesh02', 'Cantine']) {
@@ -300,7 +300,7 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     check(await dialog.waitFor({ state: 'hidden', timeout: 5000 }).then(() => true, () => false), 'Commit closes the window');
     // Fix round 1, item 10: "Bone Namer renamed {0} bone{1}." (plural like Attachemator's message).
     const message = await waitForInfo(page, /^Bone Namer renamed \d+ bones?\.$/, { after: cursor, timeout: 5000 }).catch(() => null);
-    check(message === `Bone Namer renamed ${expectedChanged} bone${expectedChanged === 1 ? '' : 's'}.` && expectedChanged === 12, `the status says how many: "${message}" (expected ${expectedChanged})`);
+    check(message === `Bone Namer renamed ${expectedChanged} bone${expectedChanged === 1 ? '' : 's'}.` && expectedChanged === 13, `the status says how many: "${message}" (expected ${expectedChanged})`);
     const committed = await mainNames();
     const expected = { ...originalNames, ...Object.fromEntries(Object.entries(toCommit).map(([current, name]) => [idOf(current), name])) };
     check(JSON.stringify(committed) === JSON.stringify(expected), `Commit renamed exactly the ticked bones (diff: ${JSON.stringify(Object.keys(expected).filter(id => expected[id] !== committed[id]).map(id => [originalNames[id], committed[id], expected[id]]))})`);
