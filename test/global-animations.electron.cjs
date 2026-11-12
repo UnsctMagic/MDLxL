@@ -48,7 +48,9 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const {openDocument}=await import('../src/editor-document.js');assert.equal(openDocument(fs.readFileSync(dest),dest).model.Geosets[18]._FxStack.loop,2380);
   for(const [name,key] of [['Fly swarm','size']]){
    await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();await addEmitter(page,fx,'Orbiting flies (recommended)',ready);
-   await button('Fit selection').click();await button('Position & size').click();
+   // A swarm is wider than its part: zoom the preview out so the round size handle is inside the stage.
+   await button('Fit selection').click();await fx.locator('.sfx-stage').hover();for(let i=0;i<3;i++){await page.mouse.wheel(0,240);await page.waitForTimeout(150);}
+   await button('Position & size').click();
    if(await button('Pause').count())await button('Pause').click();
    const before=(await stack()).layers.at(-1);await drag('Resize particle',18,-8);
    assert.notEqual((await stack()).layers.at(-1)[key],before[key],name+' radius');
