@@ -12,7 +12,8 @@ import {compileAnimation} from '../src/global-animation-model.js';
 // (owner, 12 November 2026: "fly swarm - doesnt look good"). Every other emitter keeps its 676aaf6f values.
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
-const hash=layer=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
+// sharedSites (12 November emitter audit) marks a new native layer; it changes how sites share the rate, not its values.
+const hash=({sharedSites:_shared,...layer})=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
 for(const look of looks.GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' starts with its intended particle defaults and offers its original emitters first',()=>{
  const doc=fixture(),frame=looks.partFrame(doc.model.Geosets[0]),stack=looks.newStack(look,frame,'empty');
  const same=(a,b)=>a.label===b.label&&a.image===b.image&&a.kind===b.kind,choices=looks.emitterChoices(look);

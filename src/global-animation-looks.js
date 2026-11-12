@@ -319,6 +319,8 @@ export function makeLayer(spec,frame,palette,id) {
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
  // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
  if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
+ // A new native emitter shares its rate among the part's regions (saved layers without the flag compile as before).
+ if(spec.type==='Particles'&&spec.kind==='native'&&!spec.impact)layer.sharedSites=true;
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
  return layer;
 }

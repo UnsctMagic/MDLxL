@@ -323,11 +323,16 @@ function nativeParticles(c,l){
  const {model:m,tag,id,ms}=c,contact=l.impact?c.stack.contact:null;
  if(l.impact&&!contact)throw Error('Choose an Attack animation.');
  const sourceGeo=contact?m.Geosets[contact.geoset]:c.source;
- const regions=contact?[{frame:null,vertices:[contact.vertex],weights:vertexBoneWeights(sourceGeo,contact.vertex)}]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ let regions=contact?[{frame:null,vertices:[contact.vertex],weights:vertexBoneWeights(sourceGeo,contact.vertex)}]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ // A layer made with sharedSites shares its rate among the part's regions as built-in kinds do, and a ground
+ // or flat (XYQuad) emitter is one emitter at the longest region instead of one stacked copy per region.
+ if(l.sharedSites&&!contact&&regions.length>1&&(l.ground||l.nativeSpec?.flat))regions=[regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)];
+ const shares=l.sharedSites&&!contact&&!l.impact?emissionShares(regions,1):null;
  for(const [i,region] of regions.entries()){
+  if(shares&&!shares[i])continue;
   const f=region.frame;
   const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
-  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24,tint:l.tint,sequence:c.stack.sequence};
+  const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*(shares?shares[i]:1),tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);
   const importer=createResourceImporter(temp,m,{reuseTextures:'partKey',reuseGlobals:true});
   const texCount=m.Textures.length;
