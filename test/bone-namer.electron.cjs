@@ -99,6 +99,18 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     check(await ticked('Bone_Hand_R'), 'the renamed hand starts ticked');
     check(await partOf('Bone_Hand_R') === 'Hand' && await sideOf('Bone_Hand_R') === 'Left', 'the hand row shows Part Hand, Side Left');
     check(await newName('Bone_Head') === 'Bone_Head' && !await ticked('Bone_Head'), 'an already right name is shown and changes nothing (unticked)');
+    // What the list would rename right now: every ticked row whose new name differs, read from the list itself.
+    const proposed = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.bnm-window .bnm-row[role=row]')]
+      .filter(element => element.querySelector('input[type=checkbox]')?.checked && element.children[2]?.textContent !== element.children[1]?.textContent)
+      .map(element => [element.children[1].textContent, element.children[2].textContent])));
+    const sorted = names => JSON.stringify(Object.entries(names).sort(([a], [b]) => a.localeCompare(b)));
+    // Fix round 4: mesh pieces take the name of the joint they hang on (Mesh_ + the joint's name without Bone_).
+    // Box02 hangs on the head; Mesh02 hangs on the hand and Mesh26 on the chest, which the contract excludes.
+    const DEFAULT_PROPOSAL = { Bone_Hand_R: 'Bone_Hand_L', Box02: 'Mesh_Head', Mesh11: 'Mesh_Leg1_L', Mesh09: 'Mesh_Leg2_L', Mesh07: 'Mesh_Foot_L', Mesh24: 'Mesh_Leg1_R', Mesh25: 'Mesh_Leg2_R', Mesh06: 'Mesh_Foot_R', Mesh27: 'Mesh_Arm1_R', Mesh01: 'Mesh_Arm2_R', Mesh05: 'Mesh_Arm1_L', Mesh03: 'Mesh_Arm2_L' };
+    const firstProposal = await proposed();
+    check(sorted(firstProposal) === sorted(DEFAULT_PROPOSAL), `the default proposal ticks the hand and the 11 mesh pieces (${sorted(firstProposal)})`);
+    check(await partOf('Mesh11') === 'Mesh piece' && await row('Mesh11').getByRole('combobox', { name: 'Side' }).isDisabled() && await newName('Mesh11') === 'Mesh_Leg1_L' && await ticked('Mesh11'),
+      `a mesh-piece row shows Part "Mesh piece" with Side disabled (Mesh11: ${await partOf('Mesh11')}, ${await newName('Mesh11')})`);
     for (const kept of ['Box04', 'Mesh02', 'Cantine']) {
       check(await partOf(kept) === 'Keep name' && await newName(kept) === kept && !await ticked(kept), `unrecognised ${kept} shows Keep name, unticked`);
     }
@@ -166,15 +178,16 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     mark = (await overlay()).frames;
     await row('Bone_Hand_R').getByRole('combobox', { name: 'Side' }).selectOption({ label: 'Right' });
     check(await waitNewName('Bone_Hand_R', 'Bone_Hand_R'), 'Side Right turns the proposal into Bone_Hand_R');
-    check(!await commit.isEnabled(), 'with nothing left to rename, Commit is inactive');
+    // The mesh pieces stay proposed, so Commit stays active here; "nothing to commit" is checked after unticking all.
     labels = await waitLabels(['Bone_Arm1_R', 'Bone_Arm2_R', 'Bone_Hand_R'], mark);
     check(labels.ok, `after Side Right the labels show the right arm (drew ${JSON.stringify(labels.actual)})`);
     await row('Bone_Hand_R').getByRole('combobox', { name: 'Side' }).selectOption({ label: 'Left' });
     check(await waitNewName('Bone_Hand_R', 'Bone_Hand_L'), 'Side Left turns it back into Bone_Hand_L');
 
     // 3. A part change re-ticks the row: untick the hand, then correct its part.
-    await row('Bone_Hand_R').getByRole('checkbox', { name: 'Rename bone' }).click();
-    check(!await ticked('Bone_Hand_R') && !await commit.isEnabled(), 'unticking the hand leaves nothing to commit');
+    // Untick every proposed row (the hand and the mesh pieces) with real clicks.
+    for (const current of Object.keys(await proposed())) await row(current).getByRole('checkbox', { name: 'Rename bone' }).click();
+    check(Object.keys(await proposed()).length === 0 && !await ticked('Bone_Hand_R') && !await commit.isEnabled(), `unticking every proposed row leaves nothing to commit (left: ${sorted(await proposed())})`);
     await row('Bone_Hand_R').getByRole('combobox', { name: 'Part' }).selectOption({ label: 'Arm' });
     check(await waitNewName('Bone_Hand_R', 'Bone_Arm3_L') && await ticked('Bone_Hand_R'), 'Part Arm re-ticks the row and numbers it Bone_Arm3_L');
     await row('Bone_Hand_R').getByRole('combobox', { name: 'Part' }).selectOption({ label: 'Hand' });
@@ -269,7 +282,8 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     await page.keyboard.press('Escape');
     check(await dialog.waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false) && await discardQuestion() === 0, 'with no change, one Escape closes at once');
 
-    // 6. Commit: the default hand fix, a part the user assigns (Box02 → Neck), and an assigned-but-unticked row.
+    // 6. Commit: the default proposal (hand and mesh pieces), a part the user assigns (Box02 → Neck), and an
+    // assigned-but-unticked row (Box04).
     await button.click(); await dialog.waitFor();
     await page.locator(`${previewRoot} canvas`).first().waitFor();
     await row('Box02').getByRole('combobox', { name: 'Part' }).selectOption({ label: 'Neck' });
@@ -278,15 +292,17 @@ const STATUS = 'Click a row or a bone to see its name. Drag empty space to turn 
     check(await waitNewName('Box04', 'Bone_Tail1') && await ticked('Box04'), 'assigning Tail to Box04 proposes Bone_Tail1, ticked');
     await row('Box04').getByRole('checkbox', { name: 'Rename bone' }).click();
     check(!await ticked('Box04'), 'Box04 unticked');
-    const expectedChanged = 2;
+    // The renames Commit must make: what the list shows ticked, which is the default proposal plus Box02.
+    const toCommit = await proposed(), expectedChanged = Object.keys(toCommit).length;
+    check(sorted(toCommit) === sorted({ ...DEFAULT_PROPOSAL, Box02: 'Bone_Neck' }), `the ticked set is the default proposal plus Box02 → Bone_Neck (${sorted(toCommit)})`);
     const cursor = await infoMessageCursor(page);
     await commit.click();
     check(await dialog.waitFor({ state: 'hidden', timeout: 5000 }).then(() => true, () => false), 'Commit closes the window');
     // Fix round 1, item 10: "Bone Namer renamed {0} bone{1}." (plural like Attachemator's message).
     const message = await waitForInfo(page, /^Bone Namer renamed \d+ bones?\.$/, { after: cursor, timeout: 5000 }).catch(() => null);
-    check(message === `Bone Namer renamed ${expectedChanged} bones.`, `the status says how many: "${message}"`);
+    check(message === `Bone Namer renamed ${expectedChanged} bone${expectedChanged === 1 ? '' : 's'}.` && expectedChanged === 12, `the status says how many: "${message}" (expected ${expectedChanged})`);
     const committed = await mainNames();
-    const expected = { ...originalNames, [handId]: 'Bone_Hand_L', [idOf('Box02')]: 'Bone_Neck' };
+    const expected = { ...originalNames, ...Object.fromEntries(Object.entries(toCommit).map(([current, name]) => [idOf(current), name])) };
     check(JSON.stringify(committed) === JSON.stringify(expected), `Commit renamed exactly the ticked bones (diff: ${JSON.stringify(Object.keys(expected).filter(id => expected[id] !== committed[id]).map(id => [originalNames[id], committed[id], expected[id]]))})`);
     check(await mainShape() === originalShape, 'Commit changed names only: parents and pivots unchanged');
     check(await page.evaluate(() => window.__mdlxl.document().dirty === true), 'the document is modified');
