@@ -97,7 +97,7 @@ export function stackFromOwnLook(record,frame,owner){
    // Refit automatic slots in a different model. An explicit point keeps its
    // layout, but a triangle binding belongs only to its source model.
    next.siteLayout=next.siteLayout.map(({surface:_surface,attachmentPoint:_anchor,fireFit:_fireFit,birth:_birth,...site})=>{
-    if(next.siteCount!=null&&site.refit)delete site.point;
+    if(next.siteCount!=null&&site.refit){delete site.point;delete site.componentWidth;delete site.strip;}
     return site;
    });
   }
@@ -107,7 +107,7 @@ export function stackFromOwnLook(record,frame,owner){
    delete individual.attachmentPoint;
   }
   if(next.surfaceFit?.version===SURFACE_FIT_VERSION&&(!next.siteLayout||next.siteLayout.some(site=>site.refit)))
-   next.surfaceFit=surfaceFitInputs(next,now);
+   next.surfaceFit={...surfaceFitInputs(next,now),...(l.surfaceFit.siteCount!=null?{siteCount:l.surfaceFit.siteCount}:{})};
   return next;
  });
  return {owner,look:record.id,name:record.name,loop:record.loop,...(record.asOverlay!=null?{asOverlay:record.asOverlay}:{}),...(record.variation!=null?{variation:record.variation}:{}),impact:false,layers};

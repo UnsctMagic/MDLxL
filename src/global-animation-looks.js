@@ -239,8 +239,14 @@ export function withOrbit(l,frame,loop,fit=1){
 export const shellReach=(frame,inflate=0)=>Math.max(1,(frame?.length||10)*.1,inflate||0);
 export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
 export function withLayerSize(layer,next){
+ if(layer.widthCap&&next.size!==layer.size)next={...next,widthCapEdited:true};
  if(next.size===layer.size||layer.kind==='flies'||!layer.native?.ParticleScaling)return next;
  return {...next,native:{...next.native,ParticleScaling:layer.native.ParticleScaling.map(value=>value*next.size/layer.size)}};
+}
+export function withParticleRamp(layer,SegmentColor){
+ const next={...layer,native:{...layer.native,SegmentColor}};
+ if(layer.rampTint){delete next.rampTint;next.rampPinned=true;}
+ return next;
 }
 export function withParticleStrength(layer,currentAlpha,value){
  const opacityBase=layer.opacityBase||Array.from(currentAlpha);
@@ -396,6 +402,7 @@ export function makeLayer(spec,frame,palette,id) {
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3]*(scale.velocity??1),gravity:p[4]*(scale.gravity??1),size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5]*(scale.size??1),
   spriteSize:p[5],smoothness:32};
+ if(spec.native?.SegmentColor)layer.rampTint=[...defaultTint];
  if(scale.stages)layer.native={...layer.native,ParticleScaling:scale.stages.map(v=>v*layer.size)};
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
  // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
@@ -422,9 +429,9 @@ export function makeLayer(spec,frame,palette,id) {
  if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
  // Raised native weather/cloud recipes have an authored launch height.
  if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt)
-  layer.surfaceFit=surfaceFitInputs(layer,basis);
+  layer.surfaceFit={...surfaceFitInputs(layer,basis),...(spec.siteCount!=null?{siteCount:spec.siteCount}:{})};
  if(spec.fireFit===1)layer.fireFit={version:1};
- if(spec.birthRegion){delete layer.surfaceFit;layer.surfaceSites=false;}
+ if(spec.birthRegion){delete layer.surfaceFit;layer.surfaceSites=false;layer.birthRegionFit=true;}
  if(spec.airyFit)layer.airyFit={...spec.airyFit};
  return layer;
 }

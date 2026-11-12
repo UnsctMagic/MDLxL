@@ -39,7 +39,8 @@ export function individualEmitterLayer(layer,key){
  const values=layer.individuals?.[key]?.values;
  if(!values)return layer;
  const result={...layer,...values,native:{...layer.native,...values.native}};
- for(const [quick,fields] of Object.entries(QUICK_NATIVE))if(Object.hasOwn(values,quick))for(const field of fields)if(!Object.hasOwn(values.native||{},field))delete result.native[field];
+ if(layer.rampTint&&values.native?.SegmentColor){delete result.rampTint;result.rampPinned=true;}
+ for(const [quick,fields] of Object.entries(QUICK_NATIVE))if(Object.hasOwn(values,quick))for(const field of fields)if(!Object.hasOwn(values.native||{},field)&&!(quick==='tint'&&(result.rampTint||result.rampPinned)))delete result.native[field];
  return result;
 }
 export function withIndividualEmitter(layer,key,previous,next,touched){
@@ -47,7 +48,7 @@ export function withIndividualEmitter(layer,key,previous,next,touched){
  for(const field of ['tint','size','spriteSize','lasts','amount','strength','particleStrength','opacityBase','velocity','gravity','spread','burstGap','burstWindow']){
   if(field!==touched&&JSON.stringify(previous[field])===JSON.stringify(next[field]))continue;
   if(next[field]===undefined)delete values[field];else values[field]=structuredClone(next[field]);
-  for(const native of QUICK_NATIVE[field]||[])if(values.native)delete values.native[native];
+  for(const native of QUICK_NATIVE[field]||[])if(values.native&&!(field==='tint'&&previous.rampPinned))delete values.native[native];
  }
  if(JSON.stringify(previous.native)!==JSON.stringify(next.native)){
   values.native={...values.native};
@@ -86,6 +87,7 @@ function touchedEmitterFields(previous,next){
  const fields=new Set([...VALUE_GROUPS.flat(),...Object.keys(previous.native||{}).map(k=>'native.'+k),...Object.keys(next.native||{}).map(k=>'native.'+k)]),changed=new Set([...fields].filter(k=>JSON.stringify(at(previous,k))!==JSON.stringify(at(next,k))));
  for(const field of ['size','velocity','gravity'])
   if(!!previous.fireFit?.[field+'Edited']!==!!next.fireFit?.[field+'Edited'])changed.add(field);
+ if(!!previous.widthCapEdited!==!!next.widthCapEdited)changed.add('size');
  // The quick Size changes sprite and spawn area; native Width and Length are independent edits.
  if(changed.has('size')){changed.add('native.Width');changed.add('native.Length');}
  for(const group of VALUE_GROUPS)if(group.some(k=>changed.has(k)))for(const key of group)changed.add(key);

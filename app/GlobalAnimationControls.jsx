@@ -14,7 +14,7 @@ import {ChoiceSelect,NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import {ribbonQuickValues} from '../src/ribbon-quick.js';
-import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit,shellReach,emitterName,layerIngredient} from '../src/global-animation-looks.js';
+import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredient,layerType,withParticleStrength,withIceVariation,withVariation,currentVariation,withLayerSize,withParticleRamp,BLEND_CHOICES,layerFilter,withBlend,layerMoves,surfaceControls,secondTint,COLOUR_RHYTHM_IDS,emitterChoices as presetEmitterChoices,withOrbit,shellReach,emitterName,layerIngredient} from '../src/global-animation-looks.js';
 
 import {gamePathKey} from '../src/game-path.js';
 import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
@@ -33,11 +33,11 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const setLayer=(next,touched)=>{const changed=selectedSite?withIndividualEmitter(layer,selectedSite,l,next,touched):next;setStack({...stack,layers:stack.layers.map(v=>v.id===changed.id?changed:v)});};
  const update=(key,val)=>{
   const next={...l,[key]:val},fireQuick=l.fireFit?.version===1&&['size','velocity','gravity'].includes(key);
-  if(key==='tint'&&l.native){next.native={...l.native};delete next.native.SegmentColor;}
+  if(key==='tint'&&l.native&&!l.rampTint&&!l.rampPinned){next.native={...l.native};delete next.native.SegmentColor;}
   if(fireQuick&&!selectedSite)next.fireFit={...l.fireFit,[key+'Edited']:true};
   const actualSize=real?.ParticleScaling?.[1];
   const previous=key==='size'&&fireQuick&&l.native?.ParticleScaling&&actualSize>0?{...l,size:actualSize}:l;
-  setLayer(key==='size'?withLayerSize(previous,next):next,fireQuick?key:undefined);
+  setLayer(key==='size'?withLayerSize(previous,next):next,fireQuick||key==='size'&&l.widthCap?key:undefined);
  };
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
  // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
@@ -142,6 +142,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
     if(g.field==='Alpha'){next.individuals[key].values.opacityBase=plain(next.individuals[key].values.native.Alpha);next.individuals[key].values.particleStrength=1;}
     next.individuals[key].groupFields=[...new Set([...(next.individuals[key].groupFields||[]),g.field])];
    }
+   if(g.field==='SegmentColor'&&(layer.rampTint||layer.rampPinned))next=withParticleRamp(next,plain(g.displayParameter.change(g.value)));
    if(g.aggregate){
     const unitRate=l.nativeSpec?((l.nativeSpec.rate??8)/24)*(l.speed??1)*(result.siteRateScale??1):1;
     next.amount=g.total>0?layer.amount*g.value/g.total:unitRate>0?g.value/unitRate:layer.amount;
@@ -152,6 +153,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    setStack({...stack,layers:stack.layers.map(item=>item.id===next.id?next:item)},false,{layerId:layer.id,field:g.field,sites:g.parameters.map(p=>p.emitter._FxTag.slice(p.emitter._FxTag.lastIndexOf('/')+1)),baselines:Object.fromEntries(g.parameters.map(p=>[p.emitter._FxTag.slice(p.emitter._FxTag.lastIndexOf('/')+1),plain(p.parameter.baseline)]))});
   }else if(g.parameters?.length){
    const value=plain(g.parameters[0].parameter.change(g.value));
+   if(g.field==='SegmentColor'){setLayer(withParticleRamp(l,value));return;}
    setLayer({...l,native:{...l.native,[g.field]:value},...(g.field==='Alpha'?{opacityBase:plain(value),particleStrength:1}:{})});
   }
  };

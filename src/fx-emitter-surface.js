@@ -146,18 +146,18 @@ function stripSites(part,count,footprint) {
   }
   if(!best)best={...section[0],normal:direction};
   // The offset lies in the same axial plane as the sampled triangle.
-  sites.push(siteAt(best,Math.max(.04,Math.min(footprint*.10,part.radius*.18)),{strip:true}));
+  sites.push(siteAt(best,Math.max(.04,Math.min(footprint*.10,part.radius*.18)),{strip:true},part.radius));
  }
  return sites;
 }
 
-function siteAt({triangle,barycentric,point,normal},clearance,fit) {
+function siteAt({triangle,barycentric,point,normal},clearance,fit,componentWidth=fit?.radius) {
  return {
   point:point.clone().addScaledVector(normal,clearance).toArray(),
   vertices:triangle.ids,
   triangle:triangle.index,
   barycentric,
-  fit
+  fit,componentWidth,normal:normal.toArray()
  };
 }
 
@@ -215,15 +215,15 @@ function rimSites(shape,footprint,limit,unitHeight) {
 
 export function suggestEmitterSites(shape,fit,unitHeight) {
  if(!shape)return [];
- const footprint=Math.max(1,fit.footprint);
+ const footprint=Math.max(1,fit.siteCount?shape.span.length()/fit.siteCount:fit.footprint);
  // Split one layer's existing emission budget while keeping enough live
  // particles at each site for a continuous effect.
- const limit=clamp(Math.floor(fit.liveParticles/4),1,MAX_SITES);
+ const limit=clamp(fit.siteCount??Math.floor(fit.liveParticles/4),1,MAX_SITES);
  const strips=[];
  for(const part of shape.components){
   if(!part.frame||part.area<shape.area*.04)continue;
   if(part.frame.length>=5.2*Math.max(part.radius,EPS))
-   strips.push({...part,count:1,desired:Math.max(1,Math.round(part.frame.length/footprint))});
+   strips.push({...part,count:1,desired:fit.siteCount??Math.max(1,Math.round(part.frame.length/footprint))});
  }
  if(strips.reduce((sum,part)=>sum+part.area,0)>=shape.area*.65){
   const active=strips.sort((a,b)=>b.frame.length-a.frame.length).slice(0,limit);
@@ -281,7 +281,7 @@ export function suggestAdditionalEmitterSites(shape,fit,unitHeight,existing,need
   const {part,triangle}=faces[index],barycentric=grid[i%grid.length];
   const point=pointOnTriangle(triangle,barycentric),normal=triangle.normal.clone();
   if(normal.dot(point.clone().sub(part.centre))<0)normal.negate();
-  pool.push(siteAt({triangle,barycentric,point,normal},Math.max(.04,Math.min(fit.footprint*.1,part.span.length()*.06))));
+  pool.push(siteAt({triangle,barycentric,point,normal},Math.max(.04,Math.min(fit.footprint*.1,part.span.length()*.06)),undefined,part.radius));
  }
  spread(pool);
  return added;
