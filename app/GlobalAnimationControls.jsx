@@ -3,7 +3,8 @@ import {translate} from '../src/localization.js';
 import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
 import {BlendLookField,DrawAsField} from './ParticlePictureTool.jsx';
 import ParticleFrameStrip from './ParticleFrameStrip.jsx';
-import {particleValue} from '../src/particle-bindings.js';
+import {particleValue,beginParticleParameter} from '../src/particle-bindings.js';
+import ParticleLifeMarker from './ParticleLifeMarker.jsx';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
 import FxLookBar from './FxLookBar.jsx';
 import {impactDefaults,textureRepeats,glyphIslands,withGlyphGesture} from '../src/global-animation-model.js';
@@ -81,8 +82,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const plainValues=values=>Object.fromEntries(Object.entries(values).map(([key,value])=>[key,ArrayBuffer.isView(value)?Array.from(value):value]));
  const depth=(field,value)=>setLayer({...l,native:{...l.native,...plainValues({[field]:value})}});
  const timingOptions={frame:stack.hit,interval:graph?.model.Sequences[stack.sequence]?.Interval,globalSequences:graph?.model.GlobalSequences};
- const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined};};
- const nativeChange=value=>{if(gesture.current)gesture.current.value=value;};
+ const nativeBegin=(field,stage)=>{gesture.current={field,stage,value:undefined,parameter:field==='ParticleScaling'?beginParticleParameter(real,field,{...timingOptions,stage}):null};};
+ const nativeChange=value=>{const g=gesture.current;if(g)g.value=g.parameter?Array.from(g.parameter.change(value)):value;};
  const nativeFinish=()=>{const g=gesture.current;gesture.current=null;if(g?.value===undefined)return;if(g.field==='EmissionRate'&&stack.impact){const hit=g.value?.Keys?.find(k=>k.Vector[0]>0)?.Frame;if(hit!=null)setStack({...stack,...impactDefaults(graph.model,graph.geoset,stack.sequence,hit)});else setLayer({...l,burst:g.value});}else setLayer({...l,native:{...l.native,[g.field]:g.value}});};
  return <>
   <h3>{look.name}</h3>
@@ -136,7 +137,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   </>}
   {p&&real&&!stack.impact&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {/* EMTR's own fields; each value is kept in layer.native. */}
-   {(l.burstGap==null?['Latitude','Variation']:['Variation']).map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
+   {[...(l.kind==='native'?['ParticleScaling']:[]),'Width','Length',...(l.burstGap==null?['Latitude','Variation']:['Variation'])].map(field=><ParticleSlider key={field} decimals={2} field={field} value={particleValue(real,field,timingOptions)} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}}/>)}
+   <ParticleLifeMarker value={real.Time} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} onSelect={setLifeStage}/>
    <BlendLookField emitter={real} update={depth}/>
    <CarryButton emitter={real} update={depth}/>
    <DrawAsField emitter={real} update={depth}/>
