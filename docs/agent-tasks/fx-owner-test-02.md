@@ -67,6 +67,18 @@ outside "Selected geosets (n)" must switch to that part alone; a previewed emitt
 changed group choice must count as unapplied work; Fit selection and Highlight geoset must
 cover all members in group mode.
 
+Owner decisions, 12 November 2026 (after the pause):
+- Blade crackle: "this one is fine actually the way it is". Leave it unchanged.
+- Rising embers: real ember values (LavaLump embers, few, slow, long-lived).
+- Rate wobble: steady everywhere for new emitter layers (saved layers unchanged).
+- Add emitters: Falling snow, Maple leaves, Falling feathers, Ash flecks, Coal sparks, Hot
+  filings, Fire hair. Not Ground dust.
+- Flies on Death: "offer both": a switch to rise away on Death like the native flies.
+- Shared sites: only many-piece bodies (more than four skin regions) share; parts with four or
+  fewer keep their old density.
+- Inward souls and Rune rings: raise the single emitter to about the old strength.
+- Fly picture: keep the Abomination fly as default.
+
 Open for the owner: fly look by eye (colour, size) on their own models; whether flies should
 rise away on Death like the native ones (left out); whether the remaining preview-rebuild
 cost is worth a change to shared preview code.
