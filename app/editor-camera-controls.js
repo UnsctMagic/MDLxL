@@ -93,7 +93,7 @@ export class EditorCameraControls extends OrbitControls {
     for (const id of pointers) if (element.hasPointerCapture(id)) element.releasePointerCapture(id);
     if (pointers.length) this.dispatchEvent({ type: 'end' });
   }
-  update(deltaTime) {
+  _syncUp() {
     if (this.keepWorldUp?.()) {
       this.object.up.set(0,0,1);
       this.minPolarAngle=.0001;this.maxPolarAngle=Math.PI-.0001;
@@ -101,6 +101,12 @@ export class EditorCameraControls extends OrbitControls {
     // OrbitControls caches its up-vector transform at construction. View presets
     // and editable roll change up later, so keep that cached basis synchronized.
     if (this._quat) { this._quat.setFromUnitVectors(this.object.up.clone().normalize(), new Vector3(0, 1, 0)); this._quatInverse.copy(this._quat).invert(); }
+  }
+  /** Adopts the current camera as already settled (an exact restore of a saved view),
+   * so the next update() leaves it unchanged unless something differs. */
+  settle() { this._syncUp(); this._settledCamera = this._cameraKey(); }
+  update(deltaTime) {
+    this._syncUp();
     // Idle frames leave the camera alone: OrbitControls' spherical round trip can move an
     // unchanged camera by one rounding step per call, and the render loop calls this every frame.
     const settled = this._settledCamera, key = this._cameraKey();
