@@ -19,6 +19,7 @@ import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
 import { nodeSectionsChanged, refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
+import { applyBoneNames } from '../src/bone-namer.js';
 import { applyAttachmentPlan, attachematorStandSequence } from '../src/attachemator.js';
 import { autoCorpse, AUTO_CORPSE_SECTIONS } from '../src/auto-corpse.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
@@ -50,6 +51,7 @@ import SidebarSection from './SidebarSection.jsx';
 import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
+const BoneNamer = lazy(() => import('./BoneNamer.jsx'));
 const Attachemator = lazy(() => import('./Attachemator.jsx'));
 const AutoCorpse = lazy(() => import('./AutoCorpse.jsx'));
 import { AppUVWorkspace, AppTextureLibrary, AppTimeline } from './AppPanels.jsx';
@@ -263,7 +265,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [boneWiggle, setBoneWiggle] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false), [boneNamerOpen, setBoneNamerOpen] = useState(false), [autoCorpseOpen, setAutoCorpseOpen] = useState(false);
   // Each model tab keeps its own cameras, so switching tabs returns to the view left there.
   const cameraHandoff = session.cameraHandoff ||= { current: null };
   const paintCamera = session.paintCamera ||= { current: null };
@@ -475,6 +477,13 @@ export default function App() {
       setSelectedNodeIds([created.ObjectId]);
       if (type === 'Attachment') changeOverlay('attachments', true);
     }
+  };
+  const openBoneNamer = () => { setBoneCreateOpen(false); setAttachSourceIds([]); setBoneNamerOpen(true); };
+  const commitBoneNamer = ({ rows, chosen }) => {
+    const result = edit('Bone Namer', ['Nodes'], current => applyBoneNames(current, rows, chosen), { rethrow: true });
+    if (result === false) return false;
+    say(`Bone Namer renamed ${result.changed} bone${result.changed === 1 ? '' : 's'}.`);
+    return result;
   };
   const openAttachemator = () => { setBoneCreateOpen(false); setAttachSourceIds([]); setAttachematorOpen(true); };
   const commitAttachemator = ({ rows, chosen, pivots, parents }) => {
@@ -1976,6 +1985,7 @@ export default function App() {
       if (result) Promise.resolve(selectAnimationPanel('animations')).then(() => selectSequence(result.corpses[0].bone));
       return !!result;
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
+    {boneNamerOpen && <Suspense fallback={null}><BoneNamer key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitBoneNamer} onClose={() => setBoneNamerOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}>
@@ -2068,7 +2078,7 @@ export default function App() {
       }}/>}
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen, boneWiggle, setBoneWiggle,
-        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator,
+        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, openAttachemator, openBoneNamer,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
