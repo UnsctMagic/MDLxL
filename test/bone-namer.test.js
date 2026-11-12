@@ -14,6 +14,7 @@ import { emptyModel, addBiped, addQuadruped, addNode, startGeoset, allBones, idO
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const loadMdx = file => { assert.ok(file && fs.existsSync(file), `fixture missing: ${file}`); const b = fs.readFileSync(file); return parseCompatibleMdx(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); };
+const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
 
 const rowsById = plan => new Map(plan.rows.map(row => [row.id, row]));
 const nameIn = (plan, id) => rowsById(plan).get(id)?.name;
@@ -539,7 +540,7 @@ test('rule 7: made-up rigs are stable - committing the defaults and planning aga
 
 // ---------------------------------------------------------------- real models
 
-test('native Footman: the left hand named Bone_Hand_R becomes Bone_Hand_L; the right arm ends at an attachment', () => {
+test('native Footman: the left hand named Bone_Hand_R becomes Bone_Hand_L; the right arm ends at an attachment', { skip: missing('footman') }, () => {
   const model = loadMdx(fixturePath('footman')), plan = planBoneNames(model);
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'footman');
@@ -559,7 +560,7 @@ test('native Footman: the left hand named Bone_Hand_R becomes Bone_Hand_L; the r
   assert.deepEqual(changed, { Bone_Hand_R: 'Bone_Hand_L', ...pieces });
 });
 
-test('native Footman: committing changes one name and nothing else', () => {
+test('native Footman: committing changes one name and nothing else', { skip: missing('footman') }, () => {
   const model = loadMdx(fixturePath('footman')), plan = planBoneNames(model), before = snapshot(model);
   const result = applyBoneNames(model, plan.rows, new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id)));
   assert.ok([12, 13].includes(result.changed), 'the hand and eleven mesh pieces (12), or 13 if Object04 also becomes Mesh_Pelvis');
@@ -568,7 +569,7 @@ test('native Footman: committing changes one name and nothing else', () => {
   assert.ok(!allBones(model).some(node => node.Name === 'Bone_Hand_R'), 'the old left-hand name is gone');
 });
 
-test('native Knight: rider plain, horse Mount_ with Front / Rear hooves, hidden rig copies get _Copy', () => {
+test('native Knight: rider plain, horse Mount_ with Front / Rear hooves, hidden rig copies get _Copy', { skip: missing('hoofprint') }, () => {
   const model = loadMdx(fixturePath('hoofprint')), plan = planBoneNames(model);
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'knight');
@@ -593,7 +594,7 @@ test('native Knight: rider plain, horse Mount_ with Front / Rear hooves, hidden 
   assert.equal(kinds.length, 4);
 });
 
-test('owner\'s Slaanesh Champion: rider under the Death root is Main, horse is Mount_, the Death root keeps its name', () => {
+test('owner\'s Slaanesh Champion: rider under the Death root is Main, horse is Mount_, the Death root keeps its name', { skip: missing('slaanesh-champion') }, () => {
   const model = loadMdx(fixturePath('slaanesh-champion')), plan = planBoneNames(model);
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'champion');
@@ -603,7 +604,7 @@ test('owner\'s Slaanesh Champion: rider under the Death root is Main, horse is M
   assert.deepEqual(plan.actors.map(actor => actor.kind), ['main', 'mount']);
 });
 
-test('Lahmian: the visible Root rig is Main with standard names; cloth, spear, face and sway root keep theirs', () => {
+test('Lahmian: the visible Root rig is Main with standard names; cloth, spear, face and sway root keep theirs', { skip: missing('lahmian') }, () => {
   const model = loadMdx(fixturePath('lahmian')), plan = planBoneNames(model);
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'lahmian');
@@ -617,7 +618,7 @@ test('Lahmian: the visible Root rig is Main with standard names; cloth, spear, f
   assert.ok(plan.actors.length >= 2);
 });
 
-test('real models: committing the default plan changes only names and uses each new name once', () => {
+test('real models: committing the default plan changes only names and uses each new name once', { skip: missing('hoofprint', 'slaanesh-champion', 'lahmian') }, () => {
   for (const key of ['hoofprint', 'slaanesh-champion', 'lahmian']) {
     const model = loadMdx(fixturePath(key)), plan = planBoneNames(model), before = snapshot(model);
     const chosen = new Set(plan.rows.filter(row => row.name !== row.current).map(row => row.id));
@@ -628,15 +629,15 @@ test('real models: committing the default plan changes only names and uses each 
   }
 });
 
-test('rule 7: real models are stable - committing the defaults and planning again proposes nothing', () => {
+test('rule 7: real models are stable - committing the defaults and planning again proposes nothing', { skip: missing('footman', 'hoofprint', 'slaanesh-champion', 'lahmian') }, () => {
   for (const key of ['footman', 'hoofprint', 'slaanesh-champion', 'lahmian']) assertStable(loadMdx(fixturePath(key)), key);
 });
 
-test('rule 7: SD sheep is stable - a second run no longer renames Bone_Foot_L to Bone_Leg2_L', () => {
+test('rule 7: SD sheep is stable - a second run no longer renames Bone_Foot_L to Bone_Leg2_L', { skip: missing('sd800-sheep') }, () => {
   assertStable(loadMdx(fixturePath('sd800-sheep')), 'sheep');
 });
 
-test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm ends at the attachment Hand Right Ref', () => {
+test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm ends at the attachment Hand Right Ref', { skip: missing('sd800-archnathid') }, () => {
   const model = loadMdx(fixturePath('sd800-archnathid')), plan = planBoneNames(model);
   assertGoodPlan(model, plan, 'archnathid');
   assert.ok(model.Attachments.some(node => node.Name.trim() === 'Hand Right Ref'), 'setup: the attachment exists');
@@ -645,7 +646,7 @@ test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm 
   assertKept(model, plan, ['Bone_Box23'], 'archnathid (hub above the right arm)');
 });
 
-test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE still grips that end after commit', () => {
+test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE still grips that end after commit', { skip: missing('sd-bandit') }, () => {
   const model = loadMdx(fixturePath('sd-bandit')), end = idOf(model, 'HandRight');
   const gripped = m => { const s = standSequenceIndex(m), rig = suggestPoseRig(m, m.Sequences[s].Interval[0], s); return rig.chains.filter(chain => chain.grip).map(chain => chain.end); };
   assert.deepEqual(gripped(model), [end], 'setup: POSE grips HandRight (a mesh node) and nothing else');
@@ -778,7 +779,7 @@ test('round 4: nameBones can set a bone to Mesh piece or back to Keep name', () 
   assert.equal(rows.find(row => row.id === auto).part, 'keep');
 });
 
-test("round 4: Raider (owner's wolf rider) - mesh pieces take their joints' names; guarded bones keep theirs", () => {
+test("round 4: Raider (owner's wolf rider) - mesh pieces take their joints' names; guarded bones keep theirs", { skip: missing('raider') }, () => {
   const model = loadMdx(fixturePath('raider')), plan = planBoneNames(model);
   assert.equal(plan.error ?? null, null);
   assertGoodPlan(model, plan, 'raider');
@@ -795,11 +796,11 @@ test("round 4: Raider (owner's wolf rider) - mesh pieces take their joints' name
   assert.equal(rowsById(plan).get(idOf(model, 'wolf-chest')).part, 'mesh');
 });
 
-test('round 4: Raider is stable - committing the defaults and planning again proposes nothing', () => {
+test('round 4: Raider is stable - committing the defaults and planning again proposes nothing', { skip: missing('raider') }, () => {
   assertStable(loadMdx(fixturePath('raider')), 'raider');
 });
 
-test('round 4: a gripped Mesh_ end takes its side from its Stand skin centre (orc wolfrider rightfoot, Y -22.9)', () => {
+test('round 4: a gripped Mesh_ end takes its side from its Stand skin centre (orc wolfrider rightfoot, Y -22.9)', { skip: missing('sd-orc-wolfrider') }, () => {
   const model = loadMdx(fixturePath('sd-orc-wolfrider')), plan = planBoneNames(model), name = nameIn(plan, idOf(model, 'rightfoot'));
   assertGoodPlan(model, plan, 'wolfrider');
   assert.match(name, /^Mesh_Foot(?:_[A-Za-z0-9]+)?_R$/, name);
