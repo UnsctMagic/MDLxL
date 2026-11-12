@@ -405,17 +405,33 @@ function emitterDepthEdits(model,l,node){
  for(const key of EMITTER_DEPTH)if(!(l.native&&key in l.native)&&node[key]!==undefined&&!sameDepth(node[key],defaults[key]))edits[key]=ArrayBuffer.isView(node[key])?Array.from(node[key]):structuredClone(node[key]);
  return edits;
 }
+// A part shares one layer's Amount among at most as many emission sites as a four-region weapon has (a sword with
+// its handle bones), so every site keeps at least the density that looks right there. A body split into many skin
+// regions otherwise gave each of its many emitters one particle every few seconds, which flashes.
+const SHARED_REGIONS=4;
+/** Sites per region when the part has more regions than that: count x 4 sites, given to regions by length (null: one set per region). */
+function emissionShares(regions,count){
+ if(regions.length<=SHARED_REGIONS)return null;
+ const total=count*SHARED_REGIONS,lengths=regions.map(r=>r.frame.length),sum=lengths.reduce((a,b)=>a+b,0)||1;
+ const exact=lengths.map(v=>total*v/sum),shares=exact.map(Math.floor);
+ const order=exact.map((v,i)=>i).sort((a,b)=>exact[b]-shares[b]-(exact[a]-shares[a])||lengths[b]-lengths[a]||a-b);
+ for(let k=0,left=total-shares.reduce((a,b)=>a+b,0);k<left;k++)shares[order[k]]++;
+ return shares;
+}
 function particles(c,l){
  const {model:m,id,ms,tag}=c,fly=l.kind==='flies',mote=l.kind==='motes';
  const count=fly?Math.max(1,Math.round(l.amount)):l.count;
  const ids=[];
  const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ const shares=fly||l.burstGap!=null?null:emissionShares(regions,count);
+ let site=0;
  for(const [regionIndex,region] of regions.entries()){
- const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):count;
+ const regionCount=fly?Math.ceil((regionIndex+1)*count/regions.length)-Math.ceil(regionIndex*count/regions.length):shares?shares[regionIndex]:count;
  const frame=region.frame;
- const parentBone=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
- for(let i=0;i<regionCount;i++){
-  const along=count===1?0:-l.lower+(l.upper+l.lower)*(i+.20)/(count-.60);
+ for(let i=0;i<regionCount;i++,site++){
+  // Shared sites sit evenly along their own region.
+  const along=shares?(regionCount===1?0:frame.length*.8*((i+.5)/regionCount-.5)):count===1?0:-l.lower+(l.upper+l.lower)*(i+.20)/(count-.60);
+  const rate=shares?l.amount/(count*SHARED_REGIONS):l.amount/(count*regions.length),wave=shares?site%count:i;
   const pos=fly||mote?frame.center.clone():frame.surfaceAt(along);
   pos.add(new Vector3(...l.offset));
   let parent=regionParent(c,region,pos,'particles-'+regionIndex+'-'+i);
@@ -437,7 +453,7 @@ function particles(c,l){
   Object.assign(p,{Squirt:false,Flags:4096|32768|(fly||mote?524288:0),TextureID:texture(m,l.image,false,tag),FilterMode:fly||l.kind==='drops'?0:1,Rows:fly&&!l.pictureOverride?12:atlas,Columns:fly&&!l.pictureOverride?16:atlas,
    Speed:l.velocity,Variation:fly?0:.35,Latitude:flame?24:mist?48:34,Gravity:l.gravity,LifeSpan:l.lasts,
    Width:fly?0:size*.2,Length:fly?0:size*.25,
-   EmissionRate:fly?1.3/l.lasts:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,l.amount/(count*regions.length)*(.76+.24*Math.cos((k%8)*Math.PI/4+i*1.7))])),
+   EmissionRate:fly?1.3/l.lasts:keys(id,ms,Array.from({length:9},(_,k)=>[k/8,rate*(.76+.24*Math.cos((k%8)*Math.PI/4+wave*1.7))])),
    Visibility:keys(id,ms,[[0,1],[1,1]]),FrameFlags:1,Time:fly?.5:.36,SegmentColor:colors.map(vec),
    ParticleScaling:vec(fly?[size,size,size]:flame?[size*.94,size,size*.23]:mist?[size*.45,size,size*1.38]:[size*.45,size,size*.12]),
    Alpha:Uint8Array.from((fly?[255,255,245]:mist?[0,70,0]:flame?[230,254,0]:[88,232,0]).map(a=>Math.round(a*l.strength)))});

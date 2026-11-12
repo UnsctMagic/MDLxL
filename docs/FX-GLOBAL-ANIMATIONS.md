@@ -170,6 +170,13 @@ over every look and variation.
   on clocks that never line up. Switching Orbit on gives a loop clear of the part.
 - **Water** runs two frame speeds: the highlight on a clock about 0.66x the surface.
   Water's drips are large enough to see, fall with gravity and draw a short streak tail.
+- **Amount is shared among a weapon's worth of sites (owner, 12 November: Falling mist "on a
+  body it just flashes").** A part with up to four skin regions keeps one set of emitters per
+  region, unchanged. A part with more regions (a body: the Footman's has 27) places
+  `count x 4` sites on its regions by length, instead of a full set on every region; before,
+  the Footman body's 135 mist emitters each released one puff every 6 s. Every site now keeps
+  the density of a four-region weapon (about 1.3 mist particles in flight). Bursts and flies
+  are not split this way. `test/fx-mist-steady.test.js`.
 - **Sizes follow the part's main piece.** Emitter, card and orbit sizes come from the
   longest skin region of the selected part (before 12 November the first region, which on a
   Footman body was a small piece, so its mist was a few units wide).
