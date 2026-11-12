@@ -96,7 +96,9 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
         const hover=await glow();assert.ok(hover>idle,label+' highlights on hover: '+JSON.stringify({idle,hover,bounds}));
         await page.mouse.move(box.x+box.width+8,box.y+35);await settle();
         await page.waitForFunction(()=>document.querySelector('[data-node-overlay]')?.dataset.activeHandle==='');
-        assert.equal(await glow(),idle,label+' hover clears on pointer leave');
+        // The selected bone's label uses the same colour and can flip one antialiased pixel between
+        // redraws; a stuck handle highlight adds 9+ pixels.
+        const left=await glow();assert.ok(Math.abs(left-idle)<=2&&left<hover,label+' hover clears on pointer leave: '+JSON.stringify({idle,hover,left}));
         await page.mouse.move(box.x+point.x,box.y+point.y);
       }
       await page.mouse.down();

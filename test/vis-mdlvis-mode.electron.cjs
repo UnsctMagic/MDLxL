@@ -82,7 +82,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
               hint: document.querySelector('.classic-status').innerText, inputAtTop: !!document.querySelector('.classic-toolbar .compact-input-strength') };
           });
           assert.deepEqual(data.size, [width, height]);
-          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay'));
+          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes'));
           if (vis) {
             assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 1); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));

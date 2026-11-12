@@ -61,9 +61,10 @@ const path = require('node:path');
     assert.match(await popup.textContent(), /Geosets 5, 28/);
     assert.match(await popup.textContent(), /RGB/); assert.match(await popup.textContent(), /Visibility/);
     assert.equal(await popup.getByRole('button', { name: 'Merge', exact: true }).isEnabled(), false);
-    const box = await popup.boundingBox(), viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+    const box = await popup.boundingBox(), viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, top: document.querySelector('.desktop-menu')?.getBoundingClientRect().bottom || 0 }));
     assert.ok(box.width <= 400); assert.ok(Math.abs(box.x + box.width / 2 - viewport.width / 2) < 3);
-    assert.ok(Math.abs(box.y + box.height / 2 - viewport.height / 2) < 3);
+    // Dialogs centre in the workspace below the application menu (desktop-menu.css).
+    assert.ok(Math.abs(box.y + box.height / 2 - (viewport.top + viewport.height) / 2) < 3);
     await screenshot('popup.png');
     await popup.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.equal(await page.evaluate(() => mergeState().doc.revision), before.revision);
