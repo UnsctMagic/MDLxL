@@ -363,14 +363,18 @@ function regionParent(c,region,point,key){
  const parent=region.weights.slice().sort((a,b)=>b[1]-a[1])[0]?.[0]??c.parent;
  if(region.weights.length<2)return parent;
  const bone=nodeFor(c,'Bones','Bone','binding-'+key,'Skin attachment '+key,point,parent),samples=c.attachmentCache;
- const keys=[];
+ // The same part, vertex, parent and point always sample to the same keys; reuse them from the caller's cache.
+ const memo='keys|'+c.surfaceKey+'|'+region.vertices[0]+'|'+parent+'|'+point.toArray().join(',')+'|'+c.frame.length,known=samples.get(memo);
+ if(known){bone.Translation={LineType:1,GlobalSeqId:null,Keys:known.map(([Frame,v])=>({Frame,Vector:vec(v)}))};return bone.ObjectId;}
+ const keys=[],plain=[];
  for(const [sequence,clip] of c.model.Sequences.entries()){
   const value=frame=>{const key=sequence+':'+frame;let matrices=samples.get(key);if(!matrices){matrices=sampleNodeMatrices(c.model,frame,sequence,frame);samples.set(key,matrices);}const world=point.clone().applyMatrix4(geosetSkinMatrix(c.source,region.vertices[0],matrices));const inverse=matrices.get(parent)?.clone().invert();if(inverse)world.applyMatrix4(inverse);return world.sub(point);};
   const result=new Map(),sample=t=>{if(!result.has(t))result.set(t,value(t));return result.get(t);};
   const split=(a,b)=>{const mid=Math.floor((a+b)/2);if(mid===a)return;const error=sample(mid).distanceTo(sample(a).clone().lerp(sample(b),(mid-a)/(b-a)));if(b-a>80||error>Math.max(.005,c.frame.length*.0003)){split(a,mid);split(mid,b);}else result.delete(mid);};
   const [a,b]=clip.Interval;sample(a);sample(b);split(a,b);
-  for(const [Frame,v] of [...result].sort(([a],[b])=>a-b))keys.push({Frame,Vector:vec(v.toArray())});
+  for(const [Frame,v] of [...result].sort(([a],[b])=>a-b)){keys.push({Frame,Vector:vec(v.toArray())});plain.push([Frame,v.toArray()]);}
  }
+ samples.set(memo,plain);
  bone.Translation={LineType:1,GlobalSeqId:null,Keys:keys};return bone.ObjectId;
 }
 // Emitter fields FX edits under More. A key absent from layer.native keeps the value the layer compiles to.
@@ -698,7 +702,11 @@ export function readAnimationStack(model,index){
  }
  return draft;
 }
-export function compileAnimation(model,index,draft,{rune}={}){
+/**
+ * Builds the stack into model. attachments (optional) is a Map the caller keeps for one model revision:
+ * skin-attachment samples of the model's own bones are reused from it instead of recomputed, with the same result.
+ */
+export function compileAnimation(model,index,draft,{rune,attachments}={}){
  const source=model.Geosets[index];if(!source)throw Error('Select a part first.');
  // Several selected geosets are fitted as one surface; each original stays as it is.
  const members=[...new Set(draft.group||[])].filter(i=>i!==index&&model.Geosets[i]&&!model.Geosets[i]._FxTag);
@@ -711,7 +719,8 @@ export function compileAnimation(model,index,draft,{rune}={}){
  const base=before&&source.MaterialID!==before.baseMaterial&&model.Materials[source.MaterialID]?._FxTag!==before.owner+'/underlay'?source.MaterialID:before?.baseMaterial??source.MaterialID;
  const strikeGeo=draft.impact?model.Geosets[draft.contact?.geoset]:null;
  if(draft.impact&&(!strikeGeo||strikeGeo._FxTag||!(draft.contact.vertex>=0&&draft.contact.vertex*3<strikeGeo.Vertices.length)))draft={...draft,...impactDefaults(model,index,draft.sequence,draft.hit)};
- const attachmentCache=new Map(),originalClockCount=model.GlobalSequences.length;
+ // Samples read only the skin bones of this part, which a compile never changes; a caller's cache is keyed by part too.
+ const attachmentCache=attachments||new Map(),surfaceKey=index+'/'+members.join(','),originalClockCount=model.GlobalSequences.length;
  const frame=partFrame(surface),created=[...(before?.createdClockIds||[])],used=new Set();
  const ms=Math.max(200,Math.round(draft.loop)),id=draft.layers.length&&!draft.impact?clockFor(model,ms,created):-1;
  const state=JSON.parse(JSON.stringify(draft));state.baseMaterial=base;state.createdClockIds=created;state.createdClocks=[];
@@ -735,7 +744,7 @@ export function compileAnimation(model,index,draft,{rune}={}){
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
   // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
-  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
+  const tag=owner+'/'+l.id,context={model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
   if(before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&JSON.stringify(before.layers.find(other=>other.id===l.id))===JSON.stringify(l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);

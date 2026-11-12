@@ -72,7 +72,9 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const captureReady=useCallback(api=>{capture.current=api;setReady(false);if(api)api.whenReady().then(()=>{if(capture.current!==api)return;if(firstFit.current){api.frameGeosets(selectionForFit.current);firstFit.current=false;}setReady(true);},cause=>{if(capture.current===api)setPreviewError(cause.message);});},[]);
  useEffect(()=>{let active=true;setError('');setPreviewError('');loadGlobal(assetKey,textureAssets).then(value=>{if(active)setLoaded({...value,assetKey});},cause=>{if(active)setError(cause.message);});return()=>{active=false;};},[assetKey,textureAssets,loadGlobal]);
  const loading=loaded?.assetKey!==assetKey;
- const graph=useMemo(()=>{if(loading)return null;try{const model=structuredClone(doc.model);return {model,...compileAnimation(model,part,previewStack,loaded)};}catch(cause){return {error:cause.message};}},[doc,doc.revision,part,previewStack,loaded,loading]);
+ // Skin-attachment samples of this model revision, shared by every compile until the model changes.
+ const attachments=useMemo(()=>new Map(),[doc,doc.revision]);
+ const graph=useMemo(()=>{if(loading)return null;try{const model=structuredClone(doc.model);return {model,...compileAnimation(model,part,previewStack,{...loaded,attachments})};}catch(cause){return {error:cause.message};}},[doc,doc.revision,part,previewStack,loaded,loading,attachments]);
  const lastModel=useRef(doc.model);if(graph?.model)lastModel.current=graph.model;
  function previewStrength(layer,value){
   if(layer.type==='Particles'){
@@ -91,7 +93,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
    const original=graph.model.Materials[index].Layers,glow=!!layer.glyphs||layer.type==='Glow';
    // Recover the native unit-strength curve once, including the case where the drag starts at zero.
    const unitModel=structuredClone(doc.model),unitStack={...previewStack,layers:previewStack.layers.map(l=>l.id===layer.id?{...l,strength:1}:l)};
-   const result=compileAnimation(unitModel,part,unitStack,loaded);
+   const result=compileAnimation(unitModel,part,unitStack,{...loaded,attachments});
    const unit=unitModel.Materials[unitModel.Geosets[result.layers[layer.id].geoset].MaterialID].Layers;
    strengthDrag.current=drag={api,index,original,glow,unit};
   }
@@ -133,7 +135,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const message=error||graph?.error||previewError,layer=stack.layers.find(l=>l.id===selectedLayer);
  const query=search.trim().toLowerCase(),matches=[...ownEntries,...GLOBAL_LOOKS].filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
  const groups=[...new Set(matches.map(e=>e.group))];
- const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(!previewStack.layers.length&&!readAnimationStack(doc.model,part)){onClose();return;}if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+lookOf(stack).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,loaded));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
+ const apply=(emitterLayer=null)=>{if(!graph?.model||message)return;if(!previewStack.layers.length&&!readAnimationStack(doc.model,part)){onClose();return;}if(JSON.stringify(previewStack)===JSON.stringify(readAnimationStack(doc.model,part))){const id=graph.layers[emitterLayer]?.id;if(emitterLayer!=null&&id!=null)onOpenEmitter(id);else onClose();return;}const result=edit('Apply '+lookOf(stack).name,FX_SECTIONS,model=>compileAnimation(model,part,previewStack,{...loaded,attachments}));if(result===false)return;onPlaced(loaded.assets,result?.geoset??part);if(emitterLayer!=null&&result?.layers?.[emitterLayer]?.id!=null)onOpenEmitter(result.layers[emitterLayer].id);else onClose();};
  return <ToolWindow title="Surface Effects" overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose} unapplied={unapplied}
   after={picture!=null&&<Suspense fallback={null}><TextureLibrary model={doc.model} onClose={()=>setPicture(null)} selectLabel="Use picture" onSelectTexture={async asset=>{
    const [file]=await resolveGameFiles([asset.name]);if(!file)throw Error('Choose a native Warcraft texture.');
