@@ -1,4 +1,5 @@
 import { createChanges, applyChanges } from '../src/history-store.js';
+import { NODE_COLLECTION_KEYS } from '../src/animation.js';
 import { ignoreHistoryAlias, recalculateExtents } from '../src/editor-document.js';
 
 const changes = (before, after) => createChanges(before, after, { ignore: ignoreHistoryAlias });
@@ -53,6 +54,7 @@ function checkMerge(job, diff, result) {
 }
 
 const isModelBounds = edit => edit.path[0] === 'Info' && ['MinimumExtent', 'MaximumExtent', 'BoundsRadius'].includes(edit.path[1]);
+const indexedCollections = ['Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'Geosets', 'GeosetAnims', 'PivotPoints', ...NODE_COLLECTION_KEYS];
 const noPendingWork = (a, b) => a === b || !Object.keys(a || {}).length && !Object.keys(b || {}).length;
 
 // When the user and the job changed separate data, the job's edits apply to the latest model
@@ -61,7 +63,12 @@ const noPendingWork = (a, b) => a === b || !Object.keys(a || {}).length && !Obje
 function planIndependentEdits(job, source, diff) {
   if (source.paintProject?.dirty && source.paintWorkingRevision !== job.paintRevision) return null;
   if (!noPendingWork(source.uvPreviews, job.uvPreviews) || !noPendingWork(source.animationDrafts, job.animationDrafts)) return null;
-  const userEdits = changes(job.recovery.model, source.doc.model);
+  const before = job.recovery.model, current = source.doc.model;
+  if (indexedCollections.some(key => (before[key]?.length ?? 0) !== (current[key]?.length ?? 0))) return null;
+  // Deleting an ObjectId leaves a hole in Nodes even when its length stays the same.
+  if (before.Nodes?.some((node, id) => node && !current.Nodes?.[id]) ||
+      current.Nodes?.some((node, id) => node && !before.Nodes?.[id])) return null;
+  const userEdits = changes(before, current);
   const userChanged = changeIndex(userEdits.filter(edit => !isModelBounds(edit)));
   if (diff.some(edit => !isModelBounds(edit) && userChanged(edit))) return null;
   if (!userEdits.some(isModelBounds)) return { edits: diff, rebound: false };

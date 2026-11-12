@@ -2,6 +2,9 @@ const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Production Electron bundle; all edits use UI input. React/camera reads are
 // assertions only. The test window stays hidden and uses its own D: profile.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const rebound = process.env.MDLXL_TEST_FORGE_REBOUND === '1';
+const snapKey = rebound ? 'Alt' : 'Shift', orbitKey = rebound ? 'Control' : 'Alt';
+const modifiers = rebound ? { 'drag.move.axisLock': 'Alt', 'view.orbit': 'Ctrl' } : {};
 
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/forge-detail');
 const old=fs.readFileSync(path.join(root,'test/forge-face-editing.electron.cjs'),'utf8');eval(old.slice(old.indexOf('function readView'),old.indexOf('(async()=>{')));
@@ -15,7 +18,7 @@ function readForge(){
 (async()=>{
  fs.mkdirSync(out,{recursive:true});const {createStarterDocument}=await import('../src/starter-model.js'),{forgeFaceNormal,forgeShapeMesh}=await import('../src/forge-shape-editing.js'),{forgeDetailPreview,forgeDetailBorders}=await import('../src/forge-detail-editing.js'),{Vector3,Matrix4}=await import('three');
  const fixture=path.join(out,'fixture.mdl');fs.writeFileSync(fixture,createStarterDocument().serialize('mdl'));const initialBytes=fs.readFileSync(fixture);
- const launched = await launchApp({ out, fixture, settings:{preferences:{graphics:{pauseWhenHidden:false}}}, timeout: 60000, bounds: {x:0,y:0,width:1500,height:950}, show: 'hide', pageTimeout: 15000 }); const app = launched.app;let page;const errors=launched.errors,checks=[];
+ const launched = await launchApp({ out, fixture, settings:{preferences:{modifiers,graphics:{pauseWhenHidden:false}}}, timeout: 60000, bounds: {x:0,y:0,width:1500,height:950}, show: 'hide', pageTimeout: 15000 }); const app = launched.app;let page;const errors=launched.errors,checks=[];
  try{
   page=launched.page;
 
@@ -75,27 +78,27 @@ function readForge(){
   const freeBefore=await ghostCenter();await dragWorld(freeBefore,[0,0,12]);const freeAfter=await ghostCenter();assert.ok(Math.abs(freeAfter[2]-freeBefore[2])>1);assert.equal((await view()).model.Geosets.length,2);assert.equal(await d.getByRole('button',{name:'Apply detail',exact:true}).isEnabled(),false);assert.deepEqual(await doc(),raised);
   await click('Mirror across');await d.getByLabel('Workplane Constraints',{exact:true}).check();await d.getByLabel('XY workplane',{exact:true}).check();
   await click('Mirror depth');assert.equal((await page.evaluate(readForge)).repeat.axis,1);await click('Mirror up');assert.equal((await page.evaluate(readForge)).repeat.axis,2);await click('Mirror across');
-  await paint();const camera=(await view()).quaternion,buttonCamera=await magnet.boundingBox();await page.keyboard.down('Alt');await page.mouse.move(600,450);await page.mouse.down();await page.mouse.move(645,470,{steps:6});await page.mouse.up();await page.keyboard.up('Alt');await paint();assert.notDeepEqual((await view()).quaternion,camera);assert.notDeepEqual(await magnet.boundingBox(),buttonCamera);assert.deepEqual(await doc(),raised);
+  await paint();const camera=(await view()).quaternion,buttonCamera=await magnet.boundingBox();await page.keyboard.down(orbitKey);await page.mouse.move(600,450);await page.mouse.down();await page.mouse.move(645,470,{steps:6});await page.mouse.up();await page.keyboard.up(orbitKey);await paint();assert.notDeepEqual((await view()).quaternion,camera);assert.notDeepEqual(await magnet.boundingBox(),buttonCamera);assert.deepEqual(await doc(),raised);
   await capture('mirror-preview');await click('Apply detail');let mirrored=await doc();assert.equal(mirrored.shapes.length,1);assert.ok(mirrored.selection[1].length>=5);assert.equal((await d.locator('.forge-editor-sidebar').boundingBox()).width,sidebar.width);
   await click('Undo');assert.deepEqual(await doc(),raised);await click('Redo');assert.deepEqual(await doc(),mirrored);await click('Undo');
   console.log('mirror apply and history passed');await click('Mirror');await page.keyboard.press('Escape');await pause();assert.deepEqual(await doc(),raised);assert.equal(await d.getByRole('group',{name:'Repeat detail controls',exact:true}).count(),0);
   await click('Mirror');await page.keyboard.press('Control+z');await pause();assert.deepEqual(await doc(),raised);assert.equal(await d.getByRole('group',{name:'Repeat detail controls',exact:true}).count(),1);await page.keyboard.press('Escape');
   checks.push('Mirror uses the standard transform path with no custom handles or drag interception: XY, ZX and YZ movement locks match Workplane, Workplane off restores standard controls and free movement, preview moves live while original stays unchanged; Apply, exact Undo/Redo, Escape and Ctrl+Z work');
-  checks.push('Actual Alt+mouse rotation works during the detail preview and never changes the draft');
+  checks.push(orbitKey + '+mouse rotation works during the detail preview and never changes the draft');
   console.log('preview cancellation and rotation passed');
   // Reference cuts on the top snap a later front-panel cut to exactly the same X.
   await click('Undo');shape=(await doc()).shapes[0];const front=normal(shape,1,-1)[0];await pickFace(shape,front);await click('Cut');await click('Place cuts');
-  const aim=await project([-74.1,-20,50]);await page.mouse.move(aim.x,aim.y);await pause();assert.equal((await page.evaluate(readForge)).cut.hover.snapped,false);await page.keyboard.down('Shift');await pause();const cut=(await page.evaluate(readForge)).cut;
+  const aim=await project([-74.1,-20,50]);await page.mouse.move(aim.x,aim.y);await pause();assert.equal((await page.evaluate(readForge)).cut.hover.snapped,false);await page.keyboard.down(snapKey);await pause();const cut=(await page.evaluate(readForge)).cut;
   assert.equal(cut.hover.snapped,true);assert.ok(Math.abs(cut.frames[1].min+(cut.frames[1].max-cut.frames[1].min)*cut.hover.fraction+75)<1e-5);assert.match(await d.getByRole('status').innerText(),/Snap: existing cut/);
-  await page.keyboard.up('Shift');await pause();assert.equal((await page.evaluate(readForge)).cut.hover.snapped,false);await page.keyboard.down('Shift');await page.mouse.click(aim.x,aim.y);await page.keyboard.up('Shift');await page.mouse.move(20,80);await click('Apply cuts');shape=(await doc()).shapes[0];assert.equal(normal(shape,1,-1).length,2);
-  checks.push('Cuts move freely without Shift; holding Shift snaps exactly to another panel cut and releasing Shift immediately restores free placement without moving the mouse');
+  await page.keyboard.up(snapKey);await pause();assert.equal((await page.evaluate(readForge)).cut.hover.snapped,false);await page.keyboard.down(snapKey);await page.mouse.click(aim.x,aim.y);await page.keyboard.up(snapKey);await page.mouse.move(20,80);await click('Apply cuts');shape=(await doc()).shapes[0];assert.equal(normal(shape,1,-1).length,2);
+  checks.push('Cuts move freely, snap exactly to another panel cut on ' + snapKey + ', and restore free placement on keyup without moving the mouse');
   console.log('cut snapping passed');
   const tops=normal(shape,2).sort((a,b)=>center(shape,a)[0]-center(shape,b)[0]);await pickFace(shape,tops[0]);await click('Extrude');await dragWorld(center(shape,tops[0]),[0,0,20]);shape=(await doc()).shapes[0];
-  const other=normal(shape,2).find(f=>center(shape,f)[0]>0&&center(shape,f)[2]<110);await pickFace(shape,other);await click('Extrude');await dragWorld(center(shape,other),[0,0,20.4],async()=>{assert.doesNotMatch(await d.getByRole('status').innerText(),/Snap:/);assert.ok(Math.abs(center((await doc()).shapes[0],(await doc()).shapes[0].faces.find(f=>f.id===other.id))[2]-120.4)<.1);await page.keyboard.down('Shift');await pause();assert.match(await d.getByRole('status').innerText(),/Snap: matching extrusion/);await page.keyboard.up('Shift');await pause();assert.doesNotMatch(await d.getByRole('status').innerText(),/Snap:/);await page.keyboard.down('Shift');await pause();});await page.keyboard.up('Shift');
+  const other=normal(shape,2).find(f=>center(shape,f)[0]>0&&center(shape,f)[2]<110);await pickFace(shape,other);await click('Extrude');await dragWorld(center(shape,other),[0,0,20.4],async()=>{assert.doesNotMatch(await d.getByRole('status').innerText(),/Snap:/);assert.ok(Math.abs(center((await doc()).shapes[0],(await doc()).shapes[0].faces.find(f=>f.id===other.id))[2]-120.4)<.1);await page.keyboard.down(snapKey);await pause();assert.match(await d.getByRole('status').innerText(),/Snap: matching extrusion/);await page.keyboard.up(snapKey);await pause();assert.doesNotMatch(await d.getByRole('status').innerText(),/Snap:/);await page.keyboard.down(snapKey);await pause();});await page.keyboard.up(snapKey);
   shape=(await doc()).shapes[0];assert.ok(Math.abs(center(shape,shape.faces.find(f=>f.id===other.id))[2]-120)<1e-4);
-  const side=normal(shape,1,-1)[0];await pickFace(shape,side);await click('Extrude');await page.keyboard.down('Shift');await dragWorld(center(shape,side),[0,-20.3,0],async()=>assert.match(await d.getByRole('status').innerText(),/Snap: matching extrusion/));await page.keyboard.up('Shift');
+  const side=normal(shape,1,-1)[0];await pickFace(shape,side);await click('Extrude');await page.keyboard.down(snapKey);await dragWorld(center(shape,side),[0,-20.3,0],async()=>assert.match(await d.getByRole('status').innerText(),/Snap: matching extrusion/));await page.keyboard.up(snapKey);
   shape=(await doc()).shapes[0];assert.ok(Math.abs(center(shape,shape.faces.find(f=>f.id===side.id))[1]+40)<1e-4);
-  checks.push('Extrusions preserve free drag distances without Shift, snap to existing heights only with Shift, switch live when Shift changes, and reuse depth on a perpendicular panel');
+  checks.push('Extrusions preserve free drag distances, snap to existing heights on ' + snapKey + ', switch live when the key changes, and reuse depth on a perpendicular panel');
   console.log('extrusion snapping passed');
   // Copy a short raised band down a vertical panel without copying the cube.
   shape=await fresh(120,150,40);await pickFace(shape,normal(shape,1,-1)[0]);await click('Cut');await click('Apply cuts');shape=(await doc()).shapes[0];

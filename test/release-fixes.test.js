@@ -31,8 +31,8 @@ test('a fresh configuration export imports again; real shortcut clashes are stil
   assert.equal(configurationHotkeyConflict(COMMANDS, imported.hotkeys), null, 'Forge shape keys may share letters with editor commands');
   const editor = COMMANDS.filter(action => action.scope !== 'forge-shapes' && (effectiveBindings(COMMANDS, {})[action.id] || []).length);
   const [first, second] = editor, key = effectiveBindings(COMMANDS, {})[first.id][0];
-  assert.equal(configurationHotkeyConflict(COMMANDS, { [second.id]: [key] }), key, 'two editor commands on one key still conflict');
-  assert.match(settings, /const conflict=configurationHotkeyConflict\(catalog,next\.hotkeys\);if\(conflict\)throw new Error\('Conflicting shortcut '\+conflict\+'\.'\);/);
+  assert.equal(configurationHotkeyConflict(COMMANDS, { [first.id]: [key], [second.id]: [key] }), key, 'two editor commands on one key still conflict');
+  assert.match(settings, /const conflict = configurationHotkeyConflict\(catalog, next\.hotkeys\);\s*if \(conflict\) throw new Error\('Conflicting shortcut ' \+ conflict \+ '\.'\);/);
 });
 
 test('an update reply never overwrites a newer status broadcast', () => {

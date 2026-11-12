@@ -123,7 +123,7 @@ export default function AppToolbar({
     readOnly: doc.readOnly, saving, viewMode: displayMode, vanilla: visUI, checks: menuChecks,
     surfaceEffectsEnabled: commandEnabled('surfaceEffects'), uvEnabled: commandEnabled('uv'),
     toolbarMode: preferences.toolbarMode, language: preferences.language,
-    disabledCommands: ['forge', 'bitsAndParts', 'optimizeModel', 'paint', 'autoCorpse', 'convertVersion', 'ai:open'].filter(id => !commandEnabled(id)),
+    disabledCommands: ['forge', 'bitsAndParts', 'optimizeModel', 'paint', 'autoCorpse', 'convertVersion', 'ai:open', 'axes'].filter(id => !commandEnabled(id)),
     menuKeys: Object.fromEntries([...(VIEW_MENU[displayMode] || []).map(([, id]) => id), 'ai:open'].map(id => [id, shortcuts[id]?.[0]])),
   });
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function AppToolbar({
   }, [nativeMenuState]);
   const settingChecks = Object.fromEntries([...TOOLBAR_MODES.map(value => ['toolbar:' + value, preferences.toolbarMode === value]), ...LANGUAGES.map(item => ['language:' + item.id, preferences.language === item.id]), ['visToggle', visUI], ['showHotkeys', preferences.showHotkeys]]);
   return <>
-    {window.desktop?.onMenuItems && <DesktopMenu desktop={window.desktop}/>}
+    {window.desktop?.onMenuItems && <DesktopMenu desktop={window.desktop} classic={visUI}/>}
     {!window.desktop && <nav className="classic-menu" data-hotkey-badges="false">{[['File', [['New', 'new'], ['Open...', 'open'], ['Save', 'save'], ['Save as...', 'saveAs'], ['Convert MDX800 / MDX1000', 'convertVersion'], ['Recovery...', 'recovery']]], ['Edit', [['Undo', 'undo'], ['Redo', 'redo'], ['Copy', 'copy'], ['Paste', 'paste'], ['Special paste...', 'pasteSpecial'], ['Select all', 'selectAll'], ['Clear selection', 'clear'], ['Undo settings...', 'history'], ['Copy keyframes','keyframe:copy'], ['Copy Frame','keyframe:copyPose'], ['Paste keyframes','keyframe:paste'], ['Delete keyframes','keyframe:delete'], ['Clear keyframes','keyframe:clear']]], ['View', VIEW_MENU[displayMode] || []], ['Modules', [['Vertices', 'vertices'], ['Bones', 'bones'], ['UV-maps', 'uv'], ['Movement', 'animation'], ['Animations', 'animations'], ['Citadel Paint', 'paint'], ['Showcase', 'showcase'], ['Forge…', 'forge'], ['BitsAndParts…', 'bitsAndParts'], ['OptimizeXL…', 'optimizeModel'], ['Auto Corpse…', 'autoCorpse'], ['AI console', 'ai:open']]], ['Shape', SHAPE_TOOLS.map(tool=>[tool,'shape:'+tool.toLowerCase()])], ['Managers', [['Material & Texture Library', 'textureLibrary'], ['Particle Editor', 'particles'], ['Surface Effects','surfaceEffects'], ['AnimXL', 'animXL'], ...resources.map(v => [v, v])]], ['Settings', [['Mouse and general…', 'settings'], ['Keyboard Shortcuts…', 'hotkeys'], ['Graphical settings…', 'graphics'], ['Recording and screenshots…','captureSettings'], ['Appearance…','appearanceSettings'], ['Configuration…','configurationSettings'], ['Grid…','gridSettings'], ['Warcraft III…','gameDataSettings'], ['Add-ons…','addons'], null, ...TOOLBAR_MODES.map(value => [`Toolbar: ${translate(TOOLBAR_MODE_LABELS[value])}`, 'toolbar:' + value]), ...LANGUAGES.map(item => [item.nativeLabel, 'language:' + item.id]), ['VIS look','visToggle'], null, ['Undo cache…', 'history'], ['Show pressed keys','pressedKeys'], ['Show hotkeys','showHotkeys'], ['Learn settings…','learnSettings'], ['Choose Warcraft III folder…','gameData']]], ['Help', [['Search commands…','launcher'], ['Help', 'help'], ['Sanity Check', 'sanityCheck'], ['About', 'about']]]].map(([name, items]) =>
       <details key={name}>
         <summary>{name}</summary>

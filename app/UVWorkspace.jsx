@@ -19,13 +19,13 @@ import {
   UV_SIDE_DEFAULT, UV_SIDE_MAX, UV_SIDE_MIN, clampUVPreviewPercent, clampUVSidePercent,
   uvPreviewPercentAtPointer, uvSidePercentAtPointer,
 } from './uv-workspace-layout.js';
+import { useDraftNumber } from './Fields.jsx';
 import './uv-workspace.css';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 const unique = values => [...new Set(Array.from(values || []).filter(Number.isSafeInteger))];
 const selectedCount = value => Object.values(value || {}).reduce((sum, ids) => sum + (ids?.length || 0), 0);
 const LAYOUT_KEYS = { side: 'mdlxl.uv.side-percent', preview: 'mdlxl.uv.preview-percent' };
-const RGB_CHANNELS = [['R', 'rgbRed'], ['G', 'rgbGreen'], ['B', 'rgbBlue']];
 const EMPTY_PREVIEW_RGB = ['', '', ''];
 const STANDARD_PROJECTIONS = [['top','Top'],['bottom','Bottom'],['front','Front'],['back','Back'],['left','Side Left'],['right','Side Right']];
 const ANGLED_PROJECTIONS = [
@@ -37,6 +37,15 @@ const gridSpacingLabel = value => value < 0.01 ? value.toFixed(4) : value < 1 ? 
 // The main toolbar's tool button; the UV icons are in ModernIcon's table.
 function Tool({ action, icon, label, active, disabled, onClick }) {
   return <EditorTool action={action} icon={`uv_${icon}`} title={label} active={active} disabled={disabled} onClick={onClick} className="uv-tool" data-hotkey-category="UV">{label}</EditorTool>;
+}
+
+function PreviewRgbField({ channel, icon, value, onCommit, disabled, ...hotkeys }) {
+  const label = `Preview RGB ${channel}`;
+  const draft = useDraftNumber({ value, onCommit, disabled, parse: text => text });
+  return <label>
+    <ToolIcon name={icon} className="uv-rgb-channel-icon" size={14}/>
+    <input {...hotkeys} aria-label={label} type="number" min="0" max="255" step="1" disabled={disabled} {...draft}/>
+  </label>;
 }
 
 function UVGridControls({ value, onChange, children }) {
@@ -93,6 +102,10 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
   const [previewRgb, setPreviewRgb] = useState(EMPTY_PREVIEW_RGB);
+  const commitPreviewRgb = (index, value) => {
+    setPreviewRgb(previous => previous.map((part, i) => i === index ? value : part));
+    setHideRGB(false);
+  };
   const [hideExtras, setHideExtras] = useState(false);
   const [projectionPreset, setProjectionPreset] = useState({ name: 'front', revision: 0, fit: true });
   const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
@@ -298,24 +311,19 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             <button data-hotkey="uv-wrapper:live-select" data-hotkey-manual data-hotkey-label="Live Select" aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => setShowVerticles(value => !value)}>Live Select</button>{showVerticles && <><button data-hotkey="uv-wrapper:lines" data-hotkey-manual data-hotkey-label="Lines" aria-label="Lines" aria-pressed={showLines} title="Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered." onClick={() => setShowLines(value => !value)}>Lines</button><button data-hotkey="uv-wrapper:grabthrough" data-hotkey-manual data-hotkey-label="Grabthrough" aria-label="Grabthrough" aria-pressed={grabThrough} title="On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see." onClick={() => setGrabThrough(value => !value)}>Grabthrough</button></>}<button data-hotkey="uv-wrapper:selected-only" data-hotkey-manual data-hotkey-label="Selected Only" aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button data-hotkey="uv-wrapper:hide-rgb" data-hotkey-manual data-hotkey-label="Hide RGB" aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
             <div className="uv-preview-appearance">
               <div className="uv-preview-rgb" role="group" aria-label="Preview RGB" title="Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.">
-                <span>Preview RGB:</span>
-                {RGB_CHANNELS.map(([channel, icon], index) => (
-                  <label key={channel}>
-                    <ToolIcon name={icon} className="uv-rgb-channel-icon" size={14}/>
-                    <input aria-label={`Preview RGB ${channel}`} type="number" min="0" max="255" step="1" value={previewRgb[index]}
-                      disabled={rgbTarget < 0} onChange={event => {
-                        const value = event.target.value;
-                        setPreviewRgb(previous => previous.map((part, i) => i === index ? value : part));
-                        setHideRGB(false);
-                      }}/>
-                  </label>
-                ))}
+                <span>Preview RGB</span>
+                <PreviewRgbField channel="R" icon="rgbRed" value={previewRgb[0]} disabled={rgbTarget < 0}
+                  data-hotkey="uv-wrapper:preview-rgb-red" data-hotkey-manual data-hotkey-label="Preview RGB R" onCommit={value => commitPreviewRgb(0, value)}/>
+                <PreviewRgbField channel="G" icon="rgbGreen" value={previewRgb[1]} disabled={rgbTarget < 0}
+                  data-hotkey="uv-wrapper:preview-rgb-green" data-hotkey-manual data-hotkey-label="Preview RGB G" onCommit={value => commitPreviewRgb(1, value)}/>
+                <PreviewRgbField channel="B" icon="rgbBlue" value={previewRgb[2]} disabled={rgbTarget < 0}
+                  data-hotkey="uv-wrapper:preview-rgb-blue" data-hotkey-manual data-hotkey-label="Preview RGB B" onCommit={value => commitPreviewRgb(2, value)}/>
                 <button type="button" aria-label="Reset preview RGB" disabled={!previewRgb.some(Boolean)}
                   onClick={() => { setPreviewRgb(EMPTY_PREVIEW_RGB); setHideRGB(false); }}>Reset</button>
               </div>
-              <button type="button" aria-pressed={hideExtras}
+              <button type="button" data-hotkey="uv-wrapper:hide-extras" data-hotkey-manual data-hotkey-label="Hide extras" aria-pressed={hideExtras}
                 title="Hide corpses, portrait backgrounds, hero glow and part-time effects. Keep the UV working geosets visible."
-                onClick={() => setHideExtras(value => !value)}>Hide Extras</button>
+                onClick={() => setHideExtras(value => !value)}>Hide extras</button>
             </div>
           </div>
         </section>

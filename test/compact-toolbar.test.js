@@ -63,7 +63,7 @@ test('module menu remains available with the custom module row hidden',()=>{
 // The owner's top-bar contract replaces the former status controls and model row.
 test('model controls are above and open models are below the viewport',()=>{
   assert.doesNotMatch(bar, /ModelTabs|module-divider/);
-  assert.match(app, /<div className="classic-status">\{!bitReplacement && <ModelTabs /);
+  assert.match(app, /<div className="classic-status"><ModelTabs sessions=\{sessions\} session=\{bitReplacement\?\.original \?\? session\}/);
   assert.doesNotMatch(app, /statusAlert|\[status, setStatus\]|status-model-actions/);
   assert.match(app, /<WarningToasts /);
 });

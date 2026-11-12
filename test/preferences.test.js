@@ -86,3 +86,35 @@ test('Select through retains independent disabled and enabled preferences', () =
   assert.deepEqual(normalizePreferences({}).grabThroughByEditor, { vertices: true, bones: false });
   assert.deepEqual(normalizePreferences({ grabThroughByEditor: { vertices: false, bones: true } }).grabThroughByEditor, { vertices: false, bones: true });
 });
+
+test('configuration import updates the settings in the file and preserves the rest', async () => {
+  const { exportConfiguration, importConfiguration } = await import('../src/portable-settings.js');
+  const prefs = normalizePreferences({
+    rendererRevision: 3, uvRightUpDefault: true, toolbarMode: 'trim', modifiers: { 'drag.move.axisLock': 'Alt' },
+    uvDrag: { zoomStyle: 'rightUp', zoomSpeed: 150 },
+    settingsPresets: { hotkeys: [{ id: 'custom-keys', name: 'Mine', values: { hotkeys: { translate: ['G'] } } }] }
+  });
+  const oldFile = { schema: 'mdlxl-configuration', version: 1, preferences: { panelWidth: 210 } };
+  assert.deepEqual(importConfiguration(oldFile, prefs), { ...prefs, panelWidth: 210 });
+  const currentExport = exportConfiguration(prefs);
+  assert.equal(Object.hasOwn(currentExport.preferences, 'uvRightUpDefault'), false);
+  const receiving = normalizePreferences({ ...prefs, panelWidth: 250, modifiers: {}, toolbarMode: 'graphic' });
+  assert.deepEqual(importConfiguration(JSON.stringify(currentExport), receiving), prefs);
+  assert.equal(importConfiguration(currentExport).uvRightUpDefault, false);
+  assert.throws(() => importConfiguration({ ...oldFile, preferences: { unknown: true } }, prefs), /Unknown preference: unknown/);
+  assert.throws(() => importConfiguration({ ...oldFile, preferences: { panelWidth: 9999 } }, prefs), /Invalid preferences.panelWidth/);
+});
+
+test('an older configuration preserves missing fields inside a supplied settings section', async () => {
+  const { importConfiguration } = await import('../src/portable-settings.js');
+  const prefs = normalizePreferences({ capture: { fps: 50, screenshotQuality: 'high' } });
+  const file = { schema: 'mdlxl-configuration', version: 1, preferences: { rendererRevision: 3, capture: { fps: 24 } } };
+  assert.deepEqual(importConfiguration(file, prefs).capture, { ...prefs.capture, fps: 24 });
+});
+
+test('legacy migration defaults do not replace fields omitted by a configuration file', async () => {
+  const { importConfiguration } = await import('../src/portable-settings.js');
+  const prefs = normalizePreferences({ rendererRevision: 3, visuals: { keyframe: '#00ff33' } });
+  const file = { schema: 'mdlxl-configuration', version: 1, preferences: { visuals: { vertex: '#123456' } } };
+  assert.deepEqual(importConfiguration(file, prefs).visuals, { ...prefs.visuals, vertex: '#123456' });
+});

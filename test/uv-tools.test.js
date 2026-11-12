@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { combineUVGeosets, combineSelectedUVGeosets, splitSelectedUVGeosets, collapseUVCoordinates, foldUVCoordinates, projectUVFromView, uvTurn, relevantUVMaterials, otherUVMaterials, splitCombinedUV, uncoupleUVVertices } from '../src/uv-tools.js';
+import { combineUVGeosets, combineSelectedUVGeosets, splitSelectedUVGeosets, collapseUVCoordinates, foldUVCoordinates, projectUVFromView, uvTurn, relevantUVMaterials, otherUVMaterials, uvMaterialLayers, splitCombinedUV, uncoupleUVVertices } from '../src/uv-tools.js';
+import { applyUVRestAppearance } from '../app/game-preview-data.js';
 import { compositeMaterialPixels } from '../src/uv-material-compositor.js';
 
 const geoset = (offset = 0, material = 0) => ({ MaterialID: material,
@@ -189,4 +190,21 @@ test('UV map Rotate: only circling turns, same strength everywhere, never snaps'
   }
   // The mouse exactly on the centre is skipped, not a jump.
   const centre = { pivotScreen }; uvTurn(centre, 100, 50); assert.equal(uvTurn(centre, 101, 50), 0);
+});
+
+test('UV rest appearance uses the first texture key only when the MDX base is missing', () => {
+  const keyed = { LineType: 0, Keys: [{ Frame: 100, Vector: new Int32Array([1]) }, { Frame: 200, Vector: new Int32Array([2]) }] };
+  const model = {
+    Textures: [{ ReplaceableId: 1 }, { Image: 'Body.blp' }, { Image: 'Alternate.blp' }],
+    Materials: [{ Layers: [
+      { TextureID: keyed, NormalTextureID: keyed },
+      { TextureID: keyed, _MdxDefaults: { TextureID: 0 } },
+    ] }],
+  };
+  assert.deepEqual(uvMaterialLayers(model, 0).map(layer => layer.label), ['Body.blp', 'Team Color']);
+  const preview = structuredClone(model);
+  applyUVRestAppearance(preview);
+  assert.deepEqual(preview.Materials[0].Layers.map(layer => layer.TextureID), [1, 0]);
+  assert.equal(preview.Materials[0].Layers[0].NormalTextureID, 1);
+  assert.equal(model.Materials[0].Layers[0].TextureID, keyed);
 });

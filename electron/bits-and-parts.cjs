@@ -1,9 +1,14 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { safeWindowsName } = require('./windows-name.cjs');
+const { TextureResolver } = require('./texture-resolver.cjs');
 
 class BitsAndPartsLibrary {
-  constructor(directory) { this.directory = path.resolve(directory); this.openedPaths = new Set(); }
+  constructor(directory, modelRuntime = () => import('../dist/particle-runtime.mjs')) {
+    this.directory = path.resolve(directory);
+    this.openedPaths = new Set();
+    this.modelRuntime = modelRuntime;
+  }
   #pending = Promise.resolve();
 
   #serialize(operation) {
@@ -97,6 +102,19 @@ class BitsAndPartsLibrary {
         const existing = await fs.readdir(parent);
         if (existing.some(entry => entry.toLowerCase() === name.toLowerCase() && path.join(parent, entry) !== source.file)) {
           throw Error('An entry with this name already exists in this folder.');
+        }
+        if (action === 'move' && !source.directory && /\.(mdl|mdx)$/i.test(name)) {
+          const { bytes } = await this.read(id), { openDocument, partTextureIndices } = await this.modelRuntime();
+          const model = openDocument(bytes, name, { allowHD: true }).model;
+          const resolver = new TextureResolver(), original = path.dirname(source.file);
+          for (const index of partTextureIndices(model)) {
+            const texture = model.Textures[index];
+            if (texture.ReplaceableId || !texture.Image) continue;
+            const nearby = await resolver.loose(texture.Image, [original]);
+            if (nearby && !nearby.equals(await resolver.loose(texture.Image, [parent]) || Buffer.alloc(0))) {
+              throw Error('This Bit uses a loose texture. Move its folder to keep the texture with the model.');
+            }
+          }
         }
         await fs.rename(source.file, destination);
       }

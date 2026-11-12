@@ -315,11 +315,10 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       else if (!['Control', 'Shift', 'Meta', 'AltGraph'].includes(event.key)) {
         altAlone = false;
         if (altArmed) {
-          altArmed = false;
-          if (event.key === 'Escape') { consume(event); window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); return; }
+          disarm();
+          if (event.key === 'Escape') { consume(event); return; }
           const plain = chordFromEvent(event);
-          // After a tapped Alt the key means Alt+key or nothing; it never falls through as the plain key.
-          if (plain && !/(^|\+)(Ctrl|Alt|Meta)\+/.test(plain)) { if (!runShortcut(normalizeChord('Alt+' + plain), event)) consume(event); return; }
+          if (plain && !/(^|\+)(Ctrl|Alt|Meta)\+/.test(plain) && runShortcut(normalizeChord('Alt+' + plain), event)) return;
         }
       }
       const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');

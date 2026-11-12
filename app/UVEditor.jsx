@@ -271,8 +271,13 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       moveFrame.flush();
       const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
-      // What the map shows is what commits: any visible change is one undo step, and a click that changed nothing is none.
-      if (['translate', 'move', 'rotate', 'scale'].includes(drag.type) && uvDragChanged(drag.original, s.uv, drag.indices)) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
+      if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
+        // The Wrapper commits the visible change; FX fitting keeps the one-pixel click tolerance.
+        const commit = p.wrapperControls ? uvDragChanged(drag.original, s.uv, drag.indices)
+          : Math.hypot(drag.endX - drag.x, drag.endY - drag.y) > 1;
+        if (commit) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
+        else if (!p.wrapperControls) s.uv.set(drag.original);
+      }
       p.onPreviewChange?.(null);
       if (drag.type === 'select') {
         const m = mapping(), found = [], allowed = eligible(), rectangle = Math.hypot(drag.endX - drag.x, drag.endY - drag.y) > 5;

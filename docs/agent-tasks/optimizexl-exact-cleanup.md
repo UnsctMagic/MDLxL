@@ -1,6 +1,6 @@
 # OptimizeXL exact redundancy
 
-Status: Claude QA done (2026-11-05), one fix; ready for review; awaiting merge approval
+Status: completed, merged in #548 at 5837079d
 Owner / consolidator: Codex
 Updated: 2026-11-05
 
