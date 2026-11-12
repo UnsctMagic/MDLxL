@@ -24,7 +24,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
   const catalogs = [ru, es, zh, fr, de];
-  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7949, 7959, 7854, 8082, 8082]);
+  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7955, 7965, 7860, 8088, 8088]);
   for (const pack of catalogs) {
     assert.equal(Object.hasOwn(pack, 'Open the managers at Materials'), false);
     assert.equal(Object.hasOwn(pack, 'Loading managers…'), false);

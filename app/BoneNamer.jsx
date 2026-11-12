@@ -9,8 +9,11 @@ import './attachemator.css';
 import './bone-namer.css';
 
 const OVERLAYS = { attachments: false, bones: true, helpers: true, nodes: false, particles: false, sounds: false, events: false, skeleton: true, focusedSkeleton: true };
-const PART_LABELS = ['Root', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Arm', 'Hand', 'Leg', 'Foot', 'Hoof', 'Tail', 'Wing', 'Mesh piece', 'Keep name'];
-const KINDS = { main: 'Main', mount: 'Mount', extra: 'Extra', copy: 'Copy' };
+// Context keys ("bone-part\u0004Spine") keep the bone meaning apart from views, verbs and
+// other tools that share the English word; without their own entry they read as the plain word.
+const PART_LABELS = ['Root', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Arm', 'Hand', 'Leg', 'Foot', 'Hoof', 'Tail', 'Wing', 'Mesh piece', 'Keep name'].map(label => 'bone-part\u0004' + label);
+const KINDS = Object.fromEntries(Object.entries({ main: 'Main', mount: 'Mount', extra: 'Extra', copy: 'Copy' }).map(([kind, label]) => [kind, 'bone-kind\u0004' + label]));
+const SIDE_LABELS = { L: 'bone-side\u0004Left', R: 'bone-side\u0004Right' };
 const SIDED = new Set(['arm', 'hand', 'leg', 'foot', 'hoof', 'wing']);
 const LEGS = new Set(['leg', 'foot', 'hoof']);
 const family = part => ['root', 'pelvis', 'spine', 'chest', 'neck', 'head'].includes(part) ? 'trunk' : ['arm', 'hand'].includes(part) ? 'arm' : LEGS.has(part) ? 'leg' : part;
@@ -105,20 +108,20 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
   }
   const renderRow = row => {
     const positions = [...new Set(proposal.rows.filter(other => other.actor === row.actor && LEGS.has(other.part)).map(other => other.position).filter(Boolean))];
-    const sideOptions = [{ side: 'L', position: null, label: 'Left' }, { side: 'R', position: null, label: 'Right' }];
+    const sideOptions = [{ side: 'L', position: null, label: SIDE_LABELS.L }, { side: 'R', position: null, label: SIDE_LABELS.R }];
     if (LEGS.has(row.part)) for (const position of positions) for (const side of ['L', 'R']) sideOptions.push({ side, position, label: `${position.replace(/^Middle([0-9]+)$/, 'Middle $1')} ${side === 'L' ? 'Left' : 'Right'}` });
     return <div key={row.id} ref={element => { if (element) rowElements.current.set(row.id, element); else rowElements.current.delete(row.id); }} role="row" className={`atm-row bnm-row${selected === row.id ? ' is-selected' : ''}${chosen.has(row.id) ? '' : ' is-vetoed'}`} onClick={() => select(row.id)}>
       <span role="cell" onClick={event => event.stopPropagation()}><input type="checkbox" aria-label="Rename bone" title="Ticked bones are renamed. Untick one to keep its current name." disabled={row.part === 'keep'} checked={chosen.has(row.id)} onChange={() => tick(row.id, !chosen.has(row.id))}/></span>
       <span role="cell" translate="no">{row.current}</span><span role="cell" translate="no">{row.name}</span>
-      <span role="cell" className="atm-bone"><select aria-label="Part" title={row.part === 'mesh' ? MESH_TIP : PART_TIP} value={row.part} onChange={event => partChange(row, event.target.value)}>{BONE_PARTS.map((part, index) => <option key={part} value={part} title={part === 'mesh' ? MESH_TIP : undefined}>{PART_LABELS[index]}</option>)}</select></span>
-      <span role="cell" className="atm-bone"><select aria-label="Side" title={SIDE_TIP} disabled={!SIDED.has(row.part)} value={row.side ? `${row.side}:${row.position || ''}` : ''} onChange={event => sideChange(row, event.target.value)}>{!row.side && <option value="">—</option>}{sideOptions.map(option => <option key={`${option.side}:${option.position || ''}`} value={`${option.side}:${option.position || ''}`}>{option.label}</option>)}</select></span>
+      <span role="cell" className="atm-bone"><select aria-label={'bone-namer\u0004Part'} title={row.part === 'mesh' ? MESH_TIP : PART_TIP} value={row.part} onChange={event => partChange(row, event.target.value)}>{BONE_PARTS.map((part, index) => <option key={part} value={part} title={part === 'mesh' ? MESH_TIP : undefined}>{PART_LABELS[index]}</option>)}</select></span>
+      <span role="cell" className="atm-bone"><select aria-label={'bone-namer\u0004Side'} title={SIDE_TIP} disabled={!SIDED.has(row.part)} value={row.side ? `${row.side}:${row.position || ''}` : ''} onChange={event => sideChange(row, event.target.value)}>{!row.side && <option value="">—</option>}{sideOptions.map(option => <option key={`${option.side}:${option.position || ''}`} value={`${option.side}:${option.position || ''}`}>{option.label}</option>)}</select></span>
     </div>;
   };
   return <ToolWindow title="Bone Namer" overlayClass="atm-overlay" className="atm-window bnm-window" windowRef={root} onClose={onClose} unapplied={unapplied} sectionProps={{ 'data-hotkey-scope': 'boneNamer' }}
     caption={<><strong>Bone Namer</strong><span className="atm-spacer"/></>}>
     <div className="atm-body bnm-body">
       <div className="atm-list" role="table" aria-label="Bone names">
-        <div className="atm-row atm-head bnm-row" role="row"><span/><span role="columnheader">Current name</span><span role="columnheader">New name</span><span role="columnheader">Part</span><span role="columnheader">Side</span></div>
+        <div className="atm-row atm-head bnm-row" role="row"><span/><span role="columnheader">Current name</span><span role="columnheader">New name</span><span role="columnheader">{'bone-namer\u0004Part'}</span><span role="columnheader">{'bone-namer\u0004Side'}</span></div>
         {groups.map(group => <React.Fragment key={group.key ?? 'unassigned'}>
           {group.key === 'keep' ? <div className="bnm-group">Not recognised</div> : plan.actors.length > 1 && <div className="bnm-group"><strong>{KINDS[kindOf(group.key)]}</strong><span className="atm-bone"><select aria-label="Actor" title={ACTOR_TIP} value={kindOf(group.key)} onChange={event => actorChange(group.key, event.target.value)}>{Object.entries(KINDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></span></div>}
           {group.rows.map(renderRow)}

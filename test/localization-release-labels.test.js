@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { PerspectiveCamera } from 'three';
 import { setLanguage, translate } from '../src/localization.js';
 import { drawEditHandles } from '../app/viewport-edit-handles.js';
@@ -59,6 +60,26 @@ test('Call Upon Forge handle words are drawn in the chosen language', () => {
   assert.deepEqual(drawnLabels(handles, 'en'), ['Drag', 'Center', 'Range', 'Range']);
   const expected = { es: ['Arrastrar', 'Centro'], ru: ['Тянуть', 'Центр'], zh: ['拖动', '中心'], fr: ['Glisser', 'Centre'], de: ['Ziehen', 'Mitte'] };
   for (const locale of locales) assert.deepEqual(drawnLabels(handles, locale), [...expected[locale], translate('Range', locale), translate('Range', locale)], locale);
+});
+
+// Bone Namer words share English spelling with views, verbs and other tools; its own context keeps the bone meaning.
+test('Bone Namer columns and choices use their bone meaning in every language', () => {
+  const source = readFileSync(new URL('../app/BoneNamer.jsx', import.meta.url), 'utf8');
+  for (const key of ['bone-side\\u0004', 'bone-part\\u0004', 'bone-kind\\u0004', "'bone-namer\\u0004Side'", "'bone-namer\\u0004Part'"]) assert.ok(source.includes(key), key);
+  const expected = {
+    'bone-side\u0004Left': { zh: '左' }, 'bone-side\u0004Right': { zh: '右' },
+    'bone-namer\u0004Side': { es: 'Lado', ru: 'Сторона', zh: '左右', fr: 'Côté', de: 'Seite' },
+    'bone-namer\u0004Part': { fr: 'Partie', de: 'Körperteil' },
+    'bone-kind\u0004Copy': { es: 'Copia', ru: 'Копия', zh: '副本', fr: 'Copie', de: 'Kopie' },
+    'bone-part\u0004Spine': { es: 'Columna vertebral', fr: 'Colonne vertébrale' },
+  };
+  for (const [key, rows] of Object.entries(expected)) {
+    assert.equal(translate(key, 'en'), key.split('\u0004')[1]);
+    for (const [locale, text] of Object.entries(rows)) assert.equal(translate(key, locale), text, `${locale}: ${key}`);
+  }
+  // The generic words keep their meaning elsewhere (camera views, Copy command).
+  assert.equal(translate('Left', 'zh'), '左视图');
+  assert.equal(translate('Copy', 'es'), 'Copiar');
 });
 
 test('zoom anchor marker words are translated', () => {

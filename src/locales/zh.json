@@ -7852,5 +7852,11 @@
   "Bevel solid edges or the complete border of a thin surface. Drag the gold handle to adjust the width.": "对实体边或薄表面的完整边界倒角。拖动金色控制柄调整宽度。",
   "handle\u0004Drag": "拖动",
   "handle\u0004Center": "中心",
-  "ALIGN": "对齐"
+  "ALIGN": "对齐",
+  "bone-side\u0004Left": "左",
+  "bone-side\u0004Right": "右",
+  "bone-namer\u0004Side": "左右",
+  "bone-namer\u0004Part": "部位",
+  "bone-kind\u0004Copy": "副本",
+  "bone-part\u0004Spine": "脊柱"
 }
