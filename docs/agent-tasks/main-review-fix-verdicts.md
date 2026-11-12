@@ -1,6 +1,6 @@
 # Claude's review of the seven fix branches (11 November 2026)
 
-Status: combined branch `7e3faedf` passed the final check; before merging it needs new `main` (`f49889b9`) merged in and the O2 swivel check (12 Nov)
+Status: fix branch `36dbb578` is sound and O2 is settled; before merging it needs `main` `11cd04c7` merged in (conflicts with Forge, resolution given to Codex)
 Owner / consolidator: Claude Code (review), Codex (rework)
 Updated: 2026-11-11 (night)
 
@@ -34,6 +34,28 @@ Relayed by the continuation session on 12 Nov 2026, in the owner's words.
 
 The "Ready" verdict below stands for `7e3faedf`; the branch is ready again once `main`
 is merged in and the O2 check has run.
+
+### Check of `36dbb578` and the next main (12 Nov, early morning)
+
+- `36dbb578` contains `7e3faedf`, `main` at `f49889b9` and Claude's notes at `c188ad03`.
+  Besides the six files `main` brought (identical to `main`), only the swivel check in
+  `test/pose-sd-controls.electron.cjs` and two notes changed. No app code changed.
+- **O2 settled: the swivel works, nothing was removed, no app change.** Codex's hidden
+  real-mouse run on Footman (`out/main-20261112/pose-sd-result.json` in its worktree,
+  read by Claude): Move on the Elbow moved the elbow 5.98 units toward the drag while
+  the hand moved 0.0000003 and the shoulder did not move; Move on the Knee moved the
+  knee 3.48 units while the foot moved 0.0000005. One undo step each; Undo restores the
+  model exactly. Rotate and pin checks still pass.
+- Codex's CI check on `36dbb578`: 3,340 passing, 0 failing, 0 new. Hidden:
+  `pose-sd-controls`, `pose-ik`, `emtr-add-like-ribbons`, `surface-effects` all exit 0.
+- **`main` moved again to `11cd04c7`** (PR #628 POSE handle shape, PR #630 Call Upon
+  Forge). A merge now conflicts in `app/Viewport.jsx` (one two-line hunk: Forge's
+  "a part drag counts as travelled" against the fix's rebound lock key for part drags),
+  the five catalogs, the catalog-size line and the task index. Claude resolved these in
+  a scratch copy, keeping both sides everywhere, and ran the whole source suite on it:
+  3,440 tests, no new failure apart from the two catalog-format tests that Claude's
+  quick scratch resolver is known to trip (line endings and key order). Codex does the
+  real merge; the branch is ready once that is checked.
 
 ## Ready (11 Nov, night)
 
