@@ -53,7 +53,7 @@ const QuickDisplay = module.exports.default;
 
 for (const viewMode of Object.keys(VIEW_MENU)) test(`${viewMode}: VIS renders the classic ordered checkbox list; XL retains its icons and menu`, () => {
   for (const vanilla of [true, false]) {
-    const menu = VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay');
+    const menu = VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes');
     const checks = Object.fromEntries(menu.map(([, action], i) => [action, i % 2 === 0]));
     const html = renderToStaticMarkup(React.createElement(QuickDisplay, { viewMode, vanilla, checks, isEnabled: action => action !== 'grid', onCommand() {}, onClear() {} }));
     const inputs = [...html.matchAll(/<input ([^>]+)>/g)].map(([, attrs]) => attrs);
@@ -76,7 +76,7 @@ test('VIS keeps bottom model tabs, restores classic editors and hides AI while r
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
   assert.doesNotMatch(display, /const visibleOverlays = visUI/);
-  assert.match(app, /<div className="classic-status">\{!bitReplacement && <ModelTabs /);
+  assert.match(app, /<div className="classic-status"><ModelTabs sessions=\{sessions\} session=\{bitReplacement\?\.original \?\? session\}/);
   assert.doesNotMatch(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);
@@ -116,4 +116,14 @@ test('VIS defers the body-portaled AI cleanup question and its detached hotkey r
   assert.match(app, /<AiAssistant bridge=\{aiBridge\} visUI=\{visUI\}\/>/);
   assert.match(ai, /\{cleanup && !visUI &&\s*createPortal\(/);
   assert.match(ai, /const root = cleanupRoot\.current;[\s\S]*?mdlxl-detached-root[\s\S]*?\}, \[cleanup, visUI\]\)/);
+});
+
+test('desktop and browser View use the same mode rows, including Axis guides where available', () => {
+  const { buildMenuTemplate } = createRequire(import.meta.url)('../electron/menu.cjs');
+  for (const [mode, browserRows] of Object.entries(VIEW_MENU)) {
+    const nativeRows = buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode })
+      .find(menu => menu.label === 'View').submenu;
+    assert.deepEqual(nativeRows.map(row => row.label), browserRows.map(([label]) => label), mode);
+    assert.equal(browserRows.some(([, id]) => id === 'axes'), mode !== 'animations', mode);
+  }
 });

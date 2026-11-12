@@ -156,3 +156,15 @@ test('manual controls have no default key, and the manifest lists every one of t
   }
   for (const window of ['particles:', 'animxl:', 'texture-library:', 'showcase:', 'optimizexl:', 'forge-image:', 'uv-wrapper:', 'animation-controller:', 'portrait:', 'auto-corpse:', 'sort-my-mess:', 'pose:', 'geoset-tabs:', 'particle-library:', 'game-files:', 'particle-picture:', 'surface-effects:']) assert.ok(manifest.some(entry => entry.id.startsWith(window)), window);
 });
+
+test('user assignments beat overlapping command defaults, including newly added defaults', () => {
+  const ownKeys = { translate: ['Ctrl+F2'], scale: ['Shift+F3'], rotate: ['Alt+K'] };
+  const effective = effectiveBindings(catalog, ownKeys);
+  assert.deepEqual(effective.launcher, []);
+  assert.deepEqual(effective.toolbarCycle, []);
+  assert.deepEqual(effective.surfaceEffects, []);
+  for (const [id, keys] of Object.entries(ownKeys)) assert.deepEqual(effective[id], keys);
+  assert.equal(configurationHotkeyConflict(catalog, ownKeys), null);
+  assert.equal(configurationHotkeyConflict(catalog, { ...ownKeys, launcher: ['Ctrl+F2'] }), 'Ctrl+F2');
+  assert.deepEqual(effectiveBindings(catalog, { 'paint:select': ['Alt+K'] }).surfaceEffects, ['Alt+K'], 'a different scope keeps its default');
+});

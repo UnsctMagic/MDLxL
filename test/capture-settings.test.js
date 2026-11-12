@@ -4,9 +4,9 @@ import {normalizePreferences} from '../src/preferences.js';
 import {captureDimensions,CAPTURE_QUALITIES} from '../src/capture-settings.js';
 import {createPreviewGIF} from '../src/preview-gif.js';
 test('capture defaults are medium at 30 FPS and survive preference roundtrip',()=>{
-  const prefs=normalizePreferences();assert.deepEqual(prefs.capture,{fps:30,recordingQuality:'medium',screenshotQuality:'medium'});
+  const prefs=normalizePreferences();assert.deepEqual(prefs.capture,{fps:30,recordingQuality:'medium',screenshotQuality:'medium',shareXRegions:false});
   const saved=normalizePreferences(JSON.parse(JSON.stringify({...prefs,language:'ru',showPressedKeys:true,capture:{fps:25,recordingQuality:'high',screenshotQuality:'low'}})));
-  assert.equal(saved.language,'ru');assert.equal(saved.showPressedKeys,true);assert.deepEqual(saved.capture,{fps:25,recordingQuality:'high',screenshotQuality:'low'});
+  assert.equal(saved.language,'ru');assert.equal(saved.showPressedKeys,true);assert.deepEqual(saved.capture,{fps:25,recordingQuality:'high',screenshotQuality:'low',shareXRegions:false});
   assert.deepEqual(normalizePreferences({capture:{fps:999,recordingQuality:'bad'}}).capture,prefs.capture);
 });
 test('capture resolution presets preserve aspect ratio and meaningful quality differences',()=>{

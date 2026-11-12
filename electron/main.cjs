@@ -105,13 +105,13 @@ ipcMain.handle('particles:export',async(_,id)=>{
 // in src/settings-presets.js validates the content. Keep MAX_PRESET_FILE equal to
 // MAX_PRESET_FILE_BYTES there.
 const MAX_PRESET_FILE=32*1024*1024;
-ipcMain.handle('presets:openFile',async event=>{
+ipcMain.handle('preset:openFile',async event=>{
  editorOnly(event,'Presets can only be loaded from the editor.');
  const result=await dialog.showOpenDialog(win,{title:'Load preset',filters:[{name:'MDLxL preset',extensions:['mdlxl-preset','json']}],properties:['openFile']});
  if(result.canceled)return null;const file=result.filePaths[0],info=await fs.stat(file);if(info.size>MAX_PRESET_FILE)throw Error('This file is too large to be a preset.');
  return {name:path.basename(file),text:await fs.readFile(file,'utf8')};
 });
-ipcMain.handle('presets:saveFile',async(event,payload)=>{
+ipcMain.handle('preset:saveFile',async(event,payload)=>{
  editorOnly(event,'Presets can only be saved from the editor.');
  if(typeof payload?.name!=='string'||typeof payload.text!=='string'||Buffer.byteLength(payload.text)>MAX_PRESET_FILE)throw Error('Invalid preset.');
  const destination=await chooseSavePath({title:'Save preset',defaultPath:safeWindowsName(payload.name,{fallback:'Preset'})+'.mdlxl-preset',extension:'mdlxl-preset',filterName:'MDLxL preset'});
@@ -174,6 +174,7 @@ ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.g
 const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
+const unreadableSaves = new Map();
 const filters=[{name:'Models and Paint Projects',extensions:MODEL_EXTENSIONS},{name:'Warcraft III models',extensions:WARCRAFT_MODEL_EXTENSIONS},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
 const recentQueue=serialQueue();
 async function persistRecents(file){
@@ -291,15 +292,48 @@ async function saveModel(payload){
   let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
   if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
-  try{await writeModelFile(destination,bytes,payload.forgeAssets||[]);}catch(error){
+  let backupPath;
+  const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  const write = async () => {
+    const resolved = path.resolve(destination);
+    let overwrite = payload.unreadable !== true;
+    backupPath = null;
+    if (!overwrite) {
+      try {
+        const previous = unreadableSaves.get(resolved);
+        const stillBroken = previous && await fs.readFile(destination)
+          .then(data => digest(data) === previous.hash, error => {
+            if (error.code !== 'ENOENT') throw error;
+            return false;
+          });
+        if (stillBroken) {
+          if (previous.backupPath) await fs.access(previous.backupPath);
+          backupPath = previous.backupPath;
+          overwrite = true;
+        } else {
+          try { backupPath = await backupModelFile(destination); }
+          catch (error) { if (error.code !== 'ENOENT') throw error; }
+          overwrite = !!backupPath;
+        }
+      } catch { return false; }
+    }
+    await writeModelFile(destination, bytes, payload.forgeAssets || [], { overwrite });
+    if (payload.unreadable === true) unreadableSaves.set(resolved, { hash: digest(bytes), backupPath });
+    else unreadableSaves.delete(resolved);
+    return true;
+  };
+  try{if(!await write())return {backupFailed:true};}catch(error){
     // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
     if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
     if(!(destination=await choose('This file is read-only. Save model as')))return null;
-    await writeModelFile(destination,bytes,payload.forgeAssets||[]);
+    if(!await write())return {backupFailed:true};
   }
-  openedPaths.add(path.resolve(destination));await persistRecents(destination);
-  initialModel={name:path.basename(destination),path:destination,bytes};
-  return {name:path.basename(destination),path:destination};
+  openedPaths.add(path.resolve(destination));
+  if (payload.unreadable !== true) {
+    await persistRecents(destination);
+    initialModel={name:path.basename(destination),path:destination,bytes};
+  }
+  return {name:path.basename(destination),path:destination,backupPath};
 }
 // Writes through a verified temporary file. Without overwrite, an existing
 // destination is refused before any texture or temporary file is written.
@@ -352,7 +386,7 @@ async function saveArtifact(payload){
   return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }
 ipcMain.handle('artifact:save',(_,payload)=>{const operation=artifactSaveQueue.catch(()=>{}).then(()=>saveArtifact(payload));artifactSaveQueue=operation;return operation;});
-async function resolveTextures(payload, extensions){
+async function resolveTextures(payload, extensions, method='resolve'){
   if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');
   if(!payload.names.length)return [];
   const root=payload.path&&(openedPaths.has(path.resolve(payload.path))||bitsAndPartsLibrary?.openedPaths.has(path.resolve(payload.path)))?path.dirname(path.resolve(payload.path)):null;
@@ -366,7 +400,7 @@ async function resolveTextures(payload, extensions){
   // first (Settings promises they override installed game data), then the
   // Settings folder, then other installations.
   const custom=discovered.customSources||{archives:[],cascFolders:[]};
-  return textureResolver.resolve(payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
+  return textureResolver[method](payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
 }
 // Texture-source resets wait for these lookups before closing the old reader.
 function trackTextureOperation(operation){textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;}
@@ -374,6 +408,7 @@ ipcMain.handle('texture:resolve',(_,payload)=>trackTextureOperation(resolveTextu
 // Event previews use the same installed-game lookup and cache as textures.
 // Limit this separate read-only endpoint to resources consumed by that preview.
 ipcMain.handle('preview:eventResources',(_,payload)=>trackTextureOperation(resolveTextures(payload,[...IMAGE_EXTENSIONS,'slk','mdl','mdx','wav','mp3','ogg','flac'])));
+ipcMain.handle('preview:missingSounds',(_,payload)=>trackTextureOperation(resolveTextures(payload,null,'missingSounds')));
 ipcMain.handle('preview:humanPortraitFrame',()=>trackTextureOperation(resolveTextures({names:HUMAN_PORTRAIT_RESOURCES},[...IMAGE_EXTENSIONS,'fdf','txt']).then(validateHumanPortraitResources)));
 async function textureLibraryContext(payload){
     const modelPath=typeof payload?.modelPath==='string'&&openedPaths.has(path.resolve(payload.modelPath))?path.resolve(payload.modelPath):null;
@@ -680,7 +715,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(legacySettings);
   if (freshInstall) {
-    settings = await settingsStore.configure({ preferences: { uvDrag: { ...settings.preferences.uvDrag, zoomStyle: 'rightUp' } } });
+    settings = await settingsStore.configure({ preferences: { uvRightUpDefault: true, uvDrag: { ...settings.preferences.uvDrag, zoomStyle: 'rightUp' } } });
   }
   if(await require('./software-rendering.cjs').restartWithSoftwareRendering(require('electron')))return;
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>sendToEditor('updates:status',status),
@@ -718,7 +753,7 @@ async function createWindow(bounds={}){
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
-    captureRegions.get(current)?.(Array(8).fill(0));
+    captureRegions.get(current)?.(null);
     textureDecoder=null;texturePreviews.cancel();rejectThumbnailRequests('Editor renderer closed.');
     await Promise.allSettled([...captureOperations]);
     await previewRecordings.closeOwner(current.webContents.id);
