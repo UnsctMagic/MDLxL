@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: polish pass `d00ca4f3` saved locally (Fireball, continuous cover); compiled only, needs a test build for the owner. Local branch only.
+Status: refinement pass 3 in progress (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass next. Compiled only; the owner reviews builds by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -69,6 +69,27 @@ Next steps for whoever continues:
 2. Unit tests that assert the old `siteCount` sites or `gather:'tip'` for Fireball need their expectations updated (`test/fx-*.test.js`); `test/fx-legacy-snapshot.test.js` must stay untouched and green.
 3. Document `gather:'head'`, `cover` and `coverFit` in [the recipe reference](fx-effect-recipe-reference.md) section 3.3.
 4. Not reviewed yet in this pass: Tip discharge (still `gather:'tip'`), body sizes of the head source, and whether hugging sprites clear the faces (raise the clearance in `coverSites` if they are half hidden).
+
+## Refinement pass 3 (13 November 2026, Fable)
+
+Owner after the hand test: "Its perfect. Everything looks great - Only Fireball kinda sucks so far but I tried it on swords." Then: improve Fireball, improve the overall controls. Later the same day: improvements only, no change to the recipes, placement or defaults of any look except Fireball, and no control change that alters how an existing look compiles.
+
+The render of the head version on the owner's sword showed why: two grey Heat shade lumps larger than the fire, a pink additive halo, and a weak core, as two lobes three quarters along the blade.
+
+### Progress
+
+Done:
+
+- **Fireball on swords** (`ba0a2b92`, builds; not rendered). New `gather:'strike'` / `'strike-head'` (`suggestBladeEmitterSites` in `src/fx-emitter-surface.js`, `strikeEmitterSites` in `src/global-animation-model.js`): a straight blade gets three patches off each face along its outer part, largest near the tip and thinning toward the hilt; a mace or axe head, a curved blade and a body keep the `'head'` source. `'head'` itself and Fel surge are untouched. Recipe: blended **Fire body** drawn first (red-orange on any ground, `PriorityPlane:-1`), smaller yellower additive **Fire core**, warmer fainter **Core glow** and **Spat embers** at the tip pair only, **Falling sparks** along the whole source. The modulate Heat shade is gone from Fireball. Checked only by running `suggestBladeEmitterSites` on a synthetic sword, mace and low-poly blade.
+
+Next: FX controls pass in `app/GlobalAnimationControls.jsx` (order, labels, tooltips, less friction), one small commit at a time, strings in all five catalogues.
+
+Exact next step: read `app/GlobalAnimationControls.jsx` top to bottom and list the control changes that cannot alter how any look compiles.
+
+What the owner should look at for Fireball (Fire > Variation > Fireball):
+
+- On a sword: a dense red-orange ball around the outer part of the blade with a yellow centre, the fire thinning along the blade toward the hilt, embers drifting out of the ball and sparks falling along it. No grey smoke lumps, no pink halo.
+- On a mace or axe head and on a body: one ball around the head / top, same colours.
 
 ## Rules carried over
 

@@ -222,6 +222,12 @@ Site shapes (ES):
 
 Rate share: auto sites split the layer rate equally: each emitter gets `1/sites` of the density (GAM:477). Hence **more sites at the same `amount` = same total particles, not more**. `Formation`, `formationWidth/Depth` apply only after the user edits placement (`layer.placement` truthy, EP:19-29); a recipe cannot get them by setting `formation` alone.
 
+Gathered sources (`gather`, fresh layers; every gathered layer of a look shares the same sites, checked first in `defaultSurfaceSites`):
+* `gather:'tip'`: one site at the far end of the longest strip (`suggestTipEmitterSites`).
+* `gather:'head'`: 2 sites (flat) or 4 (round) around the part's head, the widest mass of its far half, or the top of a body (`suggestHeadEmitterSites`, `headEmitterSites`). `componentWidth` is the head's half-width, kept between 10% and 20% of the part's length.
+* `gather:'strike'` / `'strike-head'` (Fireball): a straight blade (`suggestBladeEmitterSites`: wide slices over at least half the part, at least 1.6 widths long, centre line straight) gets three patches off each face at 74%, 50% and 27% of the blade, sprite widths 1.1 / .78 / .52 of its half-width and rate shares 1.5 / .95 / .55, so the source is largest near the tip. `'strike-head'` keeps only the pair near the tip. The patches carry a birth rectangle and its rotation (launch away from the face), so `aim:'outward'` applies only where there is no blade: any other part falls back to the `'head'` sites.
+* `cover:'surface'|'around'` and `coverFit`: continuous cover instead of dots (`coverSites`); see the task note's polish pass.
+
 | Part | What default placement does |
 |---|---|
 | (a) straight sword (one strip) | strip sites along the blade on its upper (+Z) face (or +X face if vertical); N = clamp(floor(live/4),1,16) bounded by `round(length/footprint)`; each pushed slightly off the surface. Built-in flames: site positions get an extra rate scatter +-6% (`airyFit`) and strip-fit velocity/gravity (below). |
