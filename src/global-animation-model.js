@@ -731,6 +731,14 @@ function birthRegionRateScale(layer,planned,active,weights){
  const live=rate*layer.nativeSpec.life*leastWeight/count;
  return live>0?Math.min(4,Math.max(1,2/live)):1;
 }
+// The order in which a layer's sites fire: scattered over the part, every site once per cycle.
+function burstTurn(index,turns){
+ if(turns<3)return index;
+ const common=(a,b)=>b?common(b,a%b):a;
+ let stride=Math.max(1,Math.round(turns*.382));
+ while(common(stride,turns)>1)stride++;
+ return index*stride%turns;
+}
 function hasRecipeEmitterDefaults(layer){
  return layer.recipeOwner||layer.airyFit||layer.fireFit?.version===1||layer.rampTint||layer.rampPinned||layer.widthCap!=null||
   layer.surfaceFit?.siteCount!=null||layer.scatter||layer.birthRegionFit||layer.gather||layer.aim;
@@ -761,6 +769,11 @@ function nativeParticles(c,layer){
  const layout=c.siteLayout||c.autoSites,active=c.activeSites;
  const planned=layout?layout.map(slot=>({...slot,regionIndex:slot.region??0,region:c.frame.regions?.[slot.region]||regions[0]})):regions.map((region,i)=>({region,key:'source'+i}));
  const weights=scatterWeights(layer,planned,active),floor=birthRegionRateScale(layer,planned,active,weights);
+ // Bursts (fresh recipes, burstCount): each firing site takes its turn, one burst at a time.
+ // A burst starts a little early or late each time, so the rhythm is never a steady blink.
+ const bursts=l.burstGap!=null&&l.burstCount!=null&&!l.impact;
+ const firing=bursts?planned.filter((slot,i)=>!(!layout&&shares&&!shares[i])&&(!active||active.has(slot.key))&&!layer.individuals?.[slot.key]?.deleted).length:0;
+ let fired=0;
  for(const [i,slot] of planned.entries()){
   const region=slot.region;if(!layout&&shares&&!shares[i])continue;
   if(active&&!active.has(slot.key)){
@@ -804,6 +817,18 @@ function nativeParticles(c,layer){
    p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
    const edited=l.widthCapEdited||layer.individuals?.[key]?.values?.size!=null;
    if(l.widthCap!=null?!edited:l.airyFit)p.ParticleScaling=capParticleScaling(p.ParticleScaling,widthCapFor(l,slot));
+  }
+  if(bursts){
+   const span=Math.max(60,Math.round((layer.burstWindow??.15)*1000)),gap=Math.max(100,Math.round(layer.burstGap*1000)),period=span+gap;
+   const turns=Math.max(1,firing),slots=turns*Math.ceil(3/turns),cycle=period*slots,clock=clockFor(m,cycle,c.createdClocks);
+   const rate=Math.max(0,l.burstCount)*1000/span,pairs=[[0,0]];
+   for(let k=burstTurn(fired++,turns);k<slots;k+=turns){
+    const start=k*period+40+Math.round((k*.618034+.11)%1*gap*.5);
+    pairs.push([start/cycle,rate],[(start+span)/cycle,0]);
+   }
+   pairs.push([1,0]);
+   p.Squirt=false;
+   p.EmissionRate=keys(clock,cycle,pairs,0);
   }
   ids.push(p.ObjectId);
  }

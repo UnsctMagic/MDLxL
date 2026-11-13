@@ -8287,5 +8287,16 @@
   "Return this layer to its starting values.": "Diese Ebene auf ihre Startwerte zurücksetzen.",
   "Only for emitters that fire in bursts.": "Nur für Emitter, die in Schüben feuern.",
   "Choose All emitters to change how many emitters the layer has.": "„Alle Emitter“ wählen, um die Anzahl der Emitter der Ebene zu ändern.",
-  "Choose All emitters to pull the emitters together or spread them apart.": "„Alle Emitter“ wählen, um die Emitter zusammenzuziehen oder auseinanderzuziehen."
+  "Choose All emitters to pull the emitters together or spread them apart.": "„Alle Emitter“ wählen, um die Emitter zusammenzuziehen oder auseinanderzuziehen.",
+  "Tip crackle": "Spitzenknistern",
+  "Tip sparks": "Spitzenfunken",
+  "Storm sparks": "Sturmfunken",
+  "Crossing arcs": "Kreuzende Bögen",
+  "Leaping sparks": "Springende Funken",
+  "Shell arcs": "Hüllenbögen",
+  "Shell sparkles": "Hüllenfunkeln",
+  "Particles per burst": "Partikel pro Salve",
+  "Particles fired in one burst.": "Partikel, die eine Salve abgibt.",
+  "Arcs per burst": "Bögen pro Salve",
+  "Flashes in one burst.": "Blitze in einer Salve."
 }

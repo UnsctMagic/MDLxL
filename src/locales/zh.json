@@ -8057,5 +8057,16 @@
   "Return this layer to its starting values.": "将此图层恢复为初始值。",
   "Only for emitters that fire in bursts.": "仅适用于以爆发方式发射的发射器。",
   "Choose All emitters to change how many emitters the layer has.": "选择“所有发射器”以更改图层的发射器数量。",
-  "Choose All emitters to pull the emitters together or spread them apart.": "选择“所有发射器”以将发射器聚拢或分散。"
+  "Choose All emitters to pull the emitters together or spread them apart.": "选择“所有发射器”以将发射器聚拢或分散。",
+  "Tip crackle": "尖端噼啪",
+  "Tip sparks": "尖端火花",
+  "Storm sparks": "风暴火花",
+  "Crossing arcs": "交错电弧",
+  "Leaping sparks": "飞溅电火花",
+  "Shell arcs": "外壳电弧",
+  "Shell sparkles": "外壳闪烁",
+  "Particles per burst": "每次放电粒子数",
+  "Particles fired in one burst.": "每次放电发射的粒子数量。",
+  "Arcs per burst": "每次放电电弧数",
+  "Flashes in one burst.": "每次放电中的闪光次数。"
 }

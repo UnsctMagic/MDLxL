@@ -8161,5 +8161,16 @@
   "Return this layer to its starting values.": "Devuelve esta capa a sus valores iniciales.",
   "Only for emitters that fire in bursts.": "Solo para emisores que disparan en ráfagas.",
   "Choose All emitters to change how many emitters the layer has.": "Elige «Todos los emisores» para cambiar cuántos emisores tiene la capa.",
-  "Choose All emitters to pull the emitters together or spread them apart.": "Elige «Todos los emisores» para juntar o separar los emisores."
+  "Choose All emitters to pull the emitters together or spread them apart.": "Elige «Todos los emisores» para juntar o separar los emisores.",
+  "Tip crackle": "Crepitar de la punta",
+  "Tip sparks": "Chispas de la punta",
+  "Storm sparks": "Chispas de tormenta",
+  "Crossing arcs": "Arcos cruzados",
+  "Leaping sparks": "Chispas que saltan",
+  "Shell arcs": "Arcos de la envoltura",
+  "Shell sparkles": "Destellos de la envoltura",
+  "Particles per burst": "Partículas por descarga",
+  "Particles fired in one burst.": "Partículas que lanza cada descarga.",
+  "Arcs per burst": "Arcos por descarga",
+  "Flashes in one burst.": "Destellos en cada descarga."
 }

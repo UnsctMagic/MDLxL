@@ -225,7 +225,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {moreAt==='particles'&&placement}
    <details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
     {['Width','Length','Latitude','Variation'].map(field=>nativeSlider(field,swarm))}
-    {l.burstGap!=null?<>{row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}{row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}</>:<>{unavailable('Burst duration (s)')}{unavailable('Time between bursts (s)')}</>}
+    {l.burstGap!=null?<>{l.burstCount!=null&&row('Particles per burst','burstCount',1,200,1,'Particles fired in one burst.')}{row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}{row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}</>:<>{unavailable('Burst duration (s)')}{unavailable('Time between bursts (s)')}</>}
     {<ParticleLifeMarker unavailable={!real||swarm} value={live?.field==='Time'?live.value:real?.Time??.5} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{gesture.current=null;}} onSelect={setLifeStage}/>}
     <BlendLookField unavailable={!real||swarm} emitter={real||{}} update={depth} wheel/>
     <CarryButton unavailable={!real||swarm} emitter={real||{}} update={depth}/>
@@ -244,6 +244,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {(surf||card)&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><ChoiceSelect aria-label="Rhythm" value={rhythm} onChange={value=>setLayer(withRhythm(value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,'Built-in']]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><ChoiceSelect aria-label="Blend" value={blend??''} onChange={value=>setLayer(withBlend(l,Number(value)))}>{blend==null&&<option value="" disabled/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}
   {surf&&<>
+   {l.powerArcs&&<>{row('Arcs per burst','amount',1,12,1,'Flashes in one burst.')}{row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}{row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}</>}
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
    {controls.speed&&row('Speed','speed',0,8,.05,'Texture passes per loop. Below 1 moves slower than the loop.')}
    {controls.direction&&row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}

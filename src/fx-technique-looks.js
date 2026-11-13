@@ -70,9 +70,16 @@ export const TECHNIQUE_LOOKS=[
   skin('Crossing flow','ReplaceableTextures\\Weather\\Lightning.blp',{direction:60,speed:2,strength:.6,tint:[.6,.5,1],loop:3533}),
   glow('Energy glow',null,{pulse:'soft',strength:.5,inflate:.3,loop:2633,tint:[.5,.65,1],enabled:false}),
  ],{asOverlay:true}),
+ // Pass 5 (13 November), after the Lightning Shell: arcs stream fast on a shell lifted off the part, zap cards snap
+ // to new angles and swell a little, one zap circles the part, sparkles twinkle in the space around it.
  make('lightning-cage','Lightning cage',1240,[
-  cardSpec('Zap cards',tex('Zap1'),{facing:'part',count:4,jitter:150,fit:1.3,sizeMin:.9,sizeMax:1.1,loop:1033,tint:zap}),
+  skin('Shell arcs','Abilities\\Spells\\Human\\Thunderclap\\Lightning2b.blp',{axis:'v',band:.5,speed:4,loop:1000,strength:.9,pulse:'soft',liftFit:.25,shell:true,tint:zap}),
+  cardSpec('Zap cards',tex('Zap1'),{facing:'part',count:4,jitter:150,fit:1.3,sizeMin:.9,sizeMax:1.25,loop:1033,tint:zap}),
   orbit('Cage arcs',tex('Zap1'),zap,{orbitTurns:3,loop:1500,fit:.8,strength:.8,lasts:.25}),
+  spray('Shell sparkles',tex('Sparkle_Anim'),zap,
+   {atlas:4,life:.5,rate:16,velocity:.25,spread:180,size:[.03,.14,.03],alpha:[0,255,0]},
+   {starts:true,cover:'around',birthAcross:1.3,widthCap:1,loop:1933,
+    native:{Time:.4,Variation:.4,Flags:C,SegmentColor:[[1,1,1],[.75,.88,1],[.5,.6,1]]}}),
  ]),
  vary(make('lit-crystal','Lit crystal',3600,[],{asOverlay:true}),[
   {id:'light',name:'Inner light',layers:[crystalFacets(4),skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,inflate:.13,tint:crystal,strength:.7,pulse:'soft'}),facetGlints()]},

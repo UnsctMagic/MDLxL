@@ -17,6 +17,7 @@ const CLOUDS='ReplaceableTextures\\Weather\\Clouds8x8.blp';
 const FIRE10022='Abilities\\Weapons\\FlamingArrow\\Fire10022.blp';
 const CLOUDSTILE='UI\\Glues\\SinglePlayer\\TutorialCampaign3D\\cloudstile1.blp';
 const LIGHTNING4B='Doodads\\Cinematic\\Lightningbolt\\Lightning4b.blp';
+const LIGHTNING2B='Abilities\\Spells\\Human\\Thunderclap\\Lightning2b.blp';
 const U=EMITTER_UNFOGGED,C=EMITTER_CARRIED;
 const waterFrames=Array.from({length:8},(_,i)=>texture('Lords000'+i));
 const skin=(label,image,extra={})=>({type:'Moving skin',label,image,...extra});
@@ -162,27 +163,40 @@ export const GLOBAL_LOOKS=[
     {starts:true,cover:'surface',loop:1533,
      native:{Time:.4,Variation:.4,Flags:U,SegmentColor:[[1,1,1],[.45,.56,.9],[.52,0,1]]}}),
    spray('Charge glow',texture('Blue_Glow2'),[.45,.7,1],
-    {life:.9,rate:14,size:[.14,.18,.12],alpha:[40,70,0]},
+    {life:.9,rate:12,size:[.2,.3,.22],alpha:[70,130,0]},
     {starts:true,cover:'surface',widthCap:1.2,loop:2133,native:{Time:.5,Flags:C}}),
   ]},
+  // Pass 5 (13 November): electricity that never blinks. The surface arcs stream fast (MM20 Stormforger: about three
+  // passes a second), sparks are thin Zap1 streaks that leap and fall (its Zap Gravs), a discharge is long streaks
+  // from one point (native Zap1: four times as long as wide) fired in bursts that never keep a steady beat.
   {id:'tip',name:'Tip discharge',layers:[
    stormSteel(),
-   skin('Forked arcs',LIGHTNING4B,{pulse:'soft',strength:.64,axis:'v',band:.32,tint:[.75,.89,1],loop:1033}),
+   skin('Forked arcs',LIGHTNING4B,{pulse:'soft',strength:.64,axis:'v',band:.32,tint:[.75,.89,1],loop:1033,speed:3}),
    spray('Tip glow',texture('Blue_Glow2'),[.45,.7,1],
-    {life:.8,rate:8,size:[.2,.26,.16],alpha:[90,160,0]},
-    {starts:true,gather:'tip',widthCap:2,native:{Time:.5,Flags:C}}),
+    {life:.8,rate:8,size:[.26,.34,.2],alpha:[110,200,0]},
+    {starts:true,gather:'tip',widthCap:2.4,native:{Time:.5,Flags:C}}),
+   spray('Tip crackle',texture('LightningBall'),[.62,.72,1],
+    {life:.22,rate:12,velocity:.1,spread:180,size:[.3,.22,.06],alpha:[255,255,0]},
+    {starts:true,gather:'tip',widthCap:1.8,loop:1533,
+     native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.36,.6,.9],[.37,.09,.95]]}}),
    spray('Discharge',texture('Zap1'),[.7,.82,1],
-    {life:.28,burst:10,velocity:1.5,spread:180,tail:.25,size:[.04,.32,.04],alpha:[0,255,0]},
-    {starts:true,gather:'tip',loop:1240,
-     native:{Time:.3,Variation:.4,Flags:U,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
-   spray('Second discharge',texture('Zap1'),[.7,.82,1],
-    {life:.24,burst:7,delay:.33,velocity:1.2,spread:180,tail:.25,size:[.03,.26,.03],alpha:[0,255,0]},
-    {starts:true,gather:'tip',loop:1870,
-     native:{Time:.3,Variation:.4,Flags:U,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
-   spray('Discharge flash',texture('LightningBall'),[.62,.72,1],
-    {life:.2,burst:2,velocity:.1,spread:180,size:[.42,.3,.08],alpha:[200,200,0]},
-    {starts:true,gather:'tip',widthCap:2.6,loop:1240,
-     native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.36,.6,.9],[.37,.09,.95]]}}),
+    {life:.26,velocity:3,spread:180,tail:.3,size:[.03,.12,.03],alpha:[120,255,0]},
+    {starts:true,gather:'tip',burstCount:10,burstWindow:.12,burstGap:.5,
+     native:{Time:.3,Variation:.35,FrameFlags:2,Flags:U,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
+   spray('Tip sparks',texture('Zap1'),[.7,.82,1],
+    {life:.45,rate:16,velocity:2.4,gravity:12,spread:180,tail:.07,size:[0,.05,.02],alpha:[255,255,255]},
+    {starts:true,gather:'tip',loop:2133,
+     native:{Time:.2,Variation:.5,FrameFlags:2,Flags:U,SegmentColor:[[.35,.55,1],[1,1,1],[.6,.75,1]]}}),
+  ]},
+  // No steel underlay here: the arcs run over the part's own paint. (A third surface layer would also take over the
+  // off switch of Lightning's Blade arcs when the variation is switched.)
+  {id:'sparks',name:'Storm sparks',layers:[
+   skin('Forked arcs',LIGHTNING4B,{pulse:'flicker',strength:.8,axis:'v',band:.32,tint:[.75,.89,1],loop:1033,speed:3}),
+   skin('Crossing arcs',LIGHTNING2B,{pulse:'soft',strength:.5,axis:'v',band:.5,direction:180,tint:[.82,.74,1],loop:1200,speed:4}),
+   spray('Leaping sparks',texture('Zap1'),[.7,.82,1],
+    {life:.45,rate:30,velocity:2.4,gravity:12,spread:60,tail:.07,size:[0,.05,.02],alpha:[255,255,255]},
+    {starts:true,cover:'surface',loop:1533,
+     native:{Time:.2,Variation:.5,FrameFlags:2,Flags:U,SegmentColor:[[.35,.55,1],[1,1,1],[.6,.75,1]]}}),
   ]},
  ]),
  vary(make('arcane-blade','Arcane blade','Blades',2320,'lilac',[]),[
@@ -626,6 +640,8 @@ export function makeLayer(spec,frame,palette,id) {
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3]*(scale.velocity??1),gravity:p[4]*(scale.gravity??1),size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5]*(scale.size??1),
   spriteSize:p[5],smoothness:32};
  if(spec.native?.SegmentColor)layer.rampTint=[...defaultTint];
+ // liftFit: a look gives a shell's distance above the surface as a share of the part-fitted unit (read from the look, never saved).
+ if(spec.liftFit!=null){layer.inflate=Math.round(basis.unit*spec.liftFit*100)/100;delete layer.liftFit;}
  if(scale.stages)layer.native={...layer.native,ParticleScaling:scale.stages.map(v=>v*layer.size)};
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
  // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
