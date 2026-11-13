@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: refinement pass 3 saved locally (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass (`62fcfe07`, `b8cf5387`). Builds; nothing was run or rendered: the owner reviews the test build by eye. Local branch only.
+Status: refinement pass 3 saved locally (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass (`62fcfe07`, `b8cf5387`, `2ca24153`). Builds; nothing was run or rendered: the owner reviews the test build by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -88,7 +88,7 @@ Done:
 
 Next (ideas not started; each must leave every look compiling exactly as now):
 
-- Explain other disabled-in-place controls with a tooltip (Rise on Death, Emitters while one emitter is selected).
+- Disabled-in-place tooltips: done in `2ca24153` for Burst duration, Time between bursts, Emitters and Formation; Rise on Death still has none.
 - The dialog's top bar and preview toolbar (`app/SurfaceEffects.jsx`) were not reviewed in this pass.
 - Unit tests that assert the old Fireball layers (`gather:'head'`, Heat shade) need new expectations; `test/fx-legacy-snapshot.test.js` stays untouched.
 
