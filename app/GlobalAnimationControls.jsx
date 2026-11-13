@@ -166,7 +166,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  };
  const swarmSlider=(field,key,min,max,step,title)=><div title={title}><ParticleSlider field={field} units={title} decimals={2} min={min} max={max} step={step} value={live?.field===field?live.value:l[key]??1}
   begin={()=>{gesture.current={field,swarmKey:key,min,max};}} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
- const unavailable=label=><div key={label}><NumberField label={label} disabled value={undefined} placeholder="N/A"/></div>;
+ const unavailable=label=><div key={label} title="Only for emitters that fire in bursts."><NumberField label={label} disabled value={undefined} placeholder="N/A"/></div>;
 
  // Reset layer: the layer as the look first made it (its own variation's recipe first), on the same part.
  const sameSpec=s=>s.type===l.type&&s.label===l.label;
@@ -211,8 +211,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {!edge&&!l.stamp&&<RangeField disabled={p&&!real} key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v,selectedSite)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
-  {particleLayer&&<RangeField disabled={!countable} label="Emitters" title="Number of emitter sites in this layer." min={0} max={Math.max(MAX_EMITTER_SITES,siteCount??0)} step={1} value={siteCount??0} output={value=>swarm||siteCount==null?'N/A':value} onCommit={changeSiteCount}/>}
-  {particleLayer&&<RangeField disabled={!!selectedSite||!!stack.impact} label="Formation" title="Pull the emitters together or spread them apart." min={swarm?4:0} max={swarm?Math.max(200,(frame?.length||100)*2,l.size):2} step={swarm ? .5 : .01} value={swarm?l.size:l.formation??1} output={v=>swarm?v.toFixed(1):Math.round(v*100)+'%'} onCommit={v=>swarm?update('size',v):setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
+  {particleLayer&&<RangeField disabled={!countable} label="Emitters" title={selectedSite?'Choose All emitters to change how many emitters the layer has.':'Number of emitter sites in this layer.'} min={0} max={Math.max(MAX_EMITTER_SITES,siteCount??0)} step={1} value={siteCount??0} output={value=>swarm||siteCount==null?'N/A':value} onCommit={changeSiteCount}/>}
+  {particleLayer&&<RangeField disabled={!!selectedSite||!!stack.impact} label="Formation" title={selectedSite?'Choose All emitters to pull the emitters together or spread them apart.':'Pull the emitters together or spread them apart.'} min={swarm?4:0} max={swarm?Math.max(200,(frame?.length||100)*2,l.size):2} step={swarm ? .5 : .01} value={swarm?l.size:l.formation??1} output={v=>swarm?v.toFixed(1):Math.round(v*100)+'%'} onCommit={v=>swarm?update('size',v):setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
   {shell&&<RangeField key={l.id+'thickness'} title="Distance of this layer above the surface." label="Thickness" output={v=>v.toFixed(1)} min={0} max={shellReach(frame,l.inflate)} step={.05} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
   {particleLayer&&<>
    <LifeTable unavailable={!real||swarm} emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}

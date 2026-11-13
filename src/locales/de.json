@@ -8284,5 +8284,8 @@
   "Show or hide the emitter markers in the preview.": "Emitter-Markierungen in der Vorschau ein- oder ausblenden.",
   "What happens to emitters you changed one by one when you change the whole layer.": "Was mit einzeln geänderten Emittern geschieht, wenn die ganze Ebene geändert wird.",
   "Reset layer": "Ebene zurücksetzen",
-  "Return this layer to its starting values.": "Diese Ebene auf ihre Startwerte zurücksetzen."
+  "Return this layer to its starting values.": "Diese Ebene auf ihre Startwerte zurücksetzen.",
+  "Only for emitters that fire in bursts.": "Nur für Emitter, die in Schüben feuern.",
+  "Choose All emitters to change how many emitters the layer has.": "„Alle Emitter“ wählen, um die Anzahl der Emitter der Ebene zu ändern.",
+  "Choose All emitters to pull the emitters together or spread them apart.": "„Alle Emitter“ wählen, um die Emitter zusammenzuziehen oder auseinanderzuziehen."
 }

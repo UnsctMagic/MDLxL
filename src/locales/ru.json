@@ -8148,5 +8148,8 @@
   "Show or hide the emitter markers in the preview.": "Показать или скрыть метки эмиттеров в предпросмотре.",
   "What happens to emitters you changed one by one when you change the whole layer.": "Что происходит с эмиттерами, изменёнными по отдельности, когда вы меняете весь слой.",
   "Reset layer": "Сбросить слой",
-  "Return this layer to its starting values.": "Вернуть этот слой к начальным значениям."
+  "Return this layer to its starting values.": "Вернуть этот слой к начальным значениям.",
+  "Only for emitters that fire in bursts.": "Только для эмиттеров, которые срабатывают вспышками.",
+  "Choose All emitters to change how many emitters the layer has.": "Выберите «Все эмиттеры», чтобы изменить число эмиттеров слоя.",
+  "Choose All emitters to pull the emitters together or spread them apart.": "Выберите «Все эмиттеры», чтобы сдвинуть или раздвинуть эмиттеры."
 }

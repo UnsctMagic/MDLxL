@@ -8054,5 +8054,8 @@
   "Show or hide the emitter markers in the preview.": "在预览中显示或隐藏发射器标记。",
   "What happens to emitters you changed one by one when you change the whole layer.": "更改整个图层时，如何处理你单独修改过的发射器。",
   "Reset layer": "重置图层",
-  "Return this layer to its starting values.": "将此图层恢复为初始值。"
+  "Return this layer to its starting values.": "将此图层恢复为初始值。",
+  "Only for emitters that fire in bursts.": "仅适用于以爆发方式发射的发射器。",
+  "Choose All emitters to change how many emitters the layer has.": "选择“所有发射器”以更改图层的发射器数量。",
+  "Choose All emitters to pull the emitters together or spread them apart.": "选择“所有发射器”以将发射器聚拢或分散。"
 }

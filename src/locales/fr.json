@@ -8284,5 +8284,8 @@
   "Show or hide the emitter markers in the preview.": "Afficher ou masquer les repères des émetteurs dans l'aperçu.",
   "What happens to emitters you changed one by one when you change the whole layer.": "Ce qu'il advient des émetteurs modifiés un par un quand vous modifiez toute la couche.",
   "Reset layer": "Réinitialiser la couche",
-  "Return this layer to its starting values.": "Remettre cette couche à ses valeurs de départ."
+  "Return this layer to its starting values.": "Remettre cette couche à ses valeurs de départ.",
+  "Only for emitters that fire in bursts.": "Seulement pour les émetteurs qui tirent par rafales.",
+  "Choose All emitters to change how many emitters the layer has.": "Choisissez « Tous les émetteurs » pour changer le nombre d'émetteurs de la couche.",
+  "Choose All emitters to pull the emitters together or spread them apart.": "Choisissez « Tous les émetteurs » pour rapprocher ou écarter les émetteurs."
 }
