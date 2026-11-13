@@ -21,6 +21,7 @@ import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
+const SLIDER_TIPS={LifeSpan:'Seconds each particle lives.',ParticleScaling:'Size of the particles.',Speed:'How fast particles leave the emitter.',Gravity:'Below 0 the particles rise. Above 0 they fall.',Width:'Width of the area particles are born in.',Length:'Length of the area particles are born in.',Latitude:'How wide the particles fan out, in degrees.',Variation:'How much the speed differs from one particle to the next.',TailLength:'Length of the streak behind each particle. Draw as must be Streaks or Both.'};
 export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
@@ -160,32 +161,39 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const nativeSlider=(field,disabled=false)=>{
   disabled=disabled||real?.[field]?.GlobalSeqId>=0&&timingOptions.globalTime==null;
   const value=real?(field==='EmissionRate'&&!selectedSite?(result?.ids||[]).reduce((sum,id)=>sum+particleValue(graph.model.Nodes[id],field,timingOptions),0):particleValue(real,field,timingOptions)):undefined;
-  const title=field==='EmissionRate'?(selectedSite?'Particles emitted by this emitter.':'Particles emitted across this layer.')+' '+(real?.Squirt?'Particles per burst.':'Particles per second.'):undefined;
-  return <div key={field} title={title}><ParticleSlider decimals={2} field={field} value={live?.field===field?live.value:value} disabled={disabled||!real} unavailable={disabled||!real} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
+  const title=field==='EmissionRate'?(selectedSite?'Particles emitted by this emitter.':'Particles emitted across this layer.')+' '+(real?.Squirt?'Particles per burst.':'Particles per second.'):SLIDER_TIPS[field];
+  return <div key={field} title={title}><ParticleSlider decimals={2} units={title} field={field} value={live?.field===field?live.value:value} disabled={disabled||!real} unavailable={disabled||!real} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
  };
  const swarmSlider=(field,key,min,max,step,title)=><div title={title}><ParticleSlider field={field} units={title} decimals={2} min={min} max={max} step={step} value={live?.field===field?live.value:l[key]??1}
   begin={()=>{gesture.current={field,swarmKey:key,min,max};}} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
  const unavailable=label=><div key={label}><NumberField label={label} disabled value={undefined} placeholder="N/A"/></div>;
+
+ // Position & size sits right above More in every kind of layer.
+ const moreAt=!l?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
+ const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
+   {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
+   {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}</div>;
 
  return <>
   <h3>{look.name}</h3>
   {lookActions&&<FxLookBar look={look} stack={stack} actions={lookActions}/>}
   {!stack.impact&&<div title="Milliseconds for one full loop."><NumberField label="Loop length" min={750} max={10000} step={50} value={stack.loop} onChange={v=>setStack({...stack,loop:Math.max(750,Math.min(10000,Math.round(v)))})}/></div>}
   {stack.look==='ice-skin'&&<label className="field"><span>Ice</span><ChoiceSelect aria-label="Ice variation" disabled={!recipeFrame} value={stack.iceVariation||'dark'} onChange={value=>setStack(withIceVariation(stack,recipeFrame,value))}><option value="dark">Dark ice</option><option value="white">White ice</option></ChoiceSelect></label>}
-  {look.variations&&<label className="field"><span>Variation</span><ChoiceSelect aria-label="Variation" disabled={!recipeFrame} value={currentVariation(stack,look)} onChange={value=>setStack(withVariation(stack,recipeFrame,look,value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</ChoiceSelect></label>}
+  {look.variations&&<label className="field" title="Switches to another version. Layers you added stay."><span>Variation</span><ChoiceSelect aria-label="Variation" disabled={!recipeFrame} value={currentVariation(stack,look)} onChange={value=>setStack(withVariation(stack,recipeFrame,look,value))}>{look.variations.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</ChoiceSelect></label>}
   {stack.impact&&<label className="field"><span>Attack</span><ChoiceSelect aria-label="Attack animation" value={stack.sequence} onChange={value=>{const sequence=Number(value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</ChoiceSelect></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setStack({...stack,layers:stack.layers.map(l=>l.id===item.id?{...item,enabled:e.target.checked}:l)})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);if(!selectedSite)setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
-  {!stack.impact&&<label className="field fx-add-emitter" title="Pick an emitter to preview it. Add keeps it as a layer."><span>Particles</span><ChoiceSelect aria-label="Add emitter" disabled={!recipeFrame} value={trial?.source==='emitter'?trial.label:''} onChange={tryEmitter}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</ChoiceSelect></label>}
+  {!stack.impact&&<div className="fx-layer-actions fx-add-row"><ChoiceSelect aria-label="Add emitter" title="Pick an emitter to preview it. Add keeps it as a layer." disabled={!recipeFrame} value={trial?.source==='emitter'?trial.label:''} onChange={tryEmitter}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</ChoiceSelect>
+   <ChoiceSelect aria-label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} value={trial?.source==='layer'?trial.label:''} onChange={addLayer} onWheelChange={label=>tryLayer('layer',label,findSurfaceChoice(label))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</ChoiceSelect></div>}
   {!stack.impact&&trial&&<button className="fx-keep-emitter" title={trial.source==='layer'?'Add one editable layer to this part.':'Keep the previewed emitter as a layer.'} onClick={keepTrial}>Add</button>}
-  <div className="fx-layer-actions">{!stack.impact&&<ChoiceSelect aria-label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} value={trial?.source==='layer'?trial.label:''} onChange={addLayer} onWheelChange={label=>tryLayer('layer',label,findSurfaceChoice(label))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</ChoiceSelect>}
-   {l&&!selectedSite&&<button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button>}</div>
   {l&&<>
-  {selectedSite&&<h4>{translate(emitterName(l))+' '+((result?.ids.indexOf(selectedId)??0)+1)}</h4>}
-  {selectedSite&&<button aria-pressed={surfaceSnap} onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>}
-  {selectedSite&&<button onClick={deleteEmitter}>Delete emitter</button>}
-  {(p||swarm)&&!selectedSite&&!stack.impact&&<ChoiceSelect aria-label="Change emitter" title="Replace this emitter and keep its position." disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect>}
-  {!l.stamp&&!selectedSite&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
+  <h4 className="fx-selected" title={selectedSite?'Changes apply to this emitter only.':'Changes apply to the whole layer.'}>{translate(emitterName(l))+(selectedSite?' '+((result?.ids.indexOf(selectedId)??0)+1):'')}</h4>
+  {selectedSite&&<div className="fx-layer-actions"><button title="Edit every emitter of this layer again." onClick={()=>select(l.id)}>All emitters</button>
+   <button aria-pressed={surfaceSnap} title="Double-click the model to put this emitter on its surface." onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>
+   <button title="Remove this emitter from the layer." onClick={deleteEmitter}>Delete emitter</button></div>}
+  {(p||swarm)&&!selectedSite&&!stack.impact&&<label className="field fx-change-emitter" title="Replace this emitter and keep its position."><span>Emitter</span><ChoiceSelect aria-label="Change emitter" disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect></label>}
+  {!selectedSite&&<div className="fx-layer-actions">{!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
+   <button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button></div>}
   {!edge&&!l.stamp&&<ColourControl resetKey={colourRevision} hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
@@ -204,6 +212,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {swarm?swarmSlider('ParticleScaling','spriteSize',FLY_BOUNDS.spriteSize[0],Math.max(FLY_BOUNDS.spriteSize[1],l.spriteSize),.5,'Width of each fly.'):nativeSlider('ParticleScaling')}
    {swarm?swarmSlider('Speed','speed',FLY_BOUNDS.speed[0],FLY_BOUNDS.speed[1],.05,'How fast the flies circle. Every fly keeps its own pace.'):nativeSlider('Speed')}
    {nativeSlider('Gravity',swarm)}
+   {moreAt==='particles'&&placement}
    <details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
     {['Width','Length','Latitude','Variation'].map(field=>nativeSlider(field,swarm))}
     {l.burstGap!=null?<>{row('Burst duration (s)','burstWindow',.06,1,.01,'How long one burst emits lightning.')}{row('Time between bursts (s)','burstGap',.1,15,.1,'Quiet time before the next burst on the blade.')}</>:<>{unavailable('Burst duration (s)')}{unavailable('Time between bursts (s)')}</>}
@@ -241,11 +250,13 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
      <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={l[key]??(key==='repeats'?runeRepeats:key==='glyphScale'?1:0)} onDraft={v=>previewLayout(l,v==null?null:{...l,[key]:v})} onCommit={v=>update(key,v)}/>)}
    </>}
   </>}
+  {moreAt==='surface'&&placement}
   {surf&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {!shell&&<RangeField key={l.id+'inflate'} title="Distance of this layer above the surface." label="Lift" output={v=>v.toFixed(2)} min={0} max={1} step={.01} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length." title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
+  {moreAt==='edge'&&placement}
   {edge&&real&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    <label title="Draws the ribbon around the part on turning helpers."><input type="checkbox" checked={!!l.orbit} onChange={e=>{
     if(!e.target.checked){const next={...l};delete next.orbit;setLayer(next);return;}
@@ -257,6 +268,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    </>}
    {!stack.impact&&<div className="fx-layer-loop" title="Milliseconds for one loop of this layer. Empty uses the look's loop length."><NumberField label="Loop length" min={100} max={20000} step={1} placeholder={String(stack.loop)} value={l.loop} onChange={v=>update('loop',Math.round(v))}/>{l.loop!=null&&<button aria-label="Use the look's loop length." title="Use the look's loop length." onClick={()=>{const next={...l};delete next.loop;setLayer(next);}}>×</button>}</div>}
   </>}</details>}
+  {moreAt==='card'&&placement}
   {card&&<details className="fx-more" onToggle={e=>setMore(e.currentTarget.open)}><summary>More</summary>{more&&<>
    {[['Smallest size','sizeMin',.1,2,.01,v=>Math.round(v*100)+'%','Size at the small point of the pulse, as a share of the card size.'],['Largest size','sizeMax',.1,2,.01,v=>Math.round(v*100)+'%','Size at the large point of the pulse, as a share of the card size.'],['Spin','spin',-8,8,.25,v=>v.toFixed(2),'Turns per loop. Negative turns the other way.'],['Jitter','jitter',0,180,1,v=>Math.round(v)+'°','Fast random turns, in degrees.']].map(([label,key,min,max,step,output,tip])=>
     <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={cardValue(key)} onCommit={v=>{const next={...l,[key]:v};if(key==='sizeMin'&&v>cardValue('sizeMax'))next.sizeMax=v;if(key==='sizeMax'&&v<cardValue('sizeMin'))next.sizeMin=v;setLayer(next);}}/>)}
@@ -267,10 +279,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><ChoiceSelect aria-label="Blend" value={l.filter??CARD_DEFAULTS.filter} onChange={value=>update('filter',Number(value))}>{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>
    <label title="Shade this layer with the map's light. Off keeps it at full brightness."><input type="checkbox" checked={!unshaded} onChange={e=>update('unshaded',!e.target.checked)}/>Lit by map light</label>
   </>}</details>}
-  {positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
-   {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
-   {p&&placing&&real&&<button aria-pressed={showMarkers} onClick={toggleMarkers}>Emitter markers</button>}</div>}
-  {stack.emitterEditPolicy&&<label className="field fx-emitter-policy"><span>Individual edits</span><select data-wheel-skip="" aria-label="Individual edits" value={stack.emitterEditPolicy} onChange={event=>setEmitterEditPolicy(event.target.value)}><option value="ask">Ask each time</option><option value="keep">Keep individual changes</option><option value="all">Apply to all</option></select></label>}
+  {!moreAt&&placement}
+  {stack.emitterEditPolicy&&<label className="field fx-emitter-policy" title="What happens to emitters you changed one by one when you change the whole layer."><span>Individual edits</span><select data-wheel-skip="" aria-label="Individual edits" value={stack.emitterEditPolicy} onChange={event=>setEmitterEditPolicy(event.target.value)}><option value="ask">Ask each time</option><option value="keep">Keep individual changes</option><option value="all">Apply to all</option></select></label>}
   {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id,selectedSite)}>Open in EMTR</button>}
   </>}
  </>;
