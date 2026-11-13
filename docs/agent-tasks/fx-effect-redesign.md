@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: refinement pass 3 saved locally (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass (`62fcfe07`, `b8cf5387`, `2ca24153`). Builds; nothing was run or rendered: the owner reviews the test build by eye. Local branch only.
+Status: pass 4 saved locally (13 November): Fireball on condensed shapes (`c1663f74`). Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 04 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -107,6 +107,45 @@ What the owner should look at in the controls:
 - Click an emitter marker: the heading shows its number, and All emitters goes back to the whole layer.
 - Open More: Position & size stays above it.
 - Hover any particle slider or its label for a short explanation.
+
+## Pass 4: Fireball on condensed shapes (13 November 2026, Fable)
+
+Owner on test build 03: "Good on sword, bad at other places. Start with the overlord - the mace itself - the way it uses that shape is a great way to use shapes that are more condensed." Bad cases: one small ball in the hollow of the claw (dialog geoset 17, index 16), four separate balls around the body (dialog geoset 6, index 5).
+
+### What the Moarg mace does (measured from `MoargOverlord1.mdx`)
+
+- All five fire emitters share one point, (90.7, -70.7, 88.3): on the mace head's centre line (-71.1, 88.3), at the spiked ring, its widest section. That point is inside the head, between its four flanges, 13 units from the nearest surface. Nothing sits beside or outside the head.
+- The head's mass is about 27 units in radius there; the ring's spikes reach 53. The fire cloud is 40 > 30 > 20, the glow 70 > 50 > 40: the fire is about 1.5 x the mass and smaller than the spikes, the glow about 2.5 x.
+- The fire travels only 10 units in its half second, so it stays in the head. The head hides the middle of every sprite; flames show all around its outline and between the flanges, and the spikes reach out of the fire. That is how the fire takes the head's shape.
+- The emitters launch across the shaft (bone +Z), not along it.
+
+### Progress
+
+Done (`c1663f74`, builds):
+
+- **`gather:'engulf'` / `'engulf-core'`** (`suggestMassEmitterSites` in `src/fx-emitter-surface.js`, `massEmitterSites` and `strikeEmitterSites` in `src/global-animation-model.js`). Fireball's five particle layers use it. A flat straight blade keeps the pass 3 patches: the owner's sword compiles to the same 22 emitters, value for value, as with `'strike'`. `'strike'`, `'strike-head'` and `'head'` are untouched, so Fel surge and layers saved from build 03 compile as before.
+- **Compact piece** (mace or axe head, bulky part): one source in the middle of its mass, sized to it. A shaft is left out (`massRun`). A flat piece gets a source off each face.
+- **Claw or horn**: the mass is divided along itself until every part's middle lies in the piece (`insidePiece`) and its fire covers it; each part gets a source with a birth line along the piece. The owner's claw: 6 sources from root (fire 13) to tip (fire 6). Core glow and Spat embers stay at the widest source.
+- **Body** (more than 4 skin regions): one source in its head, found by head bone names (`nameRegion`); with no head, one source at its top. The owner's body: one source in the head, fire 21.
+- **Separate pieces and sprawling parts**: the fire uses the bulkiest group of touching pieces (`massPiece`); a piece that would need more than 8 sources burns at its top instead.
+- A mass too large for the largest sprite gets its source just under its top, so the fire shows.
+
+Checked only in Node (`out\fx-design\pass4\dry-run.mjs <model> <geoset index>` compiles Fireball and lists the emitters; `try-mass.mjs` lists the planned sites for every geoset). Not rendered.
+
+Next (not started):
+
+- If the owner finds the claw's fire too slim: raise the 1.1 in `massLeaf` (`width=radius*1.1`), which scales every engulf fire, or the `.45` floor in `widthOf` for the thin end only.
+- If the body's fire should sit elsewhere (chest, whole top), change the `many` branch of `suggestMassEmitterSites`; the head choice is in `massEmitterSites` (`only`).
+- Unit tests that assert Fireball's `gather` need the new values; `test/fx-legacy-snapshot.test.js` stays untouched.
+
+Exact next step: open test build 04, Fire > Variation > Fireball on dialog geoset 17 (claw), 6 (body), 21 or 22 (compact pieces) and 11 (sword, must look as in build 03).
+
+What the owner should look at (Fire > Variation > Fireball):
+
+- Claw (geoset 17): fire running along the claw itself from its thick end to its tip, no ball in the hollow.
+- Body (geoset 6): one fire around the head, no separate balls.
+- Compact pieces (geosets 21, 22, 28, 29): one fire in the middle of the piece, the piece showing through it.
+- Sword (geoset 11): unchanged.
 
 ## Rules carried over
 
