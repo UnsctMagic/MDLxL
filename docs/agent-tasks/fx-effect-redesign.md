@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: refinement pass 3 in progress (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass next. Compiled only; the owner reviews builds by eye. Local branch only.
+Status: refinement pass 3 saved locally (13 November): Fireball reworked for swords (`ba0a2b92`), controls pass (`62fcfe07`, `b8cf5387`). Builds; nothing was run or rendered: the owner reviews the test build by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -82,14 +82,31 @@ Done:
 
 - **Fireball on swords** (`ba0a2b92`, builds; not rendered). New `gather:'strike'` / `'strike-head'` (`suggestBladeEmitterSites` in `src/fx-emitter-surface.js`, `strikeEmitterSites` in `src/global-animation-model.js`): a straight blade gets three patches off each face along its outer part, largest near the tip and thinning toward the hilt; a mace or axe head, a curved blade and a body keep the `'head'` source. `'head'` itself and Fel surge are untouched. Recipe: blended **Fire body** drawn first (red-orange on any ground, `PriorityPlane:-1`), smaller yellower additive **Fire core**, warmer fainter **Core glow** and **Spat embers** at the tip pair only, **Falling sparks** along the whole source. The modulate Heat shade is gone from Fireball. Checked only by running `suggestBladeEmitterSites` on a synthetic sword, mace and low-poly blade.
 
-Next: FX controls pass in `app/GlobalAnimationControls.jsx` (order, labels, tooltips, less friction), one small commit at a time, strings in all five catalogues.
+- **Controls, structure** (`62fcfe07`, UI only, no compile path touched). The selected layer or single emitter is named above its controls (`h4.fx-selected`). Add emitter and Add layer share one row; Change texture, Reset layer and Remove layer sit under the selected layer's name; the emitter menu is a labelled field, Emitter. A single emitter has All emitters (back to the whole layer) next to Snap to surface and Delete emitter. Position & size, Rotate and Emitter markers render right above More in every kind of layer (`moreAt` / `placement`), so opening More never pushes them away. Button names and aria-labels are unchanged (the electron tests find controls by them).
+- **Controls, tooltips** (`62fcfe07`). `SLIDER_TIPS` gives Lasts, Size, Speed, Rise / Fall, Spawn width, Spawn length, Spread, Speed variety and Streak length a plain tooltip on the label and on both boxes (passed to `ParticleSlider` as `units`, FX only; EMTR is unchanged). Tooltips also on Variation, Emitter markers and Individual edits. All strings are in the five catalogues.
+- **Reset layer** (`b8cf5387`). Rebuilds the selected layer with `makeLayer` from its own variation's recipe (else `layerIngredient`) on the same part; keeps id, on/off and recipe owner. Disabled for impact stacks and layers without a recipe. It goes through `changeStack`, so a layer with individually edited emitters asks Keep individual / Apply to all like any whole-layer edit.
 
-Exact next step: read `app/GlobalAnimationControls.jsx` top to bottom and list the control changes that cannot alter how any look compiles.
+Next (ideas not started; each must leave every look compiling exactly as now):
+
+- Explain other disabled-in-place controls with a tooltip (Rise on Death, Emitters while one emitter is selected).
+- The dialog's top bar and preview toolbar (`app/SurfaceEffects.jsx`) were not reviewed in this pass.
+- Unit tests that assert the old Fireball layers (`gather:'head'`, Heat shade) need new expectations; `test/fx-legacy-snapshot.test.js` stays untouched.
+
+Exact next step: open the test build, Fire > Variation > Fireball on a sword, a mace and a body; then click through the regrouped controls (select a layer, Reset layer, Add emitter, pick one emitter marker, All emitters).
 
 What the owner should look at for Fireball (Fire > Variation > Fireball):
 
 - On a sword: a dense red-orange ball around the outer part of the blade with a yellow centre, the fire thinning along the blade toward the hilt, embers drifting out of the ball and sparks falling along it. No grey smoke lumps, no pink halo.
 - On a mace or axe head and on a body: one ball around the head / top, same colours.
+
+What the owner should look at in the controls:
+
+- The name of the layer being edited now sits above its controls, with Change texture, Reset layer and Remove layer under it.
+- Add emitter and Add layer are side by side under the layer list.
+- Reset layer puts one layer back to how the look made it.
+- Click an emitter marker: the heading shows its number, and All emitters goes back to the whole layer.
+- Open More: Position & size stays above it.
+- Hover any particle slider or its label for a short explanation.
 
 ## Rules carried over
 
