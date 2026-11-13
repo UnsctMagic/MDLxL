@@ -168,6 +168,15 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   begin={()=>{gesture.current={field,swarmKey:key,min,max};}} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
  const unavailable=label=><div key={label}><NumberField label={label} disabled value={undefined} placeholder="N/A"/></div>;
 
+ // Reset layer: the layer as the look first made it (its own variation's recipe first), on the same part.
+ const sameSpec=s=>s.type===l.type&&s.label===l.label;
+ const startSpec=!l||stack.impact?null:(!l.recipeKey&&look.variations?.find(v=>v.id===currentVariation(stack,look))?.layers.find(sameSpec))||ingredient;
+ const resetLayer=()=>{
+  const fresh={...makeLayer(startSpec,recipeFrame,look.palette,layer.id),enabled:layer.enabled!==false};
+  for(const key of ['recipeOwner','recipeRole'])if(layer[key]!=null)fresh[key]=layer[key];
+  setLive(null);setPlacing(false);
+  setStack({...stack,layers:stack.layers.map(v=>v.id===layer.id?fresh:v)});
+ };
  // Position & size sits right above More in every kind of layer.
  const moreAt=!l?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
  const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
@@ -193,6 +202,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <button title="Remove this emitter from the layer." onClick={deleteEmitter}>Delete emitter</button></div>}
   {(p||swarm)&&!selectedSite&&!stack.impact&&<label className="field fx-change-emitter" title="Replace this emitter and keep its position."><span>Emitter</span><ChoiceSelect aria-label="Change emitter" disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect></label>}
   {!selectedSite&&<div className="fx-layer-actions">{!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
+   <button title="Return this layer to its starting values." disabled={!startSpec||!recipeFrame} onClick={resetLayer}>Reset layer</button>
    <button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button></div>}
   {!edge&&!l.stamp&&<ColourControl resetKey={colourRevision} hint={translate('Changes the colour of {0}.').replace('{0}',translate(emitterName(l)).toLowerCase())} tint={l.tint} defaultTint={defaultTint} update={update}/>}
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}

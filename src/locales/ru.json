@@ -8146,5 +8146,7 @@
   "How much the speed differs from one particle to the next.": "Насколько скорость отличается от частицы к частице.",
   "Length of the streak behind each particle. Draw as must be Streaks or Both.": "Длина следа за каждой частицей. «Рисовать как» должно быть «Следы» или «Оба».",
   "Show or hide the emitter markers in the preview.": "Показать или скрыть метки эмиттеров в предпросмотре.",
-  "What happens to emitters you changed one by one when you change the whole layer.": "Что происходит с эмиттерами, изменёнными по отдельности, когда вы меняете весь слой."
+  "What happens to emitters you changed one by one when you change the whole layer.": "Что происходит с эмиттерами, изменёнными по отдельности, когда вы меняете весь слой.",
+  "Reset layer": "Сбросить слой",
+  "Return this layer to its starting values.": "Вернуть этот слой к начальным значениям."
 }

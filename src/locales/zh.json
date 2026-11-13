@@ -8052,5 +8052,7 @@
   "How much the speed differs from one particle to the next.": "各粒子之间速度的差异程度。",
   "Length of the streak behind each particle. Draw as must be Streaks or Both.": "每个粒子后方拖尾的长度。“绘制为”须设为“拖尾”或“两者”。",
   "Show or hide the emitter markers in the preview.": "在预览中显示或隐藏发射器标记。",
-  "What happens to emitters you changed one by one when you change the whole layer.": "更改整个图层时，如何处理你单独修改过的发射器。"
+  "What happens to emitters you changed one by one when you change the whole layer.": "更改整个图层时，如何处理你单独修改过的发射器。",
+  "Reset layer": "重置图层",
+  "Return this layer to its starting values.": "将此图层恢复为初始值。"
 }

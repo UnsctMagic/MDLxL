@@ -8282,5 +8282,7 @@
   "How much the speed differs from one particle to the next.": "Wie stark sich das Tempo von Partikel zu Partikel unterscheidet.",
   "Length of the streak behind each particle. Draw as must be Streaks or Both.": "Länge des Streifens hinter jedem Partikel. „Zeichnen als“ muss „Streifen“ oder „Beides“ sein.",
   "Show or hide the emitter markers in the preview.": "Emitter-Markierungen in der Vorschau ein- oder ausblenden.",
-  "What happens to emitters you changed one by one when you change the whole layer.": "Was mit einzeln geänderten Emittern geschieht, wenn die ganze Ebene geändert wird."
+  "What happens to emitters you changed one by one when you change the whole layer.": "Was mit einzeln geänderten Emittern geschieht, wenn die ganze Ebene geändert wird.",
+  "Reset layer": "Ebene zurücksetzen",
+  "Return this layer to its starting values.": "Diese Ebene auf ihre Startwerte zurücksetzen."
 }
