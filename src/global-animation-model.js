@@ -1,6 +1,6 @@
 import {Box3,Matrix4,Quaternion,Vector3} from 'three';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
-import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,suggestBladeEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
+import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,suggestBladeEmitterSites,suggestMassEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -19,6 +19,7 @@ import {deleteGlobalSequence} from './sequence-editor.js';
 import {gamePathKey} from './game-path.js';
 import {attackContact} from './fx-attack-contact.js';
 import {vertexBoneWeights} from './part-bones.js';
+import {nameRegion} from './rig-names.js';
 import {FLY_PATHS} from './global-animation-flies.js';
 
 const vec=v=>Float32Array.from(v);
@@ -379,12 +380,21 @@ function headEmitterSites(c){
 }
 // gather:'strike' is the striking part of a weapon. A straight blade gets patches along its outer
 // part, largest near the tip ('strike-head' keeps only that pair); any other part keeps the head source.
-const strikes=layer=>layer.gather==='strike'||layer.gather==='strike-head';
+// gather:'engulf' ('engulf-core') keeps those patches on a flat straight blade and seats the fire in
+// the mass of any other part (massEmitterSites).
+const engulfs=layer=>layer.gather==='engulf'||layer.gather==='engulf-core';
+const strikes=layer=>layer.gather==='strike'||layer.gather==='strike-head'||engulfs(layer);
+// Each layer's rate is shared among the sites it uses.
+function shareSites(sites){
+ if(!sites?.length)return null;
+ const mean=sites.reduce((sum,site)=>sum+site.birth.share,0)/sites.length;
+ return sites.map(({head:_head,...site})=>({...site,birth:{...site.birth,share:site.birth.share/mean}}));
+}
 function strikeEmitterSites(c,layer){
  const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
  const key='emitter-strike|'+surfaceKey;
  if(!cache.has(key)){
-  let all=null;
+  let all=null,flat=false;
   if((frame.regions?.length??1)<=4){
    const points=Array.from({length:source.Vertices.length/3},(_,i)=>new Vector3().fromArray(source.Vertices,i*3));
    const pivot=new Vector3().fromArray(model.PivotPoints[c.parent]??frame.center.toArray());
@@ -403,19 +413,67 @@ function strikeEmitterSites(c,layer){
      const rotation=new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(along.clone().cross(out).normalize(),along,out)).toArray();
      return {key:site.key,head:site.head,point:site.point,region,ground:false,componentWidth:site.width,strip:false,tipDirection:blade.axis,birth:{...site.birth,rotation}};
     });
+    // A round bar is long and straight too, but it has no faces to burn on.
+    const run=blade.vertices.map(vertex=>points[vertex]);
+    const section=crossSection(run,run.reduce((sum,point)=>sum.add(point),new Vector3()).multiplyScalar(1/run.length),along);
+    flat=section.thin<section.wide*.5;
    }
   }
-  // Each layer's rate is shared among the patches it uses.
-  const pick=sites=>{
-   if(!sites?.length)return null;
-   const mean=sites.reduce((sum,site)=>sum+site.birth.share,0)/sites.length;
-   return sites.map(({head:_head,...site})=>({...site,birth:{...site.birth,share:site.birth.share/mean}}));
-  };
-  cache.set(key,all&&{all:pick(all),head:pick(all.filter(site=>site.head))});
+  cache.set(key,all&&{all:shareSites(all),head:shareSites(all.filter(site=>site.head)),flat});
  }
+ const core=layer.gather==='strike-head'||layer.gather==='engulf-core';
  const blade=cache.get(key);
- if(!blade)return headEmitterSites(c);
- return layer.gather==='strike-head'?blade.head:blade.all;
+ if(!engulfs(layer))return blade?core?blade.head:blade.all:headEmitterSites(c);
+ const fire=blade?.flat?blade:massEmitterSites(c);
+ return fire?core?fire.head:fire.all:headEmitterSites(c);
+}
+// The fire seated in the part's own mass (suggestMassEmitterSites): one source in a compact piece, a
+// chain down a claw or horn, the head of a body. `head` is the main source alone.
+function massEmitterSites(c){
+ const {attachmentCache:cache,surfaceKey,frame,model}=c;
+ const key='emitter-mass|'+surfaceKey;
+ if(cache.has(key))return cache.get(key);
+ const shape=emitterSurface(c),regions=frame.regions||[];
+ let result=null;
+ if(shape){
+  const pivot=new Vector3().fromArray(model.PivotPoints[c.parent]??frame.center.toArray());
+  const axis=frame.axis.clone();
+  if(frame.center.clone().sub(pivot).dot(axis)<0)axis.negate();
+  const many=regions.length>4;
+  // A body's head: the skin bound mostly to head bones.
+  let only=null;
+  if(many){
+   only=new Set();
+   for(const region of regions)
+    if(region.weights.reduce((sum,[bone,weight])=>sum+(nameRegion(model.Nodes[bone]?.Name||'')==='head'?weight:0),0)>=.5)region.vertices.forEach(vertex=>only.add(vertex));
+  }
+  const owner=new Map();
+  regions.forEach((region,index)=>region.vertices.forEach(vertex=>owner.set(vertex,index)));
+  const regionOf=vertices=>{
+   const votes=new Map();
+   for(const vertex of vertices)if(owner.has(vertex))votes.set(owner.get(vertex),(votes.get(owner.get(vertex))||0)+1);
+   return [...votes].sort((a,b)=>b[1]-a[1])[0]?.[0]??0;
+  };
+  // The largest sprite a region draws: the radius nativeParticles sizes its emitters by.
+  const limitOf=region=>Math.max(2,Math.min((regions[region]?.frame||frame).length*.48,55));
+  let plan=suggestMassEmitterSites(shape,axis,{many,only,limit:regions.length>1?55:limitOf(0)});
+  let region=plan?regionOf(plan.vertices):0;
+  if(plan&&regions.length>1&&limitOf(region)<55){
+   plan=suggestMassEmitterSites(shape,axis,{many,only,limit:limitOf(region)})||plan;
+   region=regionOf(plan.vertices);
+  }
+  if(plan?.sites.length){
+   const all=plan.sites.map(site=>{
+    // The birth patch runs along the mass (its length) and launches along the site's direction.
+    const along=new Vector3(...site.along),out=new Vector3(...site.direction);
+    const rotation=new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(along.clone().cross(out).normalize(),along,out)).toArray();
+    return {key:site.key,head:site.head,point:site.point,region,ground:false,componentWidth:site.width,strip:false,tipDirection:plan.axis,birth:{...site.birth,rotation}};
+   });
+   result={all:shareSites(all),head:shareSites(all.filter(site=>site.head))};
+  }
+ }
+ cache.set(key,result);
+ return result;
 }
 const PATCH_SITES=16;
 /**

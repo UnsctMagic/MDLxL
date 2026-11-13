@@ -350,6 +350,233 @@ export function suggestBladeEmitterSites(points,axis) {
  return {sites,vertices,axis:toward.toArray()};
 }
 
+const MASS_POINTS=[[1/3,1/3,1/3],[.6,.2,.2],[.2,.6,.2],[.2,.2,.6]];
+const MASS_SITES=8;
+// Skew directions for the inside test: none runs along a model axis or a usual mesh edge.
+const MASS_RAYS=[[1,.13,.07],[-1,.11,-.09],[.09,1,.12],[-.12,-1,.08],[.1,-.07,1],[-.08,.12,-1],[1,1,1.1],[-1,1.05,.9],[1,-1,.95],[1.02,.97,-1],[-1,-1.03,1],[-1,1,-.96],[1,-.98,-1],[-.97,-1,-1]]
+ .map(direction=>new Vector3(...direction).normalize());
+
+function weightedReach(values,weights,share) {
+ const order=values.map((value,i)=>[Math.abs(value),weights[i]]).sort((a,b)=>a[0]-b[0]);
+ const total=order.reduce((sum,entry)=>sum+entry[1],0);
+ let covered=0;
+ for(const [value,weight] of order){
+  covered+=weight;
+  if(covered>=total*share)return value;
+ }
+ return order.at(-1)?.[0]??0;
+}
+
+/**
+ * Whether a point lies in the piece rather than in a gap beside it. In a piece the surface lies all
+ * around the point (also between the flanges of a mace head, which have no wall between them), or
+ * rays from it meet the surface in most directions (nested shells), or cross it an odd number of
+ * times (an open sheet). In the hollow of a curve the surface lies to one side and most rays meet nothing.
+ */
+function insidePiece(point,triangles,samples) {
+ const pull=new Vector3(),toward=new Vector3();
+ let total=0;
+ for(const sample of samples){
+  const distance=toward.subVectors(sample.point,point).lengthSq();
+  if(!(distance>EPS))continue;
+  const weight=sample.weight/distance;
+  total+=weight;pull.addScaledVector(toward,weight/Math.sqrt(distance));
+ }
+ if(total>0&&pull.length()<total*.25)return true;
+ let odd=0,met=0;
+ const edge1=new Vector3(),edge2=new Vector3(),h=new Vector3(),s=new Vector3(),q=new Vector3();
+ for(const direction of MASS_RAYS){
+  let crossings=0;
+  for(const {points:[a,b,c]} of triangles){
+   edge1.subVectors(b,a);edge2.subVectors(c,a);h.crossVectors(direction,edge2);
+   const det=edge1.dot(h);
+   if(Math.abs(det)<EPS)continue;
+   s.subVectors(point,a);
+   const u=s.dot(h)/det;
+   if(u<0||u>1)continue;
+   q.crossVectors(s,edge1);
+   const v=direction.dot(q)/det;
+   if(v<0||u+v>1)continue;
+   if(edge2.dot(q)/det>EPS)crossings++;
+  }
+  odd+=crossings%2;
+  if(crossings)met++;
+ }
+ return met>=MASS_RAYS.length*.6||odd>=MASS_RAYS.length*.4;
+}
+
+/** One mass of surface samples: its centre, long axis, cross-section and how large a fire seated in it is. */
+function massLeaf(samples,surface,limit) {
+ const weights=samples.map(sample=>sample.weight);
+ const weight=weights.reduce((sum,value)=>sum+value,0);
+ const centre=samples.reduce((sum,sample)=>sum.addScaledVector(sample.point,sample.weight),new Vector3()).multiplyScalar(1/weight);
+ const deltas=samples.map(sample=>sample.point.clone().sub(centre));
+ let xx=0,xy=0,xz=0,yy=0,yz=0,zz=0;
+ deltas.forEach((d,i)=>{const w=weights[i];xx+=w*d.x*d.x;xy+=w*d.x*d.y;xz+=w*d.x*d.z;yy+=w*d.y*d.y;yz+=w*d.y*d.z;zz+=w*d.z*d.z;});
+ // Long axis: the direction the samples spread most along (power iteration on their covariance).
+ const axis=xx>=yy&&xx>=zz?new Vector3(xx,xy,xz):yy>=zz?new Vector3(xy,yy,yz):new Vector3(xz,yz,zz);
+ if(!(axis.lengthSq()>EPS))axis.set(1,0,0);
+ for(let i=0;i<48;i++)axis.set(xx*axis.x+xy*axis.y+xz*axis.z,xy*axis.x+yy*axis.y+yz*axis.z,xz*axis.x+yz*axis.y+zz*axis.z).normalize();
+ const seed=Math.abs(axis.z)<.9?UP:new Vector3(1,0,0);
+ const e1=seed.clone().addScaledVector(axis,-seed.dot(axis)).normalize(),e2=axis.clone().cross(e1).normalize();
+ let aa=0,ab=0,bb=0;
+ const flatPoints=deltas.map((d,i)=>{const a=d.dot(e1),b=d.dot(e2),w=weights[i];aa+=w*a*a;ab+=w*a*b;bb+=w*b*b;return [a,b];});
+ const angle=.5*Math.atan2(2*ab,aa-bb),cos=Math.cos(angle),sin=Math.sin(angle);
+ const wide=e1.clone().multiplyScalar(cos).addScaledVector(e2,sin),thin=e1.clone().multiplyScalar(-sin).addScaledVector(e2,cos);
+ const long=weightedReach(deltas.map(d=>d.dot(axis)),weights,.95);
+ const wideReach=weightedReach(flatPoints.map(([a,b])=>a*cos+b*sin),weights,.9);
+ const thinReach=weightedReach(flatPoints.map(([a,b])=>b*cos-a*sin),weights,.9);
+ // The solid the fire has to clear: a round piece's radius, a flat piece's half-width. Spikes and flanges stay outside it.
+ const radius=Math.max(Math.sqrt((aa+bb)/weight),wideReach,EPS);
+ const width=radius*1.1,fire=Math.min(width*1.35,limit);
+ const inside=insidePiece(centre,surface.triangles,surface.samples);
+ return {samples,weight,centre,axis,wide,thin,long,wideReach,thinReach,radius,width,fire,inside,
+  flat:thinReach<wideReach*.35,need:inside?long/(fire*1.6):Infinity};
+}
+
+function splitMassLeaf(leaf,surface,limit) {
+ const order=leaf.samples.map(sample=>[sample.point.dot(leaf.axis),sample]).sort((a,b)=>a[0]-b[0]);
+ let covered=0,cut=0;
+ while(cut<order.length-1&&covered+order[cut][1].weight<leaf.weight/2)covered+=order[cut++][1].weight;
+ cut=clamp(cut,6,order.length-6);
+ return [order.slice(0,cut),order.slice(cut)].map(half=>massLeaf(half.map(entry=>entry[1]),surface,limit));
+}
+
+// The condensed mass of a weapon part: the part without the thin shaft that carries it (a mace or
+// axe head, a whole claw or horn). Slices are weighed by area and distance from the part's centre line.
+function massRun(samples,toward) {
+ const along=samples.map(sample=>sample.point.dot(toward));
+ const min=Math.min(...along),max=Math.max(...along),length=max-min;
+ if(!(length>EPS))return samples;
+ const total=samples.reduce((sum,sample)=>sum+sample.weight,0);
+ const line=samples.reduce((sum,sample)=>sum.addScaledVector(sample.point,sample.weight),new Vector3()).multiplyScalar(1/total);
+ line.addScaledVector(toward,-line.dot(toward));
+ const BINS=10,mass=new Array(BINS).fill(0);
+ samples.forEach((sample,i)=>{
+  const across=sample.point.clone().addScaledVector(toward,-along[i]).distanceTo(line);
+  mass[Math.min(BINS-1,Math.floor((along[i]-min)/length*BINS))]+=sample.weight*across;
+ });
+ const limit=Math.max(...mass)*.25;
+ let first=0;
+ while(first<BINS*.7&&mass[first]<limit)first++;
+ if(!first||first>=BINS*.7)return samples;
+ const from=min+length*first/BINS;
+ const run=samples.filter((_,i)=>along[i]>=from);
+ return run.length>=8?run:samples;
+}
+
+// A part made of separate pieces burns on one of them: the bulkiest group of pieces that touch
+// (a mace head with its flanges and ring), the farther one when two are alike.
+function massPiece(shape,toward) {
+ const parts=shape.components;
+ if(parts.length<2)return parts;
+ const slack=shape.span.length()*.02;
+ const boxes=parts.map(part=>new Box3().setFromPoints(part.triangles.flatMap(triangle=>triangle.points)).expandByScalar(slack));
+ const group=parts.map((_,i)=>i);
+ const find=i=>group[i]===i?i:(group[i]=find(group[i]));
+ for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++)if(boxes[i].intersectsBox(boxes[j]))group[find(i)]=find(j);
+ const clusters=new Map();
+ parts.forEach((part,i)=>{
+  const key=find(i),cluster=clusters.get(key)||{parts:[],bulk:0,area:0,centre:new Vector3()};
+  cluster.parts.push(part);cluster.bulk+=part.area*(part.radius||Math.sqrt(part.area)*.3);
+  cluster.area+=part.area;cluster.centre.addScaledVector(part.centre,part.area);
+  clusters.set(key,cluster);
+ });
+ const list=[...clusters.values()],most=Math.max(...list.map(cluster=>cluster.bulk));
+ return list.filter(cluster=>cluster.bulk>=most*.9).reduce((a,b)=>b.centre.dot(toward)/b.area>a.centre.dot(toward)/a.area?b:a).parts;
+}
+
+/**
+ * One fire seated in the piece's own mass, the way the Moarg Overlord's fire uses its mace: the
+ * source sits inside the head at the centre of its mass, between its flanges, and the fire is a
+ * third larger than that mass, so the piece hides the middle of the fire and flames show all
+ * around its outline while the flanges and spikes reach out of it.
+ * A compact piece gets one source. A curved or tapering piece (a claw, a horn) gets a short chain
+ * of sources down its own middle, each the size of the piece there, which burn as one fire in the
+ * piece's shape. A flat piece gets its sources off both faces. A body (many) burns at `only`, its
+ * head, or at its top, and so does a piece too sprawling for one fire. `limit` is the largest
+ * sprite the part can draw: a mass too large to engulf gets its source just under its top, so the
+ * fire still shows.
+ */
+export function suggestMassEmitterSites(shape,axis,{many=false,only=null,limit=Infinity}={}) {
+ if(!shape)return null;
+ const samplesOf=parts=>parts.flatMap(part=>part.triangles).flatMap(triangle=>MASS_POINTS.map(barycentric=>
+  ({point:pointOnTriangle(triangle,barycentric),weight:triangle.area/MASS_POINTS.length,ids:triangle.ids})));
+ const all=samplesOf(shape.components);
+ if(all.length<8)return null;
+ const surface={triangles:shape.components.flatMap(part=>part.triangles),samples:all};
+ const toward=many?UP.clone():axis.clone().normalize();
+ const topOf=samples=>{
+  const heights=samples.map(sample=>sample.point.z),low=Math.min(...heights),high=Math.max(...heights);
+  const top=samples.filter(sample=>sample.point.z>=low+(high-low)*.7);
+  return top.length>=8?top:samples;
+ };
+ let leaves;
+ if(many){
+  const head=only?all.filter(sample=>sample.ids.every(id=>only.has(id))):[];
+  leaves=[massLeaf(head.length>=16?head:topOf(all),surface,limit)];
+ }else{
+  const piece=samplesOf(massPiece(shape,toward));
+  leaves=[massLeaf(massRun(piece,toward),surface,limit)];
+  const count=()=>leaves.reduce((sum,leaf)=>sum+(leaf.flat?2:1),0);
+  // A fire that cannot cover its mass, or whose middle lies in a gap beside the piece, is divided along the mass.
+  for(;;){
+   const worst=leaves.filter(leaf=>leaf.need>1&&leaf.samples.length>=16).sort((a,b)=>b.need-a.need||b.weight-a.weight)[0];
+   if(!worst||count()+(worst.flat?2:1)>MASS_SITES)break;
+   leaves.splice(leaves.indexOf(worst),1,...splitMassLeaf(worst,surface,limit));
+  }
+  if(count()>=MASS_SITES-1&&leaves.some(leaf=>leaf.need>2.5)){
+   many=true;
+   leaves=[massLeaf(topOf(piece),surface,limit)];
+  }
+ }
+ const widest=Math.max(...leaves.map(leaf=>leaf.width));
+ const core=leaves.filter(leaf=>leaf.width>=widest*.9).reduce((a,b)=>b.centre.dot(toward)>a.centre.dot(toward)?b:a);
+ // One fire: a source that cannot reach the others is left out, and none is a speck beside the main one.
+ const widthOf=leaf=>Math.max(leaf.width,core.width*.45);
+ const patch=leaf=>many?0:Math.max(0,leaves.length===1?leaf.long*.75-leaf.fire:leaf.long-widthOf(leaf)*.5);
+ const reach=leaf=>patch(leaf)+widthOf(leaf)*1.35;
+ const joined=new Set([core]);
+ for(let grown=true;grown;){
+  grown=false;
+  for(const leaf of leaves)if(!joined.has(leaf)&&[...joined].some(other=>other.centre.distanceTo(leaf.centre)<=reach(other)+reach(leaf))){joined.add(leaf);grown=true;}
+ }
+ const sites=[];
+ for(const [index,leaf] of leaves.entries()){
+  if(!joined.has(leaf))continue;
+  const {axis:along,thin}=leaf,line=patch(leaf),head=leaf===core;
+  let point=leaf.centre.clone(),width=widthOf(leaf);
+  // Sprites for an even fire along the source's line, a little fewer where the piece is slight.
+  const share=Math.sqrt(width)*(1+line/width);
+  // A middle that still lies beside the piece moves onto the piece.
+  if(!leaf.inside)point=leaf.samples.reduce((a,b)=>b.point.distanceToSquared(leaf.centre)<a.point.distanceToSquared(leaf.centre)?b:a).point.clone();
+  if(leaf.flat&&!many){
+   const clearance=leaf.thinReach+Math.max(.1,width*.25);
+   for(const [face,side] of [1,-1].entries()){
+    const out=thin.clone().multiplyScalar(side);
+    sites.push({key:'mass'+index+'-'+face,head,point:point.clone().addScaledVector(out,clearance).toArray(),direction:out.toArray(),along:along.toArray(),width,
+     birth:{width:Math.max(.05,width*.4),length:Math.max(.05,width*.3,line),share:share/2}});
+   }
+   continue;
+  }
+  if(leaf.inside&&leaf.fire<leaf.radius*1.15){
+   // Too large to engulf: the source sits just under the top of the mass above it.
+   const near=leaf.samples.filter(sample=>Math.hypot(sample.point.x-point.x,sample.point.y-point.y)<=Math.max(leaf.fire,leaf.radius*.5));
+   const above=near.length?near:leaf.samples;
+   const top=weightedReach(above.map(sample=>Math.max(0,sample.point.z-point.z)),above.map(sample=>sample.weight),.9);
+   point.z+=Math.max(0,top-leaf.fire*.4);
+   width=leaf.fire/1.35;
+  }
+  let out=UP.clone().addScaledVector(along,-UP.dot(along));
+  if(out.lengthSq()<.04)out=leaf.wide.clone();
+  out.normalize();
+  const across=Math.min(leaf.radius,width)*.3;
+  sites.push({key:'mass'+index,head,point:point.toArray(),direction:out.toArray(),along:along.toArray(),width,
+   birth:{width:Math.max(.05,across),length:Math.max(.05,across,line),share}});
+ }
+ return {sites,vertices:[...new Set(core.samples.flatMap(sample=>sample.ids))],axis:toward.toArray()};
+}
+
 export function suggestTipEmitterSites(shape,pivotFor,unitHeight,many){
  if(!shape)return [];
  const strips=surfaceStrips(shape);
