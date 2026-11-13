@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 4 saved locally (13 November): Fireball on condensed shapes (`c1663f74`). Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 04 by eye. Local branch only.
+Status: pass 5 saved locally (13 November): electricity (`647934e3`). Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 05 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -146,6 +146,49 @@ What the owner should look at (Fire > Variation > Fireball):
 - Body (geoset 6): one fire around the head, no separate balls.
 - Compact pieces (geosets 21, 22, 28, 29): one fire in the middle of the piece, the piece showing through it.
 - Sword (geoset 11): unchanged.
+
+## Pass 5: electricity (13 November 2026, Fable)
+
+Owner on test build 04: "Fire is looking great." "Overall nice: lightning variation, crackling arc. The rest need some work, also - check all layers and emitters, make sure everything makes sense (some have 5 layers, are all seen?)" "A bit more control." References, best first: MM20 Stormforger, Lightning Elemental, Lightning Shell (`D:\Claude\MDLxL-TestModels\fx-reference-lightning\`).
+
+### What the references do (measured with `out\fx-design\pass5\ref.cjs`)
+
+- **MM20 Stormforger.** Surface electricity is a lightning texture streaming fast along the part (`Lightning4b`, Thunderclap `Lightning2b`, `Weather\Lightning`: 4 passes per 1.2 s), two different textures layered. Sparks are tiny `Zap1` tails (width 4 to 7, tail .03 to .07) launched fast under heavy gravity, so they leap and fall; a low steady rate plus short bursts. Glows are slow (life 2.4 s, alpha 88 to 133). Crackle is `Zap1` geometry on bones that snap to a new angle every 100 ms.
+- **Lightning Elemental.** Arcs change shape in steps (texture swapped every 66 ms), never fade; small bolts take turns, each on for 130 to 230 ms, at uneven intervals.
+- **Lightning Shell.** Bolt strips circle the weapon on three slow rotors, jitter every 100 ms, texture streaming 5 passes a second, with sparkles in the space around it.
+- Native `Zap1` (22 Blizzard emitters): streaks about four times as long as wide (speed 300, tail .55). The old Discharge drew them as long as wide, so it read as blobs.
+
+### Progress
+
+Done (`647934e3`, builds; compiled in Node on the owner's sword, claw, body and a compact piece with `out\fx-design\pass5\dry.mjs` and `rules.mjs`; not rendered, not opened in the app):
+
+- **Lightning** (first variation): unchanged. Its Blade arcs layer is still offered switched off.
+- **Crackling arcs**: unchanged except Charge glow, which was too faint to see (dim `Blue_Glow2` at alpha 70, smaller than the blade): size .14/.18/.12 > .2/.3/.22, alpha 40/70 > 70/130, rate 14 > 12.
+- **Tip discharge** rebuilt. Forked arcs stream (speed 3); Tip glow larger and brighter; **Tip crackle** (`LightningBall`, steady) replaces the Discharge flash that blinked; **Discharge** is long thin `Zap1` streaks in bursts of 10 (window .12 s, gap .5 s, uneven starts); **Tip sparks** (thin `Zap1` tails under gravity, steady) replace Second discharge, which was a copy of Discharge.
+- **Storm sparks** (new variation): Forked arcs at speed 3, Crossing arcs (Thunderclap `Lightning2b`, violet, the other way, 4 passes per 1.2 s), Leaping sparks over the whole part. No steel underlay: a third surface layer would inherit the off switch of Lightning's Blade arcs in `withVariation`.
+- **Lightning cage**: Shell arcs (new: `Lightning2b` streaming on a shell lifted off the part, `liftFit:.25`, Thickness control), Zap cards (size pulse .9 to 1.25), Cage arcs (unchanged), Shell sparkles (new: `Sparkle_Anim` 4x4 around the part).
+- **Rift seam, Void cracks**: audited, not changed. They are rift and void looks, not electricity; every started layer draws (Rift seam: underlay, seam, zap cards; Void cracks: cracks, aura). Their splinter emitters are offered, not started.
+- **Engine, fresh layers only.** `burstCount` + `burstGap` (+ `burstWindow`) on a native emitter: a stepped EmissionRate track; the layer's sites take turns in a scattered order (`burstTurn`), each start shifted by up to half the gap, at least three bursts per cycle. `liftFit` (makeLayer): shell lift as a share of the part-fitted unit, stored as `inflate`.
+- **Controls.** Particles per burst (burst emitters, under More, next to Burst duration and Time between bursts). Blade arcs: Arcs per burst, Burst duration, Time between bursts in its main controls. Five catalogues.
+
+The library's own rules were kept (`test/fx-look-quality.test.js`, read, not run): no new dipping rhythm (new arcs use `soft`; `flicker` only on Forked arcs), card size swing under 45 %, bursts only in `lightning-blade`, layers on separate clocks, tracks closed on their clock, native catalogue textures, five translations.
+
+Next (not started):
+
+- Unit tests that list the old Tip discharge layers or the two-layer Lightning cage need new expectations (`test/fx-library-variations.test.js`, `test/fx-effect-tip.test.js`); `test/fx-legacy-snapshot.test.js` stays untouched.
+- Document `burstCount`, `burstGap` on native emitters and `liftFit` in [the recipe reference](fx-effect-recipe-reference.md) sections 3.2 and 2.0.
+- Ideas held back: a snapping-arc variation from the Elemental (`frames` of Monsoon `Lightning1b/2b/4b`); sparks on a many-region body are small (sizes follow each skin region).
+- If streaks at the tip are too long or short: Speed and Streak length on Discharge. If sparks fall too far: Rise / Fall on Tip sparks or Leaping sparks.
+
+Exact next step: open test build 05, Lightning > Variation, on dialog geoset 11 (sword), then Lightning cage on the same part.
+
+What the owner should look at:
+
+- Lightning > Tip discharge: arcs racing along the blade, a crackling ball and glow at the tip, thin sparks falling from it, and a burst of long streaks from the tip a little more than once a second, never on a steady beat.
+- Lightning > Storm sparks: the blade keeps its own paint; white-blue and violet arcs run opposite ways along it, sparks leap off the whole blade and fall.
+- Lightning > Crackling arcs: as before, with a soft blue glow now visible around the blade.
+- Lightning cage: arcs streaming just off the surface, zap cards, one zap circling, sparkles around the part.
+- Controls: select Discharge > More > Particles per burst, Burst duration, Time between bursts. In Lightning, switch on Blade arcs: Arcs per burst, Burst duration, Time between bursts. Lightning cage > Shell arcs: Thickness.
 
 ## Rules carried over
 
