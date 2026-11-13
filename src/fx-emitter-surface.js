@@ -292,6 +292,64 @@ export function suggestHeadEmitterSites(points,axis,many) {
  return {sites,vertices:head,width,axis:toward.toArray()};
 }
 
+/**
+ * A long straight blade has no head to gather a source around, so its source lies
+ * along the blade: one patch off each face near the tip and two smaller ones behind
+ * it. The fire is largest at the striking end and thins toward the hilt. Returns
+ * null for any other shape (a headed weapon, a curved or short part).
+ */
+export function suggestBladeEmitterSites(points,axis) {
+ if(points.length<4)return null;
+ const toward=axis.clone().normalize();
+ const along=points.map(point=>point.dot(toward));
+ const min=Math.min(...along),max=Math.max(...along),length=max-min;
+ if(!(length>EPS))return null;
+ const across=point=>point.clone().addScaledVector(toward,-point.dot(toward));
+ // Ten slices along the part: each slice's centre and half-width. An empty slice takes its neighbours' values.
+ const BINS=10,slices=Array.from({length:BINS},()=>[]);
+ points.forEach((point,i)=>slices[Math.min(BINS-1,Math.floor((along[i]-min)/length*BINS))].push(across(point)));
+ const centres=slices.map(slice=>slice.length>1?slice.reduce((sum,p)=>sum.add(p),new Vector3()).multiplyScalar(1/slice.length):null);
+ const widths=slices.map((slice,i)=>centres[i]?slice.reduce((most,p)=>Math.max(most,p.distanceTo(centres[i])),0):null);
+ const known=widths.map((w,i)=>w==null?-1:i).filter(i=>i>=0);
+ if(known.length<2)return null;
+ const fill=(values,i,mix)=>{
+  if(values[i]!=null)return values[i];
+  const before=known.filter(k=>k<i).at(-1),after=known.find(k=>k>i);
+  if(before==null)return values[after];
+  if(after==null)return values[before];
+  return mix(values[before],values[after],(i-before)/(after-before));
+ };
+ const width=widths.map((_,i)=>fill(widths,i,(a,b,t)=>a+(b-a)*t));
+ const centre=centres.map((_,i)=>fill(centres,i,(a,b,t)=>a.clone().lerp(b,t)));
+ // The blade is the run of wide slices around the widest slice of the far half; a tapering tip belongs to it.
+ let peak=BINS/2;
+ for(let i=peak;i<BINS;i++)if(width[i]>width[peak])peak=i;
+ const limit=width[peak]*.5;
+ if(!(limit>EPS))return null;
+ let first=peak,last=peak;
+ while(first>0&&width[first-1]>=limit)first--;
+ while(last<BINS-1&&width[last+1]>=limit)last++;
+ if(width.slice(last+1).every(w=>w<limit))last=BINS-1;
+ const run=(last-first+1)/BINS,runLength=length*run;
+ const inRun=width.slice(first,last+1).sort((a,b)=>a-b),half=inRun[Math.floor(inRun.length/2)];
+ if(run<.5||runLength<half*3.2)return null;
+ const line=centre.slice(first,last+1).reduce((sum,p)=>sum.add(p),new Vector3()).multiplyScalar(1/(last-first+1));
+ // A curved blade keeps the single head source: patches on a straight line would leave it.
+ if(centre.slice(first,last+1).some(p=>p.distanceTo(line)>Math.max(half*.6,runLength*.04)))return null;
+ const start=min+length*first/BINS;
+ const at=share=>line.clone().addScaledVector(toward,start+runLength*share);
+ const vertices=points.map((_,i)=>i).filter(i=>along[i]>=start&&along[i]<=start+runLength);
+ if(vertices.length<3)return null;
+ const section=crossSection(vertices.map(i=>points[i]),at(.5),toward);
+ const size=clamp(half,runLength*.08,runLength*.2),clearance=Math.max(.1,size*.25);
+ // Station along the blade, sprite width, patch across and along, share of the layer's rate.
+ const STATIONS=[[.74,1.1,.45,.07,1.5],[.5,.78,.4,.11,.95],[.27,.52,.3,.1,.55]];
+ const sites=STATIONS.flatMap(([share,scale,wide,long,rate],station)=>section.sides.slice(0,2).map(({direction,reach},face)=>({
+  key:'blade'+station+'-'+face,head:station===0,point:at(share).addScaledVector(direction,reach+clearance).toArray(),
+  direction:direction.toArray(),width:size*scale,birth:{width:Math.max(.05,size*wide),length:Math.max(.05,runLength*long),share:rate}})));
+ return {sites,vertices,axis:toward.toArray()};
+}
+
 export function suggestTipEmitterSites(shape,pivotFor,unitHeight,many){
  if(!shape)return [];
  const strips=surfaceStrips(shape);

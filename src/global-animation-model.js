@@ -1,6 +1,6 @@
 import {Box3,Matrix4,Quaternion,Vector3} from 'three';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
-import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
+import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,suggestBladeEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
 import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
@@ -325,6 +325,7 @@ export function impactDefaults(model,_index,sequence,hit){
 const usesSiteGeometry=layer=>layer.widthCap!=null||layer.aim!=null;
 function defaultSurfaceSites(c,layer){
  if(layer.gather==='head'&&!layer.siteLayout)return headEmitterSites(c);
+ if(strikes(layer)&&!layer.siteLayout)return strikeEmitterSites(c,layer);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
  if(layer.birthRegion&&!layer.siteLayout)return layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
@@ -375,6 +376,46 @@ function headEmitterSites(c){
  }
  cache.set(key,result);
  return result;
+}
+// gather:'strike' is the striking part of a weapon. A straight blade gets patches along its outer
+// part, largest near the tip ('strike-head' keeps only that pair); any other part keeps the head source.
+const strikes=layer=>layer.gather==='strike'||layer.gather==='strike-head';
+function strikeEmitterSites(c,layer){
+ const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
+ const key='emitter-strike|'+surfaceKey;
+ if(!cache.has(key)){
+  let all=null;
+  if((frame.regions?.length??1)<=4){
+   const points=Array.from({length:source.Vertices.length/3},(_,i)=>new Vector3().fromArray(source.Vertices,i*3));
+   const pivot=new Vector3().fromArray(model.PivotPoints[c.parent]??frame.center.toArray());
+   const axis=frame.axis.clone();
+   if(frame.center.clone().sub(pivot).dot(axis)<0)axis.negate();
+   const blade=suggestBladeEmitterSites(points,axis);
+   if(blade){
+    const owner=new Map(),votes=new Map();
+    frame.regions?.forEach((region,index)=>region.vertices.forEach(vertex=>owner.set(vertex,index)));
+    for(const vertex of blade.vertices)if(owner.has(vertex))votes.set(owner.get(vertex),(votes.get(owner.get(vertex))||0)+1);
+    const region=[...votes].sort((a,b)=>b[1]-a[1])[0]?.[0]??0;
+    const along=new Vector3(...blade.axis);
+    all=blade.sites.map(site=>{
+     // The patch lies on the face (its length along the blade) and launches away from it.
+     const out=new Vector3(...site.direction);
+     const rotation=new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(along.clone().cross(out).normalize(),along,out)).toArray();
+     return {key:site.key,head:site.head,point:site.point,region,ground:false,componentWidth:site.width,strip:false,tipDirection:blade.axis,birth:{...site.birth,rotation}};
+    });
+   }
+  }
+  // Each layer's rate is shared among the patches it uses.
+  const pick=sites=>{
+   if(!sites?.length)return null;
+   const mean=sites.reduce((sum,site)=>sum+site.birth.share,0)/sites.length;
+   return sites.map(({head:_head,...site})=>({...site,birth:{...site.birth,share:site.birth.share/mean}}));
+  };
+  cache.set(key,all&&{all:pick(all),head:pick(all.filter(site=>site.head))});
+ }
+ const blade=cache.get(key);
+ if(!blade)return headEmitterSites(c);
+ return layer.gather==='strike-head'?blade.head:blade.all;
 }
 const PATCH_SITES=16;
 /**
@@ -523,7 +564,7 @@ function completeEmitterSiteLayout(c,layer){
  let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
  if(layer.gather&&layout.some(site=>!site.point)){
-  const tips=(layer.gather==='head'?headEmitterSites(c):tipEmitterSites(c))||[];
+  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):tipEmitterSites(c))||[];
   layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
  }
  const missing=layout.filter(site=>!site.point);

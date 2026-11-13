@@ -82,30 +82,32 @@ export const GLOBAL_LOOKS=[
   ]},
   {id:'fireball',name:'Fireball',legacyLayers:[legacyParticle('Fireball',texture('Clouds8x8')),legacyParticle('Fireball glow',texture('Red_Glow3')),legacyParticle('Fireball sparks',texture('LavaLump'))],layers:[
    skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
-   // The Moarg Overlord mace fire: five emitters on one spot. Sizes are capped in head widths (widthCap),
-   // so the ball surrounds a blade's outer part, a mace or axe head, or the top of a body.
-   // Core 1.5, glow 2.6, embers .16 and sparks 1 keep the reference's 40 : 70 : 4 : 40 proportions.
+   // The Moarg Overlord mace fire, on the striking part of the weapon (gather:'strike'). A mace or axe head and
+   // the top of a body get one ball; a straight blade gets the ball around its outer part with the fire thinning
+   // toward the hilt. Sizes are capped in widths of that part (widthCap). Layers draw in this order.
+   // Fire body is a blended cloud: it keeps the ball red-orange on any ground, where additive fire alone turns pale.
+   spray('Fire body',CLOUDS,[1,.36,.07],
+    {atlas:8,filter:0,life:.7,rate:44,velocity:.12,gravity:-.35,spread:25,size:[.9,1,.7],alpha:[120,140,0]},
+    {starts:true,gather:'strike',aim:'outward',widthCap:1.35,loop:2267,
+     native:{Time:.45,Variation:.25,Flags:U,PriorityPlane:-1,SegmentColor:[[1,.5,.1],[.96,.28,.05],[.5,.07,.02]]}}),
+   // Additive core, smaller than the body: orange at birth, shrinking to pale yellow at the centre.
    spray('Fire core',CLOUDS,[1,.55,.15],
-    {atlas:8,life:.5,rate:50,velocity:.28,gravity:-.6,spread:8,size:[.8,.6,.4],alpha:[230,150,90]},
-    {starts:true,gather:'head',aim:'outward',widthCap:1.5,
-     native:{Time:.5,Variation:.25,Flags:U,SegmentColor:[[1,.25,.05],[1,.55,.12],[1,.9,.55]]}}),
-   spray('Core glow',texture('Red_Glow3'),[1,.4,.12],
-    {life:.5,rate:8,velocity:.06,spread:2,size:[1.4,1,.8],alpha:[130,100,45]},
-    {starts:true,gather:'head',aim:'outward',widthCap:2.6,
-     native:{Time:.5,Flags:C,SegmentColor:[[1,.3,.08],[1,.5,.12],[1,.8,.4]]}}),
+    {atlas:8,life:.5,rate:96,velocity:.28,gravity:-.6,spread:10,size:[1,.75,.5],alpha:[210,160,80]},
+    {starts:true,gather:'strike',aim:'outward',widthCap:1.15,
+     native:{Time:.5,Variation:.25,Flags:U,SegmentColor:[[1,.42,.06],[1,.62,.12],[1,.85,.4]]}}),
+   spray('Core glow',texture('Red_Glow3'),[1,.55,.15],
+    {life:.5,rate:8,velocity:.06,spread:2,size:[1.4,1,.8],alpha:[90,75,30]},
+    {starts:true,gather:'strike-head',aim:'outward',widthCap:2.1,
+     native:{Time:.5,Flags:C,SegmentColor:[[1,.5,.12],[1,.6,.18],[1,.75,.35]]}}),
    spray('Spat embers',texture('LavaLump'),[1,.62,.25],
-    {life:4,rate:6,velocity:.3,gravity:-.03,spread:90,size:[.08,.06,.04],alpha:[255,200,100]},
-    {starts:true,gather:'head',aim:'outward',widthCap:.16,loop:3133,
+    {life:3,rate:7,velocity:.3,gravity:-.03,spread:90,size:[.08,.06,.04],alpha:[255,200,100]},
+    {starts:true,gather:'strike-head',aim:'outward',widthCap:.16,loop:3133,
      native:{Time:.5,Variation:.3,Flags:U,SegmentColor:[[1,.6,.15],[1,.85,.3],[1,.95,.6]]}}),
    spray('Falling sparks',texture('Sparkle_Anim'),[1,.7,.2],
-    {atlas:4,life:1.9,rate:8,area:.2,velocity:.3,gravity:.6,spread:20,size:[.5,.25,.02],alpha:[100,150,0]},
-    {starts:true,gather:'head',aim:'outward',widthCap:1,loop:2533,
+    {atlas:4,life:1.9,rate:10,area:.2,velocity:.3,gravity:.6,spread:20,size:[.5,.25,.02],alpha:[100,150,0]},
+    {starts:true,gather:'strike',aim:'outward',widthCap:.9,loop:2533,
      native:{Time:.5,Variation:.25,Flags:U,LifeSpanUVAnim:[0,0,1],DecayUVAnim:[0,0,1],
              SegmentColor:[[1,.25,.05],[1,.8,.2],[1,.9,.3]]}}),
-   // Modulate shade behind the ball keeps it orange on light ground, as in Enveloping flames.
-   spray('Heat shade',texture('Clouds8x8ModFire'),[1,1,1],
-    {atlas:8,filter:2,life:.9,rate:5,velocity:.1,spread:30,size:[.8,.9,.7],alpha:[150,140,0]},
-    {starts:true,gather:'head',aim:'outward',widthCap:1.7,loop:2267,native:{Time:.5,SegmentColor:[[1,1,1],[1,1,1],[1,1,1]]}}),
   ]},
  ]),
  vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
