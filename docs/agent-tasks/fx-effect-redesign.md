@@ -419,3 +419,7 @@ Exact next step: item 1, then 3.
 ## Rules carried over
 
 Native Blizzard art or the model's own parts only; no new panels; Variation dropdown for variants; no look-id exceptions; same emitter controls for every preset; everything stays editable; keep `ReplaceableTextures\Weather\Clouds8x8.blp`; no flavour text; five translation catalogues; local commits only.
+
+## Owner feedback on build 11 (14 Nov 2026), for the next round
+- Arcane > Rune circle on geoset 6 (the body): "this one is still bad (and it can be made great)". It shows as a green swirl smeared over the whole model. Screenshot: `C:\Users\PC\AppData\Local\Temp\claude\fba83512f5bcebb1\07e4512f-a910-41a5-b42c-01d4422cfa10\images\1.png`.
+- "also where are floating runes from the rune i gave u": the floating runes from the Orcish Runes and Darkness Rising references (pass 9 intent, section C) are not built yet.
