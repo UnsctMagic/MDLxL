@@ -129,3 +129,8 @@ Packaged, real mouse, on a model from `test/helpers/fixtures.cjs` with a ribbon,
 - Movement: selecting a light shows "Visible"; selecting an emitter shows only "Edit effect".
 
 Feature work: targeted tests only, no full packaged suite. Hand-over build opens `TEST OBJECT DISPLAY 01.mdx` after a hidden click-through of every new control.
+
+## Test build (14 Nov 2026)
+
+`D:\Claude\MDLxL\TestBuilds
+ode-display-01`, opened on `TestBuilds	est-models\TEST NODE DISPLAY 01.mdx` at 1d782196. Packaged object-display and animation-effects pass on it; full source suite 3476/0 before review fixes, preview-ffmpeg 9/9 after (earlier failures were low C: space). Click sweep left for release (owner rule). Waiting for the owner's hand test; nothing online.
