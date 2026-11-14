@@ -8,7 +8,10 @@ import {compileAnimation,FX_SECTIONS} from '../src/global-animation-model.js';
 // Owner, 12 November: "EMITTERS ... they are good but some are very bad, im lacking options and names are not
 // descriptive." Fixes from the emitter audit, each on new layers only.
 const knight=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
-const choice=label=>layerIngredient(findLook('empty'),{type:'Particles',label});
+// Pass 7 retired some emitters from the offered list (Stars, Void splinters, Plague haze); a model saved with one still holds
+// its layer, so the specs are read from the retired looks they came from.
+const retired=label=>[...['recall-seal','claude-void-cracked'].flatMap(id=>findLook(id).layers),...findLook('claude-plague-swarm').variations.flatMap(v=>v.legacyLayers||[])].find(s=>s.type==='Particles'&&s.label===label);
+const choice=label=>layerIngredient(findLook('empty'),{type:'Particles',label})||retired(label);
 const offered=()=>LAYER_CHOICES.filter(s=>s.type==='Particles').map(emitterName);
 export function addEmitter(label,part=37,palette='native'){
  const doc=knight(),frame=partFrame(doc.model.Geosets[part]),stack=newStack(findLook('empty'),frame,'audit');
@@ -42,17 +45,20 @@ test('Stars emit at a steady rate instead of a burst once a loop',()=>{
   assert.ok(Math.min(...values)>0&&Math.max(...values)===Math.min(...values),'steady rate: '+values);
  }
 });
-test('Rune sparks are additive and turn from white to their tint',()=>{
- const {layer,emitters}=addEmitter('Rune sparks',37,'azure');
+// Rune sparks (the Wards card's own emitter) became Rune motes in pass 7: additive, white at birth, in the layer's colour
+// at the middle of life.
+test('Rune motes are additive and turn from white to their tint',()=>{
+ const {layer,emitters}=addEmitter('Rune motes',37,'azure');
+ assert.ok(emitters.length>0);
  for(const p of emitters){
   assert.equal(p.FilterMode,1,'additive');
   assert.deepEqual(Array.from(p.SegmentColor[0]),[1,1,1]);
-  assert.deepEqual(Array.from(p.SegmentColor[2]).map(v=>+v.toFixed(4)),layer.tint.map(v=>+Math.fround(v).toFixed(4)));
+  assert.deepEqual(Array.from(p.SegmentColor[1]).map(v=>+v.toFixed(4)),layer.native.SegmentColor[1].map(v=>+Math.fround(v).toFixed(4)));
  }
 });
 // Eye sparks left the library with the Eye glow look (14 November 2026), so it is no longer an offered emitter. Rift splinters are small bright streaks over the whole surface now.
-// Audit: invisible on the Footman body (light .00-.04) at their old sizes; twice the size, embers [.16,.1,.04].
-for(const [label,size] of [['Blood beads',[.12,.32,.12]],['Rift splinters',[.03,.1,.02]],['Void splinters',[.14,.28,.04]],['Lingering embers',[.16,.1,.04]]])test(label+' start at a visible size',()=>{
+// Blood beads is offered from Sanguine drip (size .36, 14 November 2026). Audit: invisible on the Footman body (light .00-.04) at their old sizes; twice the size, embers [.16,.1,.04].
+for(const [label,size] of [['Blood beads',[.12,.36,.12]],['Rift splinters',[.03,.1,.02]],['Void splinters',[.14,.28,.04]],['Lingering embers',[.16,.1,.04]]])test(label+' start at a visible size',()=>{
  assert.deepEqual(choice(label).nativeSpec.size,size);
  const {emitters}=addEmitter(label);
  assert.ok(emitters.length>0&&emitters.every(p=>p.ParticleScaling[1]>0));

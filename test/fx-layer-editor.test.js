@@ -78,7 +78,7 @@ test('every shown Speed, Direction and Tiling control changes every surface laye
   const repeats=t=>typeof t!=='number'||(base.Textures[t].Flags&3)===3;
   const canTile=layer.nativeSurface?repeats(tid):!layer.own||repeats(base.Materials[doc.model.Geosets[0].MaterialID].Layers.at(-1).TextureID);
   const shown=looks.surfaceControls(layer,canTile),reference=nativeData(base);
-  for(const [key,value] of [['speed',layer.speed===2?3:2],['direction',layer.direction===90?180:90],['tiling',2]]){
+  for(const [key,value] of [['speed',layer.speed===2?3:2],['direction',layer.direction===90?180:90],['tiling',layer.tiling===2?3:2]]){
    if(!shown[key])continue;
    const model=structuredClone(doc.model);compile(model,withLayer(stack,{[key]:value}));
    if(nativeData(model)===reference)silent.push(look.id+' '+spec.label+' '+key);
