@@ -28,8 +28,11 @@ and frame one geoset, including shared-material cases.
 
 ## Event objects
 
-Sound, Blood Splat, Footprint, Uber Splat and Spawn Object choices load from the
-configured game files. Native IDs and names are used; no game assets are bundled.
+Node Manager → New opens the Sound, Blood Splat, Footprint, Uber Splat and Spawn
+Object categories. Browse the configured game files, choose an entry, then click
+Add event. The same New panel creates lights and opens EMTR Library or the
+Sphereomancer stage. Create bones, helpers and attachments in their editors.
+Event choices use native IDs and names from the game files.
 Event times can be added at the current frame or removed. Existing parent, pivot
 and event times are preserved when choosing event data.
 

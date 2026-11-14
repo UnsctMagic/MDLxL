@@ -32,6 +32,7 @@ const FIXTURES = {
   raider: ['MDLXL_RAIDER', testModel('bone-namer/Raider.mdx')], // owner's wolf rider: renamed helpers, badly named mesh pieces on each joint
   'sd-orc-wolfrider': ['MDLXL_SD_ORC_WOLFRIDER', testModel('corpus-sd/orc__wolfrider.mdx')], // rightfoot is gripped by its skin at Y -22.9
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
+  'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.
