@@ -143,3 +143,4 @@ Particle, ribbon and texture-animation settings of these Hiveworkshop.com models
 - **Bloodstone Arrows** (Bloodstone Arrow, Bloodless, LSD 1, LSD 2), Vinz — [Hive](https://www.hiveworkshop.com/threads/bloodstone-arrows.309858/)
 - **Frost Arrows** (Azul Arrow, Azul Arrow Defrosted, Maiz con Arrow), Vinz — [Hive](https://www.hiveworkshop.com/threads/frost-arrows.309707/)
 - **Blue/Red Lightning Missile** (Lightning Missile, Red Lightning Missile), Judash137, submitted by Khil — [Hive](https://www.hiveworkshop.com/threads/blue-red-lightning-missile.363869/)
+- **MM20 Stormforger**, Murlocologist and Vinz — [Hive](https://www.hiveworkshop.com/threads/mm20-stormforger.324968/)
