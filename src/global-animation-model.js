@@ -2,7 +2,7 @@ import {Box3,Matrix4,Quaternion,Vector3} from 'three';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
 import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,suggestBladeEmitterSites,suggestMassEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
-import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture} from './fx-cards.js';
+import {cardFields,CARD_CLOCK_FACTORS,CARD_JITTER_MS,EASED_TURN,LINEAR_TURN,FLY_SETS,FLY_SIZES,FLY_SCATTER,FLY_BOUNDS,flyClock,flyPicture,squarePicture} from './fx-cards.js';
 import {unitHeight} from './fx-layer-basis.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
@@ -342,6 +342,7 @@ export function impactDefaults(model,_index,sequence,hit){
 /** Freeze the geometry offer by recipe inputs and selected surface for this model revision. */
 const usesSiteGeometry=layer=>layer.widthCap!=null||layer.aim!=null;
 function defaultSurfaceSites(c,layer){
+ if(layer.ride)return rideSites(c,layer);
  if(layer.gather==='head'&&!layer.siteLayout)return headEmitterSites(c);
  if(strikes(layer)&&!layer.siteLayout)return strikeEmitterSites(c,layer);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
@@ -363,6 +364,19 @@ function defaultSurfaceSites(c,layer){
  const result=sites.length?sites:null;
  cache.set(offerKey,result);
  return result;
+}
+// ride (fresh recipes; owner, 14 November: "they trail with the flies ... flies with fire - thats pretty cool"): the
+// layer's emitters ride the flies of the look's swarm, one on each. Sizes and speeds are shares of that fly's width, and
+// the layer's rate is per fly. A particle left in the world trails behind its fly.
+function rideSites(c,layer){
+ const swarm=c.stack.layers.find(item=>item.swarm&&item.enabled!==false&&(layer.ride===true||item.label===layer.ride))||c.stack.layers.find(item=>item.swarm&&item.enabled!==false);
+ if(!swarm)return null;
+ const prefix=c.stack.owner+'/'+swarm.id+'/fly',flies=c.model.Bones.filter(n=>n._FxTag?.startsWith(prefix)).map(n=>[Number(n._FxTag.slice(prefix.length)),n]).sort((a,b)=>a[0]-b[0]);
+ if(!flies.length)return null;
+ return flies.map(([k,bone])=>{
+  const width=Math.max(.5,(swarm.spriteSize||10)*FLY_SIZES[k%5]);
+  return {key:'ride'+k,point:Array.from(bone.PivotPoint),region:0,ground:false,rideBone:bone.ObjectId,radius:width,componentWidth:width*.5,strip:false,birth:{width:width*.15,length:width*.15,share:flies.length}};
+ });
 }
 function separateSites(c,layer,samples){
  if(samples.length<2)return false;
@@ -873,7 +887,7 @@ function nativeParticles(c,layer){
   c.sites.push(emitterSiteRecord(slot,pos,Math.max(0,c.frame.regions?.indexOf(region)??0),slot.ground??!!l.ground));
   if(!l.impact||l.placement||layer.individuals?.[key]?.position)pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
+  const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,slot.rideBone!=null?slot.rideBone:(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   applyRecipeAim(c,l,slot,p,slot.birth?.rotation);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,recipeNativeValue(l,key,value),m,c.createdClocks);
@@ -1368,11 +1382,13 @@ function flySwarm(c,l){
  const swarm=nodeFor(c,'Bones','Bone','swarm',l.label,centre,c.parent);
  swarm.Flags=256|2;for(const key of ['Translation','Rotation','Scaling'])delete swarm[key];
  // The measured corner layout and picture area of the native fly pictures; another picture shows whole.
- const picture=flyPicture(l.image,l.pictureOverride);
+ // square (fresh recipes): the swarm carries a square picture (an orb, a rune), not the native fly diamond.
+ const picture=l.square?squarePicture(l.atlasRect):flyPicture(l.image,l.pictureOverride);
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],points=[];
  let widest=0;
  for(let k=0;k<count;k++){
-  const s=Math.floor(k/5),p=k%5,set=FLY_SETS[s%FLY_SETS.length],yaw=set.yaw*Math.PI/180,cos=Math.cos(yaw),sin=Math.sin(yaw);
+  // flock (fresh recipes): which set of paths the swarm starts with.
+  const s=Math.floor(k/5)+(l.flock||0),p=k%5,set=FLY_SETS[s%FLY_SETS.length],yaw=set.yaw*Math.PI/180,cos=Math.cos(yaw),sin=Math.sin(yaw);
   // Path keys turned by the set's yaw, widened by its scale and flattened to three quarters in height.
   const xy=scale*set.width,turned=a=>[(a[0]*cos-a[1]*sin)*xy,(a[0]*sin+a[1]*cos)*xy,a[2]*xy*.75];
   const at=FLY_SCATTER[p],pivot=centre.clone().add(new Vector3((at[0]*cos-at[1]*sin)*spread,(at[0]*sin+at[1]*cos)*spread,at[2]*spread+set.height*tall));
@@ -1389,7 +1405,7 @@ function flySwarm(c,l){
   groups.push([fly.ObjectId]);
  }
  // One layer like the native flies: alpha-keyed (Transparent), two-sided and lit by the map.
- const layer={TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:1,Shading:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
+ const layer={TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:l.square?l.filter??1:1,Shading:l.square&&l.unshaded?49:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
  if(l.riseOnDeath){
   const motion=[],visibility=[];
   // A local Z translation is turned downward by a falling parent in native playback.
@@ -1652,14 +1668,14 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
   const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,recipeChanged,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   context.autoSites=defaultSurfaceSites(context,l);
-  context.siteLayout=completeEmitterSiteLayout(context,l);
+  context.siteLayout=l.ride?undefined:completeEmitterSiteLayout(context,l);
   context.activeSites=activeEmitterSites(l,context.siteLayout||context.autoSites||[]);
   const saved=state.layers.find(item=>item.id===l.id);
   if(context.siteLayout!==l.siteLayout)saved.siteLayout=context.siteLayout;
   if(Array.isArray(l.activeSiteKeys)&&context.activeSites)saved.activeSiteKeys=[...context.activeSites];
   if(l.nativeSpec&&!l.impact)siteRateScales[l.id]=nativeEmitterBudget(context,l);
   // Retain edits made in the normal material, node or emitter managers for untouched layers.
-  if(!recipeChanged&&!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
+  if(!recipeChanged&&!l.ride&&!l.placement&&l.siteCount==null&&before?.look===draft.look&&sameGroup&&(!draft.impact||JSON.stringify(before?.contact)===JSON.stringify(draft.contact))&&ms===before?.loop&&before?.sequence===draft.sequence&&before?.hit===draft.hit&&sameLayerForRetention(prior,l)){
    for(const item of [...model.Geosets,...model.Nodes.filter(Boolean)])if(item._FxTag?.startsWith(tag+'/'))used.add(item._FxTag);
    const layout=context.siteLayout||context.autoSites;
    if(layout)context.sites.push(...layout);

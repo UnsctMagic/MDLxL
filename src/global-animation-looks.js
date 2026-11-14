@@ -9,7 +9,7 @@ import {surfaceFitInputs} from './fx-emitter-surface.js';
 
 import {SORT_LOOKS,SORT_EMITTERS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair,spray,orbit,vary,breath,breathSpit,EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair,spray,orbit,vary,breath,breathSpit,EMITTER_UNFOGGED,EMITTER_CARRIED,PUFF_FRAMES} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -765,6 +765,95 @@ const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',str
      native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[.8,1,.9],[.48,1,.73],[.25,.6,.4]]}})]},
  ]);
 }
+// Pass 8 (14 November). What rides a swarm. The owner put Fire on the unit's own fly geoset and liked how the emitters
+// trailed with the flies: "flies with fire - thats pretty cool". A rider is an emitter on every fly of the look's swarm
+// (ride); its sizes and speeds are shares of the fly's width, its rate is per fly, and its particles stay in the world,
+// so they trail.
+const rider=(label,image,tint,spec,extra={})=>spray(label,image,tint,spec,{starts:true,ride:true,...extra});
+const FIRE_RAMP=[[1,.8,.35],[1,.5,.12],[.7,.1,.02]];
+const riders={
+ flames:(label='Fly flames',size=[.4,.35,.12])=>rider(label,CLOUDS,[1,.5,.12],
+  {atlas:8,life:.45,rate:26,velocity:.2,gravity:-1.2,spread:25,size,alpha:[200,170,0]},{native:{Time:.4,Variation:.3,Flags:U,SegmentColor:FIRE_RAMP}}),
+ embers:(label='Fly embers')=>rider(label,texture('LavaLump'),[1,.6,.2],
+  {life:1.2,rate:5,velocity:.3,gravity:-.2,spread:180,size:[.12,.1,.04],alpha:[255,200,0]},{loop:3133,native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.9,.5],[1,.5,.14],[.6,.1,.02]]}}),
+ glow:(label,image,tint,size=.8,alpha=110)=>rider(label,image,tint,
+  {life:.6,rate:6,size:[size*.9,size,size*.9],alpha:[0,alpha,0]},{loop:2533,native:{Time:.5,Flags:C}}),
+ haze:(label,tint,ramp)=>rider(label,CLOUDS,tint,
+  {atlas:8,filter:0,life:1.1,rate:9,velocity:.1,spread:180,size:[.3,.5,.75],alpha:[0,95,0]},{loop:2933,native:{Time:.3,Variation:.3,...PUFF_FRAMES,SegmentColor:ramp}}),
+ zaps:(label='Fly sparks')=>rider(label,texture('Zap1'),[.7,.82,1],
+  {life:.16,rate:12,velocity:4,spread:180,tail:.5,size:[.06,.14,.04],alpha:[255,255,0]},{loop:1533,native:{Time:.4,Variation:.5,FrameFlags:2,Flags:U,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
+ trail:(label,image,tint,ramp,extra={})=>rider(label,image,tint,
+  {life:.9,rate:8,velocity:.15,spread:180,size:[.05,.28,.05],alpha:[0,255,0],...extra},{loop:2267,native:{Time:.35,Variation:.4,Flags:U,SegmentColor:ramp}}),
+};
+const fliesSpec=()=>({...dust('Orbiting flies','flies',texture('Abomination')),starts:true});
+{
+ const MURK=[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]];
+ fold('fly-swarm',[
+  ...own('fly-swarm').map(v=>({...v,layers:v.layers.map(starts)})),
+  {id:'fire',name:'Fire flies',layers:[fliesSpec(),riders.flames(),riders.embers(),riders.glow('Fly glow',texture('Red_Glow3'),[1,.5,.15],.8,80)]},
+  {id:'plague',name:'Plague flies',layers:[fliesSpec(),riders.haze('Fly haze',[.22,.27,.07],MURK),
+   riders.trail('Fly spores',texture('Bubble'),[.5,.9,.25],[[.8,1,.5],[.5,.9,.25],[.25,.6,.2]],{size:[.05,.16,.1],gravity:-.3})]},
+  {id:'sparks',name:'Spark flies',layers:[fliesSpec(),riders.zaps(),riders.glow('Fly glow',texture('Blue_Glow2'),[.45,.7,1],.8,120)]},
+  {id:'glow',name:'Glow flies',layers:[fliesSpec(),riders.glow('Fly light',texture('Yellow_Glow3'),[1,.95,.5],.9,150),
+   riders.trail('Fly dust',texture('star4_32'),[1,.95,.5],[[1,1,.9],[1,.95,.5],[.7,.9,.3]])]},
+ ]);
+}
+// Elemental orbs (owner, 14 November: "a small orb ... fly around like flies and envelop them in emitters for different
+// elemental barriers"). The orb is a native picture: the green ball of BloodElfBallz, or the ball painted in a corner of
+// the three ranger skins (grey, gold and red; the grey one takes any colour). Five orbs fly the paths of the fly swarm
+// around the whole part (reach); each wears its element's emitters. Flies and Formation set their number and distance.
+{
+ const BALL=[.836,.03,.136,.136];
+ const orbs=(label,image,tint,ball=true)=>dust(label,'flies',image,{square:true,...(ball?{atlasRect:BALL}:{}),filter:2,unshaded:true,tint,reach:1.15,amount:5,scale:{size:.8},starts:true});
+ const ICE=[[1,1,1],[.8,.93,1],[.55,.75,1]];
+ GLOBAL_LOOKS.push(vary(make('fx-orbs','Elemental orbs','',1233,'native',[]),[
+  {id:'fire',name:'Fire orbs',layers:[
+   orbs('Fire orbs',texture('BansheeRanger'),[1,1,1]),
+   riders.flames('Orb flames',[.6,.5,.18]),riders.embers('Orb embers'),riders.glow('Orb glow',texture('Red_Glow3'),[1,.5,.15],1,110),
+  ]},
+  {id:'frost',name:'Frost orbs',layers:[
+   orbs('Frost orbs',texture('Ranger'),[.6,.85,1]),
+   rider('Orb frost',CLOUDS,[.8,.93,1],{atlas:8,life:.9,rate:12,velocity:.1,gravity:.3,spread:180,size:[.3,.5,.75],alpha:[0,70,0]},{native:{Time:.35,Variation:.3,Flags:U,SegmentColor:[[.9,.98,1],[.75,.92,1],[.6,.85,1]]}}),
+   riders.trail('Orb flakes',texture('snowflake'),[.85,.95,1],ICE,{life:1.1,gravity:.6,size:[.2,.18,.05],alpha:[255,255,0]}),
+   riders.glow('Orb glow',texture('Blue_Glow2'),[.45,.7,1],1,110),
+  ]},
+  {id:'acid',name:'Acid orbs',layers:[
+   orbs('Acid orbs',texture('BloodElfBallz'),[1,1,1],false),
+   riders.haze('Orb fumes',[.25,.53,.32],[[.69,.99,.74],[.25,.53,.32],[.33,.51,.34]]),
+   riders.trail('Orb drips',texture('WaterBlobs1'),[.5,.82,.22],[[.8,1,.5],[.5,.82,.22],[.25,.5,.15]],{filter:0,life:.8,rate:6,velocity:.05,gravity:3,tail:.12,size:[.16,.14,.06],alpha:[255,230,0]}),
+   riders.glow('Orb glow',texture('Green_Glow3'),[.4,.9,.3],1,90),
+  ]},
+  {id:'lightning',name:'Lightning orbs',layers:[
+   orbs('Lightning orbs',texture('Ranger'),[.85,.9,1]),
+   riders.zaps('Orb zaps'),
+   rider('Orb crackle',texture('LightningBall'),[.62,.72,1],{life:.22,rate:8,velocity:.1,spread:180,size:[.5,.4,.12],alpha:[255,255,0]},{loop:1933,native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.36,.6,.9],[.37,.09,.95]]}}),
+   riders.glow('Orb glow',texture('Blue_Glow2'),[.45,.7,1],1,130),
+  ]},
+  {id:'arcane',name:'Arcane orbs',layers:[
+   orbs('Arcane orbs',texture('Ranger'),[.75,.55,1]),
+   riders.trail('Orb stars',texture('star4_32'),[.8,.65,1],[[1,1,1],[.78,.6,1],[.4,.5,1]]),
+   riders.glow('Orb glow',texture('GenericGlowX'),[.75,.62,1],1,130),
+  ]},
+  {id:'gold',name:'Golden orbs',layers:[
+   orbs('Golden orbs','Units\\Creeps\\HighElfArcher\\HighElfArcher.blp',[1,1,1]),
+   riders.trail('Orb sparkles',texture('star4_32'),[1,.9,.5],[[1,1,.9],[1,.9,.5],[1,.6,.2]]),
+   riders.glow('Orb glow',texture('Yellow_Glow3'),[1,.9,.5],1,120),
+  ]},
+ ]));
+}
+// Rune swarm (pass 9; owner: "a swirling cloud of runes the user can add more or fewer of, like flies", after Orcish
+// Runes and Darkness Rising). Three sets of rune pictures fly the fly swarm's paths, each set on paths of its own.
+{
+ const runes=(label,name,flock)=>dust(label,'flies',texture(name),{square:true,filter:3,unshaded:true,tint:[.35,.9,.85],reach:1.2,amount:5,scale:{size:1.3},flock,starts:true});
+ fold('rune-blade',[
+  ...own('rune-blade'),
+  {id:'swarm',name:'Rune swarm',layers:[
+   runes('Floating runes','DemonRune5',0),runes('Second runes','DemonRune2',2),runes('Third runes','DemonRune6',4),
+   riders.glow('Rune light',texture('GenericGlow64'),[.2,.8,.75],.9,60),
+   runeMotes([.35,.9,.85]),
+  ]},
+ ]);
+}
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
@@ -773,7 +862,7 @@ export const LIBRARY=[
  ['Water',[['claude-tidal-blade','Water']]],
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
- ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['motes']]],
+ ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-orbs'],['motes']]],
  ['Team colour',[['fx-team-colour'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
  ['Stone',[['sort-basalt','Stone']]],
@@ -1065,7 +1154,8 @@ export function makeLayer(spec,frame,palette,id) {
  if(scale.stages)layer.native={...layer.native,ParticleScaling:scale.stages.map(v=>v*layer.size)};
  // An orbiting Edge in a look starts as Orbit switched on would; the look may set its own alpha and trail.
  // A new Fly swarm is quads on billboarded bones (native Flies.mdx technique): fly width from the unit, swarm from the part.
- if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad;return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??swarmRadiusFor(basis,spriteSize),speed:spec.speed??1};}
+ // reach (fresh recipes): the swarm circles the whole part, its radius a share of the part's; scale.size: a larger picture.
+ if(spec.kind==='flies'){const spriteSize=spec.spriteSize??basis.flyQuad*(scale.size??1);return {...layer,swarm:true,amount:spec.amount??5,spriteSize,size:spec.size??(spec.reach!=null&&frame?.radius>0?Math.max(frame.radius*spec.reach,spriteSize*3):swarmRadiusFor(basis,spriteSize)),speed:spec.speed??1};}
  // A new native emitter shares its rate among the part's regions (saved layers without the flag compile as before).
  if(spec.type==='Particles'&&spec.kind==='native'&&!spec.impact)layer.sharedSites=true;
  if(spec.type==='Particles'&&spec.kind!=='native'&&!spec.impact&&spec.burstGap==null)layer.steadyRate=true;
@@ -1102,6 +1192,8 @@ export function makeLayer(spec,frame,palette,id) {
  // cover: births over the whole part. 'around' fills the space about it, 'surface' sits on its faces.
  if(spec.birthRegion||spec.cover){delete layer.surfaceFit;delete layer.coverFit;layer.surfaceSites=false;layer.birthRegionFit=true;layer.birthRegion=true;layer.cover=spec.cover||'around';}
  if(spec.airyFit)layer.airyFit={...spec.airyFit};
+ // ride: the emitters sit on the look's swarm, not on the part.
+ if(spec.ride){delete layer.surfaceFit;delete layer.coverFit;layer.surfaceSites=false;}
  return layer;
 }
 export function newStack(look,frame,owner) {

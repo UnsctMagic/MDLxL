@@ -83,6 +83,11 @@ export const FLY_PICTURES=Object.freeze({
  // Native Flies.mdx: Doodads0 cell 151 (12 rows, 16 columns).
  doodads:{image:'Textures\\Doodads0.blp',corners:[[0,-1,-.167],[0,-.182,-1],[0,.182,1],[0,1,.167]],uv:[[.4375,.75],[.4375,.8333],[.5,.75],[.5,.8333]],normal:[1,0,0]},
 });
+/** A square, upright picture for a swarm that is not flies (an orb, a rune): one area [u0,v0,w,h] of the texture, or all of it. */
+export function squarePicture(rect=[0,0,1,1]){
+ const [u,v,w,h]=rect;
+ return {corners:[[0,-1,-1],[0,1,-1],[0,-1,1],[0,1,1]],uv:[[u,v+h],[u+w,v+h],[u,v],[u+w,v]],normal:[1,0,0]};
+}
 /** The corner layout and picture area for a fly picture; another picture shows whole on the native diamond. */
 export function flyPicture(image,override){
  const key=String(image||'').toLowerCase().replace(/\//g,'\\');
