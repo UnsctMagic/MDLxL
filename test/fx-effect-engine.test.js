@@ -9,6 +9,8 @@ import {withIndividualEmitter} from '../src/fx-emitter-placement.js';
 import {modelHash} from './helpers/fx-legacy-snapshot.mjs';
 
 const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+// The FX fixtures are private models (MDLxL-TestModels); CI skips these like the Forge and Corpse tests.
+const privateMissing=!['footman','effect'].every(name=>fs.existsSync(fixturePath(name)))&&'private FX test models not on this machine';
 const footman=()=>openDocument(fs.readFileSync(fixturePath('footman')),'footman.mdx').model;
 const strip=()=>openDocument(fs.readFileSync(fixturePath('effect')),'effect.mdx').model;
 const sprite='Textures\\Star7b.blp';
@@ -28,7 +30,7 @@ function apply(model,part,make,edit){
  return {graph,stack,layer,emitters:model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('redesign/1/'))};
 }
 
-test('widthCap limits the peak to the site width, preserves stage ratios and yields to individual Size',()=>{
+test('widthCap limits the peak to the site width, preserves stage ratios and yields to individual Size',{skip:privateMissing},()=>{
  const model=strip(),part=5,{stack,layer,graph,emitters}=apply(model,part,particle({widthCap:.35,siteCount:3}));
  const site=graph.layers[1].sites[0],p=emitters[0],capped=p.ParticleScaling[1];
  assert.ok(site.componentWidth>0);
@@ -44,7 +46,7 @@ test('widthCap limits the peak to the site width, preserves stage ratios and yie
  assert.ok(model.ParticleEmitters2.filter(n=>n._FxTag?.startsWith('redesign/1/')).every(n=>n.ParticleScaling[1]>capped));
 });
 
-test('siteCount overrides the live budget and shares strip stations and rate',()=>{
+test('siteCount overrides the live budget and shares strip stations and rate',{skip:privateMissing},()=>{
  const a=apply(strip(),5,particle({siteCount:9},{rate:2,size:[.02,.03,.01]}),separate);
  const b=apply(strip(),5,particle({siteCount:9},{rate:4,size:[.2,.4,.1]}),separate);
  assert.equal(a.emitters.length,9);
@@ -52,7 +54,7 @@ test('siteCount overrides the live budget and shares strip stations and rate',()
  for(const emitter of a.emitters)close(emitter.EmissionRate,2/9);
 });
 
-test('scatter is stable across compiles and normalizes to the original rate',()=>{
+test('scatter is stable across compiles and normalizes to the original rate',{skip:privateMissing},()=>{
  const rates=()=>apply(strip(),5,particle({siteCount:5,scatter:.35})).emitters.map(p=>p.EmissionRate);
  const a=rates();
  assert.ok(new Set(a).size>1);
@@ -60,7 +62,7 @@ test('scatter is stable across compiles and normalizes to the original rate',()=
  close(a.reduce((sum,n)=>sum+n,0),20);
 });
 
-test('birthAcross widens the strip slab and widthCap measures the physical strip',()=>{
+test('birthAcross widens the strip slab and widthCap measures the physical strip',{skip:privateMissing},()=>{
  const regular=apply(strip(),5,particle({birthRegion:true}));
  const wide=apply(strip(),5,particle({birthRegion:true,birthAcross:1.6,widthCap:.35}));
  const {Width,Length,ParticleScaling}=wide.emitters[0];
@@ -69,7 +71,7 @@ test('birthAcross widens the strip slab and widthCap measures the physical strip
  close(ParticleScaling[1],Width/1.6*.35);
 });
 
-test('birthRegion point sites raise the rate to two live particles per site up to four times the recipe',()=>{
+test('birthRegion point sites raise the rate to two live particles per site up to four times the recipe',{skip:privateMissing},()=>{
  for(const rate of [1,16]){
   const {graph,emitters}=apply(footman(),0,particle({birthRegion:true},{rate}),pointSites);
   assert.ok(graph.layers[1].sites.some(s=>s.birth&&!s.birth.rotation));
@@ -79,12 +81,12 @@ test('birthRegion point sites raise the rate to two live particles per site up t
  }
 });
 
-test('a curved point fallback samples more than four sites when the footprint allows',()=>{
+test('a curved point fallback samples more than four sites when the footprint allows',{skip:privateMissing},()=>{
  const {emitters}=apply(strip(),21,particle({birthRegion:true},{size:[.01,.03,.01]}));
  assert.ok(emitters.length>4&&emitters.length<=16,'curved point site count: '+emitters.length);
 });
 
-test('recipe Colour retints the native ramp and a life-stage edit pins it across reopening',()=>{
+test('recipe Colour retints the native ramp and a life-stage edit pins it across reopening',{skip:privateMissing},()=>{
  const model=footman(),part=2,ramp=[[1,.5,.1],[.5,.4,.25],[.25,.2,0]];
  const {stack,layer}=apply(model,part,particle({native:{SegmentColor:ramp}}));
  assert.deepEqual(layer.rampTint,[.5,.5,.5]);
@@ -103,7 +105,7 @@ test('recipe Colour retints the native ramp and a life-stage edit pins it across
  assert.deepEqual(native(),pinned);
 });
 
-test('existing airy fit and saved slab stacks compile identically to item 1',()=>{
+test('existing airy fit and saved slab stacks compile identically to item 1',{skip:privateMissing},()=>{
  const airy={type:'Particles',label:'Airy',kind:'flame',image:'ReplaceableTextures\\Weather\\Clouds8x8.blp',tint:[1,.46,.17],atlas:8,airyFit:{version:1}};
  for(const [part,spec,expected] of [
   [2,airy,'e7fd70cca73440ade028622bd45869a6d24a1de18d94645d7d89f258458a1402'],
@@ -118,7 +120,7 @@ test('existing airy fit and saved slab stacks compile identically to item 1',()=
  }
 });
 
-test('switching from Flame licks back to Surface flames restores the dense native defaults',()=>{
+test('switching from Flame licks back to Surface flames restores the dense native defaults',{skip:privateMissing},()=>{
  const model=strip(),part=5,frame=looks.partFrame(model.Geosets[part]),look=looks.findLook('flaming-sword');
  let stack=looks.newStack(look,frame,'switch');
  const flames=()=>model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('switch/2/')).map(p=>({

@@ -10,6 +10,8 @@ import {analyseEmitterSurface} from '../src/fx-emitter-surface.js';
 import {deleteEmitterSite,withEmitterAim,withEmitterSiteCount} from '../src/fx-emitter-placement.js';
 
 const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
+// The FX fixtures are private models (MDLxL-TestModels); CI skips these like the Forge and Corpse tests.
+const privateMissing=!['footman','effect'].every(name=>fs.existsSync(fixturePath(name)))&&'private FX test models not on this machine';
 const load=name=>openDocument(fs.readFileSync(fixturePath(name)),name+'.mdx').model;
 const Z=new Vector3(0,0,1);
 const image='Textures\\Zap1.blp';
@@ -33,7 +35,7 @@ const pivot=(model,node)=>{
 };
 
 for(const [name,fixture,part,count] of [['straight strip','effect',5,1],['curved piece','effect',21,1],['many-region body','footman',0,2]]){
- test('gather tip shares surface attachments and extremities on a '+name,()=>{
+ test('gather tip shares surface attachments and extremities on a '+name,{skip:privateMissing},()=>{
   const {model,frame,graph}=setup(fixture,part,[particle({gather:'tip',aim:'tip'}),particle({gather:'tip',loop:1870},{burst:4,delay:.33})]);
   const shape=analyseEmitterSurface(model.Geosets[part]);
   const sites=graph.layers[1].sites;
@@ -62,7 +64,7 @@ for(const [name,fixture,part,count] of [['straight strip','effect',5,1],['curved
  });
 }
 
-test('outward aim uses the surface normal and a ring edit replaces the starting Rotation',()=>{
+test('outward aim uses the surface normal and a ring edit replaces the starting Rotation',{skip:privateMissing},()=>{
  const part=5,{model,stack,graph}=setup('effect',part,[particle({aim:'outward',siteCount:3})],layer=>{delete layer.coverFit;});
  const site=graph.layers[1].sites[0],emitter=model.Nodes[graph.layers[1].siteIds[site.key]];
  assert.ok(emitter.Rotation?.Keys?.length);
@@ -75,7 +77,7 @@ test('outward aim uses the surface normal and a ring edit replaces the starting 
  assert.ok(direction(model.Nodes[edited.layers[1].siteIds[site.key]]).distanceTo(Z)<.0001);
 });
 
-test('the Emitters slider and Delete keep the gathered tip key stable',()=>{
+test('the Emitters slider and Delete keep the gathered tip key stable',{skip:privateMissing},()=>{
  const part=5,{model,stack,graph}=setup('effect',part,[particle({gather:'tip',aim:'tip'})]);
  assert.ok(nodeAt(model,graph,1).Rotation?.Keys?.length,'the original site has the recipe aim');
  const key=graph.layers[1].sites[0].key;

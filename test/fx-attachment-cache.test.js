@@ -15,24 +15,27 @@ const knight=()=>openDocument(knightBytes,'knight.mdx').model;
 // Parts of the real Knight: 17 skin regions (body), 4 (weapon), 1.
 const PARTS=[37,8,1];
 const byName=name=>GLOBAL_LOOKS.find(l=>l.name===name);
-function stacksFor(model,part){
+function stacksFor(model,part,only){
  const frame=partFrame(model.Geosets[part]),stacks=[];
- for(const look of GLOBAL_LOOKS){
+ for(const look of only?[only]:GLOBAL_LOOKS){
   stacks.push(newStack(look,frame,'cache'));
   for(const v of look.variations?.slice(1)||[])stacks.push(withVariation(newStack(look,frame,'cache'),frame,look,v.id));
  }
  return stacks;
 }
-test('a shared attachment cache compiles every look byte-identically on many-region and weapon parts',()=>{
- const base=knight(),attachments=new Map(),changed=[];
- for(const part of PARTS)for(const stack of stacksFor(base,part)){
-  const plain=structuredClone(base),cached=structuredClone(base);
+// One test per look (all its variations, on every part) keeps each under the suite's 5-minute limit; the cache
+// is shared across all of them, so later looks still compile with samples warmed by earlier looks and parts.
+const sharedBase=knight(),sharedAttachments=new Map();
+for(const look of GLOBAL_LOOKS)test('a shared attachment cache compiles '+look.name+' byte-identically on many-region and weapon parts',()=>{
+ const changed=[];
+ for(const part of PARTS)for(const stack of stacksFor(sharedBase,part,look)){
+  const plain=structuredClone(sharedBase),cached=structuredClone(sharedBase);
   compileAnimation(plain,part,structuredClone(stack));
-  compileAnimation(cached,part,structuredClone(stack),{attachments});
+  compileAnimation(cached,part,structuredClone(stack),{attachments:sharedAttachments});
   if(modelHash(plain)!==modelHash(cached))changed.push(part+' '+stack.look);
  }
  assert.deepEqual(changed,[]);
- assert.ok(attachments.size>0,'the cache was used');
+ assert.ok(sharedAttachments.size>0,'the cache was used');
 });
 test('a second compile of the same stack reads its samples from the cache and writes the same model',()=>{
  const base=knight(),attachments=new Map();
