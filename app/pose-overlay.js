@@ -93,7 +93,7 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   const hit = handle => {
     const radius = (handle.size ?? (handle.kind === 'bend' ? 10 : 17)) + (handle.pinned ? 7 : 3);
     const dx = Math.abs(x - handle.x), dy = Math.abs(y - handle.y);
-    return handle.shape === 'square' ? Math.max(dx, dy) <= radius : Math.hypot(dx, dy) <= radius;
+    return handle.shape === 'square' || handle.shape === 'triangle' ? Math.max(dx, dy) <= radius : Math.hypot(dx, dy) <= radius;
   };
   if (selected && hit(selected)) return selected;
   const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered || handle.kind === 'bend') && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
@@ -133,7 +133,7 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     if (polygon) { polygon.forEach(([x, y], index) => context[index ? 'lineTo' : 'moveTo'](handle.x + x, handle.y + y)); context.closePath(); }
     else context.arc(handle.x, handle.y, size, 0, Math.PI * 2);
     if (appearance.filled !== false) { context.fillStyle = appearance.background; context.fill(); } context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
-    context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
+    context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'triangle' ? .65 : handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y + (handle.shape === 'triangle' ? size * .2 : 0)); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (!appearance.symbols) { /* Outline-only rig controls. */ }
     else if (isPoseMaskSet(appearance.symbolSet)) drawPoseMask(context, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color);
