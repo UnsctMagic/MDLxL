@@ -89,7 +89,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     // Footman's Pelvis only repeats Body, so Select/Move/Rotate leave its handle out (f8ad08cc; Scale keeps it). Select it with the Object picker.
     const pelvis = (await handles('scale')).find(handle => handle.label === 'Pelvis');
     assert.ok(pelvis && !(await handles('select')).some(handle => handle.label === 'Pelvis'), 'duplicate Pelvis handle is folded into Body in Select');
-    await page.getByLabel('Movement bone or node').selectOption(String(pelvis.id)); await settle();
+    await page.getByLabel('Movement object').selectOption(String(pelvis.id)); await settle();
     await paint();
     assert.equal(await page.evaluate(() => poseProbe().props.poseConfig.target.id), pelvis.id);
     assert.equal(await page.locator('[data-node-overlay]').evaluate(el => el.getContext('2d').getTransform().isIdentity), true, 'drawing restores canvas transform');

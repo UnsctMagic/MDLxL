@@ -47,7 +47,7 @@ throw Error('Vertex runtime not ready');});
     await page.waitForFunction(()=>{try{return movementProbe().runtime.captureApi?.isReady;}catch{return false;}},{timeout:60000});
     const choice=await page.evaluate(()=>{const {props}=movementProbe();return{id:props.model.ParticleEmitters2.find(node=>/shockwaves|Billboard child emitter/i.test(node.Name))?.ObjectId,sequence:Math.max(0,props.model.Sequences.findIndex(s=>s.Name==='Spell'))};});assert.ok(Number.isInteger(choice.id));await page.evaluate(id=>window.billboardSubjectId=id,choice.id);
     await page.getByLabel('Movement current sequence').selectOption(String(choice.sequence));
-    await page.getByLabel('Movement bone or node').selectOption(String(choice.id));
+    await page.getByLabel('Movement object').selectOption(String(choice.id));
     await page.getByRole('group',{name:'Movement tool',exact:true}).getByRole('button',{name:'Move',exact:true}).click();
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
     await page.getByRole('button',{name:'Fit',exact:true}).click();
@@ -112,7 +112,7 @@ throw Error('Vertex runtime not ready');});
     near((await sample()).world,editorBefore.world,'returning to editing restores the same placement');
     assert.ok((await sample()).nativeFlags.every(flags=>!(flags&120)));checks.push('viewing billboards preserved; returning to editing restores placement');
 
-    await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByLabel('Bones controller').waitFor();await page.getByLabel('Movement bone or node').selectOption(String(choice.id));await page.getByRole('group',{name:'Bones tools',exact:true}).getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).check();await settle();
+    await page.getByRole('button',{name:'Bones',exact:true}).click();await page.getByLabel('Bones controller').waitFor();await page.getByLabel('Movement object').selectOption(String(choice.id));await page.getByRole('group',{name:'Bones tools',exact:true}).getByRole('button',{name:'Move',exact:true}).click();await page.getByLabel('Workplane Constraints',{exact:true}).check();await settle();
     for(const plane of ['xy','xz','yz'])await drag(plane);
     assert.equal(hash(fixture),originalHash,'input bytes unchanged');assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({fixture,originalHash,checks,measurements,errors},null,2));console.log(JSON.stringify({checks,measurements,errors}));

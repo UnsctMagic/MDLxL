@@ -28,7 +28,7 @@ let documentBefore;
 for(const [name,tab,select]of [['Movement','animation','Movement current sequence'],['Animations','animations','Choose animation sequence']]){
  await page.locator(`[data-hotkey="${tab}"]`).first().dispatchEvent('click');await page.getByLabel(select,{exact:true}).selectOption({label:'Walk'});
  await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
- if(name==='Movement')await page.getByLabel('Movement bone or node').selectOption('');
+ if(name==='Movement')await page.getByLabel('Movement object').selectOption('');
  const emitters=page.getByRole('checkbox',{name:'Emitters',exact:true});if(!await emitters.isChecked())await emitters.evaluate(e=>e.click());
  await play();await checkTrail(name+' Walk',true);
  if(!documentBefore)documentBefore=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');{ const state = findFiberState(host, state => state?.doc?.model&&state.assets); if (state) return JSON.stringify(state.doc.model); }throw Error('Editing document missing');});

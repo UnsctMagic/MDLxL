@@ -255,7 +255,7 @@ const { isDeepStrictEqual } = require('node:util');
       await time.fill('500'); await time.press('Enter'); await paint();
       assert.deepEqual(await snap(), before, 'camera, playback and pin changes do not edit native animation');
     }
-    await page.getByLabel('Movement bone or node').selectOption(''); await settle();
+    await page.getByLabel('Movement object').selectOption(''); await settle();
     const initial = await snap(), width = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     const details = page.locator('.movement-object-details');
     assert.equal(await details.evaluate(el => el.open), false);

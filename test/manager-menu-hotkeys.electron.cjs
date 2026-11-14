@@ -5,7 +5,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
 
 const managers = [
   ['Surface Effects', 'K'], ['Material Manager', 'M'], ['Texture Manager', 'T'],
-  ['Node Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
+  ['Object Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
   ['Sequence Manager', 'Q'], ['Texture Animation Manager', 'X'], ['Global Sequence Manager', 'L'],
 ];
 const fixture = fixturePath('citadel-footman');
@@ -108,14 +108,15 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
     await bar.getByRole('menuitem', { name: 'Settings', exact: true }).waitFor();
     await page.keyboard.press('F5');
     await page.getByRole('button', { name: 'Animations', exact: true, pressed: true }).waitFor();
-    const bones = page.locator('.quick-display [data-hotkey="display:bones"]');
-    await page.waitForFunction(() => document.querySelector('.quick-display [data-hotkey="display:bones"]')?.getAttribute('data-hotkey-shortcuts'));
-    const bonesKey = await bones.getAttribute('data-hotkey-shortcuts');
+    // Animations has Emitters, Events and Sounds only (approved object-display plan), so Emitters stands for the View shortcuts.
+    const emitters = page.locator('.quick-display [data-hotkey="display:particles"]');
+    await page.waitForFunction(() => document.querySelector('.quick-display [data-hotkey="display:particles"]')?.getAttribute('data-hotkey-shortcuts'));
+    const emittersKey = await emitters.getAttribute('data-hotkey-shortcuts');
     const menus = await nativeMenus(app);
-    assert.equal(menuItem(menus, 'View', 'Bones').accelerator, bonesKey, 'View shows the shortcut assigned to Quick Display Bones');
-    const bonesVisible = await bones.isChecked();
-    await page.keyboard.press(bonesKey);
-    assert.equal(await bones.isChecked(), !bonesVisible, 'the shortcut shown in View toggles Bones');
+    assert.equal(menuItem(menus, 'View', 'Emitters').accelerator, emittersKey, 'View shows the shortcut assigned to Quick Display Emitters');
+    const emittersVisible = await emitters.isChecked();
+    await page.keyboard.press(emittersKey);
+    assert.equal(await emitters.isChecked(), !emittersVisible, 'the shortcut shown in View toggles Emitters');
     assert.equal(menuItem(menus, 'Modules', 'Managers'), undefined);
     assert.deepEqual(menus.find(menu => menu.label === 'Managers').children.map(item => item.label), managers.map(([label]) => label + '…'));
     for (const [name, key] of managers) {

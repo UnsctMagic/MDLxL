@@ -81,9 +81,8 @@ return null;
         return count;
       };
       const seek=async frame=>{const input=page.getByLabel('Current animation frame',{exact:true});await input.fill(String(frame));await input.press('Enter');await wait(s=>s.frame===frame,'Paused decal frame');};
-      for(const mode of process.env.MDLXL_NODE_DECAL_PROOF==='before'?['Movement']:['Movement','Animations']){
+      for(const mode of ['Movement']){
       await page.getByRole('button',{name:mode,exact:true}).click();await wait(s=>s.ready,'Decal editor ready');await installDecalProbe();
-      if(mode==='Animations')await quick.getByLabel('Nodes',{exact:true}).check();
       for(const id of [ids.blood,ids.foot,ids.uber]){
         await seek(0);await page.evaluate(()=>window.testRuntime.eventPreview.cancelTests());
         await wait(s=>s.decals===0,'Before one-shot decal');
@@ -117,7 +116,7 @@ return null;
       const {PNG}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pngjs');
       await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
       await page.getByRole('button',{name:'Movement',exact:true}).click();await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Zoom proof ready');
-      for(const name of ['Emitters','Events','Sounds','Attachment','Focused Skeleton'])await quick.getByLabel(name,{exact:true}).check();
+      for(const name of ['Emitters','Events','Sounds','Attachments','Focused Skeleton'])await quick.getByLabel(name,{exact:true}).check();
       await page.getByRole('button',{name:'Fit',exact:true}).click();await settlePage(page, 120);
       const layout=()=>page.evaluate(ids=>{
         const state=window.testRuntime,camera=state.controls.object,rect=document.querySelector('[data-clean-model-canvas]').getBoundingClientRect(),vector=camera.position.clone();
@@ -150,18 +149,20 @@ return null;
       if(process.env.MDLXL_NODE_ZOOM_PROOF!=='before'){
         await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);for(let i=0;i<60&&(await layout()).modelHeight>130;i++){await page.mouse.wheel(0,70);await settlePage(page, 60);}const current=await layout(),p=current.nodes.particle;
         await page.mouse.click(p.x+8,p.y,{button:'right'});await wait(s=>s.pulse&&s.particles[0]>0,'Zoomed-out symbol remains clickable');await wait(s=>!s.pulse&&s.particles[0]===0,'Zoomed-out preview cleans up');
-        const sound=current.nodes.sound;await page.mouse.click(sound.x+8,sound.y);assert.equal(await page.getByLabel('Movement bone or node',{exact:true}).inputValue(),String(ids.sound),'Left click still selects the visible symbol');
+        const sound=current.nodes.sound;await page.mouse.click(sound.x+8,sound.y);assert.equal(await page.getByLabel('Movement object',{exact:true}).inputValue(),String(ids.sound),'Left click still selects the visible symbol');
       }
       assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false);assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
       const proof={passed:true,hidden:true,out,far:farProof,close:closeProof};await fs.writeFile(path.join(out,'zoom-proof.json'),JSON.stringify(proof,null,2));console.log(JSON.stringify(proof));return;
     }
-    assert.equal(await quick.getByLabel('Bones',{exact:true}).count(),1,'#525 View parity includes Bones in Vertices');for(const name of ['Nodes','Emitters','Attachment'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'#525 exposes '+name+' in Vertices');await absent(['Events','Sounds']);
+    // Approved object-display plan: one switch list (Bones, Attachments, Emitters, Events, Sounds, Lights, Collision), no Nodes;
+    // Vertex has Bones only and Animations shows the real effects, never symbols.
+    assert.equal(await quick.getByLabel('Bones',{exact:true}).count(),1,'Vertices keeps Bones');await absent(['Nodes','Attachment','Attachments','Emitters','Events','Sounds','Lights','Collision']);
     assert.equal(await page.locator('[data-node-overlay]').count(),0,'Vertices has no rig markers');
     await screenshot('vertices-default.png');
     await page.getByRole('button',{name:'Bones',exact:true}).click();
-    await wait(s=>s.ready,'Bones ready');assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1,'View parity retains Nodes');await absent(['Ribbons','Blood/Uber/Foot']);
+    await wait(s=>s.ready,'Bones ready');await absent(['Nodes']);for(const name of ['Attachments','Lights','Collision'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'shared switch '+name);await absent(['Ribbons','Blood/Uber/Foot']);
     for(const name of ['Emitters','Events','Sounds']){assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);await quick.getByLabel(name,{exact:true}).check();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),true);}
-    const objectTypes=page.getByRole('group',{name:'Visible object types',exact:true});await quick.getByLabel('Bones',{exact:true}).check();await objectTypes.getByLabel('Refs',{exact:true}).check();
+    const objectTypes=page.getByRole('group',{name:'Visible object types',exact:true});await quick.getByLabel('Bones',{exact:true}).check();await objectTypes.getByLabel('Attachments',{exact:true}).check();
     await wait(s=>s.nodes>0,'Bones symbols');await installDecalProbe();
     assert.deepEqual((await read()).particles,[0]);assert.deepEqual((await read()).ribbons,[0]);
     await screenshot('bones-symbols.png');const frame=(await read()).frame;
@@ -183,12 +184,12 @@ return null;
       await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Decal manual cycle draws');await screenshot('bones-decal-'+id+'.png');
       await wait(s=>!s.decal&&s.decals===0,'One visual decal cycle cleans up');assert.ok(Date.now()-started<1800,'Right-click does not leave a long-lived stain');await screenshot('bones-decal-clean-'+id+'.png');
     }
-    await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
+    await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Object Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
     // Reference visibility is shared across rig editors too; isolate effect symbols for the animation checks below.
-    await objectTypes.getByLabel('Refs',{exact:true}).uncheck();
+    await objectTypes.getByLabel('Attachments',{exact:true}).uncheck();
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
     await page.getByRole('button',{name:'Movement',exact:true}).click();
-    await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Movement ready');assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1,'View parity retains Nodes');await absent(['Ribbons','Blood/Uber/Foot']);
+    await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Movement ready');await absent(['Nodes']);for(const name of ['Attachments','Lights','Collision'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'shared switch '+name);await absent(['Ribbons','Blood/Uber/Foot']);
     assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),true);
     for(const name of ['Events','Sounds'])assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);
     await page.getByRole('button',{name:'Play',exact:true}).click();await wait(s=>s.frame>200&&s.particles[0]>0&&s.ribbons[0]>1,'Movement defaults play both emitter types');
@@ -198,18 +199,14 @@ return null;
     await quick.getByLabel('Events',{exact:true}).uncheck();await quick.getByLabel('Sounds',{exact:true}).uncheck();await wait(s=>s.decals===0&&s.audio.every(a=>a.paused),'Movement controls turn effects off');
     await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 180);await screenshot('movement-toggled-off.png');
     await page.getByRole('button',{name:'Animations',exact:true}).click();await wait(s=>s.ready,'Animations ready');
-    assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),false);
+    await absent(['Nodes','Bones','Skeleton','Focused Skeleton','Attachments','Lights','Collision']);
     for(const name of ['Emitters','Events','Sounds'])assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),true);
-    // Bones is shared by Bones, Movement and Animations (c85bedaf) and this test switched it on in Bones; hide it so only node symbols could draw the node overlay.
-    assert.equal(await quick.getByLabel('Bones',{exact:true}).isChecked(),true,'Bones carries over from the Bones editor');await quick.getByLabel('Bones',{exact:true}).uncheck();
-    await installDecalProbe();await page.getByRole('button',{name:'Play',exact:true}).click();await wait(s=>s.particles[0]>0&&s.ribbons[0]>1&&s.audio.length>audioBefore+2&&s.decals>0,'Animation defaults play all categories');assert.equal((await read()).nodes,0);await screenshot('animations-default.png');
-    await quick.getByLabel('Nodes',{exact:true}).check();await wait(s=>s.nodes>0,'Animations Nodes reveals enabled symbols');await screenshot('animations-symbols.png');
+    await installDecalProbe();await page.getByRole('button',{name:'Play',exact:true}).click();await wait(s=>s.particles[0]>0&&s.ribbons[0]>1&&s.audio.length>audioBefore+2&&s.decals>0,'Animation defaults play all categories');assert.equal((await read()).nodes,0,'Animations draws no symbols');await screenshot('animations-default.png');
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
-    await wait(s=>s.particles[0]===0&&s.ribbons[0]===0&&s.decals===0&&s.nodes===0&&s.audio.every(a=>a.paused),'Disabled categories hide effects and symbols while Nodes remains on');
-    await screenshot('animations-all-off.png');await quick.getByLabel('Sounds',{exact:true}).check();await wait(s=>s.nodes>0,'Sounds alone restores its symbols');
-    await quick.getByLabel('Nodes',{exact:true}).uncheck();await wait(s=>s.nodes===0,'Nodes off hides symbols without disabling Sounds');assert.equal(await quick.getByLabel('Sounds',{exact:true}).isChecked(),true);
+    await wait(s=>s.particles[0]===0&&s.ribbons[0]===0&&s.decals===0&&s.nodes===0&&s.audio.every(a=>a.paused),'Each switch hides the real effect');
+    await screenshot('animations-all-off.png');await quick.getByLabel('Sounds',{exact:true}).check();await settlePage(page, 200);assert.equal((await read()).nodes,0,'Sounds on shows no symbol');
     await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 180);await command('camera:rotate');const cameraBefore=(await read()).camera,canvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width*.6,canvas.y+canvas.height*.5,{steps:12});await page.mouse.up();await wait(s=>s.camera.some((v,i)=>Math.abs(v-cameraBefore[i])>1),'Actual mouse rotation');
-    await page.getByRole('button',{name:'Vertices',exact:true}).click();assert.equal(await quick.getByLabel('Bones',{exact:true}).count(),1,'#525 View parity includes Bones in Vertices');for(const name of ['Nodes','Emitters','Attachment'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'#525 exposes '+name+' in Vertices');await absent(['Events','Sounds']);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
+    await page.getByRole('button',{name:'Vertices',exact:true}).click();assert.equal(await quick.getByLabel('Bones',{exact:true}).count(),1,'Vertices keeps Bones');await absent(['Nodes','Attachment','Attachments','Emitters','Events','Sounds','Lights','Collision']);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
     await command('camera:work');
     assert.equal(await page.locator('.classic-sidebar [data-hotkey="Delete vertices"]').isDisabled(),true,'Vertices cannot delete the retained hidden rig selection');for(const input of await page.locator('.classic-coordinates input').all())assert.equal(await input.isDisabled(),true,'Vertex coordinates cannot move hidden rig selections');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1086,760));
@@ -218,13 +215,13 @@ return null;
     await screenshot('movement-narrow-controls.png');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
     const xlChecks=await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked()));await read();await page.evaluate(()=>window.testVISNative=window.testRuntime.native);
-    await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();for(const name of ['Events','Sounds'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'VIS retains '+name);assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1);assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),false);
-    const nativeView=await app.evaluate(async({Menu})=>{const end=Date.now()+5000;let labels;do{labels=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label);if(labels.includes('Nodes')&&labels.includes('Events')&&labels.includes('Sounds'))return labels;await new Promise(resolve=>setTimeout(resolve,20));}while(Date.now()<end);return labels;});assert.ok(nativeView.includes('Nodes'));assert.ok(nativeView.includes('Events')&&nativeView.includes('Sounds'),'#525 keeps native View parity in VIS');
-    await app.evaluate(({Menu})=>{const view=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu;for(const label of ['Bones','Attachment']){const item=view.items.find(item=>item.label===label);if(!item)throw Error('Missing View '+label);if(!item.checked)item.click();}});await quick.getByLabel('Nodes',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
+    await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();for(const name of ['Events','Sounds','Lights','Collision'])assert.equal(await quick.getByLabel(name,{exact:true}).count(),1,'VIS has '+name);await absent(['Nodes']);assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),false);
+    const nativeView=await app.evaluate(async({Menu})=>{const end=Date.now()+5000;let labels;do{labels=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label);if(labels.includes('Lights')&&labels.includes('Events')&&labels.includes('Sounds'))return labels;await new Promise(resolve=>setTimeout(resolve,20));}while(Date.now()<end);return labels;});assert.ok(!nativeView.includes('Nodes'));assert.ok(nativeView.includes('Lights')&&nativeView.includes('Events')&&nativeView.includes('Sounds'),'native View parity in VIS');
+    await app.evaluate(({Menu})=>{const view=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu;for(const label of ['Bones','Attachments']){const item=view.items.find(item=>item.label===label);if(!item)throw Error('Missing View '+label);if(!item.checked)item.click();}});await quick.getByLabel('Lights',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
     await clickNode(ids.particle);await settlePage(page, 650);assert.equal((await read()).pulse,false,'VIS right click retains original camera behavior');assert.deepEqual((await read()).particles,[0]);
     const visCameraBefore=(await read()).camera,visCanvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(visCanvas.x+visCanvas.width*.8,visCanvas.y+visCanvas.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(visCanvas.x+visCanvas.width*.68,visCanvas.y+visCanvas.height*.52,{steps:12});await page.mouse.up({button:'right'});await wait(s=>s.camera.some((v,i)=>Math.abs(v-visCameraBefore[i])>1),'VIS normal mouse rotation');
-    await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1,'XL retains Nodes');assert.deepEqual(await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked())),xlChecks,'XL category choices are restored');await read();assert.equal(await page.evaluate(()=>window.testRuntime.native===window.testVISNative),true,'VIS toggle preserves the live model and timeline');
-    await page.locator('.vis-toggle').click();assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),true,'VIS choices are retained separately');await page.locator('.vis-toggle').click();
+    await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();await absent(['Nodes']);assert.deepEqual(await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked())),xlChecks,'XL category choices are restored');await read();assert.equal(await page.evaluate(()=>window.testRuntime.native===window.testVISNative),true,'VIS toggle preserves the live model and timeline');
+    await page.locator('.vis-toggle').click();assert.equal(await quick.getByLabel('Lights',{exact:true}).isChecked(),true,'VIS choices are retained separately');await page.locator('.vis-toggle').click();
     assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false,'All desktop verification stays hidden');assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
     console.log(JSON.stringify({passed:true,packaged,executablePath,out,ids,fixtureSha256:createHash('sha256').update(bytes).digest('hex')}));
   }catch(error){if(page){await screenshot('failure.png').catch(()=>{});console.error((await page.locator('body').innerText()).slice(-1800));}throw error;}

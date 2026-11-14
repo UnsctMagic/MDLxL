@@ -81,7 +81,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     const copied = await snap();
     await canvas.focus(); await page.keyboard.press('Control+c'); await settle();
     assert.deepEqual(await snap(), copied, 'copy adds no history');
-    await seek(700); await page.getByLabel('Movement bone or node').selectOption(String(config.body)); await tool('Scale');
+    await seek(700); await page.getByLabel('Movement object').selectOption(String(config.body)); await tool('Scale');
     const controller = page.locator('details.sidebar-section').filter({ has: page.getByLabel('Controller type', { exact: true }) });
     if (!await controller.evaluate(element => element.open)) await controller.locator('summary').click();
     await page.getByRole('checkbox', { name: 'Highlight KF', exact: true }).check();

@@ -28,7 +28,7 @@ const assert = require('node:assert/strict');
     page.on('pageerror', error => { throw error; });
 
     await page.locator('[data-hotkey="animation"]').click();
-    await page.getByLabel('Movement bone or node').selectOption(String(shoulderId));
+    await page.getByLabel('Movement object').selectOption(String(shoulderId));
     await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Rotate', exact: true }).click();
     await page.getByLabel('Highlight KF').check();
     assert.deepEqual(await markerFrames(page), [200]);
@@ -46,7 +46,7 @@ const assert = require('node:assert/strict');
     // Focused Skeleton shows the selected bone's chain with Bones off; a real
     // click on the next bone in that chain must select it.
     await focused.check();
-    const picker = page.getByLabel('Movement bone or node'), bones = page.locator('input[data-hotkey="display:bones"]').first();
+    const picker = page.getByLabel('Movement object'), bones = page.locator('input[data-hotkey="display:bones"]').first();
     if (await bones.isChecked()) await bones.uncheck();
     await page.locator('[data-hotkey="select"]').click();
     await picker.selectOption(String(shoulderId)); await settlePage(page, 300);

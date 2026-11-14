@@ -98,7 +98,7 @@ const assert = require('node:assert/strict');
     await menu('bones'); await page.locator('.movement-controller').waitFor(); assert.equal(await page.locator('.movement-sequence').count(), 0);
     checks.push({ check: 'Animations Create and rest-pose exclusion' });
     await menu('animation'); await page.locator('.movement-controller').waitFor();
-    await page.getByLabel('Movement bone or node', { exact: true }).selectOption('');
+    await page.getByLabel('Movement object', { exact: true }).selectOption('');
     await menu('particles'); await page.getByLabel('Particle context', { exact: true }).waitFor();
     assert.equal(await page.getByLabel('Particle context', { exact: true }).inputValue(), 'On model');
     assert.equal(await page.getByLabel('Effect ingredient', { exact: true }).inputValue(), String(initial.ribbons[0]));

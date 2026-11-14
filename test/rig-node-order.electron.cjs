@@ -22,7 +22,7 @@ const path = require('node:path');
   try {
 
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
-    const picker = page.getByLabel('Movement bone or node'); await picker.waitFor();
+    const picker = page.getByLabel('Movement object'); await picker.waitFor();
     const organized = await picker.evaluate(element => ({
       groups: [...element.querySelectorAll('optgroup')].map(group => group.label),
       boneNames: [...element.querySelectorAll('optgroup[label="Bones"] option')].map(option => option.textContent.trim()),

@@ -94,7 +94,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     async function selectHandle(kind,id) {
       await tool('Select');
       // A Pelvis that only repeats Body has no Select handle (f8ad08cc); the Object picker still selects it and keeps its handle.
-      if(kind==='node'&&!(await handles()).some(handle=>!handle.marker&&handle.kind==='node'&&handle.id===id)){await page.getByLabel('Movement bone or node').selectOption(String(id));await settle();if(isTarget(await targetNow(),kind,{id}))return;}
+      if(kind==='node'&&!(await handles()).some(handle=>!handle.marker&&handle.kind==='node'&&handle.id===id)){await page.getByLabel('Movement object').selectOption(String(id));await settle();if(isTarget(await targetNow(),kind,{id}))return;}
       const h=await handleFor(kind,id),b=await viewportBox();
       const visited=[];
       for(let i=0;i<45;i++) { visited.push(await targetNow()); if(isTarget(await targetNow(),kind,h))return; await page.mouse.click(b.x+h.x,b.y+h.y);await settle(); }

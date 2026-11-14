@@ -120,7 +120,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
       if(!pose){await page.getByRole('button',{name:'POSE',exact:true}).click();
         // Pivot crosses paint over the shafts on this Footman. Expose the handle being measured.
         await page.locator('input[data-hotkey="display:focusedSkeleton"]').uncheck();
-        await page.getByLabel('Movement bone or node').selectOption(String(config.body));await tool('Move');await settle();}
+        await page.getByLabel('Movement object').selectOption(String(config.body));await tool('Move');await settle();}
       for(const axis of ['X','Y','Z'])for(const part of ['shaft start','shaft middle','tip']){
         const a=(await gizmo(pose)).handles.find(h=>h.axis===axis),length=Math.hypot(a.dx,a.dy),pixels=part==='tip'?length:part==='shaft start'?26:(20+length)/2;
         await checkedDrag(pose,axis+' '+part,{x:a.startX+a.dx/length*pixels,y:a.startY+a.dy/length*pixels},a.dx/length*4,a.dy/length*4,[{X:0,Y:1,Z:2}[axis]]);
