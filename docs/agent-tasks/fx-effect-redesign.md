@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1, 2, 8, 9, 10, 11 and the Eye glow removal saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1, 2, 6, 8, 9, 10, 11, Fel fire and the Eye glow removal saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -222,10 +222,12 @@ Done:
 - **9. Glacial fissures** is a variation of Frost (`frost-blade`, id `fissures`: the same two layers plus Falling mist). The `glacial` look left `LIBRARY`; a model saved with it still opens.
 - **10. Crystal** is one look (`fx-lit-crystal`, shown as Crystal): Inner light, Team colour core, Sparkling facets, Crystal veins. `crystal-veins` left `LIBRARY`.
 - **11. Tide etching** (`sort-tide`) and **13. Eye glow** (`fx-eye-glow`) left `LIBRARY`. Saved stacks still open.
+- **5. Fel fire** (`5dd58bf0`). Fel fire's variations are made from Fire's recipes in fel colours (the block after the tidal one in `src/global-animation-looks.js`): red and green change places, `Red_Glow3`, `Clouds8x8Fire`, `Clouds8x8ModFire` and `LavaLump` become `Green_Glow3`, `Clouds8x8`, `Clouds8x8Mod` and `GenericGlow64`, the surface is Fel fire's own. Variations: Fel flames (unchanged), Fel licks, Enveloping fel flames, Fel surge (now Fireball in fel: body, core, glow, spat embers, falling sparks on `gather:'engulf'`), Fel sparks (unchanged), Fel column. The old Fel surge recipe (the head source the owner rejected as Fireball) left `src/claude-fx-looks.js`; layers saved with it compile as before. Any later change to a Fire variation reaches Fel fire by itself.
+- **6. Fire column** is a variation of Fire (id `column`) and of Fel fire (`fel-column`); `fx-fire-column` left `LIBRARY`. It is seated like Fireball (`gather:'engulf'`): a blended Fire body, the additive column on `Clouds8x8Fire`, embers. New recipe flag `capMotion` (fresh layers, `nativeParticles`): launch speed and lift follow the capped sprite, so the column climbs about 3.5 flame widths on a sword, a claw, a compact piece and a body alike (`true`: the layer's own cap; a number: that cap, for embers rising with the flame).
 
 Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: items 5 and 6: Fire's variations in fel colours for Fel fire, Fire column as a variation of both (`src/global-animation-looks.js`, after the tidal block).
+Exact next step: item 5, second half: the other Fire-folder looks (Burning cracks, Fissures, Magma flow, Forge heat, Rising embers) and item 7, Molten lava.
 
 What the owner should look at:
 
@@ -233,6 +235,8 @@ What the owner should look at:
 - Lightning > Tip discharge > select Tip glow > Position & size > Select emitter by group > click the emitter marker at the tip: the heading reads "Tip glow 1 +3". Drag the move handle: glow, crackle, discharge and sparks move together.
 - Ice > Frost > Variation > Glacial fissures. Ice > Crystal > Variation > Crystal veins; Inner light and Team colour core on a crystal or any hard-edged part: no tearing.
 - Water has no Tide etching; Light has no Eye glow.
+- Fire > Fel fire > Variation: Fel licks, Enveloping fel flames, Fel surge (a green fireball: on the sword a ball around the outer blade, on the claw fire along it, on the body around the head), Fel column.
+- Fire > Fire > Variation > Fire column, and Fel column: fire seated in the part and rising from it as a column, embers above it. Fire's other variations are unchanged.
 
 ## Rules carried over
 
