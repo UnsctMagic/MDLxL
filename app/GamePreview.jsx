@@ -369,7 +369,7 @@ export default function GamePreview(inputProps) {
     }
     catch (cause) { setError(`Warcraft preview could not load this model: ${cause.message}`); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas); backgroundCanvas.remove(); return; }
     let collisionReportKey = '';
-    let particleRandom=seededParticleRandom(),particleReportAt=0,particleStatusKey='',particleReportKey='';
+    let particleRandom=seededParticleRandom(),particleReportAt=0,particleStatusKey='',particleReportKey='',particleReportMarks;
     const particleAuthor=latest.current.particleAuthoring?new ParticleAuthoringPreview(native):null;
     const nativeBackground = createGLPreviewBackground(gl);
     const presentation = createPreviewSceneGL(gl, invalidate);
@@ -1491,7 +1491,7 @@ export default function GamePreview(inputProps) {
             // A paused view may draw only once after a seek, edit or camera change.
             // Publish that pose immediately; playback still uses the normal report rate.
             const reportKey=p.playing?'':[native.getFrame(),p.particleSelectedId,p.particleLiveRevision,particleStatusKey,canvas.width,canvas.height,...displayCamera.matrixWorldInverse.elements,...displayCamera.projectionMatrix.elements].join(':');
-            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
+            if(now-particleReportAt>60||reportKey!==particleReportKey||p.particleStageMarks!==particleReportMarks){particleReportAt=now;particleReportKey=reportKey;particleReportMarks=p.particleStageMarks;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
           }
         }
         finally { gl.colorMask(true, true, true, true); }
@@ -1869,8 +1869,8 @@ export default function GamePreview(inputProps) {
   // Context/recipe replacement rebuilds in the passive effect above. Do not apply
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
-  // Redraw when AnimXL's motion arcs change, even while paused.
-  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths]);
+  // Redraw changed motion arcs or stage handles even while paused.
+  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths,props.particleStageMarks]);
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);
