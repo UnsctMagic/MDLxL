@@ -365,6 +365,7 @@ The window opens on the first geoset. A look picked there and then taken to anot
 - **Glow orb** (`3438d000`): a weapon carries it at its far end (`gather:'orb'`); the grey ball picture in the layer's colour, glow, white heart, rings, wisps. New variation Radiance.
 - **Team fire** (same commit, Team colour folder): Fire's variations drawn with the team glow, white-hot flame shapes inside. **Team tattoo**: Team colour > Tattoo bands, Tattoo marks, Tattoo spots. A drawn design in the player's colour is not possible: the colour exists only as a flat colour and a round glow, and the game cannot cut one picture out of another. **Void form** after the Void walker.
 - **Team energy and Team fog** (Team colour folder; the owner's later request). What the game can draw in the player's colour: the flat team colour and the round team glow, on a surface, a ribbon, a card, or as an emitter's sprite. An emitter's colour stages cannot take the player's colour. So Lightning's recipes (Team arcs, Team discharge, Team storm) and Plague cloud's (Team fog, Sinking team fog, Team fog breath) are drawn with the team glow as every layer's sprite, white-hot bolts inside. A team fog is a fog of light: the team glow has no alpha to make a dark cloud of. Compiled only, not captured.
+- **Movable tattoos** (the owner on build 10: "tattoo spots needs to be movable - it doesnt work if it only picks 1 area (maybe also different tattoos)"). Tattoo spots is now three emitters of the team glow held still on the skin (`gather:'spots'`, `spotSites`): select Team spots, Position & size, click a marker, drag it or Snap to surface; Emitters adds or removes spots. Tattoo sigil, Tattoo eye and Tattoo fork add a native rune picture in white light over each spot (a rune ringed by the player's colour; a design in the player's colour itself is not possible). With Select emitter by group the spot and its rune move together. Compiled only, not captured.
 - **Fixes** (the commit with this note): non-finite keys of a skin attachment under a bone scaled to nothing (Chikichiki geoset 8) keep the last real place; the Thunderclap and cinematic lightning pictures are read from their catalogued paths.
 
 ### Checks
@@ -389,7 +390,7 @@ Still open from the review: effects on very thin staffs (Souls, Rune circle and 
 ### Not done (in the order to do them)
 
 1. Capture the looks fixed above again and have them reviewed (`out\fx-look\pass8-a-plan.json`, `pass8-b-plan.json`, `run.ps1`).
-2. Translations are done (`250e06e8`). `test/localization-catalogs.test.js` needs its key counts updated (ru 8403, es 8413, zh 8309, fr 8539, de 8539); its French and German key-order failure is older.
+2. Translations are done (`250e06e8`). `test/localization-catalogs.test.js` needs its key counts updated (ru 8406, es 8416, zh 8312, fr 8542, de 8542); its French and German key-order failure is older.
 3. Test expectations for everything above, plus a source test of the blend rule in `blend.mjs` (Sonnet).
 4. Animation sequences (brief B): show a layer only in chosen animations, set in the window. Not started. Plan: a layer field `sequences`; after a layer compiles, its emitters' and ribbons' Visibility and its geosets' alpha get stepped keys per sequence.
 5. Lightning pass from MM20 Stormforger and the BlueRed Lightning Missile reference (also to be added to the credits): not started. Lightning, Crackling arcs and Lightning cage only gain additions.
@@ -413,7 +414,7 @@ Exact next step: item 1, then 3.
 - **Arcane > Runes > Rune swarm**.
 - **Ice > Crystal > Crystal growth** and Team crystals; Ice > Frost > Ice spikes; Fire > Lava > Ember crystals; Poison & nature > Vines > Leaf cover. Select the layer: Count, Size, Length, Spread, Variety, Glow, Shuffle.
 - **Team colour > Team energy** (Team arcs, Team discharge, Team storm) and **Team colour > Team fog** (three variations).
-- **Team colour > Team fire** (six variations); Team colour > Team colour > Tattoo bands, Tattoo marks, Tattoo spots, Void form; Team swirl > Team twirl.
+- **Team colour > Team fire** (six variations); Team colour > Team colour > Tattoo bands, Tattoo marks, Void form; **Tattoo spots, Tattoo sigil, Tattoo eye, Tattoo fork**: select Team spots > Position & size > click a marker > drag or Snap to surface, Emitters for more spots; Team swirl > Team twirl.
 
 ## Rules carried over
 

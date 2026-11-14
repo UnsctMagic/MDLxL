@@ -72,6 +72,12 @@ const teamMotes=(extra={})=>teamSpray('Team motes',
 // A soul (SoulArmor): the ghost ribbon, blended, its width a third of the ring on each side.
 const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.07,orbitTilt:12,filter:3,strength:1,smoothness:40,...extra});
 const SELECTION='UI\\Feedback\\TargetPreSelected\\SelectionCircleUnit.blp';
+const tattooSpot=()=>teamSpray('Team spots',
+ {life:1.6,rate:3.75,size:[1,1,1],alpha:[0,230,0]},
+ {gather:'spots',spots:3,widthCap:1.1,native:{Time:.5,Flags:EMITTER_CARRIED}});
+const tattooRune=(label,name)=>spray(label,tex(name),[1,1,1],
+ {life:1.6,rate:3.75,size:[.7,.7,.7],alpha:[0,255,0]},
+ {starts:true,gather:'spots',spots:3,widthCap:.8,loop:2133,native:{Time:.5,Flags:EMITTER_CARRIED,SegmentColor:[[1,1,1],[1,1,1],[1,1,1]]}});
 export const TECHNIQUE_LOOKS=[
  vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
   {id:'shell',name:'Glow shell',layers:[
@@ -112,9 +118,15 @@ export const TECHNIQUE_LOOKS=[
   {id:'marks',name:'Tattoo marks',layers:[
    glow('Team marks',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',axis:'v',band:.02,tiling:4,direction:24,strength:2.5,tint:[1,1,1]}),
   ]},
-  {id:'spots',name:'Tattoo spots',layers:[
-   glow('Team spots',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',bodyUV:true,tiling:3,strength:2.5,tint:[1,1,1]}),
-  ]},
+  // Movable tattoos (owner, 14 November: "tattoo spots needs to be movable ... maybe also different tattoos"). A spot is
+  // the team glow held still on the skin: an emitter with two particles alive, one fading in as the other fades out, so
+  // its light is steady. Being an emitter, each spot has a marker: select Team spots, Position & size, click a marker,
+  // drag it or Snap to surface; Emitters adds spots. A design cannot be drawn in the player's colour (see above), so the
+  // designs are native rune pictures in white light over the team spot: a rune ringed by the player's colour.
+  {id:'spots',name:'Tattoo spots',layers:[tattooSpot()]},
+  {id:'sigil',name:'Tattoo sigil',layers:[tattooSpot(),tattooRune('Tattoo sigil','DemonRune2')]},
+  {id:'eye',name:'Tattoo eye',layers:[tattooSpot(),tattooRune('Tattoo eye','DemonRune3')]},
+  {id:'fork',name:'Tattoo fork',layers:[tattooSpot(),tattooRune('Tattoo fork','DemonRune5')]},
   // Void form (pass 8, the owner's Void walker): a body of the player's colour under a dark shade that leaves the colour
   // showing, and the player's glow boiling off it in every direction.
   {id:'void',name:'Void form',layers:[

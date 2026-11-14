@@ -347,6 +347,7 @@ function defaultSurfaceSites(c,layer){
  if(strikes(layer)&&!layer.siteLayout)return strikeEmitterSites(c,layer);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
  if(layer.gather==='orb'&&!layer.siteLayout)return orbSites(c);
+ if(layer.gather==='spots'&&!layer.siteLayout)return spotSites(c,layer);
  if(layer.gather==='mouth'&&!layer.siteLayout)return mouthEmitterSites(c);
  if(layer.birthRegion&&!layer.siteLayout)return layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
@@ -618,6 +619,18 @@ function orbSites(c){
  const body=c.frame.regions?.length>SHARED_REGIONS;
  return strikeEmitterSites(c,{gather:'engulf-core'})?.map(({birth:_birth,...site})=>({...site,point:[site.point[0],site.point[1],site.point[2]+site.componentWidth*(body?2:1.3)]}))||null;
 }
+// gather:'spots' (fresh recipes; owner, 14 November: "tattoo spots needs to be movable ... it doesnt work if it only
+// picks 1 area"): a few places on the part's surface (spots: how many), the same for every layer of the look that asks.
+// Each is an emitter bound to the skin under it: it can be selected, moved, snapped to the surface, deleted, and the
+// Emitters slider adds more.
+function spotSites(c,layer){
+ const count=Math.max(1,Math.min(16,Math.round(layer.spots??3))),key='emitter-spots|'+c.surfaceKey+'|'+count;
+ if(c.attachmentCache.has(key))return c.attachmentCache.get(key);
+ const samples=suggestEmitterSites(emitterSurface(c),{siteCount:count,footprint:Math.max(1,c.frame.length*.12),liveParticles:4*count},c.frame.unitHeight);
+ const sites=attachEmitterSites(c,samples.map((sample,index)=>({...sample,key:'spot'+index})),false,true),result=sites.length?sites:null;
+ c.attachmentCache.set(key,result);
+ return result;
+}
 function tipEmitterSites(c){
  const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
  const key='emitter-tip|'+surfaceKey;
@@ -701,7 +714,7 @@ function completeEmitterSiteLayout(c,layer){
  let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
  if(layer.gather&&layout.some(site=>!site.point)){
-  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):layer.gather==='mouth'?mouthEmitterSites(c):layer.gather==='orb'?orbSites(c):tipEmitterSites(c))||[];
+  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):layer.gather==='mouth'?mouthEmitterSites(c):layer.gather==='orb'?orbSites(c):layer.gather==='spots'?spotSites(c,layer):tipEmitterSites(c))||[];
   layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
  }
  const missing=layout.filter(site=>!site.point);
