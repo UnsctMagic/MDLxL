@@ -1,6 +1,6 @@
 # Objects: one set of words in every editor (plan)
 
-Status: awaiting approval (plan only, nothing built). 14 Nov 2026.
+Status: approved by the owner 14 Nov 2026 ("Yes, build it"), with all three recommended answers: Object Manager rename; keep Movement "Visible" tick for lights and attachments only; remove Bones/Skeleton/Focused Skeleton switches from Animations.
 
 ## 1. The words
 
