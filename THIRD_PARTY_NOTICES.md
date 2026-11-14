@@ -177,3 +177,4 @@ Particle, ribbon and texture-animation settings of these Hiveworkshop.com models
 - **Shalamayne**, Vinz — [Hive](https://www.hiveworkshop.com/threads/shalamayne.310385/)
 - **SoulArmor**, JesusHipster — [Hive](https://www.hiveworkshop.com/threads/soularmor.228928/)
 - **Vengeful Spirit**, Rhapsodie — [Hive](https://www.hiveworkshop.com/threads/vengeful-spirit.340617/)
+- **Blue/Red Lightning Missile**, Judash137 (submitted by Khil) — [Hive](https://www.hiveworkshop.com/threads/blue-red-lightning-missile.363869/)
