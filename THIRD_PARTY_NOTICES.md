@@ -134,3 +134,31 @@ Mordor mode uses the unmodified **Tengwar Annatar 1.20** type family by Johan Wi
 ## Showcase typefaces
 
 Cinzel Decorative, MedievalSharp, Uncial Antiqua, Pirata One, Almendra, IM Fell English, Lato, Lora, Open Sans, Orbitron, Oxanium, Rajdhani, Cormorant SC, Grenze Gotisch, and Marcellus are bundled unmodified from the Google Fonts repository under the SIL Open Font License 1.1. Each family includes its original copyright and license in public/fonts/showcase/<family>/OFL.txt, copied into dist/fonts/showcase/. Font file provenance is in public/fonts/showcase/README.md. Marcellus by Brian J. Bonislawsky / Astigmatic replaces the previously bundled proprietary Friz Quadrata TT font; Friz Quadrata's font file is no longer distributed.
+
+## FX reference models
+
+Particle, ribbon and texture-animation settings of these Hiveworkshop.com models were studied to tune MDLxL's FX effects. No model data is copied into MDLxL. Each author's page allows use with credit.
+
+- **ChaosCitadel**, HappyTauren — [Hive](https://www.hiveworkshop.com/threads/chaoscitadel.95534/)
+- **DragonBlade**, HappyTauren — [Hive](https://www.hiveworkshop.com/resources/dragonblade.27491/)
+- **Deadeye**, Tarrasque — [Hive](https://www.hiveworkshop.com/threads/deadeye.113615/)
+- **Demon Knight**, Tarrasque — [Hive](https://www.hiveworkshop.com/threads/demon-knight.203952/)
+- **Lord of Darkness**, Tarrasque — [Hive](https://www.hiveworkshop.com/threads/lord-of-darkness.204071/)
+- **Lightning Elemental**, Tarrasque (fix by General Frank) — [Hive](https://www.hiveworkshop.com/threads/lightning-elemental.99584/)
+- **Dragonbone Golem (variative)**, Villagerino — [Hive](https://www.hiveworkshop.com/threads/dragonbone-golem-variative.335016/)
+- **Wight & Spell Models**, Villagerino — [Hive](https://www.hiveworkshop.com/threads/wight-spell-models.341155/)
+- **Elite Satyr**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/elite-satyr.372907/)
+- **Infernal**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/infernal.300019/)
+- **Inquisitor**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/inquisitor.292820/)
+- **Jailer**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/jailer.290533/)
+- **Lord Archimonde**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/lord-archimonde.293033/)
+- **Mo'arg Overlord**, FerSZ and Murlocologist — [Hive](https://www.hiveworkshop.com/threads/moarg-overlord.295043/)
+- **Sargeras, the great one**, FerSZ — [Hive](https://www.hiveworkshop.com/threads/sargeras-the-great-one.307294/)
+- **InfernalWheeledWarrior**, Freddyk — [Hive](https://www.hiveworkshop.com/threads/infernalwheeledwarrior.241077/)
+- **WaterElemental**, alfredx_sotn — [Hive](https://www.hiveworkshop.com/threads/waterelemental.47544/)
+- **Lightning Shell**, OVOgenez — [Hive](https://www.hiveworkshop.com/threads/lightning-shell.363465/)
+- **MM20 Stormforger**, Murlocologist and Vinz — [Hive](https://www.hiveworkshop.com/threads/mm20-stormforger.324968/)
+- **Blade of the Abyssal Serpent**, Vinz — [Hive](https://www.hiveworkshop.com/threads/blade-of-the-abyssal-serpent.259597/)
+- **Eldritch Covenant**, Vinz — [Hive](https://www.hiveworkshop.com/threads/eldritch-covenant.328093/)
+- **Elemental Lord**, frostwhisper — [Hive](https://www.hiveworkshop.com/threads/elemental-lord.335587/)
+- **Fire Sword**, Sunchips — [Hive](https://www.hiveworkshop.com/threads/fire-sword-by-sunchips.170997/)
