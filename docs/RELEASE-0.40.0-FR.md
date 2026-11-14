@@ -11,6 +11,7 @@
 - **BITZ :** **Gérer** les fichiers et dossiers Bitz. **Remplacer une pièce** ouvre la vue quad avec RVB, **Annuler** et **Appliquer**.
 - **Menus :** l’onglet des gestionnaires passe dans le menu **Gestionnaires** en haut. Les menus affichent les raccourcis ; Alt+K ouvre **Effets de surface**.
 - **Sons :** cinq sons du jeu déplacés sont de nouveau lus. Les sons sans fichier dans le jeu sont marqués **Aucun fichier son dans le jeu**.
+- **Gestionnaire de nœuds :** **Nouveau** parcourt les sons, éclaboussures et objets générés du jeu ; **Ajouter un événement** en ajoute un.
 - **Vue :** **Guides d’axes** dans Sommets, Os, Mouvement et Animations. **Ensemble compact** remplit aussi par rangées dans Mouvement et Os.
 - **Zones ShareX** (Réglages > Capture) permet à ShareX de capturer seulement la vue ou la boîte à outils.
 - **Console IA :** les erreurs déjà présentes dans le modèle sont des avertissements ; les nouvelles bloquent toujours.

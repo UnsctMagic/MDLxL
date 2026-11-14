@@ -3,7 +3,7 @@
 Status: waiting for FX (owner, 12 Nov). Candidate prepared and tested locally; not tagged, not
 published. Full packaged suite done on the candidate; core variants and click sweep not run.
 Owner / consolidator: Claude Code (release handoff session local_2ef9913b-787a-4168-8396-bd0317361c61)
-Updated: 2026-11-12
+Updated: 2026-11-14
 
 ## Goal and completion criteria
 
@@ -57,6 +57,14 @@ Main CI green after each merge.
 - After the pause: main 19481b44 (#640) and `claude/camera-idle-frames` merged in;
   c917464b updates six packaged tests to 0.40.0's intended changes; 6de68df1 updates
   pose-console to the three remaining handle shapes. HEAD after these: 978d36bc.
+- 14 Nov (prep without FX, owner): main 40a37825 (#641 Node Manager New browses native
+  events) merged in; its six untranslated texts (Add event, Loading event data…, No entries in
+  the configured game files., Add nodes, Add event object, Add light) translated in all five
+  catalogs (sizes now [7962, 7972, 7867, 8095, 8095]); Node Manager line in the six notes.
+  Release body 4,093 of 4,096 characters (English wording tightened): **the FX text must fit
+  by rewriting the existing FX line or trimming elsewhere**; `node scripts/release-material.mjs
+  0.40.0 D:\Claude\MDLxL-gate\release-0.40.0-material` checks it. No packaging or packaged
+  tests run (owner: compute waits for FX). The guides have no Node Manager page.
 - New Features guides rebuilt on the current UI, 7 pages in six languages (Animated,
   UV Preview RGB / Hide extras, Review detected glow, Call Upon Forge, right-click menus and
   Managers, BITZ Manage / Replace Part, Bone Namer). Generator:

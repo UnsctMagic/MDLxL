@@ -11,6 +11,7 @@
 - **BITZ:** **Verwalten** von Bitz-Dateien und -Ordnern. **Teil ersetzen** öffnet die Vierfachansicht mit RGB, **Abbrechen** und **Anwenden**.
 - **Menüs:** Der Verwaltungs-Reiter ist ins obere Menü **Verwaltung** gewandert. Menüs zeigen Tastenkürzel; Alt+K öffnet **Oberflächeneffekte**.
 - **Klänge:** Fünf verschobene Spielklänge werden wieder abgespielt. Klänge ohne Datei im Spiel sind mit **Keine Klangdatei im Spiel** markiert.
+- **Knotenverwaltung:** **Neu** zeigt Klänge, Spritzer und erzeugte Objekte des Spiels; **Ereignis hinzufügen** fügt eins hinzu.
 - **Ansicht:** **Achsenhilfen** in Scheitelpunkte, Knochen, Bewegung und Animationen. **Kompaktes Set** füllt auch in Bewegung und Knochen zeilenweise.
 - **ShareX-Bereiche** (Einstellungen > Aufnahme) lässt ShareX nur die Ansicht oder den Werkzeugkasten aufnehmen.
 - **KI-Konsole:** Fehler, die schon im Modell waren, sind Warnungen; neue Fehler blockieren weiterhin.

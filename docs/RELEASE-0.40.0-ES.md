@@ -11,6 +11,7 @@
 - **BITZ:** **Gestionar** los archivos y carpetas de Bitz. **Reemplazar pieza** abre la vista cuádruple con RGB, **Cancelar** y **Confirmar**.
 - **Menús:** la pestaña de gestores pasó al menú superior **Gestores**. Los menús muestran los atajos; Alt+K abre **Efectos de superficie**.
 - **Sonidos:** cinco sonidos del juego que cambiaron de carpeta ya se reproducen. Los sonidos sin archivo en el juego llevan la marca **No hay archivo de sonido en el juego**.
+- **Gestor de nodos:** **Nuevo** explora sonidos, salpicaduras y objetos del juego; **Añadir evento** añade uno.
 - **Ver:** **Guías de ejes** en Vértices, Huesos, Movimiento y Animaciones. **Conjunto compacto** rellena por filas también en Movimiento y Huesos.
 - **Regiones de ShareX** (Ajustes > Captura) permite a ShareX capturar solo la vista o la caja de herramientas.
 - **Consola de IA:** los errores que ya tenía el modelo son avisos; los nuevos siguen bloqueando.
