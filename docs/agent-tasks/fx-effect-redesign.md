@@ -423,3 +423,37 @@ Native Blizzard art or the model's own parts only; no new panels; Variation drop
 ## Owner feedback on build 11 (14 Nov 2026), for the next round
 - Arcane > Rune circle on geoset 6 (the body): "this one is still bad (and it can be made great)". It shows as a green swirl smeared over the whole model. Screenshot: `C:\Users\PC\AppData\Local\Temp\claude\fba83512f5bcebb1\07e4512f-a910-41a5-b42c-01d4422cfa10\images\1.png`.
 - "also where are floating runes from the rune i gave u": the floating runes from the Orcish Runes and Darkness Rising references (pass 9 intent, section C) are not built yet.
+
+## Pass 10 (14 November 2026, evening, Fable): the owner's 13 points on builds 11 and 12
+
+Brief: [fx-owner-feedback-14nov-1810.md](fx-owner-feedback-14nov-1810.md). Commits `5d086976` (the work) and `2f67c0d8` (a stage guard). The build passes. Test build requested with `out\PACKAGE-NOW.txt` at `2f67c0d8`.
+
+### Done, by the owner's point
+
+- **1, 6. Rune circle** and **floating runes**. One circle and a smaller one inside it, counter-turning, around the trunk (they were three rings as wide as the arms reach). Rune letters float on a ring just outside: six letters of three native rune pictures, each in a soft halo, bobbing while the ring turns (after Orcish Runes). New Card facing **Ring** (`facing:'ring'`, `phase`, `band`, `lockedClock`): cards that face the camera, evenly spaced on a ring about the part, on one turning bone.
+- **2, 9. Team tattoo** (new card, Team colour folder; `src/fx-tattoo.js`, `tattooLayer`). A design in the player's colour cannot be a picture, so it is a shape: tribal blades drawn as triangles, and the tattoo is **cut out of the part's own skin triangles** under that drawing. Every piece lies on the skin it was cut from and is bound to the same bones. Six designs (Variation, or Design on the layer): Tribal blades, horns, sun, thorns, wings, spiral. The layer is a Particles layer with a `tattoo` field: its emitters emit nothing and are the markers (Position & size, click a marker, drag or Snap to surface; Emitters adds marks). Size, Turn, Glow. The six Tattoo variations of Team colour are gone from the list.
+- **3. Add emitter / Add layer**: a searchable picker (`app/FxIngredientPicker.jsx`, `src/fx-ingredient-picker.js`). Suggested comes first: the look's own ingredients, then its folder's (Frost offers Crystals and Ice spikes). Then every folder, then Other.
+- **4. Arcane swirl on a body and on odd shapes**; **13. Souls centred**. `uprightFrame` reads a body by skin area: the middle line and the reach are the trunk's, arms and spikes weigh little, and a slice is read as an oval (no strand jumps out at an arm). `partProfile` follows a bent part's own middle line (a scythe) when it lies well off the straight one. This also moves Plague cloud, Spirit, Shadow and the other clouds on a body to the trunk.
+- **5. Rune swarm**: a variation of Fly swarm now, at under half the pace, ten runes, each in a halo with sparks trailing.
+- **7. Glow orb** left the library; its Radiance is a variation of Star flare. **Elemental orbs**: Fel, Shadow, Soul added.
+- **8. Team colour** opens on Glowing colour.
+- **10. Team fire** left the library (fire shapes cannot be drawn in the player's colour); Team lights stays. **11. Team energy** left the library. Both still open from a saved model.
+- **12. Team orb**: Orbiting orbs (five orbs of the player's light flying around the part, white core, trail, sparkles; a swarm can carry the team glow, `team` on a swarm) and Tip flare.
+
+### Checks run
+
+- `out/fx-design/pass10/cmp.cjs` (fingerprints of every look on sword, claw and body, HEAD `4b3c48af` against now): Fire, Fel fire (except the pass 8 swirls), Frost, Lightning, Crystal, Lightning cage, Star flare's own layers and Fly swarm's own flies are identical. Changed: Rune circle, the twirls, and every look with a cloud on a body (the new trunk frame).
+- Source tests, each file alone: all FX files pass, with `fx-blend-rule` (new, 0 block problems), `fx-tattoo` (new), `fx-ingredient-picker` (new), `fx-legacy-snapshot` (untouched). `localization-catalogs` keeps its older French/German key-order failure.
+- Captures on the owner's model (`out\fx-look\pass10-b`, read by Fable): tattoo on the body is crisp and lies on the skin; Souls circle the trunk; orbs and Rune swarm read. A hidden click run (`out\fx-look\probe.cjs`) opened the picker, searched, added a layer and an emitter, and used the tattoo controls with no page error.
+- Five-model captures of the new looks: `out\fx-look\pass10-c` (plan `pass10-c-plan.json`), for the Opus review.
+
+### Not done (in this order)
+
+1. Opus review of `pass10-c` and the fixes it asks for. Known weak spots: a tattoo on a part that lies inside another geoset is hidden (the owner's sword G10 lies inside G9); rune letters are bright; "Change texture" shows on a tattoo layer and does nothing useful.
+2. Electron tests were converted to the picker by a Sonnet agent and never run.
+3. Lightning pass (MM20 Stormforger, BlueRed Lightning Missile; additions only).
+4. Pass 9 looks from the references (`out\fx-design\pass9\ref.md`).
+5. Animation-sequence visibility (intent B).
+6. Recipe reference section for the new fields (`tattoo*`, Card `ring`, `team` on a swarm, `lockedClock`).
+
+Exact next step: item 1.
