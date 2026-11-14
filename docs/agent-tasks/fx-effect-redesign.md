@@ -40,6 +40,7 @@ Trial 06 (`7e9660b2`) rejected: "everything looks trash", "a serious regression 
 - Render workbench: `out\fx-look\run.ps1 -Plan <plan.json> -Out <folder> [-Exe <MDLxL.exe>]` (hidden desktop). Round plans `out\fx-look\round1..3-plan.json`; captures under `out\fx-look\round1..3`.
 - Seen and accepted in renders: every variation on Great Unclean Dude geosets 10 and 11 (wide blades).
 - Open: on a large many-region body (Great Unclean Dude G6) particle layers are small next to the coloured skin from the default top-down view. The Tzeentch thin-sword test was contaminated by that model's own saved FX flames; a clean thin sword is still untested. Rendered here only; Warcraft III itself not checked.
+- Team tattoo removed (owner: the concept didn't work).
 
 ## Polish pass after the owner's hand test (12 November 2026, evening)
 

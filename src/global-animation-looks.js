@@ -995,8 +995,8 @@ const growth=(label,shape,image,extra={})=>({type:'Growth',label,shape,image,...
   {id:'breath',name:'Team fog breath',layers:[team(layer(breathing,'Pale breath'),'Team breath',.7),team(layer(breathing,'Murky breath'),'Deep breath',.6),team(layer(breathing,'Breath glow'),'Team breath glow')]},
  ]));
 }
-// Build 11 and 12 (owner, 14 November). Team colour opens on Glowing colour. Team tattoo is a card of its own: tribal
-// designs cut out of the skin in the player's colour (fx-tattoo.js), each at markers the user moves. Team orb is orbs
+// Build 11 and 12 (owner, 14 November). Team colour opens on Glowing colour. Team tattoo left the library (owner: the concept
+// didn't work); a saved one still opens (fx-tattoo.js). Team orb is orbs
 // of the player's light flying around the part ("make it useful"). Glow orb leaves the library ("remains useless");
 // its Radiance is a variation of Star flare. Team fire and Team energy leave it too ("fire does not look like fire";
 // "team energy - remove"). What left still opens from a saved model.
@@ -1030,7 +1030,7 @@ export const LIBRARY=[
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-orbs'],['motes']]],
- ['Team colour',[['fx-team-colour'],['fx-team-tattoo'],['fx-team-fog'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
+ ['Team colour',[['fx-team-colour'],['fx-team-fog'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
  ['Stone',[['sort-basalt','Stone']]],
  ['Death & spirit',[['claude-wraith-form','Spirit'],['fx-soul-vortex','Souls'],['fx-dark-smoke','Shadow'],['sort-blood','Blood']]],

@@ -155,24 +155,14 @@ export default function GlobalAnimationStage({Preview,graph,layer,group,stackLay
  }
  // Register before texture loading so the first placement click has sprite coverage data.
  const pick=(id,hits=[id])=>{if(!active)return;const node=nodes.find(n=>n.ObjectId===id)||nodes.find(n=>hits.includes(n.ObjectId));if(node)selectSite(keyOf(node));};
- // A tattoo has no handles (owner, 14 November: "i should just click any point of the skin to put a tattoo there"):
- // a click on the model puts the selected mark, or the mark nearest the click, at that point of the skin, on whatever
- // geoset it is. A click on an effect's own geoset keeps only the place.
- const placeTattoo=layer?.tattoo&&real&&nodes.length?(_,hit)=>{
-  const at=hit.bindPosition,far=node=>Math.hypot(node.PivotPoint[0]-at[0],node.PivotPoint[1]-at[1],node.PivotPoint[2]-at[2]);
-  const key=individual?selectedSite:keyOf(nodes.reduce((a,b)=>far(b)<far(a)?b:a));
-  const record={...layer.individuals?.[key],position:Array.from(at),attachmentPoint:Array.from(at)};
-  if(graph.model.Geosets[hit.geoset]?._FxTag)delete record.surface;else record.surface={geoset:hit.geoset,vertices:hit.vertices,barycentric:hit.barycentric};
-  onLayer({...layer,individuals:{...layer.individuals,[key]:record}});
- }:null;
  return <><Preview {...props} particleLiveModel={liveModel} particleLiveRevision={draft} onCaptureReady={captureReady}
-  onParticleSurfacePlace={placeTattoo?placeTattoo:active&&individual&&surfaceSnap?(_,hit)=>{
+  onParticleSurfacePlace={active&&individual&&surfaceSnap?(_,hit)=>{
    const snap=(target,key,position)=>({...target,individuals:{...target.individuals,[key]:{...target.individuals?.[key],position,attachmentPoint:hit.bindPosition,surface:{geoset:hit.geoset,vertices:hit.vertices,barycentric:hit.barycentric}}}});
    const first=snap(layer,selectedSite,hit.bindPosition);
    if(together)onLayers(movedTogether(first,Array.from(hit.bindPosition,(v,i)=>v-individual.PivotPoint[i]),snap));else onLayer(first);
    setSurfaceSnap(false);}:undefined}
-  particleAnchorId={active||placeTattoo?anchorId:undefined} keepBillboards={card||!!layer?.swarm} particleSelectedId={active?real.ObjectId:undefined}
-  particlePickOnClick={!!placeTattoo||!!active&&nodes.length>0} onParticlePick={pick} particleStageMarks={marks} onParticleStage={active?s=>setSnap({...s,site:selectedSite,layerId:layer.id}):undefined}/>
+  particleAnchorId={active?anchorId:undefined} keepBillboards={card||!!layer?.swarm} particleSelectedId={active?real.ObjectId:undefined}
+  particlePickOnClick={!!active&&nodes.length>0} onParticlePick={pick} particleStageMarks={marks} onParticleStage={active?s=>setSnap({...s,site:selectedSite,layerId:layer.id}):undefined}/>
  {active&&showMarkers&&nodes.length>0&&stageReady&&snap&&<svg className="pe-stage-tools fx-emitter-markers" viewBox={'0 0 '+snap.width+' '+snap.height}>{nodes.map((node,i)=>{
   const key=keyOf(node),point=snap.marks?.['site:'+key];if(key===selectedSite||!point||point[2]<-1||point[2]>1)return null;
   return <ParticleStageHandle key={key} point={point} radius={3} hitRadius={10} role="button" label={translate(emitterName(layer))+' '+(i+1)}

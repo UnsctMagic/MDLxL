@@ -19,10 +19,8 @@ import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredi
 
 import {gamePathKey} from '../src/game-path.js';
 import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
-import {TATTOO_DESIGNS} from '../src/fx-tattoo.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
-const TATTOO_NAMES={blades:'Tribal blades',horns:'Tribal horns',sun:'Tribal sun',thorns:'Tribal thorns',wings:'Tribal wings',spiral:'Tribal spiral'};
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 const SLIDER_TIPS={LifeSpan:'Seconds each particle lives.',ParticleScaling:'Size of the particles.',Speed:'How fast particles leave the emitter.',Gravity:'Below 0 the particles rise. Above 0 they fall.',Width:'Width of the area particles are born in.',Length:'Length of the area particles are born in.',Latitude:'How wide the particles fan out, in degrees.',Variation:'How much the speed differs from one particle to the next.',TailLength:'Length of the streak behind each particle. Draw as must be Streaks or Both.'};
 export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,groupSelect,toggleGroupSelect,groupCount=0,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
@@ -184,7 +182,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  };
  // Position & size sits right above More in every kind of layer.
  const moreAt=!l||tattoo?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
- const placement=l?.tattoo?<small className="fx-tattoo-hint">{translate('Click the skin to move the nearest mark there.')}</small>:l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
+ const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
    {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
    {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}
    {p&&placing&&real&&<button aria-pressed={!!groupSelect} title="Clicking an emitter also selects the emitters of other layers at the same place. They move together." onClick={toggleGroupSelect}>Select emitter by group</button>}</div>;
@@ -219,11 +217,6 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    onDraft={v=>previewStrength(l,v,selectedSite)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
   {particleLayer&&<RangeField disabled={!countable} label="Emitters" title={selectedSite?'Choose All emitters to change how many emitters the layer has.':'Number of emitter sites in this layer.'} min={0} max={Math.max(MAX_EMITTER_SITES,siteCount??0)} step={1} value={siteCount??0} output={value=>swarm||siteCount==null?'N/A':value} onCommit={changeSiteCount}/>}
   {particleLayer&&<RangeField disabled={!!selectedSite||!!stack.impact} label="Formation" title={selectedSite?'Choose All emitters to pull the emitters together or spread them apart.':'Pull the emitters together or spread them apart.'} min={swarm?4:0} max={swarm?Math.max(200,(frame?.length||100)*2,l.size):2} step={swarm ? .5 : .01} value={swarm?l.size:l.formation??1} output={v=>swarm?v.toFixed(1):Math.round(v*100)+'%'} onCommit={v=>swarm?update('size',v):setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
-  {tattoo&&!selectedSite&&<>
-   <label className="field"><span>Design</span><ChoiceSelect aria-label="Design" value={l.tattoo} onChange={value=>setLayer({...l,tattoo:value})}>{TATTOO_DESIGNS.map(id=><option key={id} value={id}>{TATTOO_NAMES[id]||id}</option>)}</ChoiceSelect></label>
-   {[['Size','tattooSize',.25,4,.05,1,v=>Math.round(v*100)+'%','Size of the design on the skin.'],['Turn','tattooTurn',-180,180,5,0,v=>Math.round(v)+'°','Turns the design on the skin.'],['Glow','tattooGlow',0,1,.01,0,v=>Math.round(v*100)+'%',"Light of the player's colour over the design."]].map(([label,key,min,max,step,start,output,tip])=>
-    <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={l[key]??start} onCommit={v=>setLayer({...l,[key]:v})}/>)}
-  </>}
   {shell&&<RangeField key={l.id+'thickness'} title="Distance of this layer above the surface." label="Thickness" output={v=>v.toFixed(1)} min={0} max={shellReach(frame,l.inflate)} step={.05} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
   {particleLayer&&!tattoo&&<>
    <LifeTable unavailable={!real||swarm} emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
