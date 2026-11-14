@@ -287,7 +287,10 @@ export const GLOBAL_LOOKS=[
  make('felwood-curse','Felwood curse','Buffs & curses',3100,'moss',[skin('Poison surface',existing('poison').texture,{atlasRect:existing('poison').atlas,strength:.7,pulse:'soft',bodyUV:true,tint:[1,1,1]}),glow('Rune',texture('DemonRune5'),{pulse:'beat',strength:.5,loop:2067,tint:[.55,.85,.3],tint2:[.75,.8,.25]})]),
  make('fly-swarm','Fly swarm','Around the unit',1233,'native',[dust('Orbiting flies','flies',texture('Abomination'))]),
  vary(make('motes','Motes','Around the unit',3250,'lilac',[]),[{id:'lights',name:'Drifting lights',layers:[starts(dust('Drifting lights','motes',texture('GenericGlow64')))]},{id:'orbs',name:'Glow orbs',layers:[starts(orbSpray())]}]),
- make('rising-embers','Rising embers','Around the unit',2100,'copper',[embers()]),
+ make('rising-embers','Rising embers','Around the unit',2100,'copper',[starts(embers()),
+  spray('Ember glow',texture('Red_Glow3'),[1,.5,.15],
+   {life:1.2,rate:8,size:[.4,.5,.4],alpha:[0,60,0]},
+   {starts:true,cover:'surface',widthCap:1.4,loop:2933,native:{Time:.5,Flags:C,SegmentColor:[[1,.5,.12],[1,.6,.18],[1,.4,.1]]}})]),
  make('frost-mist','Frost mist','Around the unit',3150,'glacier',[frost()]),
  make('empty','Empty','Build your own',3000,'native',[]),
  make('moving-own','Moving own texture','Your textures',3200,'native',[skin('Moving texture',null,{base:true,own:true})]),
@@ -296,11 +299,30 @@ export const GLOBAL_LOOKS=[
 ];
 // The owner removed duplicate starters, auras and cues unrelated to an attack.
 const retiredImpacts=[];
+// Molten lava (owner, 13 November: "looks more like a slurpie"). The red lava tile alone is one flat colour. Now it is
+// drawn at full strength, bright flame light flows over it, dark cloud-shaped crust drifts the other way on top (the
+// Living ink technique), and a heat shell glows around the part: hot liquid between cooling plates.
+const lavaSurface=molten=>[
+ {...molten(),strength:1},
+ skin('Lava glow',texture('Flame4'),{bodyUV:true,direction:90,speed:.5,strength:.6,tint:[1,.62,.22],loop:2267}),
+ skin('Cooling crust',texture('CloudsTile1'),{bodyUV:true,filter:2,direction:200,speed:.25,strength:.82,tint:[.1,.045,.03],loop:4133}),
+];
+const heatGlow=strength=>glow('Heat glow',null,{pulse:'soft',strength,tint:[1,.45,.12],inflate:.3,loop:3733});
 const nativeSurfaceVariations={
  lava:molten=>[
-  {id:'original',name:'Molten lava',layers:[molten()]},
+  {id:'original',name:'Molten lava',layers:[
+   ...lavaSurface(molten),heatGlow(.45),
+   spray('Molten beads',texture('LavaLump'),[1,.5,.12],
+    {life:1.6,rate:16,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
+    {starts:true,cover:'surface',widthCap:.8,
+     native:{Time:.5,Flags:C,SegmentColor:[[1,.85,.4],[1,.5,.12],[.7,.1,.02]]}}),
+   spray('Cinders',texture('LavaLump'),[1,.5,.15],
+    {life:2.4,rate:6,velocity:.14,gravity:-.22,spread:40,size:[.035,.028,.012],alpha:[220,170,60]},
+    {starts:true,cover:'around',birthAcross:1,loop:3133,
+     native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.7,.25],[1,.35,.12],[.45,.07,.01]]}}),
+  ]},
   {id:'spitting',name:'Spitting lava',layers:[
-   molten(),
+   ...lavaSurface(molten),heatGlow(.45),
    spray('Molten beads',texture('LavaLump'),[1,.5,.12],
     {life:1.6,rate:30,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
     {starts:true,cover:'surface',widthCap:.8,
@@ -315,8 +337,7 @@ const nativeSurfaceVariations={
      native:{Time:.5,Flags:U,SegmentColor:[[1,.8,.35],[1,.45,.1],[.6,.08,.01]]}}),
   ]},
   {id:'smoulder',name:'Smouldering',layers:[
-   molten(),
-   glow('Heat glow',null,{pulse:'soft',strength:.6,tint:[1,.45,.12],inflate:.3,loop:3733}),
+   ...lavaSurface(molten),heatGlow(.6),
    spray('Smoke',CLOUDS,[.3,.26,.24],
     {atlas:8,filter:0,life:2.6,rate:9,velocity:.12,gravity:-.16,spread:30,size:[.1,.24,.42],alpha:[0,85,0]},
     {starts:true,birthRegion:true,
@@ -348,7 +369,11 @@ for(const e of SURFACE_EFFECTS.filter(e=>RETAINED_CARD_IDS.includes(e.id)||e.cat
   for(const [i,spec] of (e.layers||[null]).entries())layers.push(skin(CARD_NAMES[e.id]?.surfaces[i]||(e.layers?'Surface '+(i+1):e.name),spec?.texture||e.texture||e.picture,{
    nativeSurface:{...e,description:undefined,layers:spec?[spec]:undefined,accents:[],stamp:undefined,cue:undefined},base:e.defaultMode==='replace',strength:e.opacity??1,...(i?{loop:Math.round((e.duration||3000)*1.333)}:orbiting?{loop:Math.round((e.duration||3000)*1.2)}:{})}));
  }
- if(e.id==='fissures')layers.push(fire('Fire',{enabled:false}));
+ if(e.id==='fissures')layers.push(fire('Fire',{enabled:false}),heatGlow(.35),
+  spray('Cinders',texture('LavaLump'),[1,.5,.15],
+   {life:2.4,rate:10,velocity:.14,gravity:-.22,spread:40,size:[.035,.028,.012],alpha:[220,170,60]},
+   {starts:true,cover:'around',birthAcross:1,loop:3133,
+    native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.7,.25],[1,.35,.12],[.45,.07,.01]]}}));
  // A looping card's burst emitter (Stars) emits steadily instead of pulsing once a loop (emitter audit, 12 November).
  const steady=({burst:_b,delay:_d,...spec})=>({...spec,rate:6});
  // Rune sparks: additive, white at birth turning to the tint, so they light up instead of greying out.

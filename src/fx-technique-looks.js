@@ -55,9 +55,14 @@ export const TECHNIQUE_LOOKS=[
   starts(glowOrb('Orb light',[.7,.85,1])),
  ]),
  make('burning-cracks','Burning cracks',2000,[
-  skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.22,.12],inflate:.12,strength:1}),
-  glow('Crack heat','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{bodyUV:true,filter:4,pulse:'beat',tint:[1,.55,.1],tint2:[1,.42,.3],inflate:.2,strength:.7,loop:3333}),
+  skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.22,.12],strength:1}),
+  glow('Crack heat','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{bodyUV:true,filter:4,pulse:'beat',tint:[1,.55,.1],tint2:[1,.42,.3],strength:.7,loop:3333}),
   {...lingeringEmbers(),starts:true,cover:'around',birthAcross:1,amount:48},
+  // Low flames from the cracks: a blended body under the light, as in Fireball, a third of a width tall.
+  spray('Crack flames','ReplaceableTextures\\Weather\\Clouds8x8.blp',[1,.42,.08],
+   {atlas:8,filter:0,life:.6,rate:44,velocity:.25,gravity:-.5,spread:25,size:[.5,.45,.15],alpha:[110,120,0]},
+   {starts:true,cover:'surface',widthCap:.45,loop:2267,
+    native:{Time:.45,Variation:.3,Flags:EMITTER_UNFOGGED,SegmentColor:[[1,.55,.12],[.98,.32,.05],[.5,.07,.02]]}}),
   FIRE_FLAME_CARDS,
  ],{asOverlay:true}),
  make('fire-column','Fire column',1500,[
