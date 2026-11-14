@@ -289,6 +289,11 @@ filter, hand/foot meshes losing their skin grip once named `Bone_`, Head moving 
 the neck, the zergling's Root pair and the Lord of Change's wings changing role
 once their joints were named.
 
+Bone Namer also keeps two names when the five clues add handles a still rig did not
+have before: a follower (`rig.followers`, a mount's co-located carrier) without two
+legs of its own is part of the mount, not another actor; and a bone named like an
+attachment point (`Head Ref`) that POSE shows only from that name keeps its name.
+
 ## Focus and appearance
 
 During POSE, Focused Skeleton shows a compact control skeleton: mapped body
@@ -300,8 +305,8 @@ Settings starts its tab row with Configuration, with Updates at the top.
 Appearance uses collapsed sections and a color-set picker in every section.
 A whole appearance preset also sets the controllers. Controllers can then use
 a separate set, for example Blackrock controls with a Lordaeron interface.
-Lordaeron remains the default. Handle, body and bend shapes offer circles,
-squares, diamonds and triangles; symbols, size, state colors, XYZ colors
+Lordaeron remains the default. Handle shapes offer circles, squares and diamonds
+(a saved triangle becomes a diamond); body and bend shapes also offer triangles; symbols, size, state colors, XYZ colors
 and the handle background (which can be switched off) are adjustable. The symbols
 come in five sets chosen under Controllers: Modern (the default: 13 transparent PNG
 masks in `app/assets/pose-symbols`, a 256 px and a `-64` file each, drawn by
