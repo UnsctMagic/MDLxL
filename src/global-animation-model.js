@@ -76,9 +76,10 @@ function texture(m,name,wrap,tag){
  return existing<0?m.Textures.push({Image:name,Flags:wrap?3:0,ReplaceableId:0,_FxTag:tag})-1:existing;
 }
 // team: 1 team colour, 2 team glow; the player's colour, as native team cards use it.
-function teamTexture(m,team,tag){
- const existing=m.Textures.findIndex(t=>t.ReplaceableId===team);
- return existing<0?m.Textures.push({Image:'',Flags:0,ReplaceableId:team,_FxTag:tag})-1:existing;
+// wrap (fresh recipes, teamTile): a team picture that travels over the surface needs a repeating texture entry.
+function teamTexture(m,team,tag,wrap=false){
+ const existing=m.Textures.findIndex(t=>t.ReplaceableId===team&&(!wrap||(t.Flags&3)===3));
+ return existing<0?m.Textures.push({Image:'',Flags:wrap?3:0,ReplaceableId:team,_FxTag:tag})-1:existing;
 }
 function resource(list,tag,value){
  const index=list.findIndex(r=>r._FxTag===tag);
@@ -254,7 +255,7 @@ function skinLayer(c,l){
   &&source.Faces.every((vertex,i)=>vertex===previousShape.Faces[i])
   &&['own','direction','tiling','atlasRect','uvOffset','uvMatrix','repeats',...GLYPH_LAYOUT].every(key=>JSON.stringify(prior[key])===JSON.stringify(l[key]));
  g.TVertices=keepUV?previousShape.TVertices:[coords];
- let tex=own?structuredClone(original.TextureID):l.team?teamTexture(m,l.team,tag):texture(m,l.image,!rect,tag);
+ let tex=own?structuredClone(original.TextureID):l.team?teamTexture(m,l.team,tag,!!l.teamTile&&!rect):texture(m,l.image,!rect,tag);
  if(l.frames){
   // Three frame cycles per unit of Speed; a fractional count of cycles runs whole cycles on a longer clock.
   const tids=l.frames.map(name=>texture(m,name,true,tag)),flip=l.speed>0?passClock(c,l.speed,3):{turns:1,id,ms},n=tids.length*flip.turns;
@@ -1098,7 +1099,7 @@ function edgeLayer(c,l){
  const normal=new Vector3().crossVectors(frame.axis,Math.abs(frame.axis.z)<.9?z:y).normalize();
  if(l.orbit)delete p.Translation;
  else p.Translation=keys(id,ms,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(frame.girth*.18*a).toArray()]));
- const layer={FilterMode:l.filter??(l.orbit?3:4),Shading:17,TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
+ const layer={FilterMode:l.filter??(l.orbit?3:4),Shading:17,TextureID:l.team?teamTexture(m,l.team,tag):texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,Alpha:1};
  Object.assign(p,{MaterialID:resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:[layer]}),Rotation:keys(id,ms,[[0,new Quaternion().setFromUnitVectors(y,frame.axis).toArray()]],0),
   HeightAbove:l.upper,HeightBelow:l.lower,Alpha:l.orbit||l.pulse==='steady'?l.strength:keys(id,ms,curves.flicker.map(([t,a])=>[t,a*l.strength])),Color:vec(l.tint),LifeSpan:l.lasts,EmissionRate:l.smoothness,Gravity:l.gravity,Visibility:keys(id,ms,[[0,1],[1,1]])});
  ids.push(p.ObjectId);

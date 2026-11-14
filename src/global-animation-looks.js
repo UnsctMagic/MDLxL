@@ -520,6 +520,7 @@ export const LIBRARY=[
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift'],['claude-void-cracked','Void cracks']]],
  ['Arcane',[['arcane-blade','Arcane'],['fx-energy-flow'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['fx-rune-circle'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb']]],
+ ['Team colour',[['fx-team-colour'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves'],['sort-ink']]],
  ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
  ['Death & spirit',[['claude-wraith-form'],['fx-ghost-trails'],['fx-soul-vortex'],['fx-dark-smoke'],['fx-hollow-shell'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],

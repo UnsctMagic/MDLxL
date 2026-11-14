@@ -46,11 +46,108 @@ const facetGlints=()=>spray('Facet glints',tex('star4'),[.85,.95,1],
  {life:.8,rate:9,size:[.03,.2,.03],alpha:[0,240,0]},
  {starts:true,cover:'surface',widthCap:1.4,loop:1933,native:{Time:.45,Flags:C,SegmentColor:[[1,1,1],[.85,.95,1],[.53,.77,1]]}});
 
+// Team colour (pass 7, 14 November). The player's colour exists only as two native replaceable pictures: the flat
+// colour (team 1) and the round glow (team 2). Everything here is made of those two, the way the owner's Eldritch
+// Covenant does it: the flat colour added over a surface so it glows, the colour travelling over it, the glow as a
+// shell, and the glow as the sprite of every particle.
+const TEAM_COLOUR='ReplaceableTextures\\TeamColor\\TeamColor00.blp',TEAM_GLOW='ReplaceableTextures\\TeamGlow\\TeamGlow00.blp';
+const WHITE=[[1,1,1],[1,1,1],[1,1,1]];
+const teamSpray=(label,spec,extra={})=>spray(label,TEAM_GLOW,[1,1,1],{team:true,...spec},{starts:true,...extra,native:{SegmentColor:WHITE,...extra.native}});
+const teamShell=(label='Team shell',strength=.8,extra={})=>glow(label,TEAM_GLOW,{team:2,atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength,tint:[1,1,1],shell:true,...extra});
+const teamMotes=(extra={})=>teamSpray('Team motes',
+ {life:1.4,rate:12,velocity:.08,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
+ {cover:'around',birthAcross:1.4,widthCap:.5,loop:2933,...extra,native:{Time:.5,Variation:.5,Flags:EMITTER_CARRIED}});
+
 export const TECHNIQUE_LOOKS=[
- make('glow-shell','Glow shell',3333,[
-  glow('Glow shell',tex('GenericGlow64'),{atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength:1,tint:[.55,.8,1],shell:true}),
-  glow('Inner glow',null,{strength:.6,pulse:'soft',loop:5167,enabled:false}),
- ],{asOverlay:true}),
+ vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
+  {id:'shell',name:'Glow shell',layers:[
+   glow('Glow shell',tex('GenericGlow64'),{atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength:1,tint:[.55,.8,1],shell:true}),
+   glow('Inner glow',null,{strength:.6,pulse:'soft',loop:5167,enabled:false}),
+  ]},
+  // The owner (14 November): "Glowshell - can have also team color". The same shell and inner glow in the player's colour.
+  {id:'team',name:'Team colour',layers:[
+   teamShell('Glow shell',1),
+   glow('Inner glow',TEAM_COLOUR,{team:1,bodyUV:true,strength:.3,pulse:'soft',tint:[1,1,1],loop:5167,enabled:false}),
+  ]},
+ ]),
+ vary(make('team-colour','Team colour',3000,[],{asOverlay:true}),[
+  {id:'wash',name:'Colour wash',layers:[
+   skin('Team colour wash',TEAM_COLOUR,{team:1,fixed:true,bodyUV:true,filter:2,strength:.35,tint:[1,1,1]}),
+  ]},
+  {id:'glow',name:'Glowing colour',layers:[
+   glow('Team light',TEAM_COLOUR,{team:1,bodyUV:true,pulse:'soft',strength:.45,tint:[1,1,1]}),
+   teamShell('Team shell',.8,{loop:4133}),
+  ]},
+  // Two layers of the round glow, repeated and crossing: the colour flows over the part (Arcane's two crossing energies).
+  {id:'flow',name:'Flowing light',layers:[
+   skin('Flowing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:2,direction:35,strength:.8,tint:[1,1,1]}),
+   skin('Crossing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:3,direction:140,strength:.5,tint:[1,1,1],loop:4733}),
+  ]},
+  {id:'bands',name:'Running bands',layers:[
+   skin('Running bands',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:2,speed:2,strength:.9,tint:[1,1,1],loop:2400}),
+   teamShell('Team shell',.5,{loop:4133}),
+  ]},
+ ]),
+ vary(make('team-lights','Team lights',3000,[]),[
+  {id:'orbs',name:'Glow orbs',layers:[
+   teamSpray('Team orbs',
+    {life:.9,rate:14,velocity:.04,spread:2,size:[.05,.2,.3],alpha:[110,170,60]},
+    {cover:'surface',widthCap:.9,native:{Flags:EMITTER_CARRIED}}),
+   teamMotes(),
+  ]},
+  {id:'sparks',name:'Rising sparks',layers:[
+   teamSpray('Team sparks',
+    {life:.6,rate:55,velocity:.03,gravity:-2.2,spread:35,size:[.18,.15,0],alpha:[255,255,0]},
+    {birthRegion:true,widthCap:1,loop:1733,native:{Time:.45,Variation:1,Flags:EMITTER_UNFOGGED}}),
+   teamMotes(),
+  ]},
+  {id:'flames',name:'Team flames',layers:[
+   teamSpray('Team flames',
+    {life:.6,rate:70,velocity:.25,gravity:-1.6,spread:14,size:[.2,.16,.03],alpha:[200,160,0]},
+    {cover:'surface',widthCap:.9,capMotion:true,native:{Time:.4,Variation:.4,Flags:EMITTER_UNFOGGED}}),
+   teamSpray('Flame glow',
+    {life:1,rate:10,size:[.3,.4,.3],alpha:[0,70,0]},
+    {cover:'surface',widthCap:1.4,loop:2533,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   teamMotes({loop:3467}),
+  ]},
+  {id:'leaping',name:'Leaping sparks',layers:[
+   teamSpray('Team streaks',
+    {life:.45,rate:30,velocity:2.4,gravity:12,spread:60,tail:.12,size:[.02,.07,.03],alpha:[255,255,255]},
+    {cover:'surface',loop:1533,native:{Time:.2,Variation:.5,FrameFlags:2,Flags:EMITTER_UNFOGGED}}),
+   teamSpray('Flame glow',
+    {life:1,rate:10,size:[.3,.4,.3],alpha:[0,70,0]},
+    {cover:'surface',widthCap:1.4,loop:2533,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+  ]},
+ ]),
+ // Glow orb and Star flare in the player's colour: the glow is the team picture, the core and the star stay white.
+ vary(make('team-orb','Team orb',1600,[]),[
+  {id:'orb',name:'Orb',layers:[
+   teamSpray('Orb glow',
+    {life:1.4,rate:5,size:[.9,1,.9],alpha:[0,170,0]},
+    {gather:'engulf-core',widthCap:2.2,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   spray('Orb core',tex('Flare'),[1,1,1],
+    {life:.9,rate:6,size:[.5,.6,.5],alpha:[0,255,0]},
+    {starts:true,gather:'engulf-core',widthCap:.8,loop:2133,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   teamSpray('Orb wisps',
+    {life:1.2,rate:9,velocity:.14,spread:180,size:[.03,.12,.03],alpha:[0,230,0]},
+    {gather:'engulf-core',widthCap:.35,loop:2933,native:{Time:.4,Variation:.5,Flags:EMITTER_CARRIED}}),
+  ]},
+  {id:'flare',name:'Tip flare',layers:[
+   spray('Flare',tex('star4'),[1,1,1],
+    {life:1.1,rate:1.7,size:[.1,1,.1],alpha:[0,255,0]},
+    {starts:true,gather:'tip',widthCap:2.2,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   teamSpray('Flare glow',
+    {life:1.3,rate:4,size:[.8,1,.8],alpha:[0,150,0]},
+    {gather:'tip',widthCap:1.8,loop:2267,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   teamMotes({cover:'surface',widthCap:.6,loop:1933}),
+  ]},
+ ]),
+ // Arcane swirl in the player's colour: two streams of the glow circling the part, motes around it.
+ make('team-swirl','Team swirl',2320,[
+  orbit('Team stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.25,band:.3,along:-.2,orbitTurns:2,filter:3,strength:.6,lasts:.6,smoothness:60}),
+  orbit('Second stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.05,band:.3,along:.2,orbitTurns:2,loop:3100,filter:3,strength:.6,lasts:.6,smoothness:60}),
+  teamMotes(),
+ ]),
  // Pass 6 (14 November). Both were cards at the middle of every skin region, which on a sword is the middle of the
  // blade and the grip. Star flare is now a star twinkling at the tip (gather:'tip') with glints along the part; Glow orb
  // is an orb seated where Fireball sits (gather:'engulf-core': around a blade's outer part, in the middle of a compact
