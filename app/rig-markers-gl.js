@@ -48,12 +48,12 @@ export function boneHighlightColors(nodes, selectedIds) {
 
 export function markerStyle(point, byId, preferences, highlightColors = new Map(), vanilla = false, visual = visualOptions(preferences)) {
   const highlighted = highlightColors.get(point.node.ObjectId);
-  const symbolKind = point.overlayKind === 'events' ? ({SPL:'blood',FPT:'foot',UBR:'uber'}[point.node.Name?.slice(0,3).toUpperCase()]) : point.overlayKind;
+  const symbolKind = point.symbolKind ?? point.overlayKind;
   const bones = boneDisplayOptions(preferences);
   if (point.overlayKind === 'attachments') return { shape: vanilla ? TETRA : NODE_SYMBOLS.attachments, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.ref };
   if (point.helperNode) return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.helper };
   if (!vanilla && NODE_SYMBOL_COLORS[symbolKind]) return { shape:NODE_SYMBOLS[symbolKind], color:highlighted || NODE_SYMBOL_COLORS[symbolKind] };
-  if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
+  if (point.overlayKind === 'particles') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
     const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
     return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
@@ -63,7 +63,7 @@ export function markerStyle(point, byId, preferences, highlightColors = new Map(
 }
 
 export function rigMarkerVisible(point, options, highlights) {
-  const kind = point.overlayKind || 'nodes';
+  const kind = point.overlayKind;
   if (kind === 'bones' && options.focusedBoneMarkers && highlights.get(point.node.ObjectId)) return true;
   return rigTypeVisible(point, options) && (point.helperNode ? !!(options.helpers ?? options.bones) : !!options[kind]);
 }

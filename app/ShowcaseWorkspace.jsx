@@ -41,7 +41,7 @@ const SAVED_COLORS_KEY = 'mdlxl-showcase-saved-colors-v1';
 function readSavedColors() {
   return readStored(SAVED_COLORS_KEY, [], values => Array.isArray(values) ? values.slice(0, 3).map(value => /^#[0-9a-f]{6}$/i.test(value) ? value : null) : []);
 }
-const CLEAN = Object.fromEntries(['bones','nodes','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
+const CLEAN = Object.fromEntries(['bones','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
 // Commits on Enter or on leaving the box, like every other number field.
 function NumberField({ label, value, onChange, min, max, step = 1, ...rest }) {
   const field = useDraftNumber({ value, onCommit: onChange });

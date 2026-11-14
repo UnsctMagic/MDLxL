@@ -1,4 +1,5 @@
 import { rigTypeVisible } from '../src/display-overlays.js';
+import { OBJECT_KIND_KEYS, objectKind, objectOverlayOptions } from '../src/object-kinds.js';
 import { Vector3, Vector4, Matrix4 } from 'three';
 import { createOverlayDepth } from './preview-depth.js';
 import { gridSegments } from './viewport-grid.js';
@@ -11,46 +12,28 @@ import { createPixelLineBatch, drawPixelLine } from './pixel-lines.js';
 export const HIDDEN_LINE_DASH = Object.freeze([4, 3]);
 export const HIDDEN_LINE_FADE = .35;
 
-export function previewOverlayOptions(overlays, showNodes = false, editorMode, vanilla = false) {
-  const markers = !!showNodes;
-  const grouped = !vanilla && overlays?.events !== undefined;
-  const effectSymbols = vanilla || editorMode !== 'animations' || !!overlays?.nodes;
-  const focusedBoneLines = !!overlays?.focusedSkeleton;
+// editorMode names the editor whose switches these are; Animations draws no
+// object symbols or skeleton at all, only the real effects.
+export function previewOverlayOptions(overlays, showNodes = false, editorMode) {
+  const preview = editorMode === 'animations';
+  const focusedBoneLines = !preview && !!overlays?.focusedSkeleton;
   return {
     boneTypesBones: overlays?.boneTypesBones ?? true, boneTypesHelpers: overlays?.boneTypesHelpers ?? true,
-    bones: overlays?.bones ?? markers, helpers: overlays?.helpers ?? overlays?.bones ?? markers, nodes: grouped ? false : overlays?.nodes ?? markers,
-    attachments: overlays?.attachments ?? markers, particles: !!(overlays?.particles ?? markers) && effectSymbols,
-    ribbons: !!(overlays?.particles ?? markers) && effectSymbols,
-    sounds: !!(grouped?overlays.sounds:overlays?.sounds??overlays?.nodes??markers) && effectSymbols,
-    events: !!(grouped?overlays.events:overlays?.events??overlays?.nodes??markers) && effectSymbols,
-    boneLines: focusedBoneLines || (overlays?.skeleton ?? overlays?.boneLines ?? true), focusedBoneLines, focusedBoneMarkers: focusedBoneLines,
+    ...objectOverlayOptions(overlays, { editor: editorMode, markers: showNodes }),
+    boneLines: !preview && (focusedBoneLines || (overlays?.skeleton ?? overlays?.boneLines ?? true)), focusedBoneLines, focusedBoneMarkers: focusedBoneLines,
     wires: overlays?.wires ?? false, vertices: overlays?.vertices ?? false, grid: overlays?.grid ?? false,
     normals: overlays?.normals ?? false, selectedVerticesOnly: overlays?.selectedVerticesOnly ?? false,
   };
 }
 
-export function movementNodeCategories(model, vanilla = false) {
-  const categories = new Map();
-  for (const node of model.Bones || []) categories.set(node.ObjectId, 'bones');
-  // MDLVis treats Helpers as part of the editable bone hierarchy. This is
-  // especially important for the conventional Helper named Bone_Root: its
-  // descendants must participate in parent/child highlighting exactly like
-  // nodes stored in the Bone chunk.
-  for (const node of model.Helpers || []) categories.set(node.ObjectId, 'bones');
-  for (const node of model.Attachments || []) categories.set(node.ObjectId, 'attachments');
-  for (const collection of ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns']) for (const node of model[collection] || []) categories.set(node.ObjectId, 'particles');
-  for (const node of model.RibbonEmitters || []) categories.set(node.ObjectId, vanilla?'particles':'ribbons');
-  for (const node of vanilla ? [] : model.EventObjects || []) {
-    const type = node.Name?.slice(0, 3).toUpperCase();
-    if (type === 'SND') categories.set(node.ObjectId, 'sounds');
-    else if (['SPL','UBR','FPT'].includes(type)) categories.set(node.ObjectId, 'events');
-  }
-  return categories;
-}
+// The frozen Rotate fixture (test/fixtures/rotate-frozen) imports this name; it is the shared kind list.
+export const movementNodeCategories = model => objectKind(model);
+
+export const hasObjectMarkers = options => OBJECT_KIND_KEYS.some(key => options[key]) || !!options.helpers;
 
 // Focused Skeleton shows the selected bone's parent and child chain even with
 // Bones off; whatever it shows must also be clickable.
-export const visibleMovementPoints = (points, options, focusHighlights) => points.filter(point => rigTypeVisible(point, options) && (point.helperNode ? (options.helpers ?? options.bones) : options[point.overlayKind || 'nodes']) ||
+export const visibleMovementPoints = (points, options, focusHighlights) => points.filter(point => rigTypeVisible(point, options) && (point.helperNode ? (options.helpers ?? options.bones) : options[point.overlayKind]) ||
   point.overlayKind === 'bones' && !!focusHighlights?.get(point.node.ObjectId));
 
 function markerPath(context, point, appearance) {

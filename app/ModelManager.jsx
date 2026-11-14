@@ -7,7 +7,7 @@ import './model-manager.css';
 import { MODEL_COMMENTS_KEY } from '../src/model-comments.js';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
-const previewOverlays = { bones: false, nodes: false, attachments: false, particles: false, wires: false };
+const previewOverlays = { bones: false, attachments: false, particles: false, wires: false };
 const sections = ['CollisionShapes', 'Nodes', 'PivotPoints'];
 
 export default function ModelManager({ doc, edit, assets, teamColor }) {

@@ -7,14 +7,15 @@ import {COMMANDS} from '../src/commands.js';
 const require=createRequire(import.meta.url);
 const {buildMenuTemplate,normalizeMenuChecks}=require('../electron/menu.cjs');
 
+// Menu rows follow the approved object-display plan: one shared list of switches, no Nodes.
 test('View menu follows each editor and keeps Skeleton independent',()=>{
   const checks=normalizeMenuChecks({'display:bones':true,'display:skeleton':false,showVertices:true,shaded:true,grid:false,axes:true}),actions=[];
   const bindings=effectiveBindings(COMMANDS,{normals:['H']});
   const expected={
-    vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],
-    bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],
-    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],
-    animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear'],
+    vertices:['Shadows','RGB','Vertices','Bones','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],
+    bones:['Shadows','Vertices','Bones','Skeleton','Attachments','Emitters','Events','Sounds','Lights','Collision','Grid','Axis guides','Clear'],
+    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Attachments','Emitters','Events','Sounds','Lights','Collision','Grid','Axis guides','Clear'],
+    animations:['Emitters','Events','Sounds','Wireframe','Grid','Clear'],
   };
   for(const [viewMode,labels] of Object.entries(expected)){
     const menus=buildMenuTemplate(bindings,id=>actions.push(id),'win32',[],x=>x,{checks,viewMode,uvEnabled:false});
@@ -38,7 +39,7 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
 });
 
 test('VIS native View menu offers the same controls as XL in every editor',()=>{
- const expected={vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']};
+ const expected={vertices:['Shadows','RGB','Vertices','Bones','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Attachments','Emitters','Events','Sounds','Lights','Collision','Grid','Axis guides','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Attachments','Emitters','Events','Sounds','Lights','Collision','Grid','Axis guides','Clear'],animations:['Emitters','Events','Sounds','Wireframe','Grid','Clear']};
  for(const [viewMode,labels]of Object.entries(expected))assert.deepEqual(buildMenuTemplate({},()=>{},'win32',[],x=>x,{viewMode,vanilla:true}).find(menu=>menu.label==='View').submenu.map(row=>row.label),labels);
 });
 test('Frames is removed and all frame operations remain in Edit; UV entry follows actual eligibility',()=>{

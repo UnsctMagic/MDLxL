@@ -19,7 +19,7 @@ test('Chinese native menu shows every label as one phrase', () => {
   for (const viewMode of Object.keys(VIEW_MENU)) walk(buildMenuTemplate({}, () => {}, 'win32', [], value => translate(value, 'zh'), { viewMode }));
   const split = labels.filter(label => /[㐀-鿿]\s+[㐀-鿿]/.test(label));
   assert.deepEqual([...new Set(split)], []);
-  for (const source of ['Material Manager…', 'Node Manager…', 'Geoset Manager…', 'Geoset Animation Manager…'])
+  for (const source of ['Material Manager…', 'Object Manager…', 'Geoset Manager…', 'Geoset Animation Manager…'])
     assert.equal(translate(source, 'zh'), translate(source.slice(0, -1), 'zh') + '…', source);
 });
 

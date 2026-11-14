@@ -1,18 +1,25 @@
+import { migrateObjectDisplay } from './object-kinds.js';
+
+// The object switches (Bones … Collision) are listed in object-kinds.js.
 export function defaultEditorDisplay(vanilla = false) {
-  const base = { shaded: true, vertices: true, bones: false, helpers: false, boneTypesBones: true, boneTypesHelpers: true, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
+  const view = { shaded: true, vertices: true, wires: false, normals: false, grid: false, cameras: false };
+  const rig = { bones: false, helpers: false, boneTypesBones: true, boneTypesHelpers: true, skeleton: false, focusedSkeleton: false };
+  const base = { ...view, ...rig, attachments: false, particles: false, events: false, sounds: false, lights: false, collision: false };
   return {
-    vertices: { ...base, ...(vanilla && { bones: true, helpers: true, attachments: true }) },
+    // Vertex shows the mesh; Bones is its only object switch.
+    vertices: { ...view, ...rig, ...(vanilla && { bones: true, helpers: true }) },
     // Bones is one shared switch across the rig editors (see shareBones).
-    bones: { ...base, bones: true, helpers: true, ...(vanilla && { helpers: true, attachments: true }) },
-    movement: { ...base, bones: true, helpers: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
-    animations: { ...base, bones: true, helpers: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    bones: { ...base, bones: true, helpers: true, ...(vanilla && { attachments: true }) },
+    movement: { ...base, bones: true, helpers: true, focusedSkeleton: true, ...(vanilla ? { attachments: true } : { particles: true }) },
+    // Animations is a model preview: its switches hide the real effects, not symbols.
+    animations: { ...view, shaded: false, vertices: false, particles: true, events: true, sounds: true },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
 }
 
-// Rig marker choices follow the user between Bones, Movement and Animations.
-const RIG_EDITORS = ['bones', 'movement', 'animations'];
+// Rig marker choices follow the user between Bones and Movement.
+const RIG_EDITORS = ['bones', 'movement'];
 function shareBones(overlays, mode, key = 'bones') {
   if (!RIG_EDITORS.includes(mode)) return overlays;
   const enabled = !!overlays[mode]?.[key];
@@ -40,9 +47,9 @@ export function clearQuickDisplay(overlays, mode) {
 // POSE starts clean, then keeps the user's own display choices separately.
 // Type filters remain available in the Bones context menu.
 export function defaultPoseDisplay(overlays) {
-  const { helpers: _helpers, ...display } = overlays || {};
+  const { helpers: _helpers, nodes: _nodes, ...display } = overlays || {};
   return { ...display, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
-    nodes: false, attachments: false, particles: false, sounds: false, events: false,
+    attachments: false, particles: false, sounds: false, events: false, lights: false, collision: false,
     wires: false, normals: false, cameras: false };
 }
 
@@ -54,8 +61,14 @@ export function storedEditorDisplay(vanilla = false, storage = globalThis.localS
   let saved = null;
   try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
-  return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
-    .map(([key, value]) => [key, key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+  return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => {
+    // Before the switch list was shared, ViS Animations used Emitters for a
+    // symbol only; its real effects always played, so they start shown.
+    const before = saved[mode], legacy = typeof before?.nodes === 'boolean';
+    const chosen = legacy && vanilla && mode === 'animations' ? { ...before, particles: undefined, events: undefined, sounds: undefined } : migrateObjectDisplay(before, vanilla) || {};
+    return [mode, Object.fromEntries(Object.entries(display)
+      .map(([key, value]) => [key, key === 'helpers' ? (chosen.bones ?? display.bones) : typeof chosen[key] === 'boolean' ? chosen[key] : value]))];
+  }));
 }
 
 export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {

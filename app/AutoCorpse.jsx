@@ -17,7 +17,7 @@ import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
 
 const seconds = ms => (ms / 1000).toFixed(2) + ' s';
-const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
+const OVERLAYS = { attachments: false, bones: false, helpers: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
 // Blood: splats and sprays play, without extra node markers.
 const BLOOD_OVERLAYS = { ...OVERLAYS, events: true };
 // New pieces: gutz atlas region, length and half-width as shares of the body.

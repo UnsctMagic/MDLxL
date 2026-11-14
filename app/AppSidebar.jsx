@@ -6,7 +6,6 @@ import { sketchStore } from '../src/ai-sketch.js';
 import SidebarSection from './SidebarSection.jsx';
 import GeosetTabs from './GeosetTabs.jsx';
 import './geoset-set.css';
-import AnimationNodes from './AnimationNodes.jsx';
 import LookIcon from './LookIcon.jsx';
 const MovementController = lazy(() => import('./MovementControllerRecomp.jsx'));
 const AnimationController = lazy(() => import('./AnimationController.jsx'));
@@ -102,10 +101,9 @@ export function RigSidebar({
           drag may swap the Animations controls for the camera view. */}
       {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
-        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
-          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
+        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} onDeleteNode={activePortrait ? undefined : deleteSelectedNode} canDeleteNode={!!singleRigNode} /> : <>
+          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
-          <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
 
         </>}
       </Suspense>}

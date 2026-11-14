@@ -3,7 +3,7 @@ import { solveGizmoMove } from '../src/shift-lock.js';
 import { beginRotationDrag, rotationDragDegrees, rotationBehavior, rotationRim, rotationRingTangent, facingAxis, MDLVIS_SIGN, NORMAL } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
-import { movementNodeCategories } from './preview-overlays.js';
+import { objectKind, objectSymbol } from '../src/object-kinds.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
@@ -19,10 +19,10 @@ const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
 export const MOVEMENT_GIZMO_SCALE = 1;
 export const MOVEMENT_MOVE_MAX_PIXELS = 104;
-export function projectMovementNodes(model, frame, sequenceIndex, camera, width, height, globalTime = frame, suppliedMatrices, vanilla = false) {
+export function projectMovementNodes(model, frame, sequenceIndex, camera, width, height, globalTime = frame, suppliedMatrices) {
   const matrices = suppliedMatrices || samplePreviewMatrices(model, frame, sequenceIndex, globalTime, camera);
   const lightIds = new Set((model.Lights || []).map(node => node.ObjectId));
-  const categories = movementNodeCategories(model,vanilla);
+  const categories = objectKind(model), symbols = objectSymbol(model);
   return allNodes(model).map(node => {
     const world = new Vector3().fromArray(nodePivot(model, node));
     const matrix = matrices.get(node.ObjectId); if (matrix) world.applyMatrix4(matrix);
@@ -35,7 +35,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
     const eventNode = (model.EventObjects || []).some(item => item.ObjectId === node.ObjectId);
     const unit = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
     const tetrahedron = refNode ? [[1, 1, 1], [-1, -1, 1], [-1, 1, -1], [1, -1, -1]].map(vertex => { const p = new Vector3(...vertex).multiplyScalar(unit * 5).add(world).project(camera); return { x: (p.x + 1) * width / 2, y: (1 - p.y) * height / 2 }; }) : null;
-    return { node, world, rotation, billboardRotation:camera.quaternion.clone(), displayColor, tetrahedron, refNode, helperNode, eventNode, unitsPerPixel: unit, overlayKind: categories.get(node.ObjectId) || 'nodes', x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
+    return { node, world, rotation, billboardRotation:camera.quaternion.clone(), displayColor, tetrahedron, refNode, helperNode, eventNode, unitsPerPixel: unit, overlayKind: categories.get(node.ObjectId), symbolKind: symbols.get(node.ObjectId) || categories.get(node.ObjectId), x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
   });
 }
 
@@ -77,7 +77,7 @@ export function movementAxisHandles(active, camera, width, height, radius, space
   return handles;
 }
 
-export function drawMovementOverlay(context, nodes, selectedIds, handles, width, height, ratio = 1, options = { bones: true, nodes: true, attachments: true, particles: true, boneLines: true }) {
+export function drawMovementOverlay(context, nodes, selectedIds, handles, width, height, ratio = 1, options = { bones: true, attachments: true, particles: true, events: true, sounds: true, lights: true, collision: true, boneLines: true }) {
   context.clearRect(0, 0, width * ratio, height * ratio);
   context.save(); context.scale(ratio, ratio);
   const selected = new Set(selectedIds), byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
@@ -261,7 +261,7 @@ export function boneConnectionEndpoints(parent, child) {
 export function movementMarkerRadius(point, helperSize = 6) {
   if (point?.tetrahedron?.length) return Math.max(helperSize * 1.5, ...point.tetrahedron.map(vertex => Math.hypot(vertex.x - point.x, vertex.y - point.y))) + 1;
   // GL cubes and tetrahedrons share corners at (+/-1,+/-1,+/-1).
-  if (point?.overlayKind === 'bones' || point?.helperNode || point?.overlayKind === 'attachments' || point?.overlayKind === 'particles' || point?.overlayKind === 'ribbons' || point?.eventNode) return helperSize * 1.5 * Math.sqrt(3) + 2;
+  if (point?.overlayKind === 'bones' || point?.helperNode || point?.overlayKind === 'attachments' || point?.overlayKind === 'particles' || point?.eventNode) return helperSize * 1.5 * Math.sqrt(3) + 2;
   return Math.max(5, helperSize) + 1;
 }
 

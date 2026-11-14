@@ -15,7 +15,7 @@ const ICONS = Object.freeze({
   // Display toggles (keyed by their view-menu action)
   shaded: 'shaded', rgb: 'rgb', showVertices: 'vertices', normals: 'normals', 'display:wires': 'wires',
   grid: 'grid', 'display:bones': 'bone', 'display:skeleton': 'skeleton', 'display:focusedSkeleton': 'focusedSkeleton',
-  'display:nodes': 'nodes', 'display:particles': 'particles', 'display:events': 'events', 'display:sounds': 'sounds',
+  'display:lights': 'lights', 'display:collision': 'collision', 'display:particles': 'particles', 'display:events': 'events', 'display:sounds': 'sounds',
   'display:attachments': 'attachments', clearDisplay: 'clear',
 });
 

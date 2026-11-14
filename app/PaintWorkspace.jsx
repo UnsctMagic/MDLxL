@@ -39,7 +39,7 @@ import './paint-workspace.css';
 import './paint-studio.css';
 
 const NativeTextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
-const emptyOverlays=Object.freeze({bones:false,wires:false,nodes:false,attachments:false,particles:false,vertices:false,grid:false,axes:false,cameras:false,normals:false});
+const emptyOverlays=Object.freeze({bones:false,wires:false,attachments:false,particles:false,vertices:false,grid:false,axes:false,cameras:false,normals:false});
 const emptySelection=Object.freeze({}),emptyVertices=Object.freeze([]),noOverrides=new Map();
 /** Owns editable coats, cutouts and view-only scene lights/backgrounds.
  * App owns applying completed paint/UVs to the model and portable texture files.

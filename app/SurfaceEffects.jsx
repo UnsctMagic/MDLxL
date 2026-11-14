@@ -21,7 +21,7 @@ import './texture-library.css';
 import './surface-effects.css';
 const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
-const overlays={bones:false,nodes:false,particles:false,attachments:false};
+const overlays={bones:false,particles:false,attachments:false};
 const idleSelection=[];
 function TintPicker({value,onCommit}) {
  const input=useRef(null);

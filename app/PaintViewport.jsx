@@ -9,7 +9,7 @@ import { createEditorCameras, applyCameraButtons, editorCameraAngles, setEditorC
 import { previewLighting, createEditorLights, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
-import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
+import { drawPreviewGeometryOverlay, drawPresentationOverlay, hasObjectMarkers } from './preview-overlays.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementOverlay, projectMovementNodes } from './movement-overlay.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
@@ -452,7 +452,7 @@ export default function PaintViewport(inputProps) {
       syncViewportBackground(appearance);
       ambient.visible = key.visible = renderGraphics.lighting;
       const overlays = viewportOverlayOptions(p);
-      const showMarkers = overlays.bones || overlays.nodes || overlays.attachments || overlays.particles;
+      const showMarkers = hasObjectMarkers(overlays);
       grid.update(p.preferences, p.workplane, overlays.grid, overlays.axes, renderer.domElement.clientWidth, renderer.domElement.clientHeight);
       platform.update(p.preferences, state.center, state.radius, state.floor || 0);
       const selectedMap = selections(p), active = editableGeosets(p);

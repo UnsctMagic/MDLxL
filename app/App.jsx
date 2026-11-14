@@ -48,7 +48,6 @@ import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 import Dialog from './Dialog.jsx';
 import SidebarSection from './SidebarSection.jsx';
-import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
 const BoneNamer = lazy(() => import('./BoneNamer.jsx'));
@@ -380,7 +379,6 @@ export default function App() {
     timelineCommands.current.selectKeys?.(target.keyTimes || [target.time], { kind: 'node', id: finding.nodeId, property: finding.property });
     setCameraMode('work');
     setShowNodes(true); setCleanViews(previous => ({ ...previous, animation: false }));
-    setOverlayModes(previous => setEditorDisplay(setEditorDisplay(previous, 'animation', 'bones', true), 'animation', 'nodes', true));
   };
   const replayMotion = finding => {
     const interval = model.Sequences[sequence]?.Interval;
@@ -1519,7 +1517,7 @@ export default function App() {
     wireframe: () => setViewRenderMode('wireframe'),
     workplaneEnabled: () => setWorkplaneEnabled(value=>!value),
     normals: () => changeOverlay('normals', value => !value), rgb: () => { setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !value); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
-    ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras'].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
+    ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','attachments','particles','sounds','events','lights','collision','cameras'].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
     cleanView: () => setCleanViews(previous => ({...previous,[mode]:!previous[mode]})),
     geosetsAll: () => chooseSets(new Set(tabVisibleGeosets)), geosetsClear: () => chooseSets(new Set()), geosetsInvert: () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index)))),
@@ -1751,7 +1749,7 @@ export default function App() {
   useEffect(() => {aiBridge.editorChanged();});
 
 
-  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
+  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:attachments':overlays.attachments,'display:lights':overlays.lights,'display:collision':overlays.collision,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
   // The first time the toolbar goes away, by any route, say how to bring it back.
   useEffect(() => {
     if (!preferencesReady || !toolbarHidden || preferences.toolbarHiddenNoted) return;
@@ -2009,7 +2007,7 @@ export default function App() {
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport rotateEachPiece moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
-        vanilla={visUI}
+        vanilla={visUI} editorDisplayMode="vertices"
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}
         {...cameraProps}
@@ -2025,7 +2023,7 @@ export default function App() {
         normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
-        showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
+        showSkeleton={overlays.bones}
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
         workplane={workplane} transformMode={tool}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
@@ -2044,7 +2042,7 @@ export default function App() {
 
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview
         vanilla={visUI} editorDisplayMode={displayMode}
-        onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
+        onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);openParticles(id);}} onOpenEmitter={cleanAnimationPreview?undefined:openParticles} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
         previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} wiggleNodeIds={mode === 'bones' && boneWiggle ? selectedNodeIds : undefined} cleanAnimationPreview={cleanAnimationPreview}
         workplaneEnabled={workplaneEnabled} restrictions={restrictions}
@@ -2062,8 +2060,8 @@ export default function App() {
         poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose}
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
-        selectedNodeIds={selectedNodeIds} onSelectNodes={(ids, { record = true } = {})=>{if (!record) poseSelectionOnly.current = true; if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
-        onPartBones={selectPartBones}
+        selectedNodeIds={selectedNodeIds} onSelectNodes={cleanAnimationPreview ? undefined : (ids, { record = true } = {})=>{if (!record) poseSelectionOnly.current = true; setSelectedNodeIds(ids);}}
+        onPartBones={cleanAnimationPreview ? undefined : selectPartBones}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
