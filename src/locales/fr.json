@@ -8521,5 +8521,21 @@
   "How far the spikes lean away from straight out.": "Écart des pointes par rapport à la direction droite vers l'extérieur.",
   "How much the pieces differ in size.": "Écart de taille entre les éléments.",
   "Light added over the pieces. Rhythm moves it.": "Lumière ajoutée sur les éléments. Le rythme la fait varier.",
-  "Grow the pieces in other places.": "Faire pousser les éléments à d'autres endroits."
+  "Grow the pieces in other places.": "Faire pousser les éléments à d'autres endroits.",
+  "Team energy": "Énergie d'équipe",
+  "Team arcs": "Arcs d'équipe",
+  "Team bursts": "Salves d'équipe",
+  "White sparks": "Étincelles blanches",
+  "Team charge": "Charge d'équipe",
+  "Team discharge": "Décharge d'équipe",
+  "Team tip glow": "Lueur de pointe d'équipe",
+  "Team crackle": "Crépitement d'équipe",
+  "White discharge": "Décharge blanche",
+  "Team storm": "Tempête d'équipe",
+  "Crossing team arcs": "Arcs croisés d'équipe",
+  "Team fog": "Brume d'équipe",
+  "Deep fog": "Brume dense",
+  "Sinking team fog": "Brume d'équipe tombante",
+  "Team fog breath": "Souffle de brume d'équipe",
+  "Deep breath": "Souffle dense"
 }

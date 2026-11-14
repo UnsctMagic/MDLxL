@@ -8385,5 +8385,21 @@
   "How far the spikes lean away from straight out.": "Насколько шипы отклоняются от прямого направления наружу.",
   "How much the pieces differ in size.": "Насколько элементы различаются по размеру.",
   "Light added over the pieces. Rhythm moves it.": "Свет поверх элементов. Ритм меняет его.",
-  "Grow the pieces in other places.": "Вырастить элементы в других местах."
+  "Grow the pieces in other places.": "Вырастить элементы в других местах.",
+  "Team energy": "Энергия команды",
+  "Team arcs": "Дуги команды",
+  "Team bursts": "Вспышки команды",
+  "White sparks": "Белые искры",
+  "Team charge": "Заряд команды",
+  "Team discharge": "Разряд команды",
+  "Team tip glow": "Свечение острия команды",
+  "Team crackle": "Треск команды",
+  "White discharge": "Белый разряд",
+  "Team storm": "Гроза команды",
+  "Crossing team arcs": "Встречные дуги команды",
+  "Team fog": "Туман команды",
+  "Deep fog": "Густой туман",
+  "Sinking team fog": "Оседающий туман команды",
+  "Team fog breath": "Туманное дыхание команды",
+  "Deep breath": "Густое дыхание"
 }

@@ -8291,5 +8291,21 @@
   "How far the spikes lean away from straight out.": "尖刺偏离正外向的倾斜程度。",
   "How much the pieces differ in size.": "各元素在大小上的差异程度。",
   "Light added over the pieces. Rhythm moves it.": "叠加在元素上的光。节奏会让它变化。",
-  "Grow the pieces in other places.": "在其他位置重新生长这些元素。"
+  "Grow the pieces in other places.": "在其他位置重新生长这些元素。",
+  "Team energy": "队伍能量",
+  "Team arcs": "队伍电弧",
+  "Team bursts": "队伍爆发",
+  "White sparks": "白色火花",
+  "Team charge": "队伍电荷",
+  "Team discharge": "队伍放电",
+  "Team tip glow": "队伍尖端辉光",
+  "Team crackle": "队伍噼啪",
+  "White discharge": "白色放电",
+  "Team storm": "队伍风暴",
+  "Crossing team arcs": "交错队伍电弧",
+  "Team fog": "队伍雾气",
+  "Deep fog": "浓雾",
+  "Sinking team fog": "下沉队伍雾气",
+  "Team fog breath": "队伍雾气吐息",
+  "Deep breath": "浓雾吐息"
 }

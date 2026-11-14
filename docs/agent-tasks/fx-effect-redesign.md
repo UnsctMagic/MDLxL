@@ -364,6 +364,7 @@ The window opens on the first geoset. A look picked there and then taken to anot
 - **Crystals** (`3362633d`): the new **Growth** layer type (`growthLayer`), the one layer that makes solid geometry, on the owner's explicit request. Pieces are spread by area from a seed, bound to the bones of the skin under them, feet under the surface. Sliders Count, Size, Length, Spread, Variety, Glow, and Shuffle. Crystal > Crystal growth, Team crystals; Frost > Ice spikes; Lava > Ember crystals; Vines > Leaf cover (leaf cards, after Demigod Cenarius).
 - **Glow orb** (`3438d000`): a weapon carries it at its far end (`gather:'orb'`); the grey ball picture in the layer's colour, glow, white heart, rings, wisps. New variation Radiance.
 - **Team fire** (same commit, Team colour folder): Fire's variations drawn with the team glow, white-hot flame shapes inside. **Team tattoo**: Team colour > Tattoo bands, Tattoo marks, Tattoo spots. A drawn design in the player's colour is not possible: the colour exists only as a flat colour and a round glow, and the game cannot cut one picture out of another. **Void form** after the Void walker.
+- **Team energy and Team fog** (Team colour folder; the owner's later request). What the game can draw in the player's colour: the flat team colour and the round team glow, on a surface, a ribbon, a card, or as an emitter's sprite. An emitter's colour stages cannot take the player's colour. So Lightning's recipes (Team arcs, Team discharge, Team storm) and Plague cloud's (Team fog, Sinking team fog, Team fog breath) are drawn with the team glow as every layer's sprite, white-hot bolts inside. A team fog is a fog of light: the team glow has no alpha to make a dark cloud of. Compiled only, not captured.
 - **Fixes** (the commit with this note): non-finite keys of a skin attachment under a bone scaled to nothing (Chikichiki geoset 8) keep the last real place; the Thunderclap and cinematic lightning pictures are read from their catalogued paths.
 
 ### Checks
@@ -388,11 +389,11 @@ Still open from the review: effects on very thin staffs (Souls, Rune circle and 
 ### Not done (in the order to do them)
 
 1. Capture the looks fixed above again and have them reviewed (`out\fx-look\pass8-a-plan.json`, `pass8-b-plan.json`, `run.ps1`).
-2. Translations are done (`250e06e8`). `test/localization-catalogs.test.js` needs its key counts updated (ru 8387, es 8397, zh 8293, fr 8523, de 8523); its French and German key-order failure is older.
+2. Translations are done (`250e06e8`). `test/localization-catalogs.test.js` needs its key counts updated (ru 8403, es 8413, zh 8309, fr 8539, de 8539); its French and German key-order failure is older.
 3. Test expectations for everything above, plus a source test of the blend rule in `blend.mjs` (Sonnet).
 4. Animation sequences (brief B): show a layer only in chosen animations, set in the window. Not started. Plan: a layer field `sequences`; after a layer compiles, its emitters' and ribbons' Visibility and its geosets' alpha get stepped keys per sequence.
 5. Lightning pass from MM20 Stormforger and the BlueRed Lightning Missile reference (also to be added to the credits): not started. Lightning, Crackling arcs and Lightning cage only gain additions.
-6. Team electric energy and team fog (owner): not started. They follow Team fire: the team glow as the sprite of every layer, Lightning's and Plague cloud's recipes.
+6. Capture and review Team energy and Team fog (built, see Done).
 7. Looks from the pass 9 references not built yet (measured in `out\fx-design\pass9\ref.md`): Frost Fury (scrolling ice with paired star and snowflake emitters), Doom Emperor (fel fire with black smoke at two thirds its size), Archimonde's static fire-ring skin, Prism Ray mist, Shalamayne's edge glint and a seamless sweeping sheen, Heart of the Storm's jittering arcs across joints, Nature Blast.
 8. Recipe reference section for the new fields.
 
@@ -411,6 +412,7 @@ Exact next step: item 1, then 3.
 - **Poison & nature > Fly swarm > Fire flies, Plague flies, Spark flies, Glow flies**.
 - **Arcane > Runes > Rune swarm**.
 - **Ice > Crystal > Crystal growth** and Team crystals; Ice > Frost > Ice spikes; Fire > Lava > Ember crystals; Poison & nature > Vines > Leaf cover. Select the layer: Count, Size, Length, Spread, Variety, Glow, Shuffle.
+- **Team colour > Team energy** (Team arcs, Team discharge, Team storm) and **Team colour > Team fog** (three variations).
 - **Team colour > Team fire** (six variations); Team colour > Team colour > Tattoo bands, Tattoo marks, Tattoo spots, Void form; Team swirl > Team twirl.
 
 ## Rules carried over
