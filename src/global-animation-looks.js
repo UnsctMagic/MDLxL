@@ -932,6 +932,49 @@ const growth=(label,shape,image,extra={})=>({type:'Growth',label,shape,image,...
   ]},
  ]);
 }
+// Team energy and Team fog (owner, 14 November: "team color electric energy? team color fog"). What the game can draw in
+// the player's colour is the flat team colour and the round team glow, on a surface, a ribbon, a card or as an emitter's
+// sprite; an emitter's colour stages cannot take the player's colour. So, as in Team fire, every layer of Lightning's
+// and Plague cloud's recipes is drawn with the team glow as its sprite, added as light, and the bolts keep a white,
+// fainter copy in their own picture: white-hot bolts inside light of the player's colour. A team fog is therefore a fog
+// of light: the team glow has no alpha to make a dark cloud of.
+{
+ const TEAM_GLOW='ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',WHITE=[[1,1,1],[1,1,1],[1,1,1]];
+ const team=(spec,label,fade=1)=>{
+  const {atlas:_atlas,...shape}=spec.nativeSpec,{LifeSpanUVAnim:_a,DecayUVAnim:_b,PriorityPlane:_p,Flags:flags,...native}=spec.native||{};
+  return {...spec,label,image:TEAM_GLOW,tint:[1,1,1],nativeSpec:{...shape,texture:TEAM_GLOW,team:true,filter:1,alpha:(shape.alpha||[235,180,0]).map(a=>Math.round(a*fade))},native:{...native,Flags:flags===4096+32768+65536||flags==null?U:flags,SegmentColor:WHITE}};
+ };
+ const white=(spec,label)=>({...spec,label,tint:[1,1,1],nativeSpec:{...spec.nativeSpec,alpha:(spec.nativeSpec.alpha||[235,180,0]).map(a=>Math.round(a*.45))},native:{...spec.native,SegmentColor:[[1,1,1],[1,1,1],[.6,.6,.6]]}});
+ const bolt=id=>lookById('lightning-blade').variations.find(v=>v.id===id).layers,layer=(list,label)=>list.find(s=>s.label===label);
+ const arcs=(extra={})=>skin('Team arcs',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:3,speed:3,strength:.9,tint:[1,1,1],loop:1033,...extra});
+ const crackle=bolt('crackle'),tip=bolt('tip'),storm=bolt('sparks');
+ // Bursts belong to Lightning alone (the library's no-flashing rule): the team discharge streams.
+ const steady=({burstCount:_count,burstWindow:_window,burstGap:_gap,...spec})=>({...spec,nativeSpec:{...spec.nativeSpec,rate:24}});
+ GLOBAL_LOOKS.push(vary({...make('fx-team-energy','Team energy','',1240,'native',[]),asOverlay:true},[
+  {id:'arcs',name:'Team arcs',layers:[
+   arcs(),
+   team(layer(crackle,'Arc bursts'),'Team bursts'),team(layer(crackle,'Jumping sparks'),'Team sparks'),white(layer(crackle,'Jumping sparks'),'White sparks'),
+   team(layer(crackle,'Charge glow'),'Team charge'),
+  ]},
+  {id:'discharge',name:'Team discharge',layers:[
+   arcs(),
+   team(layer(tip,'Tip glow'),'Team tip glow'),team(layer(tip,'Tip crackle'),'Team crackle'),
+   team(steady(layer(tip,'Discharge')),'Team discharge'),white(steady(layer(tip,'Discharge')),'White discharge'),team(layer(tip,'Tip sparks'),'Team sparks'),
+  ]},
+  {id:'storm',name:'Team storm',layers:[
+   arcs(),
+   skin('Crossing team arcs',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:2,direction:180,speed:4,strength:.6,tint:[1,1,1],loop:1200}),
+   team(layer(storm,'Leaping sparks'),'Team sparks'),white(layer(storm,'Leaping sparks'),'White sparks'),
+  ]},
+ ]));
+ const plague=id=>lookById('claude-plague-swarm').variations.find(v=>v.id===id).layers;
+ const cloud=plague('cloud'),breathing=plague('breath'),sinking=plague('miasma');
+ GLOBAL_LOOKS.push(vary(make('fx-team-fog','Team fog','',3000,'native',[]),[
+  {id:'fog',name:'Team fog',layers:[team(layer(cloud,'Pale cloud'),'Team fog',.6),team(layer(cloud,'Murky cloud'),'Deep fog',.5),team(layer(cloud,'Plague spores'),'Team motes')]},
+  {id:'sinking',name:'Sinking team fog',layers:[team(layer(sinking,'Pale cloud'),'Team fog',.6),team(layer(sinking,'Murky cloud'),'Deep fog',.5),team(layer(cloud,'Plague spores'),'Team motes')]},
+  {id:'breath',name:'Team fog breath',layers:[team(layer(breathing,'Pale breath'),'Team breath',.7),team(layer(breathing,'Murky breath'),'Deep breath',.6),team(layer(breathing,'Breath glow'),'Team breath glow')]},
+ ]));
+}
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
@@ -941,7 +984,7 @@ export const LIBRARY=[
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-orbs'],['motes']]],
- ['Team colour',[['fx-team-colour'],['fx-team-fire'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
+ ['Team colour',[['fx-team-colour'],['fx-team-fire'],['fx-team-energy'],['fx-team-fog'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
  ['Stone',[['sort-basalt','Stone']]],
  ['Death & spirit',[['claude-wraith-form','Spirit'],['fx-soul-vortex','Souls'],['fx-dark-smoke','Shadow'],['sort-blood','Blood']]],
