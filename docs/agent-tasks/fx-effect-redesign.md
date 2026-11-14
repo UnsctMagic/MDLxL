@@ -234,10 +234,11 @@ Done:
 - **Polish 2: audit of every look** (`f00bad0c`). `node out/fx-design/pass6/audit.mjs <model> <geoset...>` lists what every look and variation makes (emitters, sprite size, particles alive, cards, ribbons) and flags huge, tiny, sparse and faint layers. On the sword nothing else stood out except Soul vortex: Inward souls is a flat swirl on the ground under the unit, 71 units wide (an aura). It is now offered, not started; Soul wisps (small lights rising around the part) start instead. The recipe reference has a section 7 with every field added in passes 5 and 6.
 - Seen in the audit and left alone, because it would change looks the owner approved: on a part with many skin regions (the body, 34 regions) every built-in and native particle is sized from one region, so flames, embers and sparks are about half the size they are on the sword (flames 14 against 23, embers 1.9 against 3.1). Rune circle on a body is as wide as the body.
 - **Rules and tests.** `node out/fx-design/pass6/rules.mjs` checks the whole library against the rules `test/fx-look-quality.test.js` states (compiles on the knight's blade and body with offered layers, separate clocks, closed tracks, catalogue textures, five translations, no flashing): all hold. That test's `CARRIED_BEFORE` list got one entry, `fx-lit-crystal` / Crystal glints / glint: the Crystal veins layer under its new look. No unit test was run. Tests that name what this pass changed and will need new expectations (for a cheaper agent): `fx-library-variations.test.js` (variation lists of Fel fire, Frost, Crystal, Molten lava; `crystal-veins`, `claude-magma-flow`, `fissures`), `fx-layer-editor.test.js` (`crystal-veins`), `fx-look-quality.test.js` (`glacial`, `sort-tide`, `sort-rift`, `sort-blood`, `claude-forge-hot` rows of its lists), `fx-emitter-names.test.js`, `fx-emitter-round2.test.js`, `fx-native-shared-sites.test.js` (Inward souls is no longer started; Rune rings left Rune circle), `claude-fx-looks.test.js` (Magma flow's layers), `fx-cards.test.js` (a fourth facing, Across), and the electron tests that open `sort-rift`. `test/fx-legacy-snapshot.test.js` and its fixture are untouched; saved layers take none of the new fields.
+- **Polish 3: glints** (`1406f6cb`). Crystal's Facet glints (Inner light, Team colour core) and Liquid body's Water glints were cards in a row down the middle of every skin region: evenly spaced dots, the pattern the owner rejected in pass 2. Both are now small stars blooming anywhere on the surface (`cover:'surface'`, sized in widths of the part), a few at a time.
 
 Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: none: the list and the polish pass are done. Unit tests were not run or updated (see below).
+Exact next step: none: the list and the polish pass are done. Unit tests were not run; the ones that need new expectations are listed under Rules and tests.
 
 What the owner should look at:
 
@@ -256,6 +257,7 @@ What the owner should look at:
 - Any look with cards or orbit ribbons on the body (Geoset 6): Arcane (one star per large region, four in all), Ghost trails, Soul vortex, Arcane swirl, Crystal: a handful of pieces, not one per bone. Swords are unchanged.
 - Death & spirit > Sanguine drip: red drops fall from the part.
 - Death & spirit > Soul vortex: two streams circling the part and small lights rising around it; nothing on the ground.
+- Ice > Crystal (Inner light, Team colour core) and Water > Liquid body: glints appear at changing places over the part, not as a row of dots.
 
 ## Rules carried over
 
