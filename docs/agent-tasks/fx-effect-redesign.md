@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; the whole list (items 1 to 13) saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; the whole list (items 1 to 13) and polish 1 saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -230,10 +230,11 @@ Done:
 - **12. Rune circle** (`1406b188`) is a part effect: the rune circle stands across the part as rings the part passes through. Rune circle (three rings along the part, turning slowly, each on its own clock), Inner circle (two smaller rings turning the other way), Rune motes. No ground cards, no ground emitter; the old layers still open from a saved model. New Card facing `across` (`CARD_FACINGS` in `src/fx-cards.js`, `cardLayer`; shown as Across in the Facing menu) and, for fresh layers, the Card fields `whole`, `along` and `reach` (half-width as a share of the whole part's radius, in `makeLayer`). Rings on the owner's sword: 59 and 46 units across on a blade 160 long.
 - **13. Star flare and Glow orb** (`6d86ea9d`) are rebuilt as billboarded particles sized in widths of the part; both were cards at the middle of every skin region (on a sword: mid-blade and the grip). Star flare: Flare (a `star4` star growing and fading at the tip, `gather:'tip'`), Flare glow, Star glints along the whole part. Glow orb: Orb glow, Orb core and Orb wisps on `gather:'engulf-core'`, the place Fireball's glow sits (around a blade's outer part, the middle of a compact piece, a body's head). Old card layers still open from a saved model.
 - **4. Rift seam** (`485d84b9`). The three zap cards sat at the middle of every skin region and nothing else carried the look where the seam's mapping is weak (parts that are not one flat strip). The dark tear and the two-colour crack stay (the crack at full strength). New around them: Dark aura (a violet shell glow), Rift sparks (small violet bursts on the surface, the Crackling arcs technique), Rift splinters (now started: short streaks leaving the surface) and Rift glow. Recipe in `src/fx-sort-looks.js`.
+- **Polish 1: bodies and shells** (`b9d3f1a8`). The fault behind "huge on a body" was general: every Card and ribbon layer made one set for each skin region (34 on the owner's body). Recipe flag `sharedSites` on Card and Edge layers (`cardLayer`, `edgeLayer`): a part with more than four skin regions gets four regions' worth, on its longest regions, the rule the emitters already follow; a weapon (up to four regions) compiles exactly as before. Set on every orbit ribbon (`orbit()`), Arcane star, Facet glints, Water glints and Thorn trail. `closedLift` (set by `makeLayer` when a recipe lifts its own layer): vertices at one place move together, so a shell on a hard-edged part stays in one piece (`overlay()`); a Lift the user adds to another layer works as before. Motes > Glow orbs is capped in widths of the part (18 units on the owner's sword, was 33). Sanguine drip starts Blood drips (the Dripping venom drops in red): it had no drip running. Molten lava's Heat glow is .35.
 
 Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: the extra polish pass over every look (start with the per-region cards and ribbons on bodies: Arcane star, Facet glints, Water glints, Ghost trails, Soul vortex, Arcane swirl).
+Exact next step: polish 2: review the remaining looks folder by folder; then the recipe reference (`docs/agent-tasks/fx-effect-recipe-reference.md`) and the list of unit tests whose expectations changed.
 
 What the owner should look at:
 
@@ -249,6 +250,8 @@ What the owner should look at:
 - Arcane > Rune circle on the sword: green rune rings around the blade at three places, turning slowly, two smaller ones between them, small green motes. Facing > Across is the new choice for any Card layer.
 - Light > Star flare on the sword: a star twinkling at the tip with a soft glow, small glints along the blade. Light > Glow orb: one orb of light around the outer part of the blade with a bright core and small wisps leaving it; on a mace head or compact piece it sits in the middle.
 - Lightning > Rift seam on the sword, the claw and the body: the dark tear and violet-to-blue crack as before, with a violet glow around the part, small bursts and splinters over its whole surface. No zap cards.
+- Any look with cards or orbit ribbons on the body (Geoset 6): Arcane (one star per large region, four in all), Ghost trails, Soul vortex, Arcane swirl, Crystal: a handful of pieces, not one per bone. Swords are unchanged.
+- Death & spirit > Sanguine drip: red drops fall from the part.
 
 ## Rules carried over
 
