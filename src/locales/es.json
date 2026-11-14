@@ -7742,10 +7742,6 @@
   "This exact-cleanup finding changed. Select it again.": "Este resultado de limpieza exacta ha cambiado. Selecciónalo de nuevo.",
   "This exact-cleanup track changed. Select it again.": "Esta pista de limpieza exacta ha cambiado. Selecciónala de nuevo.",
   "This exact-cleanup geometry changed. Select it again.": "Esta geometría de limpieza exacta ha cambiado. Selecciónala de nuevo.",
-  "Visibility key {0}": "Clave de visibilidad {0}",
-  "Turn this emitter on from the current frame.": "Activa este emisor desde el fotograma actual.",
-  "Turn this emitter off from the current frame.": "Desactiva este emisor desde el fotograma actual.",
-  "Frames where this emitter turns on or off. Click a frame to jump to it.": "Fotogramas en los que este emisor se activa o desactiva. Haz clic en uno para ir a él.",
   "This part changed shape, so its paint cannot be moved.": "Esta pieza cambió de forma, así que su pintura no se puede mover.",
   "Shift adds to the selection, Ctrl subtracts": "Mayús añade a la selección, Ctrl resta",
   "Detail levels work on a New base coat.": "Los niveles de detalle funcionan en una Nueva capa base.",
@@ -7757,8 +7753,6 @@
   "Model comments did not reopen.": "Los comentarios del modelo no se volvieron a abrir.",
   "Apply AI result": "Aplicar resultado de la IA",
   "Merge AI result": "Combinar resultado de la IA",
-  "Show at {0}": "Mostrar en {0}",
-  "Hide at {0}": "Ocultar en {0}",
   "Selected geosets ({0})": "Geosets seleccionados ({0})",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "Mantén {0} al arrastrar para acercar o separar piezas sin cambiar su tamaño.",
   "Hold {0} to lock direction.": "Mantén {0} para bloquear la dirección.",
@@ -7968,5 +7962,6 @@
   "Show sound events": "Mostrar eventos de sonido",
   "Show lights": "Mostrar luces",
   "Show collision shapes": "Mostrar formas de colisión",
-  "Node Manager": "Gestor de nodos"
+  "Node Manager": "Gestor de nodos",
+  "Clone object": "Clonar objeto"
 }

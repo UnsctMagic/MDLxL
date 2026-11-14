@@ -6,6 +6,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+// What the GL marker draw adds for this fixture's two emitter symbols (drawArrays vertex count), measured in Movement
+// with Bones and Focused Skeleton off. A change here means the emitter symbols changed.
+const EMITTER_SYMBOL_TRIANGLES = 2988;
 
 (async () => {
   const root = process.cwd(), out = path.join(root, 'out', 'animation-effects', String(Date.now()));
@@ -134,12 +137,14 @@ const { createHash } = require('node:crypto');
     await waitFor(state => state.nodes === 0, 'Animations shows no markers');
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), sidebarWidth);
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
-    // Movement also draws focused bone markers with the same GL program, so measure what its Emitters switch adds.
+    // With Bones and Focused Skeleton off, the Emitters switch adds exactly the two emitter symbols to the GL marker draw.
+    for (const key of ['display:bones', 'display:focusedSkeleton']) await page.locator(`input[data-hotkey="${key}"]`).first().uncheck();
     if (!await emitters.isChecked()) await emitters.check(); await settlePage(page, 300);
     const movementOn = (await waitFor(state => state.nodes === 1 && state.markerTriangles > 0, 'Movement markers drawn')).markerTriangles;
     await emitters.uncheck();
     const movementOff = (await waitFor(state => state.markerTriangles !== movementOn, 'Movement Emitters switch removes emitter markers')).markerTriangles;
-    assert.ok(movementOn > movementOff && (movementOn - movementOff) % 2 === 0, 'Movement retains both emitter editing markers (two identical pentagrams)');
+    assert.equal(movementOff, 0, 'no markers are left with Bones and Emitters off');
+    assert.equal(movementOn - movementOff, EMITTER_SYMBOL_TRIANGLES, 'Movement draws both emitter symbols and nothing else');
     await emitters.check(); await waitFor(state => state.markerTriangles === movementOn, 'Movement emitter markers return');
     await screenshot('movement-markers.png');
     assert.deepEqual(await fs.readFile(fixture), bytes);

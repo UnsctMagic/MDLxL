@@ -1726,7 +1726,8 @@
     "Show blood, footprints and other events",
     "Show sound events",
     "Show lights",
-    "Show collision shapes"
+    "Show collision shapes",
+    "Clone object"
   ],
   "paint": [
     "Citadel Paint",

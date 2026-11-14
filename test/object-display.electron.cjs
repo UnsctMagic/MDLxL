@@ -16,14 +16,20 @@ const ANIMATIONS = ['Emitters', 'Events', 'Sounds', 'Wireframe', 'Grid'];
   fs.mkdirSync(out, { recursive: true });
   const { openDocument, createNode } = await import('../src/editor-document.js');
   const doc = openDocument(fs.readFileSync(source), source), ids = {};
-  doc.apply('Add test light', ['Nodes', 'PivotPoints'], model => {
+  doc.apply('Add test lights', ['Nodes', 'PivotPoints', 'GlobalSequences'], model => {
     const light = createNode(model, 'Light'); light.Name = 'Test Lamp'; light.PivotPoint.set([0, 0, 320]); ids.light = light.ObjectId;
+    // A second light whose visibility runs on a global sequence.
+    ids.clock = model.GlobalSequences.push(1000) - 1;
+    const beacon = createNode(model, 'Light'); beacon.Name = 'Test Beacon'; beacon.PivotPoint.set([0, 0, 420]);
+    beacon.Visibility = { LineType: 0, GlobalSeqId: ids.clock, Keys: [{ Frame: 0, Vector: new Float32Array([1]) }] };
   });
   const fixture = path.join(out, 'TEST OBJECT DISPLAY 01.mdx');
   fs.writeFileSync(fixture, Buffer.from(doc.serialize('mdx')));
   for (const file of fs.readdirSync(path.dirname(source))) if (/\.(blp|tga|dds)$/i.test(file)) fs.copyFileSync(path.join(path.dirname(source), file), path.join(out, file));
   const saved = openDocument(fs.readFileSync(fixture), fixture).model;
-  ids.light = saved.Lights.find(node => node.Name === 'Test Lamp').ObjectId;
+  ids.light = saved.Lights.find(node => node.Name === 'Test Lamp').ObjectId; ids.beacon = saved.Lights.find(node => node.Name === 'Test Beacon').ObjectId;
+  assert.equal(saved.Lights.find(node => node.Name === 'Test Beacon').Visibility.GlobalSeqId, ids.clock);
+  const interval = Array.from(saved.Sequences[0].Interval);
   ids.ribbon = saved.RibbonEmitters[0].ObjectId; ids.particle = saved.ParticleEmitters2[0].ObjectId;
   const checks = [];
   let app, page, errors;
@@ -114,6 +120,44 @@ const ANIMATIONS = ['Emitters', 'Events', 'Sounds', 'Wireframe', 'Grid'];
     assert.equal(await strip.getByRole('checkbox', { name: 'Object visible at current frame', exact: true }).count(), 1, 'a light keeps Visible');
     assert.equal(await strip.getByRole('button', { name: 'Edit effect', exact: true }).count(), 0);
     checks.push('Movement: emitter shows Edit effect only; light shows Visible');
+    // Visible writes a key at the playhead that holds until the next key, and Undo takes it back.
+    const visible = strip.getByRole('checkbox', { name: 'Object visible at current frame', exact: true });
+    const frameBox = page.getByLabel('Current animation frame', { exact: true });
+    const seek = async frame => { await frameBox.fill(String(frame)); await frameBox.press('Enter'); await idle(); };
+    const keys = name => page.evaluate(name => { const track = rigState().props.model.Lights.find(node => node.Name === name).Visibility; return track?.Keys ? { clock: track.GlobalSeqId ?? null, keys: track.Keys.map(key => [key.Frame, key.Vector[0]]) } : track ?? null; }, name);
+    const [start, end] = interval, early = start + Math.round((end - start) * .25), middle = start + Math.round((end - start) * .5), late = start + Math.round((end - start) * .75);
+    const untouched = await keys('Test Lamp');
+    await seek(early); assert.equal(await visible.isChecked(), true, 'the light starts visible');
+    await visible.uncheck(); await idle();
+    let lamp = await keys('Test Lamp');
+    assert.deepEqual(lamp.keys.find(key => key[0] === early), [early, 0], 'unticking Visible writes an off key at the playhead');
+    assert.equal(lamp.clock, null, 'the key belongs to the model animations');
+    await page.keyboard.press('Control+z'); await idle();
+    assert.deepEqual(await keys('Test Lamp'), untouched, 'Undo removes the key');
+    assert.equal(await visible.isChecked(), true);
+    await visible.uncheck(); await idle();
+    await seek(middle); assert.equal(await visible.isChecked(), false, 'the off key holds on later frames');
+    await seek(late); await visible.check(); await idle();
+    lamp = await keys('Test Lamp'); assert.deepEqual(lamp.keys.find(key => key[0] === late), [late, 1], 'ticking Visible writes an on key');
+    await seek(middle); assert.equal(await visible.isChecked(), false, 'frames between the keys stay off');
+    await seek(end); assert.equal(await visible.isChecked(), true, 'the on key holds to the end');
+    checks.push('Movement: Visible on a light writes keys that hold across frames; Undo');
+    // A light keyed on a global sequence: selecting it shows that sequence's timeline, and Visible edits it there.
+    await picker().selectOption(String(ids.beacon));
+    await page.waitForFunction(clock => document.querySelector('[aria-label="Movement current sequence"]').value === `global:${clock}`, ids.clock);
+    await idle(); await seek(400);
+    assert.equal(await visible.isDisabled(), false); assert.equal(await visible.isChecked(), true);
+    await visible.uncheck(); await idle();
+    let beacon = await keys('Test Beacon');
+    assert.equal(beacon.clock, ids.clock, 'the key stays on the global sequence');
+    assert.deepEqual(beacon.keys, [[0, 1], [400, 0]], 'unticking Visible writes an off key on the global sequence');
+    await page.keyboard.press('Control+z'); await idle();
+    assert.deepEqual((await keys('Test Beacon')).keys, [[0, 1]], 'Undo removes the global key');
+    await visible.uncheck(); await idle();
+    await seek(700); assert.equal(await visible.isChecked(), false, 'the off key holds on the global sequence');
+    await seek(200); assert.equal(await visible.isChecked(), true, 'frames before the key stay on');
+    checks.push('Movement: Visible on a global-sequence light switches to its timeline and writes there; Undo');
+    await page.getByLabel('Movement current sequence', { exact: true }).selectOption('0'); await ready(); await idle();
     // Delete, with the same button as Bones, and Undo.
     await click(ids.particle);
     assert.equal(await picker().inputValue(), String(ids.particle));

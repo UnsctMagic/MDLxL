@@ -7637,10 +7637,6 @@
   "This exact-cleanup finding changed. Select it again.": "此完全清理结果已更改，请重新选择。",
   "This exact-cleanup track changed. Select it again.": "此完全清理轨道已更改，请重新选择。",
   "This exact-cleanup geometry changed. Select it again.": "此完全清理几何体已更改，请重新选择。",
-  "Visibility key {0}": "可见性关键帧 {0}",
-  "Turn this emitter on from the current frame.": "从当前帧起开启此发射器。",
-  "Turn this emitter off from the current frame.": "从当前帧起关闭此发射器。",
-  "Frames where this emitter turns on or off. Click a frame to jump to it.": "此发射器开启或关闭的帧。点击某帧可跳转到该帧。",
   "This part changed shape, so its paint cannot be moved.": "此部件的形状已更改，因此无法移动其绘制内容。",
   "Shift adds to the selection, Ctrl subtracts": "Shift 添加到选区，Ctrl 从选区减去",
   "Detail levels work on a New base coat.": "细节级别适用于新建底色。",
@@ -7652,8 +7648,6 @@
   "Model comments did not reopen.": "模型注释未能重新打开。",
   "Apply AI result": "应用 AI 结果",
   "Merge AI result": "合并 AI 结果",
-  "Show at {0}": "在第 {0} 帧显示",
-  "Hide at {0}": "在第 {0} 帧隐藏",
   "Selected geosets ({0})": "所选几何体（{0}）",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "拖动时按住 {0} 可让部件靠拢或分开而不改变大小。",
   "Hold {0} to lock direction.": "按住 {0} 锁定方向。",
@@ -7863,5 +7857,6 @@
   "Show sound events": "显示声音事件",
   "Show lights": "显示灯光",
   "Show collision shapes": "显示碰撞形状",
-  "Node Manager": "节点管理器"
+  "Node Manager": "节点管理器",
+  "Clone object": "克隆对象"
 }

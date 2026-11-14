@@ -7732,10 +7732,6 @@
   "This exact-cleanup finding changed. Select it again.": "Эта находка точной очистки изменилась. Выберите её снова.",
   "This exact-cleanup track changed. Select it again.": "Эта дорожка точной очистки изменилась. Выберите её снова.",
   "This exact-cleanup geometry changed. Select it again.": "Эта геометрия точной очистки изменилась. Выберите её снова.",
-  "Visibility key {0}": "Ключ видимости {0}",
-  "Turn this emitter on from the current frame.": "Включает этот эмиттер с текущего кадра.",
-  "Turn this emitter off from the current frame.": "Выключает этот эмиттер с текущего кадра.",
-  "Frames where this emitter turns on or off. Click a frame to jump to it.": "Кадры, где этот эмиттер включается или выключается. Нажмите кадр, чтобы перейти к нему.",
   "This part changed shape, so its paint cannot be moved.": "Форма этой части изменилась, поэтому её краску нельзя перенести.",
   "Shift adds to the selection, Ctrl subtracts": "Shift добавляет к выделению, Ctrl убирает",
   "Detail levels work on a New base coat.": "Уровни детализации работают на «Новой основе».",
@@ -7747,8 +7743,6 @@
   "Model comments did not reopen.": "Комментарии модели не открылись повторно.",
   "Apply AI result": "Применить результат ИИ",
   "Merge AI result": "Объединить результат ИИ",
-  "Show at {0}": "Показать на кадре {0}",
-  "Hide at {0}": "Скрыть на кадре {0}",
   "Selected geosets ({0})": "Выбранные геосеты ({0})",
   "Hold {0} while dragging to move separate pieces closer or apart without changing their size.": "Удерживайте {0} при перетаскивании, чтобы сдвигать или раздвигать части, не меняя размер.",
   "Hold {0} to lock direction.": "Удерживайте {0}, чтобы зафиксировать направление.",
@@ -7958,5 +7952,6 @@
   "Show sound events": "Показать звуковые события",
   "Show lights": "Показать источники света",
   "Show collision shapes": "Показать формы столкновений",
-  "Node Manager": "Редактор узлов"
+  "Node Manager": "Редактор узлов",
+  "Clone object": "Клонировать объект"
 }

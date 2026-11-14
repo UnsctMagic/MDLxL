@@ -591,7 +591,7 @@ export default function GamePreview(inputProps) {
       const pickable = nodePoints;
       if (!p.vanilla && event.button === 2) {
         const rect = canvas.getBoundingClientRect(), picked = pickMovementNode(pickable,event.clientX-rect.left,event.clientY-rect.top);
-        if (picked && ['particles','sounds','events'].includes(picked.overlayKind)) {
+        if (picked && (['particles','sounds'].includes(picked.overlayKind) || ['blood','foot','uber'].includes(picked.symbolKind))) {
           const id = picked.node.ObjectId;
           if (picked.overlayKind === 'sounds') void soundPreview.play(id);
           else if (picked.overlayKind === 'events') eventPreview.trigger(id,native.getFrame(),movementSequence(p,native.getFrame()),globalClock);
