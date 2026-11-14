@@ -7,6 +7,8 @@ import React from 'react';
 import { createSketchStore } from '../src/ai-sketch.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import VIEW_MENU from '../src/view-menu.json' with { type: 'json' };
+// The MDLxL look has its own lists (owner's revised spec); VIS keeps view-menu.json.
+import XL_VIEW_MENU from '../src/view-menu-xl.json' with { type: 'json' };
 
 const toolbar = readFileSync(new URL('../app/AppToolbar.jsx', import.meta.url), 'utf8').replaceAll('\r', '');
 const css = readFileSync(new URL('../app/modules.css', import.meta.url), 'utf8').replaceAll('\r', '');
@@ -53,7 +55,7 @@ const QuickDisplay = module.exports.default;
 
 for (const viewMode of Object.keys(VIEW_MENU)) test(`${viewMode}: VIS renders the classic ordered checkbox list; XL retains its icons and menu`, () => {
   for (const vanilla of [true, false]) {
-    const menu = VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes');
+    const menu = (vanilla ? VIEW_MENU : XL_VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes');
     const checks = Object.fromEntries(menu.map(([, action], i) => [action, i % 2 === 0]));
     const html = renderToStaticMarkup(React.createElement(QuickDisplay, { viewMode, vanilla, checks, isEnabled: action => action !== 'grid', onCommand() {}, onClear() {} }));
     const inputs = [...html.matchAll(/<input ([^>]+)>/g)].map(([, attrs]) => attrs);
@@ -120,8 +122,8 @@ test('VIS defers the body-portaled AI cleanup question and its detached hotkey r
 
 test('desktop and browser View use the same mode rows, including Axis guides where available', () => {
   const { buildMenuTemplate } = createRequire(import.meta.url)('../electron/menu.cjs');
-  for (const [mode, browserRows] of Object.entries(VIEW_MENU)) {
-    const nativeRows = buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode })
+  for (const [vanilla, menus] of [[true, VIEW_MENU], [false, XL_VIEW_MENU]]) for (const [mode, browserRows] of Object.entries(menus)) {
+    const nativeRows = buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode, vanilla })
       .find(menu => menu.label === 'View').submenu;
     assert.deepEqual(nativeRows.map(row => row.label), browserRows.map(([label]) => label), mode);
     assert.equal(browserRows.some(([, id]) => id === 'axes'), mode !== 'animations', mode);

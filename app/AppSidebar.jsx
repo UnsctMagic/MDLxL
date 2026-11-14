@@ -94,7 +94,7 @@ export function RigSidebar({
   globalSeqId, materialVisibility, mode, model, movementControllerProps, openAttachemator, openBoneNamer, parentedRigNodes,
   renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes, selectionCount,
   selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying, setSelectedBoneBillboarded,
-  setSelectedNodeIds, setTime, singleRigNode, time
+  setSelectedNodeIds, setTime, singleRigNode, time, visUI
 }) {
   return <>
       {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController key={session.id} {...movementControllerProps()} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} wiggleActive={boneWiggle} onWiggle={() => setBoneWiggle(value => !value)} onAttachemator={openAttachemator} onBoneNamer={openBoneNamer} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0} canDetach={parentedRigNodes.length > 0} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
@@ -102,10 +102,11 @@ export function RigSidebar({
           drag may swap the Animations controls for the camera view. */}
       {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
-        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
-          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
+        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} onDeleteNode={activePortrait || visUI ? undefined : deleteSelectedNode} canDeleteNode={!!singleRigNode} /> : <>
+          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={visUI ? selectedNodeIds : []} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
-          <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
+          {/* VIS keeps its Nodes list; XL Animations shows no objects (their visibility is edited in EMTR or Movement). */}
+          {visUI && <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>}
 
         </>}
       </Suspense>}

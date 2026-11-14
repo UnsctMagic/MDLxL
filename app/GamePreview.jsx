@@ -45,6 +45,7 @@ import { createAnimatedPreviewBackground } from './animated-preview-background.j
 import { createVideoPreviewBackground } from './video-preview-background.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, previewOverlayOptions, visibleMovementPoints } from './preview-overlays.js';
 import { installNodeEffectControls } from './node-effect-controls.js';
+import { movementKindEditable, objectSwitches } from '../src/object-display.js';
 import { createEventSoundPreview } from './event-sound-preview.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
@@ -349,7 +350,7 @@ export default function GamePreview(inputProps) {
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, rgbOverride: latest.current.rgbOverride, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }), uvRestPose ? isUVWorkingGeoset : undefined);
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, hideAllRgb: !latest.current.vanilla && latest.current.editorDisplayMode === 'animations' && latest.current.overlays?.rgb === false, rgbOverride: latest.current.rgbOverride, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }), uvRestPose ? isUVWorkingGeoset : undefined);
     try {
       native = new ModelRenderer(ownedModel);
       // Synced Before/After previews run through playbackRunning; Showcase moves at its row speed,
@@ -591,7 +592,7 @@ export default function GamePreview(inputProps) {
       const pickable = nodePoints;
       if (!p.vanilla && event.button === 2) {
         const rect = canvas.getBoundingClientRect(), picked = pickMovementNode(pickable,event.clientX-rect.left,event.clientY-rect.top);
-        if (picked && ['particles','ribbons','sounds','events'].includes(picked.overlayKind)) {
+        if (picked && (['particles','ribbons','sounds'].includes(picked.overlayKind) || picked.overlayKind === 'events' && (p.vanilla || ['SPL','UBR','FPT'].includes(picked.node.Name?.slice(0,3).toUpperCase())))) {
           const id = picked.node.ObjectId;
           if (picked.overlayKind === 'sounds') void soundPreview.play(id);
           else if (picked.overlayKind === 'events') eventPreview.trigger(id,native.getFrame(),movementSequence(p,native.getFrame()),globalClock);
@@ -631,7 +632,9 @@ export default function GamePreview(inputProps) {
         const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
         const markerRotate = p.transformMode === 'rotate' && picked && !gizmo && !select.shift && !select.ctrl;
         const active = (p.transformMode==='move'||markerRotate)&&picked&&!gizmo?picked:selected;
-        const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0);
+        // MDLxL Movement: only MOVEMENT_EDITABLE_KINDS move or rotate; other shown objects are selected only.
+        const kindEditable = point => p.vanilla || p.restPose || !point || movementKindEditable(point.overlayKind);
+        const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0) && kindEditable(active);
         const directMove=!!picked&&!gizmo&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
         const workplaneDrag = active && editable && p.workplaneEnabled && ['move', 'rotate'].includes(p.transformMode) && (directMove||!picked || p.selectedNodeIds?.includes(picked.node.ObjectId));
         const axisHandle = active && editable ? gizmo : null;
@@ -873,6 +876,10 @@ export default function GamePreview(inputProps) {
     const pickFxPart=event=>{const p=latest.current;if(event.button!==0||!p.onDoubleClickGeoset)return;const rect=canvas.getBoundingClientRect(),geometry=projectPreviewGeosets(posedGeosets,displayCamera||camera,rect.width,rect.height),hit=pickPreviewGeoset(geometry,event.clientX-rect.left,event.clientY-rect.top);if(hit){event.preventDefault();event.stopImmediatePropagation();p.onDoubleClickGeoset(hit.index);}};
     canvas.addEventListener('dblclick',pickFxPart,true);
     canvas.addEventListener('dblclick',pickParticle,true);
+    // Double-click an emitter or ribbon symbol: open it in EMTR. The camera is not touched.
+    const pickEmitterMarker=event=>{const p=latest.current;if(event.button!==0||!p.onOpenEmitter||p.poseConfig?.picking||modifierHeld(event,'view.orbit',p.preferences))return;const rect=canvas.getBoundingClientRect(),emitter=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='particles'||point.overlayKind==='ribbons'),event.clientX-rect.left,event.clientY-rect.top,p.selectedNodeIds,13,true);
+      if(emitter){event.preventDefault();event.stopImmediatePropagation();p.onOpenEmitter(emitter.node.ObjectId);}};
+    canvas.addEventListener('dblclick',pickEmitterMarker,true);
     // Double-click a bone or a part of the model: its bones are selected with Focused Skeleton on.
     const pickPartBones=event=>{const p=latest.current;if(event.button!==0||modifierHeld(event,'view.orbit',p.preferences)||!p.onPartBones)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,bone=pickMovementNode(nodePoints.filter(point=>point.overlayKind==='bones'),x,y);
       if(bone){event.preventDefault();event.stopImmediatePropagation();p.onPartBones({nodeId:bone.node.ObjectId});return;}
@@ -1264,8 +1271,9 @@ export default function GamePreview(inputProps) {
     const eventPreview = createEventPreview({ gl, model:ownedModel, modelPath:props.modelPath, textureAssets, textureFromAsset, invalidate, onWarnings:setEventWarnings });
     const soundPreview = createEventSoundPreview({ model:ownedModel, modelPath:props.modelPath, onWarning:message => setEventWarnings(previous => [...previous,message]) });
     const nodeEffects = installNodeEffectControls(native,() => {
-      const p=latest.current, grouped=p.overlays?.events!==undefined;
-      const enabled=!p.vanilla && p.editorDisplayMode==='bones' ? false : !p.vanilla && grouped?p.overlays.particles:p.showParticles??graphics.particles;
+      const p=latest.current, grouped=p.overlays?.events!==undefined, objects=!p.vanilla&&objectSwitches(p.overlays);
+      // MDLxL Movement: the Objects switch (Emitters ticked) plays the real particles and ribbons.
+      const enabled=!p.vanilla && p.editorDisplayMode==='bones' ? false : objects ? objects.particles : !p.vanilla && grouped?p.overlays.particles:p.showParticles??graphics.particles;
       return {particles:enabled,ribbons:enabled};
     },invalidate);
     Object.assign(state,{nodeEffects,eventPreview,soundPreview});
@@ -1437,7 +1445,7 @@ export default function GamePreview(inputProps) {
         if (poseSequence !== selected) updateNative(0);
         if (applyRestPoseMatrices(native.rendererData, p.restPose) && p.wiggleNodeIds?.length) applyWiggleMatrices(native.rendererData, ownedModel, p.wiggleNodeIds, now / 1000, camera);
         if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
-        soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },p.overlays?.sounds ?? false);
+        soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },(!p.vanilla && objectSwitches(p.overlays)?.sounds) ?? p.overlays?.sounds ?? false);
         // frameKey: isolated parts are framed once per key. Edits, rebuilds,
         // seeks and animation changes keep the user's camera.
         const reframe = p.frameKey === undefined || p.frameKey !== framedKey.current;
@@ -1499,7 +1507,7 @@ export default function GamePreview(inputProps) {
           native.particlesController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
           native.ribbonsController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
         }
-        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, footprintPlayback, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
+        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, footprintPlayback, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : objectSwitches(p.overlays)?.events ?? p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled, travel:!p.restPose && globalPreviewId === null });
         modelSmoothing.resolve();
         if (!captureOnly && !p.portraitMode) presentation.draw(camera, p.preferences, p.workplane, false, center, radius, bounds.min.z, { platformOnly: true });
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
@@ -1510,7 +1518,7 @@ export default function GamePreview(inputProps) {
         drawCollisionShapes(collisionCanvas.getContext('2d'),collisionStageSnapshot(native,camera,canvas.width,canvas.height,ownedModel.CollisionShapes,null));
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
-      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.helpers = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
+      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.helpers = true; overlayOptions.nodes = true; overlayOptions.lights = true; overlayOptions.attachments = true; }
       overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
       overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
@@ -1560,7 +1568,7 @@ export default function GamePreview(inputProps) {
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode), poseVisible = !!p.poseConfig?.enabled && !p.restPose;
-      if (overlayOptions.bones || overlayOptions.helpers || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || selectedControls || poseVisible) {
+      if (overlayOptions.bones || overlayOptions.helpers || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || overlayOptions.lights || selectedControls || poseVisible) {
         if (!connectorCanvas) { connectorCanvas = ownerDocument.createElement('canvas'); connectorCanvas.dataset.connectorOverlay = ''; connectorCanvas.style.cssText = 'position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(connectorCanvas); }
         if (connectorCanvas.width !== canvas.width) connectorCanvas.width = canvas.width;
         if (connectorCanvas.height !== canvas.height) connectorCanvas.height = canvas.height;
@@ -1619,7 +1627,7 @@ export default function GamePreview(inputProps) {
           }
         }
         const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode === 'scale' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
-        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || (activePose ? movementSequence : nodeEditSequence)(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'world' : 'world', handleMode, controllerAppearance) : [];
+        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (activePose || p.vanilla || p.restPose || !active || movementKindEditable(active.overlayKind)) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || (activePose ? movementSequence : nodeEditSequence)(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'world' : 'world', handleMode, controllerAppearance) : [];
         if (pinButton && limb && !pinButton.hidden) {
           // Hold still under the pointer. Keyboard focus keeps the same side
           // of the limb, while still following camera pan/zoom.
@@ -1855,7 +1863,7 @@ export default function GamePreview(inputProps) {
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);
-      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickEmitterMarker,true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, uvRestPose, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 

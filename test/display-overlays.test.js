@@ -4,18 +4,18 @@ import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorD
 import { previewOverlayOptions, visibleMovementPoints } from '../app/preview-overlays.js';
 import { boneHighlightColors } from '../app/rig-markers-gl.js';
 
-test('Movement enables only Emitters; Animations enables all effect categories and hides symbols', () => {
+// MDLxL look, owner's revised spec (14 Nov 2026): Objects and Lights replace Nodes and the per-kind switches.
+test('Bones and Movement start with Objects on; Animations enables all effect categories and hides symbols', () => {
   const state = defaultEditorDisplay();
-  const enabled = mode => Object.entries(state[mode]).filter(([key, on]) => on && !key.startsWith('boneTypes')).map(([key]) => key);
+  const enabled = mode => Object.entries(state[mode]).filter(([key, on]) => on && !key.startsWith('boneTypes') && !key.startsWith('objectTypes')).map(([key]) => key);
   assert.deepEqual(enabled('vertices'), ['shaded', 'vertices']);
   // The shared rig Bones switch starts on; Movement also highlights the selected chain.
-  assert.deepEqual(enabled('bones'), ['shaded', 'vertices', 'bones', 'helpers']);
-  assert.deepEqual([state.movement.bones, state.movement.focusedSkeleton, state.movement.skeleton], [true, true, false]);
+  assert.deepEqual(enabled('bones'), ['shaded', 'vertices', 'bones', 'helpers', 'objects']);
+  assert.deepEqual([state.movement.bones, state.movement.focusedSkeleton, state.movement.skeleton, state.movement.objects, state.movement.lights], [true, true, false, true, false]);
   assert.equal(state.animations.bones, true);
-  assert.equal(state.movement.nodes,false);
-  assert.equal(state.animations.nodes,false);
+  for (const mode of ['vertices', 'bones', 'movement', 'animations']) assert.equal(state[mode].nodes, undefined, mode);
   for(const key of ['particles','sounds','events']) {
-    assert.equal(state.movement[key],key==='particles',key);assert.equal(state.animations[key],true,key);
+    assert.equal(state.movement[key],undefined,key);assert.equal(state.animations[key],true,key);
   }
 });
 
@@ -23,14 +23,15 @@ test('display switches belong to their respective editor', () => {
   const initial = defaultEditorDisplay();
   const bones = setEditorDisplay(initial, 'bones', 'bones', true);
   const skeleton = setEditorDisplay(bones, 'bones', 'skeleton', true);
-  const movement = setEditorDisplay(skeleton, 'movement', 'nodes', true);
+  const movement = setEditorDisplay(skeleton, 'movement', 'lights', true);
   assert.equal(movement.bones.bones, true);
   assert.equal(movement.bones.skeleton, true);
   assert.equal(setEditorDisplay(initial, 'bones', 'bones', false).movement.bones, false);
-  assert.equal(movement.movement.nodes, true);
+  assert.equal(movement.movement.lights, true);
   assert.equal(movement.vertices.bones, false);
   assert.equal(movement.animations.skeleton, false);
-  assert.equal(movement.animations.nodes, false);
+  // Animations' Lights is its own switch (the light effect, not a symbol).
+  assert.equal(movement.animations.lights, initial.animations.lights);
   assert.deepEqual(initial, defaultEditorDisplay());
 });
 
@@ -79,10 +80,10 @@ test('Focused Skeleton uses only highlighted connectors and is exclusive with Sk
 test('Clear turns off only the active editor options', () => {
   const state = setEditorDisplay(defaultEditorDisplay(), 'bones', 'skeleton', true);
   const cleared = clearQuickDisplay(state, 'bones');
-  assert.ok(Object.entries(cleared.bones).every(([key, enabled]) => key.startsWith('boneTypes') ? enabled : !enabled));
+  assert.ok(Object.entries(cleared.bones).every(([key, enabled]) => key.startsWith('boneTypes') || key.startsWith('objectTypes') ? enabled : !enabled));
   assert.deepEqual(cleared.vertices, state.vertices);
-  // Bones is shared by the rig editors, so only that switch follows the Clear.
-  assert.deepEqual(cleared.movement, { ...state.movement, bones: false, helpers: false });
+  // Bones, Objects and Lights are shared by the rig editors, so only those switches follow the Clear.
+  assert.deepEqual(cleared.movement, { ...state.movement, bones: false, helpers: false, objects: false, lights: false });
 });
 
 test('VIS retains the original independent Nodes, Emitters and Attachment display flags',()=>{
@@ -129,14 +130,15 @@ test('Focused Skeleton bones can be clicked with Bones off', () => {
 test('Bones controls both marker types and persists in XL and VIS', () => {
   const storage = { value: null, getItem() { return this.value; }, setItem(_, value) { this.value = value; } };
   let state = storedEditorDisplay(false, storage);
-  assert.deepEqual([state.bones.bones, state.bones.helpers, state.bones.attachments], [true, true, false]);
+  assert.deepEqual([state.bones.bones, state.bones.helpers, state.bones.objects], [true, true, true]);
   state = setEditorDisplay(state, 'bones', 'helpers', true);
-  state = setEditorDisplay(state, 'bones', 'attachments', true);
+  state = setEditorDisplay(state, 'bones', 'objectTypesSounds', false);
   state = setEditorDisplay(state, 'bones', 'bones', false);
   saveEditorDisplay(state, state, storage);
   const restored = storedEditorDisplay(false, storage), vis = storedEditorDisplay(true, storage);
   for (const mode of ['bones', 'movement', 'animations']) {
-    assert.deepEqual([restored[mode].bones, restored[mode].helpers, restored[mode].attachments], [false, false, true]);
+    assert.deepEqual([restored[mode].bones, restored[mode].helpers], [false, false]);
+    if (mode !== 'animations') assert.deepEqual([restored[mode].objects, restored[mode].objectTypesSounds], [true, false]);
     assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], [false, false, true]);
   }
   const points = [

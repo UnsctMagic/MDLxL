@@ -68,6 +68,7 @@ const ICONS = Object.freeze({
   skeleton: [['s', 'M12 7v9M12 10l-5 3M12 10l5 3M12 16l-4 5M12 16l4 5', 'ink', 2], ['f', circle(12, 5, 2.4) + circle(12, 10, 1.5) + circle(12, 16, 1.5), 'blue']],
   focusedSkeleton: [['s', frame, 'ink', 2.2], ['f', circle(12, 12, 3.5), 'blue']],
   nodes: [['s', 'M9 7h6v10', 'ink', 2], ['f', square(3, 3.5, 6.5) + square(14.5, 14, 6.5), 'blue']],
+  lights: [['f', 'M12 2.5a6.5 6.5 0 0 0-4 11.6V17h8v-2.9a6.5 6.5 0 0 0-4-11.6Z', 'yellow'], ['s', 'M9 20h6M10.5 22.5h3', 'ink', 2]],
   particles: [['f', 'M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2Z', 'yellow'], ['f', circle(19, 5, 1.6) + circle(5, 19, 1.4), 'orange']],
   events: [['s', 'M6 22V3', 'ink', 2.2], ['f', 'M6.5 3.5h12l-3 4.5 3 4.5h-12Z', 'red']],
   sounds: [['f', 'M3 9.5v5h4l6 5v-15l-6 5Z', 'ink'], ['s', 'M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11', 'blue', 2]],

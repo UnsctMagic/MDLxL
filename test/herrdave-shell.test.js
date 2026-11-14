@@ -11,10 +11,11 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
   const checks=normalizeMenuChecks({'display:bones':true,'display:skeleton':false,showVertices:true,shaded:true,grid:false,axes:true}),actions=[];
   const bindings=effectiveBindings(COMMANDS,{normals:['H']});
   const expected={
-    vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],
-    bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],
-    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],
-    animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear'],
+    // MDLxL look, owner's revised spec (14 Nov 2026); VIS keeps main's lists.
+    vertices:['Shadows','RGB','Vertices','Normals','Objects','Wireframe Overlay','Axis guides','Grid','Clear'],
+    bones:['Shadows','Vertices','Bones','Skeleton','Objects','Lights','Wireframe Overlay','Axis guides','Grid','Clear'],
+    movement:['Shadows','Vertices','Bones','Skeleton','F.Skeleton','Objects','Lights','Axis guides','Grid','Clear'],
+    animations:['RGB','Shadows','Lights','Emitters','Events','Sounds','Grid','Clear'],
   };
   for(const [viewMode,labels] of Object.entries(expected)){
     const menus=buildMenuTemplate(bindings,id=>actions.push(id),'win32',[],x=>x,{checks,viewMode,uvEnabled:false});

@@ -16,7 +16,7 @@ const ICONS = Object.freeze({
   shaded: 'shaded', rgb: 'rgb', showVertices: 'vertices', normals: 'normals', 'display:wires': 'wires',
   grid: 'grid', 'display:bones': 'bone', 'display:skeleton': 'skeleton', 'display:focusedSkeleton': 'focusedSkeleton',
   'display:nodes': 'nodes', 'display:particles': 'particles', 'display:events': 'events', 'display:sounds': 'sounds',
-  'display:attachments': 'attachments', clearDisplay: 'clear',
+  'display:attachments': 'attachments', 'display:objects': 'nodes', 'display:lights': 'lights', clearDisplay: 'clear',
 });
 
 export function hasLookIcon(name) { return !!ICONS[name]; }

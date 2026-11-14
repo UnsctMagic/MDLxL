@@ -7858,5 +7858,18 @@
   "bone-namer\u0004Side": "左右",
   "bone-namer\u0004Part": "部位",
   "bone-kind\u0004Copy": "副本",
-  "bone-part\u0004Spine": "脊柱"
+  "bone-part\u0004Spine": "脊柱",
+  "Objects": "对象",
+  "Object Manager": "对象管理器",
+  "Object Manager…": "对象管理器…",
+  "F.Skeleton": "聚焦骨架",
+  "Show attachments, emitters, events and sounds. Right-click to choose which.": "显示附着物、发射器、事件和声音。右键选择显示哪些。",
+  "Object types": "对象类型",
+  "Add key at {0}": "在 {0} 添加关键帧",
+  "Add a key for the selected object at the current frame.": "在当前帧为所选对象添加关键帧。",
+  "Add keyframe": "添加关键帧",
+  "Select an object that switches on and off, an event or a sound.": "请选择会开关显示的对象、事件或声音。",
+  "Clone object": "克隆对象",
+  "Object visible at current frame": "对象在当前帧可见",
+  "Set object visibility": "设置对象可见性"
 }

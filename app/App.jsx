@@ -109,6 +109,7 @@ import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } 
 import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
 import { clearQuickDisplay, setEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
+import { OBJECT_TYPE_KEYS } from '../src/object-display.js';
 import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot, changedPortraitFields } from './portrait-camera-edit.js';
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
 import { currentBackdropLook, findPortraitBackground, refreshPortraitBackground } from './portrait-background.js';
@@ -1518,8 +1519,8 @@ export default function App() {
     axes: () => changePreferences(previous=>{const visible=Object.values(previous.grid.axes).some(Boolean);return {...previous,grid:{...previous.grid,axes:{x:!visible,y:!visible,z:!visible}}};}),
     wireframe: () => setViewRenderMode('wireframe'),
     workplaneEnabled: () => setWorkplaneEnabled(value=>!value),
-    normals: () => changeOverlay('normals', value => !value), rgb: () => { setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !value); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
-    ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras'].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
+    normals: () => changeOverlay('normals', value => !value), rgb: () => { if (!visUI && displayMode === 'animations') { changeOverlay('rgb', value => !value); return; } setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !value); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
+    ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras','objects','lights',...OBJECT_TYPE_KEYS].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
     cleanView: () => setCleanViews(previous => ({...previous,[mode]:!previous[mode]})),
     geosetsAll: () => chooseSets(new Set(tabVisibleGeosets)), geosetsClear: () => chooseSets(new Set()), geosetsInvert: () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index)))),
@@ -1751,7 +1752,7 @@ export default function App() {
   useEffect(() => {aiBridge.editorChanged();});
 
 
-  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'&&rgbPreview};
+  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'?rgbPreview:!visUI&&displayMode==='animations'&&!!overlays.rgb,'display:objects':overlays.objects,'display:lights':overlays.lights,...Object.fromEntries(OBJECT_TYPE_KEYS.map(key=>['display:'+key,overlays[key]!==false]))};
   // The first time the toolbar goes away, by any route, say how to bring it back.
   useEffect(() => {
     if (!preferencesReady || !toolbarHidden || preferences.toolbarHiddenNoted) return;
@@ -1944,7 +1945,7 @@ export default function App() {
     materialVisibility, mode, model, motion, motionAnchor, motionOrigin, movementMode, playbackSpeed, playing,
     poseConfig, poseViewActive, preferences, registerTimelineCommands, replayMotion, restPose, restrictions,
     rigWorkspace, saving, say, seekMotionTime, selectable, selectedNodeIds, selectMotion, sequence, session,
-    setMotionAnchor, setPlaybackSpeed, setPlaying, time
+    setMotionAnchor, setPlaybackSpeed, setPlaying, time, visUI
   }}/>;
   const bitRgbGeosets = bitReplacement ? Object.keys(validSelection).map(Number)
     .filter(id => validSelection[id].length && bitReplacement.geosets.has(model.Geosets[id])) : [];
@@ -2044,7 +2045,7 @@ export default function App() {
 
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview
         vanilla={visUI} editorDisplayMode={displayMode}
-        onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
+        onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(!visUI||mode!=='animation'||animationPanel!=='animations')openParticles(id);}} onOpenEmitter={visUI||cleanAnimationPreview?undefined:openParticles} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
         previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} wiggleNodeIds={mode === 'bones' && boneWiggle ? selectedNodeIds : undefined} cleanAnimationPreview={cleanAnimationPreview}
         workplaneEnabled={workplaneEnabled} restrictions={restrictions}
@@ -2082,7 +2083,7 @@ export default function App() {
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
-        setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time
+        setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time, visUI
       }}/>
       {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><div className="classic-geoset-split"><button disabled={!editable || !selectionCount} title="Splits the selected geometry into one geoset per separate piece." onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} title="Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece." onClick={() => separateSelectedGeosets(true)}>Nuclear</button></div><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button><button disabled={!editable || !selectionCount} title="Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL." onClick={nuclearWeld}>Nuclear Weld</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}

@@ -1,0 +1,6 @@
+{
+  "vertices": [["Shadows","shaded"], ["RGB","rgb"], ["Vertices","showVertices"], ["Normals","normals"], ["Objects","display:objects"], ["Wireframe Overlay","display:wires"], ["Axis guides","axes"], ["Grid","grid"], ["Clear","clearDisplay"]],
+  "bones": [["Shadows","shaded"], ["Vertices","showVertices"], ["Bones","display:bones"], ["Skeleton","display:skeleton"], ["Objects","display:objects"], ["Lights","display:lights"], ["Wireframe Overlay","display:wires"], ["Axis guides","axes"], ["Grid","grid"], ["Clear","clearDisplay"]],
+  "movement": [["Shadows","shaded"], ["Vertices","showVertices"], ["Bones","display:bones"], ["Skeleton","display:skeleton"], ["F.Skeleton","display:focusedSkeleton"], ["Objects","display:objects"], ["Lights","display:lights"], ["Axis guides","axes"], ["Grid","grid"], ["Clear","clearDisplay"]],
+  "animations": [["RGB","rgb"], ["Shadows","shaded"], ["Lights","display:lights"], ["Emitters","display:particles"], ["Events","display:events"], ["Sounds","display:sounds"], ["Grid","grid"], ["Clear","clearDisplay"]]
+}

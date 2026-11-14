@@ -7953,5 +7953,18 @@
   "bone-namer\u0004Side": "Сторона",
   "bone-namer\u0004Part": "Часть",
   "bone-kind\u0004Copy": "Копия",
-  "bone-part\u0004Spine": "Позвоночник"
+  "bone-part\u0004Spine": "Позвоночник",
+  "Objects": "Объекты",
+  "Object Manager": "Менеджер объектов",
+  "Object Manager…": "Менеджер объектов…",
+  "F.Skeleton": "Выбр. скелет",
+  "Show attachments, emitters, events and sounds. Right-click to choose which.": "Показать точки крепления, эмиттеры, события и звуки. Щелчок правой кнопкой — выбрать, какие.",
+  "Object types": "Типы объектов",
+  "Add key at {0}": "Добавить ключ на {0}",
+  "Add a key for the selected object at the current frame.": "Добавить ключ выбранному объекту на текущем кадре.",
+  "Add keyframe": "Добавить ключевой кадр",
+  "Select an object that switches on and off, an event or a sound.": "Выберите объект, который включается и выключается, событие или звук.",
+  "Clone object": "Клонировать объект",
+  "Object visible at current frame": "Объект виден на текущем кадре",
+  "Set object visibility": "Задать видимость объекта"
 }
