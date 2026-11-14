@@ -8298,5 +8298,7 @@
   "Particles per burst": "Partikel pro Salve",
   "Particles fired in one burst.": "Partikel, die eine Salve abgibt.",
   "Arcs per burst": "Bögen pro Salve",
-  "Flashes in one burst.": "Blitze in einer Salve."
+  "Flashes in one burst.": "Blitze in einer Salve.",
+  "Select emitter by group": "Emitter als Gruppe wählen",
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Ein Klick auf einen Emitter wählt auch die Emitter anderer Ebenen an derselben Stelle. Sie bewegen sich gemeinsam."
 }

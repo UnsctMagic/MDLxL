@@ -11,7 +11,7 @@ import {globalSequenceId} from '../src/animation.js';
 import {degreesToQuaternion} from '../src/rotation-math.js';
 import {withEmitterAim,emitterRotationTrack,individualEmitterLayer,withEmitterPlacement,withEmitterPosition,emitterSitePoint,emitterFormationAxes,emitterFormationCenter} from '../src/fx-emitter-placement.js';
 
-export default function GlobalAnimationStage({Preview,graph,layer,placing,rotating,showMarkers,onLayer,selectedSite,selectSite,deleteEmitter,surfaceSnap,setSurfaceSnap,onDrag,windowRef,...props}){
+export default function GlobalAnimationStage({Preview,graph,layer,group,stackLayers,onLayers,placing,rotating,showMarkers,onLayer,selectedSite,selectSite,deleteEmitter,surfaceSnap,setSurfaceSnap,onDrag,windowRef,...props}){
  const [snap,setSnap]=useState(null),[draft,setDraft]=useState(null),gesture=useRef(null),capture=useRef(null);
  useEffect(()=>{
   const current=gesture.current;
@@ -47,17 +47,29 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,rotati
  },1);
  const liveModel=useMemo(()=>{
   if(!liveDraft||!graph?.model||layer.type!=='Particles'||layer.swarm)return graph?.model;
-  const points=new Map((result.sites||[]).map(site=>[site.key,site.point]));
+  // The dragged layer, and the layers whose emitters move with it when emitters are selected by group.
+  const owner=prefix.slice(0,prefix.length-String(layer.id).length-1);
+  const drafts=[liveDraft.layer,...(liveDraft.others||[])].map(item=>({item,prefix:owner+item.id+'/',points:new Map((graph.layers[item.id]?.sites||[]).map(site=>[site.key,site.point]))}));
   return {...graph.model,ParticleEmitters2:graph.model.ParticleEmitters2.map(node=>{
-   if(!node._FxTag?.startsWith(prefix))return node;
-   const key=node._FxTag.slice(prefix.length),point=points.get(key);if(!point)return node;
+   const draft=drafts.find(entry=>node._FxTag?.startsWith(entry.prefix));if(!draft)return node;
+   const key=node._FxTag.slice(draft.prefix.length),point=draft.points.get(key);if(!point)return node;
    if(liveDraft.rotationDrag){
-    const rotation=individualEmitterLayer(liveDraft.layer,key).native?.Rotation;
+    const rotation=draft.item===liveDraft.layer&&individualEmitterLayer(liveDraft.layer,key).native?.Rotation;
     return rotation?{...node,Rotation:emitterRotationTrack(graph.model,rotation)}:node;
    }
-   return {...node,PivotPoint:Float32Array.from(emitterSitePoint(graph.frame,liveDraft.layer,key,new Vector3(...point)).toArray())};
+   return {...node,PivotPoint:Float32Array.from(emitterSitePoint(graph.frame,draft.item,key,new Vector3(...point)).toArray())};
   })};
  },[liveDraft,graph,layer,result,prefix]);
+ // Group selection: the emitters at the same place take the same move.
+ const together=active&&individual&&group?.length?group:null;
+ const movedTogether=(first,delta,place)=>{
+  const moved=new Map([[layer.id,first]]);
+  for(const member of together){
+   const base=moved.get(member.layer)||stackLayers.find(item=>item.id===member.layer);
+   if(base)moved.set(member.layer,place(base,member.key,member.point.map((v,i)=>v+delta[i]),member.point));
+  }
+  return [...moved.values()];
+ };
  const marks=useMemo(()=>{
   if(!active)return undefined;
   const sites=showMarkers?Object.fromEntries(nodes.map(node=>{
@@ -99,7 +111,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,rotati
   globalTime:rotation?.GlobalSeqId===real?.Rotation?.GlobalSeqId?snap?.turn?.globalTime:undefined};
  const options={...rotationOptions,family:aim||individual||radius?'ParticleEmitters2':'RibbonEmitters',stage:1};
  function begin(field){
-  const g={key:fieldKeys[field],initial:layer,extent:field==='FormationWidth'?extent?.[0]:field==='FormationDepth'?extent?.[1]:undefined,
+  const g={together:field==='Translation'?together:null,start:individual?Array.from(emitter.Translation):null,key:fieldKeys[field],initial:layer,extent:field==='FormationWidth'?extent?.[0]:field==='FormationDepth'?extent?.[1]:undefined,
    attachmentPoint:individual?Array.from(individual.PivotPoint):null,site:individual?selectedSite:null};
   if(field==='Rotation'){
    g.rotationDrag=true;
@@ -119,13 +131,21 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,rotati
   }else{
    g.next=g.site?withEmitterPosition(g.initial,g.site,value,g.attachmentPoint):
     withEmitterPlacement(g.initial,{...g.initial,[g.key]:g.extent?value/g.extent:value});
+   if(g.site&&g.together){
+    const all=movedTogether(g.next,Array.from(value,(v,i)=>v-g.start[i]),withEmitterPosition);
+    g.next=all[0];g.others=all.slice(1);
+   }
   }
-  setDraft({layer:g.next,initial:g.initial,site:g.site,rotationDrag:g.rotationDrag});
+  setDraft({layer:g.next,others:g.others,initial:g.initial,site:g.site,rotationDrag:g.rotationDrag});
  }
  // Register before texture loading so the first placement click has sprite coverage data.
  const pick=(id,hits=[id])=>{if(!active)return;const node=nodes.find(n=>n.ObjectId===id)||nodes.find(n=>hits.includes(n.ObjectId));if(node)selectSite(keyOf(node));};
  return <><Preview {...props} particleLiveModel={liveModel} particleLiveRevision={draft} onCaptureReady={captureReady}
-  onParticleSurfacePlace={active&&individual&&surfaceSnap?(_,hit)=>{onLayer({...layer,individuals:{...layer.individuals,[selectedSite]:{...layer.individuals?.[selectedSite],position:hit.bindPosition,attachmentPoint:hit.bindPosition,surface:{geoset:hit.geoset,vertices:hit.vertices,barycentric:hit.barycentric}}}});setSurfaceSnap(false);}:undefined}
+  onParticleSurfacePlace={active&&individual&&surfaceSnap?(_,hit)=>{
+   const snap=(target,key,position)=>({...target,individuals:{...target.individuals,[key]:{...target.individuals?.[key],position,attachmentPoint:hit.bindPosition,surface:{geoset:hit.geoset,vertices:hit.vertices,barycentric:hit.barycentric}}}});
+   const first=snap(layer,selectedSite,hit.bindPosition);
+   if(together)onLayers(movedTogether(first,Array.from(hit.bindPosition,(v,i)=>v-individual.PivotPoint[i]),snap));else onLayer(first);
+   setSurfaceSnap(false);}:undefined}
   particleAnchorId={active?anchorId:undefined} keepBillboards={card||!!layer?.swarm} particleSelectedId={active?real.ObjectId:undefined}
   particlePickOnClick={!!active&&nodes.length>0} onParticlePick={pick} particleStageMarks={marks} onParticleStage={active?s=>setSnap({...s,site:selectedSite,layerId:layer.id}):undefined}/>
  {active&&showMarkers&&nodes.length>0&&stageReady&&snap&&<svg className="pe-stage-tools fx-emitter-markers" viewBox={'0 0 '+snap.width+' '+snap.height}>{nodes.map((node,i)=>{
@@ -137,6 +157,6 @@ export default function GlobalAnimationStage({Preview,graph,layer,placing,rotati
  {active&&<ParticleStageTools onDrag={onDrag} frames={capture.current?.frames} spanHandles={!aim&&!individual&&layer.type==='Particles'} rotate={aim} preferences={props.preferences}
   snapshot={aim&&snapshot?{...snapshot,anchor:null}:snapshot} tool={aim?'Rotate':individual||layer.stamp?'Placement':'Look'} emitter={emitter} options={options}
   begin={begin} change={change}
-  finish={()=>{const g=gesture.current;gesture.current=null;setDraft(null);if(g?.next&&g.initial===layer&&g.site===selectedSite&&placing)onLayer(g.next,g.rotationDrag);}}
+  finish={()=>{const g=gesture.current;gesture.current=null;setDraft(null);if(g?.next&&g.initial===layer&&g.site===selectedSite&&placing){if(g.others?.length)onLayers([g.next,...g.others]);else onLayer(g.next,g.rotationDrag);}}}
   cancel={()=>{gesture.current=null;setDraft(null);}}/>}</>;
 }

@@ -8068,5 +8068,7 @@
   "Particles per burst": "每次放电粒子数",
   "Particles fired in one burst.": "每次放电发射的粒子数量。",
   "Arcs per burst": "每次放电电弧数",
-  "Flashes in one burst.": "每次放电中的闪光次数。"
+  "Flashes in one burst.": "每次放电中的闪光次数。",
+  "Select emitter by group": "按组选择发射器",
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "点击一个发射器时，也会选中其他图层在同一位置的发射器。它们一起移动。"
 }

@@ -22,7 +22,7 @@ import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 const SLIDER_TIPS={LifeSpan:'Seconds each particle lives.',ParticleScaling:'Size of the particles.',Speed:'How fast particles leave the emitter.',Gravity:'Below 0 the particles rise. Above 0 they fall.',Width:'Width of the area particles are born in.',Length:'Length of the area particles are born in.',Latitude:'How wide the particles fan out, in degrees.',Variation:'How much the speed differs from one particle to the next.',TailLength:'Length of the streak behind each particle. Draw as must be Streaks or Both.'};
-export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
+export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,groupSelect,toggleGroupSelect,groupCount=0,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
  // A preview that could not be built (its message shows in the stage) leaves the controls without compiled values.
  if(graph&&!graph.model)graph=null;
  const look=lookOf(stack),layer=stack.layers.find(item=>item.id===selected),l=individualEmitterLayer(layer,selectedSite),frame=graph?.frame;
@@ -181,7 +181,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const moreAt=!l?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
  const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
    {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
-   {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}</div>;
+   {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}
+   {p&&placing&&real&&<button aria-pressed={!!groupSelect} title="Clicking an emitter also selects the emitters of other layers at the same place. They move together." onClick={toggleGroupSelect}>Select emitter by group</button>}</div>;
 
  return <>
   <h3>{look.name}</h3>
@@ -196,7 +197,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    <ChoiceSelect aria-label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} value={trial?.source==='layer'?trial.label:''} onChange={addLayer} onWheelChange={label=>tryLayer('layer',label,findSurfaceChoice(label))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</ChoiceSelect></div>}
   {!stack.impact&&trial&&<button className="fx-keep-emitter" title={trial.source==='layer'?'Add one editable layer to this part.':'Keep the previewed emitter as a layer.'} onClick={keepTrial}>Add</button>}
   {l&&<>
-  <h4 className="fx-selected" title={selectedSite?'Changes apply to this emitter only.':'Changes apply to the whole layer.'}>{translate(emitterName(l))+(selectedSite?' '+((result?.ids.indexOf(selectedId)??0)+1):'')}</h4>
+  <h4 className="fx-selected" title={selectedSite?'Changes apply to this emitter only.':'Changes apply to the whole layer.'}>{translate(emitterName(l))+(selectedSite?' '+((result?.ids.indexOf(selectedId)??0)+1)+(groupSelect&&groupCount?' +'+groupCount:''):'')}</h4>
   {selectedSite&&<div className="fx-layer-actions"><button title="Edit every emitter of this layer again." onClick={()=>select(l.id)}>All emitters</button>
    <button aria-pressed={surfaceSnap} title="Double-click the model to put this emitter on its surface." onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>
    <button title="Remove this emitter from the layer." onClick={deleteEmitter}>Delete emitter</button></div>}

@@ -8172,5 +8172,7 @@
   "Particles per burst": "Partículas por descarga",
   "Particles fired in one burst.": "Partículas que lanza cada descarga.",
   "Arcs per burst": "Arcos por descarga",
-  "Flashes in one burst.": "Destellos en cada descarga."
+  "Flashes in one burst.": "Destellos en cada descarga.",
+  "Select emitter by group": "Seleccionar emisores por grupo",
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Al hacer clic en un emisor también se seleccionan los emisores de otras capas en el mismo lugar. Se mueven juntos."
 }

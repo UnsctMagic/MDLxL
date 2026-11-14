@@ -65,6 +65,21 @@ export function withEmitterPosition(layer,key,position,attachmentPoint){
  const record=layer.individuals?.[key]||{};
  return {...layer,individuals:{...layer.individuals,[key]:{...record,...(attachmentPoint?{attachmentPoint:record.attachmentPoint||[...attachmentPoint]}:{}),position:[...position]}}};
 }
+/** Every other emitter of the stack that sits where this one does: the layers of a look often share one site. */
+export function emitterGroup(graph,layers,layerId,key){
+ const model=graph?.model,own=model?.Nodes[graph.layers?.[layerId]?.siteIds?.[key]];
+ if(!own)return [];
+ const at=new Vector3().fromArray(own.PivotPoint),reach=Math.max(.5,(graph.frame?.length||0)*.04),members=[];
+ for(const layer of layers){
+  if(layer.type!=='Particles'||layer.swarm||layer.impact||layer.enabled===false)continue;
+  for(const [site,id] of Object.entries(graph.layers[layer.id]?.siteIds||{})){
+   const node=model.Nodes[id];
+   if(!node||node===own||!model.ParticleEmitters2.includes(node)||new Vector3().fromArray(node.PivotPoint).distanceTo(at)>reach)continue;
+   members.push({layer:layer.id,key:site,point:Array.from(node.PivotPoint)});
+  }
+ }
+ return members;
+}
 export function emitterSitePoint(frame,layer,key,point){
  const own=layer.individuals?.[key]?.position;
  return own?new Vector3(...own):layerEmitterPoint(frame,layer,point);
