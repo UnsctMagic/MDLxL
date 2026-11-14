@@ -698,7 +698,9 @@ export function makeLayer(spec,frame,palette,id) {
   const defaultTint=spec.tint??tintFromHex(surfacePalette({palette})[0][1]);
   const {starts:_starts,fit=1,...saved}=structuredClone(spec);
   // A look gives a card's size as a share (fit) of the size fitted to the part; ground cards fit the unit's footprint.
-  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:spec.offset?[...spec.offset]:[0,0,0],count:spec.count??1,size:spec.size??(spec.facing==='ground'?groundCardSize(basis):cardSize(basis))*fit};
+  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:spec.offset?[...spec.offset]:[0,0,0],count:spec.count??1,
+   // reach: the card's half-width as a share of the whole part's radius (a ring that has to clear the part).
+   size:spec.size??(spec.reach!=null&&frame?.radius>0?frame.radius*spec.reach:(spec.facing==='ground'?groundCardSize(basis):cardSize(basis))*fit)};
  }
  const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[1,1,1]:tintFromHex(surfacePalette({palette})[0][1]));

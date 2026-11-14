@@ -134,10 +134,15 @@ export const TECHNIQUE_LOOKS=[
  make('ground-glow','Ground glow',1600,[
   cardSpec('Ground glow','ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',{team:2,facing:'ground',count:2,sizeMin:.83,sizeMax:1.17,strength:.75,tint:[1,1,1]}),
  ]),
+ // Pass 6 (14 November). The owner: no auras, but the circle is cool; a weapon effect? The rune circle now stands
+ // across the part as rings it passes through (facing 'across'), sized to the whole part, each turning on its own clock.
  make('rune-circle','Rune circle',1267,[
-  cardSpec('Shadow disc','Units\\NightElf\\EvilIllidan\\Shadow.blp',{facing:'ground',filter:2,strength:.5,fit:1.75,sizeMin:1,sizeMax:1,unshaded:false,loop:1733,tint:[1,1,1]}),
-  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'ground',sizeMin:.83,sizeMax:1.06,spin:.1,spinEased:false,tint:[1,1,1]}),
-  starts(spray('Rune rings',tex('AuraRune7Green'),[.24,.82,.19],{flat:true,life:1.4,rate:2.5,velocity:.05,gravity:.05,size:[2.592,2.376,1.944],alpha:[0,255,40]},{ground:true})),
+  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,count:3,reach:1.4,sizeMin:.92,sizeMax:1.08,spin:.25,spinEased:false,loop:4000,tint:[1,1,1]}),
+  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,count:2,reach:1.1,sizeMin:.94,sizeMax:1.06,spin:-.5,spinEased:false,loop:3100,strength:.7,tint:[.8,1,.7]}),
+  spray('Rune motes',tex('star4_32'),[.45,1,.4],
+   {life:1.1,rate:12,velocity:.06,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
+   {starts:true,cover:'around',birthAcross:1.4,widthCap:.6,loop:2933,
+    native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,.9],[.45,1,.4],[.15,.8,.2]]}}),
  ]),
  make('liquid-body','Liquid body',1992,[
   skin('Water body',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:2,strength:.8,tint:[.65,.83,.99]}),

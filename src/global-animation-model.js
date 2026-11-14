@@ -1097,11 +1097,13 @@ function cardLayer(c,l){
  const base=card.loop!=null?Math.max(100,Math.round(card.loop)):c.ms;
  const id=card.loop!=null?clockFor(m,base,c.createdClocks):c.id;
  const cells=card.rows*card.columns,flipbook=cells>1&&card.frameMs>0;
- const regions=card.facing==='ground'?[null]:c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ // whole (fresh recipes): one set of cards along the whole part instead of one set for each skin region.
+ // along: the set's place on the part's length, as a share of that length from the middle.
+ const regions=card.facing==='ground'?[null]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
  let k=0;
  for(const [r,region] of regions.entries())for(let i=0;i<card.count;i++,k++){
-  const f=region?.frame,along=!f||card.count===1?0:((i+.5)/card.count-.5)*f.length*.9;
+  const f=region?.frame,along=!f?0:(card.count===1?0:((i+.5)/card.count-.5)*f.length*.9)+f.length*(l.along||0);
   const point=region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
   const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
   const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);
@@ -1110,6 +1112,7 @@ function cardLayer(c,l){
   let side,up,normal;
   if(card.facing==='camera'){side=new Vector3(0,1,0);up=new Vector3(0,0,1);}
   else if(card.facing==='ground'){side=new Vector3(1,0,0);up=new Vector3(0,1,0);}
+  else if(card.facing==='across'){const axis=f.axis.clone().normalize();side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize();up=new Vector3().crossVectors(axis,side);}
   else{up=f.axis.clone().normalize();side=new Vector3().crossVectors(up,Math.abs(up.z)<.9?z:y).normalize();}
   normal=new Vector3().crossVectors(side,up).normalize();
   const factor=CARD_CLOCK_FACTORS[k%CARD_CLOCK_FACTORS.length]*(1+Math.floor(k/CARD_CLOCK_FACTORS.length)*.071);

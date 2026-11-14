@@ -1,7 +1,8 @@
 // Card layers: flat quads carrying one native texture, each on a bone the stack owns. DOM-free.
 // Fields, their defaults and bounds live here so the layer builder, the compiler and saved looks agree.
 
-export const CARD_FACINGS=['camera','ground','part'];
+// across: the card stands across the part, which passes through its middle (a ring around a blade).
+export const CARD_FACINGS=['camera','ground','part','across'];
 /** Defaults of every optional Card field. size and offset are fitted to the part by makeLayer. */
 export const CARD_DEFAULTS=Object.freeze({facing:'camera',count:1,sizeMin:.83,sizeMax:1.17,spin:0,spinEased:true,jitter:0,rows:1,columns:1,frameMs:0,cell:0,strength:1,filter:3,unshaded:true,unfogged:true,twoSided:true});
 /** [min,max] of each numeric Card field. */

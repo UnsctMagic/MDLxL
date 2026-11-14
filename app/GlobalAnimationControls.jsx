@@ -239,7 +239,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    </>}</details>
   </>}
   {card&&<>
-   <label className="field" title="Which way the card faces: the camera, the ground, or fixed to the part."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part'}[id]}</option>)}</ChoiceSelect></label>
+   <label className="field" title="Which way the card faces: the camera, the ground, along the part, or across it."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part',across:'Across'}[id]}</option>)}</ChoiceSelect></label>
    {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}
   </>}
   {(surf||card)&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><ChoiceSelect aria-label="Rhythm" value={rhythm} onChange={value=>setLayer(withRhythm(value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,'Built-in']]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}
