@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; the whole list (items 1 to 13) and the polish pass saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 saved locally (14 November): the owner's list from test build 05 (13 items) and an extra polish pass, `db026c16` to `1406f6cb`. Builds; compiled in Node on the owner's model and checked against the library's own rules, not rendered, not opened in the app, unit tests not run: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -236,7 +236,11 @@ Done:
 - **Rules and tests.** `node out/fx-design/pass6/rules.mjs` checks the whole library against the rules `test/fx-look-quality.test.js` states (compiles on the knight's blade and body with offered layers, separate clocks, closed tracks, catalogue textures, five translations, no flashing): all hold. That test's `CARRIED_BEFORE` list got one entry, `fx-lit-crystal` / Crystal glints / glint: the Crystal veins layer under its new look. No unit test was run. Tests that name what this pass changed and will need new expectations (for a cheaper agent): `fx-library-variations.test.js` (variation lists of Fel fire, Frost, Crystal, Molten lava; `crystal-veins`, `claude-magma-flow`, `fissures`), `fx-layer-editor.test.js` (`crystal-veins`), `fx-look-quality.test.js` (`glacial`, `sort-tide`, `sort-rift`, `sort-blood`, `claude-forge-hot` rows of its lists), `fx-emitter-names.test.js`, `fx-emitter-round2.test.js`, `fx-native-shared-sites.test.js` (Inward souls is no longer started; Rune rings left Rune circle), `claude-fx-looks.test.js` (Magma flow's layers), `fx-cards.test.js` (a fourth facing, Across), and the electron tests that open `sort-rift`. `test/fx-legacy-snapshot.test.js` and its fixture are untouched; saved layers take none of the new fields.
 - **Polish 3: glints** (`1406f6cb`). Crystal's Facet glints (Inner light, Team colour core) and Liquid body's Water glints were cards in a row down the middle of every skin region: evenly spaced dots, the pattern the owner rejected in pass 2. Both are now small stars blooming anywhere on the surface (`cover:'surface'`, sized in widths of the part), a few at a time.
 
-Next: items 3 to 13, then the extra polish pass.
+Next (not started):
+
+- Run the unit tests and update the expectations listed under Rules and tests. Not Fable's work: a cheaper agent.
+- If the owner wants larger effects on bodies: particle sizes on a part with many skin regions come from one region (`layerBasis` in `src/fx-layer-basis.js`, `radius` in `nativeParticles`). Changing that changes every look on a body, so it waits for the owner's word.
+- If a Lightning cage ring is too wide or too thin: `reach` and `band` in the recipe (`src/fx-technique-looks.js`), or Radius under More in the window.
 
 Exact next step: none: the list and the polish pass are done. Unit tests were not run; the ones that need new expectations are listed under Rules and tests.
 
