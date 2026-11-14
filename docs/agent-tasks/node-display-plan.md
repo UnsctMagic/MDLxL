@@ -1,3 +1,41 @@
+# Objects display — owner's revised spec (14 Nov 2026, evening)
+
+Status: in progress (Opus). Supersedes the first plan below, which the owner rejected after testing build 01:
+"its too much shit ... I hoped fable would do something smart - this is just way too cluttered and function is lost."
+
+## The owner's spec (their words, then the settled reading)
+
+> VERTICES - Shadows, Rgb, Vertics, Normals, NODES, Wireframe Overlay, Grid, clear
+> Bones - Shadows, Vertices, Bones, Skeletons NODES, lights, grid, clear
+> Movement - Shadows, Vertices, Bones, Skeleton, F.Skeleton (rename), NODES, light, grid, clear
+> Animations - RGB, Shadows, Lights, Emitters, Events, Sounds, Grid, Clear
+> NODES - Show all symbols at once. RIGHT CLICK NODES - drop down menu with ... check boxes make it easy.
+> THIS IS FOR MDLXL. MDLVIS - DO NOT RE-CREATE! ... thats how it should be, its already determined there.
+> nodes become Objects - i dont even know what nodes are
+
+Follow-ups: "Vertics doesnt need bones"; "F.Skeleton is Focused skeleton but i need space on that line";
+"Axis guides back please, wireframe in bones yes anim no"; "Collision spheres I dont do here";
+"when clicking a node - show its diamonds on the keyframe track, we already have a great diamond system lets re-use it here.
+click node - add diamonds, a clicked node shows its diamonds, diamonds are deletable. I can do it in any track where I see
+nodes and a keyframe track or via the manager the way it currently works."
+Double-click emitter symbol opens EMTR: yes. Lights/attachments "Visible" tick in Movement: "i guess". Manager: "Object Manager".
+Attachments/sounds moving or animated: research Hive + the model library; include only if the function is really needed.
+
+| Editor (XL) | Switches, in order |
+|---|---|
+| Vertices | Shadows, RGB, Vertices, Normals, Objects, Wireframe Overlay, Axis guides, Grid, Clear |
+| Bones | Shadows, Vertices, Bones, Skeleton, Objects, Lights, Wireframe Overlay, Axis guides, Grid, Clear |
+| Movement | Shadows, Vertices, Bones, Skeleton, F.Skeleton (tooltip: Focused Skeleton), Objects, Lights, Axis guides, Grid, Clear |
+| Animations | RGB, Shadows, Lights, Emitters, Events, Sounds, Grid, Clear (no symbols) |
+
+- **Objects** shows every object symbol at once (attachments, emitters, ribbons, events, sounds; not collision, not lights).
+  Right-click Objects: the shared Quick Display menu with one checkbox per kind (same menu style as Bones' Helpers/Bones).
+- **Clicked object shows its diamonds** on the existing keyframe track (event frames for events/sounds, Visibility keys
+  for the others); add at the playhead, delete diamonds, as the track already does for bones.
+- **VIS (MDLVis look):** exactly as on main; none of the first build's VIS changes.
+
+---
+
 # Objects: one set of words in every editor (plan)
 
 Status: **built** on local branch `claude/node-display-37527c` (commits `022b91e4` code, `3e48e071` packaged tests, then docs), ready to test, not online. Approved by the owner 14 Nov 2026 ("Yes, build it"), with all three recommended answers: Object Manager rename; keep Movement "Visible" tick for lights and attachments only; remove Bones/Skeleton/Focused Skeleton switches from Animations.
