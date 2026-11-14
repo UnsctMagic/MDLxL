@@ -7,7 +7,7 @@ import {unitHeight} from './fx-layer-basis.js';
 import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-effects.js';
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
-import {partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint} from './global-animation-looks.js';
+import {partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint,findLook,layerIngredient,makeLayer,currentVariation} from './global-animation-looks.js';
 import {stackForPart} from './fx-own-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
@@ -1409,8 +1409,33 @@ const CARRIED_RATIOS=['ParticleScaling','Speed','Gravity','Width','Length','Life
  * stackForPart refits it. Whole-layer slider edits are stored per emitter, so they travel separately: a size, speed
  * or time as its ratio to what the layer makes without the edit (fieldScale), a colour, opacity or angle as itself.
  */
+// What a look fits to the whole part, not to one emitter: a ribbon's ring and width, a swarm's radius, how many drops fall.
+const RECIPE_FITTED=layer=>layer.type==='Edge'?['orbitRadius','upper','lower']:layer.swarm?['size']:layer.kind==='drops'?['amount']:[];
+/**
+ * A layer the look made follows the look's own rules to the new part: the value the look gives there, times how far the
+ * user had moved it from the value the look gave on the old part. An untouched layer is exactly the fresh one. (The
+ * ratios of stackForPart alone gave a ribbon carried from a small part a width several times the look's.)
+ */
+function refitFromRecipe(stack,next,from,to){
+ const look=findLook(stack.look);if(!look||stack.impact)return;
+ const variation=look.variations?.find(v=>v.id===currentVariation(stack,look));
+ for(const layer of stack.layers){
+  const target=next.layers.find(item=>item.id===layer.id),fields=RECIPE_FITTED(layer);
+  if(!target||!fields.length||layer.recipeOwner!==look.id)continue;
+  const same=s=>s.type===layer.type&&s.label===layer.label&&s.kind===layer.kind;
+  const spec=variation?.layers.find(same)||[layerIngredient(look,layer)].find(s=>s&&same(s));
+  if(!spec)continue;
+  const was=makeLayer(spec,from,look.palette,layer.id),now=makeLayer(spec,to,look.palette,layer.id);
+  for(const key of fields){
+   const a=was[key],b=now[key],old=layer[key];
+   if(typeof a==='number'&&typeof b==='number'&&typeof old==='number')target[key]=Math.abs(a)>1e-9?b*old/a:b;
+  }
+  if(layer.kind==='drops'&&now.surfaceFit&&target.surfaceFit&&!target.siteLayout)target.surfaceFit={...now.surfaceFit,...(target.surfaceFit.siteCount!=null?{siteCount:target.surfaceFit.siteCount}:{})};
+ }
+}
 export function carryAnimationStack(model,index,stack,frame,targetFrame,owner,options){
  const next=stackForPart(stack,frame,targetFrame,owner);
+ refitFromRecipe(stack,next,frame,targetFrame);
  const edits=layer=>layer.enabled!==false&&layer.type==='Particles'&&!layer.swarm&&!layer.impact?[...new Set(Object.values(layer.individuals||{}).flatMap(record=>record.deleted?[]:record.groupFields||[]))].filter(field=>field!=='EmissionRate'&&field!=='Rotation'):[];
  if(!stack.layers.some(layer=>edits(layer).length))return next;
  const compiled=draft=>{const copy=structuredClone(model);return {model:copy,layers:compileAnimation(copy,index,draft,options).layers};};
