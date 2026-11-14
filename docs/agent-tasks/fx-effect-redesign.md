@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1 to 3, 5 to 12 and the Eye glow removal saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1 to 3 and 5 to 13 saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -228,10 +228,11 @@ Done:
 - **5. Fire folder** (same commit). Burning cracks: Crack flames (low blended flames from the surface, a third of a width tall) and no `inflate` on the two crack skins (the Lit crystal tearing applies to any detailed skin lifted off a hard-edged part). Fissures: a Heat glow shell and rising Cinders. Magma flow: Heat glow and Cinders. Forge heat: Falling sparks over the whole part. Rising embers: Ember glow, a faint glow where the embers start. Fresh layers only; saved stacks keep theirs.
 - **3. Lightning cage** (`8e337025`). What was wrong in build 05: Zap cards were flat quads lying along the part (the "sheet" on the claw), one set for every skin region (dozens on a body), and Cage arcs repeated per region too; Shell arcs was a copy of the part pushed out by a distance that grew with the part (7.9 on the body). New recipe (`src/fx-technique-looks.js`): three orbit ribbons, Cage arcs, Second arc and Third arc, each once for the whole part on a ring a little wider than the part, at 28% before the middle, the middle and 28% after it; Cage zaps (billboarded thin `Zap1` streaks leaving the surface at every angle, carried with the part); Charge glow; Shell sparkles. No cards, no lifted shell. New Edge fields, fresh layers only: `whole` (one ribbon for the part, not one per region), `along` (place on the part's length; `edgeLayer`, and the handle in `GlobalAnimationStage.jsx`), and in `makeLayer` `reach` (ring radius as a share of the part's radius), `band` (ribbon width as a share of the ring, at most 6% of the part's length) and `smoothness`. Rings on the owner's model: sword 22 to 27, claw 33 to 41, body 85 to 105 with a 13-unit ribbon. Check: `node out/fx-design/pass6/cage.mjs <model> fx-lightning-cage <geoset...>`.
 - **12. Rune circle** (`1406b188`) is a part effect: the rune circle stands across the part as rings the part passes through. Rune circle (three rings along the part, turning slowly, each on its own clock), Inner circle (two smaller rings turning the other way), Rune motes. No ground cards, no ground emitter; the old layers still open from a saved model. New Card facing `across` (`CARD_FACINGS` in `src/fx-cards.js`, `cardLayer`; shown as Across in the Facing menu) and, for fresh layers, the Card fields `whole`, `along` and `reach` (half-width as a share of the whole part's radius, in `makeLayer`). Rings on the owner's sword: 59 and 46 units across on a blade 160 long.
+- **13. Star flare and Glow orb** (`6d86ea9d`) are rebuilt as billboarded particles sized in widths of the part; both were cards at the middle of every skin region (on a sword: mid-blade and the grip). Star flare: Flare (a `star4` star growing and fading at the tip, `gather:'tip'`), Flare glow, Star glints along the whole part. Glow orb: Orb glow, Orb core and Orb wisps on `gather:'engulf-core'`, the place Fireball's glow sits (around a blade's outer part, the middle of a compact piece, a body's head). Old card layers still open from a saved model.
 
 Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: item 13: Star flare and Glow orb as particle looks that sit right on a sword (`src/fx-technique-looks.js`).
+Exact next step: item 4, Rift seam (`src/fx-sort-looks.js`): replace the per-region zap cards with particles on the surface.
 
 What the owner should look at:
 
@@ -245,6 +246,7 @@ What the owner should look at:
 - Fire > Burning cracks (small flames from the cracks), Fissures and Magma flow (glow and cinders), Forge heat (sparks falling), Rising embers (faint glow under the embers).
 - Lightning > Lightning cage on the body (Geoset 9), the blade and the claw (Geoset 4): three thin bolts circling the part at three places along it, short streaks crackling off the surface, a soft blue charge, sparkles. No sheet, no bright shell. Radius of each ring: select Cage arcs > More > Radius.
 - Arcane > Rune circle on the sword: green rune rings around the blade at three places, turning slowly, two smaller ones between them, small green motes. Facing > Across is the new choice for any Card layer.
+- Light > Star flare on the sword: a star twinkling at the tip with a soft glow, small glints along the blade. Light > Glow orb: one orb of light around the outer part of the blade with a bright core and small wisps leaving it; on a mace head or compact piece it sits in the middle.
 
 ## Rules carried over
 
