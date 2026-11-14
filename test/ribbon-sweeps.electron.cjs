@@ -60,6 +60,41 @@ const SWEEPS = ['Plain','Fire','Frost','Lightning','Spirit','Fel','Shadow','Holy
     await choose('Frost');
     await page.waitForFunction(() => { const names = mdlxlProbe('.pe-preview .game-preview-root').runtime?.native?.model.ParticleEmitters2.map(e => e.Name) || []; return names.some(n => n.startsWith('Frost sweep')) && !names.some(n => n.startsWith('Fire sweep')); }, null, {timeout:30000});
     assert.equal((await preview()).emitters.length, own + 2);
+    // Playback Speed: the same list as the editor's own, for viewing only. Measured from the animation the preview really plays.
+    const speed = page.locator('.pe-transport').getByLabel('Playback Speed', {exact:true});
+    assert.deepEqual(await speed.locator('option').allTextContents(), ['0.25×','0.5×','1×','2×']);
+    const pickSpeed = async label => {
+      const labels = await speed.locator('option').allTextContents();
+      await hit(speed); await page.keyboard.press('Home');
+      for (let i = 0; i < labels.indexOf(label); i++) await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(label => document.querySelector('.pe-transport select[aria-label="Playback Speed"]')?.selectedOptions[0]?.textContent === label, label);
+    };
+    // Animation milliseconds played per real millisecond, over half a second; loop restarts are left out.
+    const rate = () => page.evaluate(() => new Promise(resolve => {
+      const n = mdlxlProbe('.pe-preview .game-preview-root').runtime.native, t0 = performance.now(); let last = n.getFrame(), played = 0, from = t0, counted = 0;
+      const step = () => { const now = performance.now(), frame = n.getFrame(); if (frame >= last) { played += frame - last; counted += now - from; } last = frame; from = now; if (now - t0 < 600) requestAnimationFrame(step); else resolve(played / counted); };
+      requestAnimationFrame(step);
+    }));
+    const usual = await rate();
+    assert.ok(usual > .35 && usual < .65, 'The preview starts at 0.5×; measured ' + usual);
+    await pickSpeed('2×');
+    const fast = await rate();
+    assert.ok(fast > 1.5 && fast < 2.5, '2× plays the animation at twice real speed; measured ' + fast);
+    // The chosen speed stays while sweeps are switched.
+    await choose('Fire');
+    await page.waitForFunction(() => mdlxlProbe('.pe-preview .game-preview-root').runtime?.native?.model.ParticleEmitters2.some(e => e.Name.startsWith('Fire sweep')), null, {timeout:30000});
+    assert.equal(await speed.locator('option:checked').textContent(), '2×', 'Switching sweeps keeps the speed');
+    const kept = await rate();
+    assert.ok(kept > 1.5 && kept < 2.5, 'Still 2× after switching sweeps; measured ' + kept);
+    await choose('Frost');
+    await page.waitForFunction(() => { const names = mdlxlProbe('.pe-preview .game-preview-root').runtime?.native?.model.ParticleEmitters2.map(e => e.Name) || []; return names.some(n => n.startsWith('Frost sweep')) && !names.some(n => n.startsWith('Fire sweep')); }, null, {timeout:30000});
+    await pickSpeed('0.25×');
+    const slow = await rate();
+    assert.ok(slow > .15 && slow < .35, '0.25× plays at a quarter speed; measured ' + slow);
+    await pickSpeed('2×');
+    assert.deepEqual((await state()).model, original.model, 'Playback Speed is for viewing: the model is untouched');
+    console.log(JSON.stringify({rates:{usual,fast,kept,slow}}));
     // The mouse still turns the camera while choosing.
     await orbit(page, page.locator('.pe-preview'));
 
@@ -68,7 +103,7 @@ const SWEEPS = ['Plain','Fire','Frost','Lightning','Spirit','Fel','Shadow','Holy
     await page.getByLabel('Ribbon upper end',{exact:true}).waitFor();
     const created = await state(), model = created.model;
     assert.equal(created.undo, beforeCreate.undo + 1, 'Create is one undo step');
-    for (const field of ['Geosets','Bones','Sequences']) assert.deepEqual(model[field], original.model[field], field + ' unchanged');
+    for (const field of ['Geosets','Bones','Sequences']) assert.deepEqual(model[field], original.model[field], field + ' unchanged (created while viewing at 2×: no key is retimed)');
     assert.equal(model.RibbonEmitters.length, original.model.RibbonEmitters.length + 1);
     const ribbon = model.RibbonEmitters.at(-1), added = model.ParticleEmitters2.filter(e => e.Name.startsWith('Frost sweep'));
     assert.equal(ribbon.Name, 'Frost sweep'); assert.equal(added.length, 2);
