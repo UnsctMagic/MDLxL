@@ -280,7 +280,7 @@ A later request for a toggle that shows every variation as its own card was with
 
 Everything below builds. Recipes were compiled in Node on the owner's model (sword G10, claw G16, body G5) with the scripts in `out\fx-design\pass7\`; nothing was rendered or opened in the app.
 
-The library went from 63 cards to 37, with 105 variations. Every look that left `LIBRARY` is retired: a model saved with it opens and compiles exactly as before (`findLook`).
+The library went from 61 cards to 40. Counting every variation, it grew from 92 looks to 120. Every look that left `LIBRARY` is retired: a model saved with it opens and compiles exactly as before (`findLook`).
 
 - **Poison & nature** (`00e0fc49`).
   - Poison: six variations. Poison, Dripping venom and Toxic fumes stay and get depth: Dark rot (dark cloud shapes drifting against the film, the Cooling crust technique), Running slime, a Sickly glow shell, more bubbles; Toxic fumes gets a second, murky cloud. Felwood curse, Acid (was Venom seep) and Corrupted veins are variations, each with started particles (curse wisps, acid splashes and fumes, ichor drops). Felwood poison was the Poison film again under another name: retired.
