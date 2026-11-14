@@ -1118,7 +1118,15 @@ function cardLayer(c,l){
  const cells=card.rows*card.columns,flipbook=cells>1&&card.frameMs>0;
  // whole (fresh recipes): one set of cards along the whole part instead of one set for each skin region.
  // along: the set's place on the part's length, as a share of that length from the middle.
- const regions=card.facing==='ground'?[null]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ // seated (fresh recipes): only a slender part is a piece a ring can go around. A ring around all of a body or a bulky
+ // piece is as wide as the unit. On a body (more skin regions than a weapon has) or a part wider than a fifth of its
+ // length, a whole-part set gathers where Fireball sits (a body's head, the middle of a mass): the cards are stacked
+ // through it and sized to that mass by reach. On a body they stand level.
+ const body=c.frame.regions?.length>SHARED_REGIONS;
+ const seat=l.whole&&l.seated&&card.facing!=='ground'&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
+ const seatAxis=seat?(body||!seat.tipDirection?z.clone():new Vector3(...seat.tipDirection).normalize()):null;
+ const regions=card.facing==='ground'?[null]:seat?[c.frame.regions[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ const half=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach):size;
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
  // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, the cards go to its longest
  // regions, four regions' worth in all, like the emitters. A body no longer gets a set on every bone.
@@ -1126,7 +1134,7 @@ function cardLayer(c,l){
  let k=0;
  for(const [r,region] of regions.entries())for(let i=0,count=shares?shares[r]:card.count;i<count;i++,k++){
   const f=region?.frame,along=!f?0:(count===1?0:((i+.5)/count-.5)*f.length*.9)+f.length*(l.along||0);
-  const point=region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
+  const point=seat?new Vector3(...seat.point).addScaledVector(seatAxis,count===1?0:((i+.5)/count-.5)*half*1.6):region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
   const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
   const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);
   // Camera cards face +X on a billboarded bone; ground cards lie flat; part cards turn with the part.
@@ -1134,7 +1142,7 @@ function cardLayer(c,l){
   let side,up,normal;
   if(card.facing==='camera'){side=new Vector3(0,1,0);up=new Vector3(0,0,1);}
   else if(card.facing==='ground'){side=new Vector3(1,0,0);up=new Vector3(0,1,0);}
-  else if(card.facing==='across'){const axis=f.axis.clone().normalize();side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize();up=new Vector3().crossVectors(axis,side);}
+  else if(card.facing==='across'){const axis=seat?seatAxis.clone():f.axis.clone().normalize();side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize();up=new Vector3().crossVectors(axis,side);}
   else{up=f.axis.clone().normalize();side=new Vector3().crossVectors(up,Math.abs(up.z)<.9?z:y).normalize();}
   normal=new Vector3().crossVectors(side,up).normalize();
   const factor=CARD_CLOCK_FACTORS[k%CARD_CLOCK_FACTORS.length]*(1+Math.floor(k/CARD_CLOCK_FACTORS.length)*.071);
@@ -1160,7 +1168,7 @@ function cardLayer(c,l){
   const cell=((flipbook?card.cell+k*3:card.cell)%cells+cells)%cells,u0=(cell%card.columns)/card.columns,v0=Math.floor(cell/card.columns)/card.rows,du=1/card.columns,dv=1/card.rows;
   const first=vertices.length/3;
   for(const [s,t] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
-   vertices.push(...point.clone().addScaledVector(side,s*size).addScaledVector(up,t*size).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);
+   vertices.push(...point.clone().addScaledVector(side,s*half).addScaledVector(up,t*half).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);
   }
   uvs.push(u0,v0+dv,u0+du,v0+dv,u0+du,v0,u0,v0);
   faces.push(first,first+1,first+2,first,first+2,first+3);
@@ -1176,7 +1184,7 @@ function cardLayer(c,l){
   layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flipbook',{Translation:keys(clockFor(m,ms,c.createdClocks),ms,[...Array.from({length:cells},(_,j)=>[j/cells,[(j%card.columns)/card.columns,Math.floor(j/card.columns)/card.rows,0]]),[1,[0,0,0]]],0)});
  }
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:strengthPasses([layer],card.strength,false,alphaFor)});
- const reach=size*Math.SQRT2*Math.max(1,card.sizeMax);
+ const reach=half*Math.SQRT2*Math.max(1,card.sizeMax);
  const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
  if(m.Version>=900)g.LevelOfDetail=0;
  // Bounds hold a card at its largest size facing any way, and the part's own animated bounds.

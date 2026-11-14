@@ -487,10 +487,20 @@ function adopted(variationId,name,[id,from],{drop=[],start=[],change={},add=[],f
 }
 /** The card's own variations: all of them, or the plain look as one variation. */
 const own=(id,name)=>{const look=lookById(id);return look.variations||[{id:'original',name:name||look.name,layers:look.layers}];};
-function fold(id,variations){
+function fold(id,variations,extra={}){
  const i=GLOBAL_LOOKS.findIndex(l=>l.id===id);
- GLOBAL_LOOKS[i]=vary(GLOBAL_LOOKS[i],variations);
+ GLOBAL_LOOKS[i]=vary({...GLOBAL_LOOKS[i],...extra},variations);
 }
+// Small lights drifting around the part: what a rune, a seal or a ward sheds (the Rune motes of Rune circle, in any colour).
+const runeMotes=(tint,extra={})=>spray('Rune motes',texture('star4_32'),tint,
+ {life:1.1,rate:12,velocity:.06,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
+ {starts:true,cover:'around',birthAcross:1.4,widthCap:.6,loop:2933,...extra,native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,1],tint,tint.map(v=>v*.55)]}});
+// Stars blooming on the surface, a few at a time.
+const twinkles=(extra={})=>spray('Twinkling stars',texture('star4'),[.9,.93,1],
+ {life:.8,rate:10,size:[.03,.18,.03],alpha:[0,240,0]},
+ {starts:true,cover:'surface',widthCap:1.2,loop:1933,...extra,native:{Time:.45,Flags:C,SegmentColor:[[1,1,1],[.9,.93,1],[1,.85,.5]]}});
+// A soft shell of light in one colour.
+const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',strength,tint,inflate:.3,loop});
 {
  // Poison: Felwood curse, Venom seep (shown as Acid) and Corrupted veins were cards of their own; Felwood poison was
  // the Poison film again under another name and is retired.
@@ -587,6 +597,133 @@ function fold(id,variations){
    adopted('cracks','Void cracks',['claude-void-cracked'],{drop:['Void splinters'],add:[rift('Rift sparks'),rift('Rift splinters'),rift('Rift glow')]}),
   ]);
  }
+ // Arcane: Energy flow is a variation; its glow starts and sparks bloom on the flow.
+ fold('arcane-blade',[
+  ...own('arcane-blade'),
+  adopted('flow','Energy flow',['fx-energy-flow'],{change:{'Energy glow':{enabled:true}},add:[
+   spray('Energy sparks',texture('star4_32'),[.6,.75,1],
+    {life:.5,rate:18,size:[.02,.12,.02],alpha:[0,255,0]},
+    {starts:true,cover:'surface',widthCap:1,loop:1933,native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.5,1]]}}),
+  ]}),
+ ]);
+ // Runes: every look that was a rune on the part is a variation (Glowing runes, Soul lantern, Eclipse brand, Hex mark).
+ // Each sheds motes in its own colour; the soul seal burns with small ghost flames, not one flame on an orbit.
+ {
+  const [runes,thornScript]=own('rune-blade');
+  fold('rune-blade',[
+   {...runes,layers:[...runes.layers,runeMotes([.45,.75,1])]},
+   {...thornScript,layers:[...thornScript.layers,runeMotes([.48,1,.73])]},
+   adopted('plate','Glowing runes',['claude-runic-plate'],{add:[runeMotes([.4,.75,1])]}),
+   adopted('soul','Soul seal',['sort-soul'],{drop:['Lantern flame'],add:[
+    spray('Soul flames',texture('Ghost1'),[.48,1,.73],
+     {life:.9,rate:16,velocity:.2,gravity:-.4,spread:20,size:[.08,.2,.03],alpha:[0,200,0]},
+     {starts:true,cover:'surface',widthCap:1.1,capMotion:true,loop:2267,native:{Time:.4,Variation:.3,Flags:U}}),
+    runeMotes([.48,1,.73]),
+   ]}),
+   adopted('eclipse','Eclipse eye',['sort-eclipse'],{add:[runeMotes([.8,.75,1])]}),
+   adopted('hex','Hex mark',['hex-mark'],{drop:['Hex glyphs','Sparks'],add:[aura('Hex glow',[.6,.4,.9]),runeMotes([.76,.49,1])]}),
+  ]);
+ }
+ // Wards: Spell ward, Recall seal and Mending light were a surface each with their particles only offered.
+ {
+  const rising=(tint,rate)=>{const spec=lookById('arcane-blade').variations.find(v=>v.id==='shimmer').layers.find(s=>s.label==='Rising stars');
+   return {...spec,tint,nativeSpec:{...spec.nativeSpec,rate},native:{...spec.native,SegmentColor:[[1,1,1],tint,tint.map(v=>v*.6)]}};};
+  fold('spell-ward',[
+   adopted('ward','Spell ward',['spell-ward'],{drop:['Rune sparks'],add:[aura('Ward glow',[.45,.7,1]),runeMotes([.5,.75,1])]}),
+   adopted('recall','Recall seal',['recall-seal'],{drop:['Stars','Ground seal'],add:[rising([.7,.85,1],24),runeMotes([.7,.85,1])]}),
+   adopted('mend','Mending light',['sun-mend'],{drop:['Light sparks'],add:[aura('Warm glow',[1,.8,.4]),rising([1,.85,.4],20)]}),
+  ]);
+ }
+ // Night sky: Astral chart, Void shale (Starlit shale) and Moon mosaic. Astral chart no longer swaps the part's surface
+ // for a marble tile (the owner's body turned white in build 06): the part's own picture is darkened to night blue, the
+ // star field and the constellation lie over it, stars twinkle on it.
+ {
+  const astral=lookById('sort-astral').layers,layer=label=>astral.find(s=>s.label===label);
+  fold('sort-astral',[
+   {id:'chart',name:'Astral chart',legacyLayers:[layer('Black stone')],layers:[
+    skin('Night',null,{own:true,fixed:true,filter:2,strength:.8,tint:[.1,.11,.26]}),
+    layer('Star field'),layer('Constellation'),twinkles(),
+   ]},
+   // Folded looks take a steady swell where their old rhythm dipped the light (the library's no-flashing rule).
+   adopted('shale','Starlit shale',['sort-abyss'],{change:{Starlight:{pulse:'soft'}},add:[twinkles()]}),
+   adopted('moon','Moon mosaic',['sort-mosaic'],{change:{Crescent:{pulse:'soft'}},add:[runeMotes([.83,.91,1])]}),
+  ],{asOverlay:true});
+ }
+ // Light: Glow (the part's own picture glowing) is a variation of Glow shell. Motes gains Fireflies.
+ fold('fx-glow-shell',[...own('fx-glow-shell'),adopted('texture','Glowing texture',['glowing-skin'])]);
+ fold('motes',[
+  ...own('motes'),
+  {id:'fireflies',name:'Fireflies',layers:[
+   starts(dust('Fireflies','motes',texture('Yellow_Glow3'),{tint:[1,.95,.5],scale:{size:.6}})),
+   spray('Firefly glints',texture('star4_32'),[1,.95,.5],
+    {life:.6,rate:8,size:[.02,.09,.02],alpha:[0,255,0]},
+    {starts:true,cover:'around',birthAcross:1.6,widthCap:.6,loop:2267,native:{Time:.4,Flags:C,SegmentColor:[[1,1,.9],[1,.95,.5],[.7,.9,.3]]}}),
+  ]},
+ ]);
+ // Stone: Carved cairn is a variation of Basalt. Two more after the owner's Elemental Lord, whose rocks and dust ride a
+ // turning axis: rubble falling off the part, and rocks circling it.
+ {
+  const grey=lookById('sort-cairn').layers.find(s=>s.label==='Grey stones'),cinders=lookById('claude-magma-flow').layers.find(s=>s.label==='Cinders');
+  const ROCK=[[.8,.78,.74],[.75,.72,.68],[.6,.58,.55]];
+  const rocks=(label,spec,loop)=>spray(label,texture('RockParticle'),ROCK[1],{filter:0,velocity:.06,spread:180,alpha:[0,255,0],...spec},{starts:true,loop,native:{Time:.3,Variation:.6,SegmentColor:ROCK}});
+  const dust_=(extra,spec={})=>spray('Stone dust',texture('Dust3x'),[.7,.66,.6],{filter:0,life:1.4,rate:9,velocity:.06,gravity:.12,spread:180,size:[.08,.16,.24],alpha:[0,85,0],...spec},{starts:true,loop:3067,...extra,native:{Time:.3,Variation:.3}});
+  const basalt=own('sort-basalt','Basalt')[0];
+  fold('sort-basalt',[
+   {...basalt,layers:[...basalt.layers,{...cinders,nativeSpec:{...cinders.nativeSpec,rate:4}}]},
+   adopted('cairn','Carved cairn',['sort-cairn'],{change:{'Carving light':{pulse:'soft'}},add:[runeMotes([.48,1,.73])]}),
+   {id:'rubble',name:'Crumbling rock',layers:[
+    grey,
+    spray('Falling rubble',texture('RockParticle'),ROCK[1],
+     {filter:0,life:.9,rate:16,velocity:.15,gravity:2.2,spread:50,size:[.05,.05,.04],alpha:[255,255,0]},
+     {starts:true,cover:'surface',widthCap:.45,loop:2267,native:{Time:.6,Variation:.5,Flags:U,SegmentColor:ROCK}}),
+    dust_({cover:'around',birthAcross:1.1,widthCap:1.6}),
+   ]},
+   {id:'orbit',name:'Orbiting rocks',layers:[
+    grey,
+    rocks('Circling rocks',{orbit:.5,life:1.1,rate:22,size:[.004,.05,.05]},2700),
+    rocks('Circling pebbles',{orbit:.42,phase:.5,life:1,rate:40,size:[.004,.03,.03]},2100),
+    dust_({loop:3300},{orbit:.5,phase:.25,life:1.1,rate:10,gravity:0,size:[.06,.14,.2]}),
+   ]},
+  ]);
+ }
+ // Death & spirit. Spirit: Wraith form, Spirit veil, Revenant waves. Souls: Soul vortex, Ghost trails. Shadow: Dark smoke,
+ // Hollow shell, Living ink. Blood: Sanguine drip, Blood pact. Each gets what it lacked around the part.
+ {
+  const wisps=tint=>{const spec=lookById('fx-soul-vortex').layers.find(s=>s.label==='Soul wisps');return {...spec,tint,native:{...spec.native,SegmentColor:[[1,1,1],tint,tint.map(v=>v*.6)]}};};
+  const haze=(tint,loop=2633)=>spray('Ghost haze',CLOUDS,tint,
+   {atlas:8,life:1.8,rate:9,velocity:.06,gravity:-.08,spread:180,size:[.14,.24,.34],alpha:[0,45,0]},
+   {starts:true,cover:'around',birthAcross:1.2,widthCap:2,loop,native:{Time:.4,Variation:.3,Flags:U}});
+  const ghost=[.62,.92,1],wraith=own('claude-wraith-form','Wraith form')[0];
+  fold('claude-wraith-form',[
+   {...wraith,layers:[...wraith.layers.filter(s=>s.label!=='Spirit wisps'),wisps(ghost),haze(ghost)]},
+   adopted('veil','Spirit veil',['spirit-veil'],{drop:['Wisps'],add:[wisps([.76,.6,1]),haze([.7,.6,1])]}),
+   adopted('revenant','Revenant waves',['revenant'],{add:[wisps([.5,.75,1]),haze([.5,.7,1])]}),
+  ]);
+  fold('fx-soul-vortex',[
+   ...own('fx-soul-vortex','Soul vortex'),
+   adopted('trails','Ghost trails',['fx-ghost-trails'],{add:[wisps([.35,.95,.45])]}),
+  ]);
+  const blackDust=(extra={})=>spray('Black dust',texture('Dust5ABlack'),[1,1,1],
+   {filter:0,life:1.6,rate:10,velocity:.1,gravity:-.1,spread:180,size:[.12,.2,.3],alpha:[0,120,0]},
+   {starts:true,cover:'around',birthAcross:1.2,widthCap:2,loop:3067,...extra,native:{Time:.4,Variation:.3}});
+  const smoke=own('fx-dark-smoke','Dark smoke')[0];
+  fold('fx-dark-smoke',[
+   {...smoke,layers:[...smoke.layers,blackDust()]},
+   adopted('hollow','Hollow shell',['fx-hollow-shell']),
+   adopted('ink','Living ink',['sort-ink'],{add:[
+    {...dust('Ink drips','drops',texture('WaterBlobs1'),{tint:[.1,.07,.14],starts:true,...DRIP}),amount:8},
+    blackDust({widthCap:1.2,loop:2633}),
+   ]}),
+  ]);
+  const spatter=()=>spray('Blood spatter',texture('BloodBlobs1'),[.85,.2,.15],
+   {filter:0,life:.6,rate:14,size:[.03,.11,.13],alpha:[255,220,0]},
+   {starts:true,cover:'surface',widthCap:.9,loop:2267,native:{Time:.35,Flags:C,SegmentColor:[[1,.3,.25],[.85,.2,.15],[.5,.08,.06]]}});
+  const drip=own('sort-blood','Sanguine drip')[0],drops=drip.layers.find(s=>s.label==='Blood drips');
+  fold('sort-blood',[
+   {...drip,layers:[...drip.layers,spatter()]},
+   adopted('pact','Blood pact',['claude-blood-pact'],{change:{Heartbeat:{pulse:'beat',tint2:[.85,.12,.3]}},add:[{...drops,amount:8},spatter()]}),
+  ]);
+ }
  // Vines: Mossy bark and its spores were switched-off layers of Briar binding; they are a variation now.
  const leaves=(rate=7)=>spray('Falling leaves',texture('Leaf4x4'),[1,1,1],
   {atlas:4,filter:0,life:2.2,rate,velocity:.1,gravity:.22,spread:180,size:[.02,.09,.09],alpha:[0,255,0]},
@@ -613,12 +750,12 @@ export const LIBRARY=[
  ['Ice',[['frost-blade','Frost'],['fx-lit-crystal','Crystal'],['frost-mist']]],
  ['Water',[['claude-tidal-blade','Water']]],
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
- ['Arcane',[['arcane-blade','Arcane'],['fx-energy-flow'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['fx-rune-circle'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
- ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb']]],
+ ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
+ ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['motes']]],
  ['Team colour',[['fx-team-colour'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
- ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves'],['sort-ink']]],
- ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
- ['Death & spirit',[['claude-wraith-form'],['fx-ghost-trails'],['fx-soul-vortex'],['fx-dark-smoke'],['fx-hollow-shell'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],
+ ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
+ ['Stone',[['sort-basalt','Stone']]],
+ ['Death & spirit',[['claude-wraith-form','Spirit'],['fx-soul-vortex','Souls'],['fx-dark-smoke','Shadow'],['sort-blood','Blood']]],
  ['Build your own',[['empty','Empty'],['moving-own','Moving texture'],['colour-pulse'],['fade-pulse'],['fx-tint']]],
 ];
 {

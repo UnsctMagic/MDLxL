@@ -274,8 +274,8 @@ export const TECHNIQUE_LOOKS=[
  // Pass 6 (14 November). The owner: no auras, but the circle is cool; a weapon effect? The rune circle now stands
  // across the part as rings it passes through (facing 'across'), sized to the whole part, each turning on its own clock.
  make('rune-circle','Rune circle',1267,[
-  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,count:3,reach:1.4,sizeMin:.92,sizeMax:1.08,spin:.25,spinEased:false,loop:4000,tint:[1,1,1]}),
-  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,count:2,reach:1.1,sizeMin:.94,sizeMax:1.06,spin:-.5,spinEased:false,loop:3100,strength:.7,tint:[.8,1,.7]}),
+  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:3,reach:1.4,sizeMin:.92,sizeMax:1.08,spin:.25,spinEased:false,loop:4000,tint:[1,1,1]}),
+  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:2,reach:1.1,sizeMin:.94,sizeMax:1.06,spin:-.5,spinEased:false,loop:3100,strength:.7,tint:[.8,1,.7]}),
   spray('Rune motes',tex('star4_32'),[.45,1,.4],
    {life:1.1,rate:12,velocity:.06,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
    {starts:true,cover:'around',birthAcross:1.4,widthCap:.6,loop:2933,
