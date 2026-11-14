@@ -36,7 +36,8 @@ export const fireHair=()=>spray('Fire hair',tex('clouds_anim1_bw'),FIRE,
 
 const C=EMITTER_CARRIED;
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
-const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,inflate:.11,tint:crystal,strength:1});
+// No lift: a copy pushed out along the normals of a hard-edged crystal comes apart at every edge (the tearing in test build 05).
+const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,tint:crystal,strength:1});
 const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
 
 export const TECHNIQUE_LOOKS=[
@@ -82,11 +83,11 @@ export const TECHNIQUE_LOOKS=[
     native:{Time:.4,Variation:.4,Flags:C,SegmentColor:[[1,1,1],[.75,.88,1],[.5,.6,1]]}}),
  ]),
  vary(make('lit-crystal','Lit crystal',3600,[],{asOverlay:true}),[
-  {id:'light',name:'Inner light',layers:[crystalFacets(4),skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,inflate:.13,tint:crystal,strength:.7,pulse:'soft'}),facetGlints()]},
-  {id:'team',name:'Team colour core',layers:[skin('Crystal core','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,fixed:true,bodyUV:true,filter:0,unshaded:true,inflate:.05,strength:1,tint:[1,1,1]}),crystalFacets(3),facetGlints()]},
+  {id:'light',name:'Inner light',layers:[crystalFacets(4),skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,tint:crystal,strength:.7,pulse:'soft'}),facetGlints()]},
+  {id:'team',name:'Team colour core',layers:[skin('Crystal core','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,fixed:true,bodyUV:true,filter:0,unshaded:true,strength:1,tint:[1,1,1]}),crystalFacets(3),facetGlints()]},
   {id:'sparkle',name:'Sparkling facets',layers:[
    crystalFacets(4),
-   skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,inflate:.13,tint:crystal,strength:.7,pulse:'soft'}),
+   skin('Crystal light',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter:3,tint:crystal,strength:.7,pulse:'soft'}),
    spray('Facet sparkles',tex('star4_32'),[.85,.95,1],
     {life:.5,rate:36,size:[.02,.14,.02],alpha:[0,255,0]},
     {starts:true,cover:'surface',widthCap:1.2,
