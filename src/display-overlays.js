@@ -3,12 +3,23 @@ import { OBJECT_TYPE_KEYS, migrateXLDisplay } from './object-display.js';
 export function defaultEditorDisplay(vanilla = false) {
   const base = { shaded: true, vertices: true, bones: false, helpers: false, boneTypesBones: true, boneTypesHelpers: true, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   if (!vanilla) return defaultXLDisplay(base);
+  return defaultVISDisplay(base);
+}
+
+// VIS look = MDLVis 1.40. Shadows, Vertices, Normals and Grid in every editor;
+// Bones (with helpers), Attachment, Emitters and Skeleton only in Bones and
+// Movement (MDLVis's Objects submenu, Skeleton and Motion tabs). No Nodes,
+// Focused Skeleton, Wireframe, Events, Sounds or Lights.
+export const VIS_OBJECT_KEYS = Object.freeze(['bones', 'helpers', 'boneTypesBones', 'boneTypesHelpers', 'attachments', 'particles', 'skeleton']);
+function defaultVISDisplay(base) {
+  const view = { shaded: true, vertices: true, normals: false, grid: false };
+  const rig = { ...view, bones: true, helpers: true, boneTypesBones: true, boneTypesHelpers: true, attachments: true, particles: false, skeleton: false };
   return {
-    vertices: { ...base, ...(vanilla && { bones: true, helpers: true, attachments: true }) },
-    // Bones is one shared switch across the rig editors (see shareBones).
-    bones: { ...base, bones: true, helpers: true, ...(vanilla && { helpers: true, attachments: true }) },
-    movement: { ...base, bones: true, helpers: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
-    animations: { ...base, bones: true, helpers: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    vertices: view,
+    // One set of object switches for Bones and Movement, like MDLVis's one menu (see shareVIS).
+    bones: rig,
+    movement: rig,
+    animations: { ...view, shaded: false, vertices: false },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -45,23 +56,28 @@ function shareBones(overlays, mode, key = 'bones', editors = RIG_EDITORS) {
 const OBJECT_SHARED = ['objects', 'lights', ...OBJECT_TYPE_KEYS];
 const shareObjects = (overlays, mode, keys = OBJECT_SHARED) => keys.reduce((result, key) => result[mode]?.[key] === undefined ? result : shareBones(result, mode, key, OBJECT_EDITORS), overlays);
 const keepsOnClear = key => key.startsWith('boneTypes') || key.startsWith('objectTypes');
+const shareVIS = (overlays, mode, keys) => keys.filter(key => VIS_OBJECT_KEYS.includes(key)).reduce((result, key) => shareBones(result, mode, key, OBJECT_EDITORS), overlays);
 
-export function setEditorDisplay(overlays, mode, key, value) {
+/** vanilla: the VIS look, whose object switches are shared by Bones and Movement only. */
+export function setEditorDisplay(overlays, mode, key, value, vanilla = false) {
   const current = overlays?.[mode] || {};
   const resolved = typeof value === 'function' ? value(current[key] ?? keepsOnClear(key)) : value;
   const next = { ...current, [key]: !!resolved };
   if (key === 'bones') next.helpers = !!resolved;
-  if (resolved && key === 'skeleton') next.focusedSkeleton = false;
+  if (resolved && key === 'skeleton' && 'focusedSkeleton' in current) next.focusedSkeleton = false;
   if (resolved && key === 'focusedSkeleton') next.skeleton = false;
   const result = { ...overlays, [mode]: next };
+  if (vanilla) return shareVIS(result, mode, key === 'bones' ? ['bones', 'helpers'] : [key]);
   if (key === 'bones') return shareBones(shareBones(result, mode, key), mode, 'helpers');
   if (OBJECT_SHARED.includes(key)) return shareObjects(result, mode, [key]);
   return ['helpers', 'attachments', 'boneTypesBones', 'boneTypesHelpers'].includes(key) ? shareBones(result, mode, key) : result;
 }
 
 // Clear the active editor's visible options without changing the model or selection.
-export function clearQuickDisplay(overlays, mode) {
-  return shareObjects(shareBones(shareBones({ ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, keepsOnClear(key) ? overlays[mode][key] : false])) }, mode), mode, 'helpers'), mode, ['objects', 'lights']);
+export function clearQuickDisplay(overlays, mode, vanilla = false) {
+  const cleared = { ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, keepsOnClear(key) ? overlays[mode][key] : false])) };
+  if (vanilla) return shareVIS(cleared, mode, VIS_OBJECT_KEYS);
+  return shareObjects(shareBones(shareBones(cleared, mode), mode, 'helpers'), mode, ['objects', 'lights']);
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.

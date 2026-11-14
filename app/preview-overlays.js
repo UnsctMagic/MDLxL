@@ -28,7 +28,13 @@ export function previewOverlayOptions(overlays, showNodes = false, editorMode, v
     wires: overlays?.wires ?? false, vertices: overlays?.vertices ?? false, grid: overlays?.grid ?? false,
     normals: overlays?.normals ?? false, selectedVerticesOnly: overlays?.selectedVerticesOnly ?? false,
   };
-  if (vanilla) return options;
+  if (vanilla) {
+    // VIS = MDLVis 1.40: bones and helpers, attachments and emitters (no ribbons),
+    // only in Bones and Movement; never nodes, events, sounds, lights or collision.
+    const rig = editorMode === 'bones' || editorMode === 'movement';
+    return { ...options, nodes: false, ribbons: false, sounds: false, events: false, wires: false, focusedBoneLines: false, focusedBoneMarkers: false,
+      boneLines: rig && !!(overlays?.skeleton ?? overlays?.boneLines ?? true), ...(!rig && { bones: false, helpers: false, attachments: false, particles: false }) };
+  }
   // MDLxL look. Lights were part of the old Nodes pile; tool windows keep that.
   options.lights = options.nodes;
   // Animations: the model with its effects, no symbols, bones or skeleton.
@@ -50,12 +56,7 @@ export function movementNodeCategories(model, vanilla = false) {
   for (const node of model.Helpers || []) categories.set(node.ObjectId, 'bones');
   for (const node of model.Attachments || []) categories.set(node.ObjectId, 'attachments');
   for (const collection of ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns']) for (const node of model[collection] || []) categories.set(node.ObjectId, 'particles');
-  for (const node of model.RibbonEmitters || []) categories.set(node.ObjectId, vanilla?'particles':'ribbons');
-  for (const node of vanilla ? [] : model.EventObjects || []) {
-    const type = node.Name?.slice(0, 3).toUpperCase();
-    if (type === 'SND') categories.set(node.ObjectId, 'sounds');
-    else if (['SPL','UBR','FPT'].includes(type)) categories.set(node.ObjectId, 'events');
-  }
+  // MDLVis draws no ribbons, events or sounds; they stay uncategorised and VIS shows no nodes.
   return categories;
 }
 

@@ -38,8 +38,9 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
   assert.deepEqual(actions,['axes','display:skeleton','clearDisplay','axes','axes']);
 });
 
-test('VIS native View menu offers the same controls as XL in every editor',()=>{
- const expected={vertices:['Shadows','RGB','Vertices','Bones','Nodes','Emitters','Attachment','Normals','Wireframe Overlay','Grid','Axis guides','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Attachment','Grid','Axis guides','Clear'],animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']};
+test('VIS native View menu has the MDLVis 1.40 rows in every editor',()=>{
+ const view=['Shadows','Vertices','Normals','Grid'],rig=[...view,'Axis guides','Bones','Attachment','Emitters','Skeleton','Clear'];
+ const expected={vertices:[...view,'Axis guides','Clear'],bones:rig,movement:rig,animations:[...view,'Clear']};
  for(const [viewMode,labels]of Object.entries(expected))assert.deepEqual(buildMenuTemplate({},()=>{},'win32',[],x=>x,{viewMode,vanilla:true}).find(menu=>menu.label==='View').submenu.map(row=>row.label),labels);
 });
 test('Frames is removed and all frame operations remain in Edit; UV entry follows actual eligibility',()=>{

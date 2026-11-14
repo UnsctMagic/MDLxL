@@ -48,7 +48,6 @@ import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 import Dialog from './Dialog.jsx';
 import SidebarSection from './SidebarSection.jsx';
-import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
 const BoneNamer = lazy(() => import('./BoneNamer.jsx'));
@@ -311,9 +310,10 @@ export default function App() {
     const ids = target.nodeId != null ? [target.nodeId] : partBones(model, target.geosetIndex, target.vertexIndex);
     if (!ids.length) { say('No bone moves this part.', true); return; }
     setSelectedNodeIds(ids);
-    if (!overlays.focusedSkeleton) changeOverlay('focusedSkeleton', true);
+    // VIS (MDLVis) has no Focused Skeleton; its selection colours show parent and children.
+    if (!visUI && !overlays.focusedSkeleton) changeOverlay('focusedSkeleton', true);
   };
-  function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
+  function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value, visUI)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
   const showGrid = overlays.grid, setShowGrid = value => changeOverlay('grid', value), showVertices = overlays.vertices, setShowVertices = value => changeOverlay('vertices', value);
   const portraitOverlays = { ...panelOverlays, grid: false, cameras: false };
@@ -468,7 +468,6 @@ export default function App() {
   const selectedBone = singleRigNode && model.Bones.some(bone => bone.ObjectId === singleRigNode.ObjectId) ? singleRigNode : null;
   const parentBone = singleRigNode && model.Bones.some(bone => bone.ObjectId === singleRigNode.Parent);
   const selectedRigNodes = selectedNodeIds.map(id => model.Nodes?.[id]).filter(Boolean);
-  const vertexNodeCenter=visUI&&mode==='vertices'&&!selectionCount&&selectedRigNodes.length?[0,1,2].map(axis=>selectedRigNodes.reduce((sum,node)=>sum+(node.PivotPoint?.[axis]||0),0)/selectedRigNodes.length):null;
   const parentedRigNodes = selectedRigNodes.filter(node => model.Bones.some(bone => bone.ObjectId === node.Parent));
   const createBoneOrAttachment = type => {
     if (type === 'Bone' && !selectionCount) captureAPI.current?.focusPoint?.([0, 0, 0]);
@@ -495,7 +494,7 @@ export default function App() {
     return result;
   };
   const deleteSelectedNode = () => {
-    const ids=mode==='vertices'?selectedRigNodes.map(node=>node.ObjectId):singleRigNode?[singleRigNode.ObjectId]:[];
+    const ids=singleRigNode?[singleRigNode.ObjectId]:[];
     if (!ids.length) return;
     const result = edit('Delete object', ['Nodes', 'PivotPoints', 'Geosets', 'Info'], current => {for(const id of ids.sort((a,b)=>b-a))deleteRigNode(current,id);});
     if (result !== false) { setSelectedNodeIds([]); setAttachSourceIds([]); }
@@ -605,7 +604,7 @@ export default function App() {
     else { setDialog(null); enterPortrait(index, firstPortraitSequenceIndex(model)); }
   };
   const clearDisplay = () => {
-    setOverlayModes(previous => clearQuickDisplay(previous, displayMode));
+    setOverlayModes(previous => clearQuickDisplay(previous, displayMode, visUI));
     setCleanViews(previous => ({ ...previous, [mode]: false }));
     if (mode === 'vertices') setRGBPreview(false);
   };
@@ -1540,7 +1539,7 @@ export default function App() {
     ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>chooseCameraMode(v)])),
     ...Object.fromEntries(['select','translate','rotate','scale'].map(v=>[v,()=>mode === 'bones' && v === 'rotate' ? bindSelectedVertices('hard') : setWorkTool(v)])),
     ...Object.fromEntries(['xy','xz','yz'].map(v=>['plane:'+v,()=>setWorkplane(v)])),
-    ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>(mode === 'bones'||vertexNodeCenter) && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
+    ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>mode === 'bones' && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
     'bone:detach': detachSelectedNode,
     'bone:detachVertices': () => bindSelectedVertices('detach'),
     'bone:wiggle': () => setBoneWiggle(value => !value),
@@ -1569,7 +1568,6 @@ export default function App() {
     if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='surfaceEffects')return !doc.readOnly&&!saving&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0;
     if(id==='particles')return !saving;
-    if(vertexNodeCenter&&id==='Delete vertices')return editable;
     if(id==='paint')return !doc.readOnly&&!saving&&model.Version===800;
     if(id.startsWith('paint:'))return mode==='paint'&&!doc.readOnly&&!saving;
     if(id==='optimizeModel')return !doc.readOnly&&!saving&&!liveUV&&!Object.keys(session.uvPreviews).length;
@@ -2014,7 +2012,6 @@ export default function App() {
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport rotateEachPiece moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI}
-        {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}
         {...cameraProps}
         rotationNormals={dialog?.type==='normalRotate'} onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset}
@@ -2075,10 +2072,10 @@ export default function App() {
       <SidebarResizer/>
       {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
-        cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView,
-        meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
+        cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, editable, lockedVertexPlane, quadView,
+        meshAction, mode, preferences, selectedFaces, selectionCount, selectMode,
         setContext, setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
-        uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
+        uvAction, validSelection, workplane, workplaneEnabled
       }}/>}
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, cameraPanel: cameraRotating && !activePortrait ? cameraPanel : null, beginAttach, bindSelectedVertices, boneCreateOpen, boneWiggle, setBoneWiggle,

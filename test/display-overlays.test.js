@@ -35,8 +35,8 @@ test('display switches belong to their respective editor', () => {
   assert.deepEqual(initial, defaultEditorDisplay());
 });
 
-test('Bones, Movement and Animations share the Bones switch', () => {
-  for (const vanilla of [false, true]) {
+test('XL: Bones, Movement and Animations share the Bones switch', () => {
+  for (const vanilla of [false]) {
     const initial = defaultEditorDisplay(vanilla);
     const on = setEditorDisplay(initial, 'animations', 'bones', true);
     for (const editor of ['bones', 'movement', 'animations']) assert.equal(on[editor].bones, true, editor);
@@ -86,16 +86,14 @@ test('Clear turns off only the active editor options', () => {
   assert.deepEqual(cleared.movement, { ...state.movement, bones: false, helpers: false, objects: false, lights: false });
 });
 
-test('VIS retains the original independent Nodes, Emitters and Attachment display flags',()=>{
+test('VIS keeps independent Bones, Attachment and Emitters switches in Bones and Movement only',()=>{
  const state=defaultEditorDisplay(true);
- for(const mode of ['vertices','bones','movement','animations']){
-  assert.equal(state[mode].particles,false);assert.equal(state[mode].nodes,false);
-  assert.equal(state[mode].events,undefined);assert.equal(state[mode].sounds,undefined);
- }
- const nodes=previewOverlayOptions({...state.movement,bones:false,nodes:true},false,'movement',true);
- assert.equal(nodes.nodes,true);assert.equal(nodes.particles,false);assert.equal(nodes.bones,false);
- const emitters=previewOverlayOptions({...state.animations,particles:true},false,'animations',true);
- assert.equal(emitters.particles,true);assert.equal(emitters.nodes,false);
+ for(const mode of ['bones','movement']) assert.equal(state[mode].particles,false);
+ const emitters=previewOverlayOptions({...state.movement,bones:false,particles:true},false,'movement',true);
+ assert.deepEqual([emitters.particles,emitters.attachments,emitters.bones,emitters.nodes,emitters.ribbons],[true,true,false,false,false]);
+ // Hidden keys left over in Animations draw nothing there.
+ const animations=previewOverlayOptions({...state.animations,bones:true,particles:true,attachments:true,nodes:true},false,'animations',true);
+ assert.deepEqual([animations.bones,animations.particles,animations.attachments,animations.nodes,animations.boneLines],[false,false,false,false,false]);
 });
 
 test('POSE defaults hide symbols and geometry markers while preserving normal settings', () => {
@@ -139,7 +137,8 @@ test('Bones controls both marker types and persists in XL and VIS', () => {
   for (const mode of ['bones', 'movement', 'animations']) {
     assert.deepEqual([restored[mode].bones, restored[mode].helpers], [false, false]);
     if (mode !== 'animations') assert.deepEqual([restored[mode].objects, restored[mode].objectTypesSounds], [true, false]);
-    assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], [false, false, true]);
+    // VIS: Bones and Attachment exist in Bones and Movement only.
+    assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], mode === 'animations' ? [undefined, undefined, undefined] : [false, false, true]);
   }
   const points = [
     { node: { ObjectId: 0 }, overlayKind: 'bones' },

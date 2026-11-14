@@ -21,35 +21,38 @@ const loadMdx = name => {
 };
 const rows = (menu, mode) => menu[mode].map(([label]) => label);
 
-// main 40a37825's src/view-menu.json, copied here so a change to the VIS lists fails.
-const MAIN_VIEW_MENU = {
-  vertices: [['Shadows','shaded'], ['RGB','rgb'], ['Vertices','showVertices'], ['Bones','display:bones'], ['Nodes','display:nodes'], ['Emitters','display:particles'], ['Attachment','display:attachments'], ['Normals','normals'], ['Wireframe Overlay','display:wires'], ['Grid','grid'], ['Axis guides','axes'], ['Clear','clearDisplay']],
-  bones: [['Shadows','shaded'], ['Vertices','showVertices'], ['Bones','display:bones'], ['Skeleton','display:skeleton'], ['Nodes','display:nodes'], ['Emitters','display:particles'], ['Events','display:events'], ['Sounds','display:sounds'], ['Attachment','display:attachments'], ['Grid','grid'], ['Axis guides','axes'], ['Clear','clearDisplay']],
-  movement: [['Shadows','shaded'], ['Vertices','showVertices'], ['Bones','display:bones'], ['Skeleton','display:skeleton'], ['Focused Skeleton','display:focusedSkeleton'], ['Nodes','display:nodes'], ['Emitters','display:particles'], ['Events','display:events'], ['Sounds','display:sounds'], ['Attachment','display:attachments'], ['Grid','grid'], ['Axis guides','axes'], ['Clear','clearDisplay']],
-  animations: [['Bones','display:bones'], ['Skeleton','display:skeleton'], ['Focused Skeleton','display:focusedSkeleton'], ['Nodes','display:nodes'], ['Emitters','display:particles'], ['Events','display:events'], ['Sounds','display:sounds'], ['Wireframe','display:wires'], ['Grid','grid'], ['Clear','clearDisplay']],
+// VIS = MDLVis 1.40 (owner, 14 Nov 2026): Shading, Vertices, Normals, Grid, Axes
+// everywhere (Animations keeps no Axis guides, as before); the Objects submenu only in
+// the Skeleton and Motion tabs. Copied here so a change to the VIS lists fails.
+const VIEW = [['Shadows','shaded'], ['Vertices','showVertices'], ['Normals','normals'], ['Grid','grid']];
+const OBJECTS = [['Bones','display:bones'], ['Attachment','display:attachments'], ['Emitters','display:particles'], ['Skeleton','display:skeleton']];
+const MDLVIS_VIEW_MENU = {
+  vertices: [...VIEW, ['Axis guides','axes'], ['Clear','clearDisplay']],
+  bones: [...VIEW, ['Axis guides','axes'], ...OBJECTS, ['Clear','clearDisplay']],
+  movement: [...VIEW, ['Axis guides','axes'], ...OBJECTS, ['Clear','clearDisplay']],
+  animations: [...VIEW, ['Clear','clearDisplay']],
 };
 
-test('XL switch lists follow the owner\'s order in each editor; VIS keeps main\'s lists', () => {
+test('XL switch lists follow the owner\'s order in each editor; VIS has MDLVis 1.40\'s lists', () => {
   assert.deepEqual(rows(XL_VIEW_MENU, 'vertices'), ['Shadows', 'RGB', 'Vertices', 'Normals', 'Objects', 'Wireframe Overlay', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'bones'), ['Shadows', 'Vertices', 'Bones', 'Skeleton', 'Objects', 'Lights', 'Wireframe Overlay', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'movement'), ['Shadows', 'Vertices', 'Bones', 'Skeleton', 'F.Skeleton', 'Objects', 'Lights', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'animations'), ['RGB', 'Shadows', 'Lights', 'Emitters', 'Events', 'Sounds', 'Grid', 'Clear']);
-  assert.deepEqual(VIS_VIEW_MENU, MAIN_VIEW_MENU);
+  assert.deepEqual(VIS_VIEW_MENU, MDLVIS_VIEW_MENU);
   // The native View menu follows the look.
-  for (const mode of Object.keys(MAIN_VIEW_MENU)) {
+  for (const mode of Object.keys(MDLVIS_VIEW_MENU)) {
     const labels = vanilla => buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode, vanilla }).find(menu => menu.label === 'View').submenu.map(item => item.label);
-    assert.deepEqual(labels(true), MAIN_VIEW_MENU[mode].map(([label]) => label), mode);
+    assert.deepEqual(labels(true), MDLVIS_VIEW_MENU[mode].map(([label]) => label), mode);
     assert.deepEqual(labels(false), rows(XL_VIEW_MENU, mode), mode);
   }
 });
 
-test('VIS display defaults are main\'s', () => {
+test('VIS display defaults are MDLVis\'s: Bones and Attachment on, Emitters and Skeleton off', () => {
   const vis = defaultEditorDisplay(true);
-  for (const mode of ['vertices', 'bones', 'movement', 'animations']) {
-    assert.equal(vis[mode].objects, undefined, mode); assert.equal(vis[mode].lights, undefined, mode);
-    assert.equal(vis[mode].nodes, false, mode);
-  }
-  assert.deepEqual([vis.vertices.bones, vis.vertices.attachments], [true, true]);
+  for (const mode of ['vertices', 'bones', 'movement', 'animations']) for (const key of ['objects', 'lights', 'nodes', 'focusedSkeleton', 'wires', 'events', 'sounds', 'cameras'])
+    assert.equal(vis[mode][key], undefined, mode + ' ' + key);
+  for (const mode of ['bones', 'movement']) assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments, vis[mode].particles, vis[mode].skeleton], [true, true, true, false, false], mode);
+  for (const mode of ['vertices', 'animations']) assert.deepEqual(Object.keys(vis[mode]).sort(), ['grid', 'normals', 'shaded', 'vertices'], mode);
 });
 
 const model = loadMdx('sd-chaos-orc');
@@ -123,8 +126,8 @@ test('old XL saves: Nodes becomes Lights, the old kinds become Objects and its t
   // Nothing was on: Objects off, every type still ticked for next time.
   assert.deepEqual([restored.bones.objects, restored.bones.objectTypesSounds], [false, true]);
   assert.deepEqual([restored.vertices.objects, restored.vertices.objectTypesAttachments, restored.vertices.bones], [true, true, false]);
-  // VIS saves are untouched.
-  assert.equal(storedEditorDisplay(true, storage({ vis: { movement: { nodes: true } } })).movement.nodes, true);
+  // VIS saves keep only MDLVis's switches; removed ones are dropped.
+  assert.equal(storedEditorDisplay(true, storage({ vis: { movement: { nodes: true } } })).movement.nodes, undefined);
   for (const junk of ['{', '"x"', '[1]', 'null', '{"xl":{"movement":7,"bones":null}}']) assert.doesNotThrow(() => storedEditorDisplay(false, { getItem: () => junk }), junk);
 });
 

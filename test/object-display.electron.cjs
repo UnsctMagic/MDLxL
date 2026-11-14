@@ -12,6 +12,9 @@ const VIS_MENU = require('../src/view-menu.json');
 // The quick row shows every View row except Clear (its own button) and Axis guides (View menu only).
 const quickRows = menu => Object.fromEntries(Object.entries(menu).map(([mode, rows]) => [mode, rows.filter(([, id]) => id !== 'clearDisplay' && id !== 'axes').map(([label]) => label)]));
 const XL = quickRows(XL_MENU), VIS = quickRows(VIS_MENU);
+// VIS = MDLVis 1.40 (owner, 14 Nov 2026), written out so a change to view-menu.json fails here too.
+const MDLVIS_VIEW = ['Shadows', 'Vertices', 'Normals', 'Grid'], MDLVIS_RIG = [...MDLVIS_VIEW, 'Bones', 'Attachment', 'Emitters', 'Skeleton'];
+assert.deepEqual(VIS, { vertices: MDLVIS_VIEW, bones: MDLVIS_RIG, movement: MDLVIS_RIG, animations: MDLVIS_VIEW });
 
 (async () => {
   const out = path.resolve(process.env.MDLXL_OBJECT_DISPLAY_OUT || 'out/object-display'), source = fixturePath('optimizexl-exact-unit');
@@ -189,16 +192,31 @@ const XL = quickRows(XL_MENU), VIS = quickRows(VIS_MENU);
     assert.equal(await page.evaluate(() => { const canvas = document.querySelector('.game-preview-root [data-node-overlay]'); return !canvas || !canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value); }), true, 'Animations draws no symbols');
     checks.push('Animations: owner\'s switch row, no symbols');
 
-    // VIS: every row is main's.
+    // VIS = MDLVis 1.40: its rows, and only bones, attachments and emitters are drawn or clicked.
+    const emptyOverlay = () => page.evaluate(() => { const canvas = document.querySelector('.game-preview-root [data-node-overlay]'); return !canvas || !canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value); });
     await page.locator('.vis-toggle').click(); await page.locator('.classic-app[data-vis-ui]').waitFor(); await idle();
-    assert.deepEqual(await switches(), VIS.animations, 'VIS Animations');
+    assert.deepEqual(await switches(), MDLVIS_VIEW, 'VIS Animations');
+    assert.equal(await page.locator('.animation-node-list').count(), 0, 'VIS Animations has no Nodes list');
+    assert.equal(await emptyOverlay(), true, 'VIS Animations draws no symbols');
     await modules('animation'); await page.getByLabel('Movement controller', { exact: true }).waitFor(); await ready(); await idle();
-    assert.deepEqual(await switches(), VIS.movement, 'VIS Movement');
+    assert.deepEqual(await switches(), MDLVIS_RIG, 'VIS Movement');
+    assert.deepEqual(await Promise.all(['Bones', 'Attachment', 'Emitters', 'Skeleton'].map(name => quick.getByLabel(name, { exact: true }).isChecked())), [true, true, false, false], 'VIS Movement defaults: Bones and Attachment on');
+    await quick.getByLabel('Emitters', { exact: true }).check(); await idle();
+    await page.getByLabel('View direction', { exact: true }).selectOption('front'); await idle();
+    await click(ids.particle);
+    assert.equal(await picker().inputValue(), String(ids.particle), 'VIS Movement: an emitter can be clicked');
+    for (const [name, id] of [['ribbon', ids.ribbon], ['event', ids.footprint], ['light', ids.light]]) {
+      await picker().selectOption(String(saved.Bones[0].ObjectId)); await idle();
+      await click(id);
+      assert.notEqual(await picker().inputValue(), String(id), `VIS Movement: the ${name} is not drawn or clicked`);
+    }
+    assert.equal(await page.evaluate(() => rigState().props.overlays.focusedSkeleton), undefined, 'VIS has no Focused Skeleton');
+    await quick.getByLabel('Emitters', { exact: true }).uncheck(); await idle();
     await modules('bones'); await page.getByLabel('Bones controller', { exact: true }).waitFor(); await ready(); await idle();
-    assert.deepEqual(await switches(), VIS.bones, 'VIS Bones');
+    assert.deepEqual(await switches(), MDLVIS_RIG, 'VIS Bones');
     await modules('vertices'); await page.getByLabel('Bones controller', { exact: true }).waitFor({ state: 'hidden' }); await idle();
-    assert.deepEqual(await switches(), VIS.vertices, 'VIS Vertices');
-    checks.push('VIS: every editor\'s row is main\'s');
+    assert.deepEqual(await switches(), MDLVIS_VIEW, 'VIS Vertices');
+    checks.push('VIS: MDLVis 1.40 rows; Movement clicks an emitter but never a ribbon, event or light; Animations has no symbols or Nodes list');
 
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ fixture, checks, errors }, null, 2));

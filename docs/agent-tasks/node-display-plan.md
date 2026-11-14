@@ -32,14 +32,14 @@ Attachments/sounds moving or animated: research Hive + the model library; includ
   Right-click Objects: the shared Quick Display menu with one checkbox per kind (same menu style as Bones' Helpers/Bones).
 - **Clicked object shows its diamonds** on the existing keyframe track (event frames for events/sounds, Visibility keys
   for the others); add at the playhead, delete diamonds, as the track already does for bones.
-- **VIS (MDLVis look):** exactly as on main; none of the first build's VIS changes.
+- **VIS (MDLVis look):** follows real MDLVis 1.40 (owner: "Go to MDLvis git and thats how it should be"); see "VIS follows MDLVis 1.40" below.
 
 ## Built (rebuild from main, 14 Nov 2026 evening)
 
 Local branch `claude/node-display-37527c`; restarted from main `40a37825` (commit `Objects: restart from main's code and tests`).
 Test build `D:\Claude\MDLxL\TestBuilds\node-display-03` (opens `TEST OBJECT DISPLAY 03.mdx`); ready to test, not online.
 
-- **Lists:** VIS keeps `src/view-menu.json` unchanged (a source test compares it with main's copy); XL reads
+- **Lists:** VIS reads `src/view-menu.json` (MDLVis 1.40 rows since build 04, below); XL reads
   `src/view-menu-xl.json` (the table above). The native View menu, Quick Display, toolbar keys and command launcher pick by look.
 - **Objects** (`src/object-display.js`): Objects shows attachments, emitters+ribbons, events (every non-SND event, including
   odd ones) and sounds; right-click opens the Bones-style menu with Attachments, Emitters, Events, Sounds (all ticked at start).
@@ -48,7 +48,7 @@ Test build `D:\Claude\MDLxL\TestBuilds\node-display-03` (opens `TEST OBJECT DISP
 - **Defaults:** Vertices Objects off; Bones and Movement Objects on (Movement on main showed emitters and played particles
   by default; Objects keeps that). Because Objects also gates the real effects in Movement as the old switches did, blood,
   footprints and sounds now play in Movement by default too; untick Events/Sounds in the right-click menu to stop them.
-- **Animations:** no symbols, no bones, no skeleton, no Nodes list (VIS keeps its Nodes list and node path). Emitters,
+- **Animations:** no symbols, no bones, no skeleton, no Nodes list (VIS has none either since build 04). Emitters,
   Events, Sounds hide the real particles+ribbons, decals and sound playback as before. **RGB** turns the geoset colours
   off (white) or on in the preview; on by default, so the look matches main. **Lights**: the preview does not render
   the model's own lights (it lights the model with the camera light), so the switch exists and has nothing to hide.
@@ -89,6 +89,34 @@ Test build `D:\Claude\MDLxL\TestBuilds\node-display-03` (opens `TEST OBJECT DISP
   uv-preview-display, viewport-overlays, vis-mdlvis-mode (source + packaged), animation-effects, localization-catalogs
   (catalogue sizes), localization-quality (also checks the XL labels). `vis-mdlvis-mode.electron.cjs` also failed on main:
   it still expected Axis guides in the quick row, which 40304fc4 moved to the View menu only. Full packaged suite not run.
+
+### VIS follows MDLVis 1.40 (build 04, 14 Nov 2026)
+
+Owner: "MDLVIS - DO NOT RE-CREATE! Go to MDLvis git ... its already determined there" and "now I see focused skeleton in vis mode?".
+Source: MDLVis 1.40 (github.com/kisapablo/mdlvis, `frmmain.dfm` View menu, `tc_modeChange`, `mdlDraw.pas` DrawObjects). Only the VIS look changed; XL is untouched.
+
+| Editor (VIS) | Rows, in order (Quick Display omits Axis guides and puts Clear first) |
+|---|---|
+| Vertices | Shadows, Vertices, Normals, Grid, Axis guides, Clear (no objects drawn or picked) |
+| Bones, Movement | Shadows, Vertices, Normals, Grid, Axis guides, Bones, Attachment, Emitters, Skeleton, Clear |
+| Animations | Shadows, Vertices, Normals, Grid, Clear (no objects, no skeleton) |
+
+- Defaults: Bones (with helpers) on, Attachment on, Emitters off, Skeleton off; the four are one setting for Bones and Movement
+  (MDLVis has one Objects submenu); Clear in Vertices/Animations leaves them. Bones keeps its right-click Helpers/Bones menu.
+- Drawn and clickable in VIS: bones+helpers, attachments, particle emitters (PE1, PE2, popcorn, as before) only. Never
+  ribbons, events, sounds, lights, collision or cameras (`previewOverlayOptions`/`movementNodeCategories` vanilla path,
+  `viewportOverlayOptions` vanilla = Vertex editor). No Focused Skeleton (double-clicking a part no longer turns it on in VIS;
+  POSE in VIS draws none). MDLVis's "Directions" toggle does nothing in its source, so it is left out. RGB and Wireframe rows are gone.
+- Removed with it: the VIS Vertex editor's object picking, moving, typed coordinates and "Delete object" (`vertexNodeCenter`),
+  and the VIS Animations "Nodes" list (`app/AnimationNodes.jsx`, only for object Visibility). Object visibility in VIS is
+  the Movement "Visible" tick (MDLVis's Motion-tab Visibility); the Object Manager's Visibility button sends VIS there too.
+  Geoset visibility in VIS Animations is unchanged.
+- Old saved VIS display (`mdlxl-editor-display` → `vis`): only the keys above are restored; removed keys are dropped.
+- Tests: `test/vis-mdlvis-mode.test.js` (4 new: rows, drawing on two real models, sharing/Clear, old saves; fail on 6f8cfc92),
+  object-display/display-overlays/herrdave-shell source tests and the packaged vis-mdlvis-mode, object-display
+  (real clicks: emitter picked, ribbon/event/light not), node-effect-controls and particle-feedback (VIS part reduced to
+  "Vertices has no object switches"). `test/view-vertex-display.electron.cjs` still expects Bones in the Vertex row and
+  the same View rows in both looks; it was already stale since the XL lists (not run, not changed).
 
 ---
 

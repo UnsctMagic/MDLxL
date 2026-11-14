@@ -23,7 +23,8 @@ export function viewportOverlayOptions(props) {
     grid: explicit ? !!overlays.grid : !!props.showGrid,
     axes: !!(props.showAxes ?? overlays.axes ?? props.showGrid),
   };
-  if (props.vanilla) return options;
+  // VIS: this Viewport is the Vertex editor, which (like MDLVis) draws no objects.
+  if (props.vanilla) return { ...options, bones: false, helpers: false, nodes: false, attachments: false, particles: false, ribbons: false, sounds: false, events: false, boneLines: false };
   // MDLxL look: lights were part of the old Nodes pile; the Objects switch shows its checked types (no lights, no collision).
   options.lights = options.nodes;
   const objects = props.editorDisplayMode === 'vertices' ? null : objectSwitches(explicit ? overlays : null);
