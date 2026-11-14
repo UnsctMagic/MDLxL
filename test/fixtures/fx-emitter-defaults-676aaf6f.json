@@ -3,7 +3,7 @@
     {
       "label": "Blade flames",
       "id": 2,
-      "hash": "00ea292bc101c041c125ea7cb688fe669249fcfbe74dcc483495b85c64af553a"
+      "hash": "3e42303a1ffb2d6f22b935d5fdad768d04430509a2e62b46111b1fdf0c20d039"
     },
     {
       "label": "Rising embers",
@@ -23,7 +23,7 @@
     {
       "label": "Glow orbs",
       "id": 5,
-      "hash": "94c73ad35609b470882cc009d8e14effbf26183aeb60a957fa30294a49c2870f"
+      "hash": "e2f381cd1e93012351d7824dadabceb02305e15d4e239353e0465b9686141746"
     }
   ],
   "rune-blade": [],
@@ -61,14 +61,14 @@
     {
       "label": "Glow orbs",
       "id": 2,
-      "hash": "7572a21842fae11ddcdf061309b0d539f3d80b2f67ccbdd7d1658a82f11883cd"
+      "hash": "aaa42b954b666537aa3191a2ee16877f0fad64ae98d4c61f54d9fc9f38c112a5"
     }
   ],
   "rising-embers": [
     {
       "label": "Rising embers",
       "id": 1,
-      "hash": "fd9f2e8bb5118470477a4824a33e6793f3e0ef573991171c5245c7bf391aafa1"
+      "hash": "419ef39c3d5fdb8b0fe2e601af58dc611b8bac67fcf6c94d0153247a3974fad9"
     }
   ],
   "frost-mist": [
@@ -85,7 +85,7 @@
     {
       "label": "Light sparks",
       "id": 2,
-      "hash": "8347fa27b59a3ca636bd551c29b2185e8d6d4c9a4e6f627952474c2b7b975f0a"
+      "hash": "ab712cf6b2566e73be69cd695291e0f4c4e2d7d0e0bed44c0a856f2577e91943"
     }
   ],
   "hex-mark": [
@@ -104,7 +104,7 @@
     {
       "label": "Bubbles",
       "id": 2,
-      "hash": "9e5117fd425bfd484b3c9feed18f2db6f749597e5cd4b1c15899717a9eed61d6"
+      "hash": "b4d3f5ad45907a61d13e1bb0f4c13fcd34b9b27b225c99a8d1b9978046cbf2f6"
     }
   ],
   "spell-ward": [
@@ -118,14 +118,14 @@
     {
       "label": "Wisps",
       "id": 2,
-      "hash": "a6344acb38656efcf24b20bda0293abc0f8823dce9191d5400e00cdc23134f55"
+      "hash": "c8050fe2e71461d8aa0a91a3d12abab13edb51a68f86b477aef57b05fa3f3406"
     }
   ],
   "recall-seal": [
     {
       "label": "Stars",
       "id": 2,
-      "hash": "66ec674887ed99ee48eb57169f75241c1dc2a37086d5f36383cbafe4a8ac72dc"
+      "hash": "aa567ea891179871814a21a8975b3254de9d496ed74e44e426a8a831512db666"
     }
   ],
   "revenant": [],
@@ -134,7 +134,7 @@
     {
       "label": "Fire",
       "id": 2,
-      "hash": "78ae5179d769c81c417a7d1d60221fab3c543644678de3846eb5e41bc6573eb3"
+      "hash": "9745f4b3bdd1b64252978281a4810939c7a16c2123ef663864de3b7d3f51a5d7"
     }
   ],
   "glacial": [],
@@ -144,12 +144,12 @@
     {
       "label": "Pollen",
       "id": 2,
-      "hash": "d210e4fbbb826edf32c4c2bbc0becaea189039b25f3f1153d9ad91e597ba847b"
+      "hash": "4d7ecd9bd93c310227d801b4705c9980f48351e0c48d03b1596d8c6b3928c12e"
     },
     {
       "label": "Spores",
       "id": 4,
-      "hash": "814fc111a69391cd1a4ab5e14289a2fa7a83cfd15a37566311e80ccac9bb4afb"
+      "hash": "cce748e12ecbd240ce049d27796029cc639aa514ecc143032ff02941ece9ab67"
     }
   ],
   "sort-abyss": [],
@@ -171,28 +171,28 @@
     {
       "label": "Blood beads",
       "id": 1,
-      "hash": "1c2c11b39c671684ffb70018e7d2dc8c2ada614f93e8f7d826ca0580e1412b6b"
+      "hash": "335a52a79344f569eaf6553540f9e658eef5ea67d5c19bb5e988988d3b3a018f"
     }
   ],
   "sort-rift": [
     {
       "label": "Rift splinters",
       "id": 2,
-      "hash": "0204d49c25d00bb4e2f529117c5a188015489561e81276704bf2eccb759e1ed4"
+      "hash": "dfdc826a46ed919faece0b64f665796e32b26587a7477597bfe95aa56c631c90"
     }
   ],
   "claude-fel-blade": [
     {
       "label": "Fel flames",
       "id": 2,
-      "hash": "19f76cb988d83cd57a20606f506382939928092de62e907f1a50193a5015f606"
+      "hash": "29b803587580dfd548cba55b9a98561d206585a13eb0e8c1de5bba88deee05be"
     }
   ],
   "claude-tidal-blade": [
     {
       "label": "Dripping water",
       "id": 3,
-      "hash": "4fc4d772a35b1456807bd86f325460a9c7b183b342f5d70fc5a03be5e6bf6f3d"
+      "hash": "504ab7d8c11a6f97d159c55ab8d705a5510f590561785d463e5470e181837f30"
     }
   ],
   "claude-magma-flow": [],
@@ -200,28 +200,28 @@
     {
       "label": "Spirit wisps",
       "id": 3,
-      "hash": "6133948f23f657e9d29acfb1ea75726acb2d4a988750bd1612bf3b0730ec36c8"
+      "hash": "5bc094b3ab11a30cff1994ae03da7aaae5d9c4f9cee27eabb8cdd4f23e3d3dc0"
     }
   ],
   "claude-corrupted-veins": [
     {
       "label": "Ichor drops",
       "id": 3,
-      "hash": "49d65a0ad85b35627515f7cc6373e53f2a5aea02ab8d88dca040113a828af46e"
+      "hash": "6cc033acd791523e869d9da75be95018abaf051db06be7136550620f0429c7b2"
     }
   ],
   "claude-blood-pact": [
     {
       "label": "Blood beads",
       "id": 3,
-      "hash": "b48a8c0eefd0edd639b2bb3a4b86011be2a1f32dfaddf252c19e745f11fe0a80"
+      "hash": "a40824c16eaeca18040e1e5942991b62ae1f2e2ac08d7ba05d45b377e9ee1db7"
     }
   ],
   "claude-plague-swarm": [
     {
       "label": "Plague haze",
       "id": 1,
-      "hash": "e7a4eafcfd93b1d9c3a19846563f257169eb287f126c6df7730c6f50b6a2df7d"
+      "hash": "dc27d2f786b798a93475210335b8f6e72f4cdb5608009175659d9a4f5877f735"
     }
   ],
   "claude-runic-plate": [],
@@ -237,7 +237,7 @@
     {
       "label": "Lingering embers",
       "id": 3,
-      "hash": "53347a37b40f6dbe61ba82282164393bfd3646cf84acd42c5a569f92936a41a8"
+      "hash": "65a7624b71f5467cd103c1678f05347c5403f65149a1a77932c05cd828b91e4d"
     }
   ],
   "fx-fire-column": [
@@ -260,7 +260,7 @@
     {
       "label": "Rune rings",
       "id": 3,
-      "hash": "c8382fdd2b3edc44ac8af69198392c80edfb41aca57c7e4bb68a8866e8b71251"
+      "hash": "1574949652b3666348fef7544cc1b8e027f05211728785e4d9f8780209eda358"
     }
   ],
   "fx-glow-shell": [],
@@ -269,7 +269,7 @@
     {
       "label": "Orb light",
       "id": 3,
-      "hash": "d5ab09d5e34c695decaaf79780921920d70b191bf27546e9ccb2cf975ee4c658"
+      "hash": "1f3495e28f6042a1aa9a7bc0c464aa1f3e5c050ceca6a0a4c65711e8ab5452f3"
     }
   ],
   "fx-ground-glow": [],
@@ -292,7 +292,7 @@
     {
       "label": "Dark smoke",
       "id": 1,
-      "hash": "273d5824ccff69286f402c55cf6ec217883e7ef1995d5127372ead3bcbc53f81"
+      "hash": "6594f73568ff009c540856df652ec91b4ec354ec31a4055347637800bddcb25d"
     }
   ],
   "fx-hollow-shell": [],

@@ -18,23 +18,25 @@ function apply(doc,part,label,edit=l=>l){
  return {frame,stack,emitters:doc.model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('nat/1/'))};
 }
 // Parts of the real Knight: 17 skin regions (body), 4 (weapon), 1.
-test('a new native emitter keeps the same per-site density on a 1-, 4- and 17-region part',()=>{
+// A new native emitter covers the part with a few patches (14 November) and shares one total rate among them,
+// so a body with many regions has the particles of a sword, not several times more.
+test('a new native emitter keeps the same total rate on a 1-, 4- and 17-region part',()=>{
  const total={};
  for(const part of [1,8,37]){
-  const {frame,emitters}=apply(knight(),part,'Fire column'),regions=frame.regions?.length||1;
+  const {frame,emitters}=apply(knight(),part,'Blade flames'),regions=frame.regions?.length||1;
   total[regions]=emitters.reduce((a,p)=>a+rate(p),0);
-  if(regions<=4)assert.equal(emitters.length,regions,'one emitter per region up to four regions');
-  else assert.ok(emitters.length<=4,'at most four sites on a many-region part: '+emitters.length);
+  assert.ok(emitters.length>=1&&emitters.length<=16,'a bounded number of sites, not one per region: '+emitters.length);
  }
  const site=total[1];
- assert.ok(Math.abs(total[4]-4*site)<1e-6*site,'four regions: four sites at one site\'s rate');
- assert.ok(Math.abs(total[17]-4*site)<1e-6*site,'seventeen regions: the rate of four sites, not seventeen: '+total[17]/site);
+ assert.ok(Math.abs(total[4]-site)<1e-6*site,'four regions: the rate of one region');
+ assert.ok(Math.abs(total[17]-site)<1e-6*site,'seventeen regions: the same rate, not seventeen times: '+total[17]/site);
 });
 test('a saved native layer without the flag still gives every region its own emitter',()=>{
- const {frame,emitters}=apply(knight(),37,'Fire column',l=>{const {sharedSites:_s,...rest}=l;return rest;});
+ const {frame,emitters}=apply(knight(),37,'Glow orbs',l=>{const {sharedSites:_s,coverFit:_c,cover:_o,birthRegion:_b,birthRegionFit:_f,surfaceFit:_u,...rest}=l;return rest;}); // a layer saved before the cover default has none of its fields
  assert.equal(emitters.length,frame.regions.length);
 });
-for(const label of ['Rune rings','Inward souls'])test(label+' is one emitter on a many-region part, also after save and reopen',()=>{
+// Rune rings left the library with the old Rune circle (14 November).
+for(const label of ['Inward souls'])test(label+' is one emitter on a many-region part, also after save and reopen',()=>{
  const doc=knight(),{frame,emitters}=apply(doc,37,label);
  assert.ok(frame.regions.length>8);
  assert.equal(emitters.length,1);

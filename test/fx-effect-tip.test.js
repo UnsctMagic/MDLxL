@@ -15,10 +15,12 @@ const Z=new Vector3(0,0,1);
 const image='Textures\\Zap1.blp';
 const particle=(extra={},native={})=>({type:'Particles',kind:'native',label:'Discharge',image,
  nativeSpec:{texture:image,life:.5,rate:8,size:[.05,.2,.1],...native},...extra});
-function setup(fixture,part,specs){
+// A fresh native emitter covers the part instead of separate dots; edit switches that default off for the tests of surface-normal sites.
+function setup(fixture,part,specs,edit){
  const model=load(fixture),frame=partFrame(model.Geosets[part]);
  const stack=newStack(findLook('empty'),frame,'tip');
  stack.layers=specs.map((spec,i)=>makeLayer(spec,frame,'native',i+1));
+ if(edit)stack.layers.forEach(edit);
  return {model,frame,stack,graph:compileAnimation(model,part,stack,{attachments:new Map()})};
 }
 const direction=node=>Z.clone().applyQuaternion(new Quaternion().fromArray(node.Rotation.Keys[0].Vector));
@@ -61,7 +63,7 @@ for(const [name,fixture,part,count] of [['straight strip','effect',5,1],['curved
 }
 
 test('outward aim uses the surface normal and a ring edit replaces the starting Rotation',()=>{
- const part=5,{model,stack,graph}=setup('effect',part,[particle({aim:'outward',siteCount:3})]);
+ const part=5,{model,stack,graph}=setup('effect',part,[particle({aim:'outward',siteCount:3})],layer=>{delete layer.coverFit;});
  const site=graph.layers[1].sites[0],emitter=model.Nodes[graph.layers[1].siteIds[site.key]];
  assert.ok(emitter.Rotation?.Keys?.length);
  const source=model.Geosets[site.surface.geoset];

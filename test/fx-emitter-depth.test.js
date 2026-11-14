@@ -45,7 +45,14 @@ test('emitter fields edited in EMTR come back into the layer, survive Save as, r
  const flags=emitterOf(doc.model,1).Flags^524288;
  editInEmtr(doc.model);
  const expected={...EMTR_EDIT,Flags:flags};
- const check=(layer,where)=>{for(const [key,value] of Object.entries(expected))assert.deepEqual(layer.native?.[key],value,where+' '+key);};
+ // An EMTR edit of the emitters comes back as each emitter's own values (14 November: edits are per site), all equal here.
+ const field=(layer,key)=>{
+  if(layer.native?.[key]!==undefined)return layer.native[key];
+  const sites=Object.values(layer.individuals||{}).filter(record=>!record.deleted).map(record=>record.values?.native?.[key]);
+  assert.ok(sites.length&&sites.every(value=>JSON.stringify(value)===JSON.stringify(sites[0])),'every site holds the same '+key);
+  return sites[0];
+ };
+ const check=(layer,where)=>{for(const [key,value] of Object.entries(expected))assert.deepEqual(field(layer,key),value,where+' '+key);};
  const read=readAnimationStack(doc.model,0);
  check(read.layers[0],'read');
  // Save as… keeps them, and a saved look applied to another model writes them.

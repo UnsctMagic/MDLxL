@@ -31,6 +31,8 @@ for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' uses 
     assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(burst.burstGap+burst.burstWindow))*sites);
    }else if(draft.layers.some(l=>l.powerArcs&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
     const arcs=draft.layers.find(l=>l.powerArcs);assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(arcs.burstGap+arcs.burstWindow)));
+   }else if(t.GlobalSeqId==null&&t.Keys?.length&&t.Keys.every(k=>JSON.stringify(Array.from(k.Vector))===JSON.stringify(Array.from(t.Keys[0].Vector)))){
+    // A constant track (an emitter's fixed aim, written by constantTrack) holds one value in every sequence; it has no motion to loop.
    }else if(record.GeosetId==null||t.GlobalSeqId!=null)assert.ok(t.GlobalSeqId===model.GlobalSequences.indexOf(draft.loop)||model.Geosets[0]._FxStack.createdClockIds.includes(t.GlobalSeqId),'a global clock the stack owns: '+model.GlobalSequences[t.GlobalSeqId]);
    total++;
   });
@@ -59,9 +61,11 @@ test('shared authored clock, independent ribbon ends and externally edited emitt
  s.layers.push(makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',24));s.layers.at(-1).lower*=.4;
  let graph=compileAnimation(m,0,s,donors),r=m.Nodes[graph.layers[24].id];
  assert.ok(r.HeightAbove>2*r.HeightBelow);const flames=graph.layers[s.layers[1].id].ids.map(id=>m.Nodes[id]);
- assert.equal(flames.length,s.layers[1].count);assert.ok(flames.every(n=>(n.Flags&524288)===0));assert.ok(Math.abs(frame.axis.dot(frame.at(s.layers[1].upper).sub(frame.at(-s.layers[1].lower))))>frame.length*.97);
- flames[0].Speed=99;const mid=flames[Math.floor(flames.length/2)];mid.LifeSpan=.91;
- assert.equal(readAnimationStack(m,0).layers[1].lasts,.91);
+ assert.ok(flames.length>=1&&flames.length<=16,'the flames are a few sites over the part, not one per count: '+flames.length);assert.ok(flames.every(n=>(n.Flags&524288)===0));assert.ok(Math.abs(frame.axis.dot(frame.at(s.layers[1].upper).sub(frame.at(-s.layers[1].lower))))>frame.length*.97);
+ flames[0].Speed=99;const inModel=m.ParticleEmitters2.filter(n=>flames.includes(n)),mid=inModel[Math.floor(inModel.length/2)];mid.LifeSpan=.91;
+ // The layer reads the middle emitter in model order. An EMTR edit of one emitter belongs to that emitter (its own site), not to the whole layer.
+ const midKey=mid._FxTag.split('/').at(-1),read1=readAnimationStack(m,0).layers[1];
+ assert.equal(read1.individuals[midKey].values.native.LifeSpan,.91);assert.equal(read1.lasts,.46,'the layer keeps its own Life');
  const surface=m.Geosets[graph.layers[s.layers[0].id].geoset];
  const nativeLayer=m.Materials[surface.MaterialID].Layers[0];nativeLayer.Alpha=.33;
  m.TextureAnims[nativeLayer.TVertexAnimId].Translation.Keys[1].Vector[0]=3;

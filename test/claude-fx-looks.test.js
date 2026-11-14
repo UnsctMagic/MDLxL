@@ -18,7 +18,7 @@ test('the kept looks are in the library and Storm cloud is an emitter choice',()
  assert.ok(!byId('claude-fel-blade').layers.some(l=>l.type==='Edge'),'Fel fire has no Fel edge layer');
  assert.ok(LAYER_CHOICES.some(l=>l.label==='Fel edge'&&l.type==='Edge'),'Fel edge stays addable from Add layer');
  assert.equal(byId('claude-magma-flow').asOverlay,true,'Magma flow starts as an overlay');
- assert.ok(!byId('claude-magma-flow').layers.some(l=>l.type==='Particles'),'Magma flow has no rising embers');
+ assert.deepEqual(byId('claude-magma-flow').layers.filter(l=>l.type==='Particles').map(l=>l.label),['Cinders'],'Magma flow has no rising embers, only its few Cinders');
  assert.ok(byId('claude-plague-swarm').layers.every(l=>l.kind==='native'),'Plague swarm has no flies');
 });
 for(const look of CLAUDE_LOOKS)test(look.name+' compiles and saves',()=>{

@@ -11,7 +11,8 @@ const sample=(label,edit=l=>l)=>{
  compileAnimation(model,37,stack);
  return {model,frame,layer:stack.layers[0],emitters:model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('round2/'))};
 };
-for(const [label,rate] of [['Rune rings',2.5],['Inward souls',4.5]])test(label+' restores ground strength with one steady emitter',()=>{
+// Rune rings left the library with the old Rune circle (14 November).
+for(const [label,rate] of [['Inward souls',4.5]])test(label+' restores ground strength with one steady emitter',()=>{
  const {emitters}=sample(label);
  assert.equal(emitters.length,1);
  assert.equal(emitters[0].EmissionRate,rate);

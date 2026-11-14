@@ -27,11 +27,10 @@ for(const label of ['Falling mist','Rising embers'])for(const part of [37,5,8,0,
  const inFlight=emitters.map(p=>mean(p.EmissionRate)*p.LifeSpan);
  assert.ok(Math.min(...inFlight)>=layer.amount*layer.lasts/(layer.count*4)*.99,'every site keeps the density of a four-region part: '+Math.min(...inFlight).toFixed(2)+' in flight');
  assert.ok(Math.abs(emitters.reduce((a,p)=>a+mean(p.EmissionRate),0)-layer.amount)<layer.amount*.01,'Amount is the total over the part');
- // Design section 4 restores the larger frost puff while keeping fitted strip placement.
- if(label==='Falling mist'&&part===1)assert.equal(emitters.length,3,'the restored footprint fits three sites on the strip');
- else if(regions<=4)assert.equal(emitters.length,layer.count*regions,'a weapon keeps one set of emitters per region');
- else{
-  assert.equal(emitters.length,layer.count*4);
+ // A fresh emitter covers the part with a few patches of its own (14 November), not one set per skin region,
+ // so a body and a weapon both keep a small, bounded number of sites.
+ assert.ok(emitters.length>=1&&emitters.length<=16,'a handful of sites, not one set per region: '+emitters.length);
+ if(regions>4){
   // The sites still cover the part: they sit on several regions spread over its length.
   const along=emitters.map(p=>new Float32Array(p.PivotPoint)).map(v=>(v[0]-frame.center.x)*frame.axis.x+(v[1]-frame.center.y)*frame.axis.y+(v[2]-frame.center.z)*frame.axis.z);
   assert.ok(Math.max(...along)-Math.min(...along)>frame.length*.4,'sites spread over the part');

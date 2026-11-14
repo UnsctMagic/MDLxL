@@ -18,7 +18,7 @@ test('new stacks start with the chosen emitters and the listed defaults',()=>{
  assert.ok(!findLook('claude-fel-blade').layers.some(l=>l.label==='Fel edge'),'Fel fire has no Fel edge layer');
  assert.ok(LAYER_CHOICES.some(l=>l.label==='Fel edge'&&l.type==='Edge'),'Fel edge stays addable');
  const frost=findLook('frost-blade');
- assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark','vapour','shards']);assert.equal(frost.loop,3200);
+ assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark','vapour','shards','fissures']);assert.equal(frost.loop,3200);
  for(const v of frost.variations.slice(0,3)){
   const stack=withVariation(newStack(frost,frame,'o'),frame,frost,v.id);
   assert.ok(stack.layers.some(l=>l.label==='Falling mist'&&l.enabled),v.id+' starts with its mist');
@@ -30,15 +30,16 @@ test('new stacks start with the chosen emitters and the listed defaults',()=>{
  assert.ok(started('claude-tidal-blade',frame).includes('Dripping water'));
  assert.ok(withVariation(newStack(water,frame,'o'),frame,water,'currents').layers.some(l=>l.label==='Dripping water'&&l.enabled));
  for(const [look,ids] of Object.entries({
-  'flaming-sword':['surface-flames','flame-licks','enveloping-flames','fireball'],
-  'claude-fel-blade':['original','fel-surge','fel-sparks'],
-  'lightning-blade':['original','crackle','tip'],
+  'flaming-sword':['surface-flames','flame-licks','enveloping-flames','fireball','column'],
+  'claude-fel-blade':['original','fel-licks','fel-enveloping','fel-surge','fel-sparks','fel-column'],
+  'lightning-blade':['original','crackle','tip','sparks'],
   'arcane-blade':['arcane','shimmer','swirl'],
   'poison-skin':['original','venom','fumes'],
   lava:['original','spitting','smoulder'],
-  'fx-lit-crystal':['light','team','sparkle'],
+  'fx-lit-crystal':['light','team','sparkle','veins'],
  }))assert.deepEqual(findLook(look).variations.map(v=>v.id),ids,look);
- for(const id of ['claude-magma-flow','fissures','crystal-veins','fx-liquid-body'])assert.equal(findLook(id).variations,undefined,id);
+ // Crystal veins is a variation of Crystal now (14 November), not a look of its own.
+ for(const id of ['claude-magma-flow','fissures','fx-liquid-body'])assert.equal(findLook(id).variations,undefined,id);
  const lightning=newStack(findLook('lightning-blade'),frame,'o').layers;
  assert.equal(lightning.find(l=>l.label==='Forked arcs').enabled,true);assert.equal(lightning.find(l=>l.label==='Blade arcs').enabled,false);
  assert.equal(newStack(findLook('glowing-skin'),frame,'o').layers[0].strength,4);

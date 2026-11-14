@@ -8,7 +8,7 @@ import {findLook,newStack,makeLayer,partFrame,layerIngredient} from '../src/glob
 import {compileAnimation} from '../src/global-animation-model.js';
 const {fixturePath}=createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const file=fixturePath('footman');
-for(const label of ['Eye sparks','Heavy drops','Ichor drops','Blood beads'])test(label+' is born clear of the Footman body surface', {skip:!fs.existsSync(file)&&'private Footman fixture missing'},()=>{
+for(const label of ['Heavy drops','Ichor drops','Blood beads'])test(label+' is born clear of the Footman body surface', {skip:!fs.existsSync(file)&&'private Footman fixture missing'},()=>{
  const m=openDocument(fs.readFileSync(file),'footman.mdx').model,g=m.Geosets[0],f=partFrame(g),s=newStack(findLook('empty'),f,'surface');
  s.layers=[makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),f,'native',1)];
  compileAnimation(m,0,s);

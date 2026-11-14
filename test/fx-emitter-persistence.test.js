@@ -47,7 +47,8 @@ for(const label of ['Blade flames','Fire column'])test(label+' surface attachmen
  }
 });
 
-for(const label of ['Blade flames','Fire column'])test(label+' EMTR edits to a sibling remain independent in a mixed layer',options,()=>{
+// Fire column is one source seated in the part now (14 November); a sibling needs a second site, so Orbiting stars stands in.
+for(const label of ['Blade flames','Orbiting stars'])test(label+' EMTR edits to a sibling remain independent in a mixed layer',options,()=>{
  const doc=openDocument(fs.readFileSync(file),'footman.mdx'),frame=partFrame(doc.model.Geosets[0]),layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label}),frame,'native',1),stack={...newStack(findLook('empty'),frame,'emtr-sibling'),layers:[layer]},first=structuredClone(doc.model),graph=compileAnimation(first,0,stack),keys=graph.layers[1].ids.slice(0,2).map(id=>first.Nodes[id]._FxTag.split('/').at(-1));
  layer.individuals={[keys[0]]:{position:[11,22,33],values:{native:{Width:7}}}};doc.apply('Place one',FX_SECTIONS,m=>compileAnimation(m,0,stack));
  doc.apply('EMTR sibling width',['ParticleEmitters2'],m=>{m.ParticleEmitters2.find(n=>n._FxTag==='emtr-sibling/1/'+keys[1]).Width=21;});

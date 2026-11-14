@@ -5,6 +5,8 @@ import * as looks from '../src/global-animation-looks.js';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
 import {compileAnimation,readAnimationStack} from '../src/global-animation-model.js';
 import {DEFAULT_PREFERENCES,PREFERENCE_LIMITS,normalizePreferences} from '../src/preferences.js';
+import {surfaceFitInputs} from '../src/fx-emitter-surface.js';
+import {layerBasis} from '../src/fx-layer-basis.js';
 import {normalizeOwnLook,normalizeOwnLooks,ownLookFrom,stackFromOwnLook,upsertOwnLook,ownLookFile,parseOwnLookFile,ownLookId,MAX_OWN_LOOKS} from '../src/fx-own-looks.js';
 
 const {applySettingsPatch}=createRequire(import.meta.url)('../electron/settings.cjs');
@@ -17,6 +19,8 @@ const sample=frame=>{
  stack.layers.push(layerOf('Orbiting flies',frame,10),layerOf('Light edge',frame,11),layerOf('Runes',frame,12),layerOf('Flowing energy',frame,13));
  const flame=stack.layers.find(l=>l.kind==='flame');
  Object.assign(flame,{offset:[1,-2,3],tint:[1,.5,.2],atlasRect:[.1,.2,.3,.4],speed:2,direction:45,tiling:2,native:{Speed:80,Gravity:{Keys:[{Frame:0,Vector:[-12]},{Frame:500,Vector:[-6],InTan:[1],OutTan:[2]}]},Width:50,Length:40,ParticleScaling:[1,2,3],Alpha:[255,255,0],Latitude:30},unitAlphaPeak:.7});
+ // A hand-set particle scaling is part of the fit (the fit reads the scaling and alpha it will show), so the sample's fit follows it.
+ flame.surfaceFit=surfaceFitInputs(flame,layerBasis(frame));
  return stack;
 };
 const valid=(n=1,extra={})=>({id:'own-look-'+n,name:'Look '+n,loop:2000,frame:{length:100,girth:8,radius:6},layers:[{id:1,type:'Glow',label:'Glow'}],...extra});
@@ -77,7 +81,7 @@ test('ownLookFrom keeps what is the look and leaves behind what belongs to one m
  const compiled=readAnimationStack(doc.model,0);
  assert.ok(compiled.baseMaterial!=null&&compiled.createdClocks&&compiled.createdClockIds&&compiled.layers.some(l=>l.unitAlphaPeak!=null),'the saved stack carries model state');
  const record=ownLookFrom(compiled,frame,'My poison');
- assert.deepEqual(Object.keys(record).sort(),['asOverlay','frame','id','layers','loop','name']);
+ assert.deepEqual(Object.keys(record).sort(),['asOverlay','frame','id','layers','loop','name','variation']);
  assert.deepEqual([record.id,record.name,record.loop,record.asOverlay],['own-my-poison','My poison',stack.loop,compiled.asOverlay]);
  assert.deepEqual(Object.keys(record.frame).sort(),['girth','length','radius']);
  assert.ok(record.layers.every(l=>!('unitAlphaPeak' in l)&&!('owner' in l)));

@@ -50,8 +50,9 @@ test('Rune sparks are additive and turn from white to their tint',()=>{
   assert.deepEqual(Array.from(p.SegmentColor[2]).map(v=>+v.toFixed(4)),layer.tint.map(v=>+Math.fround(v).toFixed(4)));
  }
 });
+// Eye sparks left the library with the Eye glow look (14 November 2026), so it is no longer an offered emitter. Rift splinters are small bright streaks over the whole surface now.
 // Audit: invisible on the Footman body (light .00-.04) at their old sizes; twice the size, embers [.16,.1,.04].
-for(const [label,size] of [['Eye sparks',[.18,.14,.1]],['Blood beads',[.12,.32,.12]],['Rift splinters',[.14,.28,.04]],['Void splinters',[.14,.28,.04]],['Lingering embers',[.16,.1,.04]]])test(label+' start at a visible size',()=>{
+for(const [label,size] of [['Blood beads',[.12,.32,.12]],['Rift splinters',[.03,.1,.02]],['Void splinters',[.14,.28,.04]],['Lingering embers',[.16,.1,.04]]])test(label+' start at a visible size',()=>{
  assert.deepEqual(choice(label).nativeSpec.size,size);
  const {emitters}=addEmitter(label);
  assert.ok(emitters.length>0&&emitters.every(p=>p.ParticleScaling[1]>0));

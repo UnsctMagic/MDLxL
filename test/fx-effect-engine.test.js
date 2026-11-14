@@ -14,10 +14,15 @@ const strip=()=>openDocument(fs.readFileSync(fixturePath('effect')),'effect.mdx'
 const sprite='Textures\\Star7b.blp';
 const particle=(extra={},nativeSpec={})=>({type:'Particles',label:'Stars',kind:'native',image:sprite,
  tint:[.5,.5,.5],nativeSpec:{texture:sprite,life:1,rate:20,size:[.2,.4,.1],...nativeSpec},...extra});
+const separate=layer=>{delete layer.coverFit;};
+const pointSites=layer=>{delete layer.cover;};
 const close=(a,b)=>assert.ok(Math.abs(a-b)<.001,`${a} differs from ${b}`);
-function apply(model,part,make){
+// edit: a hand change to the made layer. A fresh native emitter now covers the part instead of using separate dots or point sites,
+// so the tests of those older site layouts (still what saved layers use) switch the cover default off here.
+function apply(model,part,make,edit){
  const frame=looks.partFrame(model.Geosets[part]),stack=looks.newStack(looks.findLook('empty'),frame,'redesign');
  const layer=looks.makeLayer(make,frame,'native',1);
+ edit?.(layer);
  stack.layers=[layer];
  const graph=compileAnimation(model,part,stack);
  return {graph,stack,layer,emitters:model.ParticleEmitters2.filter(p=>p._FxTag?.startsWith('redesign/1/'))};
@@ -40,8 +45,8 @@ test('widthCap limits the peak to the site width, preserves stage ratios and yie
 });
 
 test('siteCount overrides the live budget and shares strip stations and rate',()=>{
- const a=apply(strip(),5,particle({siteCount:9},{rate:2,size:[.02,.03,.01]}));
- const b=apply(strip(),5,particle({siteCount:9},{rate:4,size:[.2,.4,.1]}));
+ const a=apply(strip(),5,particle({siteCount:9},{rate:2,size:[.02,.03,.01]}),separate);
+ const b=apply(strip(),5,particle({siteCount:9},{rate:4,size:[.2,.4,.1]}),separate);
  assert.equal(a.emitters.length,9);
  assert.deepEqual(a.graph.layers[1].sites.map(s=>s.point),b.graph.layers[1].sites.map(s=>s.point));
  for(const emitter of a.emitters)close(emitter.EmissionRate,2/9);
@@ -66,7 +71,7 @@ test('birthAcross widens the strip slab and widthCap measures the physical strip
 
 test('birthRegion point sites raise the rate to two live particles per site up to four times the recipe',()=>{
  for(const rate of [1,16]){
-  const {graph,emitters}=apply(footman(),0,particle({birthRegion:true},{rate}));
+  const {graph,emitters}=apply(footman(),0,particle({birthRegion:true},{rate}),pointSites);
   assert.ok(graph.layers[1].sites.some(s=>s.birth&&!s.birth.rotation));
   const expected=Math.min(rate*4,Math.max(rate,emitters.length*2));
   assert.ok(expected>rate);
@@ -106,7 +111,7 @@ test('existing airy fit and saved slab stacks compile identically to item 1',()=
  ]){
   const model=footman(),frame=looks.partFrame(model.Geosets[part]),stack=looks.newStack(looks.findLook('empty'),frame,'redesign');
   const layer=looks.makeLayer(spec,frame,'native',1);
-  delete layer.birthRegionFit;
+  delete layer.birthRegionFit;delete layer.cover;
   stack.layers=[JSON.parse(JSON.stringify(layer))];
   compileAnimation(model,part,stack);
   assert.equal(modelHash(model),expected);

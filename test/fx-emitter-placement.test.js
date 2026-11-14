@@ -82,7 +82,7 @@ for(const part of [0,2])for(const label of ['Blade flames','Fire column'])test(l
 });
 
 test('whole-layer conflicts ask only for overlapping individual values and resolve both choices',()=>{
- const previous={type:'Particles',tint:[1,1,1],size:2,offset:[0,0,0],individuals:{source0:{position:[9,8,7],surface:{geoset:2},values:{tint:[1,0,0],native:{Width:4}}},source1:{deleted:true}}};
+ const previous={id:1,type:'Particles',tint:[1,1,1],size:2,offset:[0,0,0],individuals:{source0:{position:[9,8,7],surface:{geoset:2},values:{tint:[1,0,0],native:{Width:4}}},source1:{deleted:true}}};
  const changed={...previous,tint:[0,1,0]};
  assert.equal(placement.emitterEditOverlaps(previous,{...previous,lasts:2}),false,'unrelated life edit asks nothing');
  assert.equal(placement.emitterEditOverlaps(previous,changed),true,'own colour overlaps');
@@ -90,7 +90,8 @@ test('whole-layer conflicts ask only for overlapping individual values and resol
  assert.deepEqual(placement.resolveEmitterEdit(previous,changed,false).individuals,previous.individuals,'Keep leaves individual records exact');
  const all=placement.resolveEmitterEdit(previous,changed,true);assert.deepEqual(all.individuals.source0,{values:{native:{Width:4}}},'Apply all resets colour and hand placement while preserving unrelated Width');assert.deepEqual(all.individuals.source1,{deleted:true});
 });
-for(const [from,to] of [['Blade flames','Fire column'],['Fire column','Blade flames']])test('Change emitter preserves automatic, hand-placed and deleted sites: '+from+' to '+to,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
+// Fire column is one source seated in the part now (14 November), so the pair that needs two sites to hand-place and delete starts from Orbiting stars.
+for(const [from,to] of [['Blade flames','Fire column'],['Orbiting stars','Blade flames']])test('Change emitter preserves automatic, hand-placed and deleted sites: '+from+' to '+to,{skip:!fs.existsSync(file)&&'private Footman missing'},()=>{
  const base=openDocument(fs.readFileSync(file),'footman.mdx').model,frame=partFrame(base.Geosets[0]),stack=newStack(findLook('empty'),frame,'replace');
  const layer=makeLayer(layerIngredient(findLook('empty'),{type:'Particles',label:from}),frame,'native',1);stack.layers=[layer];
  const first=structuredClone(base),initial=compileAnimation(first,0,stack),keys=initial.layers[1].sites.map(s=>s.key);
