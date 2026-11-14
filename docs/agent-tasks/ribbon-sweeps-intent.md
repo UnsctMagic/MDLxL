@@ -40,3 +40,8 @@ The Ribbon maker is EMTR's **Add ribbon** flow (`beginRibbon` in `app/ParticleEd
 ## Progress
 
 - 14 Nov: brief written; Fable lead started.
+- 14 Nov (Fable): built. Add ribbon's panel has a **Sweep** list: Plain (default, the same ribbon byte for byte) and Fire, Frost, Lightning, Spirit, Fel, Shadow, Holy, Arcane, Blood. Owner: [ribbon-sweeps.js](../../src/ribbon-sweeps.js) `sweepRibbonFit`; the list is in [ParticlePlacementControls.jsx](../../app/ParticlePlacementControls.jsx); `ParticleEditor.jsx` only loads the extra stock pictures.
+  - A sweep = the fitted ribbon (same `RibbonBlur1`, tinted) + one or two ordinary `ParticleEmitter2` nodes on the same bone, pivot and turn, spread along the edge (`Length` = 46% of the edge each way). Not Model Space, so particles stay behind as a trail. Sizes follow the edge length (`(length/60)^0.6`, held to 0.8–1.6).
+  - Pictures (all `Textures\`, stock): Fire `Clouds8x8Fire` + `LavaLump2`; Frost `Clouds8x8Fade` + `snowflake`; Lightning `Zap1` + `Blue_Star2`; Spirit `Clouds8x8Fade` + `GenericGlow64`; Fel `Flame4` + `LavaLump2`; Shadow `Clouds8x8Black` (Blend) + `Purple_Star`; Holy `Yellow_Star_Dim` + `Sparkle_Anim`; Arcane `Blue_Star2` + `Star8c`; Blood `BloodWhiteSmall` (Blend).
+  - Tests: [source](../../test/ribbon-sweeps.test.js), [packaged](../../test/ribbon-sweeps.electron.cjs). New names Plain/Spirit/Fel/Shadow/Holy are in all five catalogues.
+  - Looks: capture workbench in `out\sweep-look\` (`run.ps1 -Out <folder> [-Only slugs] [-Sweeps ids]`, `models.json`); Sonnet captured, Opus reviewed, Fable tuned over rounds 1–4. The Footman capture selects a geoset that holds sword and shield together, so its fitted edge is not the blade; that is the capture's selection, not the sweep.
