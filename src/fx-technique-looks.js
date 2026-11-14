@@ -45,14 +45,31 @@ export const TECHNIQUE_LOOKS=[
   glow('Glow shell',tex('GenericGlow64'),{atlasRect:[.5,.1,.5,.8],inflate:.3,pulse:'soft',strength:1,tint:[.55,.8,1],shell:true}),
   glow('Inner glow',null,{strength:.6,pulse:'soft',loop:5167,enabled:false}),
  ],{asOverlay:true}),
+ // Pass 6 (14 November). Both were cards at the middle of every skin region, which on a sword is the middle of the
+ // blade and the grip. Star flare is now a star twinkling at the tip (gather:'tip') with glints along the part; Glow orb
+ // is an orb seated where Fireball sits (gather:'engulf-core': around a blade's outer part, in the middle of a compact
+ // piece, in a body's head). Everything is a billboard sized in widths of the part there.
  make('star-flare','Star flare',1600,[
-  cardSpec('Flare',tex('star4'),{fit:1.1,sizeMin:.82,sizeMax:1.17,tint:[1,.95,.85]}),
-  cardSpec('Spinning star',tex('star5tga'),{fit:.8,spin:2,sizeMin:.9,sizeMax:1.1,loop:1433,tint:[1,1,1]}),
+  spray('Flare',tex('star4'),[1,.95,.85],
+   {life:1.1,rate:1.7,size:[.1,1,.1],alpha:[0,255,0]},
+   {starts:true,gather:'tip',widthCap:2.2,native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[1,.95,.85],[1,.85,.6]]}}),
+  spray('Flare glow',tex('GenericGlow64'),[1,.9,.7],
+   {life:1.3,rate:4,size:[.8,1,.8],alpha:[0,110,0]},
+   {starts:true,gather:'tip',widthCap:1.8,loop:2267,native:{Time:.5,Flags:C}}),
+  spray('Star glints',tex('star4_32'),[1,.95,.85],
+   {life:.5,rate:16,size:[.02,.16,.02],alpha:[0,255,0]},
+   {starts:true,cover:'surface',widthCap:1.1,loop:1933,native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[1,.95,.85],[1,.8,.5]]}}),
  ]),
  make('glow-orb','Glow orb',1600,[
-  cardSpec('Glow orb',tex('GenericGlow64'),{fit:1,sizeMin:.83,sizeMax:1.17,tint:[.7,.85,1]}),
-  cardSpec('Orb core',tex('Flare'),{fit:.45,sizeMin:.9,sizeMax:1.12,loop:1133,tint:[1,1,1]}),
-  starts(glowOrb('Orb light',[.7,.85,1])),
+  spray('Orb glow',tex('GenericGlow64'),[.7,.85,1],
+   {life:1.4,rate:5,size:[.9,1,.9],alpha:[0,150,0]},
+   {starts:true,gather:'engulf-core',widthCap:2.2,native:{Time:.5,Flags:C}}),
+  spray('Orb core',tex('Flare'),[1,1,1],
+   {life:.9,rate:6,size:[.5,.6,.5],alpha:[0,255,0]},
+   {starts:true,gather:'engulf-core',widthCap:.9,loop:2133,native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.9,.95,1],[.7,.85,1]]}}),
+  spray('Orb wisps',tex('GenericGlowX'),[.7,.85,1],
+   {life:1.2,rate:9,velocity:.14,spread:180,size:[.02,.1,.02],alpha:[0,220,0]},
+   {starts:true,gather:'engulf-core',widthCap:.3,loop:2933,native:{Time:.4,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.7,.85,1],[.45,.6,1]]}}),
  ]),
  make('burning-cracks','Burning cracks',2000,[
   skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.22,.12],strength:1}),
