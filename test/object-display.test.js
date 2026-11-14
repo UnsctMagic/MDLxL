@@ -1,5 +1,5 @@
 // MDLxL look: the Objects switch, its right-click types, Lights, the per-editor
-// switch lists, old saves, and a clicked object's diamonds (owner's spec, 14 Nov 2026).
+// switch lists and old saves (owner's spec, 14 Nov 2026). A clicked object's diamonds: object-diamonds.test.js.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,9 +10,7 @@ import XL_VIEW_MENU from '../src/view-menu-xl.json' with { type: 'json' };
 import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay, storedEditorDisplay } from '../src/display-overlays.js';
 import { previewOverlayOptions, visibleMovementPoints, movementNodeCategories } from '../app/preview-overlays.js';
 import { viewportOverlayOptions } from '../app/viewport-overlays.js';
-import { MOVEMENT_EDITABLE_KINDS, editEventFrames, eventFramesInDomain, selectedEventObjects, visibilityObjectIds, xlObjectKinds } from '../src/object-display.js';
-import { classicTimelineDomain, classicTimelineTargets } from '../src/classic-keyframes.js';
-import { clearTimelineKeys, setTimelineKeys, timelineKeys, timelineTracks } from '../src/keyframe-timeline.js';
+import { MOVEMENT_EDITABLE_KINDS, xlObjectKinds } from '../src/object-display.js';
 
 const require = createRequire(import.meta.url);
 const { fixturePath } = require('./helpers/fixtures.cjs');
@@ -134,38 +132,3 @@ test('Movement moves every shown kind except sounds', () => {
   assert.deepEqual([...MOVEMENT_EDITABLE_KINDS].sort(), ['attachments', 'bones', 'events', 'lights', 'particles', 'ribbons']);
 });
 
-test('a selected event shows its frames as diamonds; add, delete and undo them', () => {
-  const working = structuredClone(model), before = structuredClone(model);
-  const sound = working.EventObjects.find(node => node.Name.startsWith('SND') && node.EventTrack?.length);
-  const domain = classicTimelineDomain(working, 0, null);
-  const frames = () => eventFramesInDomain(selectedEventObjects(working, [sound.ObjectId]), domain).map(key => key.frame);
-  const shownBefore = frames();
-  const free = Array.from({ length: domain.end - domain.start + 1 }, (_, i) => domain.start + i).find(frame => !shownBefore.includes(frame));
-  assert.equal(editEventFrames(working, [sound.ObjectId], [free], true, domain), 1);
-  assert.ok(frames().includes(free));
-  assert.equal(editEventFrames(working, [sound.ObjectId], [free], true, domain), 0);
-  assert.equal(editEventFrames(working, [sound.ObjectId], [free], false, domain), 1);
-  assert.deepEqual(frames(), shownBefore);
-  // Adding then deleting leaves the event exactly as it was.
-  assert.deepEqual(Array.from(sound.EventTrack), Array.from(before.EventObjects.find(node => node.ObjectId === sound.ObjectId).EventTrack));
-  // Events on another clock are not shown on this one.
-  const global = { ...domain, globalSeqId: 0 };
-  assert.deepEqual(eventFramesInDomain([sound], global), []);
-});
-
-test('a selected light or attachment shows its Visibility diamonds; add (on, stepped) and delete', () => {
-  const working = structuredClone(model), tracks = timelineTracks(working);
-  const light = working.Lights[0], attachment = working.Attachments.find(node => !node.Visibility?.Keys);
-  assert.deepEqual(visibilityObjectIds(working, [light.ObjectId, attachment.ObjectId, working.Bones[0].ObjectId]), [light.ObjectId, attachment.ObjectId]);
-  const domain = classicTimelineDomain(working, 0, null);
-  const targets = classicTimelineTargets(working, { tracks, nodeIds: [light.ObjectId], activeController: 'nodeVisibility', highlightKeyframes: true, domain });
-  assert.ok(timelineKeys(working, targets, domain).length, 'the light has keyed visibility in Stand');
-  const target = classicTimelineTargets(working, { tracks, nodeIds: [attachment.ObjectId], activeController: 'nodeVisibility', highlightKeyframes: true, domain });
-  assert.equal(target.length, 1);
-  const at = domain.start + 10;
-  assert.equal(setTimelineKeys(working, target, at, domain, { [target[0].trackId]: [1] }), 1);
-  assert.equal(attachment.Visibility.LineType, 0);
-  assert.deepEqual(timelineKeys(working, target, domain), [{ trackId: target[0].trackId, frame: at }]);
-  clearTimelineKeys(working, target, timelineKeys(working, target, domain), domain);
-  assert.deepEqual(timelineKeys(working, target, domain), []);
-});

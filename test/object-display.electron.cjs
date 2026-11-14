@@ -51,6 +51,7 @@ const XL = quickRows(XL_MENU), VIS = quickRows(VIS_MENU);
         return { x: box.x + (point.x + 1) * box.width / 2, y: box.y + (1 - point.y) * box.height / 2 };
       };
       window.cameraMatrix = () => rigState().runtime.controls.object.matrixWorld.toArray().map(value => Math.round(value * 1e4) / 1e4);
+      window.visibilityKeys = id => { const model = rigState().props.model, track = ['ParticleEmitters2', 'RibbonEmitters', 'Lights', 'Attachments'].flatMap(key => model[key] || []).find(node => node.ObjectId === id).Visibility; return track?.Keys ? track.Keys.map(key => [key.Frame, key.Vector[0]]) : track ?? null; };
       window.eventFrames = id => Array.from(rigState().props.model.EventObjects.find(node => node.ObjectId === id).EventTrack || []);
     });
     const ready = () => page.waitForFunction(() => { try { return !!rigState().runtime.captureApi?.isReady; } catch { return false; } });
@@ -90,41 +91,97 @@ const XL = quickRows(XL_MENU), VIS = quickRows(VIS_MENU);
     assert.deepEqual(await page.evaluate(() => cameraMatrix()), before, 'the camera did not move');
     checks.push('Bones: double-click a ribbon symbol opens EMTR, camera unchanged');
 
-    // Movement: row, a light's diamonds, an event's diamonds (Add key, Delete, Undo).
+    // Movement: the clicked object's diamonds on the keyframe track, EMTR's look and behaviour.
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     await page.getByLabel('Movement controller', { exact: true }).waitFor(); await ready();
-    await page.getByLabel('Movement current sequence', { exact: true }).selectOption('0'); await ready(); await idle();
+    const sequencePick = page.getByLabel('Movement current sequence', { exact: true });
+    await sequencePick.selectOption('0'); await ready(); await idle();
     assert.deepEqual(await switches(), XL.movement, 'Movement switches');
     assert.match(await quick.getByLabel('F.Skeleton', { exact: true }).getAttribute('title'), /^Focused Skeleton(\n|$)/, 'F.Skeleton tooltip');
+    const { emitterSpans } = await import('../src/emitter-timing.js');
+    const reel = page.locator('.classic-reel-diamonds');
+    const shown = () => reel.locator('.pe-key-diamond').evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuenow'))));
+    const visibility = id => page.evaluate(id => visibilityKeys(id), id);
+    const xOf = async frame => { const box = await reel.boundingBox(), [start, end] = await reel.locator('.pe-key-diamond').first().evaluate(item => [Number(item.getAttribute('aria-valuemin')), Number(item.getAttribute('aria-valuemax'))]); return box.x + (frame - start) / (end - start) * box.width; };
+    const drag = async (handle, frame) => {
+      const box = await handle.boundingBox(), y = box.y + box.height / 2;
+      await page.mouse.move(box.x + box.width / 2, y); await page.mouse.down(); await page.mouse.move(await xOf(frame), y, { steps: 8 }); await page.mouse.up(); await idle();
+    };
+    const camera = await page.evaluate(() => cameraMatrix());
+    const sameCamera = async what => assert.deepEqual(await page.evaluate(() => cameraMatrix()), camera, what + ': the camera did not move');
+
+    // The owner's case: BlizParticle shockwaves in Attack Slam.
+    const slam = String(saved.Sequences.findIndex(clip => clip.Name === 'Attack Slam'));
+    await sequencePick.selectOption(slam); await ready(); await idle();
+    await click(ids.particle);
+    assert.equal(await picker().inputValue(), String(ids.particle), 'the emitter symbol was clicked');
+    const slamSpans = emitterSpans(saved, ids.particle, Number(slam)).spans;
+    assert.deepEqual(await shown(), slamSpans.flat(), 'the emitter\'s shows/hides diamonds are on the keyframe track');
+    const showsDiamond = reel.locator('.pe-key-diamond.shows').first(), size = await showsDiamond.boundingBox(), reelBox = await page.locator('.classic-reel-track').boundingBox();
+    assert.ok(size.width >= 10 && size.height >= 10 && size.y >= reelBox.y - 2 && size.y + size.height <= reelBox.y + reelBox.height / 2 + 4, 'diamonds are full size on the reel: ' + JSON.stringify(size));
+    assert.equal(await reel.locator('.pe-key-span').count(), slamSpans.length, 'the blue bar between each pair');
+    await page.locator('.classic-keyframe-reel').screenshot({ path: path.join(out, 'emitter-diamonds.png') });
+    await sameCamera('clicking the emitter');
+    const keysBefore = await visibility(ids.particle), target = slamSpans[0][0] - 120;
+    await drag(showsDiamond, target);
+    const moved = Number(await showsDiamond.getAttribute('aria-valuenow'));
+    assert.ok(Math.abs(moved - target) <= 3, `dragged to ${moved}, wanted about ${target}`);
+    assert.ok((await visibility(ids.particle)).some(([frame, value]) => frame === moved && value === 1), 'the Visibility key moved to the dropped frame');
+    assert.ok(!(await visibility(ids.particle)).some(([frame, value]) => frame === slamSpans[0][0] && value === 1), 'no key left at the old frame');
+    assert.equal(await picker().inputValue(), String(ids.particle), 'the emitter stays selected');
+    await sameCamera('dragging a diamond');
+    await page.keyboard.press('Control+z'); await idle();
+    assert.deepEqual(await visibility(ids.particle), keysBefore, 'Ctrl+Z restores the Visibility keys');
+    assert.deepEqual(await shown(), slamSpans.flat());
+    await page.getByRole('button', { name: '+ ◆◆', exact: true }).click(); await idle();
+    assert.equal((await shown()).length, slamSpans.flat().length + 2, '+ ◆◆ adds a pair');
+    const added = (await shown()).find(frame => !slamSpans.flat().includes(frame));
+    await reel.locator(`.pe-key-diamond[aria-valuenow="${added}"]`).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Remove this pair', exact: true }).click(); await idle();
+    assert.deepEqual(await shown(), slamSpans.flat(), 'right-click, Remove this pair');
+    await sameCamera('adding and removing a pair');
+    checks.push('Movement: a clicked emitter shows EMTR\'s diamonds on the keyframe track; drag, Ctrl+Z, + ◆◆, Remove this pair');
+
+    // A light in Walk.
+    await sequencePick.selectOption('0'); await ready(); await idle();
     const lights = quick.getByLabel('Lights', { exact: true });
     await lights.check(); await idle();
     await click(ids.light);
     assert.equal(await picker().inputValue(), String(ids.light), 'Lights on: the light symbol can be clicked');
-    const diamond = frame => page.locator(`.classic-reel-key[data-frame="${frame}"]`);
-    assert.equal(await diamond(400).count(), 1, 'the light\'s off key shows as a diamond');
-    assert.equal(await diamond(700).count(), 1, 'the light\'s on key shows as a diamond');
-    checks.push('Movement: a clicked light shows its Visibility diamonds');
+    assert.deepEqual(await shown(), emitterSpans(saved, ids.light, 0).spans.flat(), 'the light\'s shows/hides diamonds');
+    assert.ok((await shown()).includes(700), 'the light comes on at 700');
+    checks.push('Movement: a clicked light shows its diamonds');
+    await lights.uncheck(); await idle();
 
-    await picker().selectOption(String(ids.footprint)); await idle();
-    const original = await page.evaluate(id => eventFrames(id), ids.footprint);
-    for (const frame of original.filter(frame => frame >= 333 && frame <= 900)) assert.equal(await diamond(frame).count(), 1, 'event frame ' + frame + ' shows as a diamond');
+    // Bones have none.
+    await picker().selectOption(String(saved.Bones[0].ObjectId)); await idle();
+    assert.equal(await reel.count(), 0, 'a bone shows no diamonds');
+
+    // An event: one diamond per frame; drag, + ◆ at the playhead, right-click Remove, Ctrl+Z.
+    await click(ids.footprint);
+    assert.equal(await picker().inputValue(), String(ids.footprint), 'the event symbol was clicked');
+    const original = await page.evaluate(id => eventFrames(id), ids.footprint), walk = original.filter(frame => frame >= 333 && frame <= 900);
+    assert.deepEqual(await shown(), walk, 'event frames show as diamonds');
+    await drag(reel.locator('.pe-key-diamond').first(), walk[0] + 50);
+    const dropped = (await shown())[0];
+    assert.ok(Math.abs(dropped - walk[0] - 50) <= 3, `event dragged to ${dropped}`);
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original.map(frame => frame === walk[0] ? dropped : frame).sort((a, b) => a - b), 'the event frame moved');
+    await page.keyboard.press('Control+z'); await idle();
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original, 'Ctrl+Z puts it back');
     const frameBox = page.getByLabel('Current animation frame', { exact: true });
     await frameBox.fill('450'); await frameBox.press('Enter'); await idle();
-    const menuAt = async () => { await page.locator('.classic-reel-speed > span').first().click({ button: 'right' }); await page.locator('.classic-reel-menu').waitFor(); };
-    await menuAt();
-    await page.getByRole('menuitem', { name: 'Add key at 450', exact: true }).click(); await idle();
-    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), [...original, 450].sort((a, b) => a - b), 'Add key adds the event frame');
-    assert.equal(await diamond(450).count(), 1, 'the new event frame shows as a diamond');
-    await menuAt();
-    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click(); await idle();
-    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original, 'Delete removes the event frame at the playhead');
-    assert.equal(await diamond(450).count(), 0);
+    await page.getByRole('button', { name: '+ ◆', exact: true }).click(); await idle();
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), [...original, 450].sort((a, b) => a - b), '+ ◆ adds a frame at the playhead');
+    assert.ok((await shown()).includes(450));
+    await reel.locator('.pe-key-diamond[aria-valuenow="450"]').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Remove', exact: true }).click(); await idle();
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original, 'right-click, Remove');
     await page.keyboard.press('Control+z'); await idle();
-    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), [...original, 450].sort((a, b) => a - b), 'Undo brings the deleted frame back');
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), [...original, 450].sort((a, b) => a - b), 'Ctrl+Z brings the removed frame back');
     await page.keyboard.press('Control+z'); await idle();
-    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original, 'Undo removes the added frame');
-    checks.push('Movement: event diamonds; Add key at N, Delete, Undo twice');
-    await lights.uncheck(); await idle();
+    assert.deepEqual(await page.evaluate(id => eventFrames(id), ids.footprint), original, 'Ctrl+Z removes the added frame');
+    await sameCamera('editing event diamonds');
+    checks.push('Movement: a clicked event shows a diamond per frame; drag, + ◆, Remove, Ctrl+Z; camera unchanged');
 
     // Animations: the owner's row and no symbols.
     await page.getByRole('button', { name: 'Animations', exact: true }).click(); await ready(); await idle();

@@ -7865,10 +7865,9 @@
   "F.Skeleton": "聚焦骨架",
   "Show attachments, emitters, events and sounds. Right-click to choose which.": "显示附着物、发射器、事件和声音。右键选择显示哪些。",
   "Object types": "对象类型",
-  "Add key at {0}": "在 {0} 添加关键帧",
-  "Add a key for the selected object at the current frame.": "在当前帧为所选对象添加关键帧。",
-  "Add keyframe": "添加关键帧",
-  "Select an object that switches on and off, an event or a sound.": "请选择会开关显示的对象、事件或声音。",
+  "Event at frame {0}. Drag to change when. Right-click to remove.": "第 {0} 帧的事件。拖动可更改时间。右键单击可移除。",
+  "Add a diamond at the current frame: the event plays there too.": "在当前帧添加一个菱形：事件也会在此处播放。",
+  "Event at frame {0}": "第 {0} 帧的事件",
   "Clone object": "克隆对象",
   "Object visible at current frame": "对象在当前帧可见",
   "Set object visibility": "设置对象可见性"

@@ -7960,10 +7960,9 @@
   "F.Skeleton": "Выбр. скелет",
   "Show attachments, emitters, events and sounds. Right-click to choose which.": "Показать точки крепления, эмиттеры, события и звуки. Щелчок правой кнопкой — выбрать, какие.",
   "Object types": "Типы объектов",
-  "Add key at {0}": "Добавить ключ на {0}",
-  "Add a key for the selected object at the current frame.": "Добавить ключ выбранному объекту на текущем кадре.",
-  "Add keyframe": "Добавить ключевой кадр",
-  "Select an object that switches on and off, an event or a sound.": "Выберите объект, который включается и выключается, событие или звук.",
+  "Event at frame {0}. Drag to change when. Right-click to remove.": "Событие на кадре {0}. Перетащите, чтобы изменить момент. Правая кнопка — удалить.",
+  "Add a diamond at the current frame: the event plays there too.": "Добавить ромб на текущем кадре: событие сработает и там.",
+  "Event at frame {0}": "Событие на кадре {0}",
   "Clone object": "Клонировать объект",
   "Object visible at current frame": "Объект виден на текущем кадре",
   "Set object visibility": "Задать видимость объекта"

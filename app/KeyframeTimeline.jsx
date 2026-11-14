@@ -9,8 +9,8 @@ import { animationMarkerTimes } from '../src/animation-markers.js';
 import { animationTrackId } from '../src/animation-tracks.js';
 import { downstreamBoneIds } from '../src/node-hierarchy.js';
 import { effectNodes } from '../src/particle-recipes.js';
-import { editEventFrames, eventFramesInDomain, selectedEventObjects, visibilityObjectIds } from '../src/object-display.js';
 import { clampPlaybackSpeed } from '../src/playback-speed.js';
+import useReelDiamonds from './ReelDiamonds.jsx';
 import './KeyframeTimeline.css';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -33,17 +33,11 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
   const wholePoseTargets = useMemo(() => domain ? classicPoseTargets(model, domain, tracks) : [], [model, tracks, domain]);
   const scopedNodeIds = useMemo(() => highlightKeyframes && highlightChain ? [...new Set([...selectedNodeIds, ...downstreamBoneIds(model, selectedNodeIds)])] : selectedNodeIds, [model, revision, selectedNodeIds.join(','), highlightKeyframes, highlightChain]);
   const selectionStamp = `${scopedNodeIds.join(',')}|${selectedGeosets.join(',')}`;
-  const { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times, timeSet, eventKeys, addTargets, addEventIds } = useMemo(() => {
+  const { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times, timeSet } = useMemo(() => {
     const options = { tracks, nodeIds: scopedNodeIds, geosetIds: selectedGeosets, activeController, highlightKeyframes, domain };
     const authored = domain ? classicTimelineTargets(model, { ...options, highlightKeyframes: false }) : [];
     const selectedTargets = domain ? classicTimelineTargets(model, { ...options, highlightKeyframes: true }) : [];
-    // MDLxL look: every selected object that switches on and off shows its Visibility diamonds
-    // (emitters, ribbons, lights, attachments); events and sounds show their event frames.
-    const emitterIds = objectKeys ? visibilityObjectIds(model, scopedNodeIds) : effectNodes(model).filter(({ node }) => scopedNodeIds.includes(node.ObjectId)).map(({ node }) => node.ObjectId);
-    const eventKeys = objectKeys && domain ? eventFramesInDomain(selectedEventObjects(model, scopedNodeIds), domain) : [];
-    const addVisibilityIds = objectKeys ? visibilityObjectIds(model, selectedNodeIds) : [];
-    const addTargets = domain && addVisibilityIds.length ? classicTimelineTargets(model, { ...options, nodeIds: addVisibilityIds, activeController: 'nodeVisibility', highlightKeyframes: true }) : [];
-    const addEventIds = objectKeys && domain ? selectedEventObjects(model, selectedNodeIds).filter(node => (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0 ? node.GlobalSeqId : null) === (Number.isInteger(domain.globalSeqId) ? domain.globalSeqId : null)).map(node => node.ObjectId) : [];
+    const emitterIds = effectNodes(model).filter(({ node }) => scopedNodeIds.includes(node.ObjectId)).map(({ node }) => node.ObjectId);
     const emitterVisibilityTargets = domain && emitterIds.length ? classicTimelineTargets(model, { ...options, nodeIds: emitterIds, activeController: 'nodeVisibility', highlightKeyframes: true }) : [];
     const selectedBoneTargets = (['animations', 'nodeVisibility'].includes(activeController) || activeController.startsWith('materialVisibility:')) ? selectedTargets : domain ? ['move', 'rotate', 'scale'].flatMap(controller => classicTimelineTargets(model, { ...options, activeController: controller, highlightKeyframes: true })) : [];
     if (activeController === 'select') selectedBoneTargets.push(...emitterVisibilityTargets);
@@ -60,9 +54,9 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
     // highlighting a chain never silently becomes a multi-track edit.
     const displayTargets = poseScope && domain ? tracks.filter(track => track.kind === 'node' && track.globalSeqId === domain.globalSeqId && poseScope.some(item => item.id === track.id && item.property === track.property)) : null;
     const displayKeys = displayTargets ? timelineKeys(model, displayTargets, domain) : [...keys, ...(domain ? timelineKeys(model, emitterVisibilityTargets, domain) : [])];
-    const timeSet = new Set([...(highlightKeyframes ? displayKeys.map(key => key.frame) : domain ? animationMarkerTimes(model, domain, tracks) : []), ...eventKeys.map(key => key.frame)]);
-    return { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times: [...timeSet].sort((a, b) => a - b), timeSet, eventKeys, addTargets, addEventIds };
-  }, [model, revision, tracks, domain, selectionStamp, activeController, highlightKeyframes, JSON.stringify(poseScope), objectKeys, selectedNodeIds.join(',')]);
+    const timeSet = new Set(highlightKeyframes ? displayKeys.map(key => key.frame) : domain ? animationMarkerTimes(model, domain, tracks) : []);
+    return { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times: [...timeSet].sort((a, b) => a - b), timeSet };
+  }, [model, revision, tracks, domain, selectionStamp, activeController, highlightKeyframes, JSON.stringify(poseScope)]);
   const frame = domain ? Math.round(clamp(time, domain.start, domain.end)) : 0;
   const span = Math.max(1, (domain?.end || 0) - (domain?.start || 0));
   const percent = value => (value - (domain?.start || 0)) / span * 100;
@@ -92,6 +86,8 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
   const frameTargets = poseEnabled ? wholePoseTargets : poseTargets;
   const pasteTargets = unrestrictedTimelineTargets(clipboard.current?.wholePose ? wholePoseTargets : highlightKeyframes ? copyTargets : targets, restrictions);
   const pasteBlocked = disabled || !domain || !pasteTargets.length;
+  // MDLxL look: the clicked emitter, light, attachment, event or sound shows EMTR's diamonds on the reel.
+  const diamonds = useReelDiamonds({ model, selectedNodeIds: objectKeys ? selectedNodeIds : [], domain, frame, disabled, onEdit, onSeek: value => seek(value), onStatus });
 
   // Playback displays the live frame directly; only a focused edit owns a draft.
   useEffect(() => { setRange(null); setKeySelection(null); setContext(null); editingTime.current = false; setDraftTime(String(frame)); }, [domainStamp]);
@@ -133,28 +129,6 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
       if (result !== false && result !== undefined) onStatus?.(count ? label : 'No keyframes changed.');
     });
   }
-  // Event frames (events and sounds) live in the event's own frame list, not a track.
-  const eventKeysIn = (interval = bounds) => selectedKeysById ? [] : eventKeys.filter(key => key.frame >= interval[0] && key.frame <= interval[1]);
-  function editObjectKeys(label, operation) {
-    if (disabled || !domain) { onStatus?.(timing.error || 'Select an object and controller.', true); return; }
-    report(() => {
-      onPlayingChange?.(false);
-      let failure, count = 0;
-      const result = onEdit?.(label, timelineSections, current => { try { count = operation(current); return count; } catch (error) { failure = error; throw error; } });
-      if (failure) throw failure;
-      if (result !== false && result !== undefined) onStatus?.(count ? label : 'No keyframes changed.');
-    });
-  }
-  function deleteWithEvents(label, interval, keysToClear) {
-    const events = eventKeysIn(interval);
-    if (!events.length) return mutate(label, current => clearTimelineKeys(current, mutationTargets, keysToClear(), domain));
-    const ids = [...new Set(events.map(key => key.id))];
-    editObjectKeys(label, current => (!mutationBlocked && keysToClear().length ? clearTimelineKeys(current, mutationTargets, keysToClear(), domain) : 0) + editEventFrames(current, ids, events.map(key => key.frame), false, domain));
-  }
-  function addKey() {
-    if (!addTargets.length && !addEventIds.length) { onStatus?.('Select an object that switches on and off, an event or a sound.', true); return; }
-    editObjectKeys('Add keyframe', current => (addTargets.length ? setTimelineKeys(current, addTargets, frame, domain, Object.fromEntries(addTargets.map(target => [target.trackId, [1]]))) : 0) + editEventFrames(current, addEventIds, [frame], true, domain));
-  }
   function selectedKeys(interval = bounds) { return keys.filter(key => selectedKeysById ? key.trackId === selectedKeysById.trackId && selectedKeysById.frames.has(key.frame) : key.frame >= interval[0] && key.frame <= interval[1]); }
   function editableKeys(interval = bounds) { return selectedKeys(interval).filter(key => mutationTrackIds.has(key.trackId)); }
   function copyKeys() {
@@ -190,9 +164,8 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
         if (result !== false && result !== undefined) onStatus?.(count ? label : 'No keyframes changed.');
       });
     },
-    delete: () => deleteWithEvents('Delete keyframes', bounds, () => editableKeys()),
-    clear: () => { const interval = hasRange || !domain ? bounds : [domain.start, domain.end]; deleteWithEvents('Clear keyframes', interval, () => editableKeys(interval)); },
-    addKey,
+    delete: () => mutate('Delete keyframes', current => clearTimelineKeys(current, mutationTargets, editableKeys(), domain)),
+    clear: () => mutate('Clear keyframes', current => clearTimelineKeys(current, mutationTargets, editableKeys(hasRange ? bounds : [domain.start, domain.end]), domain)),
     selectAll: () => { if (domain) { setKeySelection(null); setRange([domain.start, domain.end]); } },
     // Exact stored-key selection can skip an intended pose between holding keys.
     // Existing copy/delete/undo operations consume this same selection.
@@ -273,7 +246,7 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
   }
   const divisions = Array.from({ length: 11 }, (_, index) => Math.round((domain?.start || 0) + span * index / 10)).filter((value, index, values) => value <= (domain?.end || 0) && values.indexOf(value) === index);
   const canPaste = !!clipboard.current && (clipboard.current.kind === 'pose' || clipboard.current.count > 0);
-  const menuItems = context ? [['copy', 'Copy', !keys.length], ['copyPose', poseEnabled ? 'Copy Pose' : 'Copy Frame', !frameTargets.length], ['paste', 'Paste', pasteBlocked || !canPaste], ['delete', 'Delete', (mutationBlocked || !editableKeys().length) && (disabled || !eventKeysIn().length), 'Delete unlocked keys at the current frame or in the selected interval.'], ['clear', 'Clear', (mutationBlocked || !keys.some(key => mutationTrackIds.has(key.trackId))) && (disabled || !eventKeys.length), 'Clear unlocked keys in the selected interval, or the whole animation interval when no range is selected.'], ...(objectKeys && (addTargets.length || addEventIds.length) ? [['addKey', `Add key at ${frame}`, disabled || !domain, 'Add a key for the selected object at the current frame.']] : [])] : [];
+  const menuItems = context ? [['copy', 'Copy', !keys.length], ['copyPose', poseEnabled ? 'Copy Pose' : 'Copy Frame', !frameTargets.length], ['paste', 'Paste', pasteBlocked || !canPaste], ['delete', 'Delete', mutationBlocked || !editableKeys().length, 'Delete unlocked keys at the current frame or in the selected interval.'], ['clear', 'Clear', mutationBlocked || !keys.some(key => mutationTrackIds.has(key.trackId)), 'Clear unlocked keys in the selected interval, or the whole animation interval when no range is selected.']] : [];
 
   return <section ref={panel} tabIndex="0" className="keyframe-timeline classic-keyframe-reel" aria-label="Keyframe timeline" data-hotkey-category="Keyframes" onKeyDown={keyboard} onContextMenu={openContext}>
     <button type="button" className="classic-reel-play" aria-label={playing ? 'Stop' : 'Play'} title={playing ? 'Stop' : 'Play'} disabled={!domain} onClick={() => onPlayingChange?.(!playing)}>{playing ? '■' : '▶'}</button>
@@ -286,7 +259,9 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
       </div>
       {warningMarkers.map(([at, findings]) => <button key={at} type="button" data-frame={at} className={`motion-reel-warning${findings.every(f => motionControls?.desired[f.signature]) ? ' motion-reel-desired' : ''}`} aria-pressed={!!motionActive && findings.some(f => f.signature === motionActive.signature)} aria-label={`Motion warning: ${findings.map(f => `${f.nodeName}, ${f.property}, ${f.time} ms, ${f.kind}`).join('; ')}`} title={`${findings.length > 1 ? `${findings.length} motion warnings` : `${findings[0].nodeName} · ${findings[0].property}`} · ${at} ms — click to inspect`} style={{ left: `clamp(6px, ${percent(at)}%, calc(100% - 6px))` }} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setRange(null); setContext(null); onMotionFinding?.(findings[0], event.currentTarget); }}><span aria-hidden="true">◆</span><span className="motion-warning-underline" aria-hidden="true"/></button>)}
       <div className="classic-reel-ruler" aria-hidden="true" translate="no">{divisions.map((value, index) => <span key={value} className={index === divisions.length - 1 ? 'is-last' : ''} style={{ left: `${percent(value)}%` }}>{value}</span>)}</div>
+      {diamonds.track}
     </div>
+    {diamonds.add}
     <div className="classic-reel-settings">
       <label className="classic-reel-speed" title="Playback speed"><span>Playback Speed</span><span className="classic-reel-percent"><input type="number" inputMode="decimal" step="1" min="1" max="250" aria-label="Playback speed percent" translate="no" value={draftSpeed} onChange={event => setDraftSpeed(event.target.value)} onBlur={commitPlaybackSpeed} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraftSpeed(String(clampPlaybackSpeed(playbackSpeed))); }}/><span>%</span></span></label>
       <label className="classic-reel-frame"><span>Frame</span><input type="number" inputMode="numeric" step="1" min={domain?.start || 0} max={domain?.end || 0} aria-label="Current animation frame" data-hotkey="keyframe:time" translate="no" className={timeSet.has(frame) ? 'is-keyframe' : ''} value={editingTime.current ? draftTime : String(frame)} disabled={!domain} onFocus={() => { setDraftTime(String(frame)); editingTime.current = true; onPlayingChange?.(false); }} onChange={event => { editingTime.current = true; setDraftTime(event.target.value); }} onBlur={() => commitTime()} onKeyDown={event => {
@@ -295,7 +270,7 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
         if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); event.stopPropagation(); editingTime.current = false; seek(frame + (event.key === 'ArrowUp' ? 1 : -1), event.shiftKey, selectionAnchor()); }
       }}/></label>
     </div>
-    {context && <div ref={menu} className="classic-reel-menu" role="menu" style={{ left: context.x, top: context.y }}>{menuItems.map(([id, label, unavailable, title]) => <button type="button" role="menuitem" key={id} data-hotkey={id === 'addKey' ? undefined : `keyframe:${id}`} disabled={unavailable} title={title} onClick={() => { setContext(null); commands[id](); }}>{label}</button>)}{motionControls && <>
+    {context && <div ref={menu} className="classic-reel-menu" role="menu" style={{ left: context.x, top: context.y }}>{menuItems.map(([id, label, unavailable, title]) => <button type="button" role="menuitem" key={id} data-hotkey={`keyframe:${id}`} disabled={unavailable} title={title} onClick={() => { setContext(null); commands[id](); }}>{label}</button>)}{motionControls && <>
       <hr/>
       <button role="menuitem" disabled={motionControls.busy} onClick={() => { setContext(null); motionControls.scan(); }}>Find Motion Irregularities</button>
       <button role="menuitem" disabled={motionControls.busy || !selectedNodeIds.length} onClick={() => { setContext(null); motionControls.scan(selectedNodeIds); }}>Inspect selected bone and parents</button>

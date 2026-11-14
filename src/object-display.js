@@ -44,49 +44,6 @@ export function objectSwitches(overlays) {
   };
 }
 
-/** Objects that switch on and off over time with a Visibility track. */
-const VISIBILITY_COLLECTIONS = ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'Lights', 'Attachments'];
-export function visibilityObjectIds(model, ids) {
-  const wanted = new Set(ids);
-  return VISIBILITY_COLLECTIONS.flatMap(name => (model[name] || []).filter(node => wanted.has(node.ObjectId)).map(node => node.ObjectId));
-}
-/** Selected events and sounds (their timing is the EventTrack frame list). */
-export function selectedEventObjects(model, ids) {
-  const wanted = new Set(ids);
-  return (model.EventObjects || []).filter(node => wanted.has(node.ObjectId));
-}
-
-/**
- * Event frames shown on a timeline. Events with a GlobalSeqId belong to that
- * global sequence only; the rest belong to the model's own animations.
- */
-export function eventFramesInDomain(events, domain) {
-  if (!domain) return [];
-  const clock = Number.isInteger(domain.globalSeqId) ? domain.globalSeqId : null;
-  return events.flatMap(node => {
-    const own = Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0 ? node.GlobalSeqId : null;
-    if (own !== clock) return [];
-    return Array.from(node.EventTrack || []).filter(frame => frame >= domain.start && frame <= domain.end).map(frame => ({ id: node.ObjectId, frame }));
-  });
-}
-
-/** Edits a model in place: adds or removes event frames of the given events. Returns how many changed. */
-export function editEventFrames(model, ids, frames, enabled, domain) {
-  const clock = Number.isInteger(domain?.globalSeqId) ? domain.globalSeqId : null;
-  let count = 0;
-  for (const node of selectedEventObjects(model, ids)) {
-    const own = Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0 ? node.GlobalSeqId : null;
-    if (own !== clock) continue;
-    const set = new Set(node.EventTrack || []);
-    for (const frame of frames) {
-      if (!Number.isInteger(frame) || frame < 0) continue;
-      if (enabled ? !set.has(frame) : set.has(frame)) { count++; if (enabled) set.add(frame); else set.delete(frame); }
-    }
-    node.EventTrack = new Uint32Array([...set].sort((a, b) => a - b));
-  }
-  return count;
-}
-
 /** Saved XL display from before the Objects switch: nodes → Lights; the old kind switches become the Objects checkboxes. */
 const OLD_KINDS = [['attachments', 'objectTypesAttachments'], ['particles', 'objectTypesEmitters'], ['events', 'objectTypesEvents'], ['sounds', 'objectTypesSounds']];
 export function migrateXLDisplay(saved) {

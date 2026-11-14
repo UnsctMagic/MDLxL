@@ -7970,10 +7970,9 @@
   "F.Skeleton": "Esq. enf.",
   "Show attachments, emitters, events and sounds. Right-click to choose which.": "Muestra puntos de anclaje, emisores, eventos y sonidos. Clic derecho para elegir cuáles.",
   "Object types": "Tipos de objeto",
-  "Add key at {0}": "Añadir clave en {0}",
-  "Add a key for the selected object at the current frame.": "Añade una clave para el objeto seleccionado en el fotograma actual.",
-  "Add keyframe": "Añadir fotograma clave",
-  "Select an object that switches on and off, an event or a sound.": "Selecciona un objeto que se enciende y apaga, un evento o un sonido.",
+  "Event at frame {0}. Drag to change when. Right-click to remove.": "Evento en el fotograma {0}. Arrastra para cambiar cuándo. Clic derecho para quitarlo.",
+  "Add a diamond at the current frame: the event plays there too.": "Añade un rombo en el fotograma actual: el evento también se reproduce ahí.",
+  "Event at frame {0}": "Evento en el fotograma {0}",
   "Clone object": "Clonar objeto",
   "Object visible at current frame": "Objeto visible en el fotograma actual",
   "Set object visibility": "Definir visibilidad del objeto"

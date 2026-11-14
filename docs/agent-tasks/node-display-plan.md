@@ -37,7 +37,7 @@ Attachments/sounds moving or animated: research Hive + the model library; includ
 ## Built (rebuild from main, 14 Nov 2026 evening)
 
 Local branch `claude/node-display-37527c`; restarted from main `40a37825` (commit `Objects: restart from main's code and tests`).
-Test build `D:\Claude\MDLxL\TestBuilds\node-display-02`; ready to test, not online.
+Test build `D:\Claude\MDLxL\TestBuilds\node-display-03` (opens `TEST OBJECT DISPLAY 03.mdx`); ready to test, not online.
 
 - **Lists:** VIS keeps `src/view-menu.json` unchanged (a source test compares it with main's copy); XL reads
   `src/view-menu-xl.json` (the table above). The native View menu, Quick Display, toolbar keys and command launcher pick by look.
@@ -54,11 +54,24 @@ Test build `D:\Claude\MDLxL\TestBuilds\node-display-02`; ready to test, not onli
   the model's own lights (it lights the model with the camera light), so the switch exists and has nothing to hide.
 - **Old saves:** `nodes` becomes Lights; the old Attachments/Emitters/Events/Sounds become Objects (on if any was on) with
   those as the ticks; with none on, Objects is off and every tick stays on. A stuck XL Vertex Bones tick is cleared.
-- **Diamonds (Movement, XL):** a selected emitter, ribbon, light or attachment shows its Visibility keys beside the transform
-  keys (main did this for emitters only); a selected event or sound shows its event frames. The reel's right-click menu has
-  **Add key at N** (event frame, or a stepped Visibility key with value 1); Delete and Clear also remove event frames; all of
-  it goes through the normal history (Undo). Selecting an object keyed on a global sequence switches the timeline to it;
-  editing on the wrong clock reports the existing plain message instead of an error.
+- **Diamonds on the keyframe track (XL, build 03; owner: "show diamond tracks on the keyframe track whenever an
+  associated object is clicked").** Clicking one emitter, ribbon, light or attachment (viewport or Object picker) puts
+  EMTR's blue shows/hides diamond pairs and span bar on the reel's upper half, aligned to its frames; an event or sound
+  gets one diamond per event frame. Drag a diamond (follows the pointer once per frame), arrow keys nudge, click jumps
+  the playhead, right-click "Remove this pair" / "Remove", and the button beside the reel adds "+ ◆◆" (a pair, as EMTR) or
+  "+ ◆" (an event frame at the playhead). Edits go through the normal history; camera and selection stay. Nothing shows
+  for bones, several objects or the All timeline; visibility or events on a global sequence show only on that sequence's
+  timeline (selecting the object switches to it, `app/EmitterVisibility.jsx`). Code: `KeyDiamonds` (extracted from
+  `app/ParticleKeyTrack.jsx`, which EMTR still uses), `app/ReelDiamonds.jsx`, CSS moved to `app/key-diamonds.css`;
+  data in `src/emitter-timing.js` (node lookup now includes Lights and Attachments; optional global sequence;
+  `eventDiamonds`/`setEventDiamonds`/`addEventFrame`/`timelineDiamonds`). EMTR reads and writes byte-identically
+  (`test/object-diamonds.test.js` compares main's code on four models). Build 02's thin-tick path and the reel's
+  "Add key at N" item are removed; the reel's transform ticks are main's. Build 03 checks: `pnpm run build`; `pnpm test`
+  57/57; full source suite 3478 tests, 3467 pass, 1 fail (catalogue sizes, then updated: 4 dead strings removed, 3 event
+  strings added in five languages) and the localization files re-run green; packaged on `TestBuilds\node-display-03`:
+  object-display (extended: real clicks and drags on an emitter, a light and an event), emitter-keyframes and
+  particle-feedback (both had failed since build 02's XL changes; emitter-keyframes now runs the VIS look's Visible tick,
+  particle-feedback ticks Objects), animation-effects, ribbon-track (EMTR's diamonds) all pass.
 - **Movement selection/move:** `MOVEMENT_EDITABLE_KINDS` in `src/object-display.js` (bones, attachments, emitters, ribbons,
   events, lights). Sounds can be selected (to show and edit their diamonds) but not moved or rotated in Movement; Bones
   (rest pose) keeps main's behaviour. Research: attachments move on native heroes and 38% carry Visibility keys; sound
@@ -70,8 +83,7 @@ Test build `D:\Claude\MDLxL\TestBuilds\node-display-02`; ready to test, not onli
   "Delete object"; the Movement Delete button (XL, hidden in POSE and Portrait). The Object Manager otherwise works as on main.
 - The Bones sidebar's Refs tick (XL) now shows attachments through Objects and its Attachments tick.
 - **Checks run:** `pnpm run build`; `pnpm test` 57/57; full source suite 3474 tests, 3464 pass, 0 fail (rest skipped;
-  baseline empty), including the new `test/object-display.test.js` (11); packaged on `TestBuilds
-ode-display-02`:
+  baseline empty), including the new `test/object-display.test.js` (11); packaged on `TestBuilds\node-display-02`:
   `object-display` (new), `animation-effects`, `node-effect-controls`, `vis-mdlvis-mode` all pass. Updated tests (XL behaviour
   changed on purpose): display-overlays, herrdave-shell, movement-component, node-effect-controls (source + packaged),
   uv-preview-display, viewport-overlays, vis-mdlvis-mode (source + packaged), animation-effects, localization-catalogs
