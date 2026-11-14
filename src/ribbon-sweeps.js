@@ -17,9 +17,11 @@ const SWEEPS={
  frost:{label:'Frost',ribbon:{Color:[.5,.82,1],Alpha:.5,LifeSpan:.4},emitters:[
   {Name:'Frost sweep mist',texture:T+'Clouds8x8Fade.blp',...atlas(8,64),LifeSpan:.65,EmissionRate:50,Speed:8,Variation:.5,Latitude:180,Gravity:25,Time:.3,scale:[8,12,15],colors:[[.78,.92,1],[.42,.72,1],[.2,.45,1]],Alpha:[120,95,0]},
   {Name:'Frost sweep flakes',texture:T+'snowflake.blp',LifeSpan:.85,EmissionRate:45,Speed:30,Variation:.6,Latitude:180,Gravity:95,Time:.3,scale:[3,2.6,.8],colors:[[1,1,1],[.51,.78,1],[.33,.71,.98]],Alpha:[255,255,0]}]},
- lightning:{label:'Lightning',ribbon:{Color:[.55,.75,1],Alpha:.55,LifeSpan:.2},emitters:[
+ // Thin forks over crackling balls and glints: short lives, almost no drift, white cores cooling to blue.
+ lightning:{label:'Lightning',ribbon:{Color:[.6,.8,1],Alpha:.3,LifeSpan:.18},emitters:[
   {Name:'Lightning sweep forks',texture:T+'Zap1.blp',FrameFlags:BOTH,TailLength:.35,LifeSpan:.2,EmissionRate:45,Speed:120,Variation:.6,Latitude:180,Gravity:0,Time:.3,scale:[3,4.5,1],colors:[[1,1,1],[.6,.82,1],[.3,.42,1]],Alpha:[140,255,0]},
-  {Name:'Lightning sweep flashes',texture:T+'Blue_Star2.blp',LifeSpan:.2,EmissionRate:18,Speed:0,Variation:0,Latitude:180,Gravity:0,Time:.3,scale:[4,8,1],colors:[[1,1,1],[.7,.85,1],[.4,.5,1]],Alpha:[85,230,0]}]},
+  {Name:'Lightning sweep crackle',texture:T+'LightningBall.blp',LifeSpan:.2,EmissionRate:22,Speed:5,Variation:.1,Latitude:180,Gravity:0,Time:.4,scale:[4,9,3],colors:[[1,1,1],[.7,.86,1],[.4,.55,1]],Alpha:[255,255,0]},
+  {Name:'Lightning sweep glints',texture:T+'Sparkle_Anim.blp',...atlas(4,16),LifeSpan:.3,EmissionRate:16,Speed:20,Variation:.2,Latitude:180,Gravity:0,Time:.4,scale:[2.5,6,2.5],colors:[[1,1,1],[.69,.85,.97],[.49,.75,.95]],Alpha:[255,255,0]}]},
  spirit:{label:'Spirit',ribbon:{Color:[.4,1,.68],Alpha:.35,LifeSpan:.5},emitters:[
   {Name:'Spirit sweep wisps',texture:T+'Clouds8x8Fade.blp',...atlas(8,64),LifeSpan:.9,EmissionRate:35,Speed:10,Variation:.5,Latitude:180,Gravity:-70,Time:.3,scale:[6,9,12],colors:[[.7,1,.82],[.3,.95,.6],[.1,.5,.4]],Alpha:[125,95,0]},
   {Name:'Spirit sweep motes',texture:STARTER_TEXTURE,LifeSpan:1,EmissionRate:28,Speed:18,Variation:.6,Latitude:180,Gravity:-95,Time:.3,scale:[2.6,2.2,.4],colors:[[1,1,.95],[.5,1,.72],[.2,.8,.6]],Alpha:[255,220,0]}]},
