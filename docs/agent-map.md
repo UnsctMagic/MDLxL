@@ -19,7 +19,7 @@ App's small state owners are [usePreferences.js](../app/usePreferences.js)
 [PreferencesContext.jsx](../app/PreferencesContext.jsx) (shared preferences and
 `openHotkeySettings`; explicit GamePreview/Viewport preferences still override it),
 [useEditorDisplay.js](../src/useEditorDisplay.js) (XL/VIS clean views and overlays,
-including POSE's display), [view-menu.json](../src/view-menu.json) (one View/Quick Display list for both looks; [View/vertex task](agent-tasks/view-vertex-display.md)), and [usePortraitState.js](../app/usePortraitState.js)
+including POSE's display), [view-menu.json](../src/view-menu.json) (one View/Quick Display list for both looks; [View/vertex task](agent-tasks/view-vertex-display.md)), [object-kinds.js](../src/object-kinds.js) (the object switches Bones, Attachments, Emitters, Events, Sounds, Lights, Collision: `OBJECT_KINDS`, `objectKind`, `objectOverlayOptions`, `EDITOR_KINDS`, `migrateObjectDisplay`; used by [preview-overlays.js](../app/preview-overlays.js) and [viewport-overlays.js](../app/viewport-overlays.js); [objects task](agent-tasks/node-display-plan.md)), and [usePortraitState.js](../app/usePortraitState.js)
 (portrait controls, session resets and remembered backdrop look).
 Shared shell pieces: the classic window and `LoadingWindow` in
 [Dialog.jsx](../app/Dialog.jsx) (`onSubmit` gives an OK/Cancel form), the tool-window

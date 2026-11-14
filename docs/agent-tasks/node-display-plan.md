@@ -1,6 +1,6 @@
 # Objects: one set of words in every editor (plan)
 
-Status: approved by the owner 14 Nov 2026 ("Yes, build it"), with all three recommended answers: Object Manager rename; keep Movement "Visible" tick for lights and attachments only; remove Bones/Skeleton/Focused Skeleton switches from Animations.
+Status: **built** on local branch `claude/node-display-37527c` (commits `022b91e4` code, `3e48e071` packaged tests, then docs), ready to test, not online. Approved by the owner 14 Nov 2026 ("Yes, build it"), with all three recommended answers: Object Manager rename; keep Movement "Visible" tick for lights and attachments only; remove Bones/Skeleton/Focused Skeleton switches from Animations.
 
 ## 1. The words
 
@@ -45,6 +45,36 @@ Fixed along the way: in Bones and Movement, lights and collision could not be sh
 1. **Rename "Node Manager" to "Object Manager"?** It lists every object, so yes, it is all of them. Alt+O stays. *Recommended: yes.*
 2. **Lights and attachments also switch on and off over time, and EMTR cannot edit them.** *Recommended:* keep the small "Visible" tick in Movement for those two only. Nothing is lost, nothing new is added.
 3. **Animations: keep the Bones, Skeleton and Focused Skeleton switches?** You said "just a model preview". *Recommended: remove them there.* They stay in Bones, Movement and POSE.
+
+---
+
+## Built (14 Nov 2026): what differs from the plan below
+
+Everything in sections 1 to 3 is built with the three recommended answers. Differences and findings:
+
+- **Movement Delete is the button only.** The Delete key already removes the selected keyframes in Movement (`App.jsx` command `Delete vertices` → `timelineCommands.delete`), so it keeps doing that; the new button (same icon and name as in Bones, hidden in POSE and Portrait) deletes the object. Owner decision needed only if the key should change.
+- **A fourth emitter-visibility route was found and left alone:** the Object Manager shows "Show at / Hide at / Remove" for an emitter ([NodeEmitterVisibility.jsx](../../app/NodeEmitterVisibility.jsx), commit `094d3578`). The plan did not list it, so it is untouched; removing it needs the owner's word. Selected emitters also still highlight their visibility keys on the Movement timeline (copy, paste, delete of keys), unchanged.
+- **ViS Vertex could move and delete emitters and lights** (with Emitters and Nodes on). Vertex now shows bones only in both looks, so that work is done in Bones (`test/particle-feedback.electron.cjs` moved there).
+- **ViS Animations:** Emitters, Events and Sounds now hide the real effect, as in XL. Sounds therefore play in ViS Animations (they never did in ViS). In ViS Bones and Movement, blood and footprints keep drawing as before; only Animations follows the Events switch.
+- **Saved switches:** besides the planned `nodes` → Lights + Collision (ViS: also Events + Sounds), an old ViS Animations entry starts with all three effects on, because its old Emitters switch only showed a symbol. POSE's display is kept in memory only, so it needs no saved-file migration; `defaultPoseDisplay` just drops `nodes`.
+- **`movementNodeCategories` stays as an alias** of `objectKind` in `app/preview-overlays.js`: the frozen Rotate fixture (`test/fixtures/rotate-frozen/movement-overlay.js`, never edited) imports that name.
+- **"Node Manager" stays in the five catalogues** (unused): it is part of the frozen community Chinese catalogue, and French/German must mirror the key list. The manager's tab now reads "Objects". Per-window hotkeys are keyed `resource:Nodes`, so the rename loses no saved keys. History labels ("Transform bones and nodes", "Delete node" …) are unchanged.
+- **POSE picking** shows bones, attachments, lights and collision as before; odd events (not SND/SPL/UBR/FPT) now follow the Events switch there.
+- The stray `setEditorDisplay(…, 'animation', …)` in the motion-warning jump was a no-op that only wrote a junk key; removed.
+- Cameras and the stale "Cameras" word in MERGER_NOTES are untouched (out of scope).
+- Tool windows (Attachemator, Auto Corpse, OptimizeXL, Showcase, Paint, Model Manager, EMTR, FX) pass their own small switch sets; the unused `nodes: false` entries were dropped and `test/object-kinds.test.js` locks that they draw the same markers as before (none, or attachments / events only).
+
+Checks run on this build (dev Electron on `dist/`, hidden): `pnpm run build`; `pnpm test` 57/57; full source suite 3476 pass, 0 fail (baseline file is empty); packaged tests run one by one and passing: object-display (new), animation-effects, node-effect-controls, object-types, pose-view, manager-simplification, manager-menu-hotkeys, particle-feedback, particle-main-rig, emitter-keyframes, part-bones, node-manager-add, emtr-quick-options, event-animation-frame, motion-inspector. Edited but not run: particle-workflow (needs its library fixtures), vis-mdlvis-mode (packaged runner only) and the files that only had the "Movement object" / "Object Manager" label renamed. The full packaged suite was not run (feature work).
+
+Click-through for the owner (build opens `TEST OBJECT DISPLAY 01.mdx`):
+
+1. Vertex: the switch row has Bones, no Nodes/Emitters/Attachment.
+2. Bones: the row reads Bones, Skeleton, Attachments, Emitters, Events, Sounds, Lights, Collision. Tick Lights: the light appears and can be clicked.
+3. Bones or Movement: tick Emitters, double-click an emitter or ribbon symbol: EMTR opens on it, the camera stays put.
+4. Movement: select an emitter: only "Edit effect". Select a light: "Visible" tick. Press the new red Delete button: the object goes; Ctrl+Z brings it back.
+5. Animations: only Emitters, Events, Sounds, Wireframe, Grid; no symbols; untick Emitters and the particles stop; no "Nodes" list in the sidebar.
+6. Managers menu: "Object Manager…" (Alt+O).
+7. VIS look: same names in the same order.
 
 ---
 
