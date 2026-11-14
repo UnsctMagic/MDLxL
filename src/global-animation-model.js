@@ -346,6 +346,7 @@ function defaultSurfaceSites(c,layer){
  if(layer.gather==='head'&&!layer.siteLayout)return headEmitterSites(c);
  if(strikes(layer)&&!layer.siteLayout)return strikeEmitterSites(c,layer);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
+ if(layer.gather==='orb'&&!layer.siteLayout)return orbSites(c);
  if(layer.gather==='mouth'&&!layer.siteLayout)return mouthEmitterSites(c);
  if(layer.birthRegion&&!layer.siteLayout)return layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
@@ -607,6 +608,12 @@ function coverSites(c,layer){
  cache.set(key,result);
  return result;
 }
+// gather:'orb' (fresh recipes): where a part carries an orb. A slender weapon carries it at its far end, in full view
+// (seated in a blade, the blade hides the middle of it); a compact piece or a body holds it where Fireball sits.
+function orbSites(c){
+ const slender=(c.frame.regions?.length??1)<=SHARED_REGIONS&&c.frame.length>=c.frame.radius*3.5;
+ return slender?tipEmitterSites(c):strikeEmitterSites(c,{gather:'engulf-core'});
+}
 function tipEmitterSites(c){
  const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
  const key='emitter-tip|'+surfaceKey;
@@ -690,7 +697,7 @@ function completeEmitterSiteLayout(c,layer){
  let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
  if(layer.gather&&layout.some(site=>!site.point)){
-  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):layer.gather==='mouth'?mouthEmitterSites(c):tipEmitterSites(c))||[];
+  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):layer.gather==='mouth'?mouthEmitterSites(c):layer.gather==='orb'?orbSites(c):tipEmitterSites(c))||[];
   layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
  }
  const missing=layout.filter(site=>!site.point);
@@ -1266,9 +1273,10 @@ function cardLayer(c,l){
  // height, as wide as the body is there; on a weapon each ring leans out of its plane and turns about the part.
  const body=c.frame.regions?.length>SHARED_REGIONS,twirl=card.facing==='twirl';
  const level=l.whole&&l.seated&&l.tilt!=null&&body&&card.facing!=='ground'&&!twirl?uprightFrame(c):null;
- const seat=!level&&!twirl&&l.whole&&l.seated&&card.facing!=='ground'&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
+ // seat 'orb' (fresh recipes): the card sits where the part carries an orb (orbSites).
+ const seat=level||twirl||!l.whole||card.facing==='ground'?null:l.seat==='orb'?orbSites(c)?.[0]:l.seated&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
  const seatAxis=seat?(body||!seat.tipDirection?z.clone():new Vector3(...seat.tipDirection).normalize()):null;
- const regions=card.facing==='ground'?[null]:level?[{frame:level,weights:[[c.parent,1]]}]:seat?[c.frame.regions[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ const regions=card.facing==='ground'?[null]:level?[{frame:level,weights:[[c.parent,1]]}]:seat?[c.frame.regions?.[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const seatHalf=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach):size;
  let widest=seatHalf;
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
@@ -1320,7 +1328,8 @@ function cardLayer(c,l){
    holder.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,times.map((t,j)=>[t,turn(normal,j===0||j===times.length-1?0:(next()*2-1)*card.jitter)]));
   }
   // The quad, bound to its bone; its picture is one atlas cell (neighbours start on different cells).
-  const cell=((flipbook?card.cell+k*3:card.cell)%cells+cells)%cells,u0=(cell%card.columns)/card.columns,v0=Math.floor(cell/card.columns)/card.rows,du=1/card.columns,dv=1/card.rows;
+  // atlasRect (fresh recipes): the card shows one area of its picture.
+  const cell=((flipbook?card.cell+k*3:card.cell)%cells+cells)%cells,area=!flipbook&&l.atlasRect?.length===4?l.atlasRect:null,u0=area?area[0]:(cell%card.columns)/card.columns,v0=area?area[1]:Math.floor(cell/card.columns)/card.rows,du=area?area[2]:1/card.columns,dv=area?area[3]:1/card.rows;
   const first=vertices.length/3;
   for(const [s,t] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
    vertices.push(...point.clone().addScaledVector(side,s*half).addScaledVector(up,t*half).toArray());normals.push(...normal.toArray());vertexGroup.push(groups.length);

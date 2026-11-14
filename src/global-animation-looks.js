@@ -143,7 +143,7 @@ export const GLOBAL_LOOKS=[
   // ring picture and thin ember streaks turning against it, small flames and embers leaving the surface.
   {id:'swirl',name:'Swirling flames',layers:[
    skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
-   cardSpec('Flame swirl',texture('firering1A'),{facing:'twirl',whole:true,count:2,reach:1.2,turns:1.5,band:1.2,tiling:4,flow:1,spin:1.5,sizeMin:.94,sizeMax:1.08,loop:2700,filter:4,tint:[1,.62,.18]}),
+   cardSpec('Flame swirl',texture('firering1A'),{facing:'twirl',whole:true,count:2,reach:1.2,turns:1.5,band:1.2,tiling:4,flow:1,spin:1.25,sizeMin:.94,sizeMax:1.08,loop:2700,filter:4,tint:[1,.62,.18]}),
    cardSpec('Ember swirl',texture('RibbonBlur1'),{facing:'twirl',whole:true,count:3,reach:1.45,turns:1,band:.35,tiling:2,flow:2,spin:-1,sizeMin:.95,sizeMax:1.08,loop:1800,strength:.8,tint:[1,.45,.1]}),
    spray('Swirl flames',texture('Flame4'),[1,.55,.15],
     {life:.8,rate:30,velocity:.3,gravity:-.6,spread:60,size:[.2,.2,.05],alpha:[120,255,0]},
@@ -296,7 +296,7 @@ export const GLOBAL_LOOKS=[
   ],layers:[
    enchanted(),
    skin('Flowing energy',CLOUDSTILE,{strength:.6,pulse:'beat',tint:[.72,.5,1],tint2:[.35,.55,1],loop:2600}),
-   cardSpec('Twirling energy',texture('RibbonBlur1'),{facing:'twirl',whole:true,count:2,reach:1.15,turns:1.5,band:.6,tiling:2,flow:2,spin:1,sizeMin:.92,sizeMax:1.12,loop:2600,tint:[.62,.42,1]}),
+   cardSpec('Twirling energy',texture('RibbonBlur1'),{facing:'twirl',whole:true,count:2,reach:1.15,turns:1.5,band:.6,tiling:2,flow:2,spin:1,sizeMin:.92,sizeMax:1.12,loop:2533,tint:[.62,.42,1]}),
    cardSpec('Energy wisps',texture('Energy1'),{facing:'twirl',whole:true,count:3,reach:1.5,turns:1,band:1,tiling:2,flow:1,spin:-.5,sizeMin:.95,sizeMax:1.08,loop:3700,strength:.75,tint:[.4,.55,1]}),
    starts(dust('Orbiting motes','motes',texture('GenericGlow64'),{tint:[.8,.7,1],scale:{size:.6}})),
    spray('Arcane sparks',texture('star4_32'),[.75,.62,1],
@@ -489,6 +489,34 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  const kept=id=>fel.variations.find(v=>v.id===id);
  GLOBAL_LOOKS[i]=vary(fel,[kept('original'),translated('fel-licks','flame-licks','Fel licks'),translated('fel-enveloping','enveloping-flames','Enveloping fel flames'),
   translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column'),translated('fel-swirl','swirl','Swirling fel flames'),translated('fel-breath','breath','Fel breath')]);
+}
+{
+ // Team fire (pass 8; owner: "like fire but team, like fel but team - with all the same options"). Fire's variations in
+ // the player's colour. A particle cannot be tinted with that colour; it has to draw the team glow itself. So every fire
+ // layer is drawn with the team glow as its sprite, added as light, and the layer that carries the flame keeps a copy in
+ // its own flame picture, white and fainter: white-hot flame shapes inside fire of the player's colour.
+ const source=GLOBAL_LOOKS.find(l=>l.id==='flaming-sword'),lights=TECHNIQUE_LOOKS.find(l=>l.id==='fx-team-lights');
+ const TEAM_GLOW='ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',WHITE=[[1,1,1],[1,1,1],[1,1,1]];
+ const names={'Fire body':'Team body','Fire core':'Team core','Core glow':'Team glow','Flame sheath':'Team sheath','Flame tongues':'Team tongues','Fire column':'Team column','Fire stream':'Team stream','Flame swirl':'Team swirl','Ember swirl':'Team streaks','Swirl flames':'Team flames','Spat embers':'Team embers','Column embers':'Team embers','Falling sparks':'Team sparks','Breath glow':'Team breath glow'};
+ const flames=new Set(['Fire core','Flame tongues','Fire column','Fire stream','Swirl flames']);
+ const heat=()=>skin('Team heat','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,bodyUV:true,strength:.4,pulse:'soft',tint:[1,1,1]});
+ const teamLayers=spec=>{
+  if(spec.type==='Card')return spec.facing==='twirl'?[{...spec,label:names[spec.label]||spec.label,image:TEAM_GLOW,team:2,filter:3,tint:[1,1,1]}]:[];
+  if(spec.type!=='Particles')return [heat()];
+  // Built-in emitters and the darkening shade have no team form.
+  if(!spec.nativeSpec||spec.nativeSpec.filter===2)return [];
+  const {atlas:_atlas,...shape}=spec.nativeSpec,{LifeSpanUVAnim:_a,DecayUVAnim:_b,PriorityPlane:_p,...native}=spec.native||{};
+  const team={...spec,label:names[spec.label]||spec.label,image:TEAM_GLOW,tint:[1,1,1],nativeSpec:{...shape,texture:TEAM_GLOW,team:true,filter:1},native:{...native,SegmentColor:WHITE}};
+  if(!flames.has(spec.label))return [team];
+  const white={...spec,label:'White flames',tint:[1,1,1],nativeSpec:{...spec.nativeSpec,filter:1,alpha:(spec.nativeSpec.alpha||[235,180,0]).map(a=>Math.round(a*.45))},native:{...spec.native,SegmentColor:[[1,1,1],[1,1,1],[.6,.6,.6]]}};
+  return [team,white];
+ };
+ const translated=(id,from,name)=>({id,name,layers:source.variations.find(v=>v.id===from).layers.flatMap(teamLayers)});
+ GLOBAL_LOOKS.push(vary(make('fx-team-fire','Team fire','',1760,'native',[]),[
+  {id:'flames',name:'Team flames',layers:[heat(),...lights.variations.find(v=>v.id==='flames').layers]},
+  translated('enveloping','enveloping-flames','Enveloping team flames'),translated('fireball','fireball','Team fireball'),
+  translated('column','column','Team column'),translated('swirl','swirl','Swirling team flames'),translated('breath','breath','Team breath'),
+ ]));
 }
 {
  // Crystal veins was its own look until 14 November: one Crystal look, the veins as a variation.
@@ -913,7 +941,7 @@ export const LIBRARY=[
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-orbs'],['motes']]],
- ['Team colour',[['fx-team-colour'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
+ ['Team colour',[['fx-team-colour'],['fx-team-fire'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
  ['Stone',[['sort-basalt','Stone']]],
  ['Death & spirit',[['claude-wraith-form','Spirit'],['fx-soul-vortex','Souls'],['fx-dark-smoke','Shadow'],['sort-blood','Blood']]],

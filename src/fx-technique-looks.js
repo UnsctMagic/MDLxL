@@ -71,6 +71,7 @@ const teamMotes=(extra={})=>teamSpray('Team motes',
 
 // A soul (SoulArmor): the ghost ribbon, blended, its width a third of the ring on each side.
 const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.1,filter:2,strength:1,smoothness:40,...extra});
+const SELECTION='UI\\Feedback\\TargetPreSelected\\SelectionCircleUnit.blp';
 export const TECHNIQUE_LOOKS=[
  vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
   {id:'shell',name:'Glow shell',layers:[
@@ -100,6 +101,29 @@ export const TECHNIQUE_LOOKS=[
   {id:'bands',name:'Running bands',layers:[
    skin('Running bands',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:2,speed:2,strength:.9,tint:[1,1,1],loop:2400}),
    teamShell('Team shell',.5,{loop:4133}),
+  ]},
+  // Tattoo (pass 8; owner: "a team color tattoo? using only native stuff"). The player's colour exists only as a flat
+  // colour and a round glow, and the game cannot cut one picture out of another, so a drawn design in the player's
+  // colour is not possible. What the round glow can paint, lying still on the skin: bands across the part (only the
+  // middle of the glow is used, so each band is a soft line), uneven marks, and spots.
+  {id:'tattoo',name:'Tattoo bands',layers:[
+   skin('Team bands',TEAM_GLOW,{team:2,teamTile:true,fixed:true,axis:'v',band:.1,tiling:4,strength:1,tint:[1,1,1]}),
+  ]},
+  {id:'marks',name:'Tattoo marks',layers:[
+   skin('Team marks',TEAM_GLOW,{team:2,teamTile:true,fixed:true,axis:'v',band:.1,tiling:5,direction:24,strength:1,tint:[1,1,1]}),
+  ]},
+  {id:'spots',name:'Tattoo spots',layers:[
+   skin('Team spots',TEAM_GLOW,{team:2,teamTile:true,fixed:true,bodyUV:true,tiling:3,strength:1,tint:[1,1,1]}),
+  ]},
+  // Void form (pass 8, the owner's Void walker): a body of the player's colour under a dark shade that leaves the colour
+  // showing, and the player's glow boiling off it in every direction.
+  {id:'void',name:'Void form',layers:[
+   skin('Team body',TEAM_COLOUR,{team:1,fixed:true,bodyUV:true,filter:2,strength:.85,tint:[1,1,1]}),
+   skin('Void shade','Units\\Creeps\\VoidWalker\\Shade.blp',{bodyUV:true,filter:2,speed:.25,strength:.8,tint:[1,1,1],loop:4733}),
+   teamSpray('Void aura',
+    {life:.7,rate:15,velocity:.5,spread:180,size:[.5,.45,.3],alpha:[255,170,0]},
+    {cover:'cloud',widthCap:2.2,capMotion:true,native:{Time:.5,Flags:EMITTER_CARRIED}}),
+   teamMotes(),
   ]},
  ]),
  vary(make('team-lights','Team lights',3000,[]),[
@@ -185,16 +209,42 @@ export const TECHNIQUE_LOOKS=[
    {life:.5,rate:16,size:[.02,.16,.02],alpha:[0,255,0]},
    {starts:true,cover:'surface',widthCap:1.1,loop:1933,native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[1,.95,.85],[1,.8,.5]]}}),
  ]),
- make('glow-orb','Glow orb',1600,[
-  spray('Orb glow',tex('GenericGlow64'),[.7,.85,1],
-   {life:1.4,rate:5,size:[.9,1,.9],alpha:[0,150,0]},
-   {starts:true,gather:'engulf-core',widthCap:2.2,native:{Time:.5,Flags:C}}),
-  spray('Orb core',tex('Flare'),[1,1,1],
-   {life:.9,rate:6,size:[.5,.6,.5],alpha:[0,255,0]},
-   {starts:true,gather:'engulf-core',widthCap:.9,loop:2133,native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.9,.95,1],[.7,.85,1]]}}),
-  spray('Orb wisps',tex('GenericGlowX'),[.7,.85,1],
-   {life:1.2,rate:9,velocity:.14,spread:180,size:[.02,.1,.02],alpha:[0,220,0]},
-   {starts:true,gather:'engulf-core',widthCap:.3,loop:2933,native:{Time:.4,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.7,.85,1],[.45,.6,1]]}}),
+ // Pass 8 (owner: "also not really good"). It was three glows seated in the part, where a blade hides their middle. Now
+ // a weapon carries the orb at its far end, in full view (gather 'orb'); a compact piece or a body holds it as before.
+ // And it is an orb: the native ball picture (the grey ball of the ranger skin, in the layer's colour) inside its glow,
+ // a white light at its heart, rings of light leaving it (the owner's Radiance), wisps around it.
+ vary(make('glow-orb','Glow orb',1600,[]),[
+  {id:'original',name:'Glow orb',layers:[
+   spray('Orb glow',tex('GenericGlow64'),[.7,.85,1],
+    {life:1.4,rate:5,size:[.9,1,.9],alpha:[0,150,0]},
+    {starts:true,gather:'orb',widthCap:2.4,native:{Time:.5,Flags:C}}),
+   cardSpec('Orb',tex('Ranger'),{whole:true,seat:'orb',atlasRect:[.836,.03,.136,.136],reach:1.2,filter:2,sizeMin:.95,sizeMax:1.06,loop:2133,tint:[.6,.8,1]}),
+   spray('Orb core',tex('GenericGlow64'),[1,1,1],
+    {life:.9,rate:6,size:[.45,.5,.45],alpha:[0,150,0]},
+    {starts:true,gather:'orb',widthCap:.7,loop:2133,native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.9,.95,1],[.7,.85,1]]}}),
+   spray('Orb rings',SELECTION,[.7,.85,1],
+    {life:.9,rate:2.2,size:[.3,.9,1.5],alpha:[120,200,0]},
+    {starts:true,gather:'orb',widthCap:2.6,loop:2933,native:{Time:.3,Flags:C}}),
+   spray('Orb wisps',tex('GenericGlowX'),[.7,.85,1],
+    {life:1.2,rate:9,velocity:.14,spread:180,size:[.02,.1,.02],alpha:[0,220,0]},
+    {starts:true,gather:'orb',widthCap:.3,loop:2933,native:{Time:.4,Variation:.5,Flags:C,SegmentColor:[[1,1,1],[.7,.85,1],[.45,.6,1]]}}),
+  ]},
+  // Radiance (pass 9, the owner's reference): rings that grow and fade, long star flashes, a faint wide glow under them
+  // and small stars thrown out of the middle. Gold as measured; the colour of each layer changes it.
+  {id:'radiance',name:'Radiance',layers:[
+   spray('Radiant glow',tex('GenericGlow64'),[1,.7,.1],
+    {life:.4,rate:30,size:[.8,1,.8],alpha:[0,50,0]},
+    {starts:true,gather:'orb',widthCap:2.6,native:{Time:.5,Flags:C}}),
+   spray('Radiant rings',SELECTION,[1,.75,.2],
+    {life:.75,rate:8,area:.25,velocity:.06,spread:180,size:[.2,.5,1],alpha:[120,255,0]},
+    {starts:true,gather:'orb',widthCap:1.7,loop:2133,native:{Time:.25,Flags:C}}),
+   spray('Star flashes',tex('Flare'),[1,.8,.4],
+    {life:.9,rate:5,velocity:.12,spread:180,tail:1.3,size:[.5,1,.5],alpha:[0,255,0]},
+    {starts:true,gather:'orb',widthCap:2.8,loop:2933,native:{Time:.5,Variation:.3,FrameFlags:2,Flags:C}}),
+   spray('Radiant stars',tex('star5tga'),[1,.85,.4],
+    {life:.66,rate:30,velocity:.7,spread:180,size:[.2,.3,.01],alpha:[0,200,255]},
+    {starts:true,gather:'orb',widthCap:.5,capMotion:2.4,loop:1933,native:{Time:.4,Variation:.5,Flags:C,SegmentColor:[[1,1,.9],[1,.85,.4],[1,.6,.2]]}}),
+  ]},
  ]),
  make('burning-cracks','Burning cracks',2000,[
   skin('Burning cracks','Doodads\\Cinematic\\EyeOfSargeras\\Demon_Rune_Cracks.blp',{fixed:true,bodyUV:true,pulse:'beat',tint:[1,.3,0],tint2:[1,.22,.12],strength:1}),
