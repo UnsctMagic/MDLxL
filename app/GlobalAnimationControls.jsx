@@ -43,7 +43,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  const row=(label,key,min,max,step,tip)=> <div title={tip}><NumberField label={label} min={min} max={max} step={step} value={l[key]} onChange={n=>update(key,Math.max(min,Math.min(max,n)))}/></div>;
  // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
  const swarm=!!l?.swarm&&l?.type==='Particles';
- const result=graph?.layers?.[l?.id],p=l?.type==='Particles'&&!swarm,edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card';
+ const result=graph?.layers?.[l?.id],p=l?.type==='Particles'&&!swarm,edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card',growth=l?.type==='Growth';
  const selectedId=selectedSite?result?.ids?.find(id=>graph.model.Nodes[id]._FxTag.endsWith('/'+selectedSite)):result?.id;
  const real=selectedId!=null?graph.model.Nodes[selectedId]:null;
  const surface=graph?.model.Geosets[result?.geoset];
@@ -241,6 +241,17 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {card&&<>
    <label className="field" title="Which way the card faces: the camera, the ground, along the part, or across it. Twirl winds strands around the part."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part',across:'Across',twirl:'Twirl'}[id]}</option>)}</ChoiceSelect></label>
    {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}
+  </>}
+  {growth&&<>
+   {[['Count','count',1,200,1,v=>String(Math.round(v)),'How many pieces grow on the part.'],
+     ['Size','size',.2,Math.max(20,(l.size||1)*4),.1,v=>v.toFixed(1),'Width of each piece.'],
+     ['Length','long',.3,8,.05,v=>v.toFixed(2)+'×','Length of each piece, in widths.'],
+     ['Spread','spread',0,1,.01,v=>Math.round(v*100)+'%',l.shape==='leaf'?'How far the leaves stand off the surface.':'How far the spikes lean away from straight out.'],
+     ['Variety','variety',0,1,.01,v=>Math.round(v*100)+'%','How much the pieces differ in size.'],
+     ...(l.shape==='leaf'?[]:[['Glow','glow',0,1,.01,v=>Math.round(v*100)+'%','Light added over the pieces. Rhythm moves it.']]),
+    ].map(([label,key,min,max,step,output,tip])=><RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={l[key]??0} onCommit={v=>update(key,key==='count'?Math.round(v):v)}/>)}
+   <div className="fx-layer-actions"><button title="Grow the pieces in other places." onClick={()=>update('seed',(l.seed??1)+1)}>Shuffle</button></div>
+   {l.shape!=='leaf'&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><ChoiceSelect aria-label="Rhythm" value={l.pulse??'steady'} onChange={value=>setLayer({...l,pulse:value})}>{RHYTHMS.map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}
   </>}
   {(surf||card)&&<label className="field" title="How the layer's light or colour changes over its loop."><span>Rhythm</span><ChoiceSelect aria-label="Rhythm" value={rhythm} onChange={value=>setLayer(withRhythm(value))}>{[...RHYTHMS,...(rhythm===''||!RHYTHMS.some(([id])=>id===rhythm)?[[rhythm,'Built-in']]:[])].map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}
   {surf&&<label className="field" title="How this layer mixes with what is behind it."><span>Blend</span><ChoiceSelect aria-label="Blend" value={blend??''} onChange={value=>setLayer(withBlend(l,Number(value)))}>{blend==null&&<option value="" disabled/>}{BLEND_CHOICES.map(([id,name])=><option key={id} value={id}>{name}</option>)}</ChoiceSelect></label>}

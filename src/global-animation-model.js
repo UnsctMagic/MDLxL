@@ -1435,6 +1435,98 @@ function flySwarm(c,l){
  quadBounds(c,g,points,widest*Math.SQRT2+radius*.15);
  return {geoset:overlay(c,g,material,l.tint,m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
 }
+/**
+ * Growth layer (pass 8). The owner, 14 November: "many small crystals (actual geosets) added to the unit with sliders to
+ * adjust the spikes - make sure they always attach to the geoset properly - e.g no gaps from skin to geoset." This is the
+ * one layer that makes new solid geometry, on that explicit request.
+ * Pieces are spread over the part's surface by area, from a seed, so the same layer always grows the same way. Every piece
+ * is bound to the very bones of the skin it stands on (the matrix group of the nearest corner of its triangle), so it
+ * moves exactly as that spot of skin moves; and its foot starts under the surface, so no gap can open between them.
+ * shape 'crystal': a faceted spike (a shaft and a point), flat-shaded. shape 'leaf': a two-sided card of one cell of a
+ * leaf picture, its stem in the skin, lying along the surface (the owner's Demigod Cenarius).
+ */
+function growthLayer(c,l){
+ const {model:m,source,tag}=c,v=source.Vertices,faces=source.Faces,normalsIn=source.Normals;
+ const count=Math.max(1,Math.min(400,Math.round(l.count??24))),size=Math.max(.05,l.size||1),long=Math.max(.1,l.long??2.2);
+ const spread=Math.max(0,Math.min(1,l.spread??.35)),variety=Math.max(0,Math.min(1,l.variety??.5)),leaf=l.shape==='leaf';
+ const next=shake(1000+Math.round(l.seed??1)*7919);
+ const P=i=>new Vector3(v[i*3],v[i*3+1],v[i*3+2]),N=i=>normalsIn?.length===v.length?new Vector3(normalsIn[i*3],normalsIn[i*3+1],normalsIn[i*3+2]):null;
+ // Triangles by area; places are taken at even steps of the total area, so the pieces cover the part evenly.
+ const areas=[];let total=0;
+ for(let f=0;f<faces.length;f+=3){const a=P(faces[f]),b=P(faces[f+1]),d=P(faces[f+2]);const area=b.sub(a).cross(d.sub(a)).length()/2;total+=area;areas.push(total);}
+ const vertices=[],normals=[],uvs=[],out=[],vertexGroup=[],groups=[],groupOf=new Map(),tips=[];
+ const bind=vertex=>{const from=source.VertexGroup?.[vertex]??0;if(!groupOf.has(from)){groupOf.set(from,groups.length);groups.push([...(source.Groups?.[from]||[c.parent])]);}return groupOf.get(from);};
+ const cells=leaf?Math.max(1,Math.round(l.atlas??1)):1;
+ const push=(point,normal,u,w,group)=>{vertices.push(point.x,point.y,point.z);normals.push(normal.x,normal.y,normal.z);uvs.push(u,w);vertexGroup.push(group);return vertices.length/3-1;};
+ let widest=0;
+ if(total>0)for(let i=0;i<count;i++){
+  const want=(i+next())/count*total;let lo=0,hi=areas.length-1;
+  while(lo<hi){const mid=(lo+hi)>>1;if(areas[mid]<want)lo=mid+1;else hi=mid;}
+  const f=lo*3,ids=[faces[f],faces[f+1],faces[f+2]],a=P(ids[0]),b=P(ids[1]),d=P(ids[2]);
+  let r1=next(),r2=next();if(r1+r2>1){r1=1-r1;r2=1-r2;}
+  const weights=[1-r1-r2,r1,r2],at=a.clone().multiplyScalar(weights[0]).addScaledVector(b,weights[1]).addScaledVector(d,weights[2]);
+  const flat=b.clone().sub(a).cross(d.clone().sub(a)).normalize(),corner=N(ids[0]);
+  const normal=corner?corner.multiplyScalar(weights[0]).addScaledVector(N(ids[1]),weights[1]).addScaledVector(N(ids[2]),weights[2]):flat.clone();
+  if(normal.lengthSq()<1e-8)normal.copy(flat);normal.normalize();
+  // Straight out of the face it stands on, on the side the skin's own normals point to: on a thin blade the smoothed
+  // vertex normals point along the blade's width, not out of its faces.
+  if(flat.lengthSq()>.5)normal.multiplyScalar(.3).addScaledVector(flat,flat.dot(normal)<0?-.7:.7).normalize();
+  const group=bind(ids[weights.indexOf(Math.max(...weights))]);
+  // A direction along the surface, from the seed.
+  const any=new Vector3(next()*2-1,next()*2-1,next()*2-1),along=any.addScaledVector(normal,-any.dot(normal));
+  if(along.lengthSq()<1e-6)along.copy(b).sub(a);along.normalize();
+  const scale=1-variety*.7*next(),width=size*scale;
+  if(leaf){
+   // The leaf hangs: its direction leans toward the ground along the surface. Spread lifts it off the surface.
+   const down=new Vector3(0,0,-1).addScaledVector(normal,normal.z);if(down.lengthSq()>1e-4)along.addScaledVector(down.normalize(),1.2).normalize();
+   const lift=(spread*.9+.08*next())*Math.PI/2,reach=along.clone().multiplyScalar(Math.cos(lift)).addScaledVector(normal,Math.sin(lift)).normalize();
+   const across=new Vector3().crossVectors(normal,along).normalize().multiplyScalar(width*.5),face=new Vector3().crossVectors(across,reach).normalize();
+   const foot=at.clone().addScaledVector(normal,-width*.08),end=foot.clone().addScaledVector(reach,width*long);
+   const cell=Math.floor(next()*cells*cells)%(cells*cells),u0=(cell%cells)/cells,v0=Math.floor(cell/cells)/cells,du=1/cells;
+   const q=[push(foot.clone().sub(across),face,u0,v0+du,group),push(foot.clone().add(across),face,u0+du,v0+du,group),push(end.clone().add(across),face,u0+du,v0,group),push(end.clone().sub(across),face,u0,v0,group)];
+   out.push(q[0],q[1],q[2],q[0],q[2],q[3]);tips.push(end.toArray());widest=Math.max(widest,width);
+   continue;
+  }
+  // Crystal: a spike of 3 to 5 sides. Spread leans it away from straight out; every second one is a smaller companion
+  // leaning further, so crystals stand in clusters like grown ones.
+  const companion=i%2===1,lean=spread*(companion?1.5:.8)*(.4+.6*next());
+  const dir=normal.clone().addScaledVector(along,lean).normalize(),radius=width*.5*(companion?.7:1),height=width*long*(companion?.65:1)*(1-variety*.4*next());
+  const sides=3+Math.floor(next()*3),side=new Vector3().crossVectors(dir,along).normalize(),front=new Vector3().crossVectors(side,dir).normalize();
+  const ring=(distance,r)=>Array.from({length:sides},(_,s)=>{const angle=2*Math.PI*(s+.5*(i%2))/sides;return at.clone().addScaledVector(dir,distance).addScaledVector(side,Math.cos(angle)*r).addScaledVector(front,Math.sin(angle)*r);});
+  // The foot starts under the skin, by most of the crystal's own radius.
+  const foot=ring(-radius*.8,radius),shoulder=ring(height*.62,radius*.82),tip=at.clone().addScaledVector(dir,height);
+  const u0=next()*.7,v0=next()*.6,span=.3;
+  for(let s=0;s<sides;s++){
+   const t=(s+1)%sides,faceNormal=shoulder[s].clone().sub(foot[s]).cross(foot[t].clone().sub(foot[s])).normalize();
+   if(faceNormal.dot(foot[s].clone().add(foot[t]).multiplyScalar(.5).sub(at))<0)faceNormal.negate();
+   const ua=u0+span*s/sides,ub=u0+span*(s+1)/sides;
+   const q=[push(foot[s],faceNormal,ua,v0+span,group),push(foot[t],faceNormal,ub,v0+span,group),push(shoulder[t],faceNormal,ub,v0+span*.38,group),push(shoulder[s],faceNormal,ua,v0+span*.38,group)];
+   out.push(q[0],q[1],q[2],q[0],q[2],q[3]);
+   const pointNormal=tip.clone().sub(shoulder[s]).cross(shoulder[t].clone().sub(shoulder[s])).normalize();
+   if(pointNormal.dot(shoulder[s].clone().add(shoulder[t]).multiplyScalar(.5).sub(at.clone().addScaledVector(dir,height*.62)))<0)pointNormal.negate();
+   const p=[push(shoulder[s],pointNormal,ua,v0+span*.38,group),push(shoulder[t],pointNormal,ub,v0+span*.38,group),push(tip,pointNormal,(ua+ub)/2,v0,group)];
+   out.push(p[0],p[1],p[2]);
+  }
+  tips.push(tip.toArray());widest=Math.max(widest,radius);
+ }
+ if(!tips.length)tips.push(c.frame.center.toArray());
+ const base=l.loop!=null?Math.max(100,Math.round(l.loop)):c.ms,clock=l.loop!=null?clockFor(m,base,c.createdClocks):c.id;
+ const texId=l.team?teamTexture(m,l.team,tag):texture(m,l.image,!leaf,tag);
+ // One solid layer; Glow adds the same picture as light over it, and the layer's rhythm moves that light.
+ const solid={TextureID:texId,CoordId:0,TVertexAnimId:null,FilterMode:l.filter??(leaf?1:0),Shading:(l.unshaded?1:0)|16,Alpha:1};
+ const passes=strengthPasses([solid],l.strength??1);
+ const glow=Math.max(0,Math.min(1,l.glow??0));
+ if(glow>0){
+  const shape=l.pulse==null||l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||null;
+  const light=l.team?texture(m,l.glowImage||'Textures\\CrystalOpaque.blp',true,tag):texId;
+  passes.push({TextureID:light,CoordId:0,TVertexAnimId:null,FilterMode:3,Shading:1|16|32,Alpha:shape?keys(clock,base,shape.map(([t,a])=>[t,a*glow]),l.pulse==='soft'?3:1):glow});
+ }
+ const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:passes});
+ const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(out),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups.length?groups:[[c.parent]],TotalGroupsCount:Math.max(1,groups.length),MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
+ if(m.Version>=900)g.LevelOfDetail=0;
+ quadBounds(c,g,tips,widest+size);
+ return {geoset:overlay(c,g,material,rhythmColour({...c,id:clock,ms:base},l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),0)};
+}
 function runeLayer(c,l){
  return skinLayer({...c,prior:c.prior?{...c.prior,type:'Glow',pulse:c.prior.pulse||'breathe'}:null},{...l,type:'Glow',pulse:l.pulse||'breathe',axis:'v',band:.8,bodyUV:false});
 }
@@ -1558,7 +1650,7 @@ const CARRIED_RATIOS=['ParticleScaling','Speed','Gravity','Width','Length','Life
  * or time as its ratio to what the layer makes without the edit (fieldScale), a colour, opacity or angle as itself.
  */
 // What a look fits to the whole part, not to one emitter: a ribbon's ring and width, a swarm's radius, how many drops fall.
-const RECIPE_FITTED=layer=>layer.type==='Edge'?['orbitRadius','upper','lower']:layer.swarm?['size']:layer.kind==='drops'?['amount']:[];
+const RECIPE_FITTED=layer=>layer.type==='Growth'?['size']:layer.type==='Edge'?['orbitRadius','upper','lower']:layer.swarm?['size']:layer.kind==='drops'?['amount']:[];
 /**
  * A layer the look made follows the look's own rules to the new part: the value the look gives there, times how far the
  * user had moved it from the value the look gave on the old part. An untouched layer is exactly the fresh one. (The
@@ -1665,7 +1757,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   const prior=before?.look===draft.look?before.layers.find(item=>item.id===l.id):null;
   const recipeChanged=prior&&l.recipeOwner===draft.look&&before.variation!==draft.variation;
   // A surface layer, Edge or native emitter with its own Loop length runs on its own owned clock.
-  const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
+  const own=l.loop!=null&&!draft.impact&&(surfaceIngredient(l)||l.type==='Edge'||l.type==='Growth'||!!l.nativeSpec)?Math.max(100,Math.round(l.loop)):null;
   const tag=owner+'/'+l.id,context={sites:sites[l.id]=[],model,source:surface,index,base,frame,parent:effectAnchor(model,surface),id:own?clockFor(model,own,created):id,ms:own??ms,tag,used,rune,prior,recipeChanged,state,createdClocks:created,stack:draft,attachmentCache,surfaceKey,sameGroup,sameClock:before?.loop===ms&&prior?.loop===l.loop};
   context.autoSites=defaultSurfaceSites(context,l);
   context.siteLayout=l.ride?undefined:completeEmitterSiteLayout(context,l);
@@ -1687,6 +1779,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   else if(l.type==='Edge')edgeLayer(context,l);
   else if(l.type==='Rune')runeLayer(context,l);
   else if(l.type==='Card')cardLayer(context,l);
+  else if(l.type==='Growth')growthLayer(context,l);
   else skinLayer(context,l);
   if(l.individuals&&sites[l.id].length){
    const keys=new Set(sites[l.id].map(site=>site.key));

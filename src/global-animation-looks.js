@@ -854,6 +854,56 @@ const fliesSpec=()=>({...dust('Orbiting flies','flies',texture('Abomination')),s
   ]},
  ]);
 }
+// Growths (pass 8): pieces grown on the part's own surface, bound to the bones of the skin under them (growthLayer).
+// Crystals are the owner's request of 14 November; leaves follow his Demigod Cenarius reference.
+const growth=(label,shape,image,extra={})=>({type:'Growth',label,shape,image,...extra});
+{
+ const CRYSTAL=[.75,.9,1],glints=lookById('fx-lit-crystal').layers.find(s=>s.label==='Facet glints');
+ fold('fx-lit-crystal',[
+  ...own('fx-lit-crystal'),
+  {id:'growth',name:'Crystal growth',layers:[
+   growth('Crystals','crystal',texture('CrystalOpaque'),{tint:CRYSTAL,count:28,glow:.45,pulse:'soft',loop:2933}),
+   glints,
+  ]},
+  {id:'team-growth',name:'Team crystals',layers:[
+   growth('Team crystals','crystal','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,tint:[1,1,1],count:28,glow:.6,pulse:'soft',loop:2933}),
+   glints,
+  ]},
+ ]);
+ const ice=lookById('frost-blade').variations;
+ fold('frost-blade',[
+  ...ice,
+  {id:'spikes',name:'Ice spikes',layers:[
+   ...ICE_VARIANTS.dark,
+   growth('Ice spikes','crystal',texture('Ice_Icedull'),{tint:[.82,.94,1],count:32,long:2.8,spread:.3,glow:.3,pulse:'soft',loop:3467}),
+   starts(frost()),
+  ]},
+ ]);
+ // Ember crystals (pass 9, the owner's Vengeful Spirit: "demonic fire energy, shimmering, almost like fire crystals").
+ // Its crystals are plain meshes of the ember picture drawn as light; the shimmer comes from ember sprites around them
+ // that change size quickly.
+ fold('lava',[
+  ...own('lava'),
+  {id:'crystals',name:'Ember crystals',asOverlay:true,loop:2000,layers:[
+   skin('Ember flow',texture('LavaLump'),{axis:'v',band:.6,strength:.7,tint:[1,.5,.14],loop:2000}),
+   skin('Crossing embers',texture('LavaLump'),{axis:'v',band:.6,direction:180,strength:.5,tint:[1,.35,.1],loop:1167}),
+   growth('Ember crystals','crystal',texture('LavaLump'),{filter:3,unshaded:true,tint:[1,.55,.16],count:24,long:2.6,spread:.45}),
+   spray('Ember shimmer',texture('LavaLump'),[1,.6,.2],
+    {life:.35,rate:26,size:[.1,.22,.12],alpha:[0,230,0]},
+    {starts:true,cover:'surface',widthCap:1,loop:1933,native:{Time:.4,Variation:.6,Flags:C,SegmentColor:[[1,.9,.5],[1,.55,.16],[.8,.15,.03]]}}),
+   {...embers(),starts:true,amount:8},
+  ]},
+ ]);
+ // Leaf cover: leaves lying on the part, each a card of one leaf of the native leaf sheet, stem in the skin.
+ const vines=lookById('sort-briar').variations,fall=vines[0].layers.find(s=>s.label==='Falling leaves');
+ fold('sort-briar',[
+  ...vines,
+  {id:'leaves',name:'Leaf cover',layers:[
+   growth('Leaves','leaf',texture('Leaf4x4'),{atlas:4,count:60,fit:1.8,long:1.5,spread:.22,variety:.5}),
+   {...fall,nativeSpec:{...fall.nativeSpec,rate:4}},
+  ]},
+ ]);
+}
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
@@ -1131,6 +1181,13 @@ export function makeLayer(spec,frame,palette,id) {
   return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:spec.offset?[...spec.offset]:[0,0,0],count:spec.count??1,
    // reach: the card's half-width as a share of the whole part's radius (a ring that has to clear the part).
    size:spec.size??(spec.reach!=null&&frame?.radius>0?frame.radius*spec.reach:(spec.facing==='ground'?groundCardSize(basis):cardSize(basis))*fit)};
+ }
+ if(spec.type==='Growth'){
+  // Pieces grown on the surface (crystals, leaves). Size: a piece's width, fitted to the whole part; fit scales it.
+  const defaultTint=spec.tint??[1,1,1],{starts:_starts,fit=1,...saved}=structuredClone(spec);
+  const whole=frame?.radius>0?Math.min((frame.length||40)*.06,frame.radius*.25):basis.unit;
+  return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:[0,0,0],
+   count:spec.count??24,size:spec.size??Math.max(.5,Math.round(whole*fit*100)/100),long:spec.long??2.2,spread:spec.spread??.35,variety:spec.variety??.5,seed:spec.seed??1};
  }
  const p=basis.properties[spec.kind]||LAYER_UNIT_FALLBACK;
  const defaultTint=spec.tint??(spec.water?[.65,.83,.99]:spec.kind==='flies'?[1,1,1]:tintFromHex(surfacePalette({palette})[0][1]));
