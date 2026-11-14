@@ -288,3 +288,30 @@ Global differences (all affect every listed look):
 ## 6. Codex's unified particle controls (7e9660b2)
 
 `app/GlobalAnimationControls.jsx:194-216` now gives every Particles layer (built-in, native, swarm) the same panel: a `LifeTable` (SegmentColor/Alpha/ParticleScaling per stage), sliders for EmissionRate, LifeSpan, ParticleScaling, Speed, Gravity and, under More, Width, Length, Latitude, Variation, `burstWindow`/`burstGap` (layer fields), the middle-stage `Time` marker, Blend (`FilterMode`), Carry (Model-Space flag), Draw-as, `TailLength`, the frame strip (`Rows/Columns/*UVAnim/TextureID`) and Squirt modes, plus **Emitters** (`siteCount`) and **Formation** (`formation`, or swarm `size`). All emitter-field edits are written to `layer.native[field]` (single site) or to per-site `individuals[key].values.native[field]` with `groupFields` (group edit, `nativeFinish`), so after any edit the layer carries raw `native` keys indistinguishable from a recipe-authored `native:{...}`; compile re-applies them last (GAM:503,691) and `readAnimationStack` reads EMTR edits back into `layer.native` (GAM:985-996). Consequence for a recipe designer: put intent in `nativeSpec`/`scale` and use `native` only for fields the table above says have no spec equivalent; hand-set `native` values pin the field against Intensity, Size and Speed sliders (compare 4, item 8).
+
+---
+## 7. Added in passes 5 and 6 (13 to 14 November 2026)
+
+Line numbers above are from 7e9660b2; these fields came later. All of them are read from fresh layers only: a saved layer without the field compiles as it did.
+
+| Field | On | Meaning |
+|---|---|---|
+| `burstCount`, `burstGap`, `burstWindow` | native emitter | Bursts on a stepped EmissionRate track; the layer's sites take turns in a scattered order (`burstTurn`), each start shifted by up to half the gap. |
+| `liftFit` | surface layer (`makeLayer`) | Shell lift as a share of the part-fitted unit; stored as `inflate`. No library look uses it since pass 6. |
+| `closedLift` | surface layer | Set by `makeLayer` when the recipe itself lifts the layer (`inflate` or `liftFit`). Vertices at one place move along their shared normal, so the shell of a hard-edged part stays closed (`overlay`). A Lift the user adds to a layer made without one moves each vertex along its own normal, as before. |
+| `capMotion` | native emitter with `widthCap` | `true`: Speed and Gravity are scaled by the same factor the cap shrank the sprite by, so a flame climbs as many of its own widths on any part. A number: follow a sprite capped at that many widths instead (embers that rise with a flame). |
+| `fieldScale` `{field: ratio}` | particle layer | A whole-layer slider edit carried to another part (`carryAnimationStack`). Applied after the layer's own values to ParticleScaling, Speed, Gravity, Width, Length, LifeSpan or TailLength, unless the layer or the emitter sets that field itself (`applyFieldScale`). |
+| `whole` | Card, Edge | One set for the whole part (the part's own frame, parent bone `effectAnchor`) instead of one for each skin region. |
+| `sharedSites` | Card, Edge | On a part with more than four skin regions the cards or ribbons go to its longest regions, four regions' worth in all (`emissionShares`). Up to four regions: no change. Ignored with `whole`. |
+| `along` | Card, Edge | Place on the part's length as a share of that length from the middle (`-.28` is 28% toward one end). Read at compile, so it follows the layer to another part. |
+| `reach` | Card, orbit Edge (`makeLayer`) | Size from the whole part: a card's half-width or a ring's radius as a share of the part's radius (`frame.radius`, the farthest point from its axis). The layer keeps `reach`; `stackForPart` uses it to refit the size to another part. |
+| `band`, `smoothness` | orbit Edge (`makeLayer`) | Ribbon width as a share of the ring's radius, at most 6% of the part's length; ribbon EmissionRate. |
+| facing `'across'` | Card | The card stands across the part, which passes through its middle (`CARD_FACINGS`, `cardLayer`). Spin turns it about the part's axis. |
+
+Placement rules learned in pass 6:
+
+* A Card or an Edge sits on the centre line of a region. On a thin part it shows around the part; inside a thick part it is hidden. What has to show on any part is a particle layer with `cover` or `gather`, or a ring wider than the part (`whole` with `reach` above 1).
+* A copy of the part lifted by a small `inflate` (the crystal skins had .05 to .13) can fight the surface under it for depth, and on a hard-edged mesh it opens at the edges. That is the likely cause of the Lit crystal tearing in build 05; no render confirmed which of the two it was. A skin with a detailed picture lies on the surface (`inflate` 0); only soft glow shells are lifted.
+* Fel fire's variations are made from Fire's (`global-animation-looks.js`, the block after the tidal one). Change a Fire variation and the fel one follows.
+
+Carrying a stack to another part (`stackForPart` in `fx-own-looks.js`, `carryAnimationStack` in `global-animation-model.js`): the stack is refitted like a saved look. Single emitters moved or edited by hand, and a baked layout, stay behind; an edited emitter count keeps its number and is laid out again; whole-layer slider edits become `fieldScale` ratios or, for colours, opacity and angles, layer values.

@@ -37,7 +37,8 @@ export const fireHair=()=>spray('Fire hair',tex('clouds_anim1_bw'),FIRE,
 
 const C=EMITTER_CARRIED;
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
-// No lift: a copy pushed out along the normals of a hard-edged crystal comes apart at every edge (the tearing in test build 05).
+// No lift (the tearing in test build 05): a copy a hair off the surface fights it for depth, and on a hard-edged
+// crystal a copy pushed out along the normals opens at every edge. On the surface itself neither can happen.
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,tint:crystal,strength:1});
 const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{sharedSites:true,count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
 
@@ -147,7 +148,13 @@ export const TECHNIQUE_LOOKS=[
  make('soul-vortex','Soul vortex',2800,[
   orbit('Soul stream',tex('RibbonBlur1'),soul,{orbitTurns:2,strength:.6,lasts:.6}),
   orbit('Second stream',tex('RibbonBlur1'),soul,{orbitTurns:2,loop:3100,fit:.75,strength:.6,lasts:.6}),
-  starts(spray('Inward souls',tex('Tornado2b'),[.75,.95,1],{flat:true,life:.8,rate:4.5,velocity:-.15,spread:.5,size:[1.3,.95,.28],alpha:[100,160,186]},{ground:true})),
+  // Inward souls is a flat swirl on the ground under the unit (71 units wide for a long sword): an aura. The owner wants
+  // no auras, so it is offered, not started. Soul wisps rise around the part itself instead.
+  spray('Inward souls',tex('Tornado2b'),[.75,.95,1],{flat:true,life:.8,rate:4.5,velocity:-.15,spread:.5,size:[1.3,.95,.28],alpha:[100,160,186]},{ground:true}),
+  spray('Soul wisps',tex('GenericGlowX'),soul,
+   {life:1.4,rate:12,velocity:.1,gravity:-.25,spread:40,size:[.03,.1,.02],alpha:[0,200,0]},
+   {starts:true,cover:'around',birthAcross:1.3,widthCap:.5,loop:2933,
+    native:{Time:.4,Variation:.4,Flags:C,SegmentColor:[[1,1,1],[.6,.9,1],[.35,.6,1]]}}),
  ]),
  make('ground-glow','Ground glow',1600,[
   cardSpec('Ground glow','ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',{team:2,facing:'ground',count:2,sizeMin:.83,sizeMax:1.17,strength:.75,tint:[1,1,1]}),
