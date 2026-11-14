@@ -23,7 +23,7 @@ import { blendForgeFaces, forgeDetailFaces, forgeDetailPreview, forgeRepeatDefau
 import {magnetizeForgeDetail,moveMagnetizedDetail,refitMagnetizedDetail,closeForgeDetail} from '../src/forge-detail-magnet.js';
 
 // Small, static previews use the same geometry as the shape being added.
-function ShapeThumbnail({ shape }) {
+export function ShapeThumbnail({ shape }) {
   const faces = useMemo(() => {
     const mesh = buildForgePrimitive({ ...PRIMITIVE_DEFAULTS, shape, complexity: 1 });
     const flat = FLAT_FORGE_SHAPES.includes(shape) || shape === 'ThumperXL', vertices = [], triangles = [];

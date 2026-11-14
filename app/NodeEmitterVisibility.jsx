@@ -1,12 +1,13 @@
 import React from 'react';
 import { SelectField } from './Fields.jsx';
+import { globalSequenceId } from '../src/animation.js';
 import { readAnimationTrack, setAnimationKey, deleteAnimationKey } from '../src/animation-tracks.js';
 
 // Emitter visibility keys in the Nodes manager, laid out like event tracks:
 // frame buttons seek, then show/hide at the current frame or remove its key.
 export default function NodeEmitterVisibility({ node, model, edit, frame, onSeek, sequenceIndex, onSequenceChange }) {
   const target = { kind: 'node', id: node.ObjectId, property: 'Visibility' }, track = readAnimationTrack(model, target);
-  const keyed = Array.isArray(track?.Keys), global = keyed && Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0 ? track.GlobalSeqId : -1;
+  const keyed = Array.isArray(track?.Keys), global = keyed ? globalSequenceId(track) ?? -1 : -1;
   const duration = global >= 0 ? model.GlobalSequences?.[global] : 0, interval = model.Sequences?.[sequenceIndex]?.Interval;
   const at = global >= 0 && duration > 0 ? frame % duration : frame;
   const keys = keyed ? track.Keys.filter(key => global >= 0 || !interval || key.Frame >= interval[0] && key.Frame <= interval[1]) : [];

@@ -1,9 +1,8 @@
 # Resource managers
 
-The editor-row Managers button opens Materials in the full editor workspace.
-The eight existing managers and Model share the same tabs. Top-menu manager
-commands still open movable popups. Existing controls and normal preview camera
-interaction are retained. See the [manager task](agent-tasks/manager-polish.md).
+The Managers menu opens the resource managers and Surface Effects in movable
+windows. Each menu entry shows its current hotkey. The resource windows share
+tabs for the eight managers and Model.
 
 Model edits the internal name and native collision spheres/boxes. New shapes fit
 the bind-pose mesh. Drag the center to move, edge handles to resize, or use size
@@ -29,8 +28,11 @@ and frame one geoset, including shared-material cases.
 
 ## Event objects
 
-Sound, Blood Splat, Footprint, Uber Splat and Spawn Object choices load from the
-configured game files. Native IDs and names are used; no game assets are bundled.
+Node Manager → New opens the Sound, Blood Splat, Footprint, Uber Splat and Spawn
+Object categories. Browse the configured game files, choose an entry, then click
+Add event. The same New panel creates lights and opens EMTR Library or the
+Sphereomancer stage. Create bones, helpers and attachments in their editors.
+Event choices use native IDs and names from the game files.
 Event times can be added at the current frame or removed. Existing parent, pivot
 and event times are preserved when choosing event data.
 

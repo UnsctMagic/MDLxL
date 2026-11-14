@@ -5,7 +5,7 @@ import { TEAM_COLORS } from './team-colors.js';
 import { TOOLBAR_MODES, TOOLBAR_MODE_LABELS } from './toolbar-mode.js';
 
 /** Shown first while the search field is empty. */
-export const LAUNCHER_EDITORS = Object.freeze(['vertices', 'bones', 'uv', 'animation', 'animations', 'managers', 'paint', 'showcase']);
+export const LAUNCHER_EDITORS = Object.freeze(['vertices', 'bones', 'uv', 'animation', 'animations', 'paint', 'showcase']);
 
 const notListed = id => id === 'launcher' || id.startsWith('forge:shape:') || id.startsWith('paint:');
 

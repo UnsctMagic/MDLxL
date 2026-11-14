@@ -1,5 +1,7 @@
 # EMTR Particle Library browsing
 
+Status: completed, merged in #491 at 7b387e14
+
 Main integration ready for review; awaiting merge approval. Codex, 2 November 2026. PR [491](https://github.com/UnsctMagic/MDLxL/pull/491), branch codex/emtr-library-browse. No PR merge or release is authorized.
 
 ## Main integration — 2 November

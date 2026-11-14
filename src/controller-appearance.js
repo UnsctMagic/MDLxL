@@ -2,6 +2,8 @@ import themes from './application-themes.json' with { type: 'json' };
 import { DEFAULT_POSE_SYMBOL_SET, POSE_SYMBOL_SET_IDS } from './pose-symbol-sets.js';
 
 export const CONTROLLER_SHAPES = Object.freeze(['circle', 'square', 'diamond', 'triangle']);
+// The main POSE handle has no triangle (owner, 12 Nov 2026); body and bend handles keep it.
+export const HANDLE_SHAPES = Object.freeze(CONTROLLER_SHAPES.filter(shape => shape !== 'triangle'));
 export const PIN_STYLES = Object.freeze(['label', 'icon', 'round']);
 const looks = {
   light: ['circle', 'diamond', 'triangle', 'label', '#174aa1', '#995400', '#198054'],
@@ -9,7 +11,7 @@ const looks = {
   'warm-dark': ['square', 'square', 'diamond', 'label', '#e6bd86', '#fff0dc', '#e7a358'],
   nord: ['diamond', 'circle', 'triangle', 'round', '#88c0d0', '#eceff4', '#a3be8c'],
   'solarized-light': ['circle', 'diamond', 'square', 'label', '#006b9a', '#b34c1b', '#687700'],
-  'gruvbox-dark': ['triangle', 'square', 'diamond', 'icon', '#b8bb26', '#fbf1c7', '#fabd2f'],
+  'gruvbox-dark': ['diamond', 'square', 'diamond', 'icon', '#b8bb26', '#fbf1c7', '#fabd2f'],
   'catppuccin-mocha': ['diamond', 'circle', 'circle', 'round', '#cba6f7', '#f5e0dc', '#a6e3a1'],
 };
 export function controllerAppearanceForTheme(id = 'light') {
@@ -26,7 +28,8 @@ export function normalizeControllerAppearance(value, fallback = DEFAULT_CONTROLL
   for (const key of ['color', 'selected', 'pinned', 'background', 'skeleton', 'outline', 'axisX', 'axisY', 'axisZ']) output[key] = /^#[0-9a-f]{6}$/i.test(input[key]) ? input[key].toLowerCase() : base[key];
   // Profiles saved before the Symbol Color existed drew the symbol in the Handle colour; keep that look.
   output.symbolColor = /^#[0-9a-f]{6}$/i.test(input.symbolColor) ? input.symbolColor.toLowerCase() : /^#[0-9a-f]{6}$/i.test(input.color) ? input.color.toLowerCase() : base.symbolColor;
-  for (const key of ['shape', 'bodyShape', 'bendShape']) output[key] = CONTROLLER_SHAPES.includes(input[key]) ? input[key] : base[key];
+  output.shape = HANDLE_SHAPES.includes(input.shape) ? input.shape : input.shape === 'triangle' ? 'diamond' : HANDLE_SHAPES.includes(base.shape) ? base.shape : 'diamond';
+  for (const key of ['bodyShape', 'bendShape']) output[key] = CONTROLLER_SHAPES.includes(input[key]) ? input[key] : base[key];
   output.pinStyle = PIN_STYLES.includes(input.pinStyle) ? input.pinStyle : base.pinStyle;
   output.symbols = typeof input.symbols === 'boolean' ? input.symbols : base.symbols;
   output.symbolSet = POSE_SYMBOL_SET_IDS.includes(input.symbolSet) ? input.symbolSet : POSE_SYMBOL_SET_IDS.includes(base.symbolSet) ? base.symbolSet : DEFAULT_POSE_SYMBOL_SET;

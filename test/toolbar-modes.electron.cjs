@@ -284,7 +284,7 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
     await page.waitForFunction(value => window.__mdlxl.document().model.Version !== value, version2);
     await focusEditor(); await page.keyboard.press('Control+z');
     await page.waitForFunction(value => window.__mdlxl.document().model.Version === value, version2);
-    for (const [label, editor] of [['Citadel Paint', 'Citadel Paint'], ['Managers', 'Managers'], ['Showcase', 'Showcase']]) {
+    for (const [label, editor] of [['Citadel Paint', 'Citadel Paint'], ['Showcase', 'Showcase']]) {
       await clickMenu(app, label);
       await page.waitForFunction(value => document.querySelector('.toolbar-hidden-editor')?.textContent === value, editor, { timeout: 45000 });
       await page.keyboard.press('Shift+F3'); await waitMode('graphic');
@@ -303,7 +303,7 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
     await page.waitForFunction(() => document.documentElement.lang === 'de');
     await clickMenu(app, 'English');
     await page.waitForFunction(() => document.documentElement.lang === 'en');
-    check('Every route: Forge, BitsAndParts, Auto Corpse, OptimizeXL, AI, Convert, Paint, Managers, Showcase, Show hotkeys, Learn settings, Language');
+    check('Every route: Forge, BitsAndParts, Auto Corpse, OptimizeXL, AI, Convert, Paint, Showcase, Show hotkeys, Learn settings, Language');
 
     // VIS ignores the setting and keeps its own chrome.
     await clickMenu(app, 'VIS look');

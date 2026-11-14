@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createDemoDocument, deleteNode, openDocument, validateModel } from '../src/editor-document.js';
 import { buildForgeMesh, commitForge } from '../src/forge.js';
-import { commitPart, partTextureFiles, partTextureIndices, partTextureKey, previewPart } from '../src/bits-and-parts.js';
+import { commitPart, partTextureFiles, partTextureIndices, partTextureKey, previewPart, setPartRgbChannel } from '../src/bits-and-parts.js';
 import { retainedForgeAssets } from '../src/forge-assets.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url), { BitsAndPartsLibrary } = require('../electron/bits-and-parts.cjs'), { saveForgeAssets } = require('../electron/forge-assets.cjs');
@@ -50,7 +50,7 @@ test('texture animations and global references remap without changing the source
 });
 test('library shows only MDL/MDX content in its original folders, filters asset-only folders, and prevents escaping', async t => {
   const directory = tempDir('mdlxl-parts-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
+  const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'), async () => ({ openDocument, partTextureIndices }));
   assert.deepEqual((await library.list()).children, []);
   await fs.mkdir(path.join(library.directory, 'helms', 'horns'), { recursive: true });
   const bytes = createDemoDocument().serialize();
@@ -70,6 +70,35 @@ test('library shows only MDL/MDX content in its original folders, filters asset-
   await assert.rejects(library.read('../outside.mdl'), /inside/); await assert.rejects(library.read('notes.txt'), /MDL or MDX/);
   assert.equal((await library.list()).children.length, 3);
 });
+test('manages nested Bitz entries without overwriting files or leaving the library', async t => {
+  const directory = tempDir('mdlxl-parts-manage-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'), async () => ({ openDocument, partTextureIndices }));
+  const bytes = Buffer.from('MDLX Test Bit');
+  await library.save({ name: 'Sword', bytes });
+  await library.change({ action: 'mkdir', folder: '', name: 'Weapons' });
+  assert.deepEqual((await library.list()).children.map(entry => entry.name), ['Sword.mdx']);
+  assert.deepEqual((await library.list(true)).children.map(entry => entry.name), ['Weapons', 'Sword.mdx']);
+  await library.change({ action: 'rename', id: 'Sword.mdx', name: 'sword.mdx' });
+  await library.change({ action: 'move', id: 'sword.mdx', folder: 'Weapons' });
+  assert.deepEqual((await library.read('Weapons/sword.mdx')).bytes, bytes);
+  await library.save({ name: 'sword', bytes: Buffer.from('MDLX Other Bit') });
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons/sword.mdx', folder: '' }), /already exists/);
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons/sword.mdx', folder: '..' }), /inside/);
+  await fs.mkdir(path.join(library.directory, 'Weapons', 'Nested'));
+  await assert.rejects(library.change({ action: 'move', id: 'Weapons', folder: 'Weapons/Nested' }), /itself/);
+  const outside = path.join(directory, 'outside');
+  await fs.mkdir(outside);
+  const linked = path.join(library.directory, 'Linked');
+  await fs.symlink(outside, linked, 'junction');
+  try { await assert.rejects(library.change({ action: 'move', id: 'sword.mdx', folder: 'Linked' }), /Linked/); }
+  finally { await fs.unlink(linked); }
+  const trash = file => fs.rename(file, path.join(directory, 'trashed'));
+  await library.change({ action: 'delete', id: 'Weapons/sword.mdx' }, trash);
+  assert.deepEqual(await fs.readFile(path.join(directory, 'trashed')), bytes);
+  assert.deepEqual((await library.list()).children.map(entry => entry.name), ['sword.mdx']);
+});
+
 test('original part textures participate in existing save and recovery retention without changing names or bytes', async t => {
   const directory = tempDir('mdlxl-parts-save-'); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const asset = { name: 'Textures/My Bit/Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]), source: 'parts' }, model = { Textures: [{ Image: asset.name }] };
@@ -102,4 +131,44 @@ test('Bit textures: native game paths stay path-only, the model\'s own textures 
   doc.apply('Bit again', [], model => commitPart(model, source));
   assert.equal(doc.model.Textures.length, before + 2);
   assert.deepEqual(validateModel(doc.model).filter(issue => issue.severity === 'error'), []);
+});
+
+
+test('Replace Part RGB preserves an animated color and still changes a static Bit tint', () => {
+  const model = sword();
+  model.Geosets.push(structuredClone(model.Geosets[0]));
+  const track = { GlobalSeqId: null, LineType: 1, Keys: [{ Frame: 0, Vector: Float32Array.of(0.2, 0.3, 0.4) }] };
+  model.GeosetAnims = [
+    { GeosetId: 0, Flags: 2, Color: track, Alpha: 1 },
+    { GeosetId: model.Geosets.length - 1, Flags: 2, Color: Float32Array.of(0.5, 0, 1), Alpha: 1 },
+  ];
+  const original = structuredClone(model.GeosetAnims[0]);
+  setPartRgbChannel(model, [0, model.Geosets.length - 1], 1, 255);
+  assert.deepEqual(model.GeosetAnims[0], original, 'the animated color track is retained');
+  assert.deepEqual(model.GeosetAnims[1].Color, Float32Array.of(0.5, 1, 1));
+});
+
+test('moving a Bit cannot separate it from a BLP supplied next to it', async t => {
+  const directory = tempDir('mdlxl-parts-move-texture-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const library = new BitsAndPartsLibrary(directory, async () => ({ openDocument, partTextureIndices }));
+  const doc = createDemoDocument();
+  doc.apply('Use sibling skin', ['Textures'], model => {
+    const index = partTextureIndices(model)[0];
+    Object.assign(model.Textures[index], { Image: 'Textures/BitSkin.blp', ReplaceableId: 0 });
+  });
+  const bytes = Buffer.from(doc.serialize('mdx')), skin = Buffer.from('BLP1 fixture');
+  await fs.mkdir(path.join(directory, 'Helms'));
+  await fs.writeFile(path.join(directory, 'Bit.mdx'), bytes);
+  await fs.writeFile(path.join(directory, 'BitSkin.blp'), skin);
+  await assert.rejects(library.change({ action: 'move', id: 'Bit.mdx', folder: 'Helms' }), /loose texture/i);
+  const read = await library.read('Bit.mdx');
+  assert.deepEqual(read.bytes, bytes);
+  const { TextureResolver } = require('../electron/texture-resolver.cjs');
+  assert.deepEqual(await new TextureResolver().loose('Textures/BitSkin.blp', [path.dirname(read.path)]), skin);
+  await fs.writeFile(path.join(directory, 'Helms', 'BitSkin.blp'), skin);
+  await library.change({ action: 'move', id: 'Bit.mdx', folder: 'Helms' });
+  const moved = await library.read('Helms/Bit.mdx');
+  assert.deepEqual(moved.bytes, bytes);
+  assert.deepEqual(await new TextureResolver().loose('Textures/BitSkin.blp', [path.dirname(moved.path)]), skin);
 });

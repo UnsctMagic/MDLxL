@@ -704,25 +704,26 @@ test('junk in settings.json cannot get through', () => {
   assert.equal(cleaned.uv[1].values.rotateSpeed, 200);
   assert.ok(!('extra' in cleaned));
 });
-test('saved presets ride along in Export configuration and come back', () => {
-  let prefs = edited.uv();
-  prefs = commit(prefs, savePreset('uv', prefs, 'Mine'));
-  const hotkeyPrefs = edited.hotkeys(); prefs = commit(prefs, savePreset('hotkeys', { ...hotkeyPrefs, settingsPresets: prefs.settingsPresets }, 'Keys'));
-  const restored = importConfiguration(JSON.stringify(exportConfiguration(prefs)));
-  assert.deepEqual(restored.settingsPresets, prefs.settingsPresets);
+test('configuration import keeps the receiving profile’s preset library', () => {
+  const source = edited.uv(), incoming = commit(source, savePreset('uv', source, 'Shared'));
+  const local = commit(edited.hotkeys(), savePreset('hotkeys', edited.hotkeys(), 'My keys'));
+  const exported = exportConfiguration(incoming);
+  assert.ok(!Object.hasOwn(exported.preferences, 'settingsPresets'));
+  const oldExport = { ...exported, preferences: { ...exported.preferences, settingsPresets: incoming.settingsPresets } };
+  assert.deepEqual(importConfiguration(oldExport, local).settingsPresets, local.settingsPresets);
 });
 
 // ---- Desktop channels ------------------------------------------------------
 
 test('two thin IPC channels, editor only, same size limit as the module', () => {
   const main = source('electron/main.cjs'), preload = source('electron/preload.cjs');
-  assert.match(main, /ipcMain\.handle\('presets:openFile',async event=>\{\s*editorOnly\(event/);
-  assert.match(main, /ipcMain\.handle\('presets:saveFile',async\(event,payload\)=>\{\s*editorOnly\(event/);
-  assert.match(preload, /presetOpenFile: \(\)=>call\('presets:openFile'\)/);
-  assert.match(preload, /presetSaveFile: payload=>call\('presets:saveFile',payload\)/);
+  assert.match(main, /ipcMain\.handle\('preset:openFile',async event=>\{\s*editorOnly\(event/);
+  assert.match(main, /ipcMain\.handle\('preset:saveFile',async\(event,payload\)=>\{\s*editorOnly\(event/);
+  assert.match(preload, /openPresetFile: \(\)=>call\('preset:openFile'\)/);
+  assert.match(preload, /savePresetFile: payload=>call\('preset:saveFile',payload\)/);
   const limit = /const MAX_PRESET_FILE=(\d+)\*(\d+)\*(\d+);/.exec(main);
   assert.ok(limit); assert.equal(Number(limit[1]) * Number(limit[2]) * Number(limit[3]), MAX_PRESET_FILE_BYTES);
-  assert.equal([...main.matchAll(/ipcMain\.handle\('presets:/g)].length, 2);
+  assert.equal([...main.matchAll(/ipcMain\.handle\('preset:/g)].length, 2);
 });
 
 // ---- The bar ---------------------------------------------------------------
@@ -749,6 +750,16 @@ for (const domain of PRESET_DOMAINS) test(`${domain}: bar shows the four actions
   // Appearance's list holds the viewport looks that shipped before this work, under their existing names.
   if (domain !== 'appearance') assert.doesNotMatch(html, /Blender|Maya/i);
 });
+test('choosing the built-in Hotkeys preset asks before replacing the bindings', () => {
+  const prefs = edited.hotkeys(), notices = [], commits = [], questions = [];
+  bar.pickPreset('hotkeys', prefs, 'default', change => commits.push(change), text => notices.push(text), id => questions.push(id));
+  assert.deepEqual(commits, [], 'the chosen default has not been applied');
+  assert.deepEqual(notices, []);
+  assert.deepEqual(questions, ['default']);
+  bar.pickPreset('hotkeys', prefs, questions[0], change => commits.push(change), text => notices.push(text));
+  assert.deepEqual(commits[0].hotkeys, {});
+  assert.deepEqual(commits[0].modifiers, {});
+});
 test('nothing matching shows one disabled Custom entry', () => {
   const html = renderBar('uv', fresh({ uvDrag: { ...DEFAULT_UV_DRAG, zoomSpeed: 150 } }));
   assert.match(html, /<option value="custom" disabled="" selected="">Custom<\/option>/);
@@ -773,7 +784,7 @@ test('Appearance can jump to its Presets page and still write a file', () => {
 });
 test('without the desktop bridge a hidden file input is the fallback; with it there is none', () => {
   assert.match(renderBar('uv', fresh()), /type="file" accept="\.mdlxl-preset,\.json"/);
-  globalThis.desktop = { presetOpenFile() {}, presetSaveFile() {} };
+  globalThis.desktop = { openPresetFile() {}, savePresetFile() {} };
   try { assert.doesNotMatch(renderBar('uv', fresh()), /type="file"/); }
   finally { delete globalThis.desktop; }
 });

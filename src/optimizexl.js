@@ -66,7 +66,7 @@ function supported(doc){
  if(doc.model.BindPoses?.length||doc.model.Gliders?.length||doc.model.Geosets.some(g=>g.SkinWeights?.length||g.Tangents?.length))throw Error('Additional skin/bind-pose data is not supported by this Classic optimizer.');
  if(doc._container?.trailingBytes?.length)throw Error('Trailing model data cannot be safely optimized.');
 }
-export function prepareOptimizeXL(doc){supported(doc);const bytes=doc.serialize('mdx');const reopened=openDocument(bytes,'before.mdx');supported(reopened);return bytes;}
+export function prepareOptimizeXL(doc){supported(doc);const bytes=doc.serialize('mdx',{strict:true});const reopened=openDocument(bytes,'before.mdx');supported(reopened);return bytes;}
 function duplicateBones(m,settings,changes){
  const protectedNodes=protectedGeosetData(m,settings).nodes;
  const parents=new Set(allNodes(m).map(n=>n.Parent)),removed=new Set(),map=new Map(),known=new Map();

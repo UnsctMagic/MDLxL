@@ -17,7 +17,7 @@ import { viewportPresetChange } from './light-dark-switch.js';
 import { modifierConflicts, normalizeModifiers } from './modifier-bindings.js';
 import { DEFAULT_PAINT_APPEARANCE } from './paint-appearance.js';
 import { DEFAULT_ROTATION_BEHAVIOR, normalizeRotationPreferences, ROTATION_PRESETS, rotationPresetId } from './rotation-drag.js';
-import { normalizeUVDrag, UV_DRAG_PRESETS, uvDragPreset } from './uv-drag-settings.js';
+import { defaultUVDrag, normalizeUVDrag, UV_DRAG_PRESETS, uvDragPreset } from './uv-drag-settings.js';
 import { APPEARANCE_LOOK_KEYS, APPEARANCE_SIZE_KEYS, BUILT_IN_VIEWPORT_PRESETS, DEFAULT_VIEWPORT_PRESET_ID, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, normalizeViewportPresets, viewportPresetById } from './viewport-appearance.js';
 
 export const PRESET_SCHEMA = 'mdlxl-preset', PRESET_VERSION = 1, PRESET_EXTENSION = 'mdlxl-preset';
@@ -152,10 +152,11 @@ function domains() {
     }),
     uv: standardDomain({
       id: 'uv', label: 'UV Rotate and Zoom', maxBytes: SMALL_FILE, fallback: 'mdlxl',
-      builtIns: dragBuiltIns(UV_DRAG_PRESETS, normalizeUVDrag), activeBuiltIn: prefs => uvDragPreset(prefs.uvDrag),
+      builtInsFor: prefs => dragBuiltIns({ ...UV_DRAG_PRESETS, mdlxl: defaultUVDrag(prefs) }, normalizeUVDrag),
+      activeBuiltIn: prefs => uvDragPreset(prefs.uvDrag, prefs),
       read: prefs => ({ ...normalizeUVDrag(prefs.uvDrag), uvSensitivity: uvTransformSensitivity(prefs) }), normalize: normalizeUVValues,
       write: (prefs, { uvSensitivity, ...uvDrag }) => ({ uvDrag, ...(uvSensitivity === undefined ? {} : { uvSensitivity }) }),
-      restore: () => ({ uvDrag: normalizeUVDrag(UV_DRAG_PRESETS.mdlxl), uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity }),
+      restore: prefs => ({ uvDrag: defaultUVDrag(prefs), uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity }),
     }),
     hotkeys: standardDomain({
       id: 'hotkeys', label: 'Hotkeys', maxBytes: HOTKEY_FILE, fallback: 'default', unorderedLists: true,
@@ -175,7 +176,8 @@ function domainOf(id) {
 
 // ---- Listing and matching --------------------------------------------------
 
-const allPresets = (domain, prefs) => [...domain.builtIns, ...domain.saved(prefs)];
+const builtInsFor = (domain, prefs) => domain.builtInsFor?.(prefs) || domain.builtIns;
+const allPresets = (domain, prefs) => [...builtInsFor(domain, prefs), ...domain.saved(prefs)];
 const findPreset = (domain, prefs, id) => allPresets(domain, prefs).find(preset => preset.id === id) || null;
 const namedPreset = (domain, prefs, name) => allPresets(domain, prefs).find(preset => preset.name.toLowerCase() === name.toLowerCase()) || null;
 /** Only the keys the preset lists count, so a saved snapshot and a smaller built-in can both match. Appearance needs the same keys: an older preset is not the same look as one that also holds helper colours. */
@@ -192,7 +194,7 @@ export function presetRestoreQuestion(domainId) { return domainOf(domainId).rest
 /** Built-ins first, then saved ones: `{ id, name, builtIn }`. */
 export function listPresets(domainId, prefs) {
   const domain = domainOf(domainId);
-  return [...domain.builtIns.map(({ id, name }) => ({ id, name, builtIn: true })), ...domain.saved(prefs).map(({ id, name }) => ({ id, name, builtIn: false }))];
+  return [...builtInsFor(domain, prefs).map(({ id, name }) => ({ id, name, builtIn: true })), ...domain.saved(prefs).map(({ id, name }) => ({ id, name, builtIn: false }))];
 }
 /** The active preset's id, or CUSTOM_PRESET. `preferId` is the one last picked, when several hold the same values. */
 export function activePreset(domainId, prefs, preferId) {
@@ -204,8 +206,8 @@ export function activePreset(domainId, prefs, preferId) {
   // Saved first, so a full snapshot wins over a built-in; newest first, so the one just saved shows.
   const saved = [...domain.saved(prefs)].reverse().find(matches);
   if (saved) return saved.id;
-  if (domain.activeBuiltIn) { const id = domain.activeBuiltIn(prefs); return domain.builtIns.some(preset => preset.id === id) ? id : CUSTOM_PRESET; }
-  return domain.builtIns.find(matches)?.id ?? CUSTOM_PRESET;
+  if (domain.activeBuiltIn) { const id = domain.activeBuiltIn(prefs); return builtInsFor(domain, prefs).some(preset => preset.id === id) ? id : CUSTOM_PRESET; }
+  return builtInsFor(domain, prefs).find(matches)?.id ?? CUSTOM_PRESET;
 }
 
 // ---- Changes ---------------------------------------------------------------
@@ -252,7 +254,7 @@ export function deletePreset(domainId, prefs, id) {
 }
 export function restoreDomain(domainId, prefs) {
   const domain = domainOf(domainId);
-  const change = domain.restore ? domain.restore(prefs) : domain.write(prefs, domain.builtIns.find(preset => preset.id === domain.fallback).values);
+  const change = domain.restore ? domain.restore(prefs) : domain.write(prefs, builtInsFor(domain, prefs).find(preset => preset.id === domain.fallback).values);
   return withStatus(change, 'Defaults restored.', domain.fallback ?? DEFAULT_VIEWPORT_PRESET_ID);
 }
 function loadStatus(name, { skipped = 0, waiting = 0 }) {
@@ -368,11 +370,12 @@ function hotkeyFileConflict(catalog, overrides) {
   const actions = new Map(catalog.filter(action => action?.id).map(action => [action.id, action]));
   const commands = new Set(catalog.map(action => action?.bindingCommand).filter(Boolean));
   const known = Object.fromEntries(Object.entries(overrides).filter(([id]) => actions.has(id) || commands.has(id)));
-  const bindings = effectiveBindings(catalog, known);
+  // A shared preset file still reports clashes with the defaults it leaves in place.
+  const bindings = effectiveBindings(catalog, known, { keepConflictingDefaults: true });
   for (const [id, action] of actions) {
     if (!own(known, id) && !(action.bindingCommand && own(known, action.bindingCommand))) continue;
     for (const key of bindings[id] || []) {
-      const other = hotkeyConflicts(catalog, known, id, key).find(otherId => actions.has(otherId));
+      const other = hotkeyConflicts(catalog, known, id, key, bindings).find(otherId => actions.has(otherId));
       if (other) return { key, first: action, second: actions.get(other) };
     }
   }

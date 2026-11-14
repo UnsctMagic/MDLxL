@@ -29,7 +29,7 @@ const VERTEX_STREAMS = [['Vertices', 3], ['Normals', 3], ['VertexGroup', 1], ['T
 /** Check a vertex selection and the geoset it belongs to; returns the vertex
  * count and the unique selected indices. streams: false checks the selection
  * only; message replaces both selection messages. */
-export function checkedVertexSelection(g, indices, { requireFaces = false, allowEmpty = false, streams = true, message } = {}) {
+export function checkedVertexSelection(g, indices, { requireFaces = false, allowEmpty = false, streams = true, allowSkinOnly = false, message } = {}) {
   let count = (g?.Vertices?.length || 0) / 3;
   if (streams) {
     const check = SELECTION_CHECKS[requireFaces ? 'mesh' : 'classic'];
@@ -38,6 +38,7 @@ export function checkedVertexSelection(g, indices, { requireFaces = false, allow
     if (count > LIMIT) throw new Error(check.limit);
     for (const [name, stride] of VERTEX_STREAMS) {
       const data = g[name];
+      if (name === 'VertexGroup' && allowSkinOnly && !data?.length && g.SkinWeights?.length === count * 8) continue;
       if (stride > 3 && (requireFaces ? data == null : !data?.length)) continue;
       if (!ArrayBuffer.isView(data) || data.length !== count * stride) throw new Error(check.size(name));
       if (data.some((v) => !Number.isFinite(v))) throw new Error(check.finite(name));

@@ -61,10 +61,13 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
   assert.ok(['rgba(0, 0, 0, 0)','rgb(197, 214, 236)'].includes(await page.locator('.re-sound-item').first().evaluate(el=>getComputedStyle(el).backgroundColor)));
   assert.equal(await page.locator('.re-sound-folder svg').first().evaluate(el=>getComputedStyle(el).display),'block');
   await page.screenshot({path:path.join(out,'node-sound.png')});
-  await page.getByLabel('New node type',{exact:true}).selectOption('EventObject');await page.locator('.re-list-actions').getByRole('button',{name:'New',exact:true}).click();
-  await page.locator('.re-event-settings > summary').click();await page.getByLabel('Type',{exact:true}).selectOption('SPL');
+  await page.locator('.re-list-actions').getByRole('button',{name:'New',exact:true}).click();
+  await page.getByRole('group',{name:'Event objects',exact:true}).getByRole('button',{name:'Blood Splat',exact:true}).click();
   await page.getByLabel('Search blood',{exact:true}).fill('HumanBlood');
-  const blood=await page.getByLabel('Blood Splat',{exact:true}).locator('option').filter({hasText:'HumanBlood'}).first().getAttribute('value');await page.getByLabel('Blood Splat',{exact:true}).selectOption(blood);
+  const bloodPicker=page.getByLabel('Blood Splat',{exact:true});
+  await bloodPicker.click();await page.keyboard.press('Home');
+  assert.match(await bloodPicker.locator('option:checked').textContent(),/HumanBlood/);
+  await page.getByRole('button',{name:'Add event',exact:true}).click();
   await page.getByLabel('Blood splat animation preview',{exact:true}).waitFor();
   await page.waitForFunction(()=>Number(document.querySelector('[aria-label="Splat preview time"]').value)>50);
   await page.getByRole('button',{name:'Pause splat preview',exact:true}).click();

@@ -1,6 +1,6 @@
 # 0.37.0 packaged test fixes
 
-Status: ready for review; awaiting merge approval
+Status: completed, merged in #450 at bfccf157
 Owner / consolidator: Codex
 Updated: 2026-10-30
 

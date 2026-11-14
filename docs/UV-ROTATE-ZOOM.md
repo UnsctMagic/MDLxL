@@ -12,8 +12,10 @@ fix the code, not the test numbers.
 pick another feel (`preferences.uvDrag`, `src/uv-drag-settings.js`), and an
 always-visible **Each piece** toggle in the UV Wrapper turns or zooms each
 separate piece on its own spot. The MDLxL preset and the fallback for existing
-profiles keep centre Zoom. On 10 Nov 2026, the owner chose right/up Zoom for
-first launch of fresh downloads. All of it is UV Wrapper only. 3D tools and FX
+profiles keep centre Zoom for profiles that existed before 11 Nov 2026. On 10 Nov 2026, the owner chose right/up Zoom for
+first launch of fresh downloads. On 11 Nov 2026, the owner confirmed that both
+Restore buttons and the MDLxL preset use right/up on those profiles. Older
+profiles retain centre Zoom as their default. All of it is UV Wrapper only. 3D tools and FX
 texture fitting ignore it.
 
 ## Why this is locked
@@ -64,8 +66,8 @@ the tool each time:
 A fresh download starts at 100% with size snap Off. Right or up grows, and
 left or down shrinks. When updating, the existing profile keeps its settings.
 
-The MDLxL preset and the fallback for older profiles without a saved Zoom
-choice follow the centre rule selected on 8 Nov 2026:
+For older profiles, the MDLxL preset and the fallback when there is no saved
+Zoom choice follow the centre rule selected on 8 Nov 2026:
 
 - The mouse's distance from the selection's centre sets the size, in any
   direction: away grows, toward shrinks.

@@ -1,5 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes } from './animation.js';
+import { allNodes, nodePivot } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // Bones tab "Wiggle": swings the selected bones back and forth in the rest-pose
 // preview so badly bound vertices show up as stretching or left-behind parts.
@@ -11,7 +12,7 @@ const SWING = 30 * Math.PI / 180, NOD = 20 * Math.PI / 180, PERIOD = 1.2;
  * swing turns around the view axis (visible in any view) and the nod around
  * the screen's horizontal axis. Nodes not under a wiggling bone stay at rest. */
 export function wiggleMatrices(model, ids, seconds, viewAxis, sideAxis) {
-  const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
+  const nodes = allNodes(model), { byId, parentOf } = nodeIndex(model, nodes);
   const wiggling = new Set((ids || []).filter(id => byId.has(id)));
   const out = new Map();
   if (!wiggling.size) return out;
@@ -24,9 +25,10 @@ export function wiggleMatrices(model, ids, seconds, viewAxis, sideAxis) {
     const node = byId.get(id);
     if (!node || resolving.has(id)) return new Matrix4();
     resolving.add(id);
-    const matrix = Number.isInteger(node.Parent) && node.Parent >= 0 && node.Parent !== id ? world(node.Parent).clone() : new Matrix4();
+    const parent = parentOf(id);
+    const matrix = Number.isInteger(parent) && parent >= 0 ? world(parent).clone() : new Matrix4();
     if (wiggling.has(id)) {
-      const pivot = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+      const pivot = new Vector3().fromArray(nodePivot(model, node, id));
       matrix.multiply(new Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z))
         .multiply(new Matrix4().makeRotationFromQuaternion(turn))
         .multiply(new Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));

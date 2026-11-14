@@ -14,7 +14,7 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
   return <div className="quick-display" role="group" aria-label="Quick display">
     <div className="quick-display-options">
       <button title="Remove all display options; no model data is removed" onClick={onClear}>{!vanilla && <LookIcon name="clearDisplay"/>}<span className="quick-display-name">Clear</span></button>
-      {VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay').map(([label, action]) =>
+      {VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes').map(([label, action]) =>
         <label key={action} ref={action === 'display:bones' ? trigger : undefined} onContextMenu={action === 'display:bones' ? event => {
           event.preventDefault(); if (!isEnabled(action)) return;
           const rect = event.currentTarget.getBoundingClientRect();

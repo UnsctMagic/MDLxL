@@ -258,7 +258,7 @@ function sampledRecord(geoset, component, projection, target, groups) {
   return interpolatedRecord(geoset, match.indices, factors, groups);
 }
 
-function interpolatedRecord(geoset, indices, factors, groups) {
+export function interpolatedRecord(geoset, indices, factors, groups) {
   const interpolate = (array, width, normalize = false) => {
     const values = Array.from({ length: width }, (_, componentIndex) => indices.reduce((sum, sourceIndex, index) => sum + array[sourceIndex * width + componentIndex] * factors[index], 0));
     return normalize ? normal(values) : values;
@@ -312,7 +312,7 @@ function remeshComponent(geoset, component, level, groups, minimumSegments) {
   return triangles;
 }
 
-function sourceRecord(geoset, index) {
+export function sourceRecord(geoset, index) {
   return {
     position: point(geoset.Vertices, index, 3), normal: geoset.Normals?.length ? point(geoset.Normals, index, 3) : null,
     uvs: (geoset.TVertices || []).map(stream => point(stream, index, 2)), vertexGroup: geoset.VertexGroup?.length ? geoset.VertexGroup[index] : null,

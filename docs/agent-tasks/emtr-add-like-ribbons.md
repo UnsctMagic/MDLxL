@@ -1,6 +1,6 @@
 # EMTR: add an effect the way ribbons are added
 
-Status: ready for review; awaiting merge approval (PR #491, unmerged)
+Status: completed, merged in #491 at 7b387e14
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-02
 

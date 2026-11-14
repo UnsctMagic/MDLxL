@@ -1,6 +1,6 @@
 # AI motion measurement and size optimisation
 
-Status: ready for review; awaiting merge approval
+Status: completed, merged in #436 at de36134b
 Owner / consolidator: Codex, AI motion measure
 Updated: 2026-10-30
 

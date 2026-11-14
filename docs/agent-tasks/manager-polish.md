@@ -4,6 +4,9 @@ Status: completed — merged in #363 (9d988af2)
 Owner: Codex, Manager polish chat
 Updated: 2026-10-28
 
+The editor workspace described below was superseded by the Managers dropdown.
+The popup managers still provide the shared tabs and Model controls.
+
 ## Scope
 
 Managers sits after Animations and before Paint and opens Materials in the full

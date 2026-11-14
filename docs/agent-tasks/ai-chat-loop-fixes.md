@@ -1,6 +1,6 @@
 # AI chat loop fixes
 
-Status: original fixes and context diet merged in #427 / #430; deterministic steering test ready for review, awaiting merge approval
+Status: completed, merged in #435 at aa668982
 Owner / consolidator: Codex
 Updated: 2026-10-30
 

@@ -499,9 +499,12 @@ function ownWeaponHandles(model, part, { weaponSize = 1, weaponFrom, weaponTo })
  * clear weapon, 75%. With glow: the model's own parts ticked at their current
  * place, size and brightness.
  */
+const hasNonSquareGlow = model => hasHeroGlow(model) && glowPieces(model).some(piece => !piece.square);
+
 export function glowStart(model, marked, excluded) {
   const best = weaponChoices(model, marked)[0], found = findHeroGlow(model, excluded);
   const start = { origin: true, originSize: 1, originOffset: [0, 0], weapon: !!best?.sure, weaponKey: best?.key ?? '', weaponSize: 1, weaponFrom: null, weaponTo: null, originBrightness: .75, weaponBrightness: .75 };
+  if (!found && hasNonSquareGlow(model)) return { ...start, origin: false, weapon: false };
   if (!found?.pieces.length) return start;
   Object.assign(start, { origin: !!found.origin, weapon: !!found.weapon });
   if (found.origin) Object.assign(start, { originSize: found.origin.width / originGlowSize(model), originOffset: found.origin.center.slice(0, 2), originBrightness: found.origin.brightness });
@@ -571,7 +574,10 @@ function adjustWeapon(model, found, { weaponSize = 1, weaponFrom, weaponTo }, mo
  */
 export function glowUp(model, options = {}) {
   const found = findHeroGlow(model, options.excluded);
-  if (!found) return addHeroGlow(model, options);
+  if (!found) {
+    if (!options.origin && !options.weapon && hasNonSquareGlow(model)) return { geosetIndices: [] };
+    return addHeroGlow(model, options);
+  }
   const { origin = true, weapon = false } = options, add = { origin: origin && !found.origin, weapon: weapon && !found.weapon }, moved = new Set();
   const result = add.origin || add.weapon ? addHeroGlow(model, { ...options, ...add }) : { geosetIndices: [] };
   if (origin && found.origin) adjustOrigin(model, found, options, moved);

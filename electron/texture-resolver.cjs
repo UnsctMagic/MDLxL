@@ -99,6 +99,13 @@ class TextureResolver {
     }
     return found;
   }
+  /** Native sound paths (war3.w3mod:...) that none of the CASC sources has a file for. */
+  async missingSounds(names, { cascFolders = [], fallbackCascFolders = [], customCascFolders = [] } = {}) {
+    if (!Array.isArray(names)) throw Error('Missing sound paths.');
+    const native = [...new Set(names)].slice(0, 4096).filter(name => typeof name === 'string' && /^war3\.w3mod:/i.test(name) && /\.(wav|mp3|ogg|flac)$/i.test(name));
+    const folders = [...customCascFolders, ...cascFolders, ...fallbackCascFolders];
+    return native.length && folders.length && this.casc?.missingSounds ? this.casc.missingSounds(native, folders) : [];
+  }
   async close() {
     await this.casc?.close();
     const readers = [...this.readers.values()]; this.readers.clear(); this.cache.clear(); this.warnings.clear(); this.bytes = 0;

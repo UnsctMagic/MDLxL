@@ -2171,7 +2171,20 @@
     "No strokes to undo.",
     "No strokes yet.",
     "Copy texture to the clipboard / paste it back",
-    "Undo the last brush stroke only"
+    "Undo the last brush stroke only",
+    "Pan model",
+    "Zoom model",
+    "Zoom texture views",
+    "Pan texture views",
+    "Right drag",
+    "{0} + left drag",
+    "{0} + middle drag",
+    "{0} + right drag",
+    "Ctrl + right drag",
+    "{0} + left: rotate / middle: pan",
+    "{0} + left: rotate / middle: pan / right: zoom",
+    "{0} add",
+    "{0} subtract"
   ],
   "release015": [
     "Copy selection",
