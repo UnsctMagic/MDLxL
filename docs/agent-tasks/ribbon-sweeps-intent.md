@@ -1,6 +1,6 @@
 # Ribbon maker: elemental sweeps (owner intent, 14 November 2026)
 
-Status: owner-approved (build 03, `a57875e8`); waiting for "merge". Not online.
+Status: completed. Owner approved build 03 (`a57875e8`) and said merge on 15 Nov 2026; merged into `main` through the ribbon sweeps PR (merge revision recorded on that PR). The owner's "faster playback at the preview (with selection)" is done (pass 3 below).
 Branch: `claude/ribbon-sweeps-6d004b` (worktree `D:\Claude\MDLxL\.claude\worktrees\ribbon-sweeps-6d004b`), from `main` at `40a37825`.
 Written by the orchestrator (Opus). Fable leads design and the code that matters. This file is the brief and the running task note.
 
