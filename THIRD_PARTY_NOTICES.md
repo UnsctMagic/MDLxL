@@ -140,3 +140,5 @@ Cinzel Decorative, MedievalSharp, Uncial Antiqua, Pirata One, Almendra, IM Fell 
 Particle, ribbon and texture-animation settings of these Hiveworkshop.com models were studied to tune MDLxL's FX effects. No model data is copied into MDLxL. Each author's page allows use with credit.
 
 - **Fire Arrows** (Bonefire Arrow, Firecracker Arrow, Searing Arrow and their Fireless variants), Vinz — [Hive](https://www.hiveworkshop.com/threads/fire-arrows.310448/)
+- **Bloodstone Arrows** (Bloodstone Arrow, Bloodless, LSD 1, LSD 2), Vinz — [Hive](https://www.hiveworkshop.com/threads/bloodstone-arrows.309858/)
+- **Frost Arrows** (Azul Arrow, Azul Arrow Defrosted, Maiz con Arrow), Vinz — [Hive](https://www.hiveworkshop.com/threads/frost-arrows.309707/)
