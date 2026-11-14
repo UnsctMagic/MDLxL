@@ -9,6 +9,7 @@ import ParticleExampleComparison from './ParticleExampleComparison.jsx';
 import {activeParticleSample} from '../src/particle-sampling.js';
 import {removeParticlePicture} from '../src/particle-picture.js';
 import {fitRibbonToPolygons,ribbonPolygonSelection} from '../src/particle-ribbon-fit.js';
+import {SWEEP_TEXTURES} from '../src/ribbon-sweeps.js';
 import {includeParticleAssets,embeddedParticleAssets,prepareParticlePlacementAssets,MAX_PARTICLE_PICTURE_BYTES} from '../src/particle-assets.js';
 import React,{Suspense,lazy,useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {EditorDocument,createNode,deleteNode} from '../src/editor-document.js';
@@ -79,7 +80,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const activeDoc=context==='Lab'?lab.doc:doc;
   useEffect(()=>{setMuted([]);setIngredients(null);},[activeDoc]);
   const [stock,setStock]=useState(emptyAssets);
-  useEffect(()=>{let live=true;stockAssets(STARTER_TEXTURES).then(found=>{if(live)setStock(found);}).catch(()=>{});return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;stockAssets([...STARTER_TEXTURES,...SWEEP_TEXTURES]).then(found=>{if(live)setStock(found);}).catch(()=>{});return()=>{live=false;};},[]);
   const labAssets=useMemo(()=>new Map([...stock,...lab.assets]),[stock,lab.assets]);
   const model=activeDoc.model,assets=context==='Lab'?labAssets:textureAssets;
   const working=useMemo(()=>structuredClone(model),[activeDoc,context,structure]);
@@ -367,7 +368,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);
-  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([...stock].filter(([key])=>key===gamePathKey(RIBBON_TEXTURE))):assets,[assets,stock,placement?.ribbon]);
+  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([...stock].filter(([key])=>placement.ribbon.recipe.native.Textures.some(texture=>gamePathKey(texture.Image)===key))):assets,[assets,stock,placement?.ribbon]);
   useEffect(()=>{
     let live=true;setPreparedPlacement(null);
     if(placementRecipe)prepareParticlePlacementAssets(placementRecipe,incomingPlacementAssets,textureAssets).then(prepared=>{if(live)setPreparedPlacement({...prepared,original:placementRecipe,incoming:incomingPlacementAssets,target:textureAssets});}).catch(error=>{if(live)setPlacementError(error.message);});
