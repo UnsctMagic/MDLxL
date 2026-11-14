@@ -8,6 +8,7 @@ import {applySurfaceEffect,defaultEffectOptions,effectAnchor} from './surface-ef
 import {indexedSurfaceIslands} from './geoset-operations.js';
 import {streakCoordinates} from './visual-effect-composition.js';
 import {partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint} from './global-animation-looks.js';
+import {stackForPart} from './fx-own-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
 import {visitTracks,sampleNodeMatrices,geosetSkinMatrix} from './animation.js';
@@ -739,8 +740,18 @@ function burstTurn(index,turns){
  while(common(stride,turns)>1)stride++;
  return index*stride%turns;
 }
+// fieldScale: a whole-layer edit carried from another part, as a ratio of what the layer makes on this one.
+// A field the layer or the emitter sets itself is left alone.
+function applyFieldScale(node,l){
+ for(const [field,scale] of Object.entries(l.fieldScale||{})){
+  if(l.native&&field in l.native)continue;
+  const value=node[field],by=i=>Array.isArray(scale)?scale[i]??1:scale;
+  if(typeof value==='number')node[field]=value*by(0);
+  else if(ArrayBuffer.isView(value))node[field]=value.map((v,i)=>v*by(i));
+ }
+}
 function hasRecipeEmitterDefaults(layer){
- return layer.recipeOwner||layer.airyFit||layer.fireFit?.version===1||layer.rampTint||layer.rampPinned||layer.widthCap!=null||
+ return layer.fieldScale||layer.recipeOwner||layer.airyFit||layer.fireFit?.version===1||layer.rampTint||layer.rampPinned||layer.widthCap!=null||
   layer.surfaceFit?.siteCount!=null||layer.scatter||layer.birthRegionFit||layer.gather||layer.aim;
 }
 function applyRecipeAim(c,layer,slot,node,slabRotation){
@@ -818,6 +829,7 @@ function nativeParticles(c,layer){
    const edited=l.widthCapEdited||layer.individuals?.[key]?.values?.size!=null;
    if(l.widthCap!=null?!edited:l.airyFit)p.ParticleScaling=capParticleScaling(p.ParticleScaling,widthCapFor(l,slot));
   }
+  applyFieldScale(p,l);
   if(bursts){
    const span=Math.max(60,Math.round((layer.burstWindow??.15)*1000)),gap=Math.max(100,Math.round(layer.burstGap*1000)),period=span+gap;
    const turns=Math.max(1,firing),slots=turns*Math.ceil(3/turns),cycle=period*slots,clock=clockFor(m,cycle,c.createdClocks);
@@ -1026,6 +1038,7 @@ function particles(c,layer){
   }
   applyRecipeAim(c,l,slot,p);
   for(const [key,value] of Object.entries(l.native||{}))p[key]=nativeValue(key,recipeNativeValue(l,key,value),m,c.createdClocks);
+  applyFieldScale(p,l);
   ids.push(p.ObjectId);
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
@@ -1336,6 +1349,41 @@ export function readAnimationStack(model,index){
   }
  }
  return draft;
+}
+const CARRIED_RATIOS=['ParticleScaling','Speed','Gravity','Width','Length','LifeSpan','TailLength'];
+/**
+ * A stack taken to another part of the same model (frame: the part it is on, targetFrame: the part it goes to).
+ * stackForPart refits it. Whole-layer slider edits are stored per emitter, so they travel separately: a size, speed
+ * or time as its ratio to what the layer makes without the edit (fieldScale), a colour, opacity or angle as itself.
+ */
+export function carryAnimationStack(model,index,stack,frame,targetFrame,owner,options){
+ const next=stackForPart(stack,frame,targetFrame,owner);
+ const edits=layer=>layer.enabled!==false&&layer.type==='Particles'&&!layer.swarm&&!layer.impact?[...new Set(Object.values(layer.individuals||{}).flatMap(record=>record.deleted?[]:record.groupFields||[]))].filter(field=>field!=='EmissionRate'&&field!=='Rotation'):[];
+ if(!stack.layers.some(layer=>edits(layer).length))return next;
+ const compiled=draft=>{const copy=structuredClone(model);return {model:copy,layers:compileAnimation(copy,index,draft,options).layers};};
+ const plain=layer=>{
+  const individuals=structuredClone(layer.individuals);
+  for(const record of Object.values(individuals)){
+   for(const field of record.groupFields||[]){if(record.values?.native)delete record.values.native[field];if(field==='Alpha'&&record.values){delete record.values.opacityBase;delete record.values.particleStrength;}}
+   delete record.groupFields;
+  }
+  return {...layer,individuals};
+ };
+ const now=compiled(stack),base=compiled({...stack,layers:stack.layers.map(layer=>edits(layer).length?plain(layer):layer)});
+ const read=(result,layer,key,field)=>{const value=result.model.Nodes[result.layers[layer.id]?.siteIds?.[key]]?.[field];return typeof value==='number'?value:ArrayBuffer.isView(value)?Array.from(value):Array.isArray(value)&&value.every(ArrayBuffer.isView)?value.map(v=>Array.from(v)):undefined;};
+ for(const layer of stack.layers){
+  const target=next.layers.find(item=>item.id===layer.id);
+  for(const field of edits(layer)){
+   const pairs=Object.entries(layer.individuals).filter(([,record])=>!record.deleted&&record.groupFields?.includes(field)).map(([key])=>[read(now,layer,key,field),read(base,layer,key,field)]).filter(([a,b])=>a!==undefined&&b!==undefined);
+   if(!pairs.length)continue;
+   if(!CARRIED_RATIOS.includes(field)){target.native={...target.native,[field]:pairs[0][0]};continue;}
+   const parts=Array.isArray(pairs[0][0])?pairs[0][0].length:0,old=layer.fieldScale?.[field];
+   const mean=i=>{const ratios=pairs.map(([a,b])=>parts?[a[i],b[i]]:[a,b]).filter(([,b])=>Math.abs(b)>1e-6).map(([a,b])=>a/b);return ratios.length?ratios.reduce((sum,v)=>sum+v,0)/ratios.length:1;};
+   const before=i=>Array.isArray(old)?old[i]??1:old??1;
+   target.fieldScale={...target.fieldScale,[field]:parts?Array.from({length:parts},(_,i)=>mean(i)*before(i)):mean(0)*before(0)};
+  }
+ }
+ return next;
 }
 function sameLayerForRetention(prior,layer){
  if(!prior)return false;

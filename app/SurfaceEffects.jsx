@@ -14,7 +14,7 @@ import {unitHeight} from '../src/fx-layer-basis.js';
 import {version} from '../package.json';
 import {ownLookFrom,stackFromOwnLook,upsertOwnLook,ownLookFile,parseOwnLookFile} from '../src/fx-own-looks.js';
 import {writePresetFile} from './PresetBar.jsx';
-import {animationPart,compileAnimation,readAnimationStack,impactDefaults,strengthPasses,previewCoordinates,FX_SECTIONS} from '../src/global-animation-model.js';
+import {animationPart,compileAnimation,carryAnimationStack,readAnimationStack,impactDefaults,strengthPasses,previewCoordinates,FX_SECTIONS} from '../src/global-animation-model.js';
 import {createFrameCoalescer} from './viewport-performance.js';
 import {globalAssetKey,createGlobalLibrary} from './global-animation-library.js';
 import {translate} from '../src/localization.js';
@@ -67,6 +67,8 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const [stack,setStack]=useState(()=>readAnimationStack(doc.model,part)||makeStack(GLOBAL_LOOKS[0],part,sequenceIndex));
  // Only the current target has a working preview and a close-warning baseline.
  const baseline=useRef(stack);
+ // Once the user has chosen or changed anything, that choice goes with them from part to part.
+ const chosen=useRef(false);
  const [selectedLayer,setSelectedLayer]=useState(()=>stack.layers.find(l=>l.kind==='flame')?.id||stack.layers[0]?.id);
  const [selectedSite,setSelectedSite]=useState(null),[surfaceSnap,setSurfaceSnap]=useState(false),[showMarkers,setShowMarkers]=useState(true);
  const windowRef=useRef(null);
@@ -74,7 +76,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const selectLayer=id=>{setSelectedLayer(id);selectSite(null);setRotating(false);};
  const [pendingEdit,setPendingEdit]=useState(null),[colourRevision,setColourRevision]=useState(0);
  const changeStack=(next,aimOnly=false,operation)=>{
-  setOriginal(false);
+  setOriginal(false);chosen.current=true;
   if(!selectedSite&&!operation)next={...next,layers:next.layers.map(layer=>{const old=stack.layers.find(l=>l.id===layer.id);return old?clearGroupFieldEdits(old,layer):layer;})};
   if(!selectedSite&&stack.layers.some(old=>{const changed=next.layers.find(l=>l.id===old.id);return changed&&emitterEditOverlaps(old,changed,operation);})){
    if(stack.emitterEditPolicy==='keep'||stack.emitterEditPolicy==='all')setStack(applyEmitterEditPolicy(stack,next,stack.emitterEditPolicy==='all',operation));
@@ -170,23 +172,37 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
   const name=source.name||'Custom look';
   return {id:source.look,name,own:{...ownLookFrom(source,partFrame(doc.model.Geosets[part]),name),id:source.look}};
  };
- const show=next=>{setStack(next);setTrial(null);setPendingEdit(null);selectLayer(next.layers.find(l=>l.kind==='flame')?.id||next.layers[0]?.id);setOriginal(false);setPlacing(false);if(next.impact&&next.sequence>=0)setSequence(next.sequence);};
- const choose=entry=>{if(entry.id!==stack.look)show(makeStack(entry,part,sequence));};
+ const show=(next,keep)=>{setStack(next);setTrial(keep?.trial||null);setPendingEdit(null);selectLayer(next.layers.find(l=>l.id===keep?.layer)?.id||next.layers.find(l=>l.kind==='flame')?.id||next.layers[0]?.id);setOriginal(false);setPlacing(false);if(next.impact&&next.sequence>=0)setSequence(next.sequence);};
+ const choose=entry=>{if(entry.id!==stack.look){chosen.current=true;show(makeStack(entry,part,sequence));}};
  // Saving a look changes preferences only: not the model, not Undo, and not the window's unapplied work.
  const keepLooks=looks=>changePreferences?.(previous=>({...previous,fxLooks:looks})),openMyLooks=()=>setFolders(old=>new Set([...old,'My looks']));
  const lookActions={
   save:name=>{const {looks,look}=upsertOwnLook(ownLooks,ownLookFrom(stack,partFrame(doc.model.Geosets[part]),name)),next={...stack,look:look.id,name:look.name};keepLooks(looks);if(JSON.stringify(stack)===JSON.stringify(baseline.current))baseline.current=next;setStack(next);openMyLooks();return look;},
   saveFile:name=>writePresetFile(name,ownLookFile(ownLookFrom(stack,partFrame(doc.model.Geosets[part]),name),version)),
-  loadText:text=>{const {looks,look}=upsertOwnLook(ownLooks,parseOwnLookFile(text));keepLooks(looks);show(stackFromOwnLook(look,partFrame(doc.model.Geosets[part]),stack.owner));openMyLooks();return look;},
+  loadText:text=>{const {looks,look}=upsertOwnLook(ownLooks,parseOwnLookFile(text));keepLooks(looks);chosen.current=true;show(stackFromOwnLook(look,partFrame(doc.model.Geosets[part]),stack.owner));openMyLooks();return look;},
  };
  const removeLook=id=>changePreferences?.(previous=>({...previous,fxLooks:previous.fxLooks.filter(l=>l.id!==id)}));
  const pickGeoset=(index,group=false)=>{
   index=animationPart(lastModel.current,index);
   if(!doc.model.Geosets[index]||(index===part&&group===combined))return;
-  const saved=readAnimationStack(doc.model,index),next=saved||makeStack(entryOf(stack),index,sequence);
-  baseline.current=next;
+  const saved=readAnimationStack(doc.model,index);
+  // The look, its variation and the layer edits stay with the user on the next part. A part that already has an
+  // effect shows that effect until the user has chosen or changed something here. Nothing applied is touched.
+  let next=saved&&!chosen.current?saved:null,keep;
+  if(!next&&!stack.impact)try{
+   const from=recipeFrame||partFrame(doc.model.Geosets[part]),to=partFrame(doc.model.Geosets[index]);
+   to.unitHeight=unitHeight(doc.model);
+   const id=Math.max(0,...stack.layers.map(l=>l.id))+1;
+   const source={...stack,layers:trial?[...stack.layers,{...trial.layer,id}]:stack.layers,...(members.length?{group:members,asOverlay:true}:{})};
+   const carried=carryAnimationStack(doc.model,part,source,from,to,saved?.owner||crypto.randomUUID(),{...loaded,attachments});
+   if(stack.asOverlay==null)delete carried.asOverlay;else carried.asOverlay=stack.asOverlay;
+   keep={layer:selectedLayer,trial:trial?{...trial,layer:{...carried.layers.find(l=>l.id===id),id:trial.layer.id}}:null};
+   next={...carried,layers:carried.layers.filter(l=>!trial||l.id!==id)};
+  }catch{next=null;}
+  next||=saved||makeStack(entryOf(stack),index,sequence);
+  baseline.current=saved||next;
   lastModel.current=doc.model;
-  setCombined(group);setPart(index);show(next);
+  setCombined(group);setPart(index);show(next,keep);
   if(saved)setFolders(old=>new Set([...old,lookOf(saved).group]));
  };
  const isolated=useMemo(()=>solo?[...new Set([part,...members,...(!original&&graph?.layers?Object.values(graph.layers).map(l=>l.geoset).filter(i=>i>=0):[])])]:undefined,[solo,part,members,original,graph]);
@@ -207,7 +223,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  return <ToolWindow title="Surface Effects" windowRef={windowRef} overlayClass="resource-editor surface-effects" className="re-window sfx-window" headerClass="re-caption" closeClass="re-caption-close" onClose={onClose} unapplied={unapplied}
   after={<>{pendingEdit&&<Dialog title="Individual emitter changes" onClose={()=>{setPendingEdit(null);setColourRevision(v=>v+1);}} footer={<><button title={pendingEdit.aimOnly?"Use the layer aim for all emitters.":"Use the layer value and return hand-placed emitters to the formation."} onClick={()=>resolvePending('all')}>Apply to all</button><button title="Keep each emitter's own values and placement." onClick={()=>resolvePending('keep')}>Keep individual changes</button></>}><label><input type="checkbox" checked={pendingEdit.remember} onChange={event=>{const remember=event.target.checked;setPendingEdit(edit=>({...edit,remember}));}}/>Remember for this effect</label></Dialog>}{picture!=null&&<Suspense fallback={null}><TextureLibrary model={doc.model} onClose={()=>setPicture(null)} selectLabel="Use picture" onSelectTexture={async asset=>{
    const [file]=await resolveGameFiles([asset.name]);if(!file)throw Error('Choose a native Warcraft texture.');
-   setStack(current=>({...current,layers:current.layers.map(l=>l.id===picture?withLayerTexture(l,asset.name):l)}));
+   setStack(current=>({...current,layers:current.layers.map(l=>l.id===picture?withLayerTexture(l,asset.name):l)}));chosen.current=true;
    setPicture(null);setOriginal(false);
   }}/></Suspense>}</>}>
   <div className="sfx-target"><SelectField label="Geoset" wheel value={combined?-1:part} onChange={value=>pickTarget(Number(value))} options={targetOptions}/><label title="Highlight the selected part in the preview."><input data-hotkey="surface-effects:highlight-geoset" data-hotkey-manual data-hotkey-label="Highlight geoset" type="checkbox" checked={highlight} onChange={e=>setHighlight(e.target.checked)}/>Highlight geoset</label><span>Double-click a surface to select it.</span></div>
@@ -223,7 +239,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
     <Suspense fallback={<span>Loading…</span>}><GlobalAnimationStage Preview={GamePreview} graph={graph} layer={layer} selectedSite={selectedSite} selectSite={selectSite} deleteEmitter={deleteEmitter} windowRef={windowRef} showMarkers={showMarkers} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} placing={placing&&!original} rotating={rotating} onDrag={holdFrame} onLayer={(next,aimOnly)=>{changeStack({...stack,layers:stack.layers.map(l=>l.id===next.id?withLayerSize(layer,next):l)},aimOnly);}} model={original?doc.model:lastModel.current} revision={doc.revision} textureAssets={assets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} presentation="preview" preserveCameraView emptyDragRotates mode="textured" view="perspective" playing={playing} onPlayingChange={setPlaying} time={time} onTimeChange={setTime} sequenceIndex={sequence} playbackSpeed={100} loop showParticles showGrid={false} showAxes={false} interactivePreview highlightSelection hoveredGeoset={highlight?part:null} onDoubleClickGeoset={pickGeoset} frameKey={solo?'fx:'+part:undefined} isolatedGeosets={isolated} hiddenGeosets={hidden} cameraMode={cameraMode} selectedNodeIds={idleSelection} overlays={overlays} onCaptureReady={captureReady}/></Suspense>
     {original&&<span className="sfx-comparison">Original</span>}{loading&&!error&&<span className="sfx-stage-message" role="status">Loading…</span>}{message&&<span className="sfx-stage-message sfx-error" role="alert">{message}</span>}
    </div><div className="sfx-transport"><CameraTools value={cameraMode} onChange={setCameraMode}/><button data-hotkey="surface-effects:play" data-hotkey-manual data-hotkey-label="Play / pause" onClick={()=>setPlaying(v=>!v)}>{playing?'Pause':'Play'}</button><ChoiceSelect data-hotkey="surface-effects:preview-animation" data-hotkey-manual data-hotkey-label="Preview animation" aria-label="Preview animation" value={sequence} onChange={value=>setSequence(Number(value))}>{doc.model.Sequences.map((s,i)=><option key={i} value={i}>{s.Name}</option>)}</ChoiceSelect><button data-hotkey="surface-effects:solo" data-hotkey-manual data-hotkey-label="Solo" aria-pressed={solo} onClick={()=>setSolo(v=>!v)} title="Show only the selected part.">Solo</button><button data-hotkey="surface-effects:fit-selection" data-hotkey-manual data-hotkey-label="Fit selection" title="Frame the selected part." onClick={()=>capture.current?.frameGeosets([part])}>Fit selection</button><button data-hotkey="surface-effects:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the original model." onClick={()=>setOriginal(v=>!v)}>Original</button></div></main>
-   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} colourRevision={colourRevision} setStack={changeStack} trial={trial} setTrial={next=>{setOriginal(false);setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} deleteEmitter={deleteEmitter} showMarkers={showMarkers} toggleMarkers={()=>setShowMarkers(v=>!v)} setEmitterEditPolicy={policy=>setStack(current=>withEmitterEditPolicy(current,policy))} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} recipeFrame={recipeFrame} readPreviewClock={()=>capture.current?.playbackClock()} previewFrame={time} previewSequence={sequence} authoredClocks={doc.model.GlobalSequences} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value){selectSite(null);setRotating(false);}}} rotating={rotating} setRotating={setRotating} openEmitter={apply} onSequence={setSequence}/></aside>
+   <aside className="sfx-controls"><GlobalAnimationControls lookActions={lookActions} overlayLocked={members.length>0} assets={assets} pickTexture={setPicture} previewStrength={previewStrength} previewLayout={previewLayout} preferences={preferences} stack={stack} colourRevision={colourRevision} setStack={changeStack} trial={trial} setTrial={next=>{setOriginal(false);if(next)chosen.current=true;setTrial(next);}} selected={selectedLayer} select={selectLayer} selectedSite={selectedSite} deleteEmitter={deleteEmitter} showMarkers={showMarkers} toggleMarkers={()=>setShowMarkers(v=>!v)} setEmitterEditPolicy={policy=>setStack(current=>withEmitterEditPolicy(current,policy))} surfaceSnap={surfaceSnap} setSurfaceSnap={setSurfaceSnap} graph={graph} recipeFrame={recipeFrame} readPreviewClock={()=>capture.current?.playbackClock()} previewFrame={time} previewSequence={sequence} authoredClocks={doc.model.GlobalSequences} ColourControl={ColourControl} placing={placing} setPlacing={value=>{setPlacing(value);if(!value){selectSite(null);setRotating(false);}}} rotating={rotating} setRotating={setRotating} openEmitter={apply} onSequence={setSequence}/></aside>
   </div><footer className="sfx-footer"><button onClick={onClose}>Cancel</button><button data-hotkey="surface-effects:apply-effect" data-hotkey-manual data-hotkey-label="Apply effect" className="sfx-apply" disabled={loading||!ready||!graph?.model||!!message} onClick={()=>apply()}>Apply effect</button></footer>
  </ToolWindow>;
 }

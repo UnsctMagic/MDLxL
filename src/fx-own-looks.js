@@ -112,6 +112,30 @@ export function stackFromOwnLook(record,frame,owner){
  });
  return {owner,look:record.id,name:record.name,loop:record.loop,...(record.asOverlay!=null?{asOverlay:record.asOverlay}:{}),...(record.variation!=null?{variation:record.variation}:{}),impact:false,layers};
 }
+/**
+ * The same stack on another part of the same model: its look, variation and layer values stay and are refitted to
+ * that part. What was placed by hand on the old part (single emitters and their own values, a baked layout) is left
+ * behind; an edited emitter count keeps its number and is laid out again.
+ */
+const PART_STACK=['look','name','loop','variation','asOverlay','iceVariation','emitterEditPolicy'];
+export function stackForPart(stack,from,to,owner){
+ const layers=stack.layers.map(layer=>{
+  const {individuals:_individuals,activeSiteKeys:_active,groupRateCount:_count,...next}=layer;
+  if(Number.isInteger(next.siteCount)&&next.siteLayout)next.siteLayout=next.siteLayout.map(({key})=>({key,refit:true}));
+  else{delete next.siteLayout;delete next.siteCount;delete next.siteRateScale;}
+  return next;
+ });
+ const fitted=stackFromOwnLook(ownLookFrom({...stack,layers},from,'part'),to,owner).layers;
+ const r=ratio(layerBasis(from).length,layerBasis(to).length),whole=ratio(from.radius,to.radius);
+ return {owner,...Object.fromEntries(PART_STACK.filter(key=>stack[key]!=null).map(key=>[key,stack[key]])),impact:false,layers:fitted.map((layer,i)=>{
+  const old=layers[i];
+  if(old.placement)layer.placement={upper:old.placement.upper*r,lower:old.placement.lower*r};
+  // A size taken from the whole part (reach) follows the whole part again.
+  if(old.reach!=null&&typeof old.size==='number'&&old.type==='Card')layer.size=old.size*whole;
+  if(old.reach!=null&&old.orbit)for(const key of ['orbitRadius','upper','lower'])if(typeof old[key]==='number')layer[key]=old[key]*whole;
+  return layer;
+ })};
+}
 /** Adds or replaces (same name, any capitals) a look; the id of a replaced look stays. Throws a short message when it cannot be kept. */
 export function upsertOwnLook(looks,record){
  const found=normalizeOwnLook(record);if(!found)throw Error('This look could not be saved.');
