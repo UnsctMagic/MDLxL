@@ -874,7 +874,8 @@ export default function GamePreview(inputProps) {
     let particlePress=null;
     const startParticleClick=event=>{if(latest.current.particlePickOnClick)particlePress={x:event.clientX,y:event.clientY,moved:false};};
     const trackParticleClick=event=>{if(particlePress&&Math.hypot(event.clientX-particlePress.x,event.clientY-particlePress.y)>=7)particlePress.moved=true;};
-    const pickParticleClick=event=>{if(latest.current.particlePickOnClick&&!latest.current.onParticleSurfacePlace&&particlePress&&!particlePress.moved&&event.detail===1)pickParticle(event);};
+    // A plain click also places on the surface when a caller asks for placement (FX tattoo marks, Snap to surface).
+    const pickParticleClick=event=>{if(latest.current.particlePickOnClick&&particlePress&&!particlePress.moved&&event.detail===1)pickParticle(event);};
     canvas.addEventListener('pointerdown',startParticleClick,true);canvas.addEventListener('pointermove',trackParticleClick,true);canvas.addEventListener('click',pickParticleClick,true);
     canvas.addEventListener('dblclick',pickFxPart,true);
     canvas.addEventListener('dblclick',pickParticle,true);

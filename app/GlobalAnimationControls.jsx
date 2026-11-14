@@ -108,7 +108,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   setStack({...stack,layers:stack.layers.map(v=>v.id===l.id?replaceEmitter(l,next,graph||{frame:recipeFrame,layers:{}}):v)});select(next.id);
  };
  const keepTrial=()=>{const id=nextId();setStack({...stack,layers:[...stack.layers,{...trial.layer,id}]});select(id);setTrial(null);setPlacing(false);};
- const positional=p||swarm||edge||l?.ground||card;
+ const positional=p&&!l.tattoo||swarm||edge||l?.ground||card;
  const siteCount=result?.ids?.length??layer?.siteCount;
  const particleLayer=p||swarm;
  const countable=p&&!selectedSite&&!stack.impact&&l.enabled!==false&&!!result;
@@ -184,7 +184,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  };
  // Position & size sits right above More in every kind of layer.
  const moreAt=!l||tattoo?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
- const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
+ const placement=l?.tattoo?<small className="fx-tattoo-hint">{translate('Click the skin to move the nearest mark there.')}</small>:l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
    {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
    {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}
    {p&&placing&&real&&<button aria-pressed={!!groupSelect} title="Clicking an emitter also selects the emitters of other layers at the same place. They move together." onClick={toggleGroupSelect}>Select emitter by group</button>}</div>;

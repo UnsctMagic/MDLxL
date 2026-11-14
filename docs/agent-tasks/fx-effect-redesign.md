@@ -457,3 +457,21 @@ Brief: [fx-owner-feedback-14nov-1810.md](fx-owner-feedback-14nov-1810.md). Commi
 6. Recipe reference section for the new fields (`tattoo*`, Card `ring`, `team` on a swarm, `lockedClock`).
 
 Exact next step: item 1.
+
+### Pass 10, later the same evening: the owner on build 13 (handles)
+
+The owner: "The controls to move tattoos are REALLY bad. just let me click on points to move it there - dont use geosets, use the point i click"; of the Position & size handles: "they dont work like in EMTR - there I just control 1 emitter and move it easy".
+
+Done:
+- **Tattoo: no handles.** With the tattoo layer selected, a click on the model moves the mark nearest the click to that point of the skin, on whatever geoset it is; the design is cut from that geoset. No Position & size button; a one-line hint in its place. Size, Turn, Glow and Emitters (how many marks) stay. Checked in the hidden app: two clicks moved the mark to two other geosets and the design followed, no handle drawn, no page error.
+- **Emitter layers: no handle cluster.** Position & size shows the emitter dots; EMTR's handle appears only for the one emitter that is selected. Cards, ribbons and swarms (which have no dots) keep one handle.
+- A Sonnet agent's fixes to the remaining handles: Size corners drawn inside the stage and well off the Move handle, Size also scales a card's reach, larger hit areas, the Born/Halfway/End words hidden in FX (`ParticleStageTools` props `hitRadius`, `quiet`).
+- A plain click places on the surface wherever placement is asked for (Snap to surface no longer needs a double-click).
+
+Not done, in this order:
+1. Adding a tattoo mark by click (now: the Emitters slider adds one, then click to place it). Choosing which mark a click moves is "the nearest one".
+2. `test/fx-placement-handles.electron.cjs` (written by the agent before the cluster was removed, left untracked): it expects a handle on every emitter layer; change it to select a dot first, then run it. `fx-emitter-placement.electron.cjs` and `fx-cards.electron.cjs` timed out in the new picker helper (`pickFx` in `test/helpers/fx-input.cjs`) when the agent ran them: fix the helper.
+3. The emitter dots show only while Emitter markers is on; check that it starts on, and that selecting a dot and dragging it feels like EMTR in the packaged app with the owner's mouse settings.
+4. Opus review of the five-model captures (`out\fx-look\pass10-c`, 108 entries, sheets built), then the earlier list: lightning pass (measured in `out\fx-design\pass10\lightning-ref.md`), pass 9 looks, animation-sequence visibility.
+
+Exact next step: item 2, then 1.

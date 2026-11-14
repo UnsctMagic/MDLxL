@@ -9,7 +9,7 @@ import ParticleStageHandle from './ParticleStageHandle.jsx';
 import {degreesToQuaternion,quaternionToDegrees,turnLocalRotation} from '../src/rotation-math.js';
 import {useStageRotate} from './StageRotate.jsx';
 // rotate: show the main editor's Rotate handles on the emitter (Motion) or ribbon.
-export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames,spanHandles=false,rotate=false,preferences,onDrag}) {
+export default function ParticleStageTools({snapshot,tool,emitter,options,lifeStage=1,begin,change,finish,cancel,cancelVersion,sizeKey,onSizeDraft,frames,spanHandles=false,rotate=false,preferences,onDrag,hitRadius,quiet=false}) {
   // onDrag(true) when a handle drag starts and onDrag(false) when it ends: the editor holds the animation frame meanwhile.
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),[pinned,setPinned]=useState(null);
   // A world-axis turn is written into the emitter's own Rotation: its parent's
@@ -69,7 +69,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   function abort(){frame.current.cancel();const active=!!drag.current,size=drag.current?.size;drag.current=null;setPinned(null);if(!size)cancel();if(active)onDrag?.(false);}
   // Hover word per handle job; ribbons already label Move permanently.
   const handleWords={Translation:ribbon?null:'Move',ParticleScaling:'Resize',HeightAbove:'Upper edge',HeightBelow:'Lower edge',Width:'Width',Length:'Length',Latitude:'Spread',FormationWidth:'Width',FormationDepth:'Depth'};
-  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} word={handleWords[field]} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  const handle=(point,field,label,basis)=>point&&<ParticleStageHandle point={point} label={label} word={handleWords[field]} hitRadius={hitRadius} aria-valuenow={value(field)} onPointerDown={event=>start(event,field,point,basis)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const delta=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;begin(field,field==='ParticleScaling'?stage:undefined);change(field==='Translation'?value(field).map((v,i)=>v+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)*basis.dx[i]+(event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0)*basis.dy[i]):Math.max(0,value(field)+delta));finish();}
   }}/>;
   const formationOrigin=guide?.origin,formationGrips=[formationOrigin,guide?.upper,guide?.lower];
@@ -88,11 +88,12 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   };
   return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
     {rings.targets}
-    {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}{ribbon&&<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text>}</g>}
-    {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Born','Halfway','End'][lifeStage]:'Size'}</text></g>}
+    {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}{!quiet&&<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Born','Halfway','End'][lifeStage]:'Size'}</text>}</g>}
     {(ribbon||spanHandles)&&guide?.upper&&guide?.lower&&<g className={sizeKey?'pe-size-key':undefined}><line x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]}/>{snapshot.anchor&&!sizeKey&&<line className="pe-ribbon-grab" x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]} onPointerDown={event=>start(event,'Translation',snapshot.anchor.point,snapshot.anchor)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort}><title>Drag the ribbon to move it</title></line>}{handle(guide.upper,'HeightAbove','Ribbon upper edge',particleAxisMapping(guide.upper,guide.upperUnit))}{handle(guide.lower,'HeightBelow','Ribbon lower edge',particleAxisMapping(guide.lower,guide.lowerUnit))}</g>}
     {spanHandles&&formationHandle('FormationWidth','Formation width',guide?.formationWidth,guide?.formationWidthUnit)}
     {spanHandles&&formationHandle('FormationDepth','Formation depth',guide?.formationDepth,guide?.formationDepthUnit)}
+    {/* Drawn after the ribbon's grab line, so the move handle's own hover word and hit area are never under it. */}
+    {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}{ribbon&&<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text>}</g>}
     {!ribbon&&tool==='Motion'&&guide?.area&&<g><polygon points={guide.area.map(p=>p.slice(0,2).join(',')).join(' ')}/>
       {handle(guide.widthHandle,'Width','Spawn width handle',particleAxisMapping(guide.widthHandle,guide.widthUnit))}
       {handle(guide.lengthHandle,'Length','Spawn length handle',particleAxisMapping(guide.lengthHandle,guide.lengthUnit))}

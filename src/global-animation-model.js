@@ -912,7 +912,7 @@ function nativeParticles(c,layer){
   c.sites.push(emitterSiteRecord(slot,pos,Math.max(0,c.frame.regions?.indexOf(region)??0),slot.ground??!!l.ground));
   if(!l.impact||l.placement||layer.individuals?.[key]?.position)pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
-  if(layer.tattoo)marks.push({point:pos.clone(),width:slot.componentWidth});
+  if(layer.tattoo)marks.push({point:pos.clone(),width:slot.componentWidth,geoset:layer.individuals?.[key]?.surface?.geoset});
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,slot.rideBone!=null?slot.rideBone:(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   applyRecipeAim(c,l,slot,p,slot.birth?.rotation);
@@ -955,13 +955,16 @@ function nativeParticles(c,layer){
  * and lit like the skin; Glow adds the player's light over it.
  */
 function tattooLayer(c,l,marks){
- const {model:m,source,tag}=c,v=source.Vertices,faces=source.Faces,smooth=source.Normals?.length===v.length?source.Normals:null;
+ const {model:m,tag}=c;
  const slender=(c.frame.regions?.length??1)<=SHARED_REGIONS&&c.frame.length>=c.frame.radius*3.5,up=slender?c.frame.axis.clone().normalize():z.clone();
  const vertices=[],normals=[],uvs=[],out=[],vertexGroup=[],groups=[],groupOf=new Map(),centres=[];
- const bind=vertex=>{const from=source.VertexGroup?.[vertex]??0;if(!groupOf.has(from)){groupOf.set(from,groups.length);groups.push([...(source.Groups?.[from]||[c.parent])]);}return groupOf.get(from);};
  const lift=Math.max(.12,c.frame.length*.0025),triangle=new Triangle(),closest=new Vector3(),flat=new Vector3();
  let widest=1;
  for(const mark of marks){
+  // The skin the mark was put on: the part itself, or the geoset the user clicked (never an effect's own geoset).
+  const clicked=mark.geoset!=null&&mark.geoset!==c.index?m.Geosets[mark.geoset]:null,source=clicked&&!clicked._FxTag&&clicked.Faces?.length?clicked:c.source,part=source===c.source?-1:mark.geoset;
+  const v=source.Vertices,faces=source.Faces,smooth=source.Normals?.length===v.length?source.Normals:null;
+  const bind=vertex=>{const from=source.VertexGroup?.[vertex]??0,id=part+':'+from;if(!groupOf.has(id)){groupOf.set(id,groups.length);groups.push([...(source.Groups?.[from]||[c.parent])]);}return groupOf.get(id);};
   // The skin under the marker: its nearest triangle gives the place and the way the skin faces.
   let best=Infinity,face=-1;const at=new Vector3();
   for(let f=0;f<faces.length;f+=3){
