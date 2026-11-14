@@ -827,7 +827,14 @@ function nativeParticles(c,layer){
   if(!l.native?.ParticleScaling){
    p.ParticleScaling=vec(Array.from(p.ParticleScaling,v=>v*l.size));
    const edited=l.widthCapEdited||layer.individuals?.[key]?.values?.size!=null;
-   if(l.widthCap!=null?!edited:l.airyFit)p.ParticleScaling=capParticleScaling(p.ParticleScaling,widthCapFor(l,slot));
+   if(l.widthCap!=null?!edited:l.airyFit){
+    const fitted=Math.max(...p.ParticleScaling);
+    p.ParticleScaling=capParticleScaling(p.ParticleScaling,widthCapFor(l,slot));
+    // capMotion (fresh recipes): launch speed and lift follow the capped sprite, so a flame climbs as many of its own
+    // widths on any part. A number names the cap to follow instead of the layer's own (embers that rise with a flame).
+    const motion=l.capMotion===true?Math.max(...p.ParticleScaling)/fitted:l.capMotion>0&&slot.componentWidth>0?Math.min(1,slot.componentWidth*l.capMotion/radius):1;
+    if(fitted>0&&motion!==1)for(const key of ['Speed','Gravity'])if(typeof p[key]==='number'&&!(l.native&&key in l.native))p[key]*=motion;
+   }
   }
   applyFieldScale(p,l);
   if(bursts){

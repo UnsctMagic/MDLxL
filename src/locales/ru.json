@@ -8164,5 +8164,13 @@
   "Arcs per burst": "Дуг за разряд",
   "Flashes in one burst.": "Сколько вспышек в одном разряде.",
   "Select emitter by group": "Выбирать эмиттеры группой",
-  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Щелчок по эмиттеру выбирает и эмиттеры других слоёв в том же месте. Они перемещаются вместе."
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Щелчок по эмиттеру выбирает и эмиттеры других слоёв в том же месте. Они перемещаются вместе.",
+  "Fire body": "Тело огня",
+  "Fel licks": "Языки Скверны",
+  "Enveloping fel flames": "Окутывающее пламя Скверны",
+  "Fel sheath": "Оболочка Скверны",
+  "Fel tongues": "Языки огня Скверны",
+  "Fel body": "Тело огня Скверны",
+  "Fel core": "Ядро Скверны",
+  "Fel column": "Столб огня Скверны"
 }

@@ -8300,5 +8300,13 @@
   "Arcs per burst": "Arcs par rafale",
   "Flashes in one burst.": "Éclairs dans une rafale.",
   "Select emitter by group": "Sélectionner les émetteurs par groupe",
-  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Cliquer sur un émetteur sélectionne aussi les émetteurs des autres calques au même endroit. Ils se déplacent ensemble."
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Cliquer sur un émetteur sélectionne aussi les émetteurs des autres calques au même endroit. Ils se déplacent ensemble.",
+  "Fire body": "Corps de feu",
+  "Fel licks": "Langues gangrenées",
+  "Enveloping fel flames": "Flammes gangrenées enveloppantes",
+  "Fel sheath": "Enveloppe gangrenée",
+  "Fel tongues": "Langues de feu gangrené",
+  "Fel body": "Corps de feu gangrené",
+  "Fel core": "Cœur gangrené",
+  "Fel column": "Colonne de feu gangrené"
 }

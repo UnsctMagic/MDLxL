@@ -113,6 +113,24 @@ export const GLOBAL_LOOKS=[
      native:{Time:.5,Variation:.25,Flags:U,LifeSpanUVAnim:[0,0,1],DecayUVAnim:[0,0,1],
              SegmentColor:[[1,.25,.05],[1,.8,.2],[1,.9,.3]]}}),
   ]},
+  // Fire column was its own look until 14 November. The fire sits in the part like Fireball (gather:'engulf') and
+  // climbs out of it: almost no launch speed, a strong lift, every flame narrowing on its way up. capMotion keeps
+  // the climb at about three and a half flame widths on any part.
+  {id:'column',name:'Fire column',layers:[
+   skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
+   spray('Fire body',CLOUDS,[1,.36,.07],
+    {atlas:8,filter:0,life:1,rate:40,velocity:.3,gravity:-5.6,spread:20,size:[1,.85,.35],alpha:[130,140,0]},
+    {starts:true,gather:'engulf',aim:'outward',widthCap:1.3,capMotion:true,loop:2267,
+     native:{Time:.4,Variation:.25,Flags:U,PriorityPlane:-1,SegmentColor:[[1,.5,.1],[.96,.28,.05],[.5,.07,.02]]}}),
+   spray('Fire column',texture('Clouds8x8Fire'),[1,.6,.2],
+    {atlas:8,life:.9,rate:80,velocity:.4,gravity:-8.2,spread:12,size:[.95,.7,.22],alpha:[220,170,0]},
+    {starts:true,gather:'engulf',aim:'outward',widthCap:1.1,capMotion:true,
+     native:{Time:.45,Variation:.25,Flags:U,SegmentColor:[[1,.45,.08],[1,.62,.14],[1,.82,.38]]}}),
+   spray('Column embers',texture('LavaLump'),[1,.62,.25],
+    {life:2.2,rate:10,velocity:.5,gravity:-2,spread:30,size:[.08,.06,.03],alpha:[255,200,80]},
+    {starts:true,gather:'engulf',aim:'outward',widthCap:.16,capMotion:1.1,loop:3133,
+     native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.9,.5],[1,.5,.14],[.6,.1,.02]]}}),
+  ]},
  ]),
  vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
   {id:'ice',name:'Ice',layers:[...ICE_VARIANTS.white,starts(frost())]},
@@ -366,6 +384,27 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  ]);
 }
 {
+ // Fel fire is Fire in fel colours (owner, 13 November: the Fire lessons for Fel fire too). Flame licks, Enveloping
+ // flames, Fireball and Fire column are translated: red and green change places, the red glow, the fire sheet, the
+ // fire shade and the lava lump become their green or plain pictures, the surface is Fel fire's own. Fel flames and
+ // Fel sparks stay as they were.
+ const source=GLOBAL_LOOKS.find(l=>l.id==='flaming-sword'),i=GLOBAL_LOOKS.findIndex(l=>l.id==='claude-fel-blade'),fel=GLOBAL_LOOKS[i];
+ const colour=([r,g,b])=>r===g&&g===b?[r,g,b]:[Math.round(g*80)/100,r,b];
+ const names={'Flame licks':'Fel licks','Flame sheath':'Fel sheath','Flame tongues':'Fel tongues','Fire body':'Fel body','Fire core':'Fel core','Core glow':'Fel glow','Fire column':'Fel column'};
+ const pictures=new Map([[texture('Red_Glow3'),texture('Green_Glow3')],[texture('Clouds8x8ModFire'),texture('Clouds8x8Mod')],[texture('Clouds8x8Fire'),CLOUDS],[texture('LavaLump'),texture('GenericGlow64')]]);
+ const felLayer=spec=>{
+  if(spec.type!=='Particles')return fel.variations[0].layers[0];
+  const image=pictures.get(spec.image)||spec.image,next={...spec,label:names[spec.label]||spec.label,image,tint:colour(spec.tint)};
+  if(spec.nativeSpec)next.nativeSpec={...spec.nativeSpec,texture:image};
+  if(spec.native?.SegmentColor)next.native={...spec.native,SegmentColor:spec.native.SegmentColor.map(colour)};
+  return next;
+ };
+ const translated=(id,from,name)=>({id,name,layers:source.variations.find(v=>v.id===from).layers.filter(spec=>spec.type!=='Card').map(felLayer)});
+ const kept=id=>fel.variations.find(v=>v.id===id);
+ GLOBAL_LOOKS[i]=vary(fel,[kept('original'),translated('fel-licks','flame-licks','Fel licks'),translated('fel-enveloping','enveloping-flames','Enveloping fel flames'),
+  translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column')]);
+}
+{
  // Crystal veins was its own look until 14 November: one Crystal look, the veins as a variation.
  const i=GLOBAL_LOOKS.findIndex(l=>l.id==='fx-lit-crystal'),crystal=GLOBAL_LOOKS[i];
  GLOBAL_LOOKS[i]=vary(crystal,[...crystal.variations,{id:'veins',name:'Crystal veins',layers:GLOBAL_LOOKS.find(l=>l.id==='crystal-veins').layers}]);
@@ -373,7 +412,7 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
- ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['fx-burning-cracks'],['fx-fire-column'],['fissures','Fissures'],['claude-magma-flow'],['lava'],['claude-forge-hot','Forge heat'],['rising-embers']]],
+ ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['fx-burning-cracks'],['fissures','Fissures'],['claude-magma-flow'],['lava'],['claude-forge-hot','Forge heat'],['rising-embers']]],
  ['Ice',[['frost-blade','Frost'],['fx-lit-crystal','Crystal'],['frost-mist']]],
  ['Water',[['claude-tidal-blade','Water'],['fx-liquid-body']]],
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift'],['claude-void-cracked','Void cracks']]],

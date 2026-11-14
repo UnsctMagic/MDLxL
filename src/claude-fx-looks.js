@@ -36,20 +36,7 @@ export const CLAUDE_LOOKS=[
    {...dust('Fel flames','flame',CLOUDS,{atlas:8,tint:fel}),starts:true,widthCap:.75,widthCapRimOnly:true,widthCapStrip:1.6},     // no airyFit (cbc)
    FEL_FLAME_CARDS,
   ]},
-  {id:'fel-surge',name:'Fel surge',layers:[
-   skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
-   nativeSpray('Fel cores',CLOUDS,fel,
-    {atlas:8,life:.45,rate:50,velocity:.24,gravity:-.6,spread:20,size:[.8,.55,.2],alpha:[255,230,0]},
-    {starts:true,gather:'head',aim:'outward',widthCap:1.4,
-     native:{Time:.45,Variation:.3,Flags:U,SegmentColor:[[1,.94,.76],[.1,.88,0],[.15,.75,.01]]}}),
-   nativeSpray('Fel streaks',tex('Flame4'),fel,
-    {life:.35,rate:24,velocity:1.1,spread:82,tail:.25,size:[.06,.3,.09],alpha:[255,255,0]},
-    {starts:true,gather:'head',aim:'outward',widthCap:.5,loop:1933,
-     native:{Time:.45,Variation:.4,Flags:U,SegmentColor:[[.99,.96,.03],[.2,.96,.05],[.09,.8,0]]}}),
-   nativeSpray('Fel glow',tex('Green_Glow3'),fel,
-    {life:.8,rate:6,size:[1.2,1.1,.9],alpha:[70,60,20]},
-    {starts:true,gather:'head',widthCap:2.4,loop:2267,native:{Time:.5,Flags:C}}),
-  ]},
+  // Fel surge is Fireball in fel colours now: global-animation-looks.js makes it from Fire's recipe.
   {id:'fel-sparks',name:'Fel sparks',layers:[
    skin('Fel fire',tex('Flame4'),{axis:'v',band:.8,pulse:'flicker',strength:.95,tint:fel}),
    nativeSpray('Rising sparks',tex('Star7b'),fel,

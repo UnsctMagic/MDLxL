@@ -8174,5 +8174,13 @@
   "Arcs per burst": "Arcos por descarga",
   "Flashes in one burst.": "Destellos en cada descarga.",
   "Select emitter by group": "Seleccionar emisores por grupo",
-  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Al hacer clic en un emisor también se seleccionan los emisores de otras capas en el mismo lugar. Se mueven juntos."
+  "Clicking an emitter also selects the emitters of other layers at the same place. They move together.": "Al hacer clic en un emisor también se seleccionan los emisores de otras capas en el mismo lugar. Se mueven juntos.",
+  "Fire body": "Cuerpo de fuego",
+  "Fel licks": "Lenguas viles",
+  "Enveloping fel flames": "Llamas viles envolventes",
+  "Fel sheath": "Manto vil",
+  "Fel tongues": "Lenguas de fuego vil",
+  "Fel body": "Cuerpo de fuego vil",
+  "Fel core": "Núcleo vil",
+  "Fel column": "Columna de fuego vil"
 }
