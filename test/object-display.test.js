@@ -34,7 +34,7 @@ const MDLVIS_VIEW_MENU = {
 };
 
 test('XL switch lists follow the owner\'s order in each editor; VIS has MDLVis 1.40\'s lists', () => {
-  assert.deepEqual(rows(XL_VIEW_MENU, 'vertices'), ['Shadows', 'RGB', 'Vertices', 'Normals', 'Objects', 'Wireframe Overlay', 'Axis guides', 'Grid', 'Clear']);
+  assert.deepEqual(rows(XL_VIEW_MENU, 'vertices'), ['Shadows', 'RGB', 'Vertices', 'Normals', 'Wireframe Overlay', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'bones'), ['Shadows', 'Vertices', 'Bones', 'Skeleton', 'Objects', 'Lights', 'Wireframe Overlay', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'movement'), ['Shadows', 'Vertices', 'Bones', 'Skeleton', 'F.Skeleton', 'Objects', 'Lights', 'Axis guides', 'Grid', 'Clear']);
   assert.deepEqual(rows(XL_VIEW_MENU, 'animations'), ['RGB', 'Shadows', 'Lights', 'Emitters', 'Events', 'Sounds', 'Grid', 'Clear']);
@@ -97,12 +97,11 @@ test('right-click types filter what Objects draws and picks, shared between Bone
   assert.equal(cleared.movement.objectTypesSounds, false); assert.equal(cleared.movement.objectTypesEvents, false);
 });
 
-test('Vertices: Objects starts off and never shows lights; Animations draws no symbols', () => {
+test('Vertices draws no objects and has no Objects switch; Animations draws no symbols', () => {
   const display = defaultEditorDisplay();
-  assert.equal(display.vertices.objects, false);
-  const on = setEditorDisplay(display, 'vertices', 'objects', true);
-  const vertex = viewportOverlayOptions({ overlays: on.vertices, vanilla: false });
-  assert.deepEqual(shown(vertex), new Set(['attachments', 'particles', 'events', 'sounds']));
+  assert.deepEqual(['objects', 'lights', 'objectTypesSounds'].map(key => display.vertices[key]), [undefined, undefined, undefined]);
+  const vertex = viewportOverlayOptions({ overlays: display.vertices, vanilla: false });
+  assert.equal(shown(vertex).size, 0);
   const animations = previewOverlayOptions({ ...display.animations, lights: true, particles: true }, true, 'animations');
   assert.equal(shown(animations).size, 0);
   assert.equal(animations.boneLines, false);
@@ -125,7 +124,7 @@ test('old XL saves: Nodes becomes Lights, the old kinds become Objects and its t
   assert.deepEqual([restored.movement.lights, restored.movement.objects, restored.movement.objectTypesEmitters, restored.movement.objectTypesAttachments, restored.movement.objectTypesSounds], [true, true, true, false, false]);
   // Nothing was on: Objects off, every type still ticked for next time.
   assert.deepEqual([restored.bones.objects, restored.bones.objectTypesSounds], [false, true]);
-  assert.deepEqual([restored.vertices.objects, restored.vertices.objectTypesAttachments, restored.vertices.bones], [true, true, false]);
+  assert.deepEqual([restored.vertices.objects, restored.vertices.objectTypesAttachments, restored.vertices.bones], [undefined, undefined, false]);
   // VIS saves keep only MDLVis's switches; removed ones are dropped.
   assert.equal(storedEditorDisplay(true, storage({ vis: { movement: { nodes: true } } })).movement.nodes, undefined);
   for (const junk of ['{', '"x"', '[1]', 'null', '{"xl":{"movement":7,"bones":null}}']) assert.doesNotThrow(() => storedEditorDisplay(false, { getItem: () => junk }), junk);

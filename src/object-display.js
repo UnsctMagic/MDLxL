@@ -51,6 +51,12 @@ export function migrateXLDisplay(saved) {
   const result = { ...saved };
   for (const mode of ['vertices', 'bones', 'movement']) {
     const old = saved[mode];
+    if (mode === 'vertices' && old && typeof old === 'object') {
+      // XL Vertices draws no objects any more: drop saved Objects, Lights and their ticks.
+      const { objects: _o, lights: _l, nodes: _n, attachments: _a, particles: _p, sounds: _s, events: _e, objectTypesAttachments: _t1, objectTypesEmitters: _t2, objectTypesEvents: _t3, objectTypesSounds: _t4, ...rest } = old;
+      result[mode] = { ...rest, bones: false, helpers: false, skeleton: false };
+      continue;
+    }
     if (!old || typeof old !== 'object' || old.objects !== undefined) continue;
     const next = { ...old };
     if (typeof old.nodes === 'boolean') next.lights = old.nodes;

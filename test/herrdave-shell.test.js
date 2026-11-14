@@ -12,7 +12,7 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
   const bindings=effectiveBindings(COMMANDS,{normals:['H']});
   const expected={
     // MDLxL look, owner's revised spec (14 Nov 2026); VIS keeps main's lists.
-    vertices:['Shadows','RGB','Vertices','Normals','Objects','Wireframe Overlay','Axis guides','Grid','Clear'],
+    vertices:['Shadows','RGB','Vertices','Normals','Wireframe Overlay','Axis guides','Grid','Clear'],
     bones:['Shadows','Vertices','Bones','Skeleton','Objects','Lights','Wireframe Overlay','Axis guides','Grid','Clear'],
     movement:['Shadows','Vertices','Bones','Skeleton','F.Skeleton','Objects','Lights','Axis guides','Grid','Clear'],
     animations:['RGB','Shadows','Lights','Emitters','Events','Sounds','Grid','Clear'],

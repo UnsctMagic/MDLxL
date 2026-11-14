@@ -1,6 +1,6 @@
 # Objects display — owner's revised spec (14 Nov 2026, evening)
 
-Status: built, ready to test (see "Built" below), not online. Supersedes the first plan below, which the owner rejected after testing build 01:
+Status: Ready to merge (owner approved release, 15 Nov 2026). Supersedes the first plan below, which the owner rejected after testing build 01:
 "its too much shit ... I hoped fable would do something smart - this is just way too cluttered and function is lost."
 
 ## The owner's spec (their words, then the settled reading)
@@ -23,7 +23,7 @@ Attachments/sounds moving or animated: research Hive + the model library; includ
 
 | Editor (XL) | Switches, in order |
 |---|---|
-| Vertices | Shadows, RGB, Vertices, Normals, Objects, Wireframe Overlay, Axis guides, Grid, Clear |
+| Vertices | Shadows, RGB, Vertices, Normals, Wireframe Overlay, Axis guides, Grid, Clear |
 | Bones | Shadows, Vertices, Bones, Skeleton, Objects, Lights, Wireframe Overlay, Axis guides, Grid, Clear |
 | Movement | Shadows, Vertices, Bones, Skeleton, F.Skeleton (tooltip: Focused Skeleton), Objects, Lights, Axis guides, Grid, Clear |
 | Animations | RGB, Shadows, Lights, Emitters, Events, Sounds, Grid, Clear (no symbols) |
@@ -256,3 +256,6 @@ Feature work: targeted tests only, no full packaged suite. Hand-over build opens
 
 `D:\Claude\MDLxL\TestBuilds
 ode-display-01`, opened on `TestBuilds	est-models\TEST NODE DISPLAY 01.mdx` at 1d782196. Packaged object-display and animation-effects pass on it; full source suite 3476/0 before review fixes, preview-ffmpeg 9/9 after (earlier failures were low C: space). Click sweep left for release (owner rule). Waiting for the owner's hand test; nothing online.
+
+
+Owner, 15 Nov: "WHY IS OBJECTS IN VERTEX EDITOR" - removed. XL Vertices has no Objects switch and draws no objects; saved Vertices Objects/Lights ticks are dropped on load. VIS unchanged.

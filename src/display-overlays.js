@@ -33,7 +33,7 @@ function defaultXLDisplay(base) {
   const { nodes: _nodes, attachments: _attachments, particles: _particles, sounds: _sounds, events: _events, ...rest } = base;
   const rig = { ...rest, objects: true, lights: false, ...OBJECT_TYPE_DEFAULTS };
   return {
-    vertices: { ...rest, objects: false, ...OBJECT_TYPE_DEFAULTS },
+    vertices: { ...rest },
     // Bones is one shared switch across the rig editors (see shareBones); Objects
     // and its types are shared between Bones and Movement the same way.
     bones: { ...rig, bones: true, helpers: true },

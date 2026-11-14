@@ -65,8 +65,8 @@ assert.deepEqual(VIS, { vertices: MDLVIS_VIEW, bones: MDLVIS_RIG, movement: MDLV
 
     // Vertices (the editor the model opens in).
     assert.deepEqual(await switches(), XL.vertices, 'Vertex switches');
-    assert.equal(await quick.getByLabel('Objects', { exact: true }).isChecked(), false, 'Vertex starts with Objects off');
-    checks.push('Vertices: owner\'s switch row, Objects off');
+    assert.equal(await quick.getByLabel('Objects', { exact: true }).count(), 0, 'Vertices has no Objects switch');
+    checks.push('Vertices: owner\'s switch row, no Objects');
 
     // Bones: the row and the right-click Objects menu.
     await page.locator('[data-hotkey="bones"]').first().click();
