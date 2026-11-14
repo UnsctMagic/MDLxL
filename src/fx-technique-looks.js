@@ -186,6 +186,29 @@ export const TECHNIQUE_LOOKS=[
   cardSpec('Right eye',tex('Flare'),{fit:.25,sizeMin:.9,sizeMax:1.1,loop:1433,tint:[1,.3,.12]}),
   spray('Eye sparks',tex('Flare'),[1,.3,.12],{life:.5,rate:10,velocity:.15,size:[.18,.14,.1],alpha:[200,180,150]},{native:{Flags:EMITTER_CARRIED}}),
  ]),
+ // Leaves (pass 7, 14 November), after the owner's Elemental Lord: leaves and dust carried around the body on a turning
+ // axis, inside long wind ribbons. An emitter that circles the part sheds the leaves; the rest fall around it.
+ vary(make('leaves','Leaves',4000,[]),[
+  {id:'green',name:'Falling leaves',layers:[
+   spray('Falling leaves',tex('Leaf4x4'),[1,1,1],
+    {atlas:4,filter:0,life:2.4,rate:12,velocity:.1,gravity:.22,spread:180,size:[.02,.1,.1],alpha:[0,255,0]},
+    {starts:true,cover:'around',birthAcross:1.5,widthCap:.8,capMotion:true,
+     native:{Time:.3,Variation:.5,Flags:EMITTER_UNFOGGED,SegmentColor:[[1,1,1],[1,1,1],[.5,.5,.4]]}}),
+   spray('Whirling leaves',tex('Leaf4x4'),[1,1,1],
+    {atlas:4,filter:0,orbit:.5,life:1.3,rate:10,velocity:.08,gravity:.1,spread:180,size:[.02,.07,.07],alpha:[0,255,0]},
+    {starts:true,loop:2933,native:{Time:.3,Variation:.5,SegmentColor:[[1,1,1],[1,1,1],[.5,.5,.4]]}}),
+  ]},
+  {id:'whirl',name:'Whirlwind',layers:[
+   orbit('Wind','Abilities\\Spells\\Other\\Tornado\\wind.blp',[.7,.82,.9],{whole:true,reach:1.2,band:.3,along:-.2,orbitTurns:2,loop:2300,filter:2,strength:.4,lasts:.8,smoothness:60}),
+   orbit('Second wind','Abilities\\Spells\\Other\\Tornado\\wind.blp',[.7,.82,.9],{whole:true,reach:1.4,band:.26,along:.2,orbitTurns:2,loop:2900,filter:2,strength:.4,lasts:.8,smoothness:60}),
+   spray('Whirling leaves',tex('Leaf4x4'),[1,1,1],
+    {atlas:4,filter:0,orbit:.6,life:1.3,rate:16,velocity:.08,gravity:.1,spread:180,size:[.02,.07,.07],alpha:[0,255,0]},
+    {starts:true,loop:2100,native:{Time:.3,Variation:.5,SegmentColor:[[1,1,1],[1,1,1],[.5,.5,.4]]}}),
+   spray('Whirling dust',tex('Dust3x'),[.75,.7,.6],
+    {filter:0,orbit:.45,phase:.5,life:1.1,rate:10,velocity:.05,spread:180,size:[.06,.14,.2],alpha:[0,90,0]},
+    {starts:true,loop:2500}),
+  ]},
+ ]),
  vary(make('tint','Tint',3000,[]),[
   {id:'wash',name:'Colour wash',layers:[skin('Colour wash',null,{own:true,fixed:true,filter:2,strength:.5,tint:[.55,.75,1]})]},
   {id:'team',name:'Team colour',layers:[skin('Team colour wash','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,fixed:true,bodyUV:true,filter:2,strength:.3,tint:[1,1,1]})]},

@@ -15,6 +15,25 @@ const U=EMITTER_UNFOGGED,C=EMITTER_CARRIED;
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
 const rune_=[.4,.75,1],ember=[1,.5,.14],violet=[.72,.5,1];
+// The owner's zombie dragon breath (14 November): two clouds of the same shape from one place, a pale green one and a
+// murky olive one, blended (never additive), born dense and thinning (alpha 123 > 60 > 0) while they grow by half, on
+// the first frames of the cloud sheet only (0-6, then 7-12), sorted far to near. Its colours are used as measured.
+const PALE=[[.69,.99,.74],[.25,.53,.32],[.33,.51,.34]],MURK=[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]];
+const SORTED=4096|32768|65536,PUFF={LifeSpanUVAnim:[0,6,1],DecayUVAnim:[7,12,1],Flags:SORTED};
+// A cloud that hangs around the part. fall: positive sinks, negative rises (shares of the part-fitted radius).
+const plagueCloud=(label,ramp,{rate,life=2.4,alpha=105,fall=-.04,size=[.2,.3,.4],cap=2.2,loop}={})=>nativeSpray(label,CLOUDS,ramp[1],
+ {atlas:8,filter:0,life,rate,velocity:.08,gravity:fall,spread:180,size,alpha:[0,alpha,0]},
+ {starts:true,cover:'around',birthAcross:1.3,widthCap:cap,capMotion:true,...(loop?{loop}:{}),native:{Time:.3,Variation:.3,...PUFF,SegmentColor:ramp}});
+// The breath itself: a stream from the part's far end. It travels about five and a half cloud widths (capMotion).
+const plagueBreath=(label,ramp,rate,loop)=>nativeSpray(label,CLOUDS,ramp[1],
+ {atlas:8,filter:0,life:1.1,rate,velocity:1.75,spread:20,size:[.25,.3,.35],alpha:[123,60,0]},
+ {starts:true,gather:'tip',aim:'tip',widthCap:1.1,capMotion:true,...(loop?{loop}:{}),native:{Time:.5,Variation:.1,...PUFF,SegmentColor:ramp}});
+const plagueGlow=(extra={})=>nativeSpray('Plague glow',tex('Green_Glow3'),[.4,.9,.3],
+ {life:1.6,rate:8,size:[.3,.42,.3],alpha:[0,55,0]},
+ {starts:true,cover:'surface',widthCap:1.6,loop:2933,native:{Time:.5,Flags:C},...extra});
+const plagueSpores=(rate=12,cap=.4)=>nativeSpray('Plague spores',tex('Bubble'),[.5,.9,.25],
+ {life:1.6,rate,velocity:.08,gravity:-.12,spread:180,size:[.015,.045,.03],alpha:[0,210,0]},
+ {starts:true,cover:'around',birthAcross:1.4,widthCap:cap,loop:1933,native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[.8,1,.5],[.5,.9,.25],[.25,.6,.2]]}});
 const make=(group,id,name,loop,options,...layers)=>({id:'claude-'+id,name,group,loop,palette:'native',...options,layers});
 // Each look sits in the library's normal folder for its kind.
 const fx=(group,...a)=>make(group,a[0],a[1],a[2],{},...a.slice(3));
@@ -73,8 +92,46 @@ export const CLAUDE_LOOKS=[
   glow('Heartbeat',null,{pulse:'double',strength:1.1,tint:blood,inflate:.3}),
   {...rune('Pact mark',tex('DemonRune3'),'beat',blood),tint2:[.85,.12,.3],loop:2267},
   spray('Blood beads','BloodBlobs1',[.85,.2,.15],{life:.72,rate:7,area:.4,gravity:1.8,spread:16,filter:0,size:[.12,.32,.12]})),
- fx('Around the unit','plague-swarm','Plague swarm',3000,
-  spray('Plague haze','CloudSingle',sick,{life:1.5,rate:8,area:.55,velocity:.3,size:[.2,.45,.65],alpha:[0,120,0]})),
+ // Plague cloud (owner, 14 November: "needs more options"). It was one haze emitter. Five variations now, all built
+ // on the zombie dragon breath's pair of pale and murky clouds.
+ vary(fx('Around the unit','plague-swarm','Plague cloud',3000),[
+  {id:'cloud',name:'Plague cloud',legacyLayers:[spray('Plague haze','CloudSingle',sick,{life:1.5,rate:8,area:.55,velocity:.3,size:[.2,.45,.65],alpha:[0,120,0]})],layers:[
+   plagueCloud('Pale cloud',PALE,{rate:12}),
+   plagueCloud('Murky cloud',MURK,{rate:9,life:2.8,alpha:120,size:[.22,.34,.46],cap:2.5,loop:3467}),
+   plagueGlow(),
+   plagueSpores(),
+  ]},
+  {id:'breath',name:'Plague breath',layers:[
+   plagueBreath('Pale breath',PALE,60),
+   plagueBreath('Murky breath',MURK,45,3467),
+   nativeSpray('Breath glow',tex('Green_Glow3'),[.4,.9,.3],
+    {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,90,0]},
+    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
+   nativeSpray('Spittle',tex('WaterBlobs1'),[.45,.75,.2],
+    {filter:0,life:.9,rate:14,velocity:1.6,gravity:1,spread:22,tail:.12,size:[.05,.04,.02],alpha:[255,230,0]},
+    {starts:true,gather:'tip',aim:'tip',widthCap:.3,capMotion:3.14,loop:2133,native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[.7,1,.4],[.45,.75,.2],[.25,.5,.15]]}}),
+  ]},
+  {id:'miasma',name:'Sinking miasma',layers:[
+   plagueCloud('Pale cloud',PALE,{rate:14,life:2.2,fall:.22,size:[.14,.26,.42]}),
+   plagueCloud('Murky cloud',MURK,{rate:10,life:2.6,alpha:120,fall:.3,size:[.16,.3,.48],cap:2.5,loop:3467}),
+   plagueGlow(),
+   {...dust('Plague drips','drops',tex('WaterBlobs1'),{tint:[.42,.6,.15],starts:true,...DRIP}),amount:8},
+  ]},
+  {id:'spores',name:'Spore cloud',layers:[
+   plagueCloud('Pale cloud',PALE,{rate:8,alpha:60}),
+   plagueSpores(40,.5),
+   nativeSpray('Spore glints',tex('star4_32'),[.6,1,.35],
+    {life:.7,rate:12,size:[.02,.1,.02],alpha:[0,230,0]},
+    {starts:true,cover:'around',birthAcross:1.4,widthCap:.7,loop:2267,native:{Time:.45,Flags:C,SegmentColor:[[1,1,.85],[.6,1,.35],[.25,.75,.2]]}}),
+   plagueGlow(),
+  ]},
+  // The flies keep the clock of the Fly swarm look.
+  {id:'swarm',name:'Buzzing cloud',loop:1233,layers:[
+   plagueCloud('Murky cloud',MURK,{rate:10,life:2.8,alpha:120,size:[.22,.34,.46],cap:2.5,loop:3467}),
+   plagueCloud('Pale cloud',PALE,{rate:7,alpha:70,loop:3000}),
+   {...dust('Orbiting flies','flies',tex('Abomination')),starts:true},
+  ]},
+ ]),
  armour('runic-plate','Runic plate',4200,
   {...rune('Plate runes','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp','beat',rune_),tint2:[.6,.68,1]},
   glow('Rune light',tex('GenericGlow64'),{pulse:'soft',strength:.35,tint:rune_,inflate:.3,loop:2900})),

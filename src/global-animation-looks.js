@@ -51,6 +51,13 @@ const enchanted=()=>glow('Enchanted steel',texture('Ice3b'),{base:true,filter:2,
 const VENOM=[.5,.82,.22];
 const poisonFilm=(extra={})=>skin('Poison surface','TerrainArt\\Felwood\\Felwood_Poison.blp',{nativeSurface:{...existing('poison'),description:undefined},tint:[1,1,1],...extra});
 const bubbles=rate=>spray('Bubbles',texture('Bubble'),[.45,.9,.25],{life:.45,rate,velocity:.1,spread:60,size:[.012,.035,.045],alpha:[0,200,0]},{starts:true,cover:'surface',widthCap:.35,loop:1933,native:{Time:.6,Variation:.4,Flags:C,SegmentColor:[[.7,1,.4],[.45,.9,.25],[.3,.72,.33]]}});
+// Pass 7 (14 November; owner: Poison "feels cheaper than all the others"). The film alone was one flat green. Like
+// Molten lava it now has depth: dark rot drifting against the film (the Cooling crust technique), slime running along
+// the part, and a sickly shell of light around it.
+const SICK=[.5,.82,.22];
+const darkRot=(strength=.45)=>skin('Dark rot',texture('CloudsTile1'),{bodyUV:true,filter:2,direction:200,speed:.25,strength,tint:[.05,.1,.02],loop:4133});
+const slime=(strength=.45)=>skin('Running slime',texture('AcidSplash1'),{axis:'v',band:.8,filter:4,strength,tint:[.62,1,.3],loop:2933});
+const sicklyGlow=(strength=.3)=>glow('Sickly glow',null,{pulse:'soft',strength,tint:SICK,inflate:.3,loop:3733});
 const thorn=SORT_LOOKS.find(l=>l.id==='sort-thorn');
 export const GLOBAL_LOOKS=[
  vary(make('flaming-sword','Flaming sword','Blades',1760,'copper',[]),[
@@ -264,19 +271,29 @@ export const GLOBAL_LOOKS=[
  vary(make('poison-skin','Poison skin','Skins',3400,'moss',[]),[
   {id:'original',name:'Poison',layers:[
    poisonFilm({base:true,strength:.9}),
+   darkRot(),slime(),sicklyGlow(),
+   {...bubbles(24),loop:2267},
    dust('Heavy drops','drops',texture('WaterBlobs1'),{...DRIP}),      // ingredient, not started (cbc)
   ]},
   {id:'venom',name:'Dripping venom',layers:[
    poisonFilm({strength:.7}),                                      // overlay: no base
+   slime(.6),sicklyGlow(),
    dust('Venom drips','drops',texture('WaterBlobs1'),{tint:VENOM,starts:true,...DRIP}),
    bubbles(30),
   ]},
   {id:'fumes',name:'Toxic fumes',layers:[
    poisonFilm({strength:.7}),
+   sicklyGlow(),
    spray('Toxic fumes',CLOUDS,[.6,.85,.1],
     {atlas:8,filter:0,life:1.7,rate:14,velocity:.1,gravity:-.06,spread:180,size:[.14,.22,.32],alpha:[110,60,0]},
     {starts:true,birthRegion:true,birthAcross:1.2,
      native:{Time:.5,Variation:.3,SegmentColor:[[.97,1,.07],[.51,.98,.01],[0,.8,.04]]}}),
+   // A second, murky cloud in the same space gives the fumes depth (the owner's zombie dragon breath: a pale and a dark
+   // cloud of the same shape, blended, never additive).
+   spray('Heavy fumes',CLOUDS,[.22,.27,.07],
+    {atlas:8,filter:0,life:2.2,rate:9,velocity:.07,gravity:-.04,spread:180,size:[.16,.26,.36],alpha:[0,95,0]},
+    {starts:true,birthRegion:true,birthAcross:1.2,loop:3067,
+     native:{Time:.4,Variation:.3,SegmentColor:[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]]}}),
    spray('Fume glow',texture('CloudSingle'),[.55,.9,.15],
     {life:1.1,rate:10,velocity:.08,gravity:-.1,spread:180,size:[.12,.2,.26],alpha:[0,60,0]},
     {starts:true,birthRegion:true,loop:2633,native:{Time:.4,Variation:.3,Flags:U}}),
@@ -434,6 +451,66 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  const i=GLOBAL_LOOKS.findIndex(l=>l.id==='fx-lit-crystal'),crystal=GLOBAL_LOOKS[i];
  GLOBAL_LOOKS[i]=vary(crystal,[...crystal.variations,{id:'veins',name:'Crystal veins',layers:GLOBAL_LOOKS.find(l=>l.id==='crystal-veins').layers}]);
 }
+// Pass 7 (14 November; owner: "merge looks that are only variations of each other into one card, with a Variation
+// dropdown"). fold() makes one card of several looks. A look folded in keeps its own loop, overlay choice and default
+// colours as a variation; it leaves LIBRARY, so it is retired: a model saved with it still opens and edits as before.
+const lookById=id=>GLOBAL_LOOKS.find(l=>l.id===id);
+const paletteTint=palette=>tintFromHex(surfacePalette({palette})[0][1]);
+/** The layers of a look (or of one of its variations) as a variation of another card. drop, start: layer labels; change: fields by label; add: layers after them. */
+function adopted(variationId,name,[id,from],{drop=[],start=[],change={},add=[],first=[]}={}){
+ const look=lookById(id),own=from?look.variations.find(v=>v.id===from):look;
+ const layers=own.layers.filter(s=>!drop.includes(s.label)).map(s=>({
+  ...s,...(s.tint!=null||s.water||s.kind==='flies'?{}:{tint:paletteTint(look.palette)}),...(start.includes(s.label)?{starts:true}:{}),...change[s.label]}));
+ return {id:variationId,name,layers:[...first,...layers,...add],loop:look.loop,asOverlay:look.asOverlay};
+}
+/** The card's own variations: all of them, or the plain look as one variation. */
+const own=(id,name)=>{const look=lookById(id);return look.variations||[{id:'original',name:name||look.name,layers:look.layers}];};
+function fold(id,variations){
+ const i=GLOBAL_LOOKS.findIndex(l=>l.id===id);
+ GLOBAL_LOOKS[i]=vary(GLOBAL_LOOKS[i],variations);
+}
+{
+ // Poison: Felwood curse, Venom seep (shown as Acid) and Corrupted veins were cards of their own; Felwood poison was
+ // the Poison film again under another name and is retired.
+ fold('poison-skin',[
+  ...own('poison-skin'),
+  adopted('curse','Felwood curse',['felwood-curse'],{add:[
+   sicklyGlow(),
+   spray('Curse wisps',texture('star4_32'),[.55,.9,.3],
+    {life:1.3,rate:12,velocity:.06,gravity:-.14,spread:180,size:[.02,.07,.02],alpha:[0,240,0]},
+    {starts:true,cover:'around',birthAcross:1.3,widthCap:.6,loop:2933,
+     native:{Time:.45,Variation:.5,Flags:C,SegmentColor:[[1,1,.8],[.55,.9,.3],[.2,.7,.15]]}}),
+  ]}),
+  adopted('acid','Acid',['venom-seep'],{drop:['Bubbles'],add:[
+   spray('Acid splashes',texture('AcidSplash1'),[.6,1,.3],
+    {filter:0,life:.5,rate:14,size:[.04,.16,.2],alpha:[255,220,0]},
+    {starts:true,cover:'surface',widthCap:1.1,loop:2267,native:{Time:.35,Flags:C,SegmentColor:[[.8,1,.5],[.6,1,.3],[.3,.8,.2]]}}),
+   spray('Acid fumes',CLOUDS,[.75,.95,.3],
+    {atlas:8,life:1.1,rate:10,velocity:.12,gravity:-.3,spread:40,size:[.06,.12,.18],alpha:[0,60,0]},
+    {starts:true,cover:'surface',widthCap:1.2,loop:2633,native:{Time:.35,Variation:.3,Flags:U}}),
+   bubbles(24),
+  ]}),
+  adopted('veins','Corrupted veins',['claude-corrupted-veins'],{change:{'Ichor drops':{starts:true,amount:8}},add:[{...bubbles(16),loop:2267}]}),
+ ]);
+ // Vines: Mossy bark and its spores were switched-off layers of Briar binding; they are a variation now.
+ const leaves=(rate=7)=>spray('Falling leaves',texture('Leaf4x4'),[1,1,1],
+  {atlas:4,filter:0,life:2.2,rate,velocity:.1,gravity:.22,spread:180,size:[.02,.09,.09],alpha:[0,255,0]},
+  {starts:true,cover:'around',birthAcross:1.3,widthCap:.7,capMotion:true,loop:3133,
+   native:{Time:.3,Variation:.5,Flags:U,SegmentColor:[[1,1,1],[1,1,1],[.5,.5,.4]]}});
+ const pollen=()=>spray('Drifting pollen',texture('star4_32'),[1,.85,.4],
+  {life:1.4,rate:12,velocity:.05,gravity:-.06,spread:180,size:[.015,.06,.015],alpha:[0,230,0]},
+  {starts:true,cover:'around',birthAcross:1.4,widthCap:.5,loop:2633,
+   native:{Time:.5,Variation:.5,Flags:C,SegmentColor:[[1,1,.85],[1,.85,.4],[.9,.6,.15]]}});
+ const briar=lookById('sort-briar'),layer=label=>briar.layers.find(s=>s.label===label);
+ fold('sort-briar',[
+  {id:'weave',name:'Vine weave',legacyLayers:[layer('Pollen')],layers:[layer('Vine weave'),leaves(),pollen()]},
+  {id:'moss',name:'Mossy bark',layers:[{...layer('Mossy bark'),enabled:true},leaves(4),
+   spray('Rising spores',texture('Bubble'),[.48,1,.73],
+    {life:1.6,rate:16,velocity:.08,gravity:-.12,spread:180,size:[.015,.045,.03],alpha:[0,210,0]},
+    {starts:true,cover:'around',birthAcross:1.3,widthCap:.4,loop:1933,
+     native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[.8,1,.9],[.48,1,.73],[.25,.6,.4]]}})]},
+ ]);
+}
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
@@ -443,7 +520,7 @@ export const LIBRARY=[
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift'],['claude-void-cracked','Void cracks']]],
  ['Arcane',[['arcane-blade','Arcane'],['fx-energy-flow'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['fx-rune-circle'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb']]],
- ['Poison & nature',[['poison-skin','Poison'],['poison'],['felwood-curse'],['venom-seep'],['claude-corrupted-veins'],['sort-briar'],['sort-ink'],['fly-swarm'],['claude-plague-swarm']]],
+ ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves'],['sort-ink']]],
  ['Stone',[['sort-basalt','Basalt'],['sort-abyss'],['sort-cairn'],['sort-mosaic']]],
  ['Death & spirit',[['claude-wraith-form'],['fx-ghost-trails'],['fx-soul-vortex'],['fx-dark-smoke'],['fx-hollow-shell'],['revenant'],['spirit-veil'],['hex-mark'],['claude-blood-pact'],['sort-blood']]],
  ['Build your own',[['empty','Empty'],['moving-own','Moving texture'],['colour-pulse'],['fade-pulse'],['fx-tint']]],
@@ -490,7 +567,11 @@ export function withVariation(stack,frame,look,variationId){
   const enabled=old?old.enabled!==false:spec.enabled!==false;
   return {...makeLayer(spec,frame,look.palette,old?.id??++id),recipeOwner:look.id,recipeRole:spec.recipeRole??String(layersIndex++),enabled};
  });
- return {...stack,variation:variationId,layers:[...layers,...extra]};
+ const next={...stack,variation:variationId,layers:[...layers,...extra]};
+ // A variation that was its own look brings that look's loop and overlay choice (only in looks that have such variations).
+ if(look.variations.some(v=>v.loop!=null))next.loop=variation.loop??look.loop;
+ if(look.variations.some(v=>'asOverlay' in v)){const overlay='asOverlay' in variation?variation.asOverlay:look.asOverlay;if(overlay==null)delete next.asOverlay;else next.asOverlay=overlay;}
+ return next;
 }
 export const LAYER_CHOICES=[
  skin('Flowing energy',existing('energy').texture,{pulse:'breathe'}),
@@ -715,7 +796,7 @@ export function makeLayer(spec,frame,palette,id) {
   if(spec.inflate>0||spec.liftFit!=null)saved.closedLift=true;
  }
  const layer={...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
-  speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,
+  speed:spec.speed??1,direction:spec.direction??0,tiling:spec.tiling??1,offset:[0,0,0],upper:length/2,lower:length/2,
   count:p[0],amount:spec.amount??p[1],lasts:spec.lasts??p[2],velocity:p[3]*(scale.velocity??1),gravity:p[4]*(scale.gravity??1),size:spec.type==='Rune'?basis.runeSize:spec.kind==='flies'?basis.flySize:p[5]*(scale.size??1),
   spriteSize:p[5],smoothness:32};
  if(spec.native?.SegmentColor)layer.rampTint=[...defaultTint];

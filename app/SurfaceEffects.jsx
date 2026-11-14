@@ -210,7 +210,7 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
  const isolated=useMemo(()=>solo?[...new Set([part,...members,...(!original&&graph?.layers?Object.values(graph.layers).map(l=>l.geoset).filter(i=>i>=0):[])])]:undefined,[solo,part,members,original,graph]);
  const hidden=useMemo(()=>isolated?new Set(doc.model.Geosets.map((_,i)=>i).filter(i=>!isolated.includes(i))):undefined,[doc,doc.revision,isolated]);
  const message=error||graph?.error||previewError,layer=stack.layers.find(l=>l.id===selectedLayer);
- const query=search.trim().toLowerCase(),matches=[...ownEntries,...GLOBAL_LOOKS].filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)).toLowerCase().includes(word)));
+ const query=search.trim().toLowerCase(),matches=[...ownEntries,...GLOBAL_LOOKS].filter(e=>!query||query.split(/\s+/).every(word=>(e.name+' '+translate(e.name)+' '+e.group+' '+translate(e.group)+' '+(e.variations||[]).map(v=>v.name+' '+translate(v.name)).join(' ')).toLowerCase().includes(word)));
  const groups=[...new Set(matches.map(e=>e.group))];
  const apply=(emitterLayer=null,siteKey=null)=>{
   if(!graph?.model||message)return;
