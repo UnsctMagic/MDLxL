@@ -2,11 +2,15 @@
 // Fields, their defaults and bounds live here so the layer builder, the compiler and saved looks agree.
 
 // across: the card stands across the part, which passes through its middle (a ring around a blade).
-export const CARD_FACINGS=['camera','ground','part','across'];
+// twirl: no flat card but strands wound around the part, turning about it (the count is the number of strands).
+export const CARD_FACINGS=['camera','ground','part','across','twirl'];
 /** Defaults of every optional Card field. size and offset are fitted to the part by makeLayer. */
 export const CARD_DEFAULTS=Object.freeze({facing:'camera',count:1,sizeMin:.83,sizeMax:1.17,spin:0,spinEased:true,jitter:0,rows:1,columns:1,frameMs:0,cell:0,strength:1,filter:3,unshaded:true,unfogged:true,twoSided:true});
 /** [min,max] of each numeric Card field. */
-export const CARD_BOUNDS=Object.freeze({count:[1,8],sizeMin:[.05,4],sizeMax:[.05,4],spin:[-16,16],jitter:[0,180],rows:[1,16],columns:[1,16],frameMs:[0,5000],cell:[0,255],strength:[0,1],loop:[100,20000],size:[.1,100000]});
+export const CARD_BOUNDS=Object.freeze({count:[1,8],sizeMin:[.05,4],sizeMax:[.05,4],spin:[-16,16],jitter:[0,180],rows:[1,16],columns:[1,16],frameMs:[0,5000],cell:[0,255],strength:[0,1],loop:[100,20000],size:[.1,100000],
+ // tilt: degrees an Across card leans out of its plane (it then turns about the part). turns, band, flow: a Twirl's
+ // turns around the part, strand width as a share of its radius, texture passes along the strand per loop.
+ tilt:[0,85],turns:[.5,8],band:[.05,3],flow:[-8,8]});
 // Each card of a layer runs on its own loop: base × these, so neighbours never pulse in step (study: 1000/1133/1200/1300).
 export const CARD_CLOCK_FACTORS=[1,1.133,1.2,1.3,1.433,1.567,1.7,1.833];
 // Jitter clocks: fast, never dividing each other (study: 100/133).

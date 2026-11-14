@@ -138,6 +138,18 @@ export const GLOBAL_LOOKS=[
     {starts:true,gather:'engulf',aim:'outward',widthCap:.16,capMotion:1.1,loop:3133,
      native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.9,.5],[1,.5,.14],[.6,.1,.02]]}}),
   ]},
+  // Pass 9 (14 November): the owner's Infernal Bulwark. Its swirl is not emitters but fire bands on helpers that turn at
+  // different speeds, some the other way. Here the bands are wound around the part (twirl): a wide band of the fire
+  // ring picture and thin ember streaks turning against it, small flames and embers leaving the surface.
+  {id:'swirl',name:'Swirling flames',layers:[
+   skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
+   cardSpec('Flame swirl',texture('firering1A'),{facing:'twirl',whole:true,count:2,reach:1.2,turns:1.5,band:1.2,tiling:4,flow:1,spin:1.5,sizeMin:.94,sizeMax:1.08,loop:2700,filter:4,tint:[1,.62,.18]}),
+   cardSpec('Ember swirl',texture('RibbonBlur1'),{facing:'twirl',whole:true,count:3,reach:1.45,turns:1,band:.35,tiling:2,flow:2,spin:-1,sizeMin:.95,sizeMax:1.08,loop:1800,strength:.8,tint:[1,.45,.1]}),
+   spray('Swirl flames',texture('Flame4'),[1,.55,.15],
+    {life:.8,rate:30,velocity:.3,gravity:-.6,spread:60,size:[.2,.2,.05],alpha:[120,255,0]},
+    {starts:true,cover:'surface',widthCap:.8,capMotion:true,loop:2267,native:{Time:.4,Variation:.4,Flags:U,SegmentColor:[[1,.8,.35],[1,.5,.12],[.7,.1,.02]]}}),
+   {...embers(),starts:true,amount:8},
+  ]},
   // Pass 7 (14 November): the owner's zombie dragon breath as fire. A stream from the part's far end: Fireball's blended
   // body under an additive stream, embers thrown along it, a glow where it starts.
   {id:'breath',name:'Fire breath',layers:[
@@ -275,12 +287,21 @@ export const GLOBAL_LOOKS=[
     {starts:true,birthRegion:true,birthAcross:1.5,loop:2933,
      native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[1,1,1],[.85,.75,1],[.5,.6,1]]}}),
   ]},
-  {id:'swirl',name:'Arcane swirl',layers:[
-   enchanted(),
-   skin('Flowing energy',CLOUDSTILE,{strength:.6,pulse:'beat',tint:[.72,.5,1],tint2:[.35,.55,1],loop:2600}),
+  // Pass 8 (owner: "not so nice"; "I dont see twirling energy like I gave you"). Two faint ribbons circled every skin
+  // region. Now it is the twirl of the owner's Blade of the Abyssal Serpent: streaks of light wound around the part in a
+  // spiral, turning about it and breathing, light running along them; wider wisps of energy turn the other way outside.
+  {id:'swirl',name:'Arcane swirl',legacyLayers:[
    orbit('Swirl',texture('RibbonBlur1'),[.55,.35,1],{orbitTurns:2,filter:3,strength:.3,lasts:.6}),
    orbit('Second swirl',texture('RibbonBlur1'),[.35,.45,1],{orbitTurns:2,loop:3100,fit:.75,filter:3,strength:.3,lasts:.6}),
+  ],layers:[
+   enchanted(),
+   skin('Flowing energy',CLOUDSTILE,{strength:.6,pulse:'beat',tint:[.72,.5,1],tint2:[.35,.55,1],loop:2600}),
+   cardSpec('Twirling energy',texture('RibbonBlur1'),{facing:'twirl',whole:true,count:2,reach:1.15,turns:1.5,band:.6,tiling:2,flow:2,spin:1,sizeMin:.92,sizeMax:1.12,loop:2600,tint:[.62,.42,1]}),
+   cardSpec('Energy wisps',texture('Energy1'),{facing:'twirl',whole:true,count:3,reach:1.5,turns:1,band:1,tiling:2,flow:1,spin:-.5,sizeMin:.95,sizeMax:1.08,loop:3700,strength:.75,tint:[.4,.55,1]}),
    starts(dust('Orbiting motes','motes',texture('GenericGlow64'),{tint:[.8,.7,1],scale:{size:.6}})),
+   spray('Arcane sparks',texture('star4_32'),[.75,.62,1],
+    {life:.5,rate:14,size:[.02,.12,.02],alpha:[0,255,0]},
+    {starts:true,cover:'surface',widthCap:1,loop:1933,native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[.75,.62,1],[.4,.5,1]]}}),
   ]},
  ]),
  vary(make('rune-blade','Rune blade','Blades',4500,'gold',[]),[{id:'runes',name:'Runes',layers:[rune()]},{id:'thorn',name:'Thorn script',layers:thorn.layers}]),
@@ -454,19 +475,20 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  // Fel sparks stay as they were.
  const source=GLOBAL_LOOKS.find(l=>l.id==='flaming-sword'),i=GLOBAL_LOOKS.findIndex(l=>l.id==='claude-fel-blade'),fel=GLOBAL_LOOKS[i];
  const colour=([r,g,b])=>r===g&&g===b?[r,g,b]:[Math.round(g*80)/100,r,b];
- const names={'Flame licks':'Fel licks','Flame sheath':'Fel sheath','Flame tongues':'Fel tongues','Fire body':'Fel body','Fire core':'Fel core','Core glow':'Fel glow','Fire column':'Fel column','Fire stream':'Fel stream'};
+ const names={'Flame swirl':'Fel swirl','Swirl flames':'Fel flames','Flame licks':'Fel licks','Flame sheath':'Fel sheath','Flame tongues':'Fel tongues','Fire body':'Fel body','Fire core':'Fel core','Core glow':'Fel glow','Fire column':'Fel column','Fire stream':'Fel stream'};
  const pictures=new Map([[texture('Red_Glow3'),texture('Green_Glow3')],[texture('Clouds8x8ModFire'),texture('Clouds8x8Mod')],[texture('Clouds8x8Fire'),CLOUDS],[texture('LavaLump'),texture('GenericGlow64')]]);
  const felLayer=spec=>{
+  if(spec.type==='Card')return {...spec,label:names[spec.label]||spec.label,tint:colour(spec.tint)};
   if(spec.type!=='Particles')return fel.variations[0].layers[0];
   const image=pictures.get(spec.image)||spec.image,next={...spec,label:names[spec.label]||spec.label,image,tint:colour(spec.tint)};
   if(spec.nativeSpec)next.nativeSpec={...spec.nativeSpec,texture:image};
   if(spec.native?.SegmentColor)next.native={...spec.native,SegmentColor:spec.native.SegmentColor.map(colour)};
   return next;
  };
- const translated=(id,from,name)=>({id,name,layers:source.variations.find(v=>v.id===from).layers.filter(spec=>spec.type!=='Card').map(felLayer)});
+ const translated=(id,from,name)=>({id,name,layers:source.variations.find(v=>v.id===from).layers.filter(spec=>spec.type!=='Card'||spec.facing==='twirl').map(felLayer)});
  const kept=id=>fel.variations.find(v=>v.id===id);
  GLOBAL_LOOKS[i]=vary(fel,[kept('original'),translated('fel-licks','flame-licks','Fel licks'),translated('fel-enveloping','enveloping-flames','Enveloping fel flames'),
-  translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column'),translated('fel-breath','breath','Fel breath')]);
+  translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column'),translated('fel-swirl','swirl','Swirling fel flames'),translated('fel-breath','breath','Fel breath')]);
 }
 {
  // Crystal veins was its own look until 14 November: one Crystal look, the veins as a variation.
@@ -795,9 +817,14 @@ export function withVariation(stack,frame,look,variationId){
  const previous={surfaces:owned.filter(l=>!particle(l)),particles:owned.filter(particle)},used={surfaces:0,particles:0};
  let id=Math.max(0,...stack.layers.map(l=>l.id));
  let layersIndex=0;
+ // A layer takes over the on/off switch of the layer it replaces only when the user had moved that switch; otherwise it
+ // starts as its own recipe says (a variation's second surface is not switched off because the first variation offers
+ // its second surface switched off).
+ const started=(current?.layers||[]).filter(startsByDefault),startOf={surfaces:started.filter(s=>!particle(s)),particles:started.filter(particle)};
  const layers=variation.layers.filter(startsByDefault).map(spec=>{
-  const kind=particle(spec)?'particles':'surfaces',old=previous[kind][used[kind]++];
-  const enabled=old?old.enabled!==false:spec.enabled!==false;
+  const kind=particle(spec)?'particles':'surfaces',index=used[kind]++,old=previous[kind][index],was=startOf[kind][index];
+  const moved=old&&!(was&&old.recipeOwner===look.id&&(was.enabled!==false)===(old.enabled!==false));
+  const enabled=moved?old.enabled!==false:spec.enabled!==false;
   return {...makeLayer(spec,frame,look.palette,old?.id??++id),recipeOwner:look.id,recipeRole:spec.recipeRole??String(layersIndex++),enabled};
  });
  const next={...stack,variation:variationId,layers:[...layers,...extra]};

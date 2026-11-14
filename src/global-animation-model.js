@@ -1120,7 +1120,15 @@ function uprightFrame(c){
   const height=center.z+along*length,near=reach.filter((_,i)=>Math.abs(zs[i]-height)<=length*.12);
   return near.length>=4?Math.max(radius*.35,share(near,.9)):radius;
  };
- const frame={center,axis,length,radius,girth:radius,radiusAt,at:distance=>center.clone().addScaledVector(axis,distance)};
+ // The same toward one side (an angle about the vertical): a body is seldom round, and what is wound around it should
+ // lie as close to its back as to its shoulders.
+ const angles=Array.from({length:n},(_,i)=>Math.atan2(ys[i]-cy,xs[i]-cx));
+ const reachToward=(along,angle)=>{
+  const height=center.z+along*length,near=[];
+  for(let i=0;i<n;i++){if(Math.abs(zs[i]-height)>length*.15)continue;let turn=Math.abs(angles[i]-angle)%(2*Math.PI);if(turn>Math.PI)turn=2*Math.PI-turn;if(turn<=.7)near.push(reach[i]);}
+  return near.length>=3?Math.max(radius*.3,share(near,.9)):radiusAt(along);
+ };
+ const frame={center,axis,length,radius,girth:radius,radiusAt,reachToward,at:distance=>center.clone().addScaledVector(axis,distance)};
  c.attachmentCache.set(key,frame);
  return frame;
 }
@@ -1167,6 +1175,63 @@ function edgeLayer(c,l){
  }
  return {id:ids[0],ids,family:'RibbonEmitters'};
 }
+// The part's middle line and its reach at places along it (t from 0 to 1), for what is wound around it. A body is read
+// upright; any other part along its own length, following a bend.
+function partProfile(c){
+ const key='profile|'+c.surfaceKey;
+ if(c.attachmentCache.has(key))return c.attachmentCache.get(key);
+ let profile;
+ if(c.frame.regions?.length>SHARED_REGIONS){
+  const up=uprightFrame(c);
+  profile={axis:up.axis.clone(),length:up.length,radius:up.radius,centreAt:t=>up.at((t-.5)*up.length),radiusAt:(t,toward)=>toward?up.reachToward(t-.5,Math.atan2(toward.y,toward.x)):up.radiusAt(t-.5)};
+ }else{
+  const {frame}=c,v=c.source.Vertices,n=v.length/3,axis=frame.axis.clone().normalize(),stations=17,centres=[],raw=[];
+  for(let s=0;s<stations;s++){
+   const centre=frame.at((s/(stations-1)-.5)*frame.length),near=[],p=new Vector3();
+   for(let i=0;i<n;i++){p.set(v[i*3],v[i*3+1],v[i*3+2]).sub(centre);const a=p.dot(axis);if(Math.abs(a)<=frame.length*.07)near.push(p.addScaledVector(axis,-a).length());}
+   near.sort((a,b)=>a-b);centres.push(centre);raw.push(near.length>=3?near[Math.floor(near.length*.9)]:0);
+  }
+  const floor=frame.radius*.3,radii=raw.map((r,s)=>Math.max(floor,(raw[Math.max(0,s-1)]+2*r+raw[Math.min(stations-1,s+1)])/4));
+  const pick=t=>{const x=Math.max(0,Math.min(1,t))*(stations-1),i=Math.min(stations-2,Math.floor(x));return [i,x-i];};
+  profile={axis,length:frame.length,radius:Math.max(floor,radii.reduce((a,b)=>a+b,0)/stations),
+   centreAt:t=>{const [i,f]=pick(t);return centres[i].clone().lerp(centres[i+1],f);},radiusAt:t=>{const [i,f]=pick(t);return radii[i]+(radii[i+1]-radii[i])*f;}};
+ }
+ c.attachmentCache.set(key,profile);
+ return profile;
+}
+/**
+ * Twirl (Card facing 'twirl', pass 8): energy wound around the part. The owner's references build it as geometry: glow
+ * strips laid in a spiral around a blade on a bone that turns about the blade (Blade of the Abyssal Serpent), fire bands
+ * on spinning helpers (Infernal Bulwark). Each strand is a strip following the part's own outline at every place along
+ * it, pointed at both ends; all strands of a layer ride one bone that turns about the part.
+ */
+function twirlStrands(c,l,card,size,out){
+ const profile=partProfile(c),axis=profile.axis;
+ const e1=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize(),e2=new Vector3().crossVectors(axis,e1).normalize();
+ // Size is the strand's distance from the middle line as a share of the part's reach there.
+ const k=size/Math.max(1e-6,c.frame.radius),span=.9,length=profile.length*span,mean=Math.max(.1,profile.radius*k);
+ const turns=card.turns??1.5,steps=Math.max(8,Math.round(turns*14)),band=card.band??.5,repeat=Math.max(.25,l.tiling??1);
+ const centre=profile.centreAt(.5).add(new Vector3(...l.offset));
+ const bone=nodeFor(c,'Bones','Bone','twirl',l.label,centre,c.parent);
+ bone.Flags=256;delete bone.Translation;
+ for(let s=0;s<card.count;s++){
+  const phase=2*Math.PI*s/card.count,first=out.vertices.length/3;
+  for(let j=0;j<=steps;j++){
+   const t=j/steps,place=(1-span)/2+span*t,angle=phase+2*Math.PI*turns*t;
+   const radial=e1.clone().multiplyScalar(Math.cos(angle)).addScaledVector(e2,Math.sin(angle));
+   const radius=Math.max(profile.radiusAt(place,radial)*k,mean*.35),point=profile.centreAt(place).add(new Vector3(...l.offset)).addScaledVector(radial,radius);
+   const tangent=axis.clone().multiplyScalar(length).addScaledVector(e1,-Math.sin(angle)*radius*2*Math.PI*turns).addScaledVector(e2,Math.cos(angle)*radius*2*Math.PI*turns).normalize();
+   const across=new Vector3().crossVectors(radial,tangent).normalize(),half=mean*band*.5*Math.pow(Math.sin(Math.PI*t),.6);
+   for(const side of [-1,1]){
+    out.vertices.push(...point.clone().addScaledVector(across,side*half).toArray());out.normals.push(...radial.toArray());out.uvs.push(t*repeat,side<0?1:0);out.vertexGroup.push(out.groups.length);
+   }
+   out.centres.push(point);
+   if(j<steps){const a=first+j*2;out.faces.push(a,a+1,a+2,a+1,a+3,a+2);}
+  }
+ }
+ out.groups.push([bone.ObjectId]);
+ return {bone,axis,reach:mean*band*.5};
+}
 const turn=(axis,degrees)=>new Quaternion().setFromAxisAngle(axis,degrees*Math.PI/180).toArray();
 // A deterministic pseudo-random sequence, so recompiling the same layer writes the same keys.
 const shake=seed=>()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648;};
@@ -1183,27 +1248,42 @@ function cardLayer(c,l){
  // piece is as wide as the unit. On a body (more skin regions than a weapon has) or a part wider than a fifth of its
  // length, a whole-part set gathers where Fireball sits (a body's head, the middle of a mass): the cards are stacked
  // through it and sized to that mass by reach. On a body they stand level.
- const body=c.frame.regions?.length>SHARED_REGIONS;
- const seat=l.whole&&l.seated&&card.facing!=='ground'&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
+ // tilt (pass 8; owner: "body doesn't show"): a seated set with a tilt stands level around a body, one ring at each
+ // height, as wide as the body is there; on a weapon each ring leans out of its plane and turns about the part.
+ const body=c.frame.regions?.length>SHARED_REGIONS,twirl=card.facing==='twirl';
+ const level=l.whole&&l.seated&&l.tilt!=null&&body&&card.facing!=='ground'&&!twirl?uprightFrame(c):null;
+ const seat=!level&&!twirl&&l.whole&&l.seated&&card.facing!=='ground'&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
  const seatAxis=seat?(body||!seat.tipDirection?z.clone():new Vector3(...seat.tipDirection).normalize()):null;
- const regions=card.facing==='ground'?[null]:seat?[c.frame.regions[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
- const half=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach):size;
+ const regions=card.facing==='ground'?[null]:level?[{frame:level,weights:[[c.parent,1]]}]:seat?[c.frame.regions[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
+ const seatHalf=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach):size;
+ let widest=seatHalf;
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
  // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, the cards go to its longest
  // regions, four regions' worth in all, like the emitters. A body no longer gets a set on every bone.
  const shares=l.sharedSites&&!l.whole&&card.facing!=='ground'?emissionShares(regions,card.count):null;
- let k=0;
- for(const [r,region] of regions.entries())for(let i=0,count=shares?shares[r]:card.count;i<count;i++,k++){
-  const f=region?.frame,along=!f?0:(count===1?0:((i+.5)/count-.5)*f.length*.9)+f.length*(l.along||0);
+ let k=0,wound=null;
+ if(twirl){
+  wound=twirlStrands(c,l,card,size,{vertices,normals,uvs,faces,groups,vertexGroup,centres});widest=wound.reach;
+  const bone=wound.bone;
+  if(card.sizeMin!==1||card.sizeMax!==1)bone.Scaling=keys(clockFor(m,base,c.createdClocks),base,[[0,[card.sizeMin,card.sizeMin,card.sizeMin]],[.5,[card.sizeMax,card.sizeMax,card.sizeMax]],[1,[card.sizeMin,card.sizeMin,card.sizeMin]]],3);else delete bone.Scaling;
+  if(card.spin){const ms=Math.max(100,Math.round(base/Math.abs(card.spin))),sign=Math.sign(card.spin);bone.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,LINEAR_TURN.map((a,j)=>[j/(LINEAR_TURN.length-1),turn(wound.axis,j===LINEAR_TURN.length-1?0:a*sign)]));}else delete bone.Rotation;
+ }else for(const [r,region] of regions.entries())for(let i=0,count=shares?shares[r]:card.count;i<count;i++,k++){
+  const f=region?.frame,along=!f?0:(count===1?0:((i+.5)/count-.5)*f.length*(level?.6:.9))+f.length*(l.along||0);
+  const half=level&&l.reach!=null?Math.max(.1,level.radiusAt(along/f.length)*l.reach):seatHalf;widest=Math.max(widest,half);
   const point=seat?new Vector3(...seat.point).addScaledVector(seatAxis,count===1?0:((i+.5)/count-.5)*half*1.6):region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
   const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
   const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);
   // Camera cards face +X on a billboarded bone; ground cards lie flat; part cards turn with the part.
   bone.Flags=256|(card.facing==='camera'?8:0);
-  let side,up,normal;
+  let side,up,normal,spinAxis=null;
   if(card.facing==='camera'){side=new Vector3(0,1,0);up=new Vector3(0,0,1);}
   else if(card.facing==='ground'){side=new Vector3(1,0,0);up=new Vector3(0,1,0);}
-  else if(card.facing==='across'){const axis=seat?seatAxis.clone():f.axis.clone().normalize();side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize();up=new Vector3().crossVectors(axis,side);}
+  else if(card.facing==='across'){
+   const axis=seat?seatAxis.clone():f.axis.clone().normalize();side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize();up=new Vector3().crossVectors(axis,side);
+   // tilt: the card leans out of its plane, each the other way from its neighbour, and Spin turns it about the part:
+   // a ring that shows from every side. Around a body the lean is slight.
+   if(card.tilt>0){const lean=(k%2?-1:1)*card.tilt*(level?.4:1)*Math.PI/180;up.multiplyScalar(Math.cos(lean)).addScaledVector(axis,Math.sin(lean)).normalize();spinAxis=axis;}
+  }
   else{up=f.axis.clone().normalize();side=new Vector3().crossVectors(up,Math.abs(up.z)<.9?z:y).normalize();}
   normal=new Vector3().crossVectors(side,up).normalize();
   const factor=CARD_CLOCK_FACTORS[k%CARD_CLOCK_FACTORS.length]*(1+Math.floor(k/CARD_CLOCK_FACTORS.length)*.071);
@@ -1215,7 +1295,7 @@ function cardLayer(c,l){
   // Spin: one turn per clock, so a fraction of a turn per loop is a longer clock. Eased keeps the native flare's uneven speed.
   if(card.spin){
    const ms=Math.max(100,Math.round(base*factor/Math.abs(card.spin))),angles=card.spinEased?EASED_TURN:LINEAR_TURN,sign=Math.sign(card.spin);
-   bone.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,angles.map((a,j)=>[j/(angles.length-1),turn(normal,j===angles.length-1?0:a*sign)]));
+   bone.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,angles.map((a,j)=>[j/(angles.length-1),turn(spinAxis||normal,j===angles.length-1?0:a*sign)]));
   }else delete bone.Rotation;
   delete bone.Translation;
   let holder=bone;
@@ -1235,7 +1315,7 @@ function cardLayer(c,l){
   faces.push(first,first+1,first+2,first,first+2,first+3);
   groups.push([holder.ObjectId]);centres.push(point);
  }
- const tex=l.team?teamTexture(m,l.team,tag):texture(m,l.image,flipbook,tag);
+ const tex=l.team?teamTexture(m,l.team,tag,twirl):texture(m,l.image,flipbook||twirl,tag);
  const shape=l.pulse==null||l.pulse==='steady'||COLOUR_RHYTHMS[l.pulse]?null:curves[l.pulse]||null,curveType=l.pulse==='soft'?3:1;
  const alphaFor=value=>shape?keys(id,base,shape.map(([t,a])=>[t,a*value]),curveType):value;
  const layer={TextureID:tex,CoordId:0,TVertexAnimId:null,FilterMode:card.filter,Shading:(card.unshaded?1:0)|(card.twoSided?16:0)|(card.unfogged?32:0),Alpha:alphaFor(1)};
@@ -1244,8 +1324,10 @@ function cardLayer(c,l){
   const ms=cells*Math.max(10,Math.round(card.frameMs));
   layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flipbook',{Translation:keys(clockFor(m,ms,c.createdClocks),ms,[...Array.from({length:cells},(_,j)=>[j/cells,[(j%card.columns)/card.columns,Math.floor(j/card.columns)/card.rows,0]]),[1,[0,0,0]]],0)});
  }
+ // flow (twirl): the picture runs along the strands, whole passes per loop so it closes.
+ if(twirl&&card.flow){const pass=passClock({...c,id,ms:base},Math.abs(card.flow));layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flow',{Translation:keys(pass.id,pass.ms,[[0,[0,0,0]],[1,[-Math.sign(card.flow)*pass.turns,0,0]]])});}
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:strengthPasses([layer],card.strength,false,alphaFor)});
- const reach=half*Math.SQRT2*Math.max(1,card.sizeMax);
+ const reach=widest*Math.SQRT2*Math.max(1,card.sizeMax);
  const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
  if(m.Version>=900)g.LevelOfDetail=0;
  // Bounds hold a card at its largest size facing any way, and the part's own animated bounds.

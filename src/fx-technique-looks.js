@@ -157,10 +157,18 @@ export const TECHNIQUE_LOOKS=[
   ]},
  ]),
  // Arcane swirl in the player's colour: two streams of the glow circling the part, motes around it.
- make('team-swirl','Team swirl',2320,[
-  orbit('Team stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.25,band:.3,along:-.2,orbitTurns:2,filter:3,strength:.6,lasts:.6,smoothness:60}),
-  orbit('Second stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.05,band:.3,along:.2,orbitTurns:2,loop:3100,filter:3,strength:.6,lasts:.6,smoothness:60}),
-  teamMotes(),
+ vary(make('team-swirl','Team swirl',2320,[]),[
+  {id:'original',name:'Team streams',layers:[
+   orbit('Team stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.25,band:.3,along:-.2,orbitTurns:2,filter:3,strength:.6,lasts:.6,smoothness:60}),
+   orbit('Second stream',TEAM_GLOW,[1,1,1],{team:2,whole:true,reach:1.05,band:.3,along:.2,orbitTurns:2,loop:3100,filter:3,strength:.6,lasts:.6,smoothness:60}),
+   teamMotes(),
+  ]},
+  // Pass 8: strands of the team glow wound around the part, turning about it (see twirlStrands).
+  {id:'twirl',name:'Team twirl',layers:[
+   cardSpec('Team twirl',TEAM_GLOW,{team:2,facing:'twirl',whole:true,count:2,reach:1.15,turns:1.5,band:.6,tiling:2,flow:1,spin:1,sizeMin:.94,sizeMax:1.1,loop:2600,tint:[1,1,1]}),
+   cardSpec('Second twirl',TEAM_GLOW,{team:2,facing:'twirl',whole:true,count:3,reach:1.45,turns:1,band:.45,tiling:3,flow:-1,spin:-.5,sizeMin:.96,sizeMax:1.06,loop:3700,strength:.7,tint:[1,1,1]}),
+   teamMotes(),
+  ]},
  ]),
  // Pass 6 (14 November). Both were cards at the middle of every skin region, which on a sword is the middle of the
  // blade and the grip. Star flare is now a star twinkling at the tip (gather:'tip') with glints along the part; Glow orb
@@ -290,8 +298,15 @@ export const TECHNIQUE_LOOKS=[
  // Pass 6 (14 November). The owner: no auras, but the circle is cool; a weapon effect? The rune circle now stands
  // across the part as rings it passes through (facing 'across'), sized to the whole part, each turning on its own clock.
  make('rune-circle','Rune circle',1267,[
-  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:3,reach:1.4,sizeMin:.92,sizeMax:1.08,spin:.25,spinEased:false,loop:4000,tint:[1,1,1]}),
-  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:2,reach:1.1,sizeMin:.94,sizeMax:1.06,spin:-.5,spinEased:false,loop:3100,strength:.7,tint:[.8,1,.7]}),
+  // Pass 8 (owner: "before it was ok on weapons - now body doesn't show and nothing else is that nice"). A ring standing
+  // straight across a blade is seen edge-on from the side; a ring seated in a body's head is hidden by it. Each ring now
+  // leans out of its plane and turns about the part (tilt), so it shows from every side; around a body the rings stand
+  // level, one at each height, as wide as the body is there.
+  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:3,reach:1.5,tilt:32,sizeMin:.94,sizeMax:1.06,spin:1,spinEased:false,loop:4000,tint:[1,1,1]}),
+  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:2,reach:1.2,tilt:55,sizeMin:.94,sizeMax:1.06,spin:-1.5,spinEased:false,loop:3100,strength:.8,tint:[.8,1,.7]}),
+  spray('Rune glow',tex('Green_Glow3'),[.4,1,.4],
+   {life:1.6,rate:8,size:[.3,.4,.3],alpha:[0,45,0]},
+   {starts:true,cover:'cloud',widthCap:1.6,loop:3467,native:{Time:.5,Flags:C}}),
   spray('Rune motes',tex('star4_32'),[.45,1,.4],
    {life:1.1,rate:12,velocity:.06,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
    {starts:true,cover:'around',birthAcross:1.4,widthCap:.6,loop:2933,
