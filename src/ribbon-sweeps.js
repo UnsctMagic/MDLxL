@@ -17,9 +17,10 @@ const SWEEPS={
  frost:{label:'Frost',ribbon:{Color:[.5,.82,1],Alpha:.5,LifeSpan:.4},emitters:[
   {Name:'Frost sweep mist',texture:T+'Clouds8x8Fade.blp',...atlas(8,64),LifeSpan:.65,EmissionRate:50,Speed:8,Variation:.5,Latitude:180,Gravity:25,Time:.3,scale:[8,12,15],colors:[[.78,.92,1],[.42,.72,1],[.2,.45,1]],Alpha:[120,95,0]},
   {Name:'Frost sweep flakes',texture:T+'snowflake.blp',LifeSpan:.85,EmissionRate:45,Speed:30,Variation:.6,Latitude:180,Gravity:95,Time:.3,scale:[3,2.6,.8],colors:[[1,1,1],[.51,.78,1],[.33,.71,.98]],Alpha:[255,255,0]}]},
- // Thin forks over crackling balls and glints: short lives, almost no drift, white cores cooling to blue.
- lightning:{label:'Lightning',ribbon:{Color:[.6,.8,1],Alpha:.3,LifeSpan:.18},emitters:[
-  {Name:'Lightning sweep forks',texture:T+'Zap1.blp',FrameFlags:BOTH,TailLength:.35,LifeSpan:.2,EmissionRate:45,Speed:120,Variation:.6,Latitude:180,Gravity:0,Time:.3,scale:[3,4.5,1],colors:[[1,1,1],[.6,.82,1],[.3,.42,1]],Alpha:[140,255,0]},
+ // A crisp flash of a ribbon, forks that leap out of nothing and vanish (blue at birth, white hot),
+ // over crackling balls and glints with short lives and almost no drift.
+ lightning:{label:'Lightning',ribbon:{Color:[.62,.72,1],Alpha:.45,LifeSpan:.12,EmissionRate:70},emitters:[
+  {Name:'Lightning sweep forks',texture:T+'Zap1.blp',FrameFlags:BOTH,TailLength:.16,LifeSpan:.16,EmissionRate:70,Speed:200,Variation:.5,Latitude:180,Gravity:0,Time:.2,scale:[0,4.5,0],colors:[[.1,.36,1],[1,1,1],[.8,.9,1]],Alpha:[255,255,255]},
   {Name:'Lightning sweep crackle',texture:T+'LightningBall.blp',LifeSpan:.2,EmissionRate:22,Speed:5,Variation:.1,Latitude:180,Gravity:0,Time:.4,scale:[4,9,3],colors:[[1,1,1],[.7,.86,1],[.4,.55,1]],Alpha:[255,255,0]},
   {Name:'Lightning sweep glints',texture:T+'Sparkle_Anim.blp',...atlas(4,16),LifeSpan:.3,EmissionRate:16,Speed:20,Variation:.2,Latitude:180,Gravity:0,Time:.4,scale:[2.5,6,2.5],colors:[[1,1,1],[.69,.85,.97],[.49,.75,.95]],Alpha:[255,255,0]}]},
  spirit:{label:'Spirit',ribbon:{Color:[.4,1,.68],Alpha:.35,LifeSpan:.5},emitters:[
@@ -55,7 +56,7 @@ export function sweepRibbonFit(fit,kind='plain'){
  if(kind==='plain')return {...fit,plain,sweep:'plain',recipe:plain};
  const sweep=SWEEPS[kind];if(!sweep)throw Error('Unknown sweep.');
  const model=structuredClone(plain.native),ribbon=model.RibbonEmitters[0];
- Object.assign(ribbon,{Name:sweep.label+' sweep',Color:new Float32Array(sweep.ribbon.Color),Alpha:sweep.ribbon.Alpha,LifeSpan:sweep.ribbon.LifeSpan});
+ Object.assign(ribbon,{...sweep.ribbon,Name:sweep.label+' sweep',Color:new Float32Array(sweep.ribbon.Color)});
  const size=clamp((fit.length/REACH)**.6,.8,1.6),amount=clamp(fit.length/REACH,.85,1.6),ids=[ribbon.ObjectId];
  for(const {texture,scale,colors,Alpha,...look} of sweep.emitters){
   let TextureID=model.Textures.findIndex(item=>item.Image===texture);

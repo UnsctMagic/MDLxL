@@ -8,6 +8,8 @@ import {RIBBON_TEXTURE} from '../src/particle-starters.js';
 import {placeTimedParticleRecipe} from '../src/particle-placement.js';
 import {validateParticleRecipe} from '../src/particle-recipes.js';
 import {sampleNodeMatrices} from '../src/animation.js';
+import {gamePathKey} from '../src/game-path.js';
+import catalogue from '../electron/data/texture-library-catalog.json' with {type:'json'};
 
 const SECTIONS=['Nodes','PivotPoints','Materials','Textures','GlobalSequences'];
 // A 100-unit blade on an animated, unevenly scaled bone, with three clips.
@@ -88,4 +90,47 @@ test('choosing a second element replaces the first',()=>{
  assert.deepEqual(frost.recipe,sweepRibbonFit(fit,'frost').recipe);
  assert.ok(frost.recipe.native.ParticleEmitters2.every(node=>node.Name.startsWith('Frost')));
  assert.throws(()=>sweepRibbonFit(fit,'nonsense'),/Unknown sweep/);
+});
+test('every picture a sweep uses is a stock Warcraft III texture from the catalogue',()=>{
+ const stock=new Set(catalogue.items.map(item=>gamePathKey(item.path))),doc=fixture();let checked=0;
+ assert.ok(stock.size>1000);
+ for(const [kind] of RIBBON_SWEEPS){
+  const fit=sweepRibbonFit(fitRibbonToPolygons(doc.model,{0:[0,1,2,3]}),kind);
+  for(const texture of fit.recipe.native.Textures){assert.ok(stock.has(gamePathKey(texture.Image)),kind+' uses a picture outside the game: '+texture.Image);checked++;}
+  assert.deepEqual((fit.recipe.embeddedAssets||[]),[],'No picture is carried inside a sweep');
+ }
+ for(const image of [RIBBON_TEXTURE,...SWEEP_TEXTURES])assert.ok(stock.has(gamePathKey(image)),image);
+ assert.ok(checked>=RIBBON_SWEEPS.length*2-1);
+ assert.ok(!stock.has(gamePathKey('AzureGlow3.blp')),'A custom glow is not stock');
+});
+// How Blizzard's own models draw each picture (native usage counts in the FX research, FAMILIES.md):
+// pictures painted on black have no alpha and must be Additive; only pictures with their own alpha may Blend.
+// Any other pairing draws the picture's square. Emitter modes: 0 Blend, 1 Additive, 2 Modulate, 3 Modulate 2x, 4 Alpha key.
+// Ribbon layers count differently: 0 None, 1 Transparent, 2 Blend, 3 Additive, 4 Add alpha, 5 Modulate.
+const NATIVE_EMITTER_MODE={'Clouds8x8Fire.blp':[1,8],'Clouds8x8Fade.blp':[1,8],'Clouds8x8Black.blp':[0,8],'Sparkle_Anim.blp':[1,4],'LavaLump2.blp':[1,1],'snowflake.blp':[1,1],'Zap1.blp':[1,1],'LightningBall.blp':[1,1],'GenericGlow64.blp':[1,1],'Flame4.blp':[1,1],'Purple_Star.blp':[1,1],'Yellow_Star_Dim.blp':[1,1],'Blue_Star2.blp':[1,1],'Star8c.blp':[1,1],'BloodWhiteSmall.blp':[0,1]};
+test('every ribbon and emitter is drawn the way its picture needs, so no square shows',()=>{
+ const doc=fixture();let emitters=0;
+ for(const [kind] of RIBBON_SWEEPS){
+  const model=sweepRibbonFit(fitRibbonToPolygons(doc.model,{0:[0,1,2,3]}),kind).recipe.native;
+  assert.equal(model.RibbonEmitters.length,1,kind);
+  for(const ribbon of model.RibbonEmitters){
+   const layers=model.Materials[ribbon.MaterialID].Layers;assert.equal(layers.length,1);
+   for(const layer of layers){
+    assert.equal(model.Textures[layer.TextureID].Image,RIBBON_TEXTURE);
+    assert.equal(layer.FilterMode,3,kind+' ribbon: RibbonBlur1 has no alpha, so its layer is Additive, never None or Transparent');
+    assert.equal(layer.Shading&16,16,kind+' ribbon is two-sided');
+   }
+   assert.ok(ribbon.Alpha>0&&ribbon.Alpha<=1);assert.equal(ribbon.Rows,1);assert.equal(ribbon.Columns,1);
+  }
+  for(const emitter of model.ParticleEmitters2){
+   const image=model.Textures[emitter.TextureID].Image,expected=NATIVE_EMITTER_MODE[image.slice(image.lastIndexOf(String.fromCharCode(92))+1)];emitters++;
+   assert.ok(expected,kind+': no native drawing rule recorded for '+image);
+   assert.equal(emitter.FilterMode,expected[0],`${emitter.Name}: ${image} is drawn ${expected[0]?'Additive':'Blend'} by native models`);
+   assert.equal(emitter.Rows,expected[1],emitter.Name+' atlas rows');assert.equal(emitter.Columns,expected[1],emitter.Name+' atlas columns');
+   const frames=expected[1]**2;for(const range of [emitter.LifeSpanUVAnim,emitter.DecayUVAnim,emitter.TailUVAnim,emitter.TailDecayUVAnim])assert.ok(range[0]<frames&&range[1]<frames,emitter.Name+' frames inside its atlas');
+   assert.equal(emitter.Alpha[2],emitter.FrameFlags===3&&emitter.ParticleScaling[2]===0?emitter.Alpha[2]:0,emitter.Name+' fades out or shrinks to nothing, never pops off');
+   assert.equal(emitter.Flags&32768,32768,emitter.Name+' is unshaded');
+  }
+ }
+ assert.ok(emitters>=17);
 });
