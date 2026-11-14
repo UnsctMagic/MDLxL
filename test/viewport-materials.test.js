@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ShaderLib, MeshPhongMaterial, MeshBasicMaterial } from 'three';
+import { ShaderLib, MeshPhongMaterial, MeshBasicMaterial, CustomBlending, NormalBlending, AdditiveBlending, DstColorFactor, SrcColorFactor, ZeroFactor, OneFactor } from 'three';
 import { layerMaterial, textureFromAsset } from '../app/viewport-materials.js';
 import { createPaintLightUniforms, applyPaintLightShader } from '../app/paint-lighting.js';
 
@@ -30,4 +30,14 @@ test('Paint decoder fallback is opt-in, caches pixels and still creates owned GP
   const second = await textureFromAsset(asset, { Flags: 0 }, { fallbackDecoder });
   assert.equal(calls, 1); assert.notEqual(first, second); assert.equal(first.flipY, false);
   assert.deepEqual(first.image.data, Uint8Array.of(70, 90, 10, 255)); first.dispose(); second.dispose();
+});
+
+test('Modulate layers keep the drawn alpha like the game preview; other filters keep their blending', () => {
+  const blend = filter => { const m = layerMaterial({ FilterMode: filter }); const r = [m.blending, m.blendSrc, m.blendDst, m.blendSrcAlpha, m.blendDstAlpha]; m.dispose(); return r; };
+  // war3-model: Modulate blendFuncSeparate(ZERO, SRC_COLOR, ZERO, ONE), Modulate 2x (DST_COLOR, SRC_COLOR, ZERO, ONE).
+  assert.deepEqual(blend(6), [CustomBlending, DstColorFactor, SrcColorFactor, ZeroFactor, OneFactor]);
+  assert.deepEqual(blend(5), [CustomBlending, DstColorFactor, ZeroFactor, ZeroFactor, OneFactor]);
+  for (const filter of [0, 1, 2]) assert.deepEqual(blend(filter), [NormalBlending, 204, 205, null, null]);
+  assert.deepEqual(blend(3), [CustomBlending, OneFactor, OneFactor, null, null]);
+  assert.deepEqual(blend(4), [AdditiveBlending, 204, 205, null, null]);
 });
