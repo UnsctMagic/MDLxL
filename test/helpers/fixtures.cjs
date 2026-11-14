@@ -18,11 +18,19 @@ const FIXTURES = {
   'ribbon-attachment': ['MDLXL_RIBBON_MODEL', testModel('ribbon-direction/WH_WOC_KnightSlaaneshChampion01_fix_v3.mdx')],
   footman: ['MDLXL_SUITE_FOOTMAN', testModel('pose/Footman.mdx')], // SD Footman 1800 with Textures/ beside it
   'citadel-footman': ['MDLXL_SUITE_CITADEL_FOOTMAN', testModel('citadel-fixture/Footman.mdx')], // classic MDX800 Footman
+  'forge-hd-footman': ['MDLXL_FORGE_HD_FOOTMAN', testModel('forge-hd/Footman.mdx')], // native Reforged HD, skin + tangents
   'particle-index': ['MDLXL_PARTICLE_INDEX', out('particle-index/particles')],
   'optimizexl-review': ['MDLXL_OPTIMIZEXL_REVIEW_MODEL', testModel('optimizexl-review/WH_WOC_KnightKhorneFlail03.mdx')],
   archer: ['MDLXL_SUITE_ARCHER', testModel('material-fixture/Mecha-CL.mdx')], // geoset 4 uses Materials[4] (3 layers), 11+ textures
   effect: ['MDLXL_EFFECT_MODEL', testModel('effect-fixture/WH_WOC_KnightKhorneFlail03.mdx')],
   hoofprint: ['MDLXL_SUITE_HOOFPRINT', testModel('corpus-sd/human__knight.mdx')],
+  'slaanesh-champion': ['MDLXL_SLAANESH_CHAMPION', testModel('WH_WOC_KnightSlaaneshChampion01.mdx')], // rider under a Death root, horse beside it
+  'sd800-sheep': ['MDLXL_SD800_SHEEP', testModel('corpus-sd800/critters__sheep.mdx')], // a second Bone Namer run used to rename Bone_Foot_L
+  'sd800-archnathid': ['MDLXL_SD800_ARCHNATHID', testModel('corpus-sd800/creeps__archnathid.mdx')], // right arm ends at the attachment Hand Right Ref
+  'sd-bandit': ['MDLXL_SD_BANDIT', testModel('corpus-sd/creeps__bandit.mdx')], // HandRight (a mesh node) is gripped by its skin on +Y
+  raider: ['MDLXL_RAIDER', testModel('bone-namer/Raider.mdx')], // owner's wolf rider: renamed helpers, badly named mesh pieces on each joint
+  'sd-orc-wolfrider': ['MDLXL_SD_ORC_WOLFRIDER', testModel('corpus-sd/orc__wolfrider.mdx')], // rightfoot is gripped by its skin at Y -22.9
+  lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.

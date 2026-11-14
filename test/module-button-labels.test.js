@@ -34,7 +34,7 @@ test('classic (VIS) labels keep their transparent, distinct high-contrast colors
 });
 
 test('the AI button is the first dock icon: Illidan Metamorphosis with an AI label',()=>{
-  assert.match(app,/<div className="classic-toolbar-group toolbar-modules" ref=\{dock\}>\{aiControl\}<Tool action="textureLibrary"/);
+  assert.match(app,/<div className="classic-toolbar-group toolbar-modules" ref=\{dock\} inert=\{!!bitReplacement \|\| undefined\}>\{aiControl\}<Tool action="textureLibrary"/);
   assert.equal(app.match(/\{aiControl\}/g).length,1,'the top-row AI text button is gone');
   assert.match(ai,/className="classic-tool ai-open ai-tool"/);
   assert.match(ai,/src="\.\/classic\/btn-metamorphosis\.png"/);

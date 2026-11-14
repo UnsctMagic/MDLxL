@@ -6,10 +6,10 @@ import { effectNodes } from '../src/particle-recipes.js';
 
 // Execute App's actual opening action with its dependencies; no duplicate selection logic.
 const source = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
-const body = source.match(/const openParticles = id => \{([\s\S]*?)\n  \};/)[1];
+const body = source.match(/const openParticles = \(id, initialView\) => \{([\s\S]*?)\n  \};/)[1];
 function open(model, selectedNodeIds = [], id) {
   const dialogs = [], playing = [], selection = { 0: [1] }, singleRigNode = selectedNodeIds.length===1?model.Nodes?.[selectedNodeIds[0]]:null, selectedBone = model.Bones.includes(singleRigNode)?singleRigNode:null;
-  const action = new Function('effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', body);
+  const action = new Function('effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', 'initialView', body);
   const before = structuredClone(model);
   action(effectNodes, model, selectedNodeIds, selectedBone, singleRigNode, selection, value => playing.push(value), value => dialogs.push(value), id);
   assert.deepEqual(model, before); assert.deepEqual(playing, [false]);
@@ -41,7 +41,12 @@ test('EMTR with only particles chooses the first effect; with no effects it open
   assert.equal(open(model), particle.ObjectId);
   const editor = readFileSync(new URL('../app/ParticleEditor.jsx', import.meta.url), 'utf8');
   assert.match(editor, /useState\(Number\.isInteger\(selectedNodeId\)\?'On model':'Lab'\)/);
-  assert.match(editor, /\[library,setLibrary\]=useState\(!Number\.isInteger\(selectedNodeId\)\)/);
+  const initializer = editor.match(/\[library,setLibrary\]=useState\((.+?)\),\[tool/)[1];
+  const startsInLibrary = new Function('initialView', 'selectedNodeId', 'return ' + initializer);
+  assert.equal(startsInLibrary(undefined, undefined), true);
+  assert.equal(startsInLibrary(undefined, particle.ObjectId), false);
+  assert.equal(startsInLibrary('library', particle.ObjectId), true);
+  assert.equal(startsInLibrary('glow', undefined), false);
 });
 
 test('EMTR forwards a selected bone, helper or attachment as the no-vertex placement target',()=>{

@@ -55,6 +55,10 @@ separate and are not a shared handover.
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
   Do not add unsolicited panels, dashboards, toolbars, menu redesigns or apps.
   Preserve existing sidebars, widths and controls unless explicitly requested.
+- Every right-click menu on the top toolbar's module icons uses the shared
+  icon menu in [AppToolbar.jsx](app/AppToolbar.jsx). Reuse the Learn menu's
+  styling, placement, focus, and dismissal. Add only the icon's menu items to
+  the shared menu.
 - One way of doing things. When a feature has an existing counterpart, reuse
   its controls exactly: same handles, look, drag behaviour, keys and wording.
   Never invent a new control scheme for a familiar job (for example sliders
@@ -147,6 +151,13 @@ and [README source development](README.md#source-development) explains setup.
   owner can reduce this, and only for that release. A hotfix uses the kit's hotfix line.
 - Report checks actually run and remaining gaps. Static checks do not prove a
   visible result; say `ready to test` when the changed behavior has not run.
+- **Every test build opens with a named test model** (owner, 12 Nov 2026: "if you
+  open a test - make a footman named 'TEST ANIMATIONS XX' for example so i know wtf
+  to do"). Whenever a build in `TestBuilds` is opened or handed to the owner, it opens
+  a model whose file name says what to test: `TEST <FEATURE> <NN>.mdx` (a Footman copy
+  with its textures, or the specific model the test needs), kept in
+  `TestBuilds\test-models`. Open it as `MDLxL.exe "<that file>"` so the window title
+  shows it. Never leave a test build for the owner without one.
 
 ## Shared notes and handovers
 

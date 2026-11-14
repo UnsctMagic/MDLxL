@@ -117,11 +117,11 @@ test('a chosen Warcraft III folder persists across restart and can be cleared wi
 });
 
 test('native menus reflect remapped and cleared shortcuts and leave execution to the renderer', () => {
-  const actions = [], bindings = effectiveBindings(COMMANDS, { open: ['Alt+O'], save: [], front: ['Ctrl+ArrowLeft'], graphics: ['Pause'] });
-  const menus = buildMenuTemplate(bindings, id => actions.push(id), 'win32');
+  const actions = [], bindings = effectiveBindings(COMMANDS, { open: ['Alt+O'], save: [], front: ['Ctrl+ArrowLeft'], graphics: ['Pause'], 'keyframe:delete': ['Ctrl+ArrowLeft'] });
+  const menus = buildMenuTemplate(bindings, id => actions.push(id), 'win32', [], label => label, { viewMode: 'vertices' });
   const file = menus.find(menu => menu.label === '&File').submenu;
-  assert.equal(file[0].accelerator, undefined);
-  assert.equal(file[0].registerAccelerator, undefined);
+  assert.equal(file[0].accelerator, 'Alt+O');
+  assert.equal(file[0].registerAccelerator, false);
   assert.equal(file.find(item=>item.label==='&Save').accelerator, undefined);
   assert.ok(file.find(item=>item.label==='&Save'));
   const view = menus.find(menu => menu.label === 'View').submenu;
@@ -130,11 +130,25 @@ test('native menus reflect remapped and cleared shortcuts and leave execution to
   const settings = menus.find(menu => menu.label === 'Settings').submenu;
   settings.slice(0, 3).forEach(item => item.click());
   assert.deepEqual(actions, ['settings', 'hotkeys', 'graphics']);
-  assert.equal(settings[2].label, 'Graphical settings…');
+  assert.equal(settings[2].label, 'Graphical settings…\tPause');
   for (const [label, action] of [['Recording and screenshots…','captureSettings'],['Appearance…','appearanceSettings'],['Configuration…','configurationSettings'],['Grid…','gridSettings'],['Warcraft III…','gameDataSettings']]) {
     const entry = settings.find(item => item.label === label); assert.ok(entry, `${label} is directly reachable`); entry.click(); assert.equal(actions.at(-1), action);
   }
-  for (const menu of menus) for (const item of menu.submenu) if (item.accelerator) assert.equal(item.registerAccelerator, false);
+  const examples = [
+    [file, 'Exit', 'Alt+F4'], [menus.find(menu => menu.label === '&Edit').submenu, 'Undo', 'Ctrl+Z'],
+    [menus.find(menu => menu.label === '&Edit').submenu.find(item => item.label === 'Keyframes').submenu, 'Delete', 'Ctrl+Left'],
+    [menus.find(menu => menu.label === 'Shape').submenu, 'Bend', 'Shift+B'], [view, 'Grid', 'Shift+G'],
+    [menus.find(menu => menu.label === 'Modules').submenu, 'Vertex editor', 'F1'],
+    [menus.find(menu => menu.label === 'Managers').submenu, 'Surface Effects…', 'Alt+K'],
+    [settings, 'Mouse and general…', 'Ctrl+,'], [menus.find(menu => menu.label === 'Help').submenu, 'Search commands…', 'Ctrl+F2'],
+  ];
+  for (const [items, label, accelerator] of examples) {
+    const item = items.find(item => item.label === label);
+    assert.equal(item.accelerator, accelerator, label);
+    assert.equal(item.registerAccelerator, false, label);
+  }
+  const localized = buildMenuTemplate(bindings, () => {}, 'win32', [], label => `local:${label}`);
+  assert.ok(localized.find(menu => menu.label === 'local:Settings').submenu.some(item => item.label === 'local:Graphical settings…\tPause'));
   file[0].click();
   assert.equal(actions.filter(id => id === 'open').length, 1);
 });

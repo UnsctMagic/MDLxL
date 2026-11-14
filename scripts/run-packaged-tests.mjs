@@ -54,6 +54,7 @@ const SPECIAL = {
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },
   // The owner's Graveguard WIP model (supplied from Downloads), copied to out/graveguard.
   'event-sound-scroll': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
+  'event-sound-missing': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'manager-simplification': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'tree-appearance': { env: { MDLXL_TEST_MODEL: graveguard }, needs: [graveguard] },
   'material-presets': { argv: [archer], needs: [archer], hint: 'set MDLXL_SUITE_ARCHER to an archer .mdx' },
@@ -71,6 +72,7 @@ const SPECIAL = {
   // Each Rotate setting from its own seeded profile, about 30 app starts.
   'rotate-settings': { needs: [footman], timeout: 25 * 60 * 1000 },
   'toolbar-modes': { needs: [citadelFootman] },
+  'manager-menu-hotkeys': { needs: [citadelFootman] },
   // Opens every window on a demo model to read the keys the running app hands out.
   'hotkey-defaults-audit': { timeout: 20 * 60 * 1000 },
   // About 18 minutes of real mouse drags across every editing Rotate tool.

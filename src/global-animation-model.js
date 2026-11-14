@@ -1948,7 +1948,6 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
  for(const i of [...new Set(created)].sort((a,b)=>b-a))if(model.GlobalSequences[i]!=null&&!clocks.has(i)){
   clockRemoved=true;
   deleteGlobalSequence(model,i);
-  for(const g of model.Geosets)if(g._FxStack?.createdClockIds)g._FxStack.createdClockIds=g._FxStack.createdClockIds.filter(id=>id!==i).map(id=>id>i?id-1:id);
   for(const k of [...clocks])if(k>i){clocks.delete(k);clocks.add(k-1);}
  }
  // Limited to stacks made with per-layer editing (a Card, an orbit, or any field it added) so stacks saved

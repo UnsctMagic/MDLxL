@@ -35,8 +35,28 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(ribbon));await page.getByRole('button',{name:'Edit effect',exact:true}).click();const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.getByRole('button',{name:'Pause',exact:true}).click();
   const preNumber=await read();await editor.getByLabel('Ribbon upper end',{exact:true}).fill('37.5');await editor.getByLabel('Ribbon upper end',{exact:true}).press('Enter');assert.equal((await read()).model.RibbonEmitters[0].HeightAbove,37.5);assert.equal((await read()).undo,preNumber.undo+1);await editor.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await read()).model,preNumber.model);
   for(const label of ['Ribbon color','Ribbon intensity','Ribbon lasts','Ribbon size','Ribbon upper end','Ribbon lower end','Ribbon smoothness','Ribbon gravity'])assert.ok(await editor.getByLabel(label,{exact:true}).isVisible(),label);for(const name of ['Basics','Appearance','Sweep'])assert.equal(await editor.getByRole('button',{name,exact:true}).count(),0,name);for(const label of ['Picture cell','Ribbon material','Emitting','Animated edit scope'])assert.equal(await editor.getByLabel(label).count(),0,label);await page.screenshot({path:path.join(out,'appearance.png')});
-  const canvas=await page.locator('.pe-preview [data-clean-model-canvas]').elementHandle();await canvas.evaluate(el=>{el.dataset.feedbackCanvas='same';});
-  for(let i=0;i<8;i++){await page.getByLabel('Particle preview animation',{exact:true}).selectOption(String(i%2));await page.getByLabel('Effect ingredient',{exact:true}).selectOption(String(i%2?emitter:ribbon));assert.equal(await page.locator('.pe-preview [data-clean-model-canvas]').getAttribute('data-feedback-canvas'),'same','Changing animation or selected emitter keeps the graphics surface');}
+  const canvas=await page.locator('.pe-preview [data-clean-model-canvas]').elementHandle();
+  const sameCanvas=async()=>assert.equal(await canvas.evaluate(el=>el===document.querySelector('.pe-preview [data-clean-model-canvas]')),true,'Changing animation or selected emitter keeps the graphics surface');
+  const waitForVisibleEffects=ids=>page.waitForFunction(expected=>{
+    const preview=mdlxlProbe('.pe-preview .game-preview-root').runtime?.particleAuthor;
+    if(!preview?.simulation||preview.status.busy)return false;
+    const {particlesController,ribbonsController}=preview.simulation.native;
+    const actual=[...particlesController.emitters,...ribbonsController.emitters].map(item=>item.props.ObjectId).sort((a,b)=>a-b);
+    // What is drawn: hidden emitters keep no live sparks or ribbon segments on screen.
+    const drawn=mdlxlProbe('.pe-preview .game-preview-root').runtime.native;
+    const shown=[...drawn.particlesController.emitters.filter(item=>item.particles.length),...drawn.ribbonsController.emitters.filter(item=>item.creationTimes.length)].map(item=>item.props.ObjectId);
+    return JSON.stringify(actual)===JSON.stringify(expected)&&shown.every(id=>expected.includes(id));
+  },ids.slice().sort((a,b)=>a-b));
+  const allEmitters=editor.getByRole('button',{name:'View All Emitters',exact:true});
+  assert.equal(await allEmitters.getAttribute('aria-pressed'),'false');
+  for(let i=0;i<8;i++){
+    const id=i%2?emitter:ribbon;
+    await page.getByLabel('Particle preview animation',{exact:true}).selectOption(String(i%2));
+    await page.getByLabel('Effect ingredient',{exact:true}).selectOption(String(id));
+    await sameCanvas();await waitForVisibleEffects([id]);
+  }
+  await allEmitters.click();await waitForVisibleEffects([emitter,ribbon]);await sameCanvas();
+  await allEmitters.click();await waitForVisibleEffects([emitter]);await sameCanvas();
   await editor.getByRole('button',{name:'Play',exact:true}).click();await settle(page, 400);await page.getByText('Clock options',{exact:true}).click();await page.getByLabel('Link animation and FX clocks',{exact:true}).uncheck();await settle(page, 300);await page.getByLabel('Link animation and FX clocks',{exact:true}).check();
   const shot=await page.locator('.pe-preview').screenshot();await fs.writeFile(path.join(out,'preview.png'),shot);const background=await page.evaluate(async bytes=>{const bitmap=await createImageBitmap(new Blob([new Uint8Array(bytes)],{type:'image/png'})),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;const ctx=c.getContext('2d');ctx.drawImage(bitmap,0,0);return Array.from(ctx.getImageData(10,10,1,1).data);},Array.from(shot));assert.deepEqual(background,[36,40,44,255],'Preview stays painted after sequence, ingredient and clock changes');
   assert.deepEqual(errors,[]);assert.deepEqual(await fs.readFile(fixture),bytes);console.log(JSON.stringify({passed:true,out,checks:'Vertices and Bones marker drag, Escape, Delete, Undo, Attach, numeric values, Appearance, stable visible preview'}));

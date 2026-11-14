@@ -26,8 +26,8 @@ export default function FxIngredientPicker({kind,look,label,title,disabled,clear
  useWindowKeyClaim(({event,localWindow})=>{if(!open||event.key!=='Escape'||(localWindow&&!localWindow.contains(root.current)))return false;close();return true;},20);
  const keys=event=>{
   const last=rows.length-1;
-  if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}
-  else if(event.key==='ArrowDown'){event.preventDefault();setAt(Math.min(last,at+1));}
+  // Escape closes through the window-key claim above.
+  if(event.key==='ArrowDown'){event.preventDefault();setAt(Math.min(last,at+1));}
   else if(event.key==='ArrowUp'){event.preventDefault();setAt(Math.max(0,at-1));}
   else if(event.key==='Home'&&event.ctrlKey){event.preventDefault();setAt(0);}
   else if(event.key==='End'&&event.ctrlKey){event.preventDefault();setAt(Math.max(0,last));}

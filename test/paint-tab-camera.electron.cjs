@@ -16,23 +16,45 @@ const camera=()=>viewCanvas().evaluate(canvas=>{
   const active=state.controls.object,r=v=>v.toArray().map(x=>Math.round(x*1000)/1000);
   return {position:r(active.position),target:r(state.controls.target),zoom:active.zoom};
 });
+async function dragCamera(button, dx, dy) {
+  const box = await viewCanvas().boundingBox(), x = Math.round(box.x + box.width / 2), y = Math.round(box.y + box.height / 2);
+  await page.mouse.move(x, y); await page.keyboard.down('Shift'); await page.mouse.down({ button });
+  await page.mouse.move(x + dx, y + dy, { steps: 12 }); await page.mouse.up({ button }); await page.keyboard.up('Shift');
+}
+async function checkReboundCamera() {
+  const start = await camera();
+  await dragCamera('middle', 100, 20);
+  const panned = await camera();
+  assert.notDeepEqual(panned.target, start.target, 'the rebound Shift + middle drag pans even when plain middle toggles Work/Rotation');
+  await dragCamera('right', 0, -70);
+  const zoomed = await camera();
+  assert.deepEqual(zoomed.target, panned.target, 'Shift + right zooms without panning');
+  assert.notDeepEqual(zoomed, panned, 'Shift + right changes the view scale');
+  await page.locator('.paint-orbit-hint').filter({ hasText: 'Shift + left' }).waitFor();
+  await page.getByRole('button', { name: 'Help', exact: true }).click();
+  const help = page.getByRole('dialog', { name: 'Paint shortcuts' });
+  await help.getByText('Shift + middle drag', { exact: true }).waitFor();
+  await help.getByText('Shift + right drag', { exact: true }).waitFor();
+  await help.getByRole('button', { name: /^Close/ }).click();
+  result.checks.push('Paint follows and displays the rebound Shift camera key for pan and zoom');
+}
 async function orbit(dx,dy,zoom){
   await viewCanvas().waitFor();assert.equal(await viewCanvas().count(),1,'one active model canvas');
   const box=await viewCanvas().boundingBox();assert.ok(box,'active model canvas has bounds');
   const x=box.x+box.width*.5,y=box.y+box.height*.5;
-  await page.mouse.move(x,y);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');
+  await page.mouse.move(x,y);await page.keyboard.down('Shift');await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:12});await page.mouse.up();await page.keyboard.up('Shift');
   await page.mouse.move(x,y);await page.mouse.wheel(0,zoom);await settle();await page.mouse.move(box.x+4,box.y+4);await settle();
 }
 async function tab(name){await page.getByRole('tab',{name,exact:true}).click();await page.waitForFunction(n=>document.querySelector('.model-tab.active [role="tab"]')?.getAttribute('aria-label')===n,name);await settle();await settle();}
 async function beginPainting(){await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await settle();await settle();}
 async function run(){
-  app=(await launchApp({ out: path.resolve('out'), profile: fs.mkdtempSync(path.join(out,'profile-')), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: first })).app;
+  app=(await launchApp({ out: path.resolve('out'), profile: fs.mkdtempSync(path.join(out,'profile-')), env: { MDLVIS_HEADLESS:'1' }, timeout: 60000, fixture: first, settings: { preferences: { modifiers: { 'view.orbit': 'Shift', 'select.add': '' } } } })).app;
   page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();});
   await page.getByRole('tab',{name:'FirstFootman.mdx',exact:true}).waitFor();
 
   await beginPainting();const framed=await camera();
-  await orbit(90,35,-240);const firstPaint=await camera();assert.notDeepEqual(firstPaint.position,framed.position,'Alt-drag and wheel move the Paint camera');await shot('01-first-paint');
+  await orbit(90,35,-240);const firstPaint=await camera();assert.notDeepEqual(firstPaint.position,framed.position,'Shift-drag and wheel move the Paint camera');await shot('01-first-paint');
   await page.locator('input[accept=".mdl,.mdx,.mdlxlpaint"]').setInputFiles(second);await page.waitForFunction(()=>document.querySelector('.model-tab.active [role="tab"]')?.getAttribute('aria-label')==='SecondFootman.mdx');await settle();
   await beginPainting();assert.deepEqual(await camera(),framed,'a newly opened model starts with its own framed camera');
   await orbit(-120,-20,180);const secondPaint=await camera();assert.notDeepEqual(secondPaint.position,framed.position);await shot('02-second-paint');
@@ -45,6 +67,7 @@ async function run(){
   await tab('SecondFootman.mdx');assert.deepEqual(await camera(),secondEditor,'the editor view keeps its own camera per tab');
   await tab('FirstFootman.mdx');assert.deepEqual(await camera(),firstEditor);await shot('04-first-editor');result.checks.push('The ordinary editor keeps each model tab\'s camera instead of copying the other tab\'s');
   await page.locator('[data-hotkey="paint"]').click();await page.locator('.paint-texture-view').waitFor();await settle();assert.deepEqual(await camera(),firstPaint,'Paint returns to its own camera after editing in the same tab');result.checks.push('Leaving and re-entering Paint in one tab keeps the Paint camera');
+  await checkReboundCamera();
   assert.deepEqual(result.errors,[]);console.log(JSON.stringify({out,...result},null,2));
 }
 run().catch(async error=>{result.failure=error.stack;console.error(error);if(page)await shot('failure').catch(()=>{});process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await closeApp(app).catch(()=>{});});

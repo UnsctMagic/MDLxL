@@ -78,9 +78,20 @@ export function setEventFrame(node, frame, enabled) {
   if (enabled) frames.add(frame); else frames.delete(frame);
   node.EventTrack = new Uint32Array([...frames].sort((a,b) => a-b));
 }
-export function loadEventCatalog(modelPath) {
-  return window.desktop.resolveEventResources({ names: [...NODE_EVENT_TABLES, ...NATIVE_SOUND_TABLES], path: modelPath }).then(eventCatalog);
+// The game's sound table names a few files Warcraft III does not contain.
+// Those sounds keep their row but are marked `missing`; they cannot play.
+export async function markMissingSounds(catalog, findMissing, modelPath) {
+  if (!findMissing) return catalog;
+  let missing;
+  try { missing = new Set(await findMissing({ names: [...new Set(catalog.SND.flatMap(row => row.files))], path: modelPath })); } catch { return catalog; }
+  for (const row of catalog.SND) if (row.files.length && row.files.every(file => missing.has(file))) row.missing = true;
+  return catalog;
 }
+export function loadEventCatalog(modelPath) {
+  return window.desktop.resolveEventResources({ names: [...NODE_EVENT_TABLES, ...NATIVE_SOUND_TABLES], path: modelPath }).then(eventCatalog).then(catalog => markMissingSounds(catalog, window.desktop.missingEventSounds, modelPath));
+}
+export const MISSING_SOUND = 'No sound file in the game';
+export const MISSING_SOUND_TIP = 'Warcraft III lists this sound, but its file is not in your game files, so it cannot be played.';
 
 export async function resolveEventSound(resolveResources, file, modelPath) {
   const records = await resolveResources({ names:[file], path: modelPath });

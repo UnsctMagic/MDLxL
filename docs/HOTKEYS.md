@@ -25,6 +25,11 @@ Owners: [hotkey-badge.js](../src/hotkey-badge.js), the existing hint effect in
 Verification: [readable labels](../test/hotkey-badges.test.js) and
 [packaged rendering/input](../test/hotkey-badges.electron.cjs).
 
+The top menus show the current primary shortcut beside each bound command.
+On Windows, [DesktopMenu.jsx](../app/DesktopMenu.jsx) draws the dropdowns from
+the same [menu definition](../electron/menu.cjs). The shortcut column stays
+right-aligned and uses a muted color.
+
 ## Where the keys come from
 
 - **Commands** (menus, toolbar, modes; [src/commands.js](../src/commands.js)) have
@@ -52,7 +57,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
   - Patterns:
     - F4–F9 open the workspaces and editors.
     - Ctrl+number opens a Settings page (in tab order).
-    - Alt+letter opens a manager.
+    - Alt+letter opens a manager. Alt+K opens Surface Effects.
     - Digits pick a view.
     - Shift+Space toggles Animated in the Vertex editor. The viewport freezes at the chosen sequence's first frame by default. Right-click Animated and enter a timeline frame to change the preview. Vertex edits still go to the base pose.
     - Alt+digits toggle the grids.
@@ -103,6 +108,7 @@ A window holding work that closing would discard sets `data-hotkey-unapplied` (`
 | AnimXL | the settings produce shaped tracks that are not committed, and the model is not read-only |
 | Auto Corpse | Size, Height, colour, pieces or blood were changed (`changed`) |
 | Attachemator | a point was dragged, given another bone, or a tick differs from the proposal |
+| Bone Namer | a part, side, actor or tick differs from the proposal |
 | Surface Effects | a part's effect stack differs from how that part was first shown |
 | Sort My Mess | any group has a chosen change (`selected`) |
 | Forge | the mask has edits, or Shape has at least one shape |

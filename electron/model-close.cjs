@@ -1,13 +1,14 @@
 function normalizeModelCloseState(value, previous = { dirty: false, saved: false }) {
   if (value && typeof value === 'object') {
     const state = { dirty: value.dirty === true, saved: value.saved === true }, name = typeof value.name === 'string' && value.name ? value.name : previous.name;
+    if (value.replacement === true) state.replacement = true;
     return name ? { ...state, name } : state;
   }
   return { ...previous, dirty: value === true };
 }
 
 function needsModelClosePrompt(state) {
-  return state.dirty || !state.saved;
+  return state.dirty || state.replacement === true || !state.saved;
 }
 
 function modelClosePrompt(state) {
@@ -18,8 +19,8 @@ function modelClosePrompt(state) {
     defaultId: 0,
     cancelId: 1,
     title: 'Save model?',
-    message: state.dirty ? `Save changes to ${name} before closing?` : state.name ? `${name} has not been saved.` : 'The current model has not been saved.',
-    detail: 'Save the model, cancel closing, or close without saving.',
+    message: state.replacement ? 'The replacement has not been committed.' : state.dirty ? `Save changes to ${name} before closing?` : state.name ? `${name} has not been saved.` : 'The current model has not been saved.',
+    detail: state.replacement ? 'Commit or discard the replacement before saving. Close without saving discards it.' : 'Save the model, cancel closing, or close without saving.',
   };
 }
 

@@ -10,6 +10,18 @@ import { selectedVertexCenter } from '../src/bone-tools.js';
 const all = model => Object.fromEntries(model.Geosets.map((geoset, index) => [index, Array.from({ length: geoset.Vertices.length / 3 }, (_, id) => id)]));
 const errors = model => validateModel(model).filter(issue => issue.severity === 'error');
 
+test('custom Bit RGB applies to untinted geometry and preserves untouched channels', () => {
+  const target = createStarterDocument().model, bit = createStarterDocument().model;
+  bit.Geosets.push(structuredClone(bit.Geosets[0]));
+  bit.GeosetAnims = [{ GeosetId: 0, Flags: 2, Alpha: 1, Color: Float32Array.of(0.25, 0.5, 0.75) }];
+  const look = { ...partRgbOptions(bit)[0], channels: [null, 0, null] };
+  const staged = partLook(bit, look);
+  assert.deepEqual(staged.GeosetAnims.map(anim => Array.from(anim.Color)), [[0.25, 0, 0.75], [1, 0, 1]]);
+  const { geosetIndices } = commitPart(target, bit, { look });
+  assert.deepEqual(target.GeosetAnims.filter(anim => geosetIndices.includes(anim.GeosetId)).map(anim => Array.from(anim.Color)), [[0.25, 0, 0.75], [1, 0, 1]]);
+  assert.equal(bit.GeosetAnims.length, 1);
+});
+
 test('replacement preview removes exactly the selection, centers the Bit, and leaves both documents unchanged', () => {
   const target = createStarterDocument(), source = createStarterDocument().model;
   const before = target.serialize('mdx'), donorBefore = structuredClone(source), selection = { 0: [0, 1, 2, 3] };

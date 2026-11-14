@@ -67,6 +67,23 @@ test('folders browse like the game, with counts that follow the version and type
   assert.equal(paged.files.length,2);assert.equal(paged.hasMore,true);
 });
 
+test('World Editor file groups keep file types and curated sound paths distinct',async()=>{
+  const library=fakeLibrary(),index=await library.load(['D:\\Game']);
+  const layout={worldEditor:true,variant:'classic'};
+  const groups=library.browse(index,layout);
+  assert.deepEqual(groups.folders.map(folder=>[folder.name,folder.count]),[['Models',2],['Sounds',2],['Text & data',1],['Textures',2]]);
+  const sounds=library.browse(index,{...layout,folder:'sounds',type:'sounds'});
+  assert.deepEqual(sounds.folders.map(folder=>folder.name),['Music','Units']);
+  assert.deepEqual(sounds.files,[]);
+  const voice=library.browse(index,{...layout,folder:'sounds\\units\\human\\footman',type:'sounds'});
+  assert.equal(voice.files[0].path,'Units\\Human\\Footman\\Footmanyes1.ogg');
+  const music=library.search(index,{...layout,query:'music human1',type:'sounds'});
+  assert.deepEqual(music.files.map(file=>[file.name,file.browsePath]),[['Human1.mp3','Sounds › Music']]);
+  assert.equal(library.search(index,{...layout,query:'text data unitdata'}).files[0].path,'Units\\Unitdata.slk');
+  assert.equal(library.browse(index,{...layout,folder:'sounds\\units\\human\\footman',variant:'all'}).files.length,3);
+  assert.equal(library.browse(index,{folder:'units\\human\\footman'}).files.length,3);
+});
+
 test('search needs every word, ranks exact names first and can stay inside a folder',async()=>{
   const library=fakeLibrary(),index=await library.load(['D:\\Game']);
   const models=library.search(index,{query:'footman',type:'models',variant:'all'});

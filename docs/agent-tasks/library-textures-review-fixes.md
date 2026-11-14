@@ -1,6 +1,6 @@
 # Library textures: review fixes after PR #502
 
-Status: ready for review; awaiting merge approval
+Status: completed, merged in #506 at af85b712
 Owner / consolidator: Codex (build); Claude Code (review and contract)
 Updated: 2026-11-02
 

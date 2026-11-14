@@ -19,6 +19,57 @@ const VARIANT_LABEL = {classic:'Classic',reforged:'Reforged','forsaken-kingdom':
 const VARIANT_ORDER = ['classic','reforged','forsaken-kingdom','language','other'];
 const LOCALE_LABEL = {enus:'English (US)',dede:'German',eses:'Spanish (Spain)',esmx:'Spanish (Mexico)',frfr:'French',itit:'Italian',kokr:'Korean',plpl:'Polish',ptbr:'Portuguese (Brazil)',ruru:'Russian',zhcn:'Chinese (Simplified)',zhtw:'Chinese (Traditional)'};
 const PAGE = 200;
+const TYPE_LABEL = {models:'Models',textures:'Textures',sounds:'Sounds',text:'Text & data',maps:'Maps',video:'Videos',fonts:'Fonts',other:'Other files'};
+const SOUND_FOLDERS = new Map([
+  ['sound\\dialogue','Campaign dialogue'], ['sound\\cinematics','Cinematics'], ['movies\\audio','Cinematics'],
+  ['sound\\ambient','Ambient'], ['sound\\time','Ambient'], ['sound\\interface','Interface'],
+  ['sound\\music\\mp3music','Music'], ['sound\\music','Music'],
+  ['sound\\units\\combat','Combat'], ['abilities\\weapons','Combat'], ['abilities\\spells','Spells'],
+  ['sound\\units','Units'], ['units','Units'], ['sound\\buildings','Buildings'], ['buildings','Buildings'],
+  ['sound\\destructibles','Doodads'], ['doodads','Doodads'],
+]);
+const RACE_LABEL = {human:'Human',orc:'Orc',nightelf:'Night Elf',undead:'Undead',naga:'Naga',creeps:'Neutral Hostile',critters:'Neutral Passive'};
+
+function soundFolders(entry, segments) {
+  for (const [prefix, group] of SOUND_FOLDERS) {
+    if (entry.folderKey !== prefix && !entry.folderKey.startsWith(prefix + '\\')) continue;
+    const rest = segments.slice(prefix.split('\\').length);
+    if (rest.length && ['Units','Buildings','Spells'].includes(group)) rest[0] = RACE_LABEL[rest[0].toLowerCase()] || rest[0];
+    return [group,...rest];
+  }
+  return ['Other sounds',...segments];
+}
+
+// The World Editor layout gives each installed file one place in the tree.
+// Its folders are display paths; the file IDs and physical archive paths stay the same.
+function worldEditorFolders(index) {
+  if (index.worldEditor) return index.worldEditor;
+  const folders = new Map([['',{path:'',name:'All game files',parent:null,children:new Set(),files:[]}]]);
+  const entryFolders = [];
+  for (const entry of index.entries) {
+    const segments = entry.path.split('\\').slice(0,-1), label = TYPE_LABEL[entry.type];
+    const groups = entry.type === 'sounds' ? soundFolders(entry,segments) : segments;
+    if (groups[0]?.toLowerCase() === label.toLowerCase()) groups.shift();
+    let key = entry.type;
+    if (!folders.has(key)) {
+      folders.set(key,{path:label,name:label,parent:'',children:new Set(),files:[]});
+      folders.get('').children.add(key);
+    }
+    for (const [depth,name] of groups.entries()) {
+      const parent = folders.get(key), next = key + '\\' + name.toLowerCase();
+      if (!folders.has(next)) {
+        const iconFolder = entry.type === 'sounds' && depth === 2 && /^(units|buildings)\\[^\\]+\\[^\\]+/.test(entry.folderKey)
+          ? entry.folderKey.split('\\').slice(0,3).join('\\') : null;
+        folders.set(next,{path:parent.path+'\\'+name,name,parent:key,children:new Set(),files:[],iconFolder});
+        parent.children.add(next);
+      }
+      key = next;
+    }
+    folders.get(key).files.push(entry.id);
+    entryFolders[entry.id] = key;
+  }
+  return index.worldEditor = {folders,entryFolders};
+}
 
 /** Split a CASC name into its module chain and logical game path, and classify it like the texture library does. */
 function classifyGameFile(sourcePath, installedLocales = []) {
@@ -114,13 +165,14 @@ class GameFileLibrary {
     return (variant === 'all' || entry.variant === variant) && (type === 'all' || entry.type === type);
   }
   folderCounts(index, filters) {
-    const key = index.signature + '|' + (filters.variant || 'classic') + '|' + (filters.type || 'all');
+    const layout = filters.worldEditor ? worldEditorFolders(index) : null;
+    const key = index.signature + '|' + (filters.variant || 'classic') + '|' + (filters.type || 'all') + '|' + !!layout;
     if (this.counts.has(key)) return this.counts.get(key);
-    const counts = new Map();
+    const counts = new Map(), folders = layout?.folders || index.folders;
     for (const entry of index.entries) {
       if (!this.matches(entry,filters)) continue;
-      let folder = entry.folderKey;
-      for (;;) { counts.set(folder,(counts.get(folder) || 0) + 1); if (!folder) break; const cut = folder.lastIndexOf('\\'); folder = cut < 0 ? '' : folder.slice(0,cut); }
+      let folder = layout?.entryFolders[entry.id] ?? entry.folderKey;
+      for (;;) { counts.set(folder,(counts.get(folder) || 0) + 1); if (!folder) break; folder = folders.get(folder).parent; }
     }
     this.counts.set(key,counts); while (this.counts.size > 16) this.counts.delete(this.counts.keys().next().value);
     return counts;
@@ -135,29 +187,42 @@ class GameFileLibrary {
     return {signature:index.signature,total:index.entries.length,totals,errors:index.errors,sources:index.sources.length};
   }
   /** Immediate subfolders (with counts for the filters) and the files directly inside one folder. */
-  browse(index, {folder = '', variant = 'classic', type = 'all', offset = 0, limit = PAGE} = {}) {
-    const key = String(folder || '').toLowerCase(), node = index.folders.get(key);
+  browse(index, {folder = '', variant = 'classic', type = 'all', worldEditor = false, offset = 0, limit = PAGE} = {}) {
+    const tree = worldEditor ? worldEditorFolders(index).folders : index.folders;
+    const key = String(folder || '').toLowerCase(), node = tree.get(key);
     if (!node) return {signature:index.signature,folder:null,crumbs:[],folders:[],files:[],total:0,hasMore:false};
-    const counts = this.folderCounts(index,{variant,type});
-    const folders = [...node.children].filter(child => counts.get(child)).map(child => ({key:child,path:index.folders.get(child).path,name:index.folders.get(child).name,count:counts.get(child)})).sort((a,b) => a.name.localeCompare(b.name));
+    const counts = this.folderCounts(index,{variant,type,worldEditor});
+    const folders = [...node.children].filter(child => counts.get(child)).map(child => {
+      const {path,name,iconFolder} = tree.get(child);
+      return {key:child,path,name,count:counts.get(child),...(iconFolder?{iconFolder}:{})};
+    }).sort((a,b) => a.name.localeCompare(b.name));
     const files = node.files.map(id => index.entries[id]).filter(entry => this.matches(entry,{variant,type})).sort((a,b) => a.name.localeCompare(b.name) || a.module.localeCompare(b.module));
-    const crumbs = []; for (let at = key; at; at = index.folders.get(at).parent) crumbs.unshift({key:at,name:index.folders.get(at).name});
+    const crumbs = []; for (let at = key; at; at = tree.get(at).parent) crumbs.unshift({key:at,name:tree.get(at).name});
     const start = Math.max(0,Number(offset) || 0), size = Math.min(10000,Math.max(1,Number(limit) || PAGE));
     return {signature:index.signature,folder:{key,path:node.path,name:node.name,count:counts.get(key) || 0},crumbs,folders,files:files.slice(start,start + size).map(entry => this.publicEntry(entry)),total:files.length,hasMore:start + size < files.length};
   }
   /** Every word must appear in the game path. Exact and leading file-name matches rank first. */
-  search(index, {query = '', folder = '', variant = 'classic', type = 'all', offset = 0, limit = PAGE} = {}) {
+  search(index, {query = '', folder = '', variant = 'classic', type = 'all', worldEditor = false, offset = 0, limit = PAGE} = {}) {
     const q = gamePathKey(query).trim(), words = q.split(/\s+/).filter(Boolean), scope = String(folder || '').toLowerCase();
-    if (!words.length) return this.browse(index,{folder,variant,type,offset,limit});
+    if (!words.length) return this.browse(index,{folder,variant,type,worldEditor,offset,limit});
+    const layout = worldEditor ? worldEditorFolders(index) : null;
     const rank = entry => { const stem = entry.leaf.replace(/\.[^.]+$/,''); return stem === q || entry.leaf === q ? 0 : stem.startsWith(words[0]) ? 1 : words.every(word => entry.leaf.includes(word)) ? 2 : 3; };
     const found = [];
     for (const entry of index.entries) {
-      if (!this.matches(entry,{variant,type}) || scope && !entry.lower.startsWith(scope + '\\')) continue;
-      if (words.every(word => entry.lower.includes(word))) found.push({entry,rank:rank(entry)});
+      if (!this.matches(entry,{variant,type})) continue;
+      const group = layout?.entryFolders[entry.id] ?? entry.folderKey;
+      if (scope && group !== scope && !group.startsWith(scope + '\\')) continue;
+      const browsePath = layout?.folders.get(group).path;
+      if (words.every(word => entry.lower.includes(word) || browsePath?.toLowerCase().includes(word))) found.push({entry,rank:rank(entry),browsePath});
     }
     found.sort((a,b) => a.rank - b.rank || a.entry.lower.length - b.entry.lower.length || a.entry.sourcePath.length - b.entry.sourcePath.length || a.entry.lower.localeCompare(b.entry.lower) || VARIANT_ORDER.indexOf(a.entry.variant) - VARIANT_ORDER.indexOf(b.entry.variant));
     const start = Math.max(0,Number(offset) || 0), size = Math.min(1000,Math.max(1,Number(limit) || PAGE));
-    return {signature:index.signature,query,files:found.slice(start,start + size).map(row => this.publicEntry(row.entry)),total:found.length,hasMore:start + size < found.length};
+    const files = found.slice(start,start + size).map(({entry,browsePath}) => {
+      const file = this.publicEntry(entry);
+      if (browsePath) file.browsePath = browsePath.replaceAll('\\',' › ');
+      return file;
+    });
+    return {signature:index.signature,query,files,total:found.length,hasMore:start + size < found.length};
   }
   entry(index, id, signature) {
     if (signature && signature !== index.signature) throw Error('The game files changed. Reopen the Library.');

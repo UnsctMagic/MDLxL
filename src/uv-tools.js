@@ -167,12 +167,17 @@ function textureLabel(texture) {
   return String(texture.Image || 'Unnamed texture').split(/[\\/]/).at(-1);
 }
 
+/** UV rest uses the saved MDX texture slot or, for MDL tracks, the first key. */
+export function uvRestTextureID(layer, slot) {
+  return unanimatedTrackValue(layer, slot, layer[slot]?.Keys?.[0]?.Vector?.[0] ?? 0);
+}
+
 /** Resolve a material's layers in the UV rest pose or at an animation frame. */
 export function uvMaterialLayers(model, materialID, time = 0, sequenceIndex = -1, restPose = sequenceIndex < 0) {
   const material = model?.Materials?.[materialID], interval = model?.Sequences?.[sequenceIndex]?.Interval;
   return (material?.Layers || []).map((layer, layerIndex) => {
     const sampled = restPose && layer.TextureID?.Keys
-      ? unanimatedTrackValue(layer, 'TextureID', 0)
+      ? uvRestTextureID(layer, 'TextureID')
       : sampleTrack(layer.TextureID, time, { interval, globalSequences: model.GlobalSequences, globalTime: time, fallback: -1 });
     const textureID = Math.round(Number(sampled)), texture = model.Textures?.[textureID] || null;
     const coordId = finiteIndex(layer.CoordId) ? layer.CoordId : 0;

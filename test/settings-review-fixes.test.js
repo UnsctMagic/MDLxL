@@ -57,8 +57,8 @@ test('the Classic and Orbit buttons keep Custom the way the bar does', () => {
   assert.match(settings, /data-hotkey="mouse:preset:classic" onClick=\{\(\) => pickPreset\('mouse', prefs, 'classic', commit, setMessage\)\}/);
   assert.match(settings, /data-hotkey="mouse:preset:orbit" onClick=\{\(\) => pickPreset\('mouse', prefs, 'orbit', commit, setMessage\)\}/);
   const bar = read('app/PresetBar.jsx');
-  assert.match(bar, /export function pickPreset\(domain, preferences, id, commit, say\) \{/);
-  assert.match(bar, /pickPreset\(domain, preferences, id, commit, say\);/, 'the select goes the same way');
+  assert.match(bar, /export function pickPreset\(domain, preferences, id, commit, say, requestConfirmation\) \{/);
+  assert.match(bar, /pickPreset\(domain, preferences, id, commit, say, requested => \{ setNaming\(false\); setConfirming\(requested\); \}\);/, 'the select goes the same way');
   assert.match(bar, /=== CUSTOM_PRESET\) unsavedCustom\.set\(domain, captureCustom\(domain, preferences\)\)/);
 });
 
@@ -77,7 +77,10 @@ test('every window that asks before closing compares with how it opened', () => 
   assert.match(read('app/Forge.jsx'), /data-hotkey-unapplied=\{undoCount > 0 \|\| shapesDirty \? '' : undefined\}/);
   assert.match(read('app/ShapingDialog.jsx'), /unapplied = history\.length > 0 \|\| settingsNow !== startingSettings/);
   assert.match(read('app/SortMyMess.jsx'), /selected = groups\.filter\(item => decisionChanges\(decisions\.get\(item\.key\)\)\)/);
-  assert.match(read('app/SurfaceEffects.jsx'), /unapplied=\[\.\.\.drafts\.current\]\.some\(\(\[index,draft\]\)=>JSON\.stringify\(draft\)!==baselines\.current\.get\(index\)\)/);
+  // FX keeps one pending target (docs/FX-GLOBAL-ANIMATIONS.md): it compares with how that part opened.
+  const fx = read('app/SurfaceEffects.jsx');
+  assert.match(fx, /unapplied=!!trial\|\|JSON\.stringify\(stack\)!==JSON\.stringify\(baseline\.current\)/);
+  assert.match(fx, /baseline\.current=saved\|\|\(chosen\.current\?makeStack\(GLOBAL_LOOKS\[0\],index,sequence\):next\)/, 'choices carried onto another part still ask');
 });
 
 test('the UV Each piece toggle takes no default key', () => {

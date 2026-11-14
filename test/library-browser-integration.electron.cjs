@@ -1,5 +1,5 @@
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
-const {launchApp,closeApp,bundleHashes}=require('./helpers/app.cjs');
+const {launchApp,closeApp,bundleHashes,stubDialogs}=require('./helpers/app.cjs');
 const {fixturePath,gameFolder}=require('./helpers/fixtures.cjs');
 const {click,type,orbit}=require('./helpers/library-browser.cjs');
 (async()=>{
@@ -8,23 +8,167 @@ const {click,type,orbit}=require('./helpers/library-browser.cjs');
  const record=message=>{checks.push(message);console.log('PASS '+message);};
  let app;
  try{
-  const launched=await launchApp({out,fixture:fixturePath('footman'),show:'hide',bounds:{x:0,y:0,width:1500,height:1000},settings:{gameData:folder,preferences:{checkUpdatesOnStartup:false}},env:{MDLVIS_GAME_DATA:folder},pageTimeout:45000});app=launched.app;const page=launched.page;
+  const launched=await launchApp({out,fixture:fixturePath('footman'),show:'hide',bounds:{x:0,y:0,width:1920,height:1032},settings:{gameData:folder,preferences:{checkUpdatesOnStartup:false}},env:{MDLVIS_GAME_DATA:folder},pageTimeout:45000});app=launched.app;const page=launched.page;
   await page.getByRole('tab',{name:'Footman.mdx',exact:true}).waitFor();
   const button=name=>page.getByRole('button',{name,exact:true}),lib=page.getByRole('dialog',{name:'Warcraft III Library',exact:true});
   const row=name=>lib.getByRole('treeitem',{name,exact:true});
+  const shot=async name=>{
+   const png=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));
+   await fs.writeFile(path.join(out,name+'.png'),Buffer.from(png,'base64'));
+  };
+  const saveFile=async(stem,name)=>{
+   const destination=path.join(out,stem),file=destination+path.extname(name);
+   await fs.rm(file,{force:true});
+   await stubDialogs(app,{save:destination});
+   await click(page,button('Save a copy…'));
+   await lib.getByText('Saved '+file,{exact:true}).waitFor();
+   const bytes=await fs.readFile(file);
+   await fs.rm(file);
+   return bytes;
+  };
+  const saveCopy=async(stem,name,expected)=>assert.deepEqual(await saveFile(stem,name),Buffer.from(expected),'Save a copy writes the exact source bytes');
+  const format=lib.getByRole('combobox',{name:'Texture save format',exact:true});
+  const assertFormatFits=async()=>{
+   const {available,required}=await format.evaluate(select=>{
+    const style=getComputedStyle(select),canvas=document.createElement('canvas').getContext('2d');
+    canvas.font=[style.fontWeight,style.fontSize,style.fontFamily].join(' ');
+    const metrics=canvas.measureText(select.selectedOptions[0].textContent);
+    return {
+     available:select.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom),
+     required:Math.max(parseFloat(style.lineHeight)||0,metrics.fontBoundingBoxAscent+metrics.fontBoundingBoxDescent)
+    };
+   });
+   assert.ok(available>=required,'The save format label fits its content box ('+available+'px available, '+required+'px required)');
+  };
+  const selectFormat=async extension=>{
+   const options=await format.locator('option').evaluateAll(items=>items.map(item=>item.value));
+   const index=options.indexOf(extension);
+   assert.ok(index>=0,'The requested output format is available');
+   await click(page,format);
+   await page.keyboard.press('Home');
+   for(let step=0;step<index;step++)await page.keyboard.press('ArrowDown');
+   await page.keyboard.press('Enter');
+   assert.equal(await format.inputValue(),extension);
+  };
+  const readGameFile=async gamePath=>page.evaluate(async gamePath=>{
+   const entry=await window.desktop.gameFilesFindPath({path:gamePath,variant:'classic'});
+   return Array.from((await window.desktop.gameFilesRead(entry)).bytes);
+  },gamePath);
+  const toolbar=button('Material and Texture Library'),menu=page.getByRole('menu',{name:'Library',exact:true});
+  const openMenu=async()=>{await click(page,toolbar,{button:'right'});await menu.waitFor({timeout:5000});};
+  const learn=button('Learn'),learnMenu=page.getByRole('menu',{name:'Learn',exact:true});
+  const menuStyle=popup=>popup.evaluate(element=>{
+   const panel=getComputedStyle(element),item=getComputedStyle(element.querySelector('button'));
+   return [panel.backgroundImage,panel.borderRadius,panel.minWidth,item.fontFamily,item.fontSize,item.fontWeight,item.padding];
+  });
+  await click(page,learn,{button:'right'});await learnMenu.waitFor({timeout:5000});
+  const sharedStyle=await menuStyle(learnMenu);
+  await page.keyboard.press('Escape');await learnMenu.waitFor({state:'hidden'});
+  await openMenu();
+  assert.deepEqual(await menuStyle(menu),sharedStyle,'The Library popup uses the Learn icon menu appearance');
+  const triggerBounds=await toolbar.boundingBox(),menuBounds=await menu.boundingBox();
+  assert.ok(Math.abs(menuBounds.x+menuBounds.width-triggerBounds.x-triggerBounds.width)<1,'Library aligns to the right edge of its icon');
+  assert.ok(Math.abs(menuBounds.y-triggerBounds.y-triggerBounds.height-6)<1,'Library uses the shared menu gap below its icon');
+  assert.ok(await menu.evaluate(element=>document.activeElement===element),'The shared popup receives focus');
+  assert.deepEqual(await menu.getByRole('menuitem').allInnerTexts(),['Textures','Models','Sounds','All']);
+  await page.keyboard.press('Escape');
+  await menu.waitFor({state:'hidden'});
+  assert.equal(await lib.count(),0,'Right-click opens only the Library menu');
+  await openMenu();await click(page,learn);await menu.waitFor({state:'hidden'});
+  await learnMenu.waitFor();await page.keyboard.press('Escape');await learnMenu.waitFor({state:'hidden'});
+  for(const [item,tab] of [['Models','Models'],['Sounds','Sounds'],['All','All files'],['Textures','Textures']]){
+   await openMenu();await click(page,menu.getByRole('menuitem',{name:item,exact:true}));
+   await lib.waitFor();
+   assert.equal(await lib.getByRole('tab',{name:tab,exact:true}).getAttribute('aria-selected'),'true');
+   await menu.waitFor({state:'hidden'});
+   await click(page,button('Close texture library'));
+  }
+  await click(page,toolbar);await lib.waitFor();
+  assert.equal(await lib.getByRole('tab',{name:'Textures',exact:true}).getAttribute('aria-selected'),'true');
+  record('Library button: shared Learn appearance, position, focus, dismissal and four direct tabs; left-click reopens the last tab');
+  assert.equal(await button('Standard').getAttribute('aria-pressed'),'true','Textures opens in Standard');
+  const vibe=lib.getByRole('checkbox',{name:'Vibe search',exact:true});
+  assert.ok(await vibe.isChecked());
+  const textureSearch=lib.getByRole('searchbox',{name:'Search textures'});
+  await type(page,textureSearch,'painting');
+  await lib.locator('.tl-tile').filter({hasText:/loading|ashenvale|campaign/i}).first().waitFor();
+  await click(page,vibe);await type(page,textureSearch,'footman');
+  const texture=lib.locator('.tl-tile[title^="war3.w3mod:textures\\\\footman." i]').first();
+  await texture.waitFor();await click(page,texture);
+  const texturePath=(await texture.getAttribute('title')).split(':').at(-1);
+  assert.deepEqual(await format.locator('option').allInnerTexts(),['DDS','BLP','PNG'],'A native DDS texture offers all three export formats');
+  await assertFormatFits();
+  const source=Buffer.from(await readGameFile(texturePath));
+  const {decodeDds}=await import('../src/dds.js');
+  const {decodePaintBlp}=await import('../src/paint-blp.js');
+  const {decodePaintPng}=await import('../src/paint-project.js');
+  const original=decodeDds(source);
+  await saveCopy('texture',path.win32.basename(texturePath),source);
+  await selectFormat('png');
+  await assertFormatFits();
+  const png=await decodePaintPng(await saveFile('texture-png','Footman.png'));
+  assert.deepEqual([png.width,png.height,png.data],[original.width,original.height,original.data],'PNG preserves full-size decoded pixels and alpha');
+  await selectFormat('blp');
+  const blpBytes=await saveFile('texture-blp','Footman.blp');
+  assert.equal(blpBytes.subarray(0,4).toString('ascii'),'BLP1');
+  const blp=await decodePaintBlp(blpBytes);
+  assert.deepEqual([blp.width,blp.height],[original.width,original.height],'BLP1 retains the original dimensions');
+  record('Textures: original DDS is byte exact, PNG preserves decoded RGBA, and BLP1 decodes at the original size');
+  await click(page,button('Close texture library'));
+  record('Textures: Standard opens with Vibe search; both searches work and Save a copy preserves the native texture');
   const open=async()=>{await click(page,button('Material and Texture Library'));await lib.waitFor();await click(page,page.getByRole('tab',{name:'Models',exact:true}));await row('Human').waitFor();};
   const ready=name=>page.waitForFunction(name=>document.querySelector('.gf-info h3')?.textContent===name&&!document.querySelector('.gf-stage-busy')&&mdlxlProbe('.gf-stage .game-preview-root').runtime?.captureApi?.isReady,name);
-  await open();await click(page,button('World Editor Style'));
+  await open();assert.equal(await button('World Editor Style').getAttribute('aria-pressed'),'true','Models opens in World Editor Style');
   await click(page,row('Human'));await page.keyboard.press('ArrowLeft');assert.equal(await row('Human').getAttribute('aria-expanded'),'false');
   await page.keyboard.press('ArrowRight');await row('Units').waitFor();await page.keyboard.press('ArrowDown');assert.ok((await lib.locator('.gf-row.focused').innerText()).startsWith('Units'));
   await page.keyboard.press('ArrowRight');await row('Normal').waitFor();await page.keyboard.press('ArrowDown');assert.ok((await lib.locator('.gf-row.focused').innerText()).startsWith('Normal'));await page.keyboard.press('ArrowRight');
-  await click(page,row('Footman'));await ready('Footman');await page.keyboard.press('ArrowDown');await page.waitForFunction(()=>{const selected=document.querySelector('.gf-row.selected');return selected&&!selected.classList.contains('folder')&&selected.getAttribute('aria-label')!=='Footman'&&!document.querySelector('.gf-stage-busy');});
+  await click(page,row('Footman'));await ready('Footman');await saveCopy('model','Footman.mdx',await readGameFile('Units\\Human\\Footman\\Footman.mdx'));await click(page,row('Footman'));await page.keyboard.press('ArrowDown');await page.waitForFunction(()=>{const selected=document.querySelector('.gf-row.selected');return selected&&!selected.classList.contains('folder')&&selected.getAttribute('aria-label')!=='Footman'&&!document.querySelector('.gf-stage-busy');});
   await click(page,row('Footman'));await ready('Footman');await orbit(page,lib.locator('.gf-stage'));await click(page,row('Footman'));await ready('Footman');await page.keyboard.press('Enter');await lib.waitFor({state:'hidden'});await page.getByRole('tab',{name:'Footman.mdx',exact:true}).and(page.locator('[aria-selected="true"]')).waitFor();record('Models: real Left/Right/Down navigation, native preview, camera drag and Enter opens Footman');
   await open();await click(page,row('Human'));await click(page,row('Units'));await click(page,row('Normal'));await click(page,row('Footman'),{clickCount:2});await lib.waitFor({state:'hidden'});await page.getByRole('tab',{name:'Footman.mdx',exact:true}).and(page.locator('[aria-selected="true"]')).waitFor();record('World Editor model double-click opens the native model');
   await open();await click(page,button('Standard'));for(const name of ['Units','Human','Footman'])await click(page,row(name));await click(page,row('Footman.mdx'));await ready('Footman.mdx');assert.equal(await button('Standard').getAttribute('aria-pressed'),'true');await click(page,button('World Editor Style'));assert.equal(await button('World Editor Style').getAttribute('aria-pressed'),'true');await row('Human').waitFor();record('Models: Standard native folders and World Editor Style toggle retain both layouts');
-  await click(page,page.getByRole('tab',{name:'Sounds',exact:true}));const search=page.getByRole('searchbox',{name:'Search game files'});await type(page,search,'footmanyes');const voice=lib.getByRole('treeitem',{name:/^Footmanyes1\.(ogg|flac|wav)$/i});await voice.waitFor();await click(page,voice);await page.waitForFunction(()=>document.querySelector('.gf-audio')?.duration>0);const first=await lib.locator('.gf-row.selected').getAttribute('data-row');await page.keyboard.press('ArrowDown');await page.waitForFunction(first=>document.querySelector('.gf-row.selected')?.dataset.row!==first&&document.querySelector('.gf-audio')?.duration>0,first);record('Sounds: native voice decodes; real ArrowDown changes the selected voice');
-  await click(page,page.getByRole('tab',{name:'All files',exact:true}));await type(page,search,'footman.mdx');const nativeModel=lib.getByRole('treeitem',{name:'Footman.mdx',exact:true}).first();await nativeModel.waitFor();assert.ok(await page.getByLabel('File type',{exact:true}).isVisible());await click(page,nativeModel);await page.waitForFunction(()=>document.querySelector('.gf-info code')?.textContent.toLowerCase().endsWith('footman.mdx')&&!document.querySelector('.gf-stage-busy'));await orbit(page,lib.locator('.gf-stage'));record('All files: file-type control, native file search and rotating model preview');
-  assert.deepEqual(launched.errors,[]);await lib.screenshot({path:path.join(out,'all-files.png')});
+  await click(page,page.getByRole('tab',{name:'Sounds',exact:true}));
+  assert.equal(await button('World Editor Style').getAttribute('aria-pressed'),'true','Sounds opens in World Editor Style');
+  for(const name of ['Units','Human','Footman'])await click(page,row(name));
+  const browsedVoice=lib.getByRole('treeitem',{name:/^Footmanyes1\.(ogg|flac|wav)$/i});
+  const tree=await lib.getByRole('tree').boundingBox();
+  await page.mouse.move(tree.x+tree.width/2,tree.y+tree.height/2);
+  await page.mouse.wheel(0,340);
+  await page.waitForFunction(()=>{
+   const voice=[...document.querySelectorAll('.gf-row')].find(row=>/^Footmanyes1\.(ogg|flac|wav)$/i.test(row.getAttribute('aria-label')));
+   if(!voice)return false;
+   const box=voice.getBoundingClientRect(),tree=voice.closest('.gf-tree').getBoundingClientRect();
+   return box.top>=tree.top&&box.bottom<=tree.bottom;
+  });
+  await click(page,browsedVoice);await page.waitForFunction(()=>document.querySelector('.gf-audio')?.duration>0);
+  const audioBytes=await page.locator('.gf-audio').evaluate(async audio=>Array.from(new Uint8Array(await (await fetch(audio.src)).arrayBuffer())));
+  await saveCopy('sound',await browsedVoice.getAttribute('aria-label'),audioBytes);
+  await shot('sounds');
+  record('Sounds: Units > Human > Footman plays a native voice and Save a copy preserves its bytes');
+  const search=page.getByRole('searchbox',{name:'Search game files'});await type(page,search,'footmanyes');const voice=lib.getByRole('treeitem',{name:/^Footmanyes1\.(ogg|flac|wav)$/i});await voice.waitFor();await click(page,voice);await page.waitForFunction(()=>document.querySelector('.gf-audio')?.duration>0);const first=await lib.locator('.gf-row.selected').getAttribute('data-row');await page.keyboard.press('ArrowDown');await page.waitForFunction(first=>document.querySelector('.gf-row.selected')?.dataset.row!==first&&document.querySelector('.gf-audio')?.duration>0,first);record('Sounds: native voice decodes; real ArrowDown changes the selected voice');
+  await click(page,page.getByRole('tab',{name:'All files',exact:true}));
+  await click(page,button('World Editor Style'));
+  await row('Sounds').waitFor();
+  assert.ok((await lib.locator('.gf-row').all()).length<=8,'All files shows only collapsed file-type groups at the root');
+  assert.equal(await lib.locator('.gf-row:not([aria-expanded="false"])').count(),0);
+  await shot('all-files-folders');
+  for(const name of ['Text & data','Units'])await click(page,row(name));
+  const table=lib.getByRole('treeitem',{name:/^Abilitybuffmetadata\.slk$/i});
+  await click(page,table);await lib.locator('.gf-text').waitFor();
+  await saveCopy('data','Abilitybuffmetadata.slk',await readGameFile('Units\\AbilityBuffMetaData.slk'));
+  record('All files: collapsed file types, text preview and byte-exact SLK export');
+  await type(page,search,'webui/abilityicons/hd/aabr.png');
+  await click(page,lib.getByRole('treeitem',{name:/^Aabr[.]png$/i}).first());
+  assert.equal(await format.inputValue(),'png','A newly selected texture starts with its original format');
+  await assertFormatFits();
+  await selectFormat('dds');
+  const sourcePng=Buffer.from(await readGameFile('Webui/Abilityicons/Hd/Aabr.png'));
+  const ddsBytes=await saveFile('icon-dds','Aabr.dds');
+  assert.equal(ddsBytes.subarray(84,88).toString('ascii'),'DXT5');
+  const dds=decodeDds(ddsBytes);
+  assert.deepEqual([dds.width,dds.height],[sourcePng.readUInt32BE(16),sourcePng.readUInt32BE(20)]);
+  record('All files: PNG exports to a real DXT5 DDS at the original dimensions');
+  await type(page,search,'footman.mdx');const nativeModel=lib.getByRole('treeitem',{name:'Footman.mdx',exact:true}).first();await nativeModel.waitFor();assert.ok(await page.getByLabel('File type',{exact:true}).isVisible());await click(page,nativeModel);await page.waitForFunction(()=>document.querySelector('.gf-info code')?.textContent.toLowerCase().endsWith('footman.mdx')&&!document.querySelector('.gf-stage-busy'));await orbit(page,lib.locator('.gf-stage'));record('All files: file-type control, native file search and rotating model preview');
+  assert.deepEqual(launched.errors,[]);await shot('all-files');
   await fs.writeFile(path.join(out,'results.json'),JSON.stringify({bundle:bundleHashes(),passed:checks.length,failed:0,skipped:0,checks},null,2));console.log('PASS '+checks.length+' integrated main Library checks\n'+checks.join('\n'));
- }catch(error){if(app)await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png')}).catch(()=>{});throw error;}finally{if(app)await closeApp(app);}
+ }catch(error){if(app)await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64')).then(png=>fs.writeFile(path.join(out,'failure.png'),Buffer.from(png,'base64'))).catch(()=>{});throw error;}finally{if(app)await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

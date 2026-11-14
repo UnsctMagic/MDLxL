@@ -1,6 +1,6 @@
 # Remove Offload Mode (the AI birds)
 
-Status: implementation completed; ready for review, awaiting merge approval
+Status: completed, merged in #501 at ee5abde3
 Owner / consolidator: Codex (implementation), Claude Code (contract)
 Updated: 2026-11-01
 

@@ -24,3 +24,12 @@ test('legacy dirty updates preserve whether the model was saved', () => {
 test('the native button order maps to save, cancel, and close', () => {
   assert.deepEqual([0, 1, 2].map(close.modelCloseAction), ['save', 'cancel', 'close']);
 });
+
+
+test('a clean model with an open replacement is a close decision and the prompt explains Save', () => {
+  const state = close.normalizeModelCloseState({ dirty: false, saved: true, replacement: true, name: 'Footman.mdx' });
+  assert.equal(close.needsModelClosePrompt(state), true);
+  const prompt = close.modelClosePrompt(state);
+  assert.match(prompt.message, /replacement/i);
+  assert.match(prompt.detail, /commit.*before saving/i);
+});

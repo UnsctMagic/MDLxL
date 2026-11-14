@@ -42,13 +42,8 @@ export default function GlobalAnimationStage({Preview,graph,layer,group,stackLay
   const extents=axes.map(axis=>(result.sites||[]).reduce((extent,site)=>Math.max(extent,Math.abs(new Vector3(...site.point).sub(centre).dot(axis))),Math.max(1,frame.length*.06)));
   return {axes,centre,extents};
  },[shape,frame,layer,result]);
- useWindowKeyClaim(({event,localWindow})=>{
-  if(localWindow!==windowRef.current||!active||!individual||gesture.current)return false;
-  if(event.key==='Escape'){selectSite(null);return true;}
-  if(event.key!=='Delete'||isTextEditingTarget(event.target)||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey)return false;
-  if(!event.repeat)deleteEmitter();
-  return true;
- },1);
+ // Escape drops the picked emitter; Delete removes it (a text field keeps its own Delete).
+ useWindowKeyClaim(({event,localWindow})=>{if(localWindow!==windowRef.current||!active||!individual||gesture.current)return false;if(event.key==='Escape'){selectSite(null);return true;}if(event.key!=='Delete'||isTextEditingTarget(event.target)||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey)return false;if(!event.repeat)deleteEmitter();return true;},1);
  const liveModel=useMemo(()=>{
   if(!liveDraft||!graph?.model||layer.type!=='Particles'||layer.swarm)return graph?.model;
   // The dragged layer, and the layers whose emitters move with it when emitters are selected by group.

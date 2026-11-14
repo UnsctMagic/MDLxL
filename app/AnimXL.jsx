@@ -15,7 +15,7 @@ import { createNode } from '../src/editor-document.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { vertexBones } from '../src/part-bones.js';
 import { uniqueName } from '../src/node-hierarchy.js';
-import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
+import { loadEventCatalog, resolveEventSound, MISSING_SOUND, MISSING_SOUND_TIP } from './node-event-data.js';
 import './resource-editors.css';
 import './anim-xl.css';
 
@@ -126,7 +126,7 @@ function SoundPicker({ label, tip, value, sounds, onOpen, onPlay, onChange }) {
     <select aria-label={label} value={value || ''} onFocus={onOpen} onPointerDown={onOpen} onChange={event => { onChange(event.target.value); if (event.target.value) onPlay(event.target.value); }}>
       <option value="">None</option>
       {sounds?.loading && <option disabled>Loading sounds…</option>}
-      {shown.map(sound => <option key={sound.id} value={sound.id}>{sound.label}</option>)}
+      {shown.map(sound => <option key={sound.id} value={sound.id} disabled={sound.missing} title={sound.missing ? MISSING_SOUND_TIP : undefined}>{sound.missing ? `${sound.label} · ${MISSING_SOUND}` : sound.label}</option>)}
       {value && !shown.some(sound => sound.id === value) && <option value={value}>{all.find(sound => sound.id === value)?.label || value}</option>}
     </select>
   </div>;
@@ -380,7 +380,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   };
   const soundFor = async id => {
     if (audio.current.has(id)) return audio.current.get(id);
-    const file = sounds?.SND?.find(sound => sound.id === id)?.files?.[0];
+    const row = sounds?.SND?.find(sound => sound.id === id), file = row?.missing ? null : row?.files?.[0];
     if (!file) return null;
     const { bytes, mime } = await resolveEventSound(window.desktop.resolveEventResources, file, modelPath);
     const element = new Audio(URL.createObjectURL(new Blob([bytes], { type: mime })));

@@ -1,4 +1,6 @@
-import { sampleTrack } from './animation.js';
+import { isGlobalTrack } from './animation.js';
+import { geosetAlphaTrack, geosetMaterialLayers, geosetVisibleIn, hasOnlyAdditiveLayers, isAdditiveLayer } from './geoset-extras.js';
+import { isPortraitSequence } from './sequence-editor.js';
 import { isTeamGlowLayer } from './texture-references.js';
 import { box, include, finish, invalidBoundsTargets, sequenceSampler } from './optimizexl-bounds.js';
 
@@ -11,18 +13,10 @@ import { box, include, finish, invalidBoundsTargets, sequenceSampler } from './o
 
 /** Shared tooltip for every Calculate extents control. */
 export const EXTENTS_TIP = 'Rebuilds the boxes the game uses for the health bar height, clicking and hiding the unit at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes are left out.';
-const ADDITIVE = new Set([3, 4]);
-const globalTrack = track => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0;
-const isPortraitSequence = sequence => /portrait/i.test(sequence?.Name || '');
-const layersOf = (model, geoset) => model.Materials?.[geoset.MaterialID]?.Layers || [];
 
-function visibleIn(model, index, sequence) {
-  const track = (model.GeosetAnims || []).find(anim => anim.GeosetId === index)?.Alpha;
-  if (globalTrack(track)) return true;
-  const [start, end] = sequence.Interval || [0, 0];
-  const frames = [start, (start + end) / 2, end, ...(track?.Keys || []).map(key => key.Frame).filter(frame => frame >= start && frame <= end)];
-  const options = { interval: sequence.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 };
-  return frames.some(frame => sampleTrack(track, frame, options) > 0.001);
+function countsAsVisible(model, index, sequence) {
+  const track = geosetAlphaTrack(model, index);
+  return isGlobalTrack(track) || geosetVisibleIn(model, track, sequence, sequence.Interval || [0, 0]);
 }
 
 /** Geosets left out of model and animation extents, with the reason for each:
@@ -33,10 +27,10 @@ export function extentsExclusions(model) {
   const geosets = model.Geosets || [], sequences = model.Sequences || [], reasons = new Map();
   const portraits = sequences.filter(isPortraitSequence), others = sequences.filter(s => !isPortraitSequence(s));
   geosets.forEach((geoset, index) => {
-    const layers = layersOf(model, geoset);
-    if (layers.some(layer => isTeamGlowLayer(model, layer)) && layers.every(layer => isTeamGlowLayer(model, layer) || ADDITIVE.has(layer.FilterMode))) reasons.set(index, 'glow');
-    else if (portraits.length && others.length && portraits.some(s => visibleIn(model, index, s)) && !others.some(s => visibleIn(model, index, s))) reasons.set(index, 'portrait');
-    else if (layers.length && layers.every(layer => ADDITIVE.has(layer.FilterMode))) reasons.set(index, 'effect');
+    const layers = geosetMaterialLayers(model, geoset);
+    if (layers.some(layer => isTeamGlowLayer(model, layer)) && layers.every(layer => isTeamGlowLayer(model, layer) || isAdditiveLayer(layer))) reasons.set(index, 'glow');
+    else if (portraits.length && others.length && portraits.some(s => countsAsVisible(model, index, s)) && !others.some(s => countsAsVisible(model, index, s))) reasons.set(index, 'portrait');
+    else if (hasOnlyAdditiveLayers(layers)) reasons.set(index, 'effect');
   });
   const kept = geosets.some((geoset, index) => !reasons.has(index) && geoset.Vertices?.length);
   return kept ? reasons : new Map();
@@ -60,7 +54,7 @@ export function calculateExtents(model) {
     geosets.forEach((geoset, index) => {
       geoset.Anims ||= [];
       geoset.Anims[sequenceIndex] = finish(boxes[index]);
-      if (counted(index) && Number.isFinite(boxes[index].min[0]) && visibleIn(model, index, sequence)) { include(total, boxes[index].min); include(total, boxes[index].max); }
+      if (counted(index) && Number.isFinite(boxes[index].min[0]) && countsAsVisible(model, index, sequence)) { include(total, boxes[index].min); include(total, boxes[index].max); }
     });
     // An animation that shows nothing still needs a box the game accepts.
     const chosen = Number.isFinite(total.min[0]) ? total : stillTotal;

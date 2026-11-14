@@ -17,13 +17,15 @@ module.exports=async function textureWorldEditor(page,out,checks,capture){
  const defaultVariant=!process.env.MDLXL_VARIANT_CPU&&!process.env.MDLXL_VARIANT_ARGS?.trim();
  const shot=capture;
  await open();
- assert.equal(await style('World Editor Style').getAttribute('aria-pressed'),'true','T1: fresh Textures view defaults to World Editor Style');
+ assert.equal(await style('Standard').getAttribute('aria-pressed'),'true','T1: fresh Textures view opens in Standard');
+ assert.ok(await page.getByRole('checkbox',{name:'Vibe search',exact:true}).isChecked());
+ await click(page,style('World Editor Style'));
  await row('Human').waitFor();
  const top=await page.locator('.gf-row[aria-level="1"] .gf-name').allInnerTexts();
  assert.deepEqual(top,['Human','Orc','Night Elf','Undead','Naga','Neutral Hostile','Neutral Passive','Items','Doodads']);
  await page.getByText('Choose a unit, spell, item or doodad to see its textures.',{exact:true}).waitFor();
  await page.waitForFunction(()=>[...document.querySelectorAll('.gf-row[aria-level="1"] img')].filter(i=>i.naturalWidth>0).length===9);
- assert.equal(await tiles().count(),0);await shot('textures-T1');checks.push('T1 fresh Textures: default World Editor tree, nine game icons and choose-entry line');
+ assert.equal(await tiles().count(),0);await shot('textures-T1');checks.push('T1 fresh Textures: Standard and Vibe search on open; World Editor toggle, nine game icons and choose-entry line');
  const sources=await page.evaluate(files=>window.desktop.gameFilesWorldEditorSources({files}),WORLD_EDITOR_FILES);
  const catalogs=new Map();
  const catalog=variant=>{if(!catalogs.has(variant))catalogs.set(variant,buildWorldEditorCatalog(new Map(sources.files),sources.strings,{skin:{classic:'sd',reforged:'hd','forsaken-kingdom':'de'}[variant]}));return catalogs.get(variant);};

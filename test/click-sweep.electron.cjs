@@ -36,7 +36,7 @@ const START_POINTS = [
   { name: 'bones, all selected', path: [{ hotkey: 'bones' }, { press: 'Control+a' }] },
   { name: 'movement', path: [{ hotkey: 'animation' }] },
   { name: 'animations', path: [{ hotkey: 'animations' }] },
-  { name: 'managers', path: [{ menu: 'managers' }] },
+  { name: 'material manager', path: [{ menu: 'Material Manager…' }] },
   { name: 'uv', path: [{ hotkey: 'vertices' }, { press: 'Control+a' }, { hotkey: 'uv' }] },
   { name: 'showcase', path: [{ menu: 'showcase' }] },
   { name: 'settings', path: [{ press: 'Control+k' }] },
@@ -267,7 +267,7 @@ async function sweepSetup(name, setup) {
           const child = `${label} > ${now.layerName}`;
           if (!scopes.has('opened|' + now.layerName) && scope.path.length < 7) { scopes.add('opened|' + now.layerName); queue.push({ name: child, path: [...scope.path, { key }] }); }
           if (!await closeLayers(homeLayer)) {
-            // Managers and similar are full pages, left by choosing another mode. Only a layer nothing can leave is stuck.
+            // Full workspaces are left by choosing another mode. Only a layer nothing can leave is stuck.
             const left = await walk(scope.path).then(async () => (await controls()).layerName === homeLayer).catch(() => false);
             if (!left) { result.stuck.push({ where, layer: now.layerName, shot: await shot('stuck-' + where) }); await goTo({ ...scope }); }
             base = await state(); continue;

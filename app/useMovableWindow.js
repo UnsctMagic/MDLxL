@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createFrameCoalescer } from './viewport-performance.js';
 
 /** Move the actual dialog by its title bar; controls keep their normal clicks. */
@@ -7,8 +7,15 @@ export default function useMovableWindow(ref, { contained = false, position: sup
   const position = suppliedPosition === undefined ? localPosition : suppliedPosition;
   const setPosition = onPositionChange || setLocalPosition;
   const clamp = (left, top) => {
-    const box = ref.current?.getBoundingClientRect(), owner = contained ? ref.current?.offsetParent?.getBoundingClientRect() : ref.current?.ownerDocument.defaultView;
-    return box && owner ? { left: Math.max(0, Math.min(left, (contained ? owner.width : owner.innerWidth) - box.width)), top: Math.max(0, Math.min(top, (contained ? owner.height : owner.innerHeight) - box.height)) } : { left, top };
+    const element = ref.current, view = element?.ownerDocument.defaultView;
+    const box = element?.getBoundingClientRect(), owner = contained ? element?.offsetParent?.getBoundingClientRect() : view;
+    if (!box || !owner) return { left, top };
+    const menu = parseFloat(view.getComputedStyle(element).getPropertyValue('--desktop-menu-height')) || 0;
+    const topLimit = Math.max(0, menu - (contained ? owner.top : 0));
+    return {
+      left: Math.max(0, Math.min(left, (contained ? owner.width : owner.innerWidth) - box.width)),
+      top: Math.max(topLimit, Math.min(top, (contained ? owner.height : owner.innerHeight) - box.height)),
+    };
   };
   // The window follows the pointer once per frame, not on every pointer event.
   const follow = useRef(null), frame = useRef(null);
@@ -19,6 +26,11 @@ export default function useMovableWindow(ref, { contained = false, position: sup
   };
   frame.current ||= createFrameCoalescer(() => follow.current());
   useEffect(() => () => frame.current.cancel(), []);
+  useLayoutEffect(() => {
+    if (!position) return;
+    const next = clamp(position.left, position.top);
+    if (next.left !== position.left || next.top !== position.top) setPosition(next);
+  }, [position?.left, position?.top]);
   useEffect(() => {
     const owner = ref.current?.ownerDocument.defaultView;
     const resize = () => setPosition(old => old && clamp(old.left, old.top));

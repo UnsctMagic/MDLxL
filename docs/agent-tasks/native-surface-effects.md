@@ -1,5 +1,7 @@
 # FX global animation maker
 
+Status: completed, merged in #492 at d505914b
+
 The [owner’s contract](../FX-GLOBAL-ANIMATIONS.md) governs the FX window. Branch `codex/global-effects-local` continues in [PR #492](https://github.com/UnsctMagic/MDLxL/pull/492).
 
 ## Code review fixes · 2 November 2026

@@ -2,7 +2,7 @@ export function forgeMoldHandles(state){
   const {bounds,axis,direction,tool,center,width,amount}=state,size=Math.max(...bounds.span,1);
   const point=value=>bounds.center.map((n,a)=>a===axis?value:n),half=Math.max(bounds.span[direction]/2,size*.12),radial=half+size*.15;
   const amountPoint=point(tool==='Taper'||tool==='Twist'?bounds.max[axis]:center);
-  const factor=tool==='Bend'||tool==='Twist'?size/180:tool==='Bevel'?1:half;
+  const factor=tool==='Bend'||tool==='Twist'?size/180:tool==='Bevel'||tool==='Inset'?1:half;
   amountPoint[direction]+=radial+amount*factor;
   const points=[{id:'amount',position:amountPoint,label:'Drag',color:'#ffd166'}],lines=[];
   const start=point(bounds.min[axis]),end=point(bounds.max[axis]);

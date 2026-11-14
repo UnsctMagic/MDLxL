@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareModelSave } from '../src/save-target.js';
 import { createStarterDocument } from '../src/starter-model.js';
-import { openDocument } from '../src/editor-document.js';
+import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
 test('Save As selects actual bytes and extension for both model versions', () => {
   for (const version of [800, 1000]) {
@@ -29,4 +29,19 @@ test('Save As blocks opaque loss in both directions and keeps exact original sav
     assert.deepEqual(doc.model, before); assert.equal(doc.dirty, false);
     assert.deepEqual(Buffer.from(prepareModelSave(doc, format).bytes), bytes);
   }
+});
+
+for (const format of ['mdx', 'mdl']) test('save preflight returns unreadable ' + format.toUpperCase() + ' output with a distinct flag', () => {
+  const doc = createDemoDocument();
+  const baseline = doc.originalBytes;
+  // Force a syntactically writable version the reader cannot edit. An actual
+  // document edit cannot set it, so this fixture bypasses the edit guard only.
+  doc.model.Version = 9999;
+  const prepared = prepareModelSave(doc, format);
+  assert.ok(prepared.bytes.length);
+  assert.equal(openDocument(prepared.bytes, prepared.name).readOnly, true);
+  assert.equal(prepared.unreadable, true);
+  assert.ok(prepared.verificationWarnings.length);
+  assert.equal(doc.dirty, true);
+  assert.deepEqual(doc.originalBytes, baseline);
 });

@@ -4,7 +4,18 @@ const {fixturePath,gameFolder}=require('./helpers/fixtures.cjs');
 (async()=>{
  const out=path.resolve('out/library-textures-review'),checks=[];
  fs.rmSync(out,{recursive:true,force:true});fs.mkdirSync(out,{recursive:true});
- const {app,page}=await launchApp({out,show:'hide',fixture:fixturePath('citadel-footman'),settings:{preferences:{checkUpdatesOnStartup:false,graphics:{pauseWhenHidden:false}}},env:{MDLVIS_GAME_DATA:await gameFolder()},args:['--disable-gpu-vsync','--disable-frame-rate-limit'],bounds:{x:-3000,y:0,width:1440,height:980},pageTimeout:45000});
+ const options={out,show:'hide',fixture:fixturePath('citadel-footman'),settings:{preferences:{checkUpdatesOnStartup:false,graphics:{pauseWhenHidden:false}}},env:{MDLVIS_GAME_DATA:await gameFolder()},args:['--disable-gpu-vsync','--disable-frame-rate-limit'],bounds:{x:-3000,y:0,width:1440,height:980},pageTimeout:45000};
+ const setup=await launchApp(options);
+ const {click,type}=require('./helpers/library-browser.cjs');
+ try{
+  await click(setup.page,setup.page.locator('[data-hotkey="textureLibrary"]'));
+  const worldEditor=setup.page.getByRole('button',{name:'World Editor Style',exact:true});
+  await click(setup.page,worldEditor);
+  assert.equal(await worldEditor.getAttribute('aria-pressed'),'true');
+  await click(setup.page,setup.page.getByRole('button',{name:'Close texture library',exact:true}));
+ }finally{await closeApp(setup.app,{keepProfile:true});}
+ // Cold renderer, with the World Editor layout explicitly chosen in the profile.
+ const {app,page}=await launchApp({...options,profile:setup.profile});
  const searchWorkers=[];page.on('worker',worker=>{if(worker.url().includes('texture-library-worker'))searchWorkers.push(worker.url());});
   const capture=async name=>{const png=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(png,'base64'));};
  try{
@@ -18,7 +29,6 @@ const {fixturePath,gameFolder}=require('./helpers/fixtures.cjs');
     ipcMain.handle(channel,async(...args)=>{global.__libraryReview[key]++;if(key==='catalog')start();const data=await handler(...args);if(key==='catalog')await gate;return data;});
    }
   });
-  const {click,type}=require('./helpers/library-browser.cjs');
   const select=async(locator,value)=>{const index=await locator.locator('option').evaluateAll((options,value)=>options.findIndex(option=>option.value===value),value);assert.ok(index>=0);await click(page,locator);await page.keyboard.press('Home');for(let i=0;i<index;i++)await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');};
   // Passive platform observation only; app code still owns every worker message.
   await page.evaluate(()=>{window.__libraryWorkerInits=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(data,...args){if(data?.type==='init'&&Array.isArray(data.items)&&data.signature)window.__libraryWorkerInits.push({layout:document.querySelector('.gf-style button[aria-pressed="true"]')?.textContent,signature:data.signature});return post.call(this,data,...args);};});

@@ -53,7 +53,7 @@
 :root[data-theme] .gf-row:hover{background:var(--ui-hover)}
 :root[data-theme] :is(.gf-name>small,.gf-count,.gf-twist,.gf-icon-glyph,.gf-tree-status,.gf-stage-note){color:var(--ui-muted)}
 :root[data-theme] .gf-row.folder .gf-icon-glyph{color:var(--ui-accent,var(--ui-link))}
-:root[data-theme] :is(.gf-style>button,.gf-info>select,.gf-transport>button,.gf-transport>select,.gf-file-actions>button,.tl-material-choice>button,.tl-material-choice>select,.gf-text){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] :is(.gf-style>button,.gf-info>select,.gf-transport>button,.gf-transport>select,.gf-file-actions>button,.gf-save-copy>button,.gf-save-copy>select,.tl-material-choice>button,.tl-material-choice>select,.gf-text){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
 :root[data-theme] :is(.gf-row.selected,.gf-style>button[aria-pressed=true],.tl-material-choice>.tl-primary){background:var(--ui-selected);color:var(--ui-selected-text);border-color:var(--ui-link)}
 :root[data-theme] .gf-info code{color:var(--ui-link)}
 :root[data-theme] :is(.gf-geosets .classic-selection-actions>button,.gf-geosets .classic-geoset-operations>button){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}

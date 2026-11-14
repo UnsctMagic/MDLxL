@@ -53,7 +53,7 @@ const selectionArray = selection => Array.from(selection || []);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 const isIdentityMatrix = matrix => matrix.elements.every((value, index) => Math.abs(value - identityMatrix[index]) < 1e-10);
-export default function Viewport(inputProps) {
+export default function Viewport({ children, ...inputProps }) {
   const { preferences } = usePreferencesContext();
   const props = previewPresentationProps({ ...inputProps, preferences: inputProps.preferences === undefined ? preferences : inputProps.preferences });
   const { model, revision = 0, selectedGeoset = 0, selectedVertices = [], hiddenGeosets, mode = 'vertices', shaded = true, showSkeleton = false, showGrid = true, view = 'front', cameraMode = 'work', workplane = 'xy', transformMode = 'select', sequenceIndex = -1, time = 0, playing = false, teamColor = '#ff0000', textureAssets } = props;
@@ -319,6 +319,7 @@ export default function Viewport(inputProps) {
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(); raycaster.layers.enable(MODEL_LAYER);
     let down = null, editClicks = 0, partHover = null;
     function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height, shift: !!event.shiftKey }; }
+    const partSnap = event => dragKeys(event, 'translate', latest.current.preferences).shiftKey;
     function clearHoveredGeoset() {
       if (state.hoveredGeoset === null) return;
       state.hoveredGeoset = null; latest.current.onHoverGeoset?.(null);
@@ -440,7 +441,10 @@ export default function Viewport(inputProps) {
       // camera navigation only, so no edit can target the wrong vertices.
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
-      if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
+      if (p.onStartPartDrag) {
+        down.action = 'parts'; start.shift = partSnap(event);
+        down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return;
+      }
       const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const previewFrame = p.vertexPreviewSequence != null ? p.vertexPreviewFrame : undefined;
@@ -455,8 +459,8 @@ export default function Viewport(inputProps) {
       }
       if (p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const animated = p.vertexPreviewSequence != null;
-      const posedEditing = !animated && state.nodes.some(node => node.Flags & 120);
-      if (posedEditing) applyPreviewPose(p, camera);
+      const posedEditing = animated || state.nodes.some(node => node.Flags & 120);
+      if (!animated && posedEditing) applyPreviewPose(p, camera);
       const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3();
       const editedPose = animated ? {} : null, visiblePivot = new THREE.Vector3(), vertex = new THREE.Vector3();
       let count = 0, posedSelection = false, poseInvertible = true;
@@ -494,8 +498,14 @@ export default function Viewport(inputProps) {
         pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
         if (animated) visiblePivot.fromBufferAttribute(state.entries[anchor.geosetIndex].geometry.attributes.position, anchor.vertexIndex);
       }
-      // Screen handles follow the frozen mesh. The transform pivot stays in the base pose.
       const viewPivot = animated ? visiblePivot : pivot;
+      const animatedWorldEdit = animated && posedSelection && poseInvertible;
+      if (animatedWorldEdit) {
+        for (const key of Object.keys(selectedMap)) {
+          snapshots[key] = new Float32Array(state.entries[key].geometry.attributes.position.array);
+        }
+        pivot.copy(visiblePivot);
+      }
       // Align is locked to this view for the whole drag.
       if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(viewPivot, start);
@@ -510,7 +520,7 @@ export default function Viewport(inputProps) {
         down.rotationDrag = beginGizmoRotation({ x: down.x, y: down.y, world: viewPivot, camera, width: start.width, height: start.height, handle: gizmoHandle,
           workplaneEnabled: constrained, workplane: dragPlane, preferences: p.preferences, editor, ctrl: dragKeys(event, 'rotate', p.preferences).ctrlKey, reach: screenPivot => selectionReach(selectedMap, animated ? null : snapshots, animated ? null : rotatePieces, screenPivot, start) });
       }
-      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
+      state.drag = { ...down, paneId: boundPane.id, selections: selectedMap, snapshots, pivot, viewPivot, editedPose, animatedWorldEdit, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: dragPlane, workplaneEnabled: constrained, moveWorkplaneOnShift: p.moveWorkplaneOnShift, handle: gizmoHandle, payload: null, latch: shiftDragLatch(start, dragKeys(event, 'translate', p.preferences).shiftKey), rotatePieces };
       if (down.rotationDrag?.straight) invalidate();
     }
     /** Big selections: how far the selection reaches on screen from its pivot, or each piece from its own centre. */
@@ -557,13 +567,13 @@ export default function Viewport(inputProps) {
         // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
         const orbitHeld = modifierHeld(event, 'view.orbit', latest.current.preferences);
         if (sketch.tool && altHover !== orbitHeld) { altHover = orbitHeld; invalidate(); }
-        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey, altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
+        hoverMove = { event: { clientX: event.clientX, clientY: event.clientY, shiftKey: partSnap(event), altKey: orbitHeld, buttons: event.buttons }, pane: quad ? panes.find(pane => pane.surface === event.currentTarget) : null };
         hoverFrame.schedule(); return;
       }
       if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
-      if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
-      if (down.action === 'parts') { down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
+      if ((latest.current.onDoubleClickParts || down.action === 'parts') && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
+      if (down.action === 'parts') { end.shift=partSnap(event); down.partsEnd=end; if (down.traveled && down.parts) { partsMove = { parts: down.parts, end }; partsFrame.schedule(); } return; }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') { anchorMove = { down, rawEnd }; anchorFrame.schedule(); return; }
       if (down.action === 'zoom') {
@@ -659,13 +669,21 @@ export default function Viewport(inputProps) {
         }
         const positions=constrained?.modelPositions?.[key];
         if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
+        if (drag.animatedWorldEdit) {
+          // The gesture is solved on the frozen mesh. Keep its inverse-skinned
+          // base positions for commit and for any resample during the drag.
+          for (const [slot, index] of indices.entries()) {
+            vertex.fromBufferAttribute(position, index).applyMatrix4(drag.poseInverses[key][slot]);
+            position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+          }
+        }
         if (drag.editedPose) skinEditedVertices(entry, drag, key);
         display.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
-      if (drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
+      if (drag.animatedWorldEdit || drag.action === 'translate' && drag.poseInverses || drag.align || spread) {
         const modelPositions = {};
         for (const [key, indices] of Object.entries(drag.selections)) {
-          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.poseInverses?.[key], values = [];
+          const position = drag.editedPose?.[key] || state.entries[key].geometry.attributes.position, inverses = drag.editedPose ? null : drag.poseInverses?.[key], values = [];
           for (let slot = 0; slot < indices.length; slot++) {
             vertex.fromBufferAttribute(position, indices[slot]); if (inverses) vertex.applyMatrix4(inverses[slot]);
             values.push(vertex.x, vertex.y, vertex.z);
@@ -817,12 +835,19 @@ export default function Viewport(inputProps) {
         const redraw = last && (['translate', 'rotate'].includes(kind) && keys.shiftKey !== last.shiftKey || (kind === 'scale' || held.rotationDrag?.snap) && keys.ctrlKey !== last.ctrlKey);
         if (redraw) { transformMove = {...last, ...keys}; transformFrame.schedule(); invalidate(); }
       }
-      if(event.key==='Shift') {
-        const shift=event.type==='keydown';
-        // A frame still waiting from the last move carries the old Shift; replace it now.
-        if(down?.action==='parts'&&down.traveled){partsFrame.cancel();partsMove=null;down.parts?.update({...down.partsEnd,shift});}
-        else if(!down&&hoverMove){hoverMove.event.shiftKey=shift;hoverFrame.flush();}
-        else if(!down&&partHover)latest.current.onHoverParts?.({...partHover,end:{...partHover.end,shift}});
+      if (isModifierKey(event.key)) {
+        const shift = partSnap(event);
+        // A frame waiting from the last move carries the previous lock key state.
+        if (down?.action === 'parts' && down.traveled && down.partsEnd.shift !== shift) {
+          partsFrame.cancel(); partsMove = null;
+          down.partsEnd = { ...down.partsEnd, shift };
+          down.parts?.update(down.partsEnd);
+        } else if (!down && hoverMove && hoverMove.event.shiftKey !== shift) {
+          hoverMove.event.shiftKey = shift; hoverFrame.flush();
+        } else if (!down && !hoverMove && partHover && partHover.end.shift !== shift) {
+          partHover = { ...partHover, end: { ...partHover.end, shift } };
+          latest.current.onHoverParts?.(partHover);
+        }
       }
       if (!quad) return;
       if (event.key === 'Escape' && event.type === 'keydown' && down) { cancelGesture(); event.preventDefault(); event.stopPropagation(); }
@@ -1101,7 +1126,7 @@ export default function Viewport(inputProps) {
           if (anchorPoint) {
             context.font = 'bold 12px Tahoma, Arial, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'bottom';
             context.fillStyle = p.zoomAnchor.kind === 'align' ? '#ff4fd8' : '#39ff14';
-            context.fillText(p.zoomAnchor.kind === 'align' ? 'ALIGN' : 'ANCHOR', (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
+            context.fillText(translate(p.zoomAnchor.kind === 'align' ? 'ALIGN' : 'ANCHOR'), (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
           }
         } else if (anchorCanvas) { anchorCanvas.remove(); anchorCanvas = null; }
       }
@@ -1117,20 +1142,54 @@ export default function Viewport(inputProps) {
     });
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
-    state.captureApi = {captureView() {
-      if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
-      return composeViewportLayers(viewportHost, renderer.domElement);
-    }};
+    const rememberPane = pane => ({
+      id: pane.id, view: pane.view, ...snapshotPreviewCamera(pane.camera, pane.perspective, pane.ortho, pane.controls),
+      center: pane.center.clone(), radius: pane.radius, floor: pane.floor, constraintPlane: pane.constraintPlane, constraints: pane.constraints,
+    });
+    state.captureApi = {
+      captureView() {
+        if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+        return composeViewportLayers(viewportHost, renderer.domElement);
+      },
+      snapshotView() {
+        savePane();
+        return { quad, activePane: activePane.id, panes: panes.map(rememberPane) };
+      },
+      restoreView(saved) {
+        if (!saved || state.disposed) return;
+        cancelGesture();
+        state.setQuad(saved.quad);
+        for (const snapshot of saved.panes) {
+          const pane = panes.find(item => item.id === snapshot.id);
+          if (!pane) continue;
+          bindPane(pane);
+          rememberView(snapshot.view);
+          state.restoreCamera(snapshot);
+          state.center.copy(snapshot.center);
+          state.radius = snapshot.radius;
+          state.floor = snapshot.floor;
+          if (pane.constraintToolbar) {
+            pane.constraintPlane = snapshot.constraintPlane;
+            pane.constraints = snapshot.constraints;
+            pane.constraintToggle.checked = pane.constraints;
+            [...pane.constraintToolbar.querySelectorAll('button')].forEach((button, index) => {
+              button.setAttribute('aria-pressed', String(['xy', 'xz', 'yz'][index] === pane.constraintPlane));
+            });
+          }
+        }
+        activatePane(panes.find(pane => pane.id === saved.activePane) || singlePane);
+        resize();
+      },
+    };
     latest.current.onCaptureReady?.(state.captureApi);
     return () => {
       latest.current.onCaptureReady?.(null);
       if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
-      const remember = pane => ({ id: pane.id, view: pane.view, ...snapshotPreviewCamera(pane.camera, pane.perspective, pane.ortho, pane.controls), center: pane.center.clone(), radius: pane.radius });
-      cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
+      cameraMemory.current = { ...rememberPane(singlePane), panes: panes.slice(1).map(rememberPane) };
       if (latest.current.cameraHandoff) {
         // Quad panes own their cameras. Other editors inherit the single view.
-        latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
+        latest.current.cameraHandoff.current = rememberPane(singlePane);
       }
       state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();
@@ -1163,6 +1222,39 @@ export default function Viewport(inputProps) {
       }
       state.dirty = true; state.scheduler?.invalidate();
       return;
+    }
+    // Forge operates inside this viewport. Its preview keeps the model's
+    // materials and rig, so replace only the edited geoset buffers, including
+    // topology changes. Other geosets, their materials and camera stay alive.
+    if (props.forgeGeometryPreview && before && before.shaded === shaded && before.lighting === graphics.lighting &&
+        !props.modelingOverlay && !before.modelingOverlay && before.model.Materials === model.Materials &&
+        state.entries.length === model.Geosets.length && state.entries.every((entry, i) => entry.geoset.MaterialID === model.Geosets[i].MaterialID)) {
+      for (const [i,entry] of state.entries.entries()) {
+        const g=model.Geosets[i];if(entry.geoset===g)continue;
+        const surfaces=[...new Set([entry.geometry,...entry.meshes.map(mesh=>mesh.geometry)])];
+        const markers=[entry.points,entry.hiddenPoints,entry.selectedPoints,entry.hiddenSelectedPoints,entry.hoverPoints];
+        const resized=entry.geometry.attributes.position.array.length!==g.Vertices.length;
+        if(resized)for(const geometry of new Set([...surfaces,...markers.map(mesh=>mesh.geometry)]))geometry.dispose();
+        const attribute=(geometry,name,values,size)=>{
+          const current=geometry.getAttribute(name);
+          if(current?.array.length===values.length){current.array.set(values);current.needsUpdate=true;return current;}
+          const next=new THREE.BufferAttribute(new Float32Array(values),size).setUsage(THREE.DynamicDrawUsage);geometry.setAttribute(name,next);return next;
+        };
+        const positions=attribute(entry.geometry,'position',g.Vertices,3),normals=attribute(entry.geometry,'normal',g.Normals,3);
+        if(entry.geometry.index.array.length===g.Faces.length){entry.geometry.index.array.set(g.Faces);entry.geometry.index.needsUpdate=true;}
+        else{if(!resized)for(const geometry of surfaces)geometry.dispose();entry.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(g.Faces),1));}
+        for(const [layer,mesh] of entry.meshes.entries()){
+          mesh.geometry.setAttribute('position',positions);mesh.geometry.setAttribute('normal',normals);mesh.geometry.setIndex(entry.geometry.index);
+          const uv=g.TVertices[entry.layers[layer].CoordId||0]||g.TVertices[0];
+          attribute(mesh.geometry,'uv',uv,2);mesh.userData.baseUV=new Float32Array(uv);
+        }
+        for(const marker of markers)marker.geometry.setAttribute('position',positions);
+        const sameFaces=entry.geoset.Faces.length===g.Faces.length&&g.Faces.every((v,i)=>v===entry.geoset.Faces[i]);
+        entry.geoset=g;
+        if(!sameFaces){entry.edgeIndices=uniqueEdges(g.Faces);entry.wireGeometry.dispose();}
+        entry.geometry.computeBoundingSphere();updateWideWireGeometry(entry);
+      }
+      state.selectionKey='';state.dirty=true;state.scheduler.invalidate();return;
     }
     if (state.drag) latest.current.onTransformPreview?.(null);
     state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true;
@@ -1278,6 +1370,7 @@ export default function Viewport(inputProps) {
       </svg>
       {compassAxes.map(axis => <button key={axis.id} type="button" aria-label={axis.title} title={axis.title} onPointerDown={event => event.stopPropagation()} onClick={() => props.onViewChange?.(axis.view)} style={{ position: 'absolute', left: 41 + axis.x * 25, top: 41 + axis.y * 25, width: 20, height: 20, transform: 'translate(-50%, -50%)', border: 0, borderRadius: '50%', padding: 0, background: 'transparent', color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: '20px', textShadow: '0 1px 1px #000', cursor: 'pointer' }}>{axis.label}</button>)}
     </div>}
+    {children}
     <SensitivityIndicator value={adjustingSensitivity} />
     {textureMessage && <div role="status" style={{ position: 'absolute', bottom: 4, left: 5, color: '#fff0cb', fontSize: 11, pointerEvents: 'none' }}>{textureMessage}</div>}
     {backgroundMessage && <div role="status" style={{ position: 'absolute', top: 4, left: 5, color: '#5b2500', background: '#fff4d6dd', padding: '2px 5px', fontSize: 11, pointerEvents: 'none' }}>{backgroundMessage}</div>}

@@ -23,11 +23,19 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh, fr, de].map(pack => Object.keys(pack).length), [8417, 8427, 8323, 8553, 8553]);
-  for (const pack of [ru, es, zh, fr, de]) assert.ok(pack['Rise on Death']);
-  for (const pack of [ru, es, zh, fr, de]) for (const label of ['Apply to all','Keep individual changes','Individual emitter changes','Delete emitter','Formation','Pull the emitters together or spread them apart.']) assert.ok(pack[label],label);
-  for (const pack of [ru, es, zh, fr, de]) for (const label of ['Fire hair','Flames','Embers','Splinters','Glow orb','Drops','Bubbles','Spark spray','Circling stars','Circling lights','Grey cloud','Ghost flames','Rune discs','Falling stars','Sparkles','Flare sparks','Ghost wisps','Light wisps','Inward swirl','Rising glyphs','Small sparks','Green haze','Ground rune rings']) assert.ok(pack[label],label);
+  const catalogs = [ru, es, zh, fr, de];
+  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [8592, 8602, 8498, 8725, 8725]);
+  for (const pack of catalogs) assert.ok(pack['Rise on Death']);
+  for (const pack of catalogs) for (const label of ['Apply to all','Keep individual changes','Individual emitter changes','Delete emitter','Formation','Pull the emitters together or spread them apart.']) assert.ok(pack[label],label);
+  for (const pack of catalogs) for (const label of ['Fire hair','Flames','Embers','Splinters','Glow orb','Drops','Bubbles','Spark spray','Circling stars','Circling lights','Grey cloud','Ghost flames','Rune discs','Falling stars','Sparkles','Flare sparks','Ghost wisps','Light wisps','Inward swirl','Rising glyphs','Small sparks','Green haze','Ground rune rings']) assert.ok(pack[label],label);
+  for (const pack of catalogs) {
+    assert.equal(Object.hasOwn(pack, 'Open the managers at Materials'), false);
+    assert.equal(Object.hasOwn(pack, 'Loading managers…'), false);
+  }
   for (const pack of [ru, es, zh, fr, de]) for (const label of ['Create as overlay','Arc welder','White ice','Rune glow','Ice surface','Drag the UV map to position the runes.']) assert.ok(pack[label],label);
+  for (const pack of catalogs) for (const label of ['Preview RGB', 'Preview RGB {0}', 'Reset preview RGB', 'Hide extras']) {
+    assert.ok(pack[label], label);
+  }
   for (const pack of [ru, es, zh, fr, de]) for (const key of [
     'Use JavaScript for this job?', 'JavaScript can speed up repeated checks.', 'Open as new model',
     'Editing during the merge can bring this choice back. You can still change the view, selection or animation.',
@@ -40,6 +48,17 @@ test('each language catalog has the expected size and only usable entries', () =
     assert.equal(source, source.trim(), `${locale}: ${source}`);
     assert.ok(typeof value === 'string' && value.trim() && !/�|undefined/.test(value), `${locale}: ${source}`);
   }
+});
+
+test('Call Upon Forge controls and actionable errors are translated in every catalog',()=>{
+  for(const pack of [ru,es,zh,fr,de])for(const key of [
+    'Enter the Forge','Call Upon Forge','Forge tools','Forge selection','Vertices','Edges','Faces','Commit','Cancel','Sections','Turn cuts',
+    'Drag a selected face to extrude.','Select vertices to work on.','Select a complete face to use {0}.',
+    'Select faces that follow the same surface to inset.','Choose between 2 and 64 sections.',
+    'This operation exceeds the 65536-vertex geoset limit.','Select individual vertices.','Select complete edges.','Select complete faces.',
+    'Number of sections made by the cuts.','Turn the cut direction.','Set the number of faces in the new shape.',
+    'Keep this operation as one Undo step.','Discard this preview.',
+  ])assert.ok(Object.hasOwn(pack,key)&&pack[key].trim(),key);
 });
 
 // The new catalogs use the same ordered union, including community Chinese-only labels.

@@ -202,7 +202,8 @@ export default function SurfaceEffects({doc,edit,initialGeoset,initialGroup=[],t
    next={...carried,layers:carried.layers.filter(l=>!trial||l.id!==id)};
   }catch{next=null;}
   next||=saved||makeStack(entryOf(stack),index,sequence);
-  baseline.current=saved||next;
+  // The close warning compares with how this part opens: choices carried onto it from another part are unapplied.
+  baseline.current=saved||(chosen.current?makeStack(GLOBAL_LOOKS[0],index,sequence):next);
   lastModel.current=doc.model;
   setCombined(group);setPart(index);show(next,keep);
   if(saved)setFolders(old=>new Set([...old,lookOf(saved).group]));

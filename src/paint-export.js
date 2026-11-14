@@ -56,7 +56,7 @@ export async function buildPaintProjectArtifact(doc, project, assets, originalMo
   // The working model already owns the final UV order and edits. Reapplying
   // legacy sourceCoordId on reopen would move the original UVs back to UV0.
   const saved={...project,uvEdits:{},generatedUVSets:project.preserveMaterials?project.generatedUVSets:Object.fromEntries(Object.keys(project.generatedUVSets||{}).map(index=>[index,0])),targets:project.targets.map(target=>({...target,bindings:target.bindings.map(binding=>binding.sourceCoordId?{...binding,sourceCoordId:0}:binding)}))};
-  return paintProjectArchive(saved,{modelBytes:originalModelBytes,workingModelBytes:working.serialize(doc.format),modelName:doc.name,sourceTextures,assetManifest:{...PAINT_ASSET_MANIFEST,brushTips:PAINT_BRUSH_TIP_MANIFEST}});
+  return paintProjectArchive(saved,{modelBytes:originalModelBytes,workingModelBytes:working.serialize(doc.format, { strict: true }),modelName:doc.name,sourceTextures,assetManifest:{...PAINT_ASSET_MANIFEST,brushTips:PAINT_BRUSH_TIP_MANIFEST}});
 }
 
 /** Build a new model copy, BLP textures and editable project without mutating the open document. */
@@ -76,7 +76,7 @@ export async function buildPaintExportArtifact(doc, project, assets, originalMod
     const name=project.materialMode?'Textures/'+String(target.paintName||target.label).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.blp':uniqueTexturePath(staged.model,target.paintName?safeBase(target.paintName):base,index,reserved);if(reserved.has(name.toLowerCase())&&project.materialMode)throw Error('Two paint textures have the same filename. Rename one before exporting.');reserved.add(name.toLowerCase()); texture.Image=name.replaceAll('/','\\'); texture.ReplaceableId=0; texture.Flags=target.flags||0; textures.push({name,bytes});
   }
   if(current)staged.model=settleCurrentPaintMaterials(staged.model,source,project,paths,()=>openDocument(originalModelBytes,doc.name).model);
-  const format=doc.format,modelName=`${base}-painted.${format}`,modelBytes=staged.serialize(format),paintBlob=await buildPaintProjectArtifact(doc,project,assets,originalModelBytes),paintBytes=new Uint8Array(await paintBlob.arrayBuffer()),projectName=`${base}.mdlxlpaint`;
+  const format=doc.format,modelName=`${base}-painted.${format}`,modelBytes=staged.serialize(format, { strict: true }),paintBlob=await buildPaintProjectArtifact(doc,project,assets,originalModelBytes),paintBytes=new Uint8Array(await paintBlob.arrayBuffer()),projectName=`${base}.mdlxlpaint`;
   const exportInfo={schema:'mdlxl-paint-export',version:1,model:modelName,project:projectName,textureEncoder:PAINT_BLP_ENCODER,textures:textures.map(item=>item.name),createdAt:new Date().toISOString()};
   const originals = [], used = new Set(textures.map(texture => texture.name.toLowerCase()));
   for (const texture of staged.model.Textures || []) {

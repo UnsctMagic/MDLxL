@@ -102,7 +102,7 @@ for (const path of paths) {
     // explicitly added repairs are additional capacity, checked separately.
     const added = capture ? [] : available.filter(f => !acceptedIds.includes(f.id));
     for (const fix of added) {
-      assert.ok(stage === 'sanity' ? (['openingTrack','unusedLocalKeys','redundantTracks','splineResample','exactCleanup'].includes(fix.kind) || fix.id === 'checker:unusedPivots') : fix.kind === 'effectVisibility', 'Only explicitly added repair capabilities may extend this baseline');
+      assert.ok(stage === 'sanity' ? (['openingTrack','unusedLocalKeys','redundantTracks','splineResample','exactCleanup','bounds'].includes(fix.kind) || fix.id === 'checker:unusedPivots') : fix.kind === 'effectVisibility', 'Only explicitly added repair capabilities may extend this baseline');
       if(fix.inspectionOnly){additionalRepairs.push({id:fix.id,inspectionOnly:true});continue;}
       const repaired = runOptimizeStage(source, stage, {}, fix);
       const repairedModel = openDocument(repaired.bytes, 'repaired.mdx').model;
