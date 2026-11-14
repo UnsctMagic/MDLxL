@@ -24,6 +24,17 @@ export const FLAME_NATIVE={Alpha:[255,255,0],Time:.5,LifeSpanUVAnim:[0,40,1],Dec
 export const EMBER_NATIVE={Alpha:[200,150,80],Flags:EMITTER_UNFOGGED};
 /** Drops that read as water: larger, falling with gravity, a streak tail behind each. */
 export const DRIP={amount:12,lasts:1.1,scale:{size:2.8,gravity:1.3},native:{Alpha:[255,245,0],FrameFlags:3,TailLength:.08,Time:.5}};
+// The owner's zombie dragon breath (14 November): clouds born dense and thinning (alpha 123 > 60 > 0) while they grow
+// by half, on the first frames of the cloud sheet only (0-6, then 7-12), sorted far to near, fired in a narrow cone.
+export const EMITTER_SORTED=4096|32768|65536,PUFF_FRAMES={LifeSpanUVAnim:[0,6,1],DecayUVAnim:[7,12,1]};
+/** A breath: a stream of cloud from the part's far end, about five and a half cloud widths long on any part (capMotion). */
+export const breath=(label,image,ramp,{rate=60,filter=0,alpha=[123,60,0],frames=PUFF_FRAMES,flags=EMITTER_SORTED,loop,priority}={})=>spray(label,image,ramp[1],
+ {atlas:8,filter,life:1.1,rate,velocity:1.75,spread:20,size:[.25,.3,.35],alpha},
+ {starts:true,gather:'tip',aim:'tip',widthCap:1.1,capMotion:true,...(loop?{loop}:{}),native:{Time:.5,Variation:.1,...frames,Flags:flags,...(priority!=null?{PriorityPlane:priority}:{}),SegmentColor:ramp}});
+/** What a breath carries: small sprites thrown along the stream (capMotion 3.14 keeps them at the stream's speed). */
+export const breathSpit=(label,image,ramp,{rate=14,filter=1,fall=1,size=[.05,.04,.02],tail=.12,cap=.3,loop=2133}={})=>spray(label,image,ramp[1],
+ {filter,life:.9,rate,velocity:1.6,gravity:fall,spread:22,tail,size,alpha:[255,230,0]},
+ {starts:true,gather:'tip',aim:'tip',widthCap:cap,capMotion:3.14,loop,native:{Time:.5,Variation:.4,Flags:EMITTER_UNFOGGED,SegmentColor:ramp}});
 const FIRE=[1,.55,.15],FEL=[.52,1,0];
 /** Flipbook flame cards: a 4x4 smoke picture stepped every 75 ms, each card throbbing on its own fast clock. */
 export const flameCards=(tint=FIRE)=>cardSpec('Flame cards',tex('clouds_anim1_bw'),{count:3,rows:4,columns:4,frameMs:105,sizeMin:.9,sizeMax:1.12,loop:520,fit:.6,tint});

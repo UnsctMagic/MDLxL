@@ -9,25 +9,21 @@ const rune=(label,image,pulse,tint)=>({type:'Rune',label,image,glyphs:true,stren
 const edge=(label,tint,strength=.32)=>({type:'Edge',label,image:tex('RibbonBlur1'),tint,strength});
 const stone=(label,path)=>({type:'Moving skin',label,image:'TerrainArt\\'+path+'.blp',atlasRect:[.625,.25,.125,.25],bodyUV:true,fixed:true,base:true,filter:2,strength:1,tint:[1,1,1]});
 const spray=(label,name,tint,spec)=>({type:'Particles',label,kind:'native',image:tex(name),tint,nativeSpec:{texture:tex(name),...spec}});
-import {DRIP,FEL_FLAME_CARDS,spray as nativeSpray,vary,EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
+import {DRIP,FEL_FLAME_CARDS,spray as nativeSpray,vary,breath,breathSpit,EMITTER_UNFOGGED,EMITTER_CARRIED,EMITTER_SORTED,PUFF_FRAMES} from './fx-technique-looks.js';
 const CLOUDS='ReplaceableTextures\\Weather\\Clouds8x8.blp';
 const U=EMITTER_UNFOGGED,C=EMITTER_CARRIED;
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
 const rune_=[.4,.75,1],ember=[1,.5,.14],violet=[.72,.5,1];
 // The owner's zombie dragon breath (14 November): two clouds of the same shape from one place, a pale green one and a
-// murky olive one, blended (never additive), born dense and thinning (alpha 123 > 60 > 0) while they grow by half, on
-// the first frames of the cloud sheet only (0-6, then 7-12), sorted far to near. Its colours are used as measured.
+// murky olive one, blended (never additive). Its colours are used as measured; the stream itself is breath() in
+// fx-technique-looks.js.
 const PALE=[[.69,.99,.74],[.25,.53,.32],[.33,.51,.34]],MURK=[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]];
-const SORTED=4096|32768|65536,PUFF={LifeSpanUVAnim:[0,6,1],DecayUVAnim:[7,12,1],Flags:SORTED};
+const PUFF={...PUFF_FRAMES,Flags:EMITTER_SORTED};
 // A cloud that hangs around the part. fall: positive sinks, negative rises (shares of the part-fitted radius).
 const plagueCloud=(label,ramp,{rate,life=2.4,alpha=105,fall=-.04,size=[.2,.3,.4],cap=2.2,loop}={})=>nativeSpray(label,CLOUDS,ramp[1],
  {atlas:8,filter:0,life,rate,velocity:.08,gravity:fall,spread:180,size,alpha:[0,alpha,0]},
  {starts:true,cover:'around',birthAcross:1.3,widthCap:cap,capMotion:true,...(loop?{loop}:{}),native:{Time:.3,Variation:.3,...PUFF,SegmentColor:ramp}});
-// The breath itself: a stream from the part's far end. It travels about five and a half cloud widths (capMotion).
-const plagueBreath=(label,ramp,rate,loop)=>nativeSpray(label,CLOUDS,ramp[1],
- {atlas:8,filter:0,life:1.1,rate,velocity:1.75,spread:20,size:[.25,.3,.35],alpha:[123,60,0]},
- {starts:true,gather:'tip',aim:'tip',widthCap:1.1,capMotion:true,...(loop?{loop}:{}),native:{Time:.5,Variation:.1,...PUFF,SegmentColor:ramp}});
 const plagueGlow=(extra={})=>nativeSpray('Plague glow',tex('Green_Glow3'),[.4,.9,.3],
  {life:1.6,rate:8,size:[.3,.42,.3],alpha:[0,55,0]},
  {starts:true,cover:'surface',widthCap:1.6,loop:2933,native:{Time:.5,Flags:C},...extra});
@@ -102,14 +98,12 @@ export const CLAUDE_LOOKS=[
    plagueSpores(),
   ]},
   {id:'breath',name:'Plague breath',layers:[
-   plagueBreath('Pale breath',PALE,60),
-   plagueBreath('Murky breath',MURK,45,3467),
+   breath('Pale breath',CLOUDS,PALE,{rate:60}),
+   breath('Murky breath',CLOUDS,MURK,{rate:45,loop:3467}),
    nativeSpray('Breath glow',tex('Green_Glow3'),[.4,.9,.3],
     {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,90,0]},
     {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
-   nativeSpray('Spittle',tex('WaterBlobs1'),[.45,.75,.2],
-    {filter:0,life:.9,rate:14,velocity:1.6,gravity:1,spread:22,tail:.12,size:[.05,.04,.02],alpha:[255,230,0]},
-    {starts:true,gather:'tip',aim:'tip',widthCap:.3,capMotion:3.14,loop:2133,native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[.7,1,.4],[.45,.75,.2],[.25,.5,.15]]}}),
+   breathSpit('Spittle',tex('WaterBlobs1'),[[.7,1,.4],[.45,.75,.2],[.25,.5,.15]],{filter:0}),
   ]},
   {id:'miasma',name:'Sinking miasma',layers:[
    plagueCloud('Pale cloud',PALE,{rate:14,life:2.2,fall:.22,size:[.14,.26,.42]}),

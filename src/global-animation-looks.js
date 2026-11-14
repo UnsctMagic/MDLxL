@@ -9,7 +9,7 @@ import {surfaceFitInputs} from './fx-emitter-surface.js';
 
 import {SORT_LOOKS,SORT_EMITTERS,inkSeal} from './fx-sort-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS,FEL_EDGE} from './claude-fx-looks.js';
-import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair,spray,orbit,vary,EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
+import {TECHNIQUE_LOOKS,FIRE_FLAME_CARDS,DRIP,EMBER_NATIVE,orbSpray,flameCards,lingeringEmbers,fireHair,spray,orbit,vary,breath,breathSpit,EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
 
 const existing=id=>SURFACE_EFFECTS.find(e=>e.id===id);
 const texture=name=>'Textures\\'+name+'.blp';
@@ -138,6 +138,17 @@ export const GLOBAL_LOOKS=[
     {starts:true,gather:'engulf',aim:'outward',widthCap:.16,capMotion:1.1,loop:3133,
      native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.9,.5],[1,.5,.14],[.6,.1,.02]]}}),
   ]},
+  // Pass 7 (14 November): the owner's zombie dragon breath as fire. A stream from the part's far end: Fireball's blended
+  // body under an additive stream, embers thrown along it, a glow where it starts.
+  {id:'breath',name:'Fire breath',layers:[
+   skin('Hot core',FIRE10022,{strength:.58,pulse:'flicker'}),
+   breath('Fire body',CLOUDS,[[1,.5,.1],[.96,.28,.05],[.5,.07,.02]],{rate:50,alpha:[140,120,0],frames:{},flags:U,loop:2267,priority:-1}),
+   breath('Fire stream',texture('Clouds8x8Fire'),[[1,.45,.08],[1,.62,.14],[1,.82,.38]],{rate:70,filter:1,alpha:[220,170,0],frames:{},flags:U}),
+   spray('Breath glow',texture('Red_Glow3'),[1,.55,.15],
+    {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,110,0]},
+    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C,SegmentColor:[[1,.5,.12],[1,.6,.18],[1,.75,.35]]}}),
+   breathSpit('Spat embers',texture('LavaLump'),[[1,.6,.15],[1,.85,.3],[1,.95,.6]],{fall:-.05,tail:0,size:[.04,.03,.02],cap:.16,loop:3133}),
+  ]},
  ]),
  vary(make('frost-blade','Frost blade','Blades',3200,'glacier',[]),[
   {id:'ice',name:'Ice',layers:[...ICE_VARIANTS.white,starts(frost())]},
@@ -174,6 +185,17 @@ export const GLOBAL_LOOKS=[
    skin('Ice surface',texture('Ice_Icedull'),{fixed:true,bodyUV:true,filter:2,strength:.94,tint:[.78,.9,1]}),
    glow('Fissures',existing('glacial').texture,{atlasRect:[.625,.25,.125,.25],bodyUV:true,pulse:'beat',strength:1.7,tint:[.8,.97,1],tint2:[.62,.85,1]}),
    starts(frost()),
+  ]},
+  // Pass 7 (14 November): the zombie dragon breath as frost. A cold cloud stream from the part's far end, a lighter
+  // stream of light inside it, snowflakes carried along.
+  {id:'breath',name:'Frost breath',layers:[
+   ...ICE_VARIANTS.white,
+   breath('Cold breath',CLOUDS,[[.85,.95,1],[.72,.88,1],[.62,.8,1]],{rate:60,alpha:[110,60,0]}),
+   breath('Frost stream',CLOUDS,[[.9,.98,1],[.75,.92,1],[.6,.85,1]],{rate:40,filter:1,alpha:[80,55,0],flags:U,loop:2533}),
+   spray('Breath glow',texture('Blue_Glow2'),[.45,.7,1],
+    {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,110,0]},
+    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
+   breathSpit('Breath flakes',texture('snowflake'),[[1,1,1],[.8,.93,1],[.55,.75,1]],{fall:.3,tail:0,size:[.05,.045,.02],loop:3133}),
   ]},
  ]),
  vary(make('lightning-blade','Lightning blade','Blades',1240,'azure',[]),[
@@ -432,7 +454,7 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  // Fel sparks stay as they were.
  const source=GLOBAL_LOOKS.find(l=>l.id==='flaming-sword'),i=GLOBAL_LOOKS.findIndex(l=>l.id==='claude-fel-blade'),fel=GLOBAL_LOOKS[i];
  const colour=([r,g,b])=>r===g&&g===b?[r,g,b]:[Math.round(g*80)/100,r,b];
- const names={'Flame licks':'Fel licks','Flame sheath':'Fel sheath','Flame tongues':'Fel tongues','Fire body':'Fel body','Fire core':'Fel core','Core glow':'Fel glow','Fire column':'Fel column'};
+ const names={'Flame licks':'Fel licks','Flame sheath':'Fel sheath','Flame tongues':'Fel tongues','Fire body':'Fel body','Fire core':'Fel core','Core glow':'Fel glow','Fire column':'Fel column','Fire stream':'Fel stream'};
  const pictures=new Map([[texture('Red_Glow3'),texture('Green_Glow3')],[texture('Clouds8x8ModFire'),texture('Clouds8x8Mod')],[texture('Clouds8x8Fire'),CLOUDS],[texture('LavaLump'),texture('GenericGlow64')]]);
  const felLayer=spec=>{
   if(spec.type!=='Particles')return fel.variations[0].layers[0];
@@ -444,7 +466,7 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  const translated=(id,from,name)=>({id,name,layers:source.variations.find(v=>v.id===from).layers.filter(spec=>spec.type!=='Card').map(felLayer)});
  const kept=id=>fel.variations.find(v=>v.id===id);
  GLOBAL_LOOKS[i]=vary(fel,[kept('original'),translated('fel-licks','flame-licks','Fel licks'),translated('fel-enveloping','enveloping-flames','Enveloping fel flames'),
-  translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column')]);
+  translated('fel-surge','fireball','Fel surge'),kept('fel-sparks'),translated('fel-column','column','Fel column'),translated('fel-breath','breath','Fel breath')]);
 }
 {
  // Crystal veins was its own look until 14 November: one Crystal look, the veins as a variation.
@@ -492,6 +514,79 @@ function fold(id,variations){
   ]}),
   adopted('veins','Corrupted veins',['claude-corrupted-veins'],{change:{'Ichor drops':{starts:true,amount:8}},add:[{...bubbles(16),loop:2267}]}),
  ]);
+ // Lava: Magma flow is a variation of Molten lava. Burning cracks: Lava fissures (the Fissures card) and Forge heat
+ // are variations; the fissures get the low flames of Burning cracks.
+ const crackFlames=lookById('fx-burning-cracks').layers.find(s=>s.label==='Crack flames');
+ fold('lava',[...own('lava'),adopted('magma','Magma flow',['claude-magma-flow'])]);
+ fold('fx-burning-cracks',[
+  ...own('fx-burning-cracks'),
+  adopted('fissures','Lava fissures',['fissures'],{add:[{...crackFlames,loop:2533}]}),
+  adopted('forge','Forge heat',['claude-forge-hot']),
+ ]);
+ // Embers: one emitter and a glow until now. Falling sparks is Forge heat's spark fall on its own; Ash and cinders is the
+ // warm dust the owner's Elemental Lord wears (additive dust, yellow to red), with dark ash sinking and cinders rising.
+ const cinders=lookById('claude-magma-flow').layers.find(s=>s.label==='Cinders'),sparkFall=lookById('claude-forge-hot').layers.find(s=>s.label==='Falling sparks');
+ const emberGlow=lookById('rising-embers').layers.find(s=>s.label==='Ember glow');
+ fold('rising-embers',[
+  ...own('rising-embers'),
+  {id:'sparks',name:'Falling sparks',layers:[
+   {...sparkFall,nativeSpec:{...sparkFall.nativeSpec,rate:20}},
+   spray('Spark glints',texture('star4_32'),[1,.75,.3],
+    {life:.5,rate:14,size:[.02,.12,.02],alpha:[0,255,0]},
+    {starts:true,cover:'surface',widthCap:1,loop:1933,native:{Time:.4,Flags:C,SegmentColor:[[1,1,.9],[1,.75,.3],[1,.4,.1]]}}),
+   emberGlow,
+  ]},
+  {id:'ash',name:'Ash and cinders',layers:[
+   spray('Warm haze',texture('Dust5A'),[1,.62,.05],
+    {life:1.2,rate:16,velocity:.05,gravity:-.15,spread:180,size:[.2,.24,.27],alpha:[0,130,0]},
+    {starts:true,cover:'around',birthAcross:1.1,widthCap:1.6,native:{Time:.5,Variation:.2,Flags:C,SegmentColor:[[.98,.75,0],[1,.62,.05],[.94,0,0]]}}),
+   spray('Falling ash',texture('Dust3x'),[.3,.28,.26],
+    {filter:0,life:2,rate:10,velocity:.1,gravity:.08,spread:180,size:[.025,.05,.03],alpha:[180,196,0]},
+    {starts:true,cover:'around',birthAcross:1.4,widthCap:.4,loop:2633,native:{Time:.5,Variation:.4}}),
+   {...cinders,nativeSpec:{...cinders.nativeSpec,rate:10}},
+  ]},
+ ]);
+ // Frost mist: one mist emitter until now. Snowflakes glint in the mist; Snowfall is its second variation.
+ const frostGlints=()=>spray('Frost glints',texture('snowflake'),[.85,.95,1],
+  {life:.9,rate:10,size:[.02,.1,.02],alpha:[0,230,0]},
+  {starts:true,cover:'around',birthAcross:1.3,widthCap:.8,loop:2267,native:{Time:.45,Flags:C,SegmentColor:[[1,1,1],[.8,.93,1],[.55,.75,1]]}});
+ const sinkingMist=lookById('frost-blade').variations.find(v=>v.id==='vapour').layers.find(s=>s.label==='Sinking mist');
+ fold('frost-mist',[
+  {id:'mist',name:'Frost mist',layers:[starts(lookById('frost-mist').layers[0]),frostGlints()]},
+  {id:'snow',name:'Snowfall',layers:[
+   spray('Snowfall',texture('snowflake'),[1,1,1],
+    {life:2.6,rate:16,velocity:.06,gravity:.12,spread:180,size:[.035,.045,.03],alpha:[0,235,120]},
+    {starts:true,cover:'around',birthAcross:1.7,widthCap:.45,capMotion:true,native:{Time:.25,Variation:.5,Flags:U,SegmentColor:[[1,1,1],[.9,.97,1],[.75,.88,1]]}}),
+   {...sinkingMist,nativeSpec:{...sinkingMist.nativeSpec,rate:8}},
+   frostGlints(),
+  ]},
+ ]);
+ // Water: Liquid body is a variation of Water. Waterfall is new: water streaming off the part, mist under it.
+ {
+  const water=own('claude-tidal-blade'),running=water[0].layers,drip=running.find(s=>s.label==='Dripping water'),sea=drip.tint;
+  fold('claude-tidal-blade',[
+   ...water,
+   adopted('body','Liquid body',['fx-liquid-body'],{add:[{...drip,amount:8}]}),
+   {id:'fall',name:'Waterfall',layers:[
+    ...running.slice(0,2),
+    spray('Falling water',texture('WaterBlobs1'),sea,
+     {filter:0,life:.8,rate:44,velocity:.12,gravity:2.6,spread:14,tail:.3,size:[.07,.09,.05],alpha:[190,230,0]},
+     {starts:true,cover:'around',birthAcross:.9,widthCap:.7,capMotion:true,native:{Time:.4,Variation:.3,Flags:U,SegmentColor:[[.26,.76,1],[.71,.88,1],[1,1,1]]}}),
+    spray('Fall mist',texture('White_64_Foam1'),[.85,.95,1],
+     {filter:0,life:1.2,rate:20,velocity:.1,gravity:.9,spread:180,size:[.07,.12,.16],alpha:[0,170,0]},
+     {starts:true,cover:'around',birthAcross:1.1,widthCap:1,capMotion:true,loop:2133,native:{Time:.4,Variation:.3,Flags:U,SegmentColor:[[.55,.68,.97],[.85,.89,.99],[1,1,1]]}}),
+   ]},
+  ]);
+ }
+ // Void: Void cracks is a variation of Rift seam. Its splinters circled the part on one orbit; it takes the rift's
+ // bursts, splinters and glow over the whole surface.
+ {
+  const rift=label=>lookById('sort-rift').layers.find(s=>s.label===label);
+  fold('sort-rift',[
+   ...own('sort-rift','Rift seam'),
+   adopted('cracks','Void cracks',['claude-void-cracked'],{drop:['Void splinters'],add:[rift('Rift sparks'),rift('Rift splinters'),rift('Rift glow')]}),
+  ]);
+ }
  // Vines: Mossy bark and its spores were switched-off layers of Briar binding; they are a variation now.
  const leaves=(rate=7)=>spray('Falling leaves',texture('Leaf4x4'),[1,1,1],
   {atlas:4,filter:0,life:2.2,rate,velocity:.1,gravity:.22,spread:180,size:[.02,.09,.09],alpha:[0,255,0]},
@@ -514,10 +609,10 @@ function fold(id,variations){
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
- ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['fx-burning-cracks'],['fissures','Fissures'],['claude-magma-flow'],['lava'],['claude-forge-hot','Forge heat'],['rising-embers']]],
+ ['Fire',[['flaming-sword','Fire'],['claude-fel-blade','Fel fire'],['lava','Lava'],['fx-burning-cracks'],['rising-embers','Embers']]],
  ['Ice',[['frost-blade','Frost'],['fx-lit-crystal','Crystal'],['frost-mist']]],
- ['Water',[['claude-tidal-blade','Water'],['fx-liquid-body']]],
- ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift'],['claude-void-cracked','Void cracks']]],
+ ['Water',[['claude-tidal-blade','Water']]],
+ ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['fx-energy-flow'],['rune-blade','Runes'],['claude-runic-plate','Glowing runes'],['fx-rune-circle'],['glowing-skin','Glow'],['motes'],['sort-astral'],['sort-soul'],['sort-eclipse'],['spell-ward'],['recall-seal'],['sun-mend']]],
  ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb']]],
  ['Team colour',[['fx-team-colour'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
