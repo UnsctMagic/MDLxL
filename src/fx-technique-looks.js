@@ -9,7 +9,8 @@ const waterFrames=Array.from({length:8},(_,i)=>tex('Lords000'+i));
 const skin=(label,image,extra={})=>({type:'Moving skin',label,image,...extra});
 const glow=(label,image,extra={})=>({type:'Glow',label,image,...extra});
 export const spray=(label,image,tint,spec,extra={})=>({type:'Particles',label,kind:'native',image,tint,nativeSpec:{texture:image,...spec},...extra});
-export const orbit=(label,image,tint,extra)=>({type:'Edge',label,image,tint,orbit:true,...extra});
+// sharedSites: on a body the ribbon rides its longest skin regions, not every bone.
+export const orbit=(label,image,tint,extra)=>({type:'Edge',label,image,tint,orbit:true,sharedSites:true,...extra});
 const starts=spec=>({...spec,starts:true});
 const make=(id,name,loop,layers,extra={})=>({id:'fx-'+id,name,group:'',loop,palette:'native',layers,...extra});
 // A look uses the first variation's layers by default.
@@ -38,7 +39,7 @@ const C=EMITTER_CARRIED;
 const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 // No lift: a copy pushed out along the normals of a hard-edged crystal comes apart at every edge (the tearing in test build 05).
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,tint:crystal,strength:1});
-const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
+const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{sharedSites:true,count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
 
 export const TECHNIQUE_LOOKS=[
  make('glow-shell','Glow shell',3333,[
@@ -164,7 +165,7 @@ export const TECHNIQUE_LOOKS=[
  make('liquid-body','Liquid body',1992,[
   skin('Water body',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:2,strength:.8,tint:[.65,.83,.99]}),
   skin('Water shimmer',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:3,strength:.5,direction:90,loop:1320,tint:[.85,.95,1]}),
-  cardSpec('Water glints',tex('Blue_Glow2'),{count:4,fit:.4,sizeMin:.85,sizeMax:1.15,loop:2767,tint:[.8,.9,1]}),
+  cardSpec('Water glints',tex('Blue_Glow2'),{sharedSites:true,count:4,fit:.4,sizeMin:.85,sizeMax:1.15,loop:2767,tint:[.8,.9,1]}),
  ],{asOverlay:true}),
  make('eye-glow','Eye glow',1300,[
   cardSpec('Left eye',tex('Flare'),{fit:.25,sizeMin:.9,sizeMax:1.1,tint:[1,.3,.12]}),

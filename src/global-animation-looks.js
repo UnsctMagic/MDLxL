@@ -228,7 +228,7 @@ export const GLOBAL_LOOKS=[
    enchanted(),
    skin('Flowing energy',CLOUDSTILE,{strength:.78,pulse:'beat',tint:[.72,.5,1],tint2:[.35,.55,1],loop:2600}),
    skin('Crossing energy',CLOUDSTILE,{strength:.55,pulse:'beat',tint:[.4,.6,1],tint2:[.75,.5,1],direction:120,speed:2,loop:3733}),
-   cardSpec('Arcane star',texture('star5tga'),{spin:1,fit:.8,sizeMin:.85,sizeMax:1.15,loop:1400,tint:[.9,.75,1]}),
+   cardSpec('Arcane star',texture('star5tga'),{sharedSites:true,spin:1,fit:.8,sizeMin:.85,sizeMax:1.15,loop:1400,tint:[.9,.75,1]}),
    spray('Glow orbs',texture('GenericGlowX'),[.75,.62,1],
     {life:.8,rate:14,velocity:.04,spread:2,size:[.05,.2,.3],alpha:[110,170,60]},
     {starts:true,cover:'surface',widthCap:.9,native:{Flags:C}}),
@@ -286,7 +286,7 @@ export const GLOBAL_LOOKS=[
  make('crystal-veins','Crystal veins','Terrain',3600,'glacier',[skin('Crystal veins',existing('glacial').texture,{atlasRect:existing('glacial').atlas,strength:.88,pulse:'soft',bodyUV:true}),shine({loop:2267})]),
  make('felwood-curse','Felwood curse','Buffs & curses',3100,'moss',[skin('Poison surface',existing('poison').texture,{atlasRect:existing('poison').atlas,strength:.7,pulse:'soft',bodyUV:true,tint:[1,1,1]}),glow('Rune',texture('DemonRune5'),{pulse:'beat',strength:.5,loop:2067,tint:[.55,.85,.3],tint2:[.75,.8,.25]})]),
  make('fly-swarm','Fly swarm','Around the unit',1233,'native',[dust('Orbiting flies','flies',texture('Abomination'))]),
- vary(make('motes','Motes','Around the unit',3250,'lilac',[]),[{id:'lights',name:'Drifting lights',layers:[starts(dust('Drifting lights','motes',texture('GenericGlow64')))]},{id:'orbs',name:'Glow orbs',layers:[starts(orbSpray())]}]),
+ vary(make('motes','Motes','Around the unit',3250,'lilac',[]),[{id:'lights',name:'Drifting lights',layers:[starts(dust('Drifting lights','motes',texture('GenericGlow64')))]},{id:'orbs',name:'Glow orbs',layers:[{...starts(orbSpray()),widthCap:1.2}]}]),
  make('rising-embers','Rising embers','Around the unit',2100,'copper',[starts(embers()),
   spray('Ember glow',texture('Red_Glow3'),[1,.5,.15],
    {life:1.2,rate:8,size:[.4,.5,.4],alpha:[0,60,0]},
@@ -311,7 +311,7 @@ const heatGlow=strength=>glow('Heat glow',null,{pulse:'soft',strength,tint:[1,.4
 const nativeSurfaceVariations={
  lava:molten=>[
   {id:'original',name:'Molten lava',layers:[
-   ...lavaSurface(molten),heatGlow(.45),
+   ...lavaSurface(molten),heatGlow(.35),
    spray('Molten beads',texture('LavaLump'),[1,.5,.12],
     {life:1.6,rate:16,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
     {starts:true,cover:'surface',widthCap:.8,
@@ -322,7 +322,7 @@ const nativeSurfaceVariations={
      native:{Time:.5,Variation:.4,Flags:U,SegmentColor:[[1,.7,.25],[1,.35,.12],[.45,.07,.01]]}}),
   ]},
   {id:'spitting',name:'Spitting lava',layers:[
-   ...lavaSurface(molten),heatGlow(.45),
+   ...lavaSurface(molten),heatGlow(.35),
    spray('Molten beads',texture('LavaLump'),[1,.5,.12],
     {life:1.6,rate:30,velocity:.02,spread:180,size:[.05,.13,.08],alpha:[0,230,0]},
     {starts:true,cover:'surface',widthCap:.8,
@@ -711,6 +711,8 @@ export function makeLayer(spec,frame,palette,id) {
   const rule=lightingRule(spec,layerFilter(spec));
   for(const key of ['unshaded','unfogged'])if(saved[key]==null&&rule[key]!=null)saved[key]=rule[key];
   if(!spec.nativeSurface&&saved.twoSided==null)saved.twoSided=!spec.water;
+  // A look's own shell (a recipe that lifts its layer) is lifted in one piece.
+  if(spec.inflate>0||spec.liftFit!=null)saved.closedLift=true;
  }
  const layer={...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,
   speed:spec.speed??1,direction:spec.direction??0,tiling:1,offset:[0,0,0],upper:length/2,lower:length/2,

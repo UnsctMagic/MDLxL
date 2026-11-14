@@ -95,13 +95,28 @@ function nodeFor(c,family,type,key,title,point,parent){
  c.model.PivotPoints[node.ObjectId]=node.PivotPoint;
  return node;
 }
-function overlay(c,geometry,material,colour,ownAnimation,inflate){
+function overlay(c,geometry,material,colour,ownAnimation,inflate,closed){
  const m=c.model,tag=c.tag+'/shape',copy=structuredClone(geometry);delete copy._FxStack;
  copy.MaterialID=material;
  // Lift: a shell pushed out along the vertex normals, like native glow shells.
- if(inflate>0&&copy.Normals?.length===copy.Vertices.length)for(let i=0;i<copy.Vertices.length;i+=3){
-  const x=copy.Normals[i],y=copy.Normals[i+1],z=copy.Normals[i+2],d=Math.hypot(x,y,z)||1;
-  copy.Vertices[i]+=x/d*inflate;copy.Vertices[i+1]+=y/d*inflate;copy.Vertices[i+2]+=z/d*inflate;
+ if(inflate>0&&copy.Normals?.length===copy.Vertices.length){
+  let normals=copy.Normals;
+  if(closed){
+   // closedLift (a look's own shells): vertices at one place move together along their shared normal, so the shell of
+   // a hard-edged part (a blade, a crystal) stays in one piece instead of opening at every edge.
+   const place=i=>Math.round(copy.Vertices[i]*1000)+','+Math.round(copy.Vertices[i+1]*1000)+','+Math.round(copy.Vertices[i+2]*1000),sums=new Map();
+   for(let i=0;i<normals.length;i+=3){
+    const key=place(i),d=Math.hypot(normals[i],normals[i+1],normals[i+2])||1;
+    if(!sums.has(key))sums.set(key,[0,0,0]);
+    const sum=sums.get(key);for(let a=0;a<3;a++)sum[a]+=normals[i+a]/d;
+   }
+   normals=Float32Array.from(normals);
+   for(let i=0;i<normals.length;i+=3){const sum=sums.get(place(i));if(Math.hypot(sum[0],sum[1],sum[2])>1e-3)normals.set(sum,i);}
+  }
+  for(let i=0;i<copy.Vertices.length;i+=3){
+   const x=normals[i],y=normals[i+1],z=normals[i+2],d=Math.hypot(x,y,z)||1;
+   copy.Vertices[i]+=x/d*inflate;copy.Vertices[i+1]+=y/d*inflate;copy.Vertices[i+2]+=z/d*inflate;
+  }
  }
  const index=resource(m.Geosets,tag,copy);c.used.add(tag);
  // The lifted shell gets its own bounds; the model's authored bounds stay, so removing the look restores them.
@@ -288,7 +303,7 @@ function skinLayer(c,l){
  if(samePicture&&previous&&c.sameClock&&prior.strength===l.strength&&prior.pulse===l.pulse)passes[0].Alpha=previous.Alpha;
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:l.base?0:1,RenderMode:0,Layers:passes});
  const colour=l.steel?l.tint.map(v=>.22+v*.31):l.crust?l.tint.map(v=>.18+v*.22):l.tint;
- const index=overlay(c,g,material,rhythmColour(c,l,colour),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate);
+ const index=overlay(c,g,material,rhythmColour(c,l,colour),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate,l.closedLift);
  return {geoset:index};
 }
 function nativeSurface(c,l){
@@ -317,7 +332,7 @@ function nativeSurface(c,l){
  const material=resource(m.Materials,c.tag+'/material',native);
  for(let i=texCount;i<m.Textures.length;i++)m.Textures[i]._FxTag=c.tag+'/native-texture'+i;
  for(let i=animCount;i<m.TextureAnims.length;i++){m.TextureAnims[i]._FxTag=c.tag+'/native-motion'+i;visitTracks(m.TextureAnims[i],t=>{if(t.GlobalSeqId==null||t.GlobalSeqId<0){t.GlobalSeqId=c.id;t.Keys=[{...t.Keys[0],Frame:0}];}});}
- return {geoset:overlay(c,temp.Geosets[0],material,rhythmColour(c,l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate)};
+ return {geoset:overlay(c,temp.Geosets[0],material,rhythmColour(c,l,l.tint),m.GeosetAnims.find(a=>a.GeosetId===c.index),l.inflate,l.closedLift)};
 }
 export function impactDefaults(model,_index,sequence,hit){
  const seq=/^attack\b/i.test(model.Sequences[sequence]?.Name||'')?sequence:model.Sequences.findIndex(s=>/^attack\b/i.test(s.Name));
@@ -1070,7 +1085,10 @@ function edgeLayer(c,l){
  // whole (fresh recipes): one ribbon for the whole part instead of one for each skin region, which crowds a body.
  // along: its place on the part's length, as a share of that length from the middle.
  const regions=!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, only its longest regions carry a ribbon.
+ const shares=l.sharedSites&&!l.whole?emissionShares(regions,1):null;
  for(const [regionIndex,region] of regions.entries()){const frame=region.frame;
+ if(shares&&!shares[regionIndex])continue;
  const point=frame.center.clone().addScaledVector(frame.axis,frame.length*(l.along||0)).add(new Vector3(...l.offset));
  let parent=regionParent(c,region,point,'edge-'+regionIndex),at=point;
  // Orbit: the ribbon rides the end of a helper chain, each helper on its own clock, so it draws a wandering loop.
@@ -1101,9 +1119,12 @@ function cardLayer(c,l){
  // along: the set's place on the part's length, as a share of that length from the middle.
  const regions=card.facing==='ground'?[null]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
+ // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, the cards go to its longest
+ // regions, four regions' worth in all, like the emitters. A body no longer gets a set on every bone.
+ const shares=l.sharedSites&&!l.whole&&card.facing!=='ground'?emissionShares(regions,card.count):null;
  let k=0;
- for(const [r,region] of regions.entries())for(let i=0;i<card.count;i++,k++){
-  const f=region?.frame,along=!f?0:(card.count===1?0:((i+.5)/card.count-.5)*f.length*.9)+f.length*(l.along||0);
+ for(const [r,region] of regions.entries())for(let i=0,count=shares?shares[r]:card.count;i<count;i++,k++){
+  const f=region?.frame,along=!f?0:(count===1?0:((i+.5)/count-.5)*f.length*.9)+f.length*(l.along||0);
   const point=region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
   const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
   const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);

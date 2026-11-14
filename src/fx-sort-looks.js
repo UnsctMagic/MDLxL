@@ -1,5 +1,5 @@
 // Native hand-test recipes. Unfiled entries resolve only when reopening an older stack.
-import {EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
+import {EMITTER_UNFOGGED,EMITTER_CARRIED,DRIP} from './fx-technique-looks.js';
 const tex=name=>(name.startsWith('Units\\')?name:'Textures\\'+name)+'.blp';
 const surface=(label,name,extra={})=>({type:'Moving skin',label,image:tex(name),strength:.75,...extra});
 const light=(label,name,pulse,strength,tint)=>({type:'Glow',label,image:tex(name),pulse,strength,tint});
@@ -38,7 +38,7 @@ export const SORT_LOOKS=[
  make('phoenix','Phoenix quill',1850,surface('Feather light','Units\\Human\\Phoenix\\Phoenix2',{base:true,filter:2,atlasRect:[.03,.12,.43,.4],strength:1}),spray('Falling feathers','Feather',gold,{life:1.45,rate:8,filter:1,area:.6,velocity:.28,gravity:.62,spread:50,size:[.07,.24,.09],alpha:[40,235,0]})),
  make('soul','Soul lantern',2700,{...mark('Soul seal','Rune6b','beat',mint),uvMatrix:[0,1.10305,-1.14151,0,1.07555,-.16473],loop:1900},spray('Lantern flame','Ghost1',mint,{life:.95,rate:9,orbit:.56,velocity:.21,size:[.12,.28,.02]})),
  // The glyph keeps its glow and moves slowly between two greens; the trail is additive and steady.
- make('thorn','Thorn script',2450,{...mark('Thorn glyph','DemonRune4','beat',mint),tint2:[.3,1,.45],loop:2450},{...trail('Thorn trail','RibbonNE1_White',mint,.5,.32),filter:3,pulse:'steady'}),
+ make('thorn','Thorn script',2450,{...mark('Thorn glyph','DemonRune4','beat',mint),tint2:[.3,1,.45],loop:2450},{...trail('Thorn trail','RibbonNE1_White',mint,.5,.32),filter:3,pulse:'steady',sharedSites:true}),
  make('astral','Astral chart',5400,stone('Black stone','Cityscape\\City_BlackMarble'),surface('Star field','Units\\Undead\\FrostWyrm\\Starfield',{bodyUV:true,direction:26,strength:1,tint:white}),{...mark('Constellation','Rune4','beat',gold),tint2:[.85,.8,.55],loop:3133}),
  make('prism','Prism sweep',2850,surface('Prism band','CrystalOpaque',{base:true,filter:2,atlasRect:[0,0,1,1],strength:1}),surface('Polished ridge','FX\\Flare\\DiamondNarrow',{axis:'v',band:.38,tint:[1,.28,.71],strength:1}),light('Prism flash','FX\\v\\RainbowLenseFlare_BW','glint',1.7,silver)),
  make('oath','Oathfire',2100,mark('Oath mark','Rune1','double',gold),spray('Oath flames','Flame4',gold,{life:.48,rate:15,area:.28,velocity:.52,spread:17,size:[.13,.27,.03]})),
@@ -48,7 +48,9 @@ export const SORT_LOOKS=[
  make('dust','Dust devil',2200,spray('Dust spiral','Dust3', [1,.82,.57],{life:.72,rate:16,orbit:.64,velocity:.32,area:.12,filter:0,size:[.08,.32,.45],alpha:[0,152,0]})),
  make('sparks','Arc welder',980,spray('Arc spray','LightningBall',silver,{life:.18,rate:12,velocity:.31,spread:68,size:[.13,.32,.11]}),spray('Hot filings','Star4',gold,{life:.54,rate:17,tail:.09,velocity:.95,gravity:1.7,spread:52,size:[.05,.09,.005]})),
  make('maple','Maple drift',4900,spray('Maple leaves','FX\\v\\LeafGold8x8',white,{life:1.8,rate:7,atlas:8,area:.88,height:.58,velocity:.20,gravity:.62,spread:67,filter:0,size:[.09,.25,.14],alpha:[0,240,0]})),
- make('blood','Sanguine drip',2550,spray('Blood beads','BloodBlobs1',[.87,.24,.18],{life:.72,rate:9,area:.43,gravity:1.8,spread:16,filter:0,size:[.12,.36,.12]}),light('Red stain','BloodPool','soft',.64,[1,.35,.28])),
+ // Blood drips: the look had no drip running (Blood beads is offered, not started). The drops of Dripping venom, in red.
+ make('blood','Sanguine drip',2550,spray('Blood beads','BloodBlobs1',[.87,.24,.18],{life:.72,rate:9,area:.43,gravity:1.8,spread:16,filter:0,size:[.12,.36,.12]}),light('Red stain','BloodPool','soft',.64,[1,.35,.28]),
+  {type:'Particles',label:'Blood drips',kind:'drops',image:tex('WaterBlobs1'),tint:[.75,.08,.06],starts:true,...DRIP}),
  make('crescent','Twin crescents',3600,spray('Outer crescent','MoonCrescentGlow',silver,{life:.39,rate:9,orbit:.73,size:[.19,.31,.04]}),spray('Inner star','Star4',gold,{life:.24,rate:9,orbit:.41,phase:.5,height:.19,size:[.10,.17,.02]})),
  make('veil','Ash veil',4350,spray('Ash veil','CloudSingle',[.62,.57,.57],{life:1.5,rate:9,area:.55,velocity:.38,filter:0,size:[.18,.48,.69],alpha:[0,155,0]}),spray('Ash flecks','Dust3x',silver,{life:.85,rate:12,velocity:.68,spread:60,size:[.07,.12,.02],alpha:[0,196,0]})),
  make('dew','Dew pearls',4600,light('Dew sheen','FX\\Flare\\DiamondNarrow','glint',.55,mint),spray('Dew pearls','WaterBlobs1',silver,{life:.93,rate:9,area:.67,gravity:.83,spread:28,filter:0,size:[.04,.16,.07]})),
