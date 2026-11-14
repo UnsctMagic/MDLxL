@@ -1,6 +1,6 @@
 # Contract: Spawn Objects that show nothing
 
-Status: merge requested, awaiting approval for pre-merge verification
+Status: completed. Owner said merge on 15 Nov 2026; merged into `main` through the Spawn Object previews PR (merge revision recorded on that PR).
 Owner / consolidator: Codex (fix), Claude Code (diagnosis, contract and review)
 Updated: 2026-11-12
 
@@ -132,10 +132,13 @@ showed "No model listed". The missing picks cleared the inline preview.
 No suites were written or run. The full 103-row classification and group A
 regression check follow owner acceptance.
 
-## Next action
+## Pre-merge verification (15 Nov 2026, branch `claude/spawn-object-previews`)
 
-The current handoff package predates the usable-only picker. The branch now
-includes main 40a37825 and applies the filter in both New Event and existing
-node editing. The owner requested merge. The real-game catalog and packaged
-picker checks are written and await approval to run fail-first and against
-the combined branch, with the source suite checked against the CI baseline.
+- Combined `codex/spawn-object-previews` with `claude/spawn-object-contract` and current `main`.
+- First run of the catalog test found two things. `SpawnData.slk` spells OBKB with a trailing space, so SPNxOBKB never
+  resolved and the picker offered a code the editor refuses; lookup and the catalog now trim it. Thirteen rows resolve
+  through the app's resolver but cannot show: HD (UBSC UBCC CHMA CHMB TYCA MFCA MDII USDM) or no displayable effects
+  (HBS0 HBS1 HBL1 NBVW NBMP). The picker already omits them; the test now asserts those refusals.
+- `node --test test/spawn-object-catalog.cjs` 3 pass; against 19481b44's decoder (`MDLXL_SPAWN_DECODER_SOURCE`) 3 fail.
+  Related source tests 41 pass; `pnpm test` 57 pass. Packaged hidden: `spawn-object-picker`, `node-manager-add` pass.
+  The packaged picker test was not run on an old package (the old picker has no Spawn Object preview region).
