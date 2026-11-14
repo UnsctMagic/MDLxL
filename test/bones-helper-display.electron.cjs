@@ -43,7 +43,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await page.locator('[data-hotkey="animation"]').click();
     const focused = quick.locator('input[data-hotkey="display:focusedSkeleton"]');
     await bones.setChecked(false); await focused.setChecked(true);
-    const picker = page.getByLabel('Movement object');
+    const picker = page.getByLabel('Movement bone or node');
     const helperId = await picker.locator('optgroup[label="Helpers"] option').first().getAttribute('value');
     await picker.selectOption(helperId);
     await open();

@@ -76,7 +76,7 @@ const path = require('node:path');
     assert.equal(await style(page.getByRole('button', { name: 'Human', exact: true }), 'color'), rgb('#bbddff'));
     assert.equal(await style(page.locator('[data-node-type=Bones] .re-node-icon').first(), 'color'), rgb('#ffaa22'));
     await page.screenshot({ path: path.join(out, 'custom-folder-font.png') });
-    await page.getByRole('button', { name: 'Close Object Manager', exact: true }).click();
+    await page.getByRole('button', { name: 'Close Node Manager', exact: true }).click();
     await menu('Materials');
     assert.equal(await style(page.locator('.re-list'), 'backgroundColor'), rgb('#102030'));
     assert.equal(await style(page.locator('.re-list>button').first(), 'fontSize'), '17px');

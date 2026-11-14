@@ -246,7 +246,6 @@
 :root #root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .classic-tool:disabled .look-icon{opacity:.35}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .forge-overlay .classic-tools .look-icon{width:20px;height:20px;filter:var(--ic-filter)}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .movement-tools:not(.bone-tools){display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px!important;padding:2px 0 6px!important}
-:root #root .classic-app.classic-app:not([data-vis-ui]) .movement-tools.with-delete:not(.bone-tools){grid-template-columns:repeat(5,minmax(0,1fr))}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .movement-tools.bone-tools{grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:34px;gap:5px!important;justify-content:stretch!important}
 :root #root .classic-app.classic-app:not([data-vis-ui]) :is(.movement-tools>button,.bone-tools>button,.bone-tools>.bone-create-anchor>button){width:auto!important;height:34px!important;min-width:0!important;flex:none!important}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .bone-tools>.bone-create-anchor>button{width:100%!important}

@@ -47,7 +47,7 @@ const assert = require('node:assert/strict');
     assert.equal(saved.Bones[1].Translation, undefined, 'Deleting the sole key removes the empty channel');
     assert.equal(saved.GeosetAnims[4].Alpha.Keys.some(key => key.Frame === 377), false);
 
-    await page.getByLabel('Movement object').selectOption('0');
+    await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Rotate', exact: true }).click();
     await page.getByLabel('Highlight KF').check();
     assert.equal(await marker(521).count(), 0, 'Rotation highlight does not display a translation-only key');

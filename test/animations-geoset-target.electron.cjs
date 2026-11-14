@@ -18,7 +18,7 @@ const path = require('node:path');
   try {
 
     const tab = name => page.getByRole('button', { name, exact: true }).click();
-    const picker = page.getByRole('combobox', { name: 'Movement object', exact: true });
+    const picker = page.getByRole('combobox', { name: 'Movement bone or node', exact: true });
     const visible = page.getByRole('checkbox', { name: 'Visible at current frame', exact: true });
     const alpha = page.getByRole('spinbutton', { name: 'Visibility alpha percent', exact: true });
     const red = page.getByRole('spinbutton', { name: 'Animation R', exact: true });
@@ -49,7 +49,7 @@ const path = require('node:path');
     checks.push('Animations -> Movement keeps the picked bone');
 
     await tab('Bones');
-    const bones = page.getByRole('combobox', { name: 'Movement object', exact: true });
+    const bones = page.getByRole('combobox', { name: 'Movement bone or node', exact: true });
     assert.equal(await bones.inputValue(), rune, 'Bones shares the selection');
     await tab('Animations');
     await expectGeosetControls('Bones -> Animations');

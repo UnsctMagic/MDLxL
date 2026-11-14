@@ -1,16 +1,22 @@
 import { Vector3 } from 'three';
 import { nodePivot } from '../src/animation.js';
-import { OBJECT_KIND_KEYS, objectKind, objectOverlayOptions } from '../src/object-kinds.js';
+import { movementNodeCategories } from './preview-overlays.js';
 
 export function viewportOverlayOptions(props) {
   const explicit = props.overlays != null, overlays = props.overlays || {};
-  const markers = !!props.showSkeleton, vertexEditor = props.editorDisplayMode === 'vertices';
+  const markers = !!props.showSkeleton;
   return {
     boneTypesBones: overlays.boneTypesBones ?? true, boneTypesHelpers: overlays.boneTypesHelpers ?? true,
     explicit,
-    // Legacy callers (no overlays object) show every kind with showSkeleton.
-    ...objectOverlayOptions(explicit ? overlays : null, { editor: props.editorDisplayMode, markers: !explicit && markers }),
-    boneLines: vertexEditor ? false : explicit ? !!(overlays.skeleton ?? overlays.boneLines) : markers,
+    bones: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.bones : markers,
+    helpers: props.editorDisplayMode === 'vertices' ? false : explicit ? !!(overlays.helpers ?? overlays.bones) : markers,
+    nodes: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.nodes : markers,
+    attachments: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.attachments : markers,
+    particles: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.particles : markers,
+    ribbons: props.editorDisplayMode !== 'vertices' && (explicit ? !!overlays.particles : markers),
+    sounds: props.editorDisplayMode !== 'vertices' && !!overlays.sounds,
+    events: props.editorDisplayMode !== 'vertices' && !!overlays.events,
+    boneLines: props.editorDisplayMode === 'vertices' ? false : explicit ? !!(overlays.skeleton ?? overlays.boneLines) : markers,
     wires: explicit ? !!overlays.wires : props.mode === 'wireframe' || props.mode === 'vertices',
     vertices: explicit ? !!overlays.vertices : props.mode === 'vertices' || !!props.showVertices,
     grid: explicit ? !!overlays.grid : !!props.showGrid,
@@ -19,11 +25,11 @@ export function viewportOverlayOptions(props) {
 }
 
 export function viewportNodeLayout(model, nodes) {
-  const kinds = objectKind(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
-  const groups = Object.fromEntries(OBJECT_KIND_KEYS.map(key => [key, []])), allLinks = [], boneLinks = [];
+  const kinds = movementNodeCategories(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
+  const groups = { bones: [], nodes: [], attachments: [], particles: [], ribbons: [], sounds: [], events: [] }, allLinks = [], boneLinks = [];
   for (const node of nodes) {
-    const kind = kinds.get(node.ObjectId);
-    groups[kind]?.push(node);
+    const kind = kinds.get(node.ObjectId) || 'nodes';
+    groups[kind].push(node);
     if (node.Parent != null && byId.has(node.Parent)) {
       allLinks.push(byId.get(node.Parent), node);
       if (kind === 'bones') boneLinks.push(byId.get(node.Parent), node);

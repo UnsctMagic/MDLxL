@@ -8,10 +8,10 @@ test('explicit viewport flags override render modes and legacy display switches 
   const defaults = { mode: 'vertices', showSkeleton: true, showGrid: true, showAxes: true, showVertices: true };
   const hidden = viewportOverlayOptions({ ...defaults, overlays: {} });
   assert.equal(hidden.explicit, true); assert.equal(hidden.axes, true, 'explicit Axis display is independent of grid');
-  for (const name of ['bones', 'lights', 'collision', 'attachments', 'particles', 'wires', 'vertices', 'grid']) assert.equal(hidden[name], false, name);
-  for (const name of ['bones', 'lights', 'collision', 'attachments', 'particles', 'wires', 'vertices']) {
+  for (const name of ['bones', 'nodes', 'attachments', 'particles', 'wires', 'vertices', 'grid']) assert.equal(hidden[name], false, name);
+  for (const name of ['bones', 'nodes', 'attachments', 'particles', 'wires', 'vertices']) {
     const options = viewportOverlayOptions({ ...defaults, mode: 'textured', overlays: { [name]: true } });
-    for (const other of ['bones', 'lights', 'collision', 'attachments', 'particles', 'wires', 'vertices']) assert.equal(options[other], other === name);
+    for (const other of ['bones', 'nodes', 'attachments', 'particles', 'wires', 'vertices']) assert.equal(options[other], other === name);
   }
   const grid = viewportOverlayOptions({ ...defaults, overlays: { grid: true } });
   assert.equal(grid.grid, true); assert.equal(grid.axes, true);
@@ -33,22 +33,17 @@ test('all node types receive the correct independent overlay and helpers partici
     ParticleEmitters:[{ObjectId:7,Parent:1}], ParticleEmitters2:[{ObjectId:8}], ParticleEmitterPopcorns:[{ObjectId:9}], RibbonEmitters:[{ObjectId:10}] };
   const layout = viewportNodeLayout(model, allNodes(model));
   assert.deepEqual(layout.groups.bones.map(n=>n.ObjectId),[0,1,2]);
-  // Lights, events and collision each have their own group; ribbons belong to Emitters (approved object-display plan).
-  assert.deepEqual(layout.groups.lights.map(n=>n.ObjectId),[3]);
-  assert.deepEqual(layout.groups.events.map(n=>n.ObjectId),[5]);
-  assert.deepEqual(layout.groups.collision.map(n=>n.ObjectId),[6]);
-  assert.equal('nodes' in layout.groups,false);
+  assert.deepEqual(layout.groups.nodes.map(n=>n.ObjectId),[3,5,6]);
   assert.deepEqual(layout.groups.attachments.map(n=>n.ObjectId),[4]);
-  assert.deepEqual(layout.groups.particles.map(n=>n.ObjectId).sort((a,b)=>a-b),[7,8,9,10]);
+  assert.deepEqual(layout.groups.particles.map(n=>n.ObjectId),[7,8,9]);
+  assert.deepEqual(layout.groups.ribbons.map(n=>n.ObjectId),[10]);
   assert.deepEqual(layout.boneLinks.map(n=>n.ObjectId),[0,1,0,2]);
   assert.equal(layout.allLinks.length,10);
 });
 
-// Approved object-display plan: Vertex keeps Bones as its only object switch.
-test('the vertex editor shows bones only, whatever stale flags are enabled', () => {
-  const options=viewportOverlayOptions({editorDisplayMode:'vertices',showSkeleton:true,overlays:{bones:true,lights:true,collision:true,attachments:true,particles:true,sounds:true,events:true,skeleton:true,vertices:true}});
-  assert.equal(options.bones,true);
-  for(const kind of ['lights','collision','attachments','particles','sounds','events','boneLines'])assert.equal(options[kind],false,kind);
+test('the vertex editor suppresses every rig and effect overlay, including stale enabled flags', () => {
+  const options=viewportOverlayOptions({editorDisplayMode:'vertices',showSkeleton:true,overlays:{bones:true,nodes:true,attachments:true,particles:true,sounds:true,events:true,skeleton:true,vertices:true}});
+  for(const kind of ['bones','nodes','attachments','particles','ribbons','sounds','events','boneLines'])assert.equal(options[kind],false,kind);
   assert.equal(options.vertices,true);
 });
 

@@ -116,7 +116,7 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
           mode={job.renderMode || 'textured'}
           view={job.view || 'perspective'}
           hiddenGeosets={job.hiddenGeosets}
-          overlays={{ bones: false, particles: false, attachments: false }}
+          overlays={{ bones: false, nodes: false, particles: false, attachments: false }}
           onCaptureReady={ready}
         />
       </Suspense>

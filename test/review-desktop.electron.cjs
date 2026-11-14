@@ -31,14 +31,14 @@ async function withModel(label, run, fixture = fixturePath('citadel-footman')) {
   } finally { await closeApp(app); }
 }
 
-test('dragging the Object Manager to the top keeps the title bar reachable in both looks', async () => {
+test('dragging the Node Manager to the top keeps the title bar reachable in both looks', async () => {
   await withModel('move-manager', async (_app, page) => {
     const menu = page.locator('.desktop-menu');
     const toggle = page.locator('.vis-toggle');
     for (const vis of [false, true]) {
       if (vis) await click(page, toggle);
-      await chooseMenu(page, 'Managers', 'Object Manager…');
-      const dialog = page.getByRole('dialog', { name: 'Object Manager', exact: true });
+      await chooseMenu(page, 'Managers', 'Node Manager…');
+      const dialog = page.getByRole('dialog', { name: 'Node Manager', exact: true });
       const caption = dialog.locator('.re-caption');
       await caption.waitFor();
       const dragCaption = async target => {
@@ -59,14 +59,14 @@ test('dragging the Object Manager to the top keeps the title bar reachable in bo
   });
 });
 
-test('Object Manager opens with full hierarchy and event categories while Emitter Manager is open', async () => {
+test('Node Manager opens with full hierarchy and event categories while Emitter Manager is open', async () => {
   await withModel('emtr-manager', async (_app, page) => {
     const emitter = page.getByRole('button', { name: 'Emitter Editor', exact: true });
     await click(page, emitter, 'right');
     await click(page, page.getByRole('menu', { name: 'EMTR' }).getByRole('menuitem', { name: 'Manager', exact: true }));
     await page.getByRole('dialog', { name: 'Emitter Manager', exact: true }).waitFor();
-    await chooseMenu(page, 'Managers', 'Object Manager…');
-    const manager = page.getByRole('dialog', { name: 'Object Manager', exact: true });
+    await chooseMenu(page, 'Managers', 'Node Manager…');
+    const manager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
     await manager.waitFor();
     assert.ok(await manager.getByLabel('Show hierarchy').isChecked());
     await click(page, manager.getByRole('button', { name: 'New', exact: true }));
@@ -101,7 +101,7 @@ test('the POSE setup panel includes the menu height', async () => {
 test('Curve Properties includes the menu height', async () => {
   await withModel('curve-panel', async (_app, page) => {
     await click(page, page.locator('[data-hotkey="animation"]'));
-    const node = page.getByLabel('Movement object', { exact: true });
+    const node = page.getByLabel('Movement bone or node', { exact: true });
     await click(page, node);
     await page.keyboard.press('Home');
     await page.keyboard.press('ArrowDown');

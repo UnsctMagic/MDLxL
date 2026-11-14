@@ -19,7 +19,7 @@ import { isUVOnlyPreviewChange } from './game-preview-data.js';
 import { drawMovementGizmo, drawGizmoRotationFeedback, rotationDisplayHandles, beginGizmoRotation, gizmoMoveTranslation, drawMovementOverlay, movementAxisHandles, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import {drawPoseOverlay} from './pose-overlay.js';
 import {translate} from '../src/localization.js';
-import { hasObjectMarkers, visibleMovementPoints } from './preview-overlays.js';
+import { visibleMovementPoints } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
 import { configureGeosetHighlightMaterial } from './geoset-highlight.js';
@@ -448,7 +448,7 @@ export default function Viewport({ children, ...inputProps }) {
       const gizmoHandle = boundPane.gizmoHandles?.length ? pickMovementHandle(boundPane.gizmoHandles, start.x, start.y, p.transformMode === 'rotate' ? 'rotate' : 'move') : null;
       if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const previewFrame = p.vertexPreviewSequence != null ? p.vertexPreviewFrame : undefined;
-        const nodes=visibleMovementPoints(projectMovementNodes(p.model,previewFrame ?? state.frame,p.vertexPreviewSequence ?? p.sequenceIndex,camera,start.width,start.height,previewFrame ?? state.globalTime,state.matrices),viewportOverlayOptions(p));
+        const nodes=visibleMovementPoints(projectMovementNodes(p.model,previewFrame ?? state.frame,p.vertexPreviewSequence ?? p.sequenceIndex,camera,start.width,start.height,previewFrame ?? state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
           const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:down.shift,ctrl:false});
@@ -904,7 +904,7 @@ export default function Viewport({ children, ...inputProps }) {
         if (now - callbackTime > 32) { callbackTime = now; state.lastReportedFrame = state.frame; p.onTimeChange?.(state.frame); }
       }
       const overlays = viewportOverlayOptions(p);
-      const showMarkers = overlays.boneLines || hasObjectMarkers(overlays);
+      const showMarkers = overlays.bones || overlays.boneLines || overlays.nodes || overlays.attachments || overlays.particles;
       const clipRadius = modelClipRadius(p.model, state.center, state.radius);
       grid.update(p.preferences, p.workplane, overlays.grid, overlays.axes, surface.clientWidth, surface.clientHeight, quad ? { camera, target: controls.target, settings: appearance.quadView.grid } : null);
       platform.update(p.preferences, state.center, state.radius, state.floor || 0);
@@ -1095,7 +1095,7 @@ export default function Viewport({ children, ...inputProps }) {
           if (!nodeCanvas) { nodeCanvas = document.createElement('canvas'); nodeCanvas.dataset.nodeOverlay = ''; nodeCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(nodeCanvas); }
           nodeCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); nodeCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
           const width = surface.clientWidth, height = surface.clientHeight;
-          const nodes = projectMovementNodes(p.model, frame, poseSequence, camera, width, height, globalTime, state.matrices);
+          const nodes = projectMovementNodes(p.model, frame, poseSequence, camera, width, height, globalTime, state.matrices,p.vanilla);
           if(state.nodeDrag)for(const point of nodes)if(state.nodeDrag.ids.includes(point.node.ObjectId)){point.world.add(state.nodeDrag.delta);const projected=point.world.clone().project(camera);point.x=(projected.x+1)*width/2;point.y=(1-projected.y)*height/2;}
           const options = { ...overlays, vanilla:p.vanilla, preferences: p.preferences, glMarkers: true, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
           if (!quad) renderer.resetState();

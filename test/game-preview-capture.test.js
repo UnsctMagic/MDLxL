@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { backgroundCoverRect, composePreviewCapture, previewPlaybackStep } from '../app/game-preview-capture.js';
-import { previewOverlayOptions, visibleMovementPoints } from '../app/preview-overlays.js';
-import { objectKind } from '../src/object-kinds.js';
+import { movementNodeCategories, previewOverlayOptions, visibleMovementPoints } from '../app/preview-overlays.js';
 
 test('background cover preserves aspect, centrally crops wide and tall images', () => {
   assert.deepEqual(backgroundCoverRect(1600, 900, 800, 450), { x: 0, y: 0, width: 1600, height: 900 });
@@ -33,11 +32,11 @@ test('Loop on retains fractional remainder and handles multiple sequence crossin
 
 test('overlay categories independently gate visible and pickable markers', () => {
   const model = { Bones: [{ ObjectId: 0 }], Attachments: [{ ObjectId: 1 }], ParticleEmitters2: [{ ObjectId: 2 }], RibbonEmitters: [{ ObjectId: 3 }], Lights: [{ ObjectId: 4 }], Helpers: [{ObjectId:5}] };
-  const kinds = objectKind(model);
-  const points = [0, 1, 2, 3, 4, 5].map(id => ({ id, overlayKind: kinds.get(id) }));
+  const kinds = movementNodeCategories(model);
+  const points = [0, 1, 2, 3, 4, 5].map(id => ({ id, overlayKind: kinds.get(id) || 'nodes' }));
   assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions(undefined, false)), []);
   assert.equal(visibleMovementPoints(points, previewOverlayOptions(undefined, true)).length, 6);
-  assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions({ bones: true, attachments: false, particles: false, lights: false }, true)).map(point => point.id), [0,5]);
+  assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions({ bones: true, attachments: false, particles: false, nodes: false }, true)).map(point => point.id), [0,5]);
   assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions({ particles: true })).map(point => point.id), [2, 3]);
   assert.equal(previewOverlayOptions(undefined, true).wires, false);
   assert.equal(previewOverlayOptions(undefined, true).grid, false);

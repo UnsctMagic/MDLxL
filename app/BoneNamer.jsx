@@ -8,7 +8,7 @@ import { nodeIndex, uniqueName } from '../src/node-hierarchy.js';
 import './attachemator.css';
 import './bone-namer.css';
 
-const OVERLAYS = { attachments: false, bones: true, helpers: true, particles: false, sounds: false, events: false, skeleton: true, focusedSkeleton: true };
+const OVERLAYS = { attachments: false, bones: true, helpers: true, nodes: false, particles: false, sounds: false, events: false, skeleton: true, focusedSkeleton: true };
 // Context keys ("bone-part\u0004Spine") keep the bone meaning apart from views, verbs and
 // other tools that share the English word; without their own entry they read as the plain word.
 const PART_LABELS = ['Root', 'Pelvis', 'Spine', 'Chest', 'Neck', 'Head', 'Arm', 'Hand', 'Leg', 'Foot', 'Hoof', 'Tail', 'Wing', 'Mesh piece', 'Keep name'].map(label => 'bone-part\u0004' + label);

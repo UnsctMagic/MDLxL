@@ -22,7 +22,7 @@ const path = require('node:path');
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
     await page.getByLabel('Bones controller').waitFor({ timeout: 60000 });
     await settle(page, 1500);
-    const picker = page.getByLabel('Movement object');
+    const picker = page.getByLabel('Movement bone or node');
     if (!(await picker.locator('optgroup[label="Bones"] option').count())) {
       await page.getByRole('button', { name: 'Create', exact: true }).click();
       await page.getByRole('menuitem', { name: 'Bone' }).click();

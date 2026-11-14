@@ -1,5 +1,5 @@
 const EMPTY_MAP = Object.freeze({}), EMPTY_IDS = Object.freeze([]), EMPTY_PREFERENCES = Object.freeze({});
-const CLEAN_DISPLAY = Object.freeze(Object.fromEntries(['bones', 'skeleton', 'attachments', 'particles', 'emitters', 'lights', 'collision', 'boneLines', 'wires', 'vertices', 'grid', 'axes', 'normals', 'cameras'].map(key => [key, false])));
+const CLEAN_DISPLAY = Object.freeze(Object.fromEntries(['bones', 'skeleton', 'nodes', 'attachments', 'particles', 'emitters', 'boneLines', 'wires', 'vertices', 'grid', 'axes', 'normals', 'cameras'].map(key => [key, false])));
 const preferenceCache = new WeakMap();
 
 /** Camera-facing node transforms belong to viewing, never placement/editing. */
@@ -20,10 +20,12 @@ export function previewPresentationProps(props) {
   const wires = previewMode === 'wireframe' || !!props.overlays?.wires;
   const grid = neutralBackground && (props.overlays?.grid ?? props.showGrid ?? true);
   const display = { ...CLEAN_DISPLAY, ...(props.overlays || {}), wires, vertices, grid, axes: grid && neutralBackground };
+  if (props.vanilla && props.cleanAnimationPreview) display.particles = !!props.selectedNodeIds?.length;
   return {
     ...props, preferences: preferenceCache.get(original), mode: previewMode, shaded: true, rgbPreview: false, restPose: props.restPose ?? false,
     overlays: display, showGrid: grid, showAxes: grid && neutralBackground,
-    showNodes: false, showSkeleton: display.bones || display.skeleton || display.attachments || display.particles,
+    showParticles: props.vanilla && props.cleanAnimationPreview ? true : props.showParticles,
+    showNodes: display.nodes, showSkeleton: display.bones || display.skeleton || display.nodes || display.attachments || display.particles,
     showVertices: vertices, showNormals: display.normals, showCameras: display.cameras,
     selectionByGeoset: interactive ? props.selectionByGeoset || EMPTY_MAP : EMPTY_MAP, selectedVertices: EMPTY_IDS, selectedNodeIds: props.cleanAnimationPreview ? props.selectedNodeIds || EMPTY_IDS : EMPTY_IDS, selectableGeosets: props.selectableGeosets || EMPTY_IDS,
     hiddenGeosets: props.uvOnlySelected === true || props.uvHideExtras === true || Array.isArray(props.isolatedGeosets) ? props.hiddenGeosets : undefined, hiddenVertices: undefined, hoveredGeoset: interactive || props.onHoverGeoset ? props.hoveredGeoset ?? null : null,

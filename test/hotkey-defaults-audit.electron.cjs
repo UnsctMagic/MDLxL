@@ -45,7 +45,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await visit('vertices after Paint', () => click(control('vertices')));
     await visit('Showcase', async () => { await click(page.getByRole('button', { name: 'Showcase', exact: true })); await page.locator('.showcase-sidebar').waitFor(); });
     await visit('vertices after Showcase', () => click(control('vertices')));
-    for (const [name, chord] of [['Material Manager', 'Alt+m'], ['Texture Manager', 'Alt+t'], ['Object Manager', 'Alt+o'], ['Geoset Manager', 'Alt+g'], ['Sequence Manager', 'Alt+q'], ['Texture Animation', 'Alt+x'], ['Global Sequence', 'Alt+l'], ['Geoset Animation Manager', 'Alt+h']]) await visit(name, async () => { await page.keyboard.press(chord); await page.locator('[role="dialog"][aria-modal="true"]').first().waitFor({ timeout: 5000 }); });
+    for (const [name, chord] of [['Material Manager', 'Alt+m'], ['Texture Manager', 'Alt+t'], ['Node Manager', 'Alt+o'], ['Geoset Manager', 'Alt+g'], ['Sequence Manager', 'Alt+q'], ['Texture Animation', 'Alt+x'], ['Global Sequence', 'Alt+l'], ['Geoset Animation Manager', 'Alt+h']]) await visit(name, async () => { await page.keyboard.press(chord); await page.locator('[role="dialog"][aria-modal="true"]').first().waitFor({ timeout: 5000 }); });
     await visit('LER box', async () => { await click(page.locator('.learner-tool')); await page.locator('.learn-menu').waitFor(); await page.keyboard.press('Escape'); });
     for (const tab of SETTINGS_TABS) await visit(`Settings: ${tab}`, async () => { await page.keyboard.press('Control+k'); await click(page.locator(`#settings-tab-${tab}`)); await page.locator(`#settings-panel-${tab}`).waitFor(); });
     await pause(400);

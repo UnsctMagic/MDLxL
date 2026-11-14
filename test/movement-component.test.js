@@ -77,7 +77,7 @@ test('Movement places Highlight Chain directly under Highlight KF and exposes co
 test('Movement object list separates colored Bones from purple Helpers at the bottom',()=>{
   const model=fixture(),helper=createNode(model,'Helper');helper.Name='Bone_Chest';
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds:[helper.ObjectId],time:0}));
-  const picker=html.match(/<select[^>]*aria-label="Movement object"[\s\S]*?<\/select>/)[0];
+  const picker=html.match(/<select[^>]*aria-label="Movement bone or node"[\s\S]*?<\/select>/)[0];
   assert.ok(picker.indexOf('label="Bones"') < picker.indexOf('label="Other Objects"'));
   assert.ok(picker.indexOf('label="Other Objects"') < picker.indexOf('label="Helpers"'));
   assert.match(picker,/label="Bones" style="color:#166534"/);
@@ -133,10 +133,9 @@ test('camera toolbar renders inside Movement with one create-or-update action an
 
 test('quick display shows only the active editor options without Reveal',()=>{
   const html=renderToStaticMarkup(React.createElement(QuickDisplay,{viewMode:'animations',checks:{'display:particles':true},isEnabled:()=>true,onCommand:()=>{},onClear:()=>{}}));
-  // Animations is a model preview: effect switches only (approved object-display plan).
-  assert.equal((html.match(/type="checkbox"/g)||[]).length,5);
-  for(const label of ['Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
-  assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View|Nodes|Bones|Skeleton/);
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,9);
+  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
+  assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View/);
   assert.match(html,/<input[^>]*data-hotkey="display:particles"[^>]*checked=""/);
 });
 

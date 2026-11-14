@@ -453,7 +453,7 @@ const SIGN = { XY: 1, ZX: -1, YZ: 1 };
     await page.getByLabel('3D model viewport', { exact: true }).waitFor();
     await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
-    await page.getByLabel('Movement object').selectOption('0');
+    await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     const tools = page.getByRole('group', { name: 'Movement tool', exact: true });
     await tools.getByRole('button', { name: 'Rotate', exact: true }).click();

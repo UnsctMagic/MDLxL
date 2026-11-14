@@ -8,7 +8,7 @@ import { applyMovementTransform } from '../src/movement.js';
 import './attachemator.css';
 
 // Points only; the selected point's bone shows through Focused Skeleton.
-const OVERLAYS = { attachments: true, bones: false, helpers: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: true };
+const OVERLAYS = { attachments: true, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: true };
 const PICKING = { ...OVERLAYS, bones: true, helpers: true };
 
 /** Places the standard attachment points like Blizzard's own units. Every

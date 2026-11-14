@@ -10,7 +10,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
   });
   try {
     await waitForInfo(page, 'Opened ' + path.basename(fixture));
-    const manager = page.getByRole('dialog', { name: 'Object Manager', exact: true });
+    const manager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
     const newButton = manager.getByRole('button', { name: 'New', exact: true });
     const categories = manager.getByRole('group', { name: 'Event objects', exact: true });
     const addEvent = manager.getByRole('button', { name: 'Add event', exact: true });
@@ -97,7 +97,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await sphereomancerClosed;
     await openManager();
     assert.deepEqual(await nodes(), afterLight, 'opening Sphereomancer leaves the model intact');
-    await manager.getByRole('button', { name: 'Close Object Manager', exact: true }).click();
+    await manager.getByRole('button', { name: 'Close Node Manager', exact: true }).click();
     const regularOpening = app.waitForEvent('window');
     await page.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();
     const regularPopup = await regularOpening;
@@ -105,7 +105,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await regularPopup.getByRole('heading', { name: 'Insanity FIxer', exact: true }).waitFor();
     await regularPopup.getByRole('button', { name: 'Close', exact: true }).click();
     assert.deepEqual(errors, []);
-    console.log('PASS Object Manager categories, event creation and Undo, Light, EMTR Library and direct Sphereomancer with mouse orbit.');
+    console.log('PASS Node Manager categories, event creation and Undo, Light, EMTR Library and direct Sphereomancer with mouse orbit.');
   } finally {
     await closeApp(app);
   }

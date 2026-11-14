@@ -14,7 +14,7 @@ const path = require('node:path');
   try {
 
     await page.getByRole('button', { name: 'Bones', exact: true }).click();
-    const picker = page.getByLabel('Movement object');
+    const picker = page.getByLabel('Movement bone or node');
     await picker.waitFor();
     const { pickerFontSize, optionFontSize, optionNames } = await picker.evaluate(element => ({
       pickerFontSize: getComputedStyle(element).fontSize,

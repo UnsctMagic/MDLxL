@@ -24,7 +24,7 @@ const path = require('node:path');
 
     await waitForInfo(page, 'Opened fixture.mdx');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Nodes'));
-    await page.getByRole('dialog', { name: 'Object Manager', exact: true }).waitFor();
+    await page.getByRole('dialog', { name: 'Node Manager', exact: true }).waitFor();
     await page.getByLabel('Search nodes').fill('SNDxDGAR');
     await page.locator('.re-tree-row').filter({ hasText: 'SNDxDGAR' }).click();
     await page.evaluate(() => { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) { window.testDoc = props.doc;  }

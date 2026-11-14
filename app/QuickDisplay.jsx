@@ -2,11 +2,10 @@ import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useDismiss from './useDismiss.js';
 import VIEW_MENU from '../src/view-menu.json';
-import { OBJECT_KINDS } from '../src/object-kinds.js';
 import LookIcon from './LookIcon.jsx';
 import './portrait-view.css';
 
-const TIPS = { ...Object.fromEntries(OBJECT_KINDS.map(kind => ['display:' + kind.key, kind.tip])), rgb: 'Show the model colored the way it looks in its Stand animation (geoset colors and fades)' };
+const TIPS = { 'display:bones': 'Show bones and helpers. Right-click to choose Helpers or Bones.', rgb: 'Show the model colored the way it looks in its Stand animation (geoset colors and fades)' };
 
 // Keep icon names visible at every window width; the editor row can scroll.
 export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isEnabled, onClear }) {

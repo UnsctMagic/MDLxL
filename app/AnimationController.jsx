@@ -69,7 +69,7 @@ function SpeedControl({ label, value, disabled, onCommit }) {
 export default function AnimationController({
   cameraPanel = null,
   model, revision = 0, sequenceIndex = -1, globalSeqId = null, time = 0,
-  selectedGeosets = [], materialVisibility = null, onEdit, onSeek, onTimelineChange,
+  selectedGeosets = [], selectedNodeIds = [], materialVisibility = null, onEdit, onSeek, onTimelineChange,
   disabled = false,
 }) {
   const [speedMenu, setSpeedMenu] = useState(false);
@@ -87,15 +87,14 @@ export default function AnimationController({
     const selected = [...new Set(selectedGeosets)].filter(id => model.Geosets?.[id]);
     return selected.length ? selected : (model.Geosets || []).map((_, id) => id);
   }, [selectedGeosets.join(','), model.Geosets?.length]);
-  // Object visibility is not edited here: emitters use EMTR, lights and attachments use Movement.
-  const materialSelection = !!materialVisibility;
-  const missingGeosets = materialSelection ? [] : geosetIds.filter(id => !(model.GeosetAnims || []).some(animation => animation.GeosetId === id));
+  const nodeSelection = selectedNodeIds.length > 0 || !!materialVisibility;
+  const missingGeosets = nodeSelection ? [] : geosetIds.filter(id => !(model.GeosetAnims || []).some(animation => animation.GeosetId === id));
   const targets = animationTargets(model, { geosetIds });
-  const alphaTargets = materialVisibility ? [materialVisibility] : targets.filter(target => target.property === 'Alpha');
-  const visibilitySections = materialVisibility ? ['Materials'] : ['GeosetAnims', 'Info'];
+  const alphaTargets = materialVisibility ? [materialVisibility] : nodeSelection ? animationTargets(model, { nodeIds: selectedNodeIds }).filter(target => target.property === 'Visibility') : targets.filter(target => target.property === 'Alpha');
+  const visibilitySections = materialVisibility ? ['Materials'] : nodeSelection ? ['Nodes'] : ['GeosetAnims', 'Info'];
   const colorTargets = targets.filter(target => target.property === 'Color');
   useEffect(() => {
-    if (!materialSelection) return;
+    if (!nodeSelection) return;
     const clocks = new Set(alphaTargets.map(target => {
       const track = readAnimationTrack(model, target);
       return globalSequenceId(track);
@@ -104,7 +103,7 @@ export default function AnimationController({
     const clock = [...clocks][0];
     if (clock !== null && clock !== globalSeqId) onTimelineChange?.(`global:${clock}`);
     else if (clock === null && globalSeqId !== null) onTimelineChange?.(model.Sequences.length ? 0 : -1);
-  }, [model, materialVisibility?.id, materialVisibility?.layer]);
+  }, [model, selectedNodeIds.join(','), materialVisibility?.id, materialVisibility?.layer]);
   const inlineColorTargets = colorTargets.filter(target => !readAnimationTrack(model, target)?.Keys);
   const keyedColorTargets = colorTargets.filter(target => !inlineColorTargets.includes(target));
   const sampledAlpha = commonValue(model, alphaTargets, frame, sequenceIndex, globalDomain ? globalSeqId : null);
@@ -251,7 +250,7 @@ export default function AnimationController({
   }
 
   function writeVisibility(current, value) {
-    if (materialSelection) for (const target of alphaTargets) {
+    if (nodeSelection) for (const target of alphaTargets) {
       const track = readAnimationTrack(current, target);
       const clock = globalSequenceId(track);
       if (track?.Keys && clock !== (globalDomain ? globalSeqId : null)) throw new Error(clock === null ? 'Visibility uses model sequences.' : `Visibility uses Global sequence ${clock + 1}.`);
@@ -345,7 +344,7 @@ export default function AnimationController({
   // pre-existing animation record.
   const colorBlocked = disabled || !alphaTargets.length || !sequence && !globalDomain;
   const inlineRgbEditable = !sequence && !globalDomain && inlineColorTargets.length === colorTargets.length;
-  const rgbBlocked = disabled || materialSelection || !geosetIds.length || (!sequence && !globalDomain && !inlineRgbEditable);
+  const rgbBlocked = disabled || nodeSelection || !geosetIds.length || (!sequence && !globalDomain && !inlineRgbEditable);
   const alphaNumber = alpha === '' ? NaN : Number(alpha);
   const visibleChecked = Number.isFinite(alphaNumber) && alphaNumber > 0;
   const mixedOrPartial = alpha === '' || Number.isFinite(alphaNumber) && alphaNumber !== 0 && alphaNumber !== 100;
@@ -382,9 +381,9 @@ export default function AnimationController({
       </div>
       <div className="ac-color"><span>Color Tint:</span><div className="ac-rgb">{['R', 'G', 'B'].map((label, index) => <label className={`channel-${label.toLowerCase()}`} key={label}>{label}<input aria-label={`Animation ${label}`} type="number" min="0" max="255" step="1" placeholder={geosetIds.length ? 'Mixed' : ''} disabled={rgbBlocked} value={rgb[index]} onChange={event => setRgb(previous => previous.map((value, i) => i === index ? event.target.value : value))} onBlur={commitRgb} onKeyDown={enterBlurs}/></label>)}</div></div>
     </div>
-    <button data-hotkey="animation-controller:bake-sequence-rgb" data-hotkey-manual data-hotkey-label="Bake Sequence RGB" disabled={materialSelection || noLocalSequence || !geosetIds.length} onClick={() => bakeRgb(false)}>Bake Sequence RGB</button>
-    <button data-hotkey="animation-controller:bake-all-rgb" data-hotkey-manual data-hotkey-label="Bake All RGB" disabled={materialSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
-    <button data-hotkey="animation-controller:bake-all-visibility" data-hotkey-manual data-hotkey-label="Bake All Visibility" disabled={materialSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length || colorBlocked} title="Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed." onClick={bakeVisibility}>Bake All Visibility</button>
+    <button data-hotkey="animation-controller:bake-sequence-rgb" data-hotkey-manual data-hotkey-label="Bake Sequence RGB" disabled={nodeSelection || noLocalSequence || !geosetIds.length} onClick={() => bakeRgb(false)}>Bake Sequence RGB</button>
+    <button data-hotkey="animation-controller:bake-all-rgb" data-hotkey-manual data-hotkey-label="Bake All RGB" disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
+    <button data-hotkey="animation-controller:bake-all-visibility" data-hotkey-manual data-hotkey-label="Bake All Visibility" disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length || colorBlocked} title="Sets the Alpha above at the start and end of every animation for the checked geosets. Colour is not changed." onClick={bakeVisibility}>Bake All Visibility</button>
     </SidebarSection>
     {error && !speedMenu && !reorder && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
     {reorder && <Dialog title="Reorder Animations" onClose={() => setReorder(null)} overlayClass="ac-reorder-menu" footer={<><button onClick={() => setReorder(null)}>Cancel</button><button disabled={disabled || reorder.order.every((index, position) => index === position)} onClick={applyReorder}>Apply</button></>}>
