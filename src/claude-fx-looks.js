@@ -21,15 +21,16 @@ const rune_=[.4,.75,1],ember=[1,.5,.14],violet=[.72,.5,1];
 const PALE=[[.69,.99,.74],[.25,.53,.32],[.33,.51,.34]],MURK=[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]];
 const PUFF={...PUFF_FRAMES,Flags:EMITTER_SORTED};
 // A cloud that hangs around the part. fall: positive sinks, negative rises (shares of the part-fitted radius).
+// cover:'cloud' (pass 8): on a body it is one cloud sized by the whole body, not a puff on every skin region.
 const plagueCloud=(label,ramp,{rate,life=2.4,alpha=105,fall=-.04,size=[.2,.3,.4],cap=2.2,loop}={})=>nativeSpray(label,CLOUDS,ramp[1],
  {atlas:8,filter:0,life,rate,velocity:.08,gravity:fall,spread:180,size,alpha:[0,alpha,0]},
- {starts:true,cover:'around',birthAcross:1.3,widthCap:cap,capMotion:true,...(loop?{loop}:{}),native:{Time:.3,Variation:.3,...PUFF,SegmentColor:ramp}});
+ {starts:true,cover:'cloud',birthAcross:1.3,widthCap:cap,capMotion:true,...(loop?{loop}:{}),native:{Time:.3,Variation:.3,...PUFF,SegmentColor:ramp}});
 const plagueGlow=(extra={})=>nativeSpray('Plague glow',tex('Green_Glow3'),[.4,.9,.3],
  {life:1.6,rate:8,size:[.3,.42,.3],alpha:[0,55,0]},
- {starts:true,cover:'surface',widthCap:1.6,loop:2933,native:{Time:.5,Flags:C},...extra});
+ {starts:true,cover:'cloud',widthCap:1.6,loop:2933,native:{Time:.5,Flags:C},...extra});
 const plagueSpores=(rate=12,cap=.4)=>nativeSpray('Plague spores',tex('Bubble'),[.5,.9,.25],
  {life:1.6,rate,velocity:.08,gravity:-.12,spread:180,size:[.015,.045,.03],alpha:[0,210,0]},
- {starts:true,cover:'around',birthAcross:1.4,widthCap:cap,loop:1933,native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[.8,1,.5],[.5,.9,.25],[.25,.6,.2]]}});
+ {starts:true,cover:'cloud',birthAcross:1.4,widthCap:cap,loop:1933,native:{Time:.5,Variation:.5,Flags:U,SegmentColor:[[.8,1,.5],[.5,.9,.25],[.25,.6,.2]]}});
 const make=(group,id,name,loop,options,...layers)=>({id:'claude-'+id,name,group,loop,palette:'native',...options,layers});
 // Each look sits in the library's normal folder for its kind.
 const fx=(group,...a)=>make(group,a[0],a[1],a[2],{},...a.slice(3));
@@ -116,7 +117,7 @@ export const CLAUDE_LOOKS=[
    plagueSpores(40,.5),
    nativeSpray('Spore glints',tex('star4_32'),[.6,1,.35],
     {life:.7,rate:12,size:[.02,.1,.02],alpha:[0,230,0]},
-    {starts:true,cover:'around',birthAcross:1.4,widthCap:.7,loop:2267,native:{Time:.45,Flags:C,SegmentColor:[[1,1,.85],[.6,1,.35],[.25,.75,.2]]}}),
+    {starts:true,cover:'cloud',birthAcross:1.4,widthCap:.7,loop:2267,native:{Time:.45,Flags:C,SegmentColor:[[1,1,.85],[.6,1,.35],[.25,.75,.2]]}}),
    plagueGlow(),
   ]},
   // The flies keep the clock of the Fly swarm look.

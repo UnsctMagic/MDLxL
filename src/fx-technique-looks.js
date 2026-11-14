@@ -69,6 +69,8 @@ const teamMotes=(extra={})=>teamSpray('Team motes',
  {life:1.4,rate:12,velocity:.08,gravity:-.1,spread:180,size:[.02,.07,.02],alpha:[0,255,0]},
  {cover:'around',birthAcross:1.4,widthCap:.5,loop:2933,...extra,native:{Time:.5,Variation:.5,Flags:EMITTER_CARRIED}});
 
+// A soul (SoulArmor): the ghost ribbon, blended, its width a third of the ring on each side.
+const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.1,filter:2,strength:1,smoothness:40,...extra});
 export const TECHNIQUE_LOOKS=[
  vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
   {id:'shell',name:'Glow shell',layers:[
@@ -253,14 +255,27 @@ export const TECHNIQUE_LOOKS=[
   glow('Shade',tex('Shade'),{bodyUV:true,filter:4,inflate:.21,tint:[.62,.92,1],strength:.7,pulse:'soft'}),
   skin('Dust veil',tex('Dust5ABlack'),{bodyUV:true,filter:2,inflate:.37,strength:.6,tint:[1,1,1],loop:5167}),
  ],{asOverlay:true}),
+ // Each trail once for the whole part on a ring sized to it (they rode every skin region, as wide as their ring).
  make('ghost-trails','Ghost trails',3300,[
-  orbit('Ghost trail',tex('GraveYardGhost'),ghost,{orbitTurns:3,strength:.6,lasts:.5}),
-  orbit('Second trail',tex('GraveYardGhost'),ghost,{orbitTurns:3,loop:3200,fit:.8,strength:.6,lasts:.5}),
-  orbit('Third trail',tex('GraveYardGhost'),ghost,{orbitTurns:3,loop:3700,fit:1.2,strength:.6,lasts:.5}),
+  orbit('Ghost trail',tex('GraveYardGhost'),ghost,{whole:true,upright:true,reach:1.2,band:.4,along:-.22,orbitTurns:3,strength:.6,lasts:.5,smoothness:40}),
+  orbit('Second trail',tex('GraveYardGhost'),ghost,{whole:true,upright:true,reach:1.05,band:.4,along:.06,orbitTurns:3,loop:3200,strength:.6,lasts:.5,smoothness:40}),
+  orbit('Third trail',tex('GraveYardGhost'),ghost,{whole:true,upright:true,reach:1.4,band:.4,along:.3,orbitTurns:3,loop:3700,strength:.6,lasts:.5,smoothness:40}),
  ]),
- make('soul-vortex','Soul vortex',2800,[
+ // Pass 8 (14 November; owner: "badly wrapped, huge on body and sword"). Two light ribbons rode every skin region, as
+ // wide as the ring they drew. Now it is the owner's SoulArmor: a soul is the ghost picture (a head with a fading tail)
+ // drawn as a ribbon two thirds of a turn long, on a helper that spins inside one that tilts inside one that bobs, each
+ // on its own clock. Three souls, each once for the whole part on a ring sized to it; around a body they circle level.
+ // The old streams still open from a saved model (legacyLayers).
+ vary(make('soul-vortex','Soul vortex',2800,[]),[{id:'original',name:'Soul vortex',legacyLayers:[
   orbit('Soul stream',tex('RibbonBlur1'),soul,{orbitTurns:2,strength:.6,lasts:.6}),
   orbit('Second stream',tex('RibbonBlur1'),soul,{orbitTurns:2,loop:3100,fit:.75,strength:.6,lasts:.6}),
+ ],layers:[
+  soulRibbon('Soul',{reach:1.25,along:-.24,orbitTurns:3,loop:2400,lasts:.65}),
+  soulRibbon('Second soul',{reach:1.1,along:.04,orbitTurns:3,loop:2100,lasts:.58}),
+  soulRibbon('Third soul',{reach:1.4,along:.3,orbitTurns:2,loop:1867,lasts:.6}),
+  spray('Soul glow',tex('GenericGlowX'),[.4,.55,.95],
+   {life:1.4,rate:8,size:[.5,.55,.5],alpha:[0,70,0]},
+   {starts:true,cover:'cloud',widthCap:1.4,loop:3067,native:{Time:.5,Flags:C,SegmentColor:[[.51,.52,.65],[.27,.33,.91],[.25,.64,.92]]}}),
   // Inward souls is a flat swirl on the ground under the unit (71 units wide for a long sword): an aura. The owner wants
   // no auras, so it is offered, not started. Soul wisps rise around the part itself instead.
   spray('Inward souls',tex('Tornado2b'),[.75,.95,1],{flat:true,life:.8,rate:4.5,velocity:-.15,spread:.5,size:[1.3,.95,.28],alpha:[100,160,186]},{ground:true}),
@@ -268,7 +283,7 @@ export const TECHNIQUE_LOOKS=[
    {life:1.4,rate:12,velocity:.1,gravity:-.25,spread:40,size:[.03,.1,.02],alpha:[0,200,0]},
    {starts:true,cover:'around',birthAcross:1.3,widthCap:.5,loop:2933,
     native:{Time:.4,Variation:.4,Flags:C,SegmentColor:[[1,1,1],[.6,.9,1],[.35,.6,1]]}}),
- ]),
+ ]}]),
  make('ground-glow','Ground glow',1600,[
   cardSpec('Ground glow','ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',{team:2,facing:'ground',count:2,sizeMin:.83,sizeMax:1.17,strength:.75,tint:[1,1,1]}),
  ]),

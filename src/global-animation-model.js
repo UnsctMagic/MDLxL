@@ -493,6 +493,31 @@ function massEmitterSites(c){
  cache.set(key,result);
  return result;
 }
+// cover:'cloud' (fresh recipes): a cloud belongs to the whole part. A weapon is covered as by 'around'. A body's skin
+// regions are slivers, and a cloud fitted to them is a scatter of small puffs (owner, 14 November: "a lot of tiny
+// clouds"); a body gets six sources around its middle instead, each sized by the body itself: a big unit wears a big
+// cloud, a small unit a small one.
+function cloudSites(c){
+ if(!(c.frame.regions?.length>SHARED_REGIONS))return null;
+ const key='emitter-cloud|'+c.surfaceKey;
+ if(!c.attachmentCache.has(key)){
+  const up=uprightFrame(c),sites=[],v=c.source.Vertices,owner=new Map();
+  c.frame.regions.forEach((region,index)=>region.vertices.forEach(vertex=>owner.set(vertex,index)));
+  const place=(point,name)=>{
+   // The skin nearest to a source carries it.
+   let region=0,least=Infinity;
+   for(const [vertex,index] of owner){const d=(v[vertex*3]-point.x)**2+(v[vertex*3+1]-point.y)**2+(v[vertex*3+2]-point.z)**2;if(d<least){least=d;region=index;}}
+   sites.push({key:name,point:point.toArray(),region,ground:false,radius:up.radius,componentWidth:up.radius*.2,strip:false,birth:{width:up.radius*.3,length:up.radius*.3,share:1}});
+  };
+  for(let i=0;i<5;i++){
+   const angle=i*2*Math.PI/5+.6,along=[-.22,.12,-.05,.28,-.3][i],r=up.radiusAt(along)*.55;
+   place(up.center.clone().add(new Vector3(Math.cos(angle)*r,Math.sin(angle)*r,along*up.length)),'cloud'+i);
+  }
+  place(up.center.clone().add(new Vector3(0,0,up.length*.38)),'cloud5');
+  c.attachmentCache.set(key,sites);
+ }
+ return c.attachmentCache.get(key);
+}
 const PATCH_SITES=16;
 /**
  * Continuous cover for fresh layers. A straight rigid piece gets birth lines along
@@ -503,6 +528,7 @@ function coverSites(c,layer){
  const {attachmentCache:cache,surfaceKey,frame}=c;
  const key='emitter-cover|'+surfaceKey+'|'+JSON.stringify([layer.cover,layer.birthAcross??null,layer.widthCap??null,layer.size,layer.nativeSpec?.size,layer.nativeSpec?.alpha,layer.native?.ParticleScaling,layer.native?.Alpha]);
  if(cache.has(key))return cache.get(key);
+ if(layer.cover==='cloud'){const cloud=cloudSites(c);if(cloud)return cloud;}
  const regions=frame.regions?.length?frame.regions:[{frame,geometry:c.source,weights:[[c.parent,1]]}];
  const pieces=regions.flatMap((region,regionIndex)=>{
   const shape=analyseEmitterSurface(region.geometry);
@@ -1077,6 +1103,27 @@ function particles(c,layer){
  }
  return {id:ids[Math.floor(ids.length/2)],ids,family:'ParticleEmitters2'};
 }
+// upright (fresh recipes): what goes around a body stands level. A body's own long axis may lie any way (a wide belly,
+// a rider), so the frame is the vertical through the body's middle, as wide as the body is at each height.
+function uprightFrame(c){
+ const key='upright|'+c.surfaceKey;
+ if(c.attachmentCache.has(key))return c.attachmentCache.get(key);
+ const v=c.source.Vertices,n=v.length/3,xs=[],ys=[],zs=[];
+ for(let i=0;i<n;i++){xs.push(v[i*3]);ys.push(v[i*3+1]);zs.push(v[i*3+2]);}
+ const span=list=>{const s=list.slice().sort((a,b)=>a-b);return [s[Math.floor((n-1)*.04)],s[Math.ceil((n-1)*.96)]];};
+ const [x0,x1]=span(xs),[y0,y1]=span(ys),lo=Math.min(...zs),hi=Math.max(...zs),cx=(x0+x1)/2,cy=(y0+y1)/2;
+ const reach=Array.from({length:n},(_,i)=>Math.hypot(xs[i]-cx,ys[i]-cy));
+ const share=(list,p)=>{const s=list.slice().sort((a,b)=>a-b);return s.length?s[Math.min(s.length-1,Math.floor(s.length*p))]:0;};
+ const radius=Math.max(1,share(reach,.9)),length=Math.max(1,hi-lo),center=new Vector3(cx,cy,(lo+hi)/2),axis=new Vector3(0,0,1);
+ // The body's reach from its middle line in a slice at one height (along: a share of its height from the middle).
+ const radiusAt=along=>{
+  const height=center.z+along*length,near=reach.filter((_,i)=>Math.abs(zs[i]-height)<=length*.12);
+  return near.length>=4?Math.max(radius*.35,share(near,.9)):radius;
+ };
+ const frame={center,axis,length,radius,girth:radius,radiusAt,at:distance=>center.clone().addScaledVector(axis,distance)};
+ c.attachmentCache.set(key,frame);
+ return frame;
+}
 /** Orbit helpers for an Edge: a turn about the part, a tilt and a bob, on three clocks that never line up. */
 function orbitChain(c,l,frame,point,parent,r){
  const m=c.model,axis=frame.axis.clone().normalize(),side=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize(),normal=new Vector3().crossVectors(side,axis).normalize();
@@ -1096,7 +1143,10 @@ function edgeLayer(c,l){
  const {model:m,id,ms,tag}=c;
  // whole (fresh recipes): one ribbon for the whole part instead of one for each skin region, which crowds a body.
  // along: its place on the part's length, as a share of that length from the middle.
- const regions=!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ // upright (fresh recipes): around a body the ring stands level, as wide as the body is at its height.
+ const up=l.whole&&l.upright&&c.frame.regions?.length>SHARED_REGIONS?uprightFrame(c):null;
+ if(up&&l.orbit&&c.frame.radius>0)l={...l,orbitRadius:l.orbitRadius*up.radiusAt(l.along||0)/c.frame.radius};
+ const regions=!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:up||c.frame,weights:[[c.parent,1]]}],ids=[];
  // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, only its longest regions carry a ribbon.
  const shares=l.sharedSites&&!l.whole?emissionShares(regions,1):null;
  for(const [regionIndex,region] of regions.entries()){const frame=region.frame;

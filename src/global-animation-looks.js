@@ -308,17 +308,17 @@ export const GLOBAL_LOOKS=[
    sicklyGlow(),
    spray('Toxic fumes',CLOUDS,[.6,.85,.1],
     {atlas:8,filter:0,life:1.7,rate:14,velocity:.1,gravity:-.06,spread:180,size:[.14,.22,.32],alpha:[110,60,0]},
-    {starts:true,birthRegion:true,birthAcross:1.2,
+    {starts:true,cover:'cloud',birthAcross:1.2,
      native:{Time:.5,Variation:.3,SegmentColor:[[.97,1,.07],[.51,.98,.01],[0,.8,.04]]}}),
    // A second, murky cloud in the same space gives the fumes depth (the owner's zombie dragon breath: a pale and a dark
    // cloud of the same shape, blended, never additive).
    spray('Heavy fumes',CLOUDS,[.22,.27,.07],
     {atlas:8,filter:0,life:2.2,rate:9,velocity:.07,gravity:-.04,spread:180,size:[.16,.26,.36],alpha:[0,95,0]},
-    {starts:true,birthRegion:true,birthAcross:1.2,loop:3067,
+    {starts:true,cover:'cloud',birthAcross:1.2,loop:3067,
      native:{Time:.4,Variation:.3,SegmentColor:[[.31,.42,.27],[.22,.27,.07],[.19,.31,.22]]}}),
    spray('Fume glow',texture('CloudSingle'),[.55,.9,.15],
     {life:1.1,rate:10,velocity:.08,gravity:-.1,spread:180,size:[.12,.2,.26],alpha:[0,60,0]},
-    {starts:true,birthRegion:true,loop:2633,native:{Time:.4,Variation:.3,Flags:U}}),
+    {starts:true,cover:'cloud',loop:2633,native:{Time:.4,Variation:.3,Flags:U}}),
    bubbles(16),
   ]},
  ]),
@@ -549,7 +549,7 @@ const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',str
   {id:'ash',name:'Ash and cinders',layers:[
    spray('Warm haze',texture('Dust5A'),[1,.62,.05],
     {life:1.2,rate:16,velocity:.05,gravity:-.15,spread:180,size:[.2,.24,.27],alpha:[0,130,0]},
-    {starts:true,cover:'around',birthAcross:1.1,widthCap:1.6,native:{Time:.5,Variation:.2,Flags:C,SegmentColor:[[.98,.75,0],[1,.62,.05],[.94,0,0]]}}),
+    {starts:true,cover:'cloud',birthAcross:1.1,widthCap:1.6,native:{Time:.5,Variation:.2,Flags:C,SegmentColor:[[.98,.75,0],[1,.62,.05],[.94,0,0]]}}),
    spray('Falling ash',texture('Dust3x'),[.3,.28,.26],
     {filter:0,life:2,rate:10,velocity:.1,gravity:.08,spread:180,size:[.025,.05,.03],alpha:[180,196,0]},
     {starts:true,cover:'around',birthAcross:1.4,widthCap:.4,loop:2633,native:{Time:.5,Variation:.4}}),
@@ -692,7 +692,7 @@ const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',str
   const wisps=tint=>{const spec=lookById('fx-soul-vortex').layers.find(s=>s.label==='Soul wisps');return {...spec,tint,native:{...spec.native,SegmentColor:[[1,1,1],tint,tint.map(v=>v*.6)]}};};
   const haze=(tint,loop=2633)=>spray('Ghost haze',CLOUDS,tint,
    {atlas:8,life:1.8,rate:9,velocity:.06,gravity:-.08,spread:180,size:[.14,.24,.34],alpha:[0,45,0]},
-   {starts:true,cover:'around',birthAcross:1.2,widthCap:2,loop,native:{Time:.4,Variation:.3,Flags:U}});
+   {starts:true,cover:'cloud',birthAcross:1.2,widthCap:2,loop,native:{Time:.4,Variation:.3,Flags:U}});
   const ghost=[.62,.92,1],wraith=own('claude-wraith-form','Wraith form')[0];
   fold('claude-wraith-form',[
    {...wraith,layers:[...wraith.layers.filter(s=>s.label!=='Spirit wisps'),wisps(ghost),haze(ghost)]},
@@ -705,7 +705,7 @@ const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',str
   ]);
   const blackDust=(extra={})=>spray('Black dust',texture('Dust5ABlack'),[1,1,1],
    {filter:0,life:1.6,rate:10,velocity:.1,gravity:-.1,spread:180,size:[.12,.2,.3],alpha:[0,120,0]},
-   {starts:true,cover:'around',birthAcross:1.2,widthCap:2,loop:3067,...extra,native:{Time:.4,Variation:.3}});
+   {starts:true,cover:'cloud',birthAcross:1.2,widthCap:2,loop:3067,...extra,native:{Time:.4,Variation:.3}});
   const smoke=own('fx-dark-smoke','Dark smoke')[0];
   fold('fx-dark-smoke',[
    {...smoke,layers:[...smoke.layers,blackDust()]},
@@ -1060,9 +1060,9 @@ export function makeLayer(spec,frame,palette,id) {
  }
  if(spec.type==='Edge'&&spec.orbit){
   // reach: the ring's radius as a share of the whole part's radius. band: the ribbon's width as a share of the ring's,
-  // never more than 6% of the part's length, so a ring around a body stays a thin arc.
+  // never more than 6% of the part's length (bandCap: another share), so a ring around a body stays a thin arc.
   const ring=spec.reach!=null&&frame?.radius>0?{orbitRadius:Math.round(frame.radius*spec.reach*100)/100}:{};
-  const made=withOrbit({...layer,...ring},frame,spec.loop,fit),wide=spec.band!=null?Math.max(.5,Math.min(made.orbitRadius*spec.band,(frame?.length||Infinity)*.06)):null;
+  const made=withOrbit({...layer,...ring},frame,spec.loop,fit),wide=spec.band!=null?Math.max(.5,Math.min(made.orbitRadius*spec.band,(frame?.length||Infinity)*(spec.bandCap??.06))):null;
   return {...made,...(wide!=null?{upper:wide,lower:wide}:{}),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{}),...(spec.smoothness!=null?{smoothness:spec.smoothness}:{})};
  }
  // Raised native weather/cloud recipes have an authored launch height.
