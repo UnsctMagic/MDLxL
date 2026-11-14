@@ -740,7 +740,13 @@ export function makeLayer(spec,frame,palette,id) {
    if(spec.amount==null)layer.amount=Math.max(layer.amount,2*sites);
   }
  }
- if(spec.type==='Edge'&&spec.orbit)return {...withOrbit(layer,frame,spec.loop,fit),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{})};
+ if(spec.type==='Edge'&&spec.orbit){
+  // reach: the ring's radius as a share of the whole part's radius. band: the ribbon's width as a share of the ring's,
+  // never more than 6% of the part's length, so a ring around a body stays a thin arc.
+  const ring=spec.reach!=null&&frame?.radius>0?{orbitRadius:Math.round(frame.radius*spec.reach*100)/100}:{};
+  const made=withOrbit({...layer,...ring},frame,spec.loop,fit),wide=spec.band!=null?Math.max(.5,Math.min(made.orbitRadius*spec.band,(frame?.length||Infinity)*.06)):null;
+  return {...made,...(wide!=null?{upper:wide,lower:wide}:{}),...(spec.strength!=null?{strength:spec.strength}:{}),...(spec.lasts!=null?{lasts:spec.lasts}:{}),...(spec.smoothness!=null?{smoothness:spec.smoothness}:{})};
+ }
  // Raised native weather/cloud recipes have an authored launch height.
  if(layer.surfaceSites&&layer.burstGap==null&&!layer.nativeSpec?.burst&&!layer.nativeSpec?.height&&!layer.native?.Squirt){
   layer.surfaceFit={...surfaceFitInputs(layer,basis),...(spec.siteCount!=null?{siteCount:spec.siteCount}:{})};

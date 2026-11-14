@@ -1067,9 +1067,11 @@ function orbitChain(c,l,frame,point,parent,r){
 }
 function edgeLayer(c,l){
  const {model:m,id,ms,tag}=c;
- const regions=c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
+ // whole (fresh recipes): one ribbon for the whole part instead of one for each skin region, which crowds a body.
+ // along: its place on the part's length, as a share of that length from the middle.
+ const regions=!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}],ids=[];
  for(const [regionIndex,region] of regions.entries()){const frame=region.frame;
- const point=frame.center.clone().add(new Vector3(...l.offset));
+ const point=frame.center.clone().addScaledVector(frame.axis,frame.length*(l.along||0)).add(new Vector3(...l.offset));
  let parent=regionParent(c,region,point,'edge-'+regionIndex),at=point;
  // Orbit: the ribbon rides the end of a helper chain, each helper on its own clock, so it draws a wandering loop.
  if(l.orbit)({parent,at}=orbitChain(c,l,frame,point,parent,regionIndex));

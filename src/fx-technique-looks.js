@@ -76,12 +76,21 @@ export const TECHNIQUE_LOOKS=[
   skin('Crossing flow','ReplaceableTextures\\Weather\\Lightning.blp',{direction:60,speed:2,strength:.6,tint:[.6,.5,1],loop:3533}),
   glow('Energy glow',null,{pulse:'soft',strength:.5,inflate:.3,loop:2633,tint:[.5,.65,1],enabled:false}),
  ],{asOverlay:true}),
- // Pass 5 (13 November), after the Lightning Shell: arcs stream fast on a shell lifted off the part, zap cards snap
- // to new angles and swell a little, one zap circles the part, sparkles twinkle in the space around it.
+ // Pass 6 (14 November). The owner on build 05: huge on a body, flat on a weapon. The zap cards lay flat along the
+ // part and repeated on every skin region, and the lifted shell grew with the part. Now three zaps circle the whole
+ // part on rings sized to it (whole, reach, along), and what crackles between them is billboarded: thin streaks that
+ // snap out of the surface at every angle, a soft charge on the surface, sparkles in the space around it.
  make('lightning-cage','Lightning cage',1240,[
-  skin('Shell arcs','Abilities\\Spells\\Human\\Thunderclap\\Lightning2b.blp',{axis:'v',band:.5,speed:4,loop:1000,strength:.9,pulse:'soft',liftFit:.25,shell:true,tint:zap}),
-  cardSpec('Zap cards',tex('Zap1'),{facing:'part',count:4,jitter:150,fit:1.3,sizeMin:.9,sizeMax:1.25,loop:1033,tint:zap}),
-  orbit('Cage arcs',tex('Zap1'),zap,{orbitTurns:3,loop:1500,fit:.8,strength:.8,lasts:.25}),
+  orbit('Cage arcs',tex('Zap1'),zap,{whole:true,reach:1.15,band:.22,along:-.28,orbitTurns:3,loop:1500,strength:.8,lasts:.25,smoothness:60}),
+  orbit('Second arc',tex('Zap1'),zap,{whole:true,reach:1.3,band:.2,orbitTurns:3,loop:1300,strength:.8,lasts:.25,smoothness:60}),
+  orbit('Third arc',tex('Zap1'),zap,{whole:true,reach:1.05,band:.22,along:.28,orbitTurns:3,loop:1700,strength:.8,lasts:.25,smoothness:60}),
+  spray('Cage zaps',tex('Zap1'),zap,
+   {life:.16,rate:30,velocity:1.1,spread:90,tail:.5,size:[.04,.08,.03],alpha:[255,255,0]},
+   {starts:true,cover:'surface',loop:1533,
+    native:{Time:.4,Variation:.5,FrameFlags:2,Flags:C,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
+  spray('Charge glow',tex('Blue_Glow2'),[.45,.7,1],
+   {life:.9,rate:12,size:[.2,.3,.22],alpha:[70,130,0]},
+   {starts:true,cover:'surface',widthCap:1.2,loop:2133,native:{Time:.5,Flags:C}}),
   spray('Shell sparkles',tex('Sparkle_Anim'),zap,
    {atlas:4,life:.5,rate:16,velocity:.25,spread:180,size:[.03,.14,.03],alpha:[0,255,0]},
    {starts:true,cover:'around',birthAcross:1.3,widthCap:1,loop:1933,

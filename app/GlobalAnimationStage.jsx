@@ -29,7 +29,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,group,stackLay
  const real=individual||graph?.model?.Nodes[result?.id];
  let parentNode=real?.Parent,anchorId=real?.ObjectId;
  if(layer?.orbit&&layer.type==='Edge')for(let i=0;i<3&&parentNode!=null;i++){anchorId=parentNode;parentNode=graph.model.Nodes[parentNode]?.Parent;}
- const frame=layer?.type==='Particles'?graph?.frame:graph?.frame?.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
+ const frame=layer?.type==='Particles'||layer?.whole?graph?.frame:graph?.frame?.regions?.find(r=>r.weights.some(([id])=>id===parentNode))?.frame||graph?.frame;
  const active=placing&&frame&&value&&real,parent=active?parentNode??null:null;
  const shape=active&&!individual&&layer.type==='Particles'&&!layer.swarm&&!layer.impact&&nodes.length>1;
  const formation=useMemo(()=>{
@@ -78,7 +78,8 @@ export default function GlobalAnimationStage({Preview,graph,layer,group,stackLay
   })):null;
   if(individual){const point=value.individuals?.[selectedSite]?.position||Array.from(individual.PivotPoint);return {...sites,center:{point,node:individual.ObjectId}};}
   const base=(layer.impact||flat)&&real?new Vector3().fromArray(real.PivotPoint).sub(new Vector3(...layer.offset)):null;
-  const at=d=>(base?base.clone().addScaledVector(frame.axis,d):frame.at(d)).add(new Vector3(...value.offset)).toArray();
+  const shift=(layer.along||0)*frame.length;
+  const at=d=>(base?base.clone().addScaledVector(frame.axis,d):frame.at(d+shift)).add(new Vector3(...value.offset)).toArray();
   const centre=formation?.centre.clone().add(new Vector3(...value.offset));
   const marks={...sites,center:{point:centre?.toArray()||at(0),node:parent,radius:radius?value.size:undefined},
    upper:{point:at(value.upper),node:parent},upperUnit:{point:at(value.upper+1),node:parent},
