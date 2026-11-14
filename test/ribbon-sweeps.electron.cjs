@@ -80,6 +80,7 @@ const SWEEPS = ['Plain','Fire','Frost','Lightning','Spirit','Fel','Shadow','Holy
     for (const emitter of added) assert.match(model.Textures[emitter.TextureID].Image, /^Textures\\/, 'Stock game picture');
     assert.equal(model.Textures.filter(t => !original.model.Textures.some(o => o.Image === t.Image)).every(t => /^Textures\\/.test(t.Image)), true, 'Only stock game pictures were added');
 
+    assert.equal(await button('View All Emitters').getAttribute('aria-pressed'), 'true', 'The whole sweep is shown after Create, not the ribbon alone');
     // Every part is an ordinary ingredient: pick an emitter and its usual controls appear.
     const ingredient = page.getByLabel('Effect ingredient',{exact:true});
     const options = await ingredient.locator('option').allTextContents();
@@ -97,15 +98,21 @@ const SWEEPS = ['Plain','Fire','Frost','Lightning','Spirit','Fel','Shadow','Holy
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => { const n = mdlxlProbe('.pe-preview .game-preview-root').runtime?.native; return n?.getSequence() === 7 && n.particlesController.emitters.filter(e => e.props.Name.startsWith('Frost sweep')).every(e => e.particles.some(p => p.lifeSpan > 0)) && n.ribbonsController.emitters.at(-1)?.creationTimes.length > 5; }, null, {timeout:30000});
     await page.screenshot({path:path.join(out,'frost-created.png')});
-    await orbit(page, page.locator('.pe-preview'));
 
-    // Ctrl+Z takes the whole sweep away again.
-    await hit(page.locator('.pe-toolbar').getByRole('button',{name:'Undo',exact:true}));
+    // Undo steps back through the two ingredient choices, then takes the whole sweep away in one step.
+    const undo = page.locator('.pe-toolbar').getByRole('button',{name:'Undo',exact:true});
+    for (const steps of [created.undo + 1, created.undo, beforeCreate.undo]) { await hit(undo); await page.waitForFunction(steps => mdlxlProbe().session.doc.historyStats.undoSteps === steps, steps); }
+
     await page.waitForFunction(count => mdlxlProbe().session.doc.model.RibbonEmitters.length === count, original.model.RibbonEmitters.length);
     assert.deepEqual((await state()).model, beforeCreate.model, 'Undo removes the ribbon and its emitters');
 
     // Esc leaves the choice without touching the model.
-    await hit(button('Add ribbon')); await sweep.waitFor(); await choose('Blood');
+    await hit(button('Add ribbon')); await sweep.waitFor();
+    // Every name in the list builds its preview.
+    for (const name of SWEEPS.slice(1)) {
+      await choose(name);
+      await page.waitForFunction(name => { const n = mdlxlProbe('.pe-preview .game-preview-root').runtime?.native; return n?.model.RibbonEmitters.at(-1)?.Name === name + ' sweep' && n.model.ParticleEmitters2.some(e => e.Name.startsWith(name + ' sweep')); }, name, {timeout:30000});
+    }
     await page.keyboard.press('Escape'); await sweep.waitFor({state:'hidden'});
     assert.deepEqual((await state()).model, beforeCreate.model, 'Escape cancels');
     assert.deepEqual(await fs.readFile(fixture), beforeBytes, 'Input model unchanged');
