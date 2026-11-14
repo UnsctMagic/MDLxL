@@ -96,7 +96,7 @@ export default function GlobalAnimationStage({Preview,graph,layer,group,stackLay
  const stageReady=snap?.site===selectedSite&&snap?.layerId===layer?.id;
  const center=stageReady&&snap?.marks?.center;
  let snapshot=null;
- if(center&&snap.anchor){
+ if(center&&snap.anchor&&real){
   const [x,y,,,r]=center,points=[[-1,-1],[-1,1],[1,-1],[1,1]].map(([a,b])=>[x+a*r,y+b*r,0]);
   snapshot={...snap,anchor:layer.impact&&!individual?null:{...snap.anchor,point:center},guide:{...snap.guide,...snap.marks,origin:center},samples:radius&&!individual?[{owner:real.ObjectId,age:.5,points}]:[]};
  }
