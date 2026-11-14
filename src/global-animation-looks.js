@@ -499,7 +499,7 @@ GLOBAL_LOOKS.push(...SORT_LOOKS.filter(look=>look.group),...CLAUDE_LOOKS,...TECH
  const TEAM_GLOW='ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',WHITE=[[1,1,1],[1,1,1],[1,1,1]];
  const names={'Fire body':'Team body','Fire core':'Team core','Core glow':'Team glow','Flame sheath':'Team sheath','Flame tongues':'Team tongues','Fire column':'Team column','Fire stream':'Team stream','Flame swirl':'Team swirl','Ember swirl':'Team streaks','Swirl flames':'Team flames','Spat embers':'Team embers','Column embers':'Team embers','Falling sparks':'Team sparks','Breath glow':'Team breath glow'};
  const flames=new Set(['Fire core','Flame tongues','Fire column','Fire stream','Swirl flames']);
- const heat=()=>skin('Team heat','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,bodyUV:true,strength:.4,pulse:'soft',tint:[1,1,1]});
+ const heat=()=>skin('Team heat','ReplaceableTextures\\TeamColor\\TeamColor00.blp',{team:1,bodyUV:true,strength:.18,pulse:'soft',tint:[1,1,1]});
  const teamLayers=spec=>{
   if(spec.type==='Card')return spec.facing==='twirl'?[{...spec,label:names[spec.label]||spec.label,image:TEAM_GLOW,team:2,filter:3,tint:[1,1,1]}]:[];
   if(spec.type!=='Particles')return [heat()];
@@ -807,7 +807,7 @@ const riders={
  glow:(label,image,tint,size=.8,alpha=110)=>rider(label,image,tint,
   {life:.6,rate:6,size:[size*.9,size,size*.9],alpha:[0,alpha,0]},{loop:2533,native:{Time:.5,Flags:C}}),
  haze:(label,tint,ramp)=>rider(label,CLOUDS,tint,
-  {atlas:8,filter:0,life:1.1,rate:9,velocity:.1,spread:180,size:[.3,.5,.75],alpha:[0,95,0]},{loop:2933,native:{Time:.3,Variation:.3,...PUFF_FRAMES,SegmentColor:ramp}}),
+  {atlas:8,filter:0,life:1.1,rate:9,velocity:.1,spread:180,size:[.2,.32,.45],alpha:[0,95,0]},{loop:2933,native:{Time:.3,Variation:.3,...PUFF_FRAMES,SegmentColor:ramp}}),
  zaps:(label='Fly sparks')=>rider(label,texture('Zap1'),[.7,.82,1],
   {life:.16,rate:12,velocity:4,spread:180,tail:.5,size:[.06,.14,.04],alpha:[255,255,0]},{loop:1533,native:{Time:.4,Variation:.5,FrameFlags:2,Flags:U,SegmentColor:[[1,1,1],[.6,.75,1],[.5,.1,1]]}}),
  trail:(label,image,tint,ramp,extra={})=>rider(label,image,tint,
@@ -1213,7 +1213,7 @@ export function makeLayer(spec,frame,palette,id) {
  if(spec.type==='Growth'){
   // Pieces grown on the surface (crystals, leaves). Size: a piece's width, fitted to the whole part; fit scales it.
   const defaultTint=spec.tint??[1,1,1],{starts:_starts,fit=1,...saved}=structuredClone(spec);
-  const whole=frame?.radius>0?Math.min((frame.length||40)*.06,frame.radius*.25):basis.unit;
+  const whole=frame?.radius>0?Math.min((frame.length||40)*.08,frame.radius*.3):basis.unit;
   return {...saved,id,enabled:spec.enabled!==false,defaultTint,tint:[...defaultTint],strength:spec.strength??1,offset:[0,0,0],
    count:spec.count??24,size:spec.size??Math.max(.5,Math.round(whole*fit*100)/100),long:spec.long??2.2,spread:spec.spread??.35,variety:spec.variety??.5,seed:spec.seed??1};
  }

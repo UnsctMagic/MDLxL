@@ -70,7 +70,7 @@ const teamMotes=(extra={})=>teamSpray('Team motes',
  {cover:'around',birthAcross:1.4,widthCap:.5,loop:2933,...extra,native:{Time:.5,Variation:.5,Flags:EMITTER_CARRIED}});
 
 // A soul (SoulArmor): the ghost ribbon, blended, its width a third of the ring on each side.
-const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.1,filter:2,strength:1,smoothness:40,...extra});
+const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.07,orbitTilt:12,filter:3,strength:1,smoothness:40,...extra});
 const SELECTION='UI\\Feedback\\TargetPreSelected\\SelectionCircleUnit.blp';
 export const TECHNIQUE_LOOKS=[
  vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
@@ -107,13 +107,13 @@ export const TECHNIQUE_LOOKS=[
   // colour is not possible. What the round glow can paint, lying still on the skin: bands across the part (only the
   // middle of the glow is used, so each band is a soft line), uneven marks, and spots.
   {id:'tattoo',name:'Tattoo bands',layers:[
-   skin('Team bands',TEAM_GLOW,{team:2,teamTile:true,fixed:true,axis:'v',band:.1,tiling:4,strength:1,tint:[1,1,1]}),
+   glow('Team bands',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',axis:'v',band:.02,tiling:3,strength:2.5,tint:[1,1,1]}),
   ]},
   {id:'marks',name:'Tattoo marks',layers:[
-   skin('Team marks',TEAM_GLOW,{team:2,teamTile:true,fixed:true,axis:'v',band:.1,tiling:5,direction:24,strength:1,tint:[1,1,1]}),
+   glow('Team marks',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',axis:'v',band:.02,tiling:4,direction:24,strength:2.5,tint:[1,1,1]}),
   ]},
   {id:'spots',name:'Tattoo spots',layers:[
-   skin('Team spots',TEAM_GLOW,{team:2,teamTile:true,fixed:true,bodyUV:true,tiling:3,strength:1,tint:[1,1,1]}),
+   glow('Team spots',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',bodyUV:true,tiling:3,strength:2.5,tint:[1,1,1]}),
   ]},
   // Void form (pass 8, the owner's Void walker): a body of the player's colour under a dark shade that leaves the colour
   // showing, and the player's glow boiling off it in every direction.
@@ -218,7 +218,7 @@ export const TECHNIQUE_LOOKS=[
    spray('Orb glow',tex('GenericGlow64'),[.7,.85,1],
     {life:1.4,rate:5,size:[.9,1,.9],alpha:[0,150,0]},
     {starts:true,gather:'orb',widthCap:2.4,native:{Time:.5,Flags:C}}),
-   cardSpec('Orb',tex('Ranger'),{whole:true,seat:'orb',atlasRect:[.836,.03,.136,.136],reach:1.2,filter:2,sizeMin:.95,sizeMax:1.06,loop:2133,tint:[.6,.8,1]}),
+   cardSpec('Orb',tex('Ranger'),{whole:true,seat:'orb',atlasRect:[.845,.039,.118,.118],reach:1.2,filter:3,sizeMin:.95,sizeMax:1.06,loop:2133,tint:[.6,.8,1]}),
    spray('Orb core',tex('GenericGlow64'),[1,1,1],
     {life:.9,rate:6,size:[.45,.5,.45],alpha:[0,150,0]},
     {starts:true,gather:'orb',widthCap:.7,loop:2133,native:{Time:.5,Flags:C,SegmentColor:[[1,1,1],[.9,.95,1],[.7,.85,1]]}}),

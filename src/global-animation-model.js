@@ -524,11 +524,12 @@ function cloudSites(c){
    for(const [vertex,index] of owner){const d=(v[vertex*3]-point.x)**2+(v[vertex*3+1]-point.y)**2+(v[vertex*3+2]-point.z)**2;if(d<least){least=d;region=index;}}
    sites.push({key:name,point:point.toArray(),region,ground:false,radius:up.radius,componentWidth:up.radius*.2,strip:false,birth:{width:up.radius*.3,length:up.radius*.3,share:1}});
   };
-  for(let i=0;i<5;i++){
-   const angle=i*2*Math.PI/5+.6,along=[-.22,.12,-.05,.28,-.3][i],r=up.radiusAt(along)*.55;
+  // Eight sources on the body's outline (a cloud born inside the body is hidden by it) and one over its top.
+  for(let i=0;i<8;i++){
+   const angle=i*2*Math.PI/8+.4,along=[-.2,.14,-.32,.26,-.06,.34,-.26,.08][i],r=up.reachToward(along,angle)*1.05;
    place(up.center.clone().add(new Vector3(Math.cos(angle)*r,Math.sin(angle)*r,along*up.length)),'cloud'+i);
   }
-  place(up.center.clone().add(new Vector3(0,0,up.length*.38)),'cloud5');
+  place(up.center.clone().add(new Vector3(0,0,up.length*.52)),'cloud8');
   c.attachmentCache.set(key,sites);
  }
  return c.attachmentCache.get(key);
@@ -612,7 +613,10 @@ function coverSites(c,layer){
 // (seated in a blade, the blade hides the middle of it); a compact piece or a body holds it where Fireball sits.
 function orbSites(c){
  const slender=(c.frame.regions?.length??1)<=SHARED_REGIONS&&c.frame.length>=c.frame.radius*3.5;
- return slender?tipEmitterSites(c):strikeEmitterSites(c,{gather:'engulf-core'});
+ if(slender)return tipEmitterSites(c);
+ // Seated in a head or a mace the orb is hidden by it: it rests on top of the mass (above a body's head).
+ const body=c.frame.regions?.length>SHARED_REGIONS;
+ return strikeEmitterSites(c,{gather:'engulf-core'})?.map(({birth:_birth,...site})=>({...site,point:[site.point[0],site.point[1],site.point[2]+site.componentWidth*(body?2:1.3)]}))||null;
 }
 function tipEmitterSites(c){
  const {attachmentCache:cache,surfaceKey,frame,model,source}=c;
@@ -1164,7 +1168,7 @@ function orbitChain(c,l,frame,point,parent,r){
  h1.Rotation=keys(clockFor(m,t1,c.createdClocks),t1,LINEAR_TURN.map((a,j)=>[j/(LINEAR_TURN.length-1),turn(axis,j===LINEAR_TURN.length-1?0:a)]));
  const p2=point.clone().addScaledVector(side,radius);
  const h2=nodeFor(c,'Bones','Bone','orbit'+r+'-2',l.label+' orbit 2',p2,h1.ObjectId);h2.Flags=256;
- h2.Rotation=keys(clockFor(m,t2,c.createdClocks),t2,[[0,0],[.25,35],[.5,0],[.75,-35],[1,0]].map(([t,a])=>[t,turn(side,a)]));
+ h2.Rotation=keys(clockFor(m,t2,c.createdClocks),t2,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,turn(side,a*(l.orbitTilt??35))]));
  const p3=p2.clone().addScaledVector(axis,radius*.4);
  const h3=nodeFor(c,'Bones','Bone','orbit'+r+'-3',l.label+' orbit 3',p3,h2.ObjectId);h3.Flags=256;
  h3.Translation=keys(clockFor(m,t3,c.createdClocks),t3,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,a])=>[t,normal.clone().multiplyScalar(radius*.3*a).toArray()]));
@@ -1234,6 +1238,9 @@ function twirlStrands(c,l,card,size,out){
  // Size is the strand's distance from the middle line as a share of the part's reach there.
  const k=size/Math.max(1e-6,c.frame.radius),span=.9,length=profile.length*span,mean=Math.max(.1,profile.radius*k);
  const turns=card.turns??1.5,steps=Math.max(8,Math.round(turns*14)),band=card.band??.5,repeat=Math.max(.25,l.tiling??1);
+ // A strand is as wide as a share (Width) of its distance from the part, but never of more than an eighth of the
+ // part's length: around a body or a claw it stays a strand, not a sheet.
+ const wide=Math.min(mean,profile.length*.12)*band*.5;
  const centre=profile.centreAt(.5).add(new Vector3(...l.offset));
  const bone=nodeFor(c,'Bones','Bone','twirl',l.label,centre,c.parent);
  bone.Flags=256;delete bone.Translation;
@@ -1244,16 +1251,16 @@ function twirlStrands(c,l,card,size,out){
    const radial=e1.clone().multiplyScalar(Math.cos(angle)).addScaledVector(e2,Math.sin(angle));
    const radius=Math.max(profile.radiusAt(place,radial)*k,mean*.35),point=profile.centreAt(place).add(new Vector3(...l.offset)).addScaledVector(radial,radius);
    const tangent=axis.clone().multiplyScalar(length).addScaledVector(e1,-Math.sin(angle)*radius*2*Math.PI*turns).addScaledVector(e2,Math.cos(angle)*radius*2*Math.PI*turns).normalize();
-   const across=new Vector3().crossVectors(radial,tangent).normalize(),half=mean*band*.5*Math.pow(Math.sin(Math.PI*t),.6);
+   const across=new Vector3().crossVectors(radial,tangent).normalize(),half=wide*Math.pow(Math.sin(Math.PI*t),.6);
    for(const side of [-1,1]){
-    out.vertices.push(...point.clone().addScaledVector(across,side*half).toArray());out.normals.push(...radial.toArray());out.uvs.push(t*repeat,side<0?1:0);out.vertexGroup.push(out.groups.length);
+    out.vertices.push(...point.clone().addScaledVector(across,side*half).toArray());out.normals.push(...radial.toArray());out.uvs.push(l.team?.2+.6*t:t*repeat,l.team?(side<0?.62:.38):side<0?1:0);out.vertexGroup.push(out.groups.length);
    }
    out.centres.push(point);
    if(j<steps){const a=first+j*2;out.faces.push(a,a+1,a+2,a+1,a+3,a+2);}
   }
  }
  out.groups.push([bone.ObjectId]);
- return {bone,axis,reach:mean*band*.5};
+ return {bone,axis,reach:wide};
 }
 const turn=(axis,degrees)=>new Quaternion().setFromAxisAngle(axis,degrees*Math.PI/180).toArray();
 // A deterministic pseudo-random sequence, so recompiling the same layer writes the same keys.
@@ -1279,7 +1286,7 @@ function cardLayer(c,l){
  const seat=level||twirl||!l.whole||card.facing==='ground'?null:l.seat==='orb'?orbSites(c)?.[0]:l.seated&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
  const seatAxis=seat?(body||!seat.tipDirection?z.clone():new Vector3(...seat.tipDirection).normalize()):null;
  const regions=card.facing==='ground'?[null]:level?[{frame:level,weights:[[c.parent,1]]}]:seat?[c.frame.regions?.[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
- const seatHalf=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach):size;
+ const seatHalf=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach*(l.tilt!=null&&l.seated?1.7:1)):size;
  let widest=seatHalf;
  const vertices=[],normals=[],uvs=[],faces=[],groups=[],vertexGroup=[],centres=[];
  // sharedSites (fresh recipes): on a part with more skin regions than a weapon has, the cards go to its longest
@@ -1293,7 +1300,7 @@ function cardLayer(c,l){
   if(card.spin){const ms=Math.max(100,Math.round(base/Math.abs(card.spin))),sign=Math.sign(card.spin);bone.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,LINEAR_TURN.map((a,j)=>[j/(LINEAR_TURN.length-1),turn(wound.axis,j===LINEAR_TURN.length-1?0:a*sign)]));}else delete bone.Rotation;
  }else for(const [r,region] of regions.entries())for(let i=0,count=shares?shares[r]:card.count;i<count;i++,k++){
   const f=region?.frame,along=!f?0:(count===1?0:((i+.5)/count-.5)*f.length*(level?.6:.9))+f.length*(l.along||0);
-  const half=level&&l.reach!=null?Math.max(.1,level.radiusAt(along/f.length)*l.reach):seatHalf;widest=Math.max(widest,half);
+  const half=level&&l.reach!=null?Math.max(.1,level.radiusAt(along/f.length)*l.reach*.82):seatHalf;widest=Math.max(widest,half);
   const point=seat?new Vector3(...seat.point).addScaledVector(seatAxis,count===1?0:((i+.5)/count-.5)*half*1.6):region?f.at(along):new Vector3(0,0,1.5);point.add(new Vector3(...l.offset));
   const parent=region?regionParent(c,region,point,'card-'+r+'-'+i):null;
   const bone=nodeFor(c,'Bones','Bone','card'+r+'-'+i,l.label+' '+(k+1),point,parent);
@@ -1350,7 +1357,8 @@ function cardLayer(c,l){
   layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flipbook',{Translation:keys(clockFor(m,ms,c.createdClocks),ms,[...Array.from({length:cells},(_,j)=>[j/cells,[(j%card.columns)/card.columns,Math.floor(j/card.columns)/card.rows,0]]),[1,[0,0,0]]],0)});
  }
  // flow (twirl): the picture runs along the strands, whole passes per loop so it closes.
- if(twirl&&card.flow){const pass=passClock({...c,id,ms:base},Math.abs(card.flow));layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flow',{Translation:keys(pass.id,pass.ms,[[0,[0,0,0]],[1,[-Math.sign(card.flow)*pass.turns,0,0]]])});}
+ // (The team glow is one round light: it is drawn once along each strand, through its middle, and does not flow.)
+ if(twirl&&card.flow&&!l.team){const pass=passClock({...c,id,ms:base},Math.abs(card.flow));layer.TVertexAnimId=resource(m.TextureAnims,tag+'/flow',{Translation:keys(pass.id,pass.ms,[[0,[0,0,0]],[1,[-Math.sign(card.flow)*pass.turns,0,0]]])});}
  const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:strengthPasses([layer],card.strength,false,alphaFor)});
  const reach=widest*Math.SQRT2*Math.max(1,card.sizeMax);
  const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(faces),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups,TotalGroupsCount:groups.length,MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
