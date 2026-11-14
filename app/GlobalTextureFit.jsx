@@ -65,7 +65,7 @@ export default function GlobalTextureFit({geoset,asset,canScale,layer,preference
   }
   if(!distance)return;
   const x=next[far]-next[0],y=next[far+1]-next[1];
-  if(mode==='scale')change('tiling',Math.min(4,Math.max(1,Math.round(100*layer.tiling*Math.hypot(x,y)/distance)/100)));
+  if(mode==='scale')change('tiling',Math.min(4,Math.max(.5,Math.round(100*layer.tiling*Math.hypot(x,y)/distance)/100)));
   if(mode==='rotate'){
    const turn=Math.atan2(y,x)-Math.atan2(uv[far+1]-uv[1],uv[far]-uv[0]);
    change('direction',((Math.round(layer.direction-turn*180/Math.PI)%360)+360)%360);

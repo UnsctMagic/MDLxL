@@ -345,6 +345,7 @@ function defaultSurfaceSites(c,layer){
  if(layer.gather==='head'&&!layer.siteLayout)return headEmitterSites(c);
  if(strikes(layer)&&!layer.siteLayout)return strikeEmitterSites(c,layer);
  if(layer.gather==='tip'&&!layer.siteLayout)return tipEmitterSites(c);
+ if(layer.gather==='mouth'&&!layer.siteLayout)return mouthEmitterSites(c);
  if(layer.birthRegion&&!layer.siteLayout)return layer.cover?coverSites(c,layer):birthRegionSites(c,layer);
  const fit=layer.surfaceFit;
  if(layer.siteLayout||fit?.version!==SURFACE_FIT_VERSION||!Number.isFinite(fit.footprint)||!Number.isFinite(fit.liveParticles))return null;
@@ -580,6 +581,16 @@ function tipEmitterSites(c){
  cache.set(key,result);
  return result;
 }
+// gather:'mouth' (breath recipes): where a breath leaves the part. A weapon breathes from its far end, like 'tip'.
+// A body (more skin regions than a weapon has) breathes from its head, where Fireball sits, the way the unit faces:
+// a Warcraft III model looks along +X. The head's own skin region is a sliver, so the site carries the radius its
+// emitters are sized by: enough for a breath as wide as the head.
+function mouthEmitterSites(c){
+ const head=c.frame.regions?.length>SHARED_REGIONS?massEmitterSites(c)?.head?.[0]:null;
+ if(!head)return tipEmitterSites(c);
+ const {birth:_birth,head:_head,...site}=head;
+ return [{...site,key:'mouth0',tipDirection:[1,0,0],radius:Math.max(2,Math.min(55,site.componentWidth*3.2))}];
+}
 // Rectangles use native local X/Y half extents. Only one rigid connected
 // straight piece can share a long rectangle; skin bindings stay separate.
 function birthRegionSites(c,layer){
@@ -639,7 +650,7 @@ function completeEmitterSiteLayout(c,layer){
  let layout=layer.siteLayout;
  if(!layout||!Number.isInteger(layer.siteCount))return layout;
  if(layer.gather&&layout.some(site=>!site.point)){
-  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):tipEmitterSites(c))||[];
+  const tips=(strikes(layer)?strikeEmitterSites(c,layer):layer.gather==='head'?headEmitterSites(c):layer.gather==='mouth'?mouthEmitterSites(c):tipEmitterSites(c))||[];
   layout=layout.map(slot=>slot.point?slot:{...slot,...tips.find(tip=>tip.key===slot.key)});
  }
  const missing=layout.filter(site=>!site.point);
@@ -809,7 +820,7 @@ function nativeParticles(c,layer){
   }
   const key=slot.key,l=individualEmitterLayer(layer,key);
   const f=region.frame;
-  const radius=contact?.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
+  const radius=contact?.radius??slot.radius??Math.max(2,Math.min(f.length*.48,55)),temp=emptyParticleModel(m.Version);
   const share=active?(layer.siteRateScale??1)/active.size:c.autoSites?1/planned.length:layout?1:shares?shares[i]:1;
   const spec={...l.nativeSpec},e={duration:ms},options={speed:l.speed,opacity:l.strength,density:l.amount/24*share*floor,tint:l.tint,sequence:c.stack.sequence};
   const source=addParticles(temp,m,spec,e,options,radius);

@@ -102,7 +102,7 @@ export const CLAUDE_LOOKS=[
    breath('Murky breath',CLOUDS,MURK,{rate:45,loop:3467}),
    nativeSpray('Breath glow',tex('Green_Glow3'),[.4,.9,.3],
     {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,90,0]},
-    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
+    {starts:true,gather:'mouth',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
    breathSpit('Spittle',tex('WaterBlobs1'),[[.7,1,.4],[.45,.75,.2],[.25,.5,.15]],{filter:0}),
   ]},
   {id:'miasma',name:'Sinking miasma',layers:[

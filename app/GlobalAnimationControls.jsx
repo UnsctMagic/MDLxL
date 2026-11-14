@@ -249,7 +249,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    {controls.moving&&<label title="Move the texture across the part on the loop."><input type="checkbox" checked={layerMoves(l)} onChange={e=>update('fixed',!e.target.checked)}/>Moving</label>}
    {controls.speed&&row('Speed','speed',0,8,.05,'Texture passes per loop. Below 1 moves slower than the loop.')}
    {controls.direction&&row('Direction','direction',0,359,1,'Direction of travel on the surface, in degrees.')}
-   {controls.tiling&&row('Tiling','tiling',1,4,.01,'How many times the skin repeats across the part.')}
+   {controls.tiling&&row('Tiling','tiling',.5,4,.01,'How many times the skin repeats across the part.')}
    {!l.glyphs&&!controls.area&&<GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} canScale={canTile} layer={l} preferences={preferences} change={update}/>}
    {controls.area&&<>
     <GlobalTextureFit key={l.id} geoset={surface} asset={uvAsset} layer={l} preferences={preferences} change={update} area={area} onArea={rect=>update('atlasRect',rect)}/>

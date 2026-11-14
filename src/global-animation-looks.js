@@ -146,7 +146,7 @@ export const GLOBAL_LOOKS=[
    breath('Fire stream',texture('Clouds8x8Fire'),[[1,.45,.08],[1,.62,.14],[1,.82,.38]],{rate:70,filter:1,alpha:[220,170,0],frames:{},flags:U}),
    spray('Breath glow',texture('Red_Glow3'),[1,.55,.15],
     {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,110,0]},
-    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C,SegmentColor:[[1,.5,.12],[1,.6,.18],[1,.75,.35]]}}),
+    {starts:true,gather:'mouth',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C,SegmentColor:[[1,.5,.12],[1,.6,.18],[1,.75,.35]]}}),
    breathSpit('Spat embers',texture('LavaLump'),[[1,.6,.15],[1,.85,.3],[1,.95,.6]],{fall:-.05,tail:0,size:[.04,.03,.02],cap:.16,loop:3133}),
   ]},
  ]),
@@ -194,7 +194,7 @@ export const GLOBAL_LOOKS=[
    breath('Frost stream',CLOUDS,[[.9,.98,1],[.75,.92,1],[.6,.85,1]],{rate:40,filter:1,alpha:[80,55,0],flags:U,loop:2533}),
    spray('Breath glow',texture('Blue_Glow2'),[.45,.7,1],
     {life:.6,rate:8,size:[.36,.45,.36],alpha:[0,110,0]},
-    {starts:true,gather:'tip',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
+    {starts:true,gather:'mouth',widthCap:1.3,loop:2933,native:{Time:.5,Flags:C}}),
    breathSpit('Breath flakes',texture('snowflake'),[[1,1,1],[.8,.93,1],[.55,.75,1]],{fall:.3,tail:0,size:[.05,.045,.02],loop:3133}),
   ]},
  ]),
@@ -709,7 +709,7 @@ const aura=(label,tint,strength=.3,loop=3733)=>glow(label,null,{pulse:'soft',str
   const smoke=own('fx-dark-smoke','Dark smoke')[0];
   fold('fx-dark-smoke',[
    {...smoke,layers:[...smoke.layers,blackDust()]},
-   adopted('hollow','Hollow shell',['fx-hollow-shell']),
+   adopted('hollow','Hollow shell',['fx-hollow-shell'],{add:[blackDust({widthCap:1.4,loop:2633})]}),
    adopted('ink','Living ink',['sort-ink'],{add:[
     {...dust('Ink drips','drops',texture('WaterBlobs1'),{tint:[.1,.07,.14],starts:true,...DRIP}),amount:8},
     blackDust({widthCap:1.2,loop:2633}),

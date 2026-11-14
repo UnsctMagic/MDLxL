@@ -315,3 +315,28 @@ Placement rules learned in pass 6:
 * Fel fire's variations are made from Fire's (`global-animation-looks.js`, the block after the tidal one). Change a Fire variation and the fel one follows.
 
 Carrying a stack to another part (`stackForPart` in `fx-own-looks.js`, `carryAnimationStack` in `global-animation-model.js`): the stack is refitted like a saved look. Single emitters moved or edited by hand, and a baked layout, stay behind; an edited emitter count keeps its number and is laid out again; whole-layer slider edits become `fieldScale` ratios or, for colours, opacity and angles, layer values.
+
+---
+## 8. Added in pass 7 (14 November 2026)
+
+All of it is read from fresh layers and fresh stacks only: a saved layer without the field compiles as it did.
+
+**One card, several looks.** `fold(id, variations)` in `global-animation-looks.js` (the block before `LIBRARY`) makes one card of several looks. `own(id)` gives the card's own variations (a plain look becomes one variation, id `original`). `adopted(variationId, name, [lookId, variationId?], {drop, start, change, add, first})` turns another look into a variation: its layers minus `drop`, with `start` started, `change` merged in by label and `add` appended. The adopted variation carries the look's `loop` and `asOverlay`, and every layer without a `tint` gets the look's palette colour, so it draws as it did as its own card. A look folded in is left out of `LIBRARY`: it is retired and still opens from a saved model through `findLook`.
+
+| Field | On | Meaning |
+|---|---|---|
+| `loop`, `asOverlay` | variation | `withVariation` sets the stack's loop and overlay choice from the variation (else the look's). Only in looks where some variation has the field; every other look keeps the user's loop and overlay choice on a switch, as before. |
+| `tiling` | surface layer | `makeLayer` takes the UV repeat from the recipe (it was always 1). |
+| `teamTile` | surface layer with `team` | The team picture travels over the surface: its texture entry repeats (`teamTexture(m,team,tag,wrap)`). Without it a team layer uses the model's own clamped team texture, as before. |
+| `team` | Edge | A ribbon drawn with the team colour (1) or team glow (2) picture. |
+| `seated` | `whole` Card | A ring only goes around a slender part. On a body (more than four skin regions) or a part wider than a fifth of its length the set gathers at the Fireball seat (`massEmitterSites`: a body's head, the middle of a mass), stacked through it and sized to that mass by `reach`; on a body the cards stand level. Rune circle uses it. |
+| `gather:'mouth'` | native emitter | Where a breath leaves the part: a weapon's far end (as `'tip'`); a body's head, aimed along +X, the way a Warcraft III unit faces (`mouthEmitterSites`). The body site carries `radius`, the size its emitters are fitted by (`slot.radius` in `nativeParticles`), so the breath is as wide as the head. |
+
+**Helpers** (`fx-technique-looks.js`): `breath(label,image,ramp,{rate,filter,alpha,frames,flags,loop,priority})` is a stream of cloud from the mouth site, five and a half cloud widths long on any part (`capMotion`); `breathSpit(...)` is what it carries. `PUFF_FRAMES` (cloud sheet frames 0-6, then 7-12) and `EMITTER_SORTED` are the zombie dragon breath's frames and flags. In `global-animation-looks.js`: `runeMotes(tint)`, `twinkles()`, `aura(label,tint)`; Poison's `darkRot()`, `slime()`, `sicklyGlow()`. In `fx-technique-looks.js`: `teamSpray(label,spec,extra)` (a particle layer of the team glow), `teamShell()`, `teamMotes()`.
+
+Rules learned in pass 7:
+
+* `withVariation` reuses the on/off switch of the layer at the same place in the list. A layer that is offered switched off (`enabled:false`) must sit after every started surface of every other variation, or a switch turns it on. A ground stamp left in a folded variation is dropped for that reason.
+* A folded look's dipping rhythm (`glint`, `breathe`, `double`) is new under the card's id, so the library's no-flashing rule applies: the variation takes `soft` or a colour rhythm (`change` in `adopted`).
+* A body's skin regions are slivers of a few vertices. Nothing may be placed "on the longest regions" and expected to mean limbs; use the mass seat or `cover`.
+* The player's colour exists only as the two replaceable pictures. A particle or a ribbon cannot be tinted with it; it has to draw the team glow itself.

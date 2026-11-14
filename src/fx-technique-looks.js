@@ -27,14 +27,14 @@ export const DRIP={amount:12,lasts:1.1,scale:{size:2.8,gravity:1.3},native:{Alph
 // The owner's zombie dragon breath (14 November): clouds born dense and thinning (alpha 123 > 60 > 0) while they grow
 // by half, on the first frames of the cloud sheet only (0-6, then 7-12), sorted far to near, fired in a narrow cone.
 export const EMITTER_SORTED=4096|32768|65536,PUFF_FRAMES={LifeSpanUVAnim:[0,6,1],DecayUVAnim:[7,12,1]};
-/** A breath: a stream of cloud from the part's far end, about five and a half cloud widths long on any part (capMotion). */
+/** A breath: a stream of cloud from the part's far end (a body's head: gather 'mouth'), about five and a half cloud widths long on any part (capMotion). */
 export const breath=(label,image,ramp,{rate=60,filter=0,alpha=[123,60,0],frames=PUFF_FRAMES,flags=EMITTER_SORTED,loop,priority}={})=>spray(label,image,ramp[1],
  {atlas:8,filter,life:1.1,rate,velocity:1.75,spread:20,size:[.25,.3,.35],alpha},
- {starts:true,gather:'tip',aim:'tip',widthCap:1.1,capMotion:true,...(loop?{loop}:{}),native:{Time:.5,Variation:.1,...frames,Flags:flags,...(priority!=null?{PriorityPlane:priority}:{}),SegmentColor:ramp}});
+ {starts:true,gather:'mouth',aim:'tip',widthCap:1.1,capMotion:true,...(loop?{loop}:{}),native:{Time:.5,Variation:.1,...frames,Flags:flags,...(priority!=null?{PriorityPlane:priority}:{}),SegmentColor:ramp}});
 /** What a breath carries: small sprites thrown along the stream (capMotion 3.14 keeps them at the stream's speed). */
 export const breathSpit=(label,image,ramp,{rate=14,filter=1,fall=1,size=[.05,.04,.02],tail=.12,cap=.3,loop=2133}={})=>spray(label,image,ramp[1],
  {filter,life:.9,rate,velocity:1.6,gravity:fall,spread:22,tail,size,alpha:[255,230,0]},
- {starts:true,gather:'tip',aim:'tip',widthCap:cap,capMotion:3.14,loop,native:{Time:.5,Variation:.4,Flags:EMITTER_UNFOGGED,SegmentColor:ramp}});
+ {starts:true,gather:'mouth',aim:'tip',widthCap:cap,capMotion:3.14,loop,native:{Time:.5,Variation:.4,Flags:EMITTER_UNFOGGED,SegmentColor:ramp}});
 const FIRE=[1,.55,.15],FEL=[.52,1,0];
 /** Flipbook flame cards: a 4x4 smoke picture stepped every 75 ms, each card throbbing on its own fast clock. */
 export const flameCards=(tint=FIRE)=>cardSpec('Flame cards',tex('clouds_anim1_bw'),{count:3,rows:4,columns:4,frameMs:105,sizeMin:.9,sizeMax:1.12,loop:520,fit:.6,tint});
@@ -89,10 +89,11 @@ export const TECHNIQUE_LOOKS=[
    glow('Team light',TEAM_COLOUR,{team:1,bodyUV:true,pulse:'soft',strength:.45,tint:[1,1,1]}),
    teamShell('Team shell',.8,{loop:4133}),
   ]},
-  // Two layers of the round glow, repeated and crossing: the colour flows over the part (Arcane's two crossing energies).
+  // Two layers of the round glow crossing each other (Arcane's two crossing energies). The glow fills a sixth of its
+  // picture, so each layer shows a part of the picture, not repeats of it: wide waves of colour, not dots.
   {id:'flow',name:'Flowing light',layers:[
-   skin('Flowing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:2,direction:35,strength:.8,tint:[1,1,1]}),
-   skin('Crossing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:3,direction:140,strength:.5,tint:[1,1,1],loop:4733}),
+   skin('Flowing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:.6,direction:35,strength:.9,tint:[1,1,1]}),
+   skin('Crossing light',TEAM_GLOW,{team:2,teamTile:true,bodyUV:true,tiling:.8,direction:140,strength:.6,tint:[1,1,1],loop:4733}),
   ]},
   {id:'bands',name:'Running bands',layers:[
    skin('Running bands',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:2,speed:2,strength:.9,tint:[1,1,1],loop:2400}),

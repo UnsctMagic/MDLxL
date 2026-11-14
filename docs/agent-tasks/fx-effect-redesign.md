@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 saved locally (14 November): the owner's list from test build 05 (13 items) and an extra polish pass, `db026c16` to `1406f6cb`. Builds; compiled in Node on the owner's model and checked against the library's own rules, not rendered, not opened in the app, unit tests not run: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 7 saved locally (14 November): the whole library reworked folder by folder, `00e0fc49` to the commit that adds this note. Builds; compiled in Node on the owner's model and checked against the library's own rules and against the starting revision, not rendered, not opened in the app; of the unit tests only `test/fx-legacy-snapshot.test.js` was run (passes). The owner reviews test build 07 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -262,6 +262,88 @@ What the owner should look at:
 - Death & spirit > Sanguine drip: red drops fall from the part.
 - Death & spirit > Soul vortex: two streams circling the part and small lights rising around it; nothing on the ground.
 - Ice > Crystal (Inner light, Team colour core) and Water > Liquid body: glints appear at changing places over the part, not as a row of dots.
+
+## Pass 7: the whole library, folder by folder (14 November 2026, Fable)
+
+The owner on test build 06, in short: almost everything looks good. Glow shell can also have team colour. A Team colour folder with team-coloured effects and overlays. Poison is not at the standard of the rest; Fly swarm is liked; Plague cloud needs more options (learn from the zombie dragon's breath). The folders after Poison are lacking: many cards are only variations of each other and are less customizable. Merge variations into one card with a Variation dropdown, in every folder. Fix the weak ones; Fable runs over everything once. Weak examples shown: Rune circle on a body (huge green blades), Astral chart turning a body white.
+
+A later request for a toggle that shows every variation as its own card was withdrawn by the owner the same hour; nothing was built for it.
+
+### What the new references do (measured with `out\fx-design\pass7\ref.cjs`)
+
+- **Zombie dragon breath** (`fx-reference-owner2\zombie-dragon`). Two emitters at one place in the mouth, both the cloud sheet `Clouds8x8`, blended, never additive: one pale green (.69/.99/.74 > .25/.53/.32 > .33/.51/.34), one murky olive (.31/.42/.27 > .22/.27/.07 > .19/.31/.22). Born dense and thinning (alpha 123 > 60 > 0), growing by half (45 > 55 > 65), on the first frames of the sheet only (0-6, then 7-12), sorted far to near, in a 20 degree cone, fast (speed 300 to 400, life 1.25 s). The depth comes from the light and the dark cloud mixing.
+- **Eldritch Covenant.** Team colour: the flat team colour added over a surface at 30 to 50% so it glows, the same travelling diagonally over it, the team glow added and swelling on a 2 s clock, and a geoset of pure team glow. Smoke: an additive coloured dust with a blended black dust in the same place.
+- **Elemental Lord.** Rocks, leaves and dust carried around the body on a turning axis inside long wind ribbons (`wind.blp`, life 3 s). Its fire wears a warm additive dust (`Dust5A`, yellow to red).
+- **Blade of the Abyssal Serpent.** A textured blade inside an additive glow copy of itself: the Glow shell technique. Nothing new.
+
+### Progress
+
+Everything below builds. Recipes were compiled in Node on the owner's model (sword G10, claw G16, body G5) with the scripts in `out\fx-design\pass7\`; nothing was rendered or opened in the app.
+
+The library went from 63 cards to 37, with 105 variations. Every look that left `LIBRARY` is retired: a model saved with it opens and compiles exactly as before (`findLook`).
+
+- **Poison & nature** (`00e0fc49`).
+  - Poison: six variations. Poison, Dripping venom and Toxic fumes stay and get depth: Dark rot (dark cloud shapes drifting against the film, the Cooling crust technique), Running slime, a Sickly glow shell, more bubbles; Toxic fumes gets a second, murky cloud. Felwood curse, Acid (was Venom seep) and Corrupted veins are variations, each with started particles (curse wisps, acid splashes and fumes, ichor drops). Felwood poison was the Poison film again under another name: retired.
+  - Plague cloud (was Plague swarm, one haze emitter): Plague cloud, Plague breath, Sinking miasma, Spore cloud, Buzzing cloud, all on the dragon's pale and murky cloud pair with its colours and frames.
+  - Vines (was Briar binding): Vine weave and Mossy bark (it was a switched-off layer), with falling leaves, pollen, spores.
+  - Leaves (new): Falling leaves, Whirlwind (wind ribbons, whirling leaves and dust).
+  - Fly swarm: untouched.
+- **Team colour** (`67a4c0e7`, new folder). Team colour (Colour wash, Glowing colour, Flowing light, Running bands), Team lights (Glow orbs, Rising sparks, Team flames, Leaping sparks), Team orb (Orb, Tip flare), Team swirl. Glow shell has a Team colour variation. Everything is made of the two native team pictures.
+- **Fire** (`dccdd444`). Fire and Fel fire: unchanged; one variation added to each, Fire breath and Fel breath. Lava: Molten lava, Spitting lava, Smouldering, Magma flow. Burning cracks: Burning cracks, Lava fissures (was Fissures; gets the low crack flames), Forge heat. Embers (was Rising embers): Rising embers, Falling sparks, Ash and cinders.
+- **Ice** (same commit). Frost: unchanged; Frost breath added. Crystal: unchanged. Frost mist: glints in the mist, and a Snowfall variation.
+- **Water** (same commit). Water takes Liquid body as a variation (with drips) and gains Waterfall.
+- **Lightning** (same commit). Lightning and Lightning cage: unchanged. Void: Rift seam and Void cracks; Void cracks takes the rift's bursts, splinters and glow over the whole surface in place of one orbiting emitter.
+- **Arcane** (`ff2cedb1`). Arcane takes Energy flow (glow started, sparks added). Runes: Runes, Thorn script, Glowing runes, Soul seal (was Soul lantern), Eclipse eye (was Eclipse brand), Hex mark; each sheds motes in its colour. Wards: Spell ward, Recall seal, Mending light, with glow and rising particles started (their particles were only offered). Night sky: Astral chart, Starlit shale (was Void shale), Moon mosaic.
+  - **Astral chart** (the white body). It replaced the part's surface with a marble tile. No render here confirmed why that drew white; the layer is gone. The part's own picture is darkened to night blue as an overlay, the star field and constellation lie over it, stars twinkle on it.
+  - **Rune circle** (the huge blades). A ring around all of a body is as wide as the unit, and a body's skin regions are slivers, so rings on regions mean nothing. New Card flag `seated`: on a body, or a part wider than a fifth of its length, the rings gather at the Fireball seat, stacked and sized to that mass. Owner's body: three level rings 49 across around the head (they were 266 across). Claw: 25 across (was 89). Sword: unchanged.
+- **Light** (same commit). Glow shell: Glow shell, Team colour, Glowing texture (was the Glow card). Motes moved here and gains Fireflies. Star flare, Glow orb: unchanged.
+- **Stone** (same commit). One card: Basalt, Carved cairn, Crumbling rock, Orbiting rocks (the last two after the Elemental Lord).
+- **Death & spirit** (same commit). Spirit (Wraith form, Spirit veil, Revenant waves), Souls (Soul vortex, Ghost trails), Shadow (Dark smoke, Hollow shell, Living ink), Blood (Sanguine drip, Blood pact). Each gets particles on the part: soul wisps and a ghost haze, black dust, ink drips, blood drips and spatter.
+- **Build your own**: unchanged. Its cards are separate tools, not variations of one look.
+- **Breath on a body** (the commit with this note). New `gather:'mouth'`: a weapon breathes from its far end; a body breathes from its head along +X, the way the unit faces, as wide as the head.
+- **Engine, fresh layers and stacks only** (details in [the recipe reference](fx-effect-recipe-reference.md), section 8): a variation's own `loop` and `asOverlay`; `tiling` from the recipe; `teamTile`; `team` on ribbons; Card `seated`; `gather:'mouth'`.
+- **Controls**: Tiling goes down to 0.5 (a surface layer can show a part of its picture; Flowing light uses 0.6 and 0.8). No other control changed.
+- **Search** finds a card by the name of any of its variations (`app/SurfaceEffects.jsx`), so "Magma flow" still finds Lava.
+- **Translations**: every new name is in the five catalogues.
+
+### Checks run (design checks, not tests)
+
+- `node out/fx-design/pass7/audit.mjs <model> <folder|all> <geoset...>`: every look and variation compiles; one line per layer with emitters, sprite size, particles alive, travel, and flags for huge, tiny, sparse, faint.
+- `node out/fx-design/pass7/rules.mjs`: the rules `test/fx-look-quality.test.js` states hold for the whole library (compiles on the knight's blade and body with offered layers, separate clocks, closed tracks, catalogue textures, five translations, no flashing).
+- `node out/fx-design/pass7/switch.mjs`: all 362 switches between two variations of a card leave every layer on or off as its recipe says, with the right loop and overlay choice.
+- `snap.mjs` + `cmp.cjs`: a fingerprint of what every look of the starting revision (`db04b3c7`) compiles to on the three parts, against now. Changed: only the looks this pass meant to change. Fire, Fel fire, Frost, Lightning, Crystal, Lightning cage, Star flare, Glow orb, Fly swarm and every retired look are identical.
+- `node --test test/fx-legacy-snapshot.test.js`: passes; the test and its fixture are untouched.
+
+### Tests that need new expectations (for a cheaper agent; none was run except the legacy snapshot)
+
+The library's shape changed, so most FX tests that name a look, a folder or a layer list are affected:
+
+- Lists of looks, folders, variations and counts: `fx-library-variations.test.js`, `global-animations.test.js`, `fx-look-quality.test.js` (also its `CARRIED_BEFORE` rows for looks that are variations now), `fx-sort.test.js`, `claude-fx-looks.test.js`, `fx-fifth-round.test.js`, `visual-effects.test.js`, `surface-effects.test.js`, `sort-my-mess.test.js` (if it reads the FX library), `fx-own-looks-library.test.js`, `fx-own-looks.test.js`.
+- Tests that open a look that is a variation now, or whose layers changed: `fx-layer-editor.test.js`, `fx-glow-shell-thickness.test.js` (Glow shell has variations), `fx-skin-speed.test.js`, `fx-emitter-persistence.test.js`, `fx-emitter-names.test.js`, `fx-attachment-cache.test.js`, `fx-emitter-depth.test.js`, `fx-emitter-defaults.test.js`, `fx-emitter-audit.test.js`, `fx-native-shared-sites.test.js`, `fx-fly-swarm.test.js`, `fx-empty-emitters.test.js`, `fx-emitter-round2.test.js`, `fx-cards.test.js` (Rune circle `seated`).
+- Electron tests that click a card by name: `fx-cards`, `fx-empty-emitters`, `fx-fifth-round`, `fx-layer-controls`, `fx-layer-editing`, `fx-own-looks`, `fx-owner-followup`, `fx-owner-motion`, `fx-owner-round`, `fx-responsiveness`, `global-animations`, `surface-effects-warriors` (`.electron.cjs`). A card that is a variation now is reached through its new card and the Variation menu.
+- `test/fx-legacy-snapshot.test.js` and its fixture stay as they are.
+
+### Next (not started)
+
+- Update the test expectations above.
+- Open questions only a render answers: whether the travelling team glow repeats cleanly in the preview and in the game (`teamTile`); whether Astral chart's darkened body is dark enough (`strength` of its Night layer); how the level rune rings read around the owner's head.
+- Left alone on purpose: particle sizes on a body (they follow one skin region; the owner's word is needed, see pass 6); the wide ribbons of Lightning cage, Team swirl and Whirlwind around a body (the owner saw the cage in build 06 and did not list it).
+
+Exact next step: none for the design; the owner reviews test build 07. The unit tests listed above need new expectations.
+
+### What the owner should look at (test build 07)
+
+- **Poison & nature > Plague cloud > Variation**: Plague cloud (a pale and a murky cloud billowing around the part, a faint green light inside, spores), Plague breath (a stream from the far end of a weapon; on the body from the head, forward), Sinking miasma, Spore cloud, Buzzing cloud (with flies).
+- **Poison & nature > Poison > Variation**: all six. Poison and Dripping venom should have dark shapes and slime moving over the green, and a green glow around the part.
+- **Team colour**: all four cards and their variations, on a unit with a team colour set. Light > Glow shell > Variation > Team colour.
+- **Arcane > Rune circle** on the body (Geoset 6): three small level rings around the head, no blades. On the claw: small rings around its thick end. On the sword: as before.
+- **Arcane > Night sky > Astral chart** on the body: a dark night-blue body with stars, no white.
+- **Fire > Fire > Variation > Fire breath**, Fel fire > Fel breath, Ice > Frost > Frost breath: on the sword and on the body. Fire's and Frost's other variations are unchanged.
+- **Every folder**: fewer cards; each card's Variation menu holds what used to be separate cards. Search still finds the old names.
+- **Fire > Embers** (Falling sparks, Ash and cinders), **Lava**, **Burning cracks** (Lava fissures with small flames).
+- **Water > Water > Waterfall**; **Ice > Frost mist > Snowfall**.
+- **Stone > Stone > Crumbling rock, Orbiting rocks**; **Poison & nature > Leaves > Whirlwind**.
+- **Death & spirit**: Spirit, Souls, Shadow, Blood: each with particles around the part now.
 
 ## Rules carried over
 
