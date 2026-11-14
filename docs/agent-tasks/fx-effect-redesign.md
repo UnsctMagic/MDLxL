@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; item 1 saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1 and 2 saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -217,14 +217,16 @@ Everything below builds; it was compiled in Node on the owner's model with the s
 Done:
 
 - **1. Selection stays** (`db026c16`). `pickGeoset` in `app/SurfaceEffects.jsx` carries the current stack to the next part: `carryAnimationStack` (`src/global-animation-model.js`) and `stackForPart` (`src/fx-own-looks.js`) refit it with the same rules a saved look uses. Look, variation, layer values, added and switched-off layers, an edited emitter count and a previewed Add emitter pick stay. Left behind: single emitters moved or edited by hand (they belong to the old part's surface). Whole-layer slider edits are stored per emitter, so they travel as ratios: `fieldScale` on the layer (new field, fresh layers only; applied in `applyFieldScale` after the layer's own values). A part that already has an applied effect shows that effect until something was chosen or changed in the window (`chosen`); after that the selection replaces the preview there, and nothing applied changes until Apply. Check: `node out/fx-design/pass6/carry.mjs <model> <look> <variation|-> <from> <to>`.
+- **2. Select emitter by group** (`108921f6`). A toggle in the Position & size row, next to Emitter markers. `emitterGroup` (`src/fx-emitter-placement.js`) finds the emitters of every switched-on particle layer within 4% of the part's length of the selected one. Dragging the move handle (`GlobalAnimationStage.jsx`: `movedTogether`) or Snap to surface gives all of them the same move; the heading shows the selected emitter and `+N`. Rotate, Delete and the value sliders still act on the selected emitter only. Check: `node out/fx-design/pass6/group.mjs <model> <look> <variation|-> <geoset>`.
 
-Next: items 2 to 13 in order, then the extra polish pass.
+Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: item 2, the group toggle (`app/GlobalAnimationStage.jsx`, `app/GlobalAnimationControls.jsx`, `app/SurfaceEffects.jsx`).
+Exact next step: item 6, 9, 10, 11 and the Eye glow removal (library filing in `src/global-animation-looks.js`), then item 3.
 
 What the owner should look at:
 
 - Pick any look and variation, change a colour or a size, then double-click another surface or change Geoset: the same look, variation and changes show on the new part.
+- Lightning > Tip discharge > select Tip glow > Position & size > Select emitter by group > click the emitter marker at the tip: the heading reads "Tip glow 1 +3". Drag the move handle: glow, crackle, discharge and sparks move together.
 
 ## Rules carried over
 
