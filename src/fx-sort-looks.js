@@ -59,7 +59,7 @@ export const SORT_LOOKS=[
  // two-colour crack stay; the whole surface now carries a violet aura, small bursts, splinters leaving it and a soft glow.
  make('rift','Rift seam',1600,
   surface('Dark rift','CloudsTile2',{filter:2,axis:'v',band:.5,strength:.85,tint:[.1,.03,.16],loop:4733}),
-  surface('Rift seam','Lightning4b',{axis:'v',band:.25,strength:1,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),
+  {...surface('Rift seam','Lightning4b',{axis:'v',band:.25,strength:1,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),image:'Doodads\\Cinematic\\Lightningbolt\\Lightning4b.blp'},
   {type:'Glow',label:'Dark aura',image:null,pulse:'soft',strength:.4,tint:[.45,.3,.8],inflate:.3,loop:3133},
   {...spray('Rift sparks','LightningBall',[.8,.6,1],{life:.24,rate:12,velocity:.2,spread:85,size:[.16,.11,.04],alpha:[255,255,0]}),starts:true,cover:'surface',widthCap:1,loop:1533,
    native:{Time:.5,Variation:.5,Flags:EMITTER_CARRIED,SegmentColor:[[1,1,1],[.76,.49,1],[.37,.09,.95]]}},

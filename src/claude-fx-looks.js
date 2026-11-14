@@ -11,6 +11,8 @@ const stone=(label,path)=>({type:'Moving skin',label,image:'TerrainArt\\'+path+'
 const spray=(label,name,tint,spec)=>({type:'Particles',label,kind:'native',image:tex(name),tint,nativeSpec:{texture:tex(name),...spec}});
 import {DRIP,FEL_FLAME_CARDS,spray as nativeSpray,vary,breath,breathSpit,EMITTER_UNFOGGED,EMITTER_CARRIED,EMITTER_SORTED,PUFF_FRAMES} from './fx-technique-looks.js';
 const CLOUDS='ReplaceableTextures\\Weather\\Clouds8x8.blp';
+// The Thunderclap bolt at the path the texture catalogue lists.
+const LIGHTNING2B='Abilities\\Spells\\Human\\Thunderclap\\Lightning2b.blp';
 const U=EMITTER_UNFOGGED,C=EMITTER_CARRIED;
 
 const fel=[.42,1,.22],sea=[.68,.9,1],lava=[1,.62,.3],ghost=[.62,.92,1],blood=[1,.18,.12],sick=[.5,.82,.22];
@@ -83,7 +85,7 @@ export const CLAUDE_LOOKS=[
   spray('Spirit wisps','Ghost1',ghost,{life:1.1,rate:7,area:.55,velocity:.25,spread:30,size:[.1,.24,.04]})),
  fx('Buffs & curses','corrupted-veins','Corrupted veins',2800,
   glow('Sickly glow',null,{pulse:'soft',strength:.42,tint:sick,inflate:.3,loop:3733}),
-  skin('Fel veins',tex('Lightning2b'),{axis:'v',band:.32,pulse:'beat',strength:1,tint:fel}),
+  skin('Fel veins',LIGHTNING2B,{axis:'v',band:.32,pulse:'beat',strength:1,tint:fel}),
   dust('Ichor drops','drops',tex('WaterBlobs1'),{tint:sick,...DRIP})),
  fx('Buffs & curses','blood-pact','Blood pact',1700,
   glow('Heartbeat',null,{pulse:'double',strength:1.1,tint:blood,inflate:.3}),
@@ -131,12 +133,12 @@ export const CLAUDE_LOOKS=[
   {...rune('Plate runes','Doodads\\Cinematic\\IcecrownObelisk\\glow_runes.blp','beat',rune_),tint2:[.6,.68,1]},
   glow('Rune light',tex('GenericGlow64'),{pulse:'soft',strength:.35,tint:rune_,inflate:.3,loop:2900})),
  armour('void-cracked','Void-cracked plate',2200,
-  glow('Void cracks',tex('Lightning2b'),{pulse:'beat',strength:1.6,tint:violet,tint2:[.5,.5,1],loop:2633}),
+  glow('Void cracks',LIGHTNING2B,{pulse:'beat',strength:1.6,tint:violet,tint2:[.5,.5,1],loop:2633}),
   glow('Dark aura',null,{pulse:'soft',strength:.4,tint:[.45,.3,.8],inflate:.3,loop:3133}),
   spray('Void splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.14,.28,.04]})),
  armour('forge-hot','Forge-hot plate',1900,
   glow('Heat glow',null,{pulse:'soft',strength:.8,tint:ember,inflate:.3}),
-  glow('Glowing seams',tex('Lightning2b'),{pulse:'beat',strength:1.6,tint:ember,tint2:[1,.38,.3],loop:2033}),
+  glow('Glowing seams',LIGHTNING2B,{pulse:'beat',strength:1.6,tint:ember,tint2:[1,.38,.3],loop:2033}),
   // Sparks dropping off the hot metal (Fireball's falling sparks, over the whole part).
   nativeSpray('Falling sparks',tex('Sparkle_Anim'),[1,.7,.2],
    {atlas:4,life:1.4,rate:12,velocity:.3,gravity:.7,spread:40,size:[.4,.2,.02],alpha:[100,150,0]},

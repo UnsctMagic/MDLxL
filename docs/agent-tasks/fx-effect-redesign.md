@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 7 saved locally (14 November): the whole library reworked folder by folder, `00e0fc49` to the commit that adds this note. Builds; compiled in Node on the owner's model and checked against the library's own rules and against the starting revision, not rendered, not opened in the app; of the unit tests only `test/fx-legacy-snapshot.test.js` was run (passes). The owner reviews test build 07 by eye. Local branch only.
+Status: passes 8 and 9 in progress (14 November), saved locally: the pass 8 list is built and committed (`14b6aa47` to the commit that adds this note), captures taken but not reviewed, names not translated, pass 9 items listed under "Not done" in the last section. Builds; compiled in Node, not opened in the app by the designer; of the unit tests only `test/fx-legacy-snapshot.test.js` was run (passes). The owner reviews test build 08 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -344,6 +344,60 @@ Exact next step: none for the design; the owner reviews test build 07. The unit 
 - **Water > Water > Waterfall**; **Ice > Frost mist > Snowfall**.
 - **Stone > Stone > Crumbling rock, Orbiting rocks**; **Poison & nature > Leaves > Whirlwind**.
 - **Death & spirit**: Spirit, Souls, Shadow, Blood: each with particles around the part now.
+
+## Passes 8 and 9 (14 November 2026, Fable)
+
+Brief: [fx-pass9-intent.md](fx-pass9-intent.md). The owner on build 07: "its almost perfect, but a lot of things are overlooked". Everything below builds and was compiled in Node on the owner's model and the four variety models (`out\fx-design\pass8\`); captures of every new look were taken (`out\fx-look\pass8-a`, `pass8-b`) but **not yet reviewed**. Unit tests were not run except `test/fx-legacy-snapshot.test.js` (passes). The new names are **not yet translated**.
+
+### The cause behind several complaints
+
+The window opens on the first geoset. A look picked there and then taken to another part (the pass 6 carry) was refitted by plain ratios of the two parts. Ribbons, a Fly swarm's radius and the number of drops came out wrong: Souls and Arcane swirl 84 units wide on the sword where the look itself makes 16, a swarm five times too large, Lightning cage ribbons a third of their width. `refitFromRecipe` (`carryAnimationStack`) now gives each such value what the look gives on the new part, times what the user had changed it by (`14b6aa47`). Check: `node out/fx-design/pass8/carrydiff.mjs <model> <from> <to...>` lists every look whose carried result differs from the fresh one (now none).
+
+### Done
+
+- **Souls** (`45414976`): three ghost ribbons after the owner's SoulArmor (the `Ghost2` picture: a head with a fading tail, on the spin, tilt and bob helper chain), each once for the whole part on a ring sized to it, level around a body. Ghost trails the same way. New ribbon fields `upright`, `bandCap`.
+- **Plague cloud and other hazes** (same commit): `cover:'cloud'`. A weapon is covered as before. A body gets six sources around its middle, sized by the body itself (`cloudSites`, `uprightFrame`): the owner's body wears 33-unit puffs where it had about 10.
+- **Twirling energy** (`56b1ba11`): Card facing `twirl` (`twirlStrands`, `partProfile`): strands wound around the part in a spiral, following its outline at every place (toward each side on a body), on one bone that turns about the part, the picture running along them. Controls Turns, Width, Flow, Tiling. **Arcane swirl** is rebuilt on it; Team swirl > Team twirl, Fire > Swirling flames, Fel fire > Swirling fel flames are new.
+- **Rune circle** (same commit): new Card field Tilt. Each ring leans out of its plane and turns about the part, so it shows from every side; around a body the rings stand level, one at each height, as wide as the body there.
+- **Variation switch** (same commit): a layer starts as its recipe says unless the user had moved the switch of the layer it replaces.
+- **Riders, orbs, rune swarm** (`9ea56eaf`): `ride` puts a layer's emitters on the flies of the look's swarm (sizes in fly widths, rate per fly, particles trail). Fly swarm > Fire flies, Plague flies, Spark flies, Glow flies. A swarm can carry a square picture (`square`, `atlasRect`, `filter`, `flock`, `reach`). **Elemental orbs** (Light): Fire, Frost, Acid, Lightning, Arcane, Golden: native ball pictures (`BloodElfBallz`, and the ball in the corner of `Ranger`, `BansheeRanger`, `HighElfArcher`) on the fly paths around the part. Runes > **Rune swarm**.
+- **Crystals** (`3362633d`): the new **Growth** layer type (`growthLayer`), the one layer that makes solid geometry, on the owner's explicit request. Pieces are spread by area from a seed, bound to the bones of the skin under them, feet under the surface. Sliders Count, Size, Length, Spread, Variety, Glow, and Shuffle. Crystal > Crystal growth, Team crystals; Frost > Ice spikes; Lava > Ember crystals; Vines > Leaf cover (leaf cards, after Demigod Cenarius).
+- **Glow orb** (`3438d000`): a weapon carries it at its far end (`gather:'orb'`); the grey ball picture in the layer's colour, glow, white heart, rings, wisps. New variation Radiance.
+- **Team fire** (same commit, Team colour folder): Fire's variations drawn with the team glow, white-hot flame shapes inside. **Team tattoo**: Team colour > Tattoo bands, Tattoo marks, Tattoo spots. A drawn design in the player's colour is not possible: the colour exists only as a flat colour and a round glow, and the game cannot cut one picture out of another. **Void form** after the Void walker.
+- **Fixes** (the commit with this note): non-finite keys of a skin attachment under a bone scaled to nothing (Chikichiki geoset 8) keep the last real place; the Thunderclap and cinematic lightning pictures are read from their catalogued paths.
+
+### Checks
+
+- `out/fx-design/pass8/blend.mjs`: no layer draws a light sprite or a picture without alpha as a block. It also lists pictures the classic catalogue does not list: `Textures\FX\Flare\FlareNarrow`, `DiamondNarrow`, `Textures\FX\v\EclipseRingMidnight`, `LeafGold8x8`, `EmberGlowSharp`, `Textures\MoonCrescentGlow`, `Textures\Feather`. They are the game's own files (found in its archive), in use since before pass 7 (Frost > Frosted steel among them). They were left, because replacing them changes approved looks: **the owner's call**.
+- `out/fx-design/pass7/rules.mjs`, `switch.mjs` (572 switches), `audit.mjs all` on sword and body: clean except missing translations.
+
+### Not done (in the order to do them)
+
+1. Review the captures: an Opus agent reads `out\fx-look\pass8-a\sheet-*.png` and `pass8-b\sheet-*.png` against this list and forwards the bad cases, looking for square or block artefacts in particular.
+2. Translate the new names and control labels into the five catalogues (Sonnet; `node out/fx-design/pass7/rules.mjs` and `test/localization-catalogs.test.js` list them).
+3. Test expectations for everything above, plus a source test of the blend rule in `blend.mjs` (Sonnet).
+4. Animation sequences (brief B): show a layer only in chosen animations, set in the window. Not started. Plan: a layer field `sequences`; after a layer compiles, its emitters' and ribbons' Visibility and its geosets' alpha get stepped keys per sequence.
+5. Lightning pass from MM20 Stormforger and the BlueRed Lightning Missile reference (also to be added to the credits): not started. Lightning, Crackling arcs and Lightning cage only gain additions.
+6. Team electric energy and team fog (owner): not started. They follow Team fire: the team glow as the sprite of every layer, Lightning's and Plague cloud's recipes.
+7. Looks from the pass 9 references not built yet (measured in `out\fx-design\pass9\ref.md`): Frost Fury (scrolling ice with paired star and snowflake emitters), Doom Emperor (fel fire with black smoke at two thirds its size), Archimonde's static fire-ring skin, Prism Ray mist, Shalamayne's edge glint and a seamless sweeping sheen, Heart of the Storm's jittering arcs across joints, Nature Blast.
+8. Recipe reference section for the new fields.
+
+Exact next step: item 1, then 2.
+
+### What the owner should look at (test build 08)
+
+- **Any look, picked on the first geoset and then taken to the sword or the body**: it now looks the same as when picked there.
+- **Death & spirit > Souls**: three ghosts circling the part, each with a head and a tail; around the body they circle level. Not huge.
+- **Poison & nature > Plague cloud** on the body: one large cloud around the whole unit.
+- **Arcane > Arcane > Arcane swirl**: streaks of light wound around the part, turning, with wider wisps turning the other way.
+- **Arcane > Rune circle**: on a weapon, leaning rune rings wobbling around it; on the body, level rings around the whole body.
+- **Fire > Fire > Swirling flames**, Fel fire > Swirling fel flames.
+- **Light > Glow orb**: a real orb at the far end of a weapon; Variation > Radiance.
+- **Light > Elemental orbs** (six variations); Flies sets how many, Formation how far out.
+- **Poison & nature > Fly swarm > Fire flies, Plague flies, Spark flies, Glow flies**.
+- **Arcane > Runes > Rune swarm**.
+- **Ice > Crystal > Crystal growth** and Team crystals; Ice > Frost > Ice spikes; Fire > Lava > Ember crystals; Poison & nature > Vines > Leaf cover. Select the layer: Count, Size, Length, Spread, Variety, Glow, Shuffle.
+- **Team colour > Team fire** (six variations); Team colour > Team colour > Tattoo bands, Tattoo marks, Tattoo spots, Void form; Team swirl > Team twirl.
 
 ## Rules carried over
 
