@@ -347,7 +347,7 @@ Exact next step: none for the design; the owner reviews test build 07. The unit 
 
 ## Passes 8 and 9 (14 November 2026, Fable)
 
-Brief: [fx-pass9-intent.md](fx-pass9-intent.md). The owner on build 07: "its almost perfect, but a lot of things are overlooked". Everything below builds and was compiled in Node on the owner's model and the four variety models (`out\fx-design\pass8\`); captures of every new look were taken (`out\fx-look\pass8-a`, `pass8-b`) but **not yet reviewed**. Unit tests were not run except `test/fx-legacy-snapshot.test.js` (passes). The new names are **not yet translated**.
+Brief: [fx-pass9-intent.md](fx-pass9-intent.md). The owner on build 07: "its almost perfect, but a lot of things are overlooked". Everything below builds and was compiled in Node on the owner's model and the four variety models (`out\fx-design\pass8\`); captures of every new look were taken (`out\fx-look\pass8-a`, `pass8-b`) and reviewed once; the fixes that followed were not captured again. Unit tests were not run except `test/fx-legacy-snapshot.test.js` (passes). The new names are translated. Test build 09 (at `17917824`) was opened for the owner at 15:14; a newer one follows the review fixes.
 
 ### The cause behind several complaints
 
@@ -371,10 +371,24 @@ The window opens on the first geoset. A look picked there and then taken to anot
 - `out/fx-design/pass8/blend.mjs`: no layer draws a light sprite or a picture without alpha as a block. It also lists pictures the classic catalogue does not list: `Textures\FX\Flare\FlareNarrow`, `DiamondNarrow`, `Textures\FX\v\EclipseRingMidnight`, `LeafGold8x8`, `EmberGlowSharp`, `Textures\MoonCrescentGlow`, `Textures\Feather`. They are the game's own files (found in its archive), in use since before pass 7 (Frost > Frosted steel among them). They were left, because replacing them changes approved looks: **the owner's call**.
 - `out/fx-design/pass7/rules.mjs`, `switch.mjs` (572 switches), `audit.mjs all` on sword and body: clean except missing translations.
 
+### Capture review and the fixes it led to
+
+An Opus agent read the capture sheets (266 captures, five models): `out\fx-look\pass8-review.md`. Right on every part: Elemental orbs, Fire, Spark and Glow flies, Team crystals, Ghost trails, Void form, and the approved comparison looks. Fixed from its findings in `ef8529bd` (compiled, **not captured again**):
+
+- Twirl strands around a body or a claw were sheets as wide as the body: a strand's width is now limited by the part's length. A team twirl draws the round team glow once along each strand.
+- Clouds on a body were born inside it and hidden: nine sources on its outline and over its top.
+- Rune circle around a body was several times the body: level rings 18% smaller; a ring seated in a compact piece is wider than the piece.
+- Glow orb: the ball is drawn as light (its dark rim showed as a black disc), and on a compact piece or a body the orb rests on top of the mass, where it is seen.
+- Souls: ribbons drawn as light, narrower, leaning 12 degrees.
+- Tattoo bands, marks and spots were nearly invisible: full-width bands of the middle of the glow, at two and a half times the light.
+- Team fire painted the whole body: its heat layer is fainter. Plague flies' haze is smaller. Growth pieces are a third larger.
+
+Still open from the review: effects on very thin staffs (Souls, Rune circle and crystals are hard to see), Rune swarm pictures large against a small weapon, Team fire's small flames on a body (every fire is sized by one skin region there; the owner's word is needed, see pass 6), and whether the rings on Chikichiki's body stand level.
+
 ### Not done (in the order to do them)
 
-1. Review the captures: an Opus agent reads `out\fx-look\pass8-a\sheet-*.png` and `pass8-b\sheet-*.png` against this list and forwards the bad cases, looking for square or block artefacts in particular.
-2. Translate the new names and control labels into the five catalogues (Sonnet; `node out/fx-design/pass7/rules.mjs` and `test/localization-catalogs.test.js` list them).
+1. Capture the looks fixed above again and have them reviewed (`out\fx-look\pass8-a-plan.json`, `pass8-b-plan.json`, `run.ps1`).
+2. Translations are done (`250e06e8`). `test/localization-catalogs.test.js` needs its key counts updated (ru 8387, es 8397, zh 8293, fr 8523, de 8523); its French and German key-order failure is older.
 3. Test expectations for everything above, plus a source test of the blend rule in `blend.mjs` (Sonnet).
 4. Animation sequences (brief B): show a layer only in chosen animations, set in the window. Not started. Plan: a layer field `sequences`; after a layer compiles, its emitters' and ribbons' Visibility and its geosets' alpha get stepped keys per sequence.
 5. Lightning pass from MM20 Stormforger and the BlueRed Lightning Missile reference (also to be added to the credits): not started. Lightning, Crackling arcs and Lightning cage only gain additions.
@@ -382,9 +396,9 @@ The window opens on the first geoset. A look picked there and then taken to anot
 7. Looks from the pass 9 references not built yet (measured in `out\fx-design\pass9\ref.md`): Frost Fury (scrolling ice with paired star and snowflake emitters), Doom Emperor (fel fire with black smoke at two thirds its size), Archimonde's static fire-ring skin, Prism Ray mist, Shalamayne's edge glint and a seamless sweeping sheen, Heart of the Storm's jittering arcs across joints, Nature Blast.
 8. Recipe reference section for the new fields.
 
-Exact next step: item 1, then 2.
+Exact next step: item 1, then 3.
 
-### What the owner should look at (test build 08)
+### What the owner should look at (the newest test build)
 
 - **Any look, picked on the first geoset and then taken to the sword or the body**: it now looks the same as when picked there.
 - **Death & spirit > Souls**: three ghosts circling the part, each with a head and a tail; around the body they circle level. Not huge.
