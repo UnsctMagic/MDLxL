@@ -1,6 +1,6 @@
 # Ribbon maker: elemental sweeps (owner intent, 14 November 2026)
 
-Status: in progress
+Status: owner-approved (build 03, `a57875e8`); waiting for "merge". Not online.
 Branch: `claude/ribbon-sweeps-6d004b` (worktree `D:\Claude\MDLxL\.claude\worktrees\ribbon-sweeps-6d004b`), from `main` at `40a37825`.
 Written by the orchestrator (Opus). Fable leads design and the code that matters. This file is the brief and the running task note.
 
@@ -58,3 +58,4 @@ The Ribbon maker is EMTR's **Add ribbon** flow (`beginRibbon` in `app/ParticleEd
   - Bloodstone Arrows work by glowing blood: tiny long-lived specks (1 s, size 2 → 4 → 4, gravity only 10) in red-gold over small `RingOFire` rings (size 6 → 5 → 3, red 1, 0.22, 0.24 → 0.72, 0, 0.02) and a very short crimson ribbon (0.15 s). They draw `BloodSplash` Additive, which native models never do (Blend only), so do not take that pairing: use `Textures\BloodBlobs1.blp` (native Additive use, in the catalogue) or `Red_star2` for the glowing specks. Candidate new choice **Bloodstone**: short crimson ribbon, glowing red-gold specks that hang, small `RingOFire` rings. The "LSD" variants are the same build with rainbow segment colours.
   - New choices need: entries in `SWEEPS` and in the test's `NATIVE_EMITTER_MODE` table, names in the five catalogues and `locale-feature-sources.json`, a capture round with Opus review (blocks included), then the 40-hash compare for the existing ten.
 - Still open: the Footman capture (`out\sweep-look\models.json`, slug `footman`) selects a geoset holding sword and shield, so the fitted edge is not the blade; pick the sword's polygons only (or another small-sword model) before the next review round.
+- 14 Nov, final: owner accepted build 03 as is ("ribbon is approved"). No further changes on this branch. Next step: when the owner says "merge", push `claude/ribbon-sweeps-6d004b`, open the PR into `main` and merge (CLAUDE.md). `THIRD_PARTY_NOTICES.md` "FX reference models" is also added on `claude/fx-effects`; whichever merges second resolves the clash by keeping every entry once. Ice, Bloodstone and the Footman capture stay as optional later work above.
