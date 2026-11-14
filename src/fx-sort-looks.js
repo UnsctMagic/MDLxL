@@ -1,5 +1,5 @@
 // Native hand-test recipes. Unfiled entries resolve only when reopening an older stack.
-import {cardSpec} from './fx-cards.js';
+import {EMITTER_UNFOGGED,EMITTER_CARRIED} from './fx-technique-looks.js';
 const tex=name=>(name.startsWith('Units\\')?name:'Textures\\'+name)+'.blp';
 const surface=(label,name,extra={})=>({type:'Moving skin',label,image:tex(name),strength:.75,...extra});
 const light=(label,name,pulse,strength,tint)=>({type:'Glow',label,image:tex(name),pulse,strength,tint});
@@ -52,12 +52,19 @@ export const SORT_LOOKS=[
  make('crescent','Twin crescents',3600,spray('Outer crescent','MoonCrescentGlow',silver,{life:.39,rate:9,orbit:.73,size:[.19,.31,.04]}),spray('Inner star','Star4',gold,{life:.24,rate:9,orbit:.41,phase:.5,height:.19,size:[.10,.17,.02]})),
  make('veil','Ash veil',4350,spray('Ash veil','CloudSingle',[.62,.57,.57],{life:1.5,rate:9,area:.55,velocity:.38,filter:0,size:[.18,.48,.69],alpha:[0,155,0]}),spray('Ash flecks','Dust3x',silver,{life:.85,rate:12,velocity:.68,spread:60,size:[.07,.12,.02],alpha:[0,196,0]})),
  make('dew','Dew pearls',4600,light('Dew sheen','FX\\Flare\\DiamondNarrow','glint',.55,mint),spray('Dew pearls','WaterBlobs1',silver,{life:.93,rate:9,area:.67,gravity:.83,spread:28,filter:0,size:[.04,.16,.07]})),
- // A dark underlay, a crack moving slowly between two colours, softly crackling zap cards; the splinters stay as they were.
+ // Pass 6 (14 November; owner: "hit and miss, but nice idea"). The three zap cards sat at the middle of every skin
+ // region, wherever that was, and nothing else held the look where the seam mapping is weak. The dark tear and the
+ // two-colour crack stay; the whole surface now carries a violet aura, small bursts, splinters leaving it and a soft glow.
  make('rift','Rift seam',1600,
   surface('Dark rift','CloudsTile2',{filter:2,axis:'v',band:.5,strength:.85,tint:[.1,.03,.16],loop:4733}),
-  surface('Rift seam','Lightning4b',{axis:'v',band:.25,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),
-  cardSpec('Rift zaps',tex('Zap1'),{count:3,jitter:140,fit:.7,sizeMin:.85,sizeMax:1.1,loop:1133,tint:[.85,.6,1]}),
-  spray('Rift splinters','Star7b',violet,{life:.68,rate:11,orbit:.39,tail:.09,size:[.14,.28,.04]})),
+  surface('Rift seam','Lightning4b',{axis:'v',band:.25,strength:1,tint:violet,tint2:[.45,.75,1],pulse:'beat',loop:2400}),
+  {type:'Glow',label:'Dark aura',image:null,pulse:'soft',strength:.4,tint:[.45,.3,.8],inflate:.3,loop:3133},
+  {...spray('Rift sparks','LightningBall',[.8,.6,1],{life:.24,rate:12,velocity:.2,spread:85,size:[.16,.11,.04],alpha:[255,255,0]}),starts:true,cover:'surface',widthCap:1,loop:1533,
+   native:{Time:.5,Variation:.5,Flags:EMITTER_CARRIED,SegmentColor:[[1,1,1],[.76,.49,1],[.37,.09,.95]]}},
+  {...spray('Rift splinters','Star7b',violet,{life:.7,rate:16,velocity:.45,spread:60,tail:.2,size:[.03,.1,.02],alpha:[0,255,0]}),starts:true,cover:'surface',loop:2133,
+   native:{Time:.4,Variation:.4,Flags:EMITTER_UNFOGGED,SegmentColor:[[1,1,1],[.76,.49,1],[.3,.2,.9]]}},
+  {...spray('Rift glow','Purple_Glow',[.6,.4,1],{life:1,rate:10,size:[.2,.3,.22],alpha:[0,110,0]}),starts:true,cover:'surface',widthCap:1.3,loop:2933,
+   native:{Time:.5,Flags:EMITTER_CARRIED}}),
 ];
 
 // Only these retired ingredients were approved for Add/Change emitter. Keep the
