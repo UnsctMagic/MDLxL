@@ -1,6 +1,6 @@
 # Objects display — owner's revised spec (14 Nov 2026, evening)
 
-Status: in progress (Opus). Supersedes the first plan below, which the owner rejected after testing build 01:
+Status: built, ready to test (see "Built" below), not online. Supersedes the first plan below, which the owner rejected after testing build 01:
 "its too much shit ... I hoped fable would do something smart - this is just way too cluttered and function is lost."
 
 ## The owner's spec (their words, then the settled reading)
@@ -33,6 +33,50 @@ Attachments/sounds moving or animated: research Hive + the model library; includ
 - **Clicked object shows its diamonds** on the existing keyframe track (event frames for events/sounds, Visibility keys
   for the others); add at the playhead, delete diamonds, as the track already does for bones.
 - **VIS (MDLVis look):** exactly as on main; none of the first build's VIS changes.
+
+## Built (rebuild from main, 14 Nov 2026 evening)
+
+Local branch `claude/node-display-37527c`; restarted from main `40a37825` (commit `Objects: restart from main's code and tests`).
+Test build `D:\Claude\MDLxL\TestBuilds\node-display-02`; ready to test, not online.
+
+- **Lists:** VIS keeps `src/view-menu.json` unchanged (a source test compares it with main's copy); XL reads
+  `src/view-menu-xl.json` (the table above). The native View menu, Quick Display, toolbar keys and command launcher pick by look.
+- **Objects** (`src/object-display.js`): Objects shows attachments, emitters+ribbons, events (every non-SND event, including
+  odd ones) and sounds; right-click opens the Bones-style menu with Attachments, Emitters, Events, Sounds (all ticked at start).
+  Objects, its ticks and Lights are shared by Bones and Movement and kept by Clear, like Bones and Helpers/Bones.
+  Lights got their own kind; collision has none in XL, so it never shows there. Marker shapes are unchanged.
+- **Defaults:** Vertices Objects off; Bones and Movement Objects on (Movement on main showed emitters and played particles
+  by default; Objects keeps that). Because Objects also gates the real effects in Movement as the old switches did, blood,
+  footprints and sounds now play in Movement by default too; untick Events/Sounds in the right-click menu to stop them.
+- **Animations:** no symbols, no bones, no skeleton, no Nodes list (VIS keeps its Nodes list and node path). Emitters,
+  Events, Sounds hide the real particles+ribbons, decals and sound playback as before. **RGB** turns the geoset colours
+  off (white) or on in the preview; on by default, so the look matches main. **Lights**: the preview does not render
+  the model's own lights (it lights the model with the camera light), so the switch exists and has nothing to hide.
+- **Old saves:** `nodes` becomes Lights; the old Attachments/Emitters/Events/Sounds become Objects (on if any was on) with
+  those as the ticks; with none on, Objects is off and every tick stays on. A stuck XL Vertex Bones tick is cleared.
+- **Diamonds (Movement, XL):** a selected emitter, ribbon, light or attachment shows its Visibility keys beside the transform
+  keys (main did this for emitters only); a selected event or sound shows its event frames. The reel's right-click menu has
+  **Add key at N** (event frame, or a stepped Visibility key with value 1); Delete and Clear also remove event frames; all of
+  it goes through the normal history (Undo). Selecting an object keyed on a global sequence switches the timeline to it;
+  editing on the wrong clock reports the existing plain message instead of an error.
+- **Movement selection/move:** `MOVEMENT_EDITABLE_KINDS` in `src/object-display.js` (bones, attachments, emitters, ribbons,
+  events, lights). Sounds can be selected (to show and edit their diamonds) but not moved or rotated in Movement; Bones
+  (rest pose) keeps main's behaviour. Research: attachments move on native heroes and 38% carry Visibility keys; sound
+  transform keys look like exporter leftovers.
+- **Ported from build 01:** Object Manager name (menu, title, tab "Objects", command label; Alt+O unchanged); double-click an
+  emitter or ribbon symbol opens EMTR without moving the camera, and double-clicking a playing particle in Animations opens
+  EMTR too (XL); Movement's strip shows only "Edit effect" for emitters and keeps "Visible" for lights and attachments;
+  the manager's Visibility button sends emitters to EMTR and lights/attachments to Movement (XL); "Clone object" /
+  "Delete object"; the Movement Delete button (XL, hidden in POSE and Portrait). The Object Manager otherwise works as on main.
+- The Bones sidebar's Refs tick (XL) now shows attachments through Objects and its Attachments tick.
+- **Checks run:** `pnpm run build`; `pnpm test` 57/57; full source suite 3474 tests, 3464 pass, 0 fail (rest skipped;
+  baseline empty), including the new `test/object-display.test.js` (11); packaged on `TestBuilds
+ode-display-02`:
+  `object-display` (new), `animation-effects`, `node-effect-controls`, `vis-mdlvis-mode` all pass. Updated tests (XL behaviour
+  changed on purpose): display-overlays, herrdave-shell, movement-component, node-effect-controls (source + packaged),
+  uv-preview-display, viewport-overlays, vis-mdlvis-mode (source + packaged), animation-effects, localization-catalogs
+  (catalogue sizes), localization-quality (also checks the XL labels). `vis-mdlvis-mode.electron.cjs` also failed on main:
+  it still expected Axis guides in the quick row, which 40304fc4 moved to the View menu only. Full packaged suite not run.
 
 ---
 

@@ -88,11 +88,11 @@ const { createHash } = require('node:crypto');
     };
     const command = action => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), action);
     await waitFor(state => state.ready, 'Preview ready');
-    // Bones is on by default in the rig editors and shared with Movement (PR #238, c85bedaf); its markers would
-    // keep the node overlay present. This test is about emitter markers only, so switch bone markers off.
-    const bones = page.locator('input[data-hotkey="display:bones"]').first();
-    assert.equal(await bones.isChecked(), true, 'Bones starts on in Animations'); await bones.uncheck();
-    assert.equal(await page.locator('.animation-node-list input:checked').count(), 0);
+    // MDLxL Animations (owner's revised spec, 14 Nov 2026): RGB, Shadows, Lights, Emitters, Events, Sounds,
+    // Grid; no Bones, no Nodes switch, no Nodes list and no symbols. Emitters only gates the real effects.
+    assert.equal(await page.locator('input[data-hotkey="display:bones"]').count(), 0, 'Animations has no Bones switch');
+    assert.equal(await page.locator('input[data-hotkey="display:nodes"]').count(), 0, 'Animations has no Nodes switch');
+    assert.equal(await page.locator('.animation-node-list').count(), 0, 'Animations has no Nodes list');
     assert.equal(await page.getByRole('dialog', { name: 'Particle Editor', exact: true }).count(), 0);
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -100,42 +100,20 @@ const { createHash } = require('node:crypto');
     assert.equal(visible.nodes, 0); assert.equal(visible.geosets, doc.model.Geosets.length);
     await screenshot('animations-effects.png');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
-    // Since 3297c3b2 Animations starts with Emitters on (it gates the emitter effects) and Nodes off (Nodes shows
-    // the effect symbols), and node selection no longer changes either flag. Set the switches explicitly.
-    const emitters = page.locator('input[data-hotkey="display:particles"]').first(), symbols = page.locator('input[data-hotkey="display:nodes"]').first();
+    const emitters = page.locator('input[data-hotkey="display:particles"]').first();
     assert.equal(await emitters.isChecked(), true, 'Emitters starts on in Animations');
-    assert.equal(await symbols.isChecked(), false, 'Nodes starts off in Animations');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const toggled = await waitFor(state => state.particles[0] > 0 && state.ribbons[0] > 1, 'Effects run with the display switch on');
-    assert.equal(toggled.nodes, 0);
-    await page.getByLabel('Select node Visible sparks', { exact: true }).check(); await settlePage(page, 300);
-    await waitFor(state => state.nodes === 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
-      'Selecting an emitter shows no marker with Nodes off; both effects keep rendering');
-    // The pentagram mesh size is not fixed any more, so the two emitter pentagrams are measured as what the
-    // Emitters switch adds to the GL marker draw.
-    await symbols.check(); await settlePage(page, 300);
-    const selected = await waitFor(state => state.nodes === 1 && state.markerTriangles > 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
-      'Nodes shows the effect symbols; both effects keep rendering');
-    const withEmitters = selected.markerTriangles; assert.equal(withEmitters % 2, 0, 'two identical emitter pentagrams');
-    await screenshot('animations-selected-emitter.png');
+    assert.equal(toggled.nodes, 0, 'no symbols');
     await emitters.uncheck();
-    await waitFor(state => state.markerTriangles < withEmitters && state.particles[0] === 0 && state.ribbons[0] === 0,
-      'Emitters off removes exactly both emitter pentagrams and stops both emitter effects');
+    await waitFor(state => state.nodes === 0 && state.particles[0] === 0 && state.ribbons[0] === 0, 'Emitters off stops both emitter effects');
     await emitters.check();
-    await waitFor(state => state.markerTriangles === withEmitters && state.particles[0] > 0 && state.ribbons[0] > 1,
-      'Switching Emitters back on restores both pentagrams and resumes the authored effects');
-    await page.getByLabel('Select node Visible sparks', { exact: true }).uncheck(); await settlePage(page, 300);
-    await waitFor(state => state.markerTriangles === withEmitters && state.particles[0] > 0 && state.ribbons[0] > 1,
-      'Emitter symbols do not depend on node selection');
-    await symbols.uncheck();
-    await waitFor(state => state.nodes === 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
-      'Nodes off removes all markers and leaves effects running');
-    await symbols.check();
+    const selected = await waitFor(state => state.nodes === 0 && state.particles[0] > 0 && state.ribbons[0] > 1, 'Switching Emitters back on resumes the authored effects');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const hidden = await waitFor(state => state.frame > 3200 && state.particles[0] === 0 && state.ribbons[0] === 0, 'Authored hidden animation stays hidden');
-    assert.equal(hidden.markerTriangles, withEmitters, 'Emitter markers remain visible even when the authored effect is hidden');
+    assert.equal(hidden.nodes, 0, 'still no symbols');
     await screenshot('animations-authored-hidden.png');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await command('camera:rotate');
@@ -148,17 +126,20 @@ const { createHash } = require('node:crypto');
     await page.mouse.up();
     await waitFor(state => state.camera.some((value, i) => Math.abs(value - cameraBefore[i]) > 1), 'Normal mouse drag rotates the preview camera');
     await command('camera:work');
-    await symbols.uncheck();
-    await waitFor(state => state.nodes === 0, 'Hidden animation also clears the markers with Nodes off');
+    await waitFor(state => state.nodes === 0, 'Hidden animation shows no markers');
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), sidebarWidth);
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
-    // Movement also draws focused bone markers with the same GL program, so measure what its Emitters switch adds.
-    if (!await emitters.isChecked()) await emitters.check(); await settlePage(page, 300);
+    // Movement: the Objects switch (on by default) shows the emitter symbols and plays their effects; its
+    // right-click Emitters tick removes exactly the two emitter pentagrams.
+    const objects = page.locator('input[data-hotkey="display:objects"]').first();
+    assert.equal(await objects.isChecked(), true, 'Objects starts on in Movement');
     const movementOn = (await waitFor(state => state.nodes === 1 && state.markerTriangles > 0, 'Movement markers drawn')).markerTriangles;
-    await emitters.uncheck();
-    const movementOff = (await waitFor(state => state.markerTriangles !== movementOn, 'Movement Emitters switch removes emitter markers')).markerTriangles;
-    assert.equal(movementOn - movementOff, withEmitters, 'Movement retains all emitter editing markers');
-    await emitters.check(); await waitFor(state => state.markerTriangles === movementOn, 'Movement emitter markers return');
+    const typeMenu = async () => { await objects.locator('xpath=..').click({ button: 'right' }); await page.getByRole('menu', { name: 'Object types', exact: true }).waitFor(); };
+    await typeMenu(); await page.getByRole('menuitemcheckbox', { name: 'Emitters' }).click(); await page.keyboard.press('Escape');
+    const movementOff = (await waitFor(state => state.markerTriangles !== movementOn, 'Movement Emitters type removes emitter markers')).markerTriangles;
+    assert.ok(movementOn - movementOff > 0 && (movementOn - movementOff) % 2 === 0, 'two identical emitter pentagrams');
+    await typeMenu(); await page.getByRole('menuitemcheckbox', { name: 'Emitters' }).click(); await page.keyboard.press('Escape');
+    await waitFor(state => state.markerTriangles === movementOn, 'Movement emitter markers return');
     await screenshot('movement-markers.png');
     assert.deepEqual(await fs.readFile(fixture), bytes);
     assert.deepEqual(errors, []);

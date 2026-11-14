@@ -1954,7 +1954,10 @@ export default function App() {
   // Props shared by both Movement controller render sites: Bones mode and the
   // Animation > Movement panel. Called while rendering each site, as before.
   const movementControllerProps = () => ({
-    vanilla: visUI, objectDisplay: overlays, onObjectDisplay: changeOverlay,
+    vanilla: visUI,
+    // MDLxL: the Bones sidebar's Refs tick shows attachments through Objects and its Attachments type.
+    objectDisplay: visUI ? overlays : { ...overlays, attachments: !!overlays.objects && overlays.objectTypesAttachments !== false },
+    onObjectDisplay: visUI ? changeOverlay : (key, value) => { if (key !== 'attachments') { changeOverlay(key, value); return; } changeOverlay('objectTypesAttachments', value); if (value) changeOverlay('objects', true); },
     poseConfig, onPoseChange: changePose, onPoseSelect: selectPose, onOpenEmitter: openParticles, restPose, selectionByGeoset: validSelection,
     workplaneEnabled, onWorkplaneEnabled: setWorkplaneEnabled, workplane, onWorkplane: setWorkplane, restrictions, onRestrictions: setRestrictions,
     onVertexTransform: transform, globalSeqId: restPose ? null : globalSeqId,

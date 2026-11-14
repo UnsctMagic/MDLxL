@@ -7,6 +7,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const VIEW_MENU = require('../src/view-menu.json');
+// The MDLxL look has its own lists (owner's revised spec, 14 Nov 2026); VIS keeps main's.
+const XL_VIEW_MENU = require('../src/view-menu-xl.json');
 const root = path.resolve(__dirname, '..');
 const out = path.resolve(process.env.MDLXL_VIS_OUT || path.join(root, 'out/vis-mdlvis-mode'));
 const pkg = process.env.MDLXL_SUITE_PKG || path.join(root, 'out/pkg/MDLxL-win32-x64');
@@ -82,7 +84,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
               hint: document.querySelector('.classic-status').innerText, inputAtTop: !!document.querySelector('.classic-toolbar .compact-input-strength') };
           });
           assert.deepEqual(data.size, [width, height]);
-          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay'));
+          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), (vis ? VIEW_MENU : XL_VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes')); // Axis guides is View-menu only (40304fc4)
           if (vis) {
             assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 1); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));
