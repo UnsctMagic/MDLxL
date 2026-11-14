@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1, 2, 6, 8, 9, 10, 11, Fel fire and the Eye glow removal saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; items 1, 2, 5 to 11 and the Eye glow removal saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -224,10 +224,12 @@ Done:
 - **11. Tide etching** (`sort-tide`) and **13. Eye glow** (`fx-eye-glow`) left `LIBRARY`. Saved stacks still open.
 - **5. Fel fire** (`5dd58bf0`). Fel fire's variations are made from Fire's recipes in fel colours (the block after the tidal one in `src/global-animation-looks.js`): red and green change places, `Red_Glow3`, `Clouds8x8Fire`, `Clouds8x8ModFire` and `LavaLump` become `Green_Glow3`, `Clouds8x8`, `Clouds8x8Mod` and `GenericGlow64`, the surface is Fel fire's own. Variations: Fel flames (unchanged), Fel licks, Enveloping fel flames, Fel surge (now Fireball in fel: body, core, glow, spat embers, falling sparks on `gather:'engulf'`), Fel sparks (unchanged), Fel column. The old Fel surge recipe (the head source the owner rejected as Fireball) left `src/claude-fx-looks.js`; layers saved with it compile as before. Any later change to a Fire variation reaches Fel fire by itself.
 - **6. Fire column** is a variation of Fire (id `column`) and of Fel fire (`fel-column`); `fx-fire-column` left `LIBRARY`. It is seated like Fireball (`gather:'engulf'`): a blended Fire body, the additive column on `Clouds8x8Fire`, embers. New recipe flag `capMotion` (fresh layers, `nativeParticles`): launch speed and lift follow the capped sprite, so the column climbs about 3.5 flame widths on a sword, a claw, a compact piece and a body alike (`true`: the layer's own cap; a number: that cap, for embers rising with the flame).
+- **7. Molten lava** (`85ecdb97`). The red lava tile alone was one flat colour at 75%. `lavaSurface` (`src/global-animation-looks.js`) now builds every variation from: the tile at full strength, Lava glow (bright `Flame4` light flowing over it, additive, the Magma flow technique), Cooling crust (dark `CloudsTile1` shapes drifting the other way with Blend, the Living ink technique), and a Heat glow shell. Molten lava also starts Molten beads and a few Cinders. Spitting lava and Smouldering keep their particles on the new surface.
+- **5. Fire folder** (same commit). Burning cracks: Crack flames (low blended flames from the surface, a third of a width tall) and no `inflate` on the two crack skins (the Lit crystal tearing applies to any detailed skin lifted off a hard-edged part). Fissures: a Heat glow shell and rising Cinders. Magma flow: Heat glow and Cinders. Forge heat: Falling sparks over the whole part. Rising embers: Ember glow, a faint glow where the embers start. Fresh layers only; saved stacks keep theirs.
 
 Next: items 3 to 13, then the extra polish pass.
 
-Exact next step: item 5, second half: the other Fire-folder looks (Burning cracks, Fissures, Magma flow, Forge heat, Rising embers) and item 7, Molten lava.
+Exact next step: item 3, Lightning cage: `whole`, `reach`, `along` for Edge and Card layers in `src/global-animation-model.js` and `makeLayer`, then the recipe in `src/fx-technique-looks.js`.
 
 What the owner should look at:
 
@@ -237,6 +239,8 @@ What the owner should look at:
 - Water has no Tide etching; Light has no Eye glow.
 - Fire > Fel fire > Variation: Fel licks, Enveloping fel flames, Fel surge (a green fireball: on the sword a ball around the outer blade, on the claw fire along it, on the body around the head), Fel column.
 - Fire > Fire > Variation > Fire column, and Fel column: fire seated in the part and rising from it as a column, embers above it. Fire's other variations are unchanged.
+- Fire > Molten lava: bright liquid lava with dark crust patches drifting over it and a glow around the part; beads on the surface, a few cinders rising. Spitting lava and Smouldering on the same surface.
+- Fire > Burning cracks (small flames from the cracks), Fissures and Magma flow (glow and cinders), Forge heat (sparks falling), Rising embers (faint glow under the embers).
 
 ## Rules carried over
 
