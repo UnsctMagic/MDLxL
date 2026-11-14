@@ -862,6 +862,25 @@ const fliesSpec=()=>({...dust('Orbiting flies','flies',texture('Abomination')),s
    riders.trail('Orb stars',texture('star4_32'),[.8,.65,1],[[1,1,1],[.78,.6,1],[.4,.5,1]]),
    riders.glow('Orb glow',texture('GenericGlowX'),[.75,.62,1],1,130),
   ]},
+  // Build 11 (owner: "elemental orbs - missing fel, shadow, soul").
+  {id:'fel',name:'Fel orbs',layers:[
+   orbs('Fel orbs',texture('BloodElfBallz'),[1,1,1],false),
+   rider('Orb flames',CLOUDS,[.45,1,.05],{atlas:8,life:.45,rate:26,velocity:.2,gravity:-1.2,spread:25,size:[.6,.5,.18],alpha:[200,170,0]},{native:{Time:.4,Variation:.3,Flags:U,SegmentColor:[[.8,1,.4],[.45,1,.05],[.1,.4,0]]}}),
+   riders.trail('Orb embers',texture('LavaLump'),[.5,1,.1],[[.9,1,.5],[.5,1,.1],[.1,.5,0]],{life:1.2,rate:5,velocity:.3,gravity:-.2,size:[.12,.1,.04],alpha:[255,200,0]}),
+   riders.glow('Orb glow',texture('Green_Glow3'),[.45,1,.2],1,110),
+  ]},
+  {id:'shadow',name:'Shadow orbs',layers:[
+   orbs('Shadow orbs',texture('Ranger'),[.35,.22,.5]),
+   rider('Orb shadow',texture('Clouds8x8Black'),[.12,.1,.12],{atlas:8,filter:0,life:1,rate:10,velocity:.1,spread:180,size:[.3,.45,.7],alpha:[0,150,0]},{loop:2933,native:{Time:.35,Variation:.3}}),
+   riders.trail('Orb motes',texture('star4_32'),[.6,.35,1],[[.9,.8,1],[.6,.35,1],[.25,.1,.5]]),
+   riders.glow('Orb glow',texture('GenericGlowX'),[.45,.25,.8],1,90),
+  ]},
+  {id:'soul',name:'Soul orbs',layers:[
+   orbs('Soul orbs',texture('Ranger'),[.75,.95,1]),
+   rider('Orb souls',texture('Ghost1'),[.6,.95,1],{life:.8,rate:9,velocity:.25,gravity:-.5,spread:25,size:[.5,.7,.15],alpha:[0,190,0]},{native:{Time:.4,Variation:.3,Flags:U,SegmentColor:[[1,1,1],[.6,.95,1],[.3,.55,1]]}}),
+   riders.trail('Orb wisps',texture('GenericGlowX'),[.6,.9,1],[[1,1,1],[.6,.9,1],[.35,.6,1]]),
+   riders.glow('Orb glow',texture('Blue_Glow2'),[.5,.8,1],1,110),
+  ]},
   {id:'gold',name:'Golden orbs',layers:[
    orbs('Golden orbs','Units\\Creeps\\HighElfArcher\\HighElfArcher.blp',[1,1,1]),
    riders.trail('Orb sparkles',texture('star4_32'),[1,.9,.5],[[1,1,.9],[1,.9,.5],[1,.6,.2]]),
@@ -870,15 +889,16 @@ const fliesSpec=()=>({...dust('Orbiting flies','flies',texture('Abomination')),s
  ]));
 }
 // Rune swarm (pass 9; owner: "a swirling cloud of runes the user can add more or fewer of, like flies", after Orcish
-// Runes and Darkness Rising). Three sets of rune pictures fly the fly swarm's paths, each set on paths of its own.
+// Runes and Darkness Rising). Build 11: "better put it with other swarms ... can be much better. too fast too": it is a
+// variation of Fly swarm now, at under half the pace, each rune in a halo of its own light with sparks trailing.
 {
- const runes=(label,name,flock)=>dust(label,'flies',texture(name),{square:true,filter:3,unshaded:true,tint:[.35,.9,.85],reach:1.2,amount:5,scale:{size:1.3},flock,starts:true});
- fold('rune-blade',[
-  ...own('rune-blade'),
-  {id:'swarm',name:'Rune swarm',layers:[
-   runes('Floating runes','DemonRune5',0),runes('Second runes','DemonRune2',2),runes('Third runes','DemonRune6',4),
-   riders.glow('Rune light',texture('GenericGlow64'),[.2,.8,.75],.9,60),
-   runeMotes([.35,.9,.85]),
+ const runes=(label,name,flock)=>dust(label,'flies',texture(name),{square:true,filter:3,unshaded:true,tint:[.45,1,.95],reach:1.25,amount:5,scale:{size:1.05},speed:.4,flock,starts:true});
+ fold('fly-swarm',[
+  ...own('fly-swarm'),
+  {id:'runes',name:'Rune swarm',layers:[
+   runes('Floating runes','DemonRune5',0),runes('Second runes','DemonRune2',2),
+   riders.glow('Rune halo',texture('GenericGlow64'),[.2,.85,.8],1.1,50),
+   riders.trail('Rune sparks',texture('star4_32'),[.5,1,.95],[[1,1,1],[.45,1,.95],[.1,.5,.5]],{life:1,rate:5,velocity:.1,size:[.04,.2,.04]}),
   ]},
  ]);
 }
@@ -975,6 +995,32 @@ const growth=(label,shape,image,extra={})=>({type:'Growth',label,shape,image,...
   {id:'breath',name:'Team fog breath',layers:[team(layer(breathing,'Pale breath'),'Team breath',.7),team(layer(breathing,'Murky breath'),'Deep breath',.6),team(layer(breathing,'Breath glow'),'Team breath glow')]},
  ]));
 }
+// Build 11 and 12 (owner, 14 November). Team colour opens on Glowing colour. Team tattoo is a card of its own: tribal
+// designs cut out of the skin in the player's colour (fx-tattoo.js), each at markers the user moves. Team orb is orbs
+// of the player's light flying around the part ("make it useful"). Glow orb leaves the library ("remains useless");
+// its Radiance is a variation of Star flare. Team fire and Team energy leave it too ("fire does not look like fire";
+// "team energy - remove"). What left still opens from a saved model.
+{
+ const TEAM_GLOW='ReplaceableTextures\\TeamGlow\\TeamGlow00.blp',WHITE=[[1,1,1],[1,1,1],[1,1,1]];
+ const colour=id=>lookById('fx-team-colour').variations.find(v=>v.id===id);
+ fold('fx-team-colour',['glow','wash','flow','bands','void'].map(colour));
+ const tattoo=design=>spray('Team tattoo',TEAM_GLOW,[1,1,1],{team:true,life:1,rate:1,size:[.1,.1,.1],alpha:[0,0,0]},
+  {starts:true,gather:'spots',spots:2,tattoo:design,tattooSize:1,tattooTurn:0,tattooGlow:.3,widthCap:.2,loop:3133,native:{Time:.5,Flags:C,SegmentColor:WHITE}});
+ GLOBAL_LOOKS.push(vary(make('fx-team-tattoo','Team tattoo','',3000,'native',[]),
+  [['blades','Tribal blades'],['horns','Tribal horns'],['sun','Tribal sun'],['thorns','Tribal thorns'],['wings','Tribal wings'],['spiral','Tribal spiral']].map(([id,name])=>({id,name,layers:[tattoo(id)]}))));
+ const flare=lookById('fx-team-orb').variations.find(v=>v.id==='flare');
+ fold('fx-team-orb',[
+  {id:'orbit',name:'Orbiting orbs',layers:[
+   dust('Team orbs','flies',TEAM_GLOW,{square:true,team:2,filter:3,unshaded:true,tint:[1,1,1],reach:1.15,amount:5,scale:{size:1.3},speed:.7,starts:true}),
+   riders.glow('Orb core',texture('GenericGlow64'),[1,1,1],.4,200),
+   rider('Orb trail',TEAM_GLOW,[1,1,1],{team:true,life:.7,rate:12,size:[.8,.55,.1],alpha:[150,100,0]},{native:{Time:.4,Flags:U,SegmentColor:WHITE}}),
+   riders.trail('Orb sparkles',texture('star4_32'),[1,1,1],WHITE,{rate:5}),
+  ]},
+  flare,
+ ]);
+ const radiance=lookById('fx-glow-orb').variations.find(v=>v.id==='radiance');
+ fold('fx-star-flare',[...own('fx-star-flare'),radiance]);
+}
 // The one table that files the library: folder, order and display name. A look missing here is retired:
 // not listed, counted or found by search, but a model saved with it still opens and edits (Ground glow, owner 12 November).
 export const LIBRARY=[
@@ -983,8 +1029,8 @@ export const LIBRARY=[
  ['Water',[['claude-tidal-blade','Water']]],
  ['Lightning',[['lightning-blade','Lightning'],['fx-lightning-cage'],['sort-rift','Void']]],
  ['Arcane',[['arcane-blade','Arcane'],['rune-blade','Runes'],['fx-rune-circle'],['spell-ward','Wards'],['sort-astral','Night sky']]],
- ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-glow-orb'],['fx-orbs'],['motes']]],
- ['Team colour',[['fx-team-colour'],['fx-team-fire'],['fx-team-energy'],['fx-team-fog'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
+ ['Light',[['fx-glow-shell'],['fx-star-flare'],['fx-orbs'],['motes']]],
+ ['Team colour',[['fx-team-colour'],['fx-team-tattoo'],['fx-team-fog'],['fx-team-lights'],['fx-team-orb'],['fx-team-swirl']]],
  ['Poison & nature',[['poison-skin','Poison'],['claude-plague-swarm'],['fly-swarm'],['sort-briar','Vines'],['fx-leaves']]],
  ['Stone',[['sort-basalt','Stone']]],
  ['Death & spirit',[['claude-wraith-form','Spirit'],['fx-soul-vortex','Souls'],['fx-dark-smoke','Shadow'],['sort-blood','Blood']]],
@@ -1100,7 +1146,7 @@ export function withOrbit(l,frame,loop,fit=1){
 }
 /** The largest Thickness of a shell layer: a tenth of the part's length, so small and large parts both get a visible range. */
 export const shellReach=(frame,inflate=0)=>Math.max(1,(frame?.length||10)*.1,inflate||0);
-export const layerType=layer=>layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
+export const layerType=layer=>layer.tattoo?'Tattoo':layer.fixed&&layer.type==='Moving skin'?'Surface':layer.type;
 export function withLayerSize(layer,next){
  if(layer.widthCap&&next.size!==layer.size)next={...next,widthCapEdited:true};
  if(next.size===layer.size||layer.kind==='flies'||!layer.native?.ParticleScaling)return next;

@@ -1,4 +1,4 @@
-const {addEmitter}=require('./helpers/fx-input.cjs');
+const {addEmitter,addFxEmitter,addFxLayer,fxPickerNames}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {root,launchApp,closeApp}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -44,9 +44,8 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await fx.locator('.fx-uv-fit').screenshot({path:path.join(out,'rune-uv.png')});
   await choose('Fissures');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await fire.check();await ready();assert.ok((await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props.Name?.startsWith('FX Fire')&&e.particles.length));await motion(stage,'lava-fire');await fire.uncheck();await ready();assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
-  await choose('Arcane');const addition=fx.getByLabel('Add layer',{exact:true});
-  assert.equal(await addition.locator('option').first().innerText(),'Add layer');
-  for(const name of ['Diamond flash','Eye','Circling stars']){await (name==='Circling stars'?fx.getByLabel('Add emitter',{exact:true}):addition).selectOption(name);await ready();if(name==='Circling stars'){await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();}assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
+  await choose('Arcane');assert.equal(await fx.getByRole('button',{name:'Add layer',exact:true}).innerText(),'Add layer');assert.ok((await fxPickerNames(page,fx,'layer')).length>0,'Add layer lists its choices');
+  for(const name of ['Diamond flash','Eye','Circling stars']){await (name==='Circling stars'?addFxEmitter(page,fx,name):addFxLayer(page,fx,name));await ready();if(name==='Circling stars'){await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();}assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
   const overlay=fx.getByLabel('Create as overlay',{exact:true});
   const base=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxStack);return [g.MaterialID,g._FxStack.baseMaterial];});
   await overlay.check();await ready();const [overlayMat,sourceMat]=await base();assert.equal(overlayMat,sourceMat);

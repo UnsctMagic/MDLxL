@@ -1,4 +1,5 @@
-import {Box3,Matrix4,Quaternion,Vector3} from 'three';
+import {Box3,Matrix4,Quaternion,Triangle,Vector3} from 'three';
+import {tattooPieces} from './fx-tattoo.js';
 import {layerEmitterPoint,individualEmitterLayer,emitterSitePoint,activeEmitterSites,emitterRotationTrack} from './fx-emitter-placement.js';
 import {analyseEmitterSurface,suggestEmitterSites,suggestAdditionalEmitterSites,suggestTipEmitterSites,suggestHeadEmitterSites,suggestBladeEmitterSites,suggestMassEmitterSites,crossSection,surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
 import {appendGeosetGeometry,createNode,removeGeosets,updateCounts,geosetBounds} from './editor-document.js';
@@ -873,7 +874,7 @@ function nativeParticles(c,layer){
  const weights=scatterWeights(layer,planned,active),floor=birthRegionRateScale(layer,planned,active,weights);
  // Bursts (fresh recipes, burstCount): each firing site takes its turn, one burst at a time.
  // A burst starts a little early or late each time, so the rhythm is never a steady blink.
- const bursts=l.burstGap!=null&&l.burstCount!=null&&!l.impact;
+ const bursts=l.burstGap!=null&&l.burstCount!=null&&!l.impact,marks=[];
  const firing=bursts?planned.filter((slot,i)=>!(!layout&&shares&&!shares[i])&&(!active||active.has(slot.key))&&!layer.individuals?.[slot.key]?.deleted).length:0;
  let fired=0;
  for(const [i,slot] of planned.entries()){
@@ -911,6 +912,7 @@ function nativeParticles(c,layer){
   c.sites.push(emitterSiteRecord(slot,pos,Math.max(0,c.frame.regions?.indexOf(region)??0),slot.ground??!!l.ground));
   if(!l.impact||l.placement||layer.individuals?.[key]?.position)pos.copy(emitterSitePoint(c.frame,layer,key,pos));
   if(layer.individuals?.[key]?.deleted)continue;
+  if(layer.tattoo)marks.push({point:pos.clone(),width:slot.componentWidth});
   const p=nodeFor(c,'ParticleEmitters2','ParticleEmitter2',key,l.label,pos,slot.rideBone!=null?slot.rideBone:(slot.ground??l.ground)&&!contact&&!layer.individuals?.[key]?.surface?null:siteParent({...c,source:sourceGeo,parent:contact?null:c.parent},layer,key,region,pos,'native-'+i,slot));
   const keep={Name:p.Name,ObjectId:p.ObjectId,Parent:p.Parent,PivotPoint:p.PivotPoint,_FxTag:p._FxTag};Object.assign(p,source,keep);
   applyRecipeAim(c,l,slot,p,slot.birth?.rotation);
@@ -940,9 +942,67 @@ function nativeParticles(c,layer){
    p.Squirt=false;
    p.EmissionRate=keys(clock,cycle,pairs,0);
   }
+  // A tattoo's emitters are only its markers (select, drag, snap to surface): the design is cut from the skin.
+  if(layer.tattoo){p.Squirt=false;p.EmissionRate=0;}
   ids.push(p.ObjectId);
  }
+ if(layer.tattoo)tattooLayer(c,layer,marks);
  return {id:ids[0],ids};
+}
+/**
+ * Tattoo (fresh recipes; see fx-tattoo.js): at every marker of the layer, a tribal design cut out of the part's own
+ * skin triangles, a hair above them, bound to the bones of the skin it was cut from. Drawn in the player's flat colour
+ * and lit like the skin; Glow adds the player's light over it.
+ */
+function tattooLayer(c,l,marks){
+ const {model:m,source,tag}=c,v=source.Vertices,faces=source.Faces,smooth=source.Normals?.length===v.length?source.Normals:null;
+ const slender=(c.frame.regions?.length??1)<=SHARED_REGIONS&&c.frame.length>=c.frame.radius*3.5,up=slender?c.frame.axis.clone().normalize():z.clone();
+ const vertices=[],normals=[],uvs=[],out=[],vertexGroup=[],groups=[],groupOf=new Map(),centres=[];
+ const bind=vertex=>{const from=source.VertexGroup?.[vertex]??0;if(!groupOf.has(from)){groupOf.set(from,groups.length);groups.push([...(source.Groups?.[from]||[c.parent])]);}return groupOf.get(from);};
+ const lift=Math.max(.12,c.frame.length*.0025),triangle=new Triangle(),closest=new Vector3(),flat=new Vector3();
+ let widest=1;
+ for(const mark of marks){
+  // The skin under the marker: its nearest triangle gives the place and the way the skin faces.
+  let best=Infinity,face=-1;const at=new Vector3();
+  for(let f=0;f<faces.length;f+=3){
+   triangle.a.fromArray(v,faces[f]*3);triangle.b.fromArray(v,faces[f+1]*3);triangle.c.fromArray(v,faces[f+2]*3);
+   triangle.closestPointToPoint(mark.point,closest);const d=closest.distanceToSquared(mark.point);
+   if(d<best){best=d;face=f;at.copy(closest);}
+  }
+  if(face<0)continue;
+  triangle.a.fromArray(v,faces[face]*3);triangle.b.fromArray(v,faces[face+1]*3);triangle.c.fromArray(v,faces[face+2]*3);triangle.getNormal(flat);
+  if(flat.lengthSq()<.5)continue;
+  // The side the skin's own normals point to (a two-sided blade is drawn from the side its normals name).
+  if(smooth){const own=new Vector3(smooth[faces[face]*3],smooth[faces[face]*3+1],smooth[faces[face]*3+2]);if(own.dot(flat)<0)flat.negate();}
+  // A design is as wide as the part is there, never more than a quarter of the part's length.
+  const size=Math.max(.5,Math.min(Math.max(mark.width>0?mark.width*.45:0,c.frame.radius*.45),c.frame.length*.14)*(l.tattooSize??1));
+  widest=Math.max(widest,size);centres.push(at.toArray());
+  for(const piece of tattooPieces(v,faces,at,flat,up,size,l.tattoo,(l.tattooTurn||0)*Math.PI/180)){
+   const ids=[faces[piece.face],faces[piece.face+1],faces[piece.face+2]],first=vertices.length/3;
+   for(const [k,weights] of piece.weights.entries()){
+    const point=new Vector3(),normal=new Vector3();
+    for(let j=0;j<3;j++){point.x+=v[ids[j]*3]*weights[j];point.y+=v[ids[j]*3+1]*weights[j];point.z+=v[ids[j]*3+2]*weights[j];
+     if(smooth){normal.x+=smooth[ids[j]*3]*weights[j];normal.y+=smooth[ids[j]*3+1]*weights[j];normal.z+=smooth[ids[j]*3+2]*weights[j];}}
+    if(normal.lengthSq()<1e-6)normal.copy(flat);normal.normalize();if(normal.dot(flat)<0)normal.negate();
+    point.addScaledVector(normal,lift);
+    vertices.push(point.x,point.y,point.z);normals.push(normal.x,normal.y,normal.z);
+    // Only the bright middle of the round team glow is used for the light over the design.
+    uvs.push(.5+piece.points[k][0]*.05,.5-piece.points[k][1]*.05);
+    vertexGroup.push(bind(ids[weights.indexOf(Math.max(...weights))]));
+   }
+   out.push(first,first+1,first+2);
+  }
+ }
+ if(!out.length)return;
+ const base=l.loop!=null?Math.max(100,Math.round(l.loop)):c.ms,clock=l.loop!=null?clockFor(m,base,c.createdClocks):c.id;
+ const passes=[{TextureID:teamTexture(m,1,tag),CoordId:0,TVertexAnimId:null,FilterMode:0,Shading:0,Alpha:1}];
+ const glow=Math.max(0,Math.min(1,l.tattooGlow??0));
+ if(glow>0)passes.push({TextureID:teamTexture(m,2,tag),CoordId:0,TVertexAnimId:null,FilterMode:3,Shading:1|32,Alpha:keys(clock,base,curves.soft.map(([t,a])=>[t,a*glow]),3)});
+ const material=resource(m.Materials,tag+'/material',{PriorityPlane:0,RenderMode:0,Layers:passes});
+ const g={Vertices:Float32Array.from(vertices),Normals:Float32Array.from(normals),TVertices:[Float32Array.from(uvs)],Faces:Uint16Array.from(out),VertexGroup:Uint8Array.from(vertexGroup),Groups:groups.length?groups:[[c.parent]],TotalGroupsCount:Math.max(1,groups.length),MaterialID:material,SelectionGroup:0,Unselectable:false,Anims:[]};
+ if(m.Version>=900)g.LevelOfDetail=0;
+ quadBounds(c,g,centres,widest*1.5);
+ overlay(c,g,material,l.tint||[1,1,1],m.GeosetAnims.find(a=>a.GeosetId===c.index),0);
 }
 function groundSeal(c,l){
  const p=nodeFor(c,'EventObjects','EventObject','seal',l.stamp,new Vector3(...l.offset).add(new Vector3(0,0,1.5)),null);
@@ -1148,25 +1208,37 @@ function particles(c,layer){
 function uprightFrame(c){
  const key='upright|'+c.surfaceKey;
  if(c.attachmentCache.has(key))return c.attachmentCache.get(key);
- const v=c.source.Vertices,n=v.length/3,xs=[],ys=[],zs=[];
- for(let i=0;i<n;i++){xs.push(v[i*3]);ys.push(v[i*3+1]);zs.push(v[i*3+2]);}
- const span=list=>{const s=list.slice().sort((a,b)=>a-b);return [s[Math.floor((n-1)*.04)],s[Math.ceil((n-1)*.96)]];};
- const [x0,x1]=span(xs),[y0,y1]=span(ys),lo=Math.min(...zs),hi=Math.max(...zs),cx=(x0+x1)/2,cy=(y0+y1)/2;
- const reach=Array.from({length:n},(_,i)=>Math.hypot(xs[i]-cx,ys[i]-cy));
- const share=(list,p)=>{const s=list.slice().sort((a,b)=>a-b);return s.length?s[Math.min(s.length-1,Math.floor(s.length*p))]:0;};
- const radius=Math.max(1,share(reach,.9)),length=Math.max(1,hi-lo),center=new Vector3(cx,cy,(lo+hi)/2),axis=new Vector3(0,0,1);
- // The body's reach from its middle line in a slice at one height (along: a share of its height from the middle).
- const radiusAt=along=>{
-  const height=center.z+along*length,near=reach.filter((_,i)=>Math.abs(zs[i]-height)<=length*.12);
-  return near.length>=4?Math.max(radius*.35,share(near,.9)):radius;
+ const v=c.source.Vertices,f=c.source.Faces,n=v.length/3;
+ let lo=Infinity,hi=-Infinity;
+ for(let i=0;i<n;i++){lo=Math.min(lo,v[i*3+2]);hi=Math.max(hi,v[i*3+2]);}
+ // The skin by area (owner, 14 November: "souls is not centered properly on the body"): arms, horns and spikes are
+ // thin and weigh little, so the middle line and the reach are the trunk's, not the box around every limb.
+ const pieces=[];
+ for(let i=0;i+2<f.length;i+=3){
+  const a=f[i]*3,b=f[i+1]*3,d=f[i+2]*3,ux=v[b]-v[a],uy=v[b+1]-v[a+1],uz=v[b+2]-v[a+2],wx=v[d]-v[a],wy=v[d+1]-v[a+1],wz=v[d+2]-v[a+2];
+  const area=Math.hypot(uy*wz-uz*wy,uz*wx-ux*wz,ux*wy-uy*wx)/2;
+  if(area>0)pieces.push({x:(v[a]+v[b]+v[d])/3,y:(v[a+1]+v[b+1]+v[d+1])/3,z:(v[a+2]+v[b+2]+v[d+2])/3,area});
+ }
+ if(!pieces.length)for(let i=0;i<n;i++)pieces.push({x:v[i*3],y:v[i*3+1],z:v[i*3+2],area:1});
+ // The value below which a share of the area lies.
+ const share=(list,value,p)=>{
+  if(!list.length)return 0;
+  const sorted=list.map(e=>[value(e),e.area]).sort((a,b)=>a[0]-b[0]),total=sorted.reduce((t,e)=>t+e[1],0);
+  let sum=0;for(const [x,area] of sorted){sum+=area;if(sum>=total*p)return x;}
+  return sorted.at(-1)[0];
  };
- // The same toward one side (an angle about the vertical): a body is seldom round, and what is wound around it should
- // lie as close to its back as to its shoulders.
- const angles=Array.from({length:n},(_,i)=>Math.atan2(ys[i]-cy,xs[i]-cx));
+ const cx=share(pieces,e=>e.x,.5),cy=share(pieces,e=>e.y,.5);
+ for(const e of pieces)e.reach=Math.hypot(e.x-cx,e.y-cy);
+ const radius=Math.max(1,share(pieces,e=>e.reach,.75)),length=Math.max(1,hi-lo),center=new Vector3(cx,cy,(lo+hi)/2),axis=new Vector3(0,0,1);
+ const slice=(along,band)=>{const height=center.z+along*length;return pieces.filter(e=>Math.abs(e.z-height)<=length*band);};
+ // The body's reach from its middle line in a slice at one height (along: a share of its height from the middle).
+ const radiusAt=along=>{const near=slice(along,.14);return near.length>=4?Math.max(radius*.45,share(near,e=>e.reach,.72)):radius;};
+ // The same toward one side (an angle about the vertical): a body is seldom round. Its slice is read as an oval, so
+ // what is wound around it lies as close to its back as to its shoulders and never jumps out at an arm.
  const reachToward=(along,angle)=>{
-  const height=center.z+along*length,near=[];
-  for(let i=0;i<n;i++){if(Math.abs(zs[i]-height)>length*.15)continue;let turn=Math.abs(angles[i]-angle)%(2*Math.PI);if(turn>Math.PI)turn=2*Math.PI-turn;if(turn<=.7)near.push(reach[i]);}
-  return near.length>=3?Math.max(radius*.3,share(near,.9)):radiusAt(along);
+  const near=slice(along,.18);if(near.length<4)return radiusAt(along);
+  const rx=Math.max(radius*.4,share(near,e=>Math.abs(e.x-cx),.8)),ry=Math.max(radius*.4,share(near,e=>Math.abs(e.y-cy),.8));
+  return rx*ry/Math.max(1e-6,Math.hypot(ry*Math.cos(angle),rx*Math.sin(angle)));
  };
  const frame={center,axis,length,radius,girth:radius,radiusAt,reachToward,at:distance=>center.clone().addScaledVector(axis,distance)};
  c.attachmentCache.set(key,frame);
@@ -1226,10 +1298,26 @@ function partProfile(c){
   profile={axis:up.axis.clone(),length:up.length,radius:up.radius,centreAt:t=>up.at((t-.5)*up.length),radiusAt:(t,toward)=>toward?up.reachToward(t-.5,Math.atan2(toward.y,toward.x)):up.radiusAt(t-.5)};
  }else{
   const {frame}=c,v=c.source.Vertices,n=v.length/3,axis=frame.axis.clone().normalize(),stations=17,centres=[],raw=[];
+  const p=new Vector3();
   for(let s=0;s<stations;s++){
-   const centre=frame.at((s/(stations-1)-.5)*frame.length),near=[],p=new Vector3();
+   const centre=frame.at((s/(stations-1)-.5)*frame.length),near=[];
    for(let i=0;i<n;i++){p.set(v[i*3],v[i*3+1],v[i*3+2]).sub(centre);const a=p.dot(axis);if(Math.abs(a)<=frame.length*.07)near.push(p.addScaledVector(axis,-a).length());}
    near.sort((a,b)=>a-b);centres.push(centre);raw.push(near.length>=3?near[Math.floor(near.length*.9)]:0);
+  }
+  // An odd shape (a scythe, a hooked or bent piece; owner, 14 November) leaves its own straight middle line: where the
+  // skin's middle lies well off that line, the line follows the skin and the reach is measured from there.
+  const middles=centres.map(centre=>{
+   const sum=new Vector3();let count=0;
+   for(let i=0;i<n;i++){p.set(v[i*3],v[i*3+1],v[i*3+2]).sub(centre);const a=p.dot(axis);if(Math.abs(a)<=frame.length*.07){sum.add(p.addScaledVector(axis,-a));count++;}}
+   return count>=3?sum.multiplyScalar(1/count):sum.set(0,0,0);
+  });
+  if(Math.max(...middles.map(m=>m.length()))>frame.radius*.25){
+   const smooth=middles.map((m,s)=>m.clone().multiplyScalar(2).add(middles[Math.max(0,s-1)]).add(middles[Math.min(stations-1,s+1)]).multiplyScalar(.25));
+   for(let s=0;s<stations;s++){
+    centres[s].add(smooth[s]);const near=[];
+    for(let i=0;i<n;i++){p.set(v[i*3],v[i*3+1],v[i*3+2]).sub(centres[s]);const a=p.dot(axis);if(Math.abs(a)<=frame.length*.07)near.push(p.addScaledVector(axis,-a).length());}
+    near.sort((a,b)=>a-b);raw[s]=near.length>=3?near[Math.floor(near.length*.9)]:0;
+   }
   }
   const floor=frame.radius*.3,radii=raw.map((r,s)=>Math.max(floor,(raw[Math.max(0,s-1)]+2*r+raw[Math.min(stations-1,s+1)])/4));
   const pick=t=>{const x=Math.max(0,Math.min(1,t))*(stations-1),i=Math.min(stations-2,Math.floor(x));return [i,x-i];};
@@ -1296,7 +1384,7 @@ function cardLayer(c,l){
  const body=c.frame.regions?.length>SHARED_REGIONS,twirl=card.facing==='twirl';
  const level=l.whole&&l.seated&&l.tilt!=null&&body&&card.facing!=='ground'&&!twirl?uprightFrame(c):null;
  // seat 'orb' (fresh recipes): the card sits where the part carries an orb (orbSites).
- const seat=level||twirl||!l.whole||card.facing==='ground'?null:l.seat==='orb'?orbSites(c)?.[0]:l.seated&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
+ const seat=level||twirl||card.facing==='ring'||!l.whole||card.facing==='ground'?null:l.seat==='orb'?orbSites(c)?.[0]:l.seated&&(body||c.frame.radius>c.frame.length*.2)?massEmitterSites(c)?.head?.[0]:null;
  const seatAxis=seat?(body||!seat.tipDirection?z.clone():new Vector3(...seat.tipDirection).normalize()):null;
  const regions=card.facing==='ground'?[null]:level?[{frame:level,weights:[[c.parent,1]]}]:seat?[c.frame.regions?.[seat.region]||{frame:c.frame,weights:[[c.parent,1]]}]:!l.whole&&c.frame.regions?.length?c.frame.regions:[{frame:c.frame,weights:[[c.parent,1]]}];
  const seatHalf=seat&&l.reach!=null?Math.max(.1,seat.componentWidth/1.1*l.reach*(l.tilt!=null&&l.seated?1.7:1)):size;
@@ -1306,7 +1394,33 @@ function cardLayer(c,l){
  // regions, four regions' worth in all, like the emitters. A body no longer gets a set on every bone.
  const shares=l.sharedSites&&!l.whole&&card.facing!=='ground'?emissionShares(regions,card.count):null;
  let k=0,wound=null;
- if(twirl){
+ if(card.facing==='ring'){
+  // ring (fresh recipes; owner, 14 November: "where are floating runes"): the cards face the camera and stand evenly
+  // spaced on a ring about the part, as wide as the part is there (a body: its trunk). One bone turns the ring about
+  // the part; every card bobs and swells on its own clock. phase: where on the ring the first card stands.
+  const profile=partProfile(c),axis=profile.axis.clone().normalize(),place=.5+(l.along||0);
+  const e1=new Vector3().crossVectors(axis,Math.abs(axis.z)<.9?z:y).normalize(),e2=new Vector3().crossVectors(axis,e1).normalize();
+  // A slender part is ringed at its own half width at least, so the letters float about a blade and do not hug it.
+  const reach=body?profile.radiusAt(place):Math.max(profile.radiusAt(place),c.frame.radius*.9);
+  const radius=Math.max(.5,reach*size/Math.max(1e-6,c.frame.radius)),centre=profile.centreAt(place).add(new Vector3(...l.offset));
+  // band: a card's half width as a share of the ring's radius; a letter (.26) is 4 to 9% of the part's length.
+  const band=card.band??.26,half=Math.max(.3,Math.min(Math.max(radius*.26,profile.length*.04),profile.length*.09)*band/.26);
+  const hub=nodeFor(c,'Bones','Bone','ring',l.label+' ring',centre,c.parent);hub.Flags=256;delete hub.Translation;delete hub.Scaling;
+  if(card.spin){const ms=Math.max(100,Math.round(base/Math.abs(card.spin))),sign=Math.sign(card.spin);hub.Rotation=keys(clockFor(m,ms,c.createdClocks),ms,LINEAR_TURN.map((a,j)=>[j/(LINEAR_TURN.length-1),turn(axis,j===LINEAR_TURN.length-1?0:a*sign)]));}else delete hub.Rotation;
+  for(let i=0;i<card.count;i++,k++){
+   const angle=2*Math.PI*(i/card.count+(l.phase||0)),point=centre.clone().addScaledVector(e1,Math.cos(angle)*radius).addScaledVector(e2,Math.sin(angle)*radius);
+   const bone=nodeFor(c,'Bones','Bone','card0-'+i,l.label+' '+(k+1),point,hub.ObjectId);bone.Flags=256|8;delete bone.Rotation;
+   const factor=CARD_CLOCK_FACTORS[k%CARD_CLOCK_FACTORS.length],ms=Math.round(base*.4*factor),[a,b]=k%2?[card.sizeMax,card.sizeMin]:[card.sizeMin,card.sizeMax];
+   bone.Translation=keys(clockFor(m,ms,c.createdClocks),ms,[[0,0],[.25,1],[.5,0],[.75,-1],[1,0]].map(([t,s])=>[t,axis.clone().multiplyScalar(half*.45*s*(k%2?-1:1)).toArray()]),3);
+   if(card.sizeMin!==1||card.sizeMax!==1){const pulse=Math.round(base*.31*factor);bone.Scaling=keys(clockFor(m,pulse,c.createdClocks),pulse,[[0,[a,a,a]],[.5,[b,b,b]],[1,[a,a,a]]],3);}else delete bone.Scaling;
+   const area=l.atlasRect?.length===4?l.atlasRect:[0,0,1,1],first=vertices.length/3;
+   for(const [s,t] of [[-1,-1],[1,-1],[1,1],[-1,1]]){vertices.push(point.x,point.y+s*half,point.z+t*half);normals.push(1,0,0);vertexGroup.push(groups.length);}
+   uvs.push(area[0],area[1]+area[3],area[0]+area[2],area[1]+area[3],area[0]+area[2],area[1],area[0],area[1]);
+   faces.push(first,first+1,first+2,first,first+2,first+3);
+   groups.push([bone.ObjectId]);centres.push(point);
+  }
+  widest=half*1.5;
+ }else if(twirl){
   wound=twirlStrands(c,l,card,size,{vertices,normals,uvs,faces,groups,vertexGroup,centres});widest=wound.reach;
   const bone=wound.bone;
   if(card.sizeMin!==1||card.sizeMax!==1)bone.Scaling=keys(clockFor(m,base,c.createdClocks),base,[[0,[card.sizeMin,card.sizeMin,card.sizeMin]],[.5,[card.sizeMax,card.sizeMax,card.sizeMax]],[1,[card.sizeMin,card.sizeMin,card.sizeMin]]],3);else delete bone.Scaling;
@@ -1437,7 +1551,8 @@ function flySwarm(c,l){
   groups.push([fly.ObjectId]);
  }
  // One layer like the native flies: alpha-keyed (Transparent), two-sided and lit by the map.
- const layer={TextureID:texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:l.square?l.filter??1:1,Shading:l.square&&l.unshaded?49:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
+ // team (fresh recipes): the swarm carries the player's glow.
+ const layer={TextureID:l.team?teamTexture(m,l.team,tag):texture(m,l.image,false,tag),CoordId:0,TVertexAnimId:null,FilterMode:l.square?l.filter??1:1,Shading:l.square&&l.unshaded?49:16,Alpha:Math.max(0,Math.min(1,l.strength??1))};
  if(l.riseOnDeath){
   const motion=[],visibility=[];
   // A local Z translation is turned downward by a falling parent in native playback.

@@ -9,6 +9,7 @@ import {particleValue,beginParticleParameter} from '../src/particle-bindings.js'
 import ParticleLifeMarker from './ParticleLifeMarker.jsx';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
 import FxLookBar from './FxLookBar.jsx';
+import FxIngredientPicker from './FxIngredientPicker.jsx';
 import {impactDefaults,textureRepeats,glyphIslands,withGlyphGesture} from '../src/global-animation-model.js';
 import {ChoiceSelect,NumberField,RangeField} from './Fields.jsx';
 import {ParticleSlider,LifeTable} from './ParticleCluelessControls.jsx';
@@ -18,8 +19,10 @@ import {lookOf,LAYER_CHOICES,makeLayer,RUNE_IMAGES,createsOverlay,surfaceIngredi
 
 import {gamePathKey} from '../src/game-path.js';
 import {CARD_DEFAULTS,CARD_FACINGS,FLY_BOUNDS} from '../src/fx-cards.js';
+import {TATTOO_DESIGNS} from '../src/fx-tattoo.js';
 import {surfacePalette,tintFromHex} from '../src/surface-effect-colours.js';
 
+const TATTOO_NAMES={blades:'Tribal blades',horns:'Tribal horns',sun:'Tribal sun',thorns:'Tribal thorns',wings:'Tribal wings',spiral:'Tribal spiral'};
 const RHYTHMS=[['steady','Steady'],['soft','Soft pulse'],['breathe','Pulse'],['beat','Colour beat'],['embers','Uneven beat'],['shift','Colour shift'],['flicker','Flicker'],['glint','Flash'],['double','Double pulse']];
 const SLIDER_TIPS={LifeSpan:'Seconds each particle lives.',ParticleScaling:'Size of the particles.',Speed:'How fast particles leave the emitter.',Gravity:'Below 0 the particles rise. Above 0 they fall.',Width:'Width of the area particles are born in.',Length:'Length of the area particles are born in.',Latitude:'How wide the particles fan out, in degrees.',Variation:'How much the speed differs from one particle to the next.',TailLength:'Length of the streak behind each particle. Draw as must be Streaks or Both.'};
 export default function GlobalAnimationControls({lookActions,overlayLocked=false,assets,stack,setStack,trial,setTrial,selected,select,selectedSite,deleteEmitter,showMarkers,toggleMarkers,groupSelect,toggleGroupSelect,groupCount=0,setEmitterEditPolicy,colourRevision,surfaceSnap,setSurfaceSnap,graph,recipeFrame,ColourControl,placing,setPlacing,rotating,setRotating,openEmitter,preferences,onSequence,pickTexture,previewStrength,previewLayout,previewFrame,previewSequence,authoredClocks,readPreviewClock}){
@@ -44,6 +47,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  // A Fly swarm is quads on bones, not an emitter: it has its own controls and none of EMTR's.
  const swarm=!!l?.swarm&&l?.type==='Particles';
  const result=graph?.layers?.[l?.id],p=l?.type==='Particles'&&!swarm,edge=l?.type==='Edge',fly=l?.kind==='flies',card=l?.type==='Card',growth=l?.type==='Growth';
+ // A tattoo is a decal; its emitters only mark where it sits.
+ const tattoo=p&&!!l.tattoo;
  const selectedId=selectedSite?result?.ids?.find(id=>graph.model.Nodes[id]._FxTag.endsWith('/'+selectedSite)):result?.id;
  const real=selectedId!=null?graph.model.Nodes[selectedId]:null;
  const surface=graph?.model.Geosets[result?.geoset];
@@ -178,7 +183,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   setStack({...stack,layers:stack.layers.map(v=>v.id===layer.id?fresh:v)});
  };
  // Position & size sits right above More in every kind of layer.
- const moreAt=!l?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
+ const moreAt=!l||tattoo?null:particleLayer?'particles':surf?'surface':edge&&real?'edge':card?'card':null;
  const placement=l&&positional&&<div className="sfx-placement"><button className="sfx-place" title={stack.impact?"Drag the corners to resize the burst.":l.stamp?"Drag the move handle in the preview.":"Drag the move handle or the edges in the preview."} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{stack.impact?'Size':l.stamp?'Position':'Position & size'}</button>
    {p&&placing&&real&&<button aria-pressed={rotating} title="Rotate the emitter aim." onClick={()=>setRotating(!rotating)}>Rotate</button>}
    {p&&placing&&real&&<button aria-pressed={showMarkers} title="Show or hide the emitter markers in the preview." onClick={toggleMarkers}>Emitter markers</button>}
@@ -193,15 +198,15 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {stack.impact&&<label className="field"><span>Attack</span><ChoiceSelect aria-label="Attack animation" value={stack.sequence} onChange={value=>{const sequence=Number(value);setStack({...stack,...impactDefaults(graph.model,graph.geoset,sequence)});onSequence(sequence);}}>{graph?.model.Sequences.map((s,i)=>/^attack\b/i.test(s.Name)?<option key={i} value={i}>{s.Name}</option>:null)}</ChoiceSelect></label>}
   {stack.layers.some(surfaceIngredient)&&<label title="Keep the original surface and draw the effect on a separate geoset."><input type="checkbox" disabled={overlayLocked} checked={overlayLocked||createsOverlay(stack)} onChange={e=>setStack({...stack,asOverlay:e.target.checked})}/>Create as overlay</label>}
   <div className="fx-layer-list" role="group" aria-label="Layers">{stack.layers.map(item=><div className="fx-layer-row" key={item.id}><input type="checkbox" aria-label={'Enable '+emitterName(item)} checked={item.enabled!==false} onChange={e=>setStack({...stack,layers:stack.layers.map(l=>l.id===item.id?{...item,enabled:e.target.checked}:l)})}/><button key={item.id} title={translate('Adjust this {0} layer.').replace('{0}',translate(layerType(item)).toLowerCase())} aria-pressed={item.id===selected} onClick={()=>{select(item.id);setLive(null);if(!selectedSite)setPlacing(false);}}>{emitterName(item)}<small>{layerType(item)}</small></button></div>)}</div>
-  {!stack.impact&&<div className="fx-layer-actions fx-add-row"><ChoiceSelect aria-label="Add emitter" title="Pick an emitter to preview it. Add keeps it as a layer." disabled={!recipeFrame} value={trial?.source==='emitter'?trial.label:''} onChange={tryEmitter}><option value="">Add emitter</option>{additions.map(s=><option key={s.label} value={s.label}>{s.label}</option>)}</ChoiceSelect>
-   <ChoiceSelect aria-label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} value={trial?.source==='layer'?trial.label:''} onChange={addLayer} onWheelChange={label=>tryLayer('layer',label,findSurfaceChoice(label))}><option value="">Add layer</option>{[...new Set(surfaceChoices.map(layerType))].map(type=><optgroup label={type} key={type}>{surfaceChoices.filter(s=>layerType(s)===type).map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</optgroup>)}</ChoiceSelect></div>}
+  {!stack.impact&&<div className="fx-layer-actions fx-add-row"><FxIngredientPicker kind="emitter" look={look} label="Add emitter" title="Pick an emitter to preview it. Add keeps it as a layer." disabled={!recipeFrame} clearable={trial?.source==='emitter'} onPick={tryEmitter}/>
+   <FxIngredientPicker kind="layer" look={look} label="Add layer" title="Add one editable layer to this part." disabled={!recipeFrame} onPick={addLayer}/></div>}
   {!stack.impact&&trial&&<button className="fx-keep-emitter" title={trial.source==='layer'?'Add one editable layer to this part.':'Keep the previewed emitter as a layer.'} onClick={keepTrial}>Add</button>}
   {l&&<>
   <h4 className="fx-selected" title={selectedSite?'Changes apply to this emitter only.':'Changes apply to the whole layer.'}>{translate(emitterName(l))+(selectedSite?' '+((result?.ids.indexOf(selectedId)??0)+1)+(groupSelect&&groupCount?' +'+groupCount:''):'')}</h4>
   {selectedSite&&<div className="fx-layer-actions"><button title="Edit every emitter of this layer again." onClick={()=>select(l.id)}>All emitters</button>
    <button aria-pressed={surfaceSnap} title="Double-click the model to put this emitter on its surface." onClick={()=>setSurfaceSnap(v=>!v)}>{surfaceSnap?'Double-click a surface':'Snap to surface'}</button>
    <button title="Remove this emitter from the layer." onClick={deleteEmitter}>Delete emitter</button></div>}
-  {(p||swarm)&&!selectedSite&&!stack.impact&&<label className="field fx-change-emitter" title="Replace this emitter and keep its position."><span>Emitter</span><ChoiceSelect aria-label="Change emitter" disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect></label>}
+  {(p||swarm)&&!tattoo&&!selectedSite&&!stack.impact&&<label className="field fx-change-emitter" title="Replace this emitter and keep its position."><span>Emitter</span><ChoiceSelect aria-label="Change emitter" disabled={!recipeFrame} value={currentEmitter?menuName(currentEmitter):''} onChange={changeEmitter}><option value="" disabled>Change emitter</option>{emitterChoices.map(s=><option key={menuName(s)} value={menuName(s)}>{menuName(s)}</option>)}</ChoiceSelect></label>}
   {!selectedSite&&<div className="fx-layer-actions">{!l.stamp&&<button title="Choose a texture from the game library for this layer." onClick={()=>pickTexture(l.id)}>Change texture</button>}
    <button title="Return this layer to its starting values." disabled={!startSpec||!recipeFrame} onClick={resetLayer}>Reset layer</button>
    <button title="Remove the selected layer and the pieces it owns." onClick={()=>{const layers=stack.layers.filter(v=>v!==l);setStack({...stack,layers});select(layers[0]?.id);setPlacing(false);}}>Remove layer</button></div>}
@@ -209,13 +214,18 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   {(surf||card)&&COLOUR_RHYTHM_IDS.includes(l.pulse)&&<ColourControl resetKey={colourRevision} label="Second colour" pickerLabel="Second colour" resetLabel="Reset second colour" hint="The colour the rhythm moves to and back from." tint={l.tint2||secondTint(l.tint)} defaultTint={secondTint(l.tint)} update={(_,value)=>{const next={...l,tint2:value};if(value.every((v,i)=>Math.abs(v-secondTint(l.tint)[i])<1/512))delete next.tint2;setLayer(next);}}/>}
   {edge&&real?<RibbonFields flat model={graph.model} id={real.ObjectId} onEdit={(_,__,mutate)=>{
    const n=structuredClone(real);mutate({RibbonEmitters:[n]});const v=ribbonQuickValues(n);setLayer({...l,tint:v.color,upper:v.above,lower:v.below,smoothness:v.amount,gravity:v.gravity,strength:v.intensity,lasts:v.lasts});}}/>:null}
-  {!edge&&!l.stamp&&<RangeField disabled={p&&!real} key={l.id} title="Adjust only the selected layer." label="Intensity"
+  {!edge&&!l.stamp&&!tattoo&&<RangeField disabled={p&&!real} key={l.id} title="Adjust only the selected layer." label="Intensity"
    output={v=>Math.round(v*100)+'%'} min={0} max={l.type==='Glow'||l.glyphs?4:1} step={.01} value={p?(l.particleStrength??1):l.strength}
    onDraft={v=>previewStrength(l,v,selectedSite)} onCommit={v=>p?setLayer(withParticleStrength(l,real.Alpha,v)):update('strength',v)}/>}
   {particleLayer&&<RangeField disabled={!countable} label="Emitters" title={selectedSite?'Choose All emitters to change how many emitters the layer has.':'Number of emitter sites in this layer.'} min={0} max={Math.max(MAX_EMITTER_SITES,siteCount??0)} step={1} value={siteCount??0} output={value=>swarm||siteCount==null?'N/A':value} onCommit={changeSiteCount}/>}
   {particleLayer&&<RangeField disabled={!!selectedSite||!!stack.impact} label="Formation" title={selectedSite?'Choose All emitters to pull the emitters together or spread them apart.':'Pull the emitters together or spread them apart.'} min={swarm?4:0} max={swarm?Math.max(200,(frame?.length||100)*2,l.size):2} step={swarm ? .5 : .01} value={swarm?l.size:l.formation??1} output={v=>swarm?v.toFixed(1):Math.round(v*100)+'%'} onCommit={v=>swarm?update('size',v):setLayer(withEmitterPlacement(l,{...l,formation:v}))}/>}
+  {tattoo&&!selectedSite&&<>
+   <label className="field"><span>Design</span><ChoiceSelect aria-label="Design" value={l.tattoo} onChange={value=>setLayer({...l,tattoo:value})}>{TATTOO_DESIGNS.map(id=><option key={id} value={id}>{TATTOO_NAMES[id]||id}</option>)}</ChoiceSelect></label>
+   {[['Size','tattooSize',.25,4,.05,1,v=>Math.round(v*100)+'%','Size of the design on the skin.'],['Turn','tattooTurn',-180,180,5,0,v=>Math.round(v)+'°','Turns the design on the skin.'],['Glow','tattooGlow',0,1,.01,0,v=>Math.round(v*100)+'%',"Light of the player's colour over the design."]].map(([label,key,min,max,step,start,output,tip])=>
+    <RangeField key={l.id+key} title={tip} label={label} output={output} min={min} max={max} step={step} value={l[key]??start} onCommit={v=>setLayer({...l,[key]:v})}/>)}
+  </>}
   {shell&&<RangeField key={l.id+'thickness'} title="Distance of this layer above the surface." label="Thickness" output={v=>v.toFixed(1)} min={0} max={shellReach(frame,l.inflate)} step={.05} value={l.inflate??0} onCommit={v=>update('inflate',v)}/>}
-  {particleLayer&&<>
+  {particleLayer&&!tattoo&&<>
    <LifeTable unavailable={!real||swarm} emitter={live?.emitter||real} lifeStage={lifeStage} setLifeStage={setLifeStage}
     begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/>
    {swarm?swarmSlider('EmissionRate','amount',FLY_BOUNDS.amount[0],FLY_BOUNDS.amount[1],5,'How many flies. Each five more fly on their own clock and paths.'):nativeSlider('EmissionRate')}
@@ -239,7 +249,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
    </>}</details>
   </>}
   {card&&<>
-   <label className="field" title="Which way the card faces: the camera, the ground, along the part, or across it. Twirl winds strands around the part."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part',across:'Across',twirl:'Twirl'}[id]}</option>)}</ChoiceSelect></label>
+   <label className="field" title="Which way the card faces: the camera, the ground, along the part, or across it. Twirl winds strands around the part. Ring spaces the cards on a circle around the part."><span>Facing</span><ChoiceSelect aria-label="Facing" value={cardValue('facing')} onChange={value=>update('facing',value)}>{CARD_FACINGS.map(id=><option key={id} value={id}>{{camera:'Camera',ground:'Ground',part:'Part',across:'Across',twirl:'Twirl',ring:'Ring'}[id]}</option>)}</ChoiceSelect></label>
    {row('Count','count',1,8,1,'Cards spread along the part. Each runs on its own clock.')}
   </>}
   {growth&&<>
@@ -307,7 +317,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   </>}</details>}
   {!moreAt&&placement}
   {stack.emitterEditPolicy&&<label className="field fx-emitter-policy" title="What happens to emitters you changed one by one when you change the whole layer."><span>Individual edits</span><select data-wheel-skip="" aria-label="Individual edits" value={stack.emitterEditPolicy} onChange={event=>setEmitterEditPolicy(event.target.value)}><option value="ask">Ask each time</option><option value="keep">Keep individual changes</option><option value="all">Apply to all</option></select></label>}
-  {(p||edge)&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id,selectedSite)}>Open in EMTR</button>}
+  {(p||edge)&&!tattoo&&real&&<button title="Apply this stack and open its selected emitter in the full editor." onClick={()=>openEmitter(l.id,selectedSite)}>Open in EMTR</button>}
   </>}
  </>;
 }

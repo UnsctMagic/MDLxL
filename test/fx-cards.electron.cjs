@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
-const {selectOption}=require('./helpers/fx-input.cjs');
+const {selectOption,addFxLayer}=require('./helpers/fx-input.cjs');
 // Card layers by real input on the Slaanesh dual weapon: add one, see it, see it pulse, drag it with the emitter
 // handle without moving the camera, change Facing, Apply and find it again. Also the app-review fixes: Built-in
 // rhythm on a native card and a look status that clears on another look.
@@ -40,7 +40,7 @@ const {selectOption}=require('./helpers/fx-input.cjs');
   const empty=await stage.screenshot();
 
   // Add a Card with the Add layer menu.
-  await selectOption(page,fx.getByLabel('Add layer',{exact:true}),'Card');await ready();
+  await addFxLayer(page,fx,'Card');await ready();
   const added=await card();assert.ok(added,'the Card layer is in the stack');assert.equal(added.label,'Card');
   assert.equal(await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Card/}).getAttribute('aria-pressed'),'true','the new card is selected');
   for(const label of ['Facing','Count','Rhythm'])assert.ok(await fx.getByLabel(label,{exact:true}).isVisible(),label+' shows by default');

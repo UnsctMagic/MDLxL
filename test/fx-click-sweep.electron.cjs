@@ -5,6 +5,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{pathToFileURL}=require('node:url');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {fixturePath,testModel}=require('./helpers/fixtures.cjs');
+const {addFxEmitter,addFxLayer,fxPickerNames}=require('./helpers/fx-input.cjs');
 const SETUPS=[
  {name:'footman-sword',model:fixturePath('footman'),part:'sword'},
  {name:'footman-body',model:fixturePath('footman'),part:'body'},
@@ -101,18 +102,16 @@ const chosen=(process.env.FX_SWEEP_SETUPS||'').split(',').filter(Boolean),onlyLo
    try{
     if(!session)await open();
     await act('choose look',()=>choose('Empty'));
-    const add=session.fx.getByLabel('Add layer',{exact:true});
-    const layers=await add.locator('option').evaluateAll(o=>o.map(x=>x.value).filter(Boolean));
+    const layers=await fxPickerNames(session.page,session.fx,'layer');
     for(const value of layers){
      where='Empty > Add layer '+value;
-     await act('add',()=>add.selectOption(value));
+     await act('add',()=>addFxLayer(session.page,session.fx,value));
      await act('Remove layer',()=>session.fx.getByRole('button',{name:'Remove layer',exact:true}).click());
     }
-    const emit=session.fx.getByLabel('Add emitter',{exact:true});
-    const emitters=await emit.locator('option').evaluateAll(o=>o.map(x=>x.value).filter(Boolean));
-    for(const value of emitters){where='Empty > Add emitter '+value;await act('preview emitter',()=>emit.selectOption(value));}
+    const emitters=await fxPickerNames(session.page,session.fx,'emitter');
+    for(const value of emitters){where='Empty > Add emitter '+value;await act('preview emitter',()=>addFxEmitter(session.page,session.fx,value));}
     where='Empty > Add emitter '+emitters[0];
-    await act('preview emitter',()=>emit.selectOption(emitters[0]));
+    await act('preview emitter',()=>addFxEmitter(session.page,session.fx,emitters[0]));
     await act('Add',()=>session.fx.getByRole('button',{name:'Add',exact:true}).click());
     await act('Position & size',()=>session.fx.getByRole('button',{name:'Position & size',exact:true}).click());
     const handle=session.fx.getByRole('slider',{name:'Move emitter',exact:true}).locator('circle').first(),h=await handle.boundingBox();

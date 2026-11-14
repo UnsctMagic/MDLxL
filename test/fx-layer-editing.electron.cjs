@@ -1,4 +1,4 @@
-const {addEmitter,selectOption}=require('./helpers/fx-input.cjs');
+const {addEmitter,addFxLayer,selectOption}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -31,7 +31,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
    await page.mouse.up();await ready();await slider.click();await page.keyboard.press('End');await ready();console.log(label,changed,'changed pixels');
   }
   await choose('Living ink');assert.equal(await fx.getByLabel('Enable Ink seal').count(),0);
-  await fx.getByLabel('Add layer',{exact:true}).selectOption('Ink seal');await ready();
+  await addFxLayer(page,fx,'Ink seal');await ready();
   await fx.getByRole('button',{name:'Change texture',exact:true}).click();
   await page.getByRole('button',{name:'Standard',exact:true}).click();
   const search=page.getByRole('searchbox',{name:'Search textures'});await page.getByRole('checkbox',{name:'Vibe search'}).uncheck();await search.fill('DemonRune5');

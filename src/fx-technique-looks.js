@@ -72,12 +72,9 @@ const teamMotes=(extra={})=>teamSpray('Team motes',
 // A soul (SoulArmor): the ghost ribbon, blended, its width a third of the ring on each side.
 const soulRibbon=(label,extra)=>orbit(label,tex('Ghost2'),[.85,.95,1],{whole:true,upright:true,band:.35,bandCap:.07,orbitTilt:12,filter:3,strength:1,smoothness:40,...extra});
 const SELECTION='UI\\Feedback\\TargetPreSelected\\SelectionCircleUnit.blp';
-const tattooSpot=()=>teamSpray('Team spots',
- {life:1.6,rate:3.75,size:[1,1,1],alpha:[0,230,0]},
- {gather:'spots',spots:3,widthCap:1.1,native:{Time:.5,Flags:EMITTER_CARRIED}});
-const tattooRune=(label,name)=>spray(label,tex(name),[1,1,1],
- {life:1.6,rate:3.75,size:[.7,.7,.7],alpha:[0,255,0]},
- {starts:true,gather:'spots',spots:3,widthCap:.8,loop:2133,native:{Time:.5,Flags:EMITTER_CARRIED,SegmentColor:[[1,1,1],[1,1,1],[1,1,1]]}});
+// A rune letter of the floating ring (Rune circle): two letters of one picture, opposite each other. The ring's
+// layers turn on one clock (lockedClock), or the letters would drift into each other.
+const floating=(label,name,phase)=>cardSpec(label,tex(name),{facing:'ring',whole:true,count:2,reach:1.25,band:.26,phase,spin:.5,sizeMin:.9,sizeMax:1.1,loop:5000,strength:.9,tint:[.3,1,.45],lockedClock:'rune-ring'});
 export const TECHNIQUE_LOOKS=[
  vary(make('glow-shell','Glow shell',3333,[],{asOverlay:true}),[
   {id:'shell',name:'Glow shell',layers:[
@@ -108,25 +105,6 @@ export const TECHNIQUE_LOOKS=[
    skin('Running bands',TEAM_GLOW,{team:2,teamTile:true,axis:'v',band:.3,tiling:2,speed:2,strength:.9,tint:[1,1,1],loop:2400}),
    teamShell('Team shell',.5,{loop:4133}),
   ]},
-  // Tattoo (pass 8; owner: "a team color tattoo? using only native stuff"). The player's colour exists only as a flat
-  // colour and a round glow, and the game cannot cut one picture out of another, so a drawn design in the player's
-  // colour is not possible. What the round glow can paint, lying still on the skin: bands across the part (only the
-  // middle of the glow is used, so each band is a soft line), uneven marks, and spots.
-  {id:'tattoo',name:'Tattoo bands',layers:[
-   glow('Team bands',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',axis:'v',band:.02,tiling:3,strength:2.5,tint:[1,1,1]}),
-  ]},
-  {id:'marks',name:'Tattoo marks',layers:[
-   glow('Team marks',TEAM_GLOW,{team:2,teamTile:true,fixed:true,pulse:'steady',axis:'v',band:.02,tiling:4,direction:24,strength:2.5,tint:[1,1,1]}),
-  ]},
-  // Movable tattoos (owner, 14 November: "tattoo spots needs to be movable ... maybe also different tattoos"). A spot is
-  // the team glow held still on the skin: an emitter with two particles alive, one fading in as the other fades out, so
-  // its light is steady. Being an emitter, each spot has a marker: select Team spots, Position & size, click a marker,
-  // drag it or Snap to surface; Emitters adds spots. A design cannot be drawn in the player's colour (see above), so the
-  // designs are native rune pictures in white light over the team spot: a rune ringed by the player's colour.
-  {id:'spots',name:'Tattoo spots',layers:[tattooSpot()]},
-  {id:'sigil',name:'Tattoo sigil',layers:[tattooSpot(),tattooRune('Tattoo sigil','DemonRune2')]},
-  {id:'eye',name:'Tattoo eye',layers:[tattooSpot(),tattooRune('Tattoo eye','DemonRune3')]},
-  {id:'fork',name:'Tattoo fork',layers:[tattooSpot(),tattooRune('Tattoo fork','DemonRune5')]},
   // Void form (pass 8, the owner's Void walker): a body of the player's colour under a dark shade that leaves the colour
   // showing, and the player's glow boiling off it in every direction.
   {id:'void',name:'Void form',layers:[
@@ -364,8 +342,15 @@ export const TECHNIQUE_LOOKS=[
   // straight across a blade is seen edge-on from the side; a ring seated in a body's head is hidden by it. Each ring now
   // leans out of its plane and turns about the part (tilt), so it shows from every side; around a body the rings stand
   // level, one at each height, as wide as the body is there.
-  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:3,reach:1.5,tilt:32,sizeMin:.94,sizeMax:1.06,spin:1,spinEased:false,loop:4000,tint:[1,1,1]}),
-  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:2,reach:1.2,tilt:55,sizeMin:.94,sizeMax:1.06,spin:-1.5,spinEased:false,loop:3100,strength:.8,tint:[.8,1,.7]}),
+  // 14 November, build 11 (owner: "still bad (and it can be made great)", a green smear over the whole body; "where
+  // are floating runes"). Three rings as wide as the arms reach, each leaning, crossed each other over the body. Now
+  // one circle and one smaller inside it, counter-turning, around the trunk; and rune letters floating on a ring just
+  // outside them, each in its own light, bobbing as the ring turns (the owner's Orcish Runes: a letter in a breathing
+  // halo, the whole turning slowly).
+  cardSpec('Rune circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:1,reach:1.4,tilt:24,sizeMin:.96,sizeMax:1.04,spin:1,spinEased:false,loop:6000,strength:.85,tint:[1,1,1]}),
+  cardSpec('Inner circle',tex('AuraRune7Green'),{facing:'across',whole:true,seated:true,count:1,reach:1.1,tilt:50,sizeMin:.96,sizeMax:1.04,spin:-1,spinEased:false,loop:4300,strength:.6,tint:[.8,1,.7]}),
+  floating('Floating runes','DemonRune5',0),floating('Second runes','DemonRune2',1/3),floating('Third runes','DemonRune6',2/3),
+  cardSpec('Rune halos',tex('GenericGlow64'),{facing:'ring',whole:true,count:6,reach:1.25,band:.42,spin:.5,sizeMin:.8,sizeMax:1.15,loop:5000,strength:.18,tint:[.2,.9,.45],lockedClock:'rune-ring'}),
   spray('Rune glow',tex('Green_Glow3'),[.4,1,.4],
    {life:1.6,rate:8,size:[.3,.4,.3],alpha:[0,45,0]},
    {starts:true,cover:'cloud',widthCap:1.6,loop:3467,native:{Time:.5,Flags:C}}),

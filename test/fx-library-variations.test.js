@@ -18,7 +18,7 @@ test('new stacks start with the chosen emitters and the listed defaults',()=>{
  assert.ok(!findLook('claude-fel-blade').layers.some(l=>l.label==='Fel edge'),'Fel fire has no Fel edge layer');
  assert.ok(LAYER_CHOICES.some(l=>l.label==='Fel edge'&&l.type==='Edge'),'Fel edge stays addable');
  const frost=findLook('frost-blade');
- assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark','vapour','shards','fissures','breath']);assert.equal(frost.loop,3200);
+ assert.deepEqual(frost.variations.map(v=>v.id),['ice','steel','dark','vapour','shards','fissures','breath','spikes']);assert.equal(frost.loop,3200);
  for(const v of frost.variations.slice(0,3)){
   const stack=withVariation(newStack(frost,frame,'o'),frame,frost,v.id);
   assert.ok(stack.layers.some(l=>l.label==='Falling mist'&&l.enabled),v.id+' starts with its mist');
@@ -30,13 +30,13 @@ test('new stacks start with the chosen emitters and the listed defaults',()=>{
  assert.ok(started('claude-tidal-blade',frame).includes('Dripping water'));
  assert.ok(withVariation(newStack(water,frame,'o'),frame,water,'currents').layers.some(l=>l.label==='Dripping water'&&l.enabled));
  for(const [look,ids] of Object.entries({
-  'flaming-sword':['surface-flames','flame-licks','enveloping-flames','fireball','column','breath'],
-  'claude-fel-blade':['original','fel-licks','fel-enveloping','fel-surge','fel-sparks','fel-column','fel-breath'],
+  'flaming-sword':['surface-flames','flame-licks','enveloping-flames','fireball','column','swirl','breath'],
+  'claude-fel-blade':['original','fel-licks','fel-enveloping','fel-surge','fel-sparks','fel-column','fel-swirl','fel-breath'],
   'lightning-blade':['original','crackle','tip','sparks'],
   'arcane-blade':['arcane','shimmer','swirl','flow'],
   'poison-skin':['original','venom','fumes','curse','acid','veins'],
-  lava:['original','spitting','smoulder','magma'],
-  'fx-lit-crystal':['light','team','sparkle','veins'],
+  lava:['original','spitting','smoulder','magma','crystals'],
+  'fx-lit-crystal':['light','team','sparkle','veins','growth','team-growth'],
  }))assert.deepEqual(findLook(look).variations.map(v=>v.id),ids,look);
  // Crystal veins is a variation of Crystal now (14 November), not a look of its own.
  for(const id of ['claude-magma-flow','fissures','fx-liquid-body'])assert.equal(findLook(id).variations,undefined,id);

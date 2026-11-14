@@ -7,6 +7,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {fixturePath,testModel}=require('./helpers/fixtures.cjs');
+const {openFxPicker,fxPickerNames}=require('./helpers/fx-input.cjs');
 const DEFAULT_SETUPS=[
  {name:'footman',model:fixturePath('footman'),parts:['body','sword'],full:true},
  {name:'dense',model:testModel('pose-performance/GnomeLindormrRider_TwinHeads_FaceAlphaWrap.mdx'),parts:['body']},
@@ -97,8 +98,9 @@ const round=v=>Math.round(v*10)/10;
      const speed=fx.getByLabel('Speed',{exact:true});await speed.click({clickCount:3});await page.keyboard.type('1.5');
      await measure('Speed change','keydown',()=>page.keyboard.press('Enter'));
      await measure('layer checkbox','pointerdown',()=>fx.locator('.fx-layer-list .fx-layer-row input[type=checkbox]').last().click());
-     const add=fx.getByLabel('Add emitter',{exact:true}),first=(await add.locator('option').evaluateAll(o=>o.map(x=>x.value).filter(Boolean)))[0];
-     await measure('Add emitter pick','change',()=>add.selectOption(first));
+     const first=(await fxPickerNames(page,fx,'emitter'))[0];
+     await openFxPicker(fx,'emitter');await page.keyboard.type(first);
+     await measure('Add emitter pick','pointerdown',()=>fx.getByRole('option').filter({has:fx.getByText(first,{exact:true})}).first().click());
      await measure('Add','pointerdown',()=>fx.getByRole('button',{name:'Add',exact:true}).click());
      // Dragging an emitter slider: frames while the hand moves, then the release.
      await layerButton('Flames').click();

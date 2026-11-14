@@ -3,7 +3,8 @@
 
 // across: the card stands across the part, which passes through its middle (a ring around a blade).
 // twirl: no flat card but strands wound around the part, turning about it (the count is the number of strands).
-export const CARD_FACINGS=['camera','ground','part','across','twirl'];
+// ring: cards that face the camera, evenly spaced on a ring about the part, turning about it (floating runes).
+export const CARD_FACINGS=['camera','ground','part','across','twirl','ring'];
 /** Defaults of every optional Card field. size and offset are fitted to the part by makeLayer. */
 export const CARD_DEFAULTS=Object.freeze({facing:'camera',count:1,sizeMin:.83,sizeMax:1.17,spin:0,spinEased:true,jitter:0,rows:1,columns:1,frameMs:0,cell:0,strength:1,filter:3,unshaded:true,unfogged:true,twoSided:true});
 /** [min,max] of each numeric Card field. */

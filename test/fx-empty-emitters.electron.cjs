@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {root,launchApp,closeApp,stubDialogs}=require('./helpers/app.cjs'),{testModel}=require('./helpers/fixtures.cjs');
-const {selectOption,addEmitter}=require('./helpers/fx-input.cjs');
+const {selectOption,addEmitter,addFxEmitter,clearFxEmitter,fxPickerNames}=require('./helpers/fx-input.cjs');
 (async()=>{
  const {GLOBAL_LOOKS,emitterName}=await import('../src/global-animation-looks.js'),out=path.join(root,'out/empty-emitter');fs.mkdirSync(out,{recursive:true});
  const {legacyFlamingSword}=await import('./helpers/fx-legacy-fixtures.mjs'),legacyFiles=legacyFlamingSword(out);
@@ -26,13 +26,13 @@ const {selectOption,addEmitter}=require('./helpers/fx-input.cjs');
  try{
   await stubDialogs(app,{message:1});await page.waitForFunction(()=>mdlxlProbe().session?.doc?.model?.Geosets?.length>28);const original=await source();await openFx();await choose('Fire');
   let m=await model();assert.equal(m.Geosets[28]._FxStack.layers.filter(l=>l.type==='Particles').length,1,'Fire starts with its Blade flames');assert.ok(m.ParticleEmitters2.filter(p=>p._FxTag).every(p=>p.Name.startsWith('FX Blade flames'))&&m.ParticleEmitters2.some(p=>p._FxTag));
-  const own=fx.getByLabel('Add emitter',{exact:true});assert.deepEqual((await own.locator('option').allTextContents()).slice(0,3),['Add emitter','Flames (recommended)','Rising embers']);
+  assert.deepEqual((await fxPickerNames(page,fx,'emitter')).slice(0,2),['Flames','Rising embers'],'the look own emitters come first, the recommended one on top');
   await apply();assert.ok(JSON.parse(await source()).ParticleEmitters2.length>JSON.parse(original).ParticleEmitters2.length);await undo(original);
   await openFx();
   for(const look of GLOBAL_LOOKS){
    await choose(look.name);m=await model();const emitterOnly=look.layers.length>0&&look.layers.every(l=>l.type==='Particles'),shown=look.layers.filter((l,i)=>l.type!=='Particles'||l.starts||emitterOnly&&i===0),started=shown.filter(l=>l.type==='Particles'&&l.kind!=='flies');assert.equal(await fx.getByRole('group',{name:'Layers',exact:true}).locator('.fx-layer-row').count(),shown.length,look.name+' keeps its approved default layers');const owned=m.ParticleEmitters2.filter(p=>p._FxTag);if(started.length){assert.ok(owned.length>0,look.name+' starts its emitter');assert.ok(owned.every(p=>started.some(l=>p.Name.startsWith('FX '+l.label))),look.name+' uses its own emitter');}else assert.equal(owned.length,0,look.name+' creates no emitters');
-   const expected=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((l,i,all)=>l.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&emitterName(o)===emitterName(l))===i).map((l,i)=>emitterName(l)+(i===0?' (recommended)':'')),labels=(await own.locator('option').allTextContents()).slice(1);
-   assert.deepEqual(labels.slice(0,expected.length),expected);assert.equal(labels.filter(l=>l.endsWith(' (recommended)')).length,expected.length?1:0);
+   const expected=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((l,i,all)=>l.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&emitterName(o)===emitterName(l))===i).map(l=>emitterName(l)),labels=await fxPickerNames(page,fx,'emitter');
+   assert.deepEqual(labels.slice(0,expected.length),expected);
   }
   await choose('Lightning');m=await model();assert.deepEqual(m.Geosets[28]._FxStack.layers.map(l=>l.label),['Storm steel','Forked arcs','Blade arcs']);assert.deepEqual(m.Geosets[28]._FxStack.layers.map(l=>l.enabled!==false),[true,true,false],'Forked arcs on, Blade arcs off');assert.equal(await fx.getByLabel('Create as overlay').isChecked(),false);
   await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade arcs/}).click();for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
@@ -40,10 +40,10 @@ const {selectOption,addEmitter}=require('./helpers/fx-input.cjs');
   await choose('Fire');
   // Picking an emitter only previews it: no layer row until Add, and the empty choice removes it again.
   const rows=()=>fx.getByRole('group',{name:'Layers',exact:true}).locator('.fx-layer-row').count(),rowCount=await rows(),previewed=async()=>(await model()).ParticleEmitters2.filter(p=>p._FxTag).length,started=await previewed();
-  await selectOption(page,own,'Rising embers');await ready();assert.ok(await previewed()>started,'picked emitter shows in the preview');assert.equal(await rows(),rowCount,'picking does not add a layer');
-  await selectOption(page,own,'Flames (recommended)');await ready();assert.ok((await model()).ParticleEmitters2.filter(p=>p._FxTag).every(p=>p.Name.startsWith('FX Blade flames')),'a new pick replaces the previous preview');assert.equal(await rows(),rowCount);
-  await selectOption(page,own,'Add emitter');await ready();assert.equal(await previewed(),started,'the empty choice clears the preview');assert.equal(await fx.getByRole('button',{name:'Add',exact:true}).count(),0);
-  await addEmitter(page,fx,'Flames (recommended)',ready);assert.equal(await rows(),rowCount+1,'Add keeps the previewed emitter as a layer');assert.equal(await own.inputValue(),'','the picker resets after Add');m=await model();assert.equal(m.Geosets[28]._FxStack.layers.filter(l=>l.type==='Particles').length,2,'the started flames plus the added copy');assert.deepEqual([...new Set(m.ParticleEmitters2.filter(p=>p._FxTag).map(p=>p.Parent))].sort((a,b)=>a-b),[19,22]);
+  await addFxEmitter(page,fx,'Rising embers');await ready();assert.ok(await previewed()>started,'picked emitter shows in the preview');assert.equal(await rows(),rowCount,'picking does not add a layer');
+  await addFxEmitter(page,fx,'Flames (recommended)');await ready();assert.ok((await model()).ParticleEmitters2.filter(p=>p._FxTag).every(p=>p.Name.startsWith('FX Blade flames')),'a new pick replaces the previous preview');assert.equal(await rows(),rowCount);
+  await clearFxEmitter(page,fx);await ready();assert.equal(await previewed(),started,'the None choice clears the preview');assert.equal(await fx.getByRole('button',{name:'Add',exact:true}).count(),0);
+  await addEmitter(page,fx,'Flames (recommended)',ready);assert.equal(await rows(),rowCount+1,'Add keeps the previewed emitter as a layer');assert.equal(await fx.getByRole('button',{name:'Add',exact:true}).count(),0,'the preview is used up after Add');m=await model();assert.equal(m.Geosets[28]._FxStack.layers.filter(l=>l.type==='Particles').length,2,'the started flames plus the added copy');assert.deepEqual([...new Set(m.ParticleEmitters2.filter(p=>p._FxTag).map(p=>p.Parent))].sort((a,b)=>a-b),[19,22]);
   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.filter(e=>e.props.Name.startsWith('FX Blade flames')).every(e=>e.particles.length>0));
   const b=await stage.boundingBox(),camera=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray()),before=await camera();
   await page.mouse.move(b.x+b.width*.72,b.y+b.height*.4);await page.mouse.down();await page.mouse.move(b.x+b.width*.72+55,b.y+b.height*.4+15,{steps:10});await page.mouse.up();assert.notDeepEqual(await camera(),before,'normal mouse orbit works');await fx.getByRole('button',{name:'Fit selection',exact:true}).click();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.wheel(0,300);await ready();

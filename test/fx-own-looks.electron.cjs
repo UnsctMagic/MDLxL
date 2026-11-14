@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
-const {addEmitter}=require('./helpers/fx-input.cjs');
+const {addEmitter,addFxLayer}=require('./helpers/fx-input.cjs');
 // WRITTEN, NOT RUN. The user's own looks: edit Fire, Save as… "My fire", find it under My looks, use it on another
 // geoset, keep it across a restart, delete it with ×, then build from Empty and undo the Apply. Real clicks only.
 (async()=>{
@@ -71,7 +71,7 @@ const {addEmitter}=require('./helpers/fx-input.cjs');
   await geoset(28);await choose('Empty');
   assert.equal(await fx.getByRole('group',{name:'Layers'}).getByRole('button').count(),0,'Empty starts with no layers');
   const original=await source();
-  await fx.getByLabel('Add layer',{exact:true}).selectOption('Flowing energy');await ready();
+  await addFxLayer(page,fx,'Flowing energy');await ready();
   await addEmitter(page,fx,'Rising embers',ready);
   assert.equal(await fx.getByRole('group',{name:'Layers'}).getByRole('button').count(),2);
   const applied=await revision();
