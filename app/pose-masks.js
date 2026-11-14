@@ -1,7 +1,7 @@
 // The Modern set: transparent PNG masks, tinted with the Symbol Color. [256 px, 64 px] per symbol.
 // Literal new URL() calls are what lets the bundler find and ship the files.
 let files = null; // built on first use: import.meta.url does not exist when a test bundles this file
-const fileTable = () => files ||= {
+const maskFiles = () => ({
   Hand: [new URL('./assets/pose-symbols/hand.png', import.meta.url).href, new URL('./assets/pose-symbols/hand-64.png', import.meta.url).href],
   Foot: [new URL('./assets/pose-symbols/foot.png', import.meta.url).href, new URL('./assets/pose-symbols/foot-64.png', import.meta.url).href],
   Hoof: [new URL('./assets/pose-symbols/hoof.png', import.meta.url).href, new URL('./assets/pose-symbols/hoof-64.png', import.meta.url).href],
@@ -15,9 +15,11 @@ const fileTable = () => files ||= {
   Tail: [new URL('./assets/pose-symbols/tail.png', import.meta.url).href, new URL('./assets/pose-symbols/tail-64.png', import.meta.url).href],
   Object: [new URL('./assets/pose-symbols/object.png', import.meta.url).href, new URL('./assets/pose-symbols/object-64.png', import.meta.url).href],
   Magnet: [new URL('./assets/pose-symbols/magnet.png', import.meta.url).href, new URL('./assets/pose-symbols/magnet-64.png', import.meta.url).href],
-};
+});
+// A test that bundles this file as CommonJS has no import.meta.url there: it gets no files.
+const fileTable = () => { if (!files) { try { files = maskFiles(); } catch { files = {}; } } return files; };
 
-export const poseMaskUrl = (name, small = false) => (fileTable()[name] || fileTable().Object)[small ? 1 : 0];
+export const poseMaskUrl = (name, small = false) => (fileTable()[name] || fileTable().Object)?.[small ? 1 : 0] ?? '';
 
 const images = new Map(), tinted = new Map();
 function maskImage(name) {
