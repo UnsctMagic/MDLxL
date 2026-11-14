@@ -57,7 +57,9 @@ export function eventCatalog(records) {
     const sound = {id, label:`${label} · ${id}`, files, expansion: soundExpansion(id, row.version, String(row.FileNames || '').split(','))};
     if (existing < 0) catalog.SND.push(sound); else catalog.SND[existing] = sound;
   }
-  for (const [type, name] of Object.entries(EVENT_TABLE_PATHS)) for (const [id, row] of table(name)) {
+  for (const [type, name] of Object.entries(EVENT_TABLE_PATHS)) for (const [key, row] of table(name)) {
+    // Some shipped rows carry a trailing space in their code (SpawnData OBKB); event names use the four characters.
+    const id = String(key).trim();
     if (id === 'INIT' && type !== 'SPN') continue;
     const label = row.comment || row.Model || row.file || id;
     catalog[type].push({ id, label: `${label} · ${id}`, definition:resolveEventDefinition(`${type}x${id}`, tables) });

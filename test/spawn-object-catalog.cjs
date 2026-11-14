@@ -11,8 +11,11 @@ const { gameFolder, tempDir } = require('./helpers/fixtures.cjs');
 // The diagnosed groups for the installed Warcraft III SpawnData table.
 const particleIds = 'HBL0 HBF0 HBK0 HBM0 HBP0 HBPR HBR0 HBSR OBHE OBHS OBFS OBWD OBWR OBT0 UBAB DBCR NBAR NBDT NBDR NBDB NBDA NBKG HBBM HBSB NBMF DBBM IFPW HBCE OBCE'.split(' ');
 const zeroIds = 'HBNE OBTC OBKB OBWY OBG0 OBP0 UBGA UBGH UBAC NBDC NBHU NBDH NBCH NBHG DBPT OBBT OBSH CBAL NBWS'.split(' ');
-const modernIds = 'UEGG GCBL UDIS EENT DNAM DNAS DUME DUSM INFR INFL INFU DNBL CLID HFSS UBSC UBCC DBPB PEFI DNBD FTSO TOBO IFP0 IFP1 FRBS PBSX GDCR'.split(' ');
-const lookupIds = 'EDIS DDIS ODIS HDIS HBS0 HBS1 HBL1 NBVW OBWV OKBP NBMP CHMA CHMB TYCA MFCA MDII USDM INIT TEST'.split(' ');
+const modernIds = 'UEGG GCBL UDIS EENT DNAM DNAS DUME DUSM INFR INFL INFU DNBL CLID HFSS DBPB PEFI DNBD FTSO TOBO IFP0 IFP1 FRBS PBSX GDCR'.split(' ');
+const lookupIds = 'EDIS DDIS ODIS HDIS OBWV OKBP INIT TEST'.split(' ');
+// Found through the app's resolver but refused by the event decoder (measured 15 Nov 2026), so the picker omits them.
+const hdIds = 'UBSC UBCC CHMA CHMB TYCA MFCA MDII USDM'.split(' ');
+const noEffectIds = 'HBS0 HBS1 HBL1 NBVW NBMP'.split(' ');
 const emptyIds = 'HBDH NBFD NBWD NBMG OBSW UBCL UBOB DBDR DBSW DBPL'.split(' ');
 
 let cache, resolver, table, assetByPath, parseEffect, definition, toKey;
@@ -52,7 +55,9 @@ function decode(id) {
   const asset = assetFor(id);
   assert.ok(asset?.bytes?.length, id + ' must resolve through the game resource resolver');
   const original = Buffer.from(asset.bytes);
-  const model = parseEffect(asset.bytes, asset.name);
+  let model;
+  try { model = parseEffect(asset.bytes, asset.name); }
+  catch (error) { throw new Error(id + ' (' + asset.name + '): ' + error.message); }
   assert.deepEqual(Buffer.from(asset.bytes), original, id + ' must keep the original asset bytes');
   return model;
 }
@@ -76,12 +81,15 @@ test('every SpawnData row is classified and the 29 existing particle models are 
   const groups = new Map([
     ...particleIds.map(id => [id, 'particle']), ...zeroIds.map(id => [id, 'zero']),
     ...modernIds.map(id => [id, 'modern']), ...lookupIds.map(id => [id, 'lookup']),
-    ...emptyIds.map(id => [id, 'empty']),
+    ...emptyIds.map(id => [id, 'empty']), ...hdIds.map(id => [id, 'hd']), ...noEffectIds.map(id => [id, 'noEffects']),
   ]);
-  assert.deepEqual([...table.keys()].sort(), [...groups.keys()].sort(), 'Every installed row must have an expected group');
+  // The shipped table spells OBKB with a trailing space; event names and the picker use the four characters.
+  assert.deepEqual([...table.keys()].map(id => id.trim()).sort(), [...groups.keys()].sort(), 'Every installed row must have an expected group');
   const counts = {};
   for (const [id, group] of groups) {
     if (group === 'empty') assert.equal(definition(id), null, id);
+    else if (group === 'hd') assert.throws(() => decode(id), /HD models aren't supported yet/, id);
+    else if (group === 'noEffects') assert.throws(() => decode(id), /no effects the preview can display/, id);
     else if (group === 'lookup') {
       if (id === 'INIT' || id === 'TEST') assert.equal(assetFor(id), undefined, id);
       else if (assetFor(id)) decode(id);
