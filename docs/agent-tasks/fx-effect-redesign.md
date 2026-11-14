@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: pass 5 saved locally (13 November): electricity (`647934e3`). Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 05 by eye. Local branch only.
+Status: pass 6 in progress (14 November): the owner's list from test build 05; item 1 saved locally. Builds; compiled in Node on the owner's model, not rendered and not opened in the app: the owner reviews test build 06 by eye. Local branch only.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.
@@ -189,6 +189,42 @@ What the owner should look at:
 - Lightning > Crackling arcs: as before, with a soft blue glow now visible around the blade.
 - Lightning cage: arcs streaming just off the surface, zap cards, one zap circling, sparkles around the part.
 - Controls: select Discharge > More > Particles per burst, Burst duration, Time between bursts. In Lightning, switch on Blade arcs: Arcs per burst, Burst duration, Time between bursts. Lightning cage > Shell arcs: Thickness.
+
+## Pass 6: the owner's list from test build 05 (13 to 14 November 2026, Fable)
+
+The list, in the owner's words (short):
+
+1. Switching geosets or clicking another surface resets my selection: keep it.
+2. Clustered emitters (Tip glow, Discharge and the rest sit together): a "Select Emitter by group" toggle, to move them together.
+3. Lightning cage: nice idea, looks terrible. Huge on a body, flat on a weapon. Billboards?
+4. Rift seam: hit and miss, nice idea.
+5. The Fire lessons also for Fel fire and for the Fire category in general.
+6. Fire column belongs in Fire / Fel fire.
+7. Molten lava looks like a slurpie.
+8. Lit crystal is buggy, causes tearing.
+9. Glacial fissures belongs in Frost.
+10. Crystal veins and Lit crystal: same category.
+11. Tide etching: not nice.
+12. Rune circle: no auras, but cool. A weapon effect?
+13. Star flare terrible, Glow orb terrible (placement on a sword), Eye glow: remove.
+
+Later the same day: "no limits... let fable polish what I listed, but also just give it all an extra polish."
+
+Everything below builds; it was compiled in Node on the owner's model with the scripts in `out\fx-design\pass6\`, not rendered and not opened in the app. The owner reviews test build 06 by eye.
+
+### Progress
+
+Done:
+
+- **1. Selection stays** (`db026c16`). `pickGeoset` in `app/SurfaceEffects.jsx` carries the current stack to the next part: `carryAnimationStack` (`src/global-animation-model.js`) and `stackForPart` (`src/fx-own-looks.js`) refit it with the same rules a saved look uses. Look, variation, layer values, added and switched-off layers, an edited emitter count and a previewed Add emitter pick stay. Left behind: single emitters moved or edited by hand (they belong to the old part's surface). Whole-layer slider edits are stored per emitter, so they travel as ratios: `fieldScale` on the layer (new field, fresh layers only; applied in `applyFieldScale` after the layer's own values). A part that already has an applied effect shows that effect until something was chosen or changed in the window (`chosen`); after that the selection replaces the preview there, and nothing applied changes until Apply. Check: `node out/fx-design/pass6/carry.mjs <model> <look> <variation|-> <from> <to>`.
+
+Next: items 2 to 13 in order, then the extra polish pass.
+
+Exact next step: item 2, the group toggle (`app/GlobalAnimationStage.jsx`, `app/GlobalAnimationControls.jsx`, `app/SurfaceEffects.jsx`).
+
+What the owner should look at:
+
+- Pick any look and variation, change a colour or a size, then double-click another surface or change Geoset: the same look, variation and changes show on the new part.
 
 ## Rules carried over
 
