@@ -40,7 +40,11 @@ const ghost=[0,.89,.09],soul=[.6,.9,1],zap=[.75,.88,1],crystal=[.53,.77,1];
 // No lift (the tearing in test build 05): a copy a hair off the surface fights it for depth, and on a hard-edged
 // crystal a copy pushed out along the normals opens at every edge. On the surface itself neither can happen.
 const crystalFacets=filter=>skin('Crystal facets',tex('CrystalOpaque'),{fixed:true,bodyUV:true,filter,tint:crystal,strength:1});
-const facetGlints=()=>cardSpec('Facet glints',tex('star4'),{sharedSites:true,count:3,fit:.35,sizeMin:.75,sizeMax:1.05,loop:1700,tint:[.85,.95,1]});
+// Glints were three cards in a row down the middle of every skin region: evenly spaced dots. They bloom anywhere on the
+// surface now, like Sparkling facets, a few at a time.
+const facetGlints=()=>spray('Facet glints',tex('star4'),[.85,.95,1],
+ {life:.8,rate:9,size:[.03,.2,.03],alpha:[0,240,0]},
+ {starts:true,cover:'surface',widthCap:1.4,loop:1933,native:{Time:.45,Flags:C,SegmentColor:[[1,1,1],[.85,.95,1],[.53,.77,1]]}});
 
 export const TECHNIQUE_LOOKS=[
  make('glow-shell','Glow shell',3333,[
@@ -172,7 +176,10 @@ export const TECHNIQUE_LOOKS=[
  make('liquid-body','Liquid body',1992,[
   skin('Water body',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:2,strength:.8,tint:[.65,.83,.99]}),
   skin('Water shimmer',waterFrames[0],{frames:waterFrames,bodyUV:true,filter:3,strength:.5,direction:90,loop:1320,tint:[.85,.95,1]}),
-  cardSpec('Water glints',tex('Blue_Glow2'),{sharedSites:true,count:4,fit:.4,sizeMin:.85,sizeMax:1.15,loop:2767,tint:[.8,.9,1]}),
+  // Four glow cards in a row down the middle until 14 November; glints anywhere on the wet surface now.
+  spray('Water glints',tex('star4_32'),[.8,.9,1],
+   {life:.6,rate:14,size:[.02,.14,.02],alpha:[0,230,0]},
+   {starts:true,cover:'surface',widthCap:1,loop:2767,native:{Time:.4,Flags:C,SegmentColor:[[1,1,1],[.8,.9,1],[.55,.75,1]]}}),
  ],{asOverlay:true}),
  make('eye-glow','Eye glow',1300,[
   cardSpec('Left eye',tex('Flare'),{fit:.25,sizeMin:.9,sizeMax:1.1,tint:[1,.3,.12]}),
