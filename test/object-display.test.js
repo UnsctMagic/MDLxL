@@ -14,6 +14,7 @@ import { MOVEMENT_EDITABLE_KINDS, xlObjectKinds } from '../src/object-display.js
 
 const require = createRequire(import.meta.url);
 const { fixturePath } = require('./helpers/fixtures.cjs');
+const orcFile = fixturePath('sd-chaos-orc'), orcMissing = !(orcFile && fs.existsSync(orcFile)) && 'private chaos orc model not on this machine';
 const { buildMenuTemplate } = require('../electron/menu.cjs');
 const loadMdx = name => {
   const file = fixturePath(name); assert.ok(file && fs.existsSync(file), `fixture missing: ${file}`);
@@ -55,13 +56,14 @@ test('VIS display defaults are MDLVis\'s: Bones and Attachment on, Emitters and 
   for (const mode of ['vertices', 'animations']) assert.deepEqual(Object.keys(vis[mode]).sort(), ['grid', 'normals', 'shaded', 'vertices'], mode);
 });
 
-const model = loadMdx('sd-chaos-orc');
-const kinds = xlObjectKinds(model);
+// The chaos orc is private (MDLxL-TestModels); CI skips the tests that need it, like the Forge and Corpse tests.
+const model = orcMissing ? { EventObjects: [], CollisionShapes: [] } : loadMdx('sd-chaos-orc');
+const kinds = orcMissing ? new Map() : xlObjectKinds(model);
 const idsOf = kind => [...kinds].filter(([, value]) => value === kind).map(([id]) => id);
 const points = [...kinds.keys(), ...(model.CollisionShapes || []).map(node => node.ObjectId)].map(id => ({ node: { ObjectId: id }, overlayKind: kinds.get(id) || 'nodes' }));
 const shown = options => new Set(visibleMovementPoints(points, options).map(point => point.overlayKind));
 
-test('the fixture has every object kind the switches cover', () => {
+test('the fixture has every object kind the switches cover', { skip: orcMissing }, () => {
   for (const kind of ['bones', 'attachments', 'particles', 'events', 'sounds', 'lights']) assert.ok(idsOf(kind).length, kind);
   // Odd events (SPN here) are events in XL; VIS keeps main's classification.
   const odd = model.EventObjects.find(node => node.Name.startsWith('SPN'));
@@ -69,7 +71,7 @@ test('the fixture has every object kind the switches cover', () => {
   assert.equal(movementNodeCategories(model, true).has(odd.ObjectId), false);
 });
 
-test('Objects shows attachments, emitters, events and sounds; Lights is its own switch; collision never', () => {
+test('Objects shows attachments, emitters, events and sounds; Lights is its own switch; collision never', { skip: orcMissing }, () => {
   const display = defaultEditorDisplay();
   assert.deepEqual(shown(previewOverlayOptions(display.movement, false, 'movement')), new Set(['bones', 'attachments', 'particles', 'events', 'sounds']));
   const lights = setEditorDisplay(display, 'movement', 'lights', true);
@@ -82,7 +84,7 @@ test('Objects shows attachments, emitters, events and sounds; Lights is its own 
   assert.ok(!shown(previewOverlayOptions(lights.bones, false, 'bones')).has('nodes'));
 });
 
-test('right-click types filter what Objects draws and picks, shared between Bones and Movement', () => {
+test('right-click types filter what Objects draws and picks, shared between Bones and Movement', { skip: orcMissing }, () => {
   let display = defaultEditorDisplay();
   display = setEditorDisplay(display, 'bones', 'objectTypesSounds', value => !value);
   display = setEditorDisplay(display, 'bones', 'objectTypesAttachments', value => !value);
@@ -97,7 +99,7 @@ test('right-click types filter what Objects draws and picks, shared between Bone
   assert.equal(cleared.movement.objectTypesSounds, false); assert.equal(cleared.movement.objectTypesEvents, false);
 });
 
-test('Vertices draws no objects and has no Objects switch; Animations draws no symbols', () => {
+test('Vertices draws no objects and has no Objects switch; Animations draws no symbols', { skip: orcMissing }, () => {
   const display = defaultEditorDisplay();
   assert.deepEqual(['objects', 'lights', 'objectTypesSounds'].map(key => display.vertices[key]), [undefined, undefined, undefined]);
   const vertex = viewportOverlayOptions({ overlays: display.vertices, vanilla: false });
