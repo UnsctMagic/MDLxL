@@ -73,9 +73,14 @@ const path = require('node:path');
     assert.equal(await alpha.inputValue(), '0');
     const unticked = await save('unticked'); // the checkbox itself keys Alpha 0 at the current frame
     await page.getByRole('button', { name: 'Bake All RGB', exact: true }).click();
+    // The click changed the model, so the button lights up once in the theme accent and then goes plain.
+    const bakeAllRgb = page.getByRole('button', { name: 'Bake All RGB', exact: true });
+    assert.equal(await bakeAllRgb.getAttribute('data-done'), '', 'Bake All RGB lights up after it edits the model');
+    await page.waitForFunction(() => ![...document.querySelectorAll('button')].some(button => button.hasAttribute('data-done')));
     const rgb = await save('all-rgb'); rgbOnly(rgb, unticked);
     // Hide extras decides its list when clicked: baking a checked geoset to 0 keeps it listed and editable.
     await page.getByRole('button', { name: 'Hide extras', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Hide extras', exact: true }).getAttribute('data-done'), null, 'A button that changes nothing in the model stays plain');
     await page.getByRole('button', { name: 'Bake All Visibility', exact: true }).click();
     await settlePage(page, 200);
     assert.equal(await page.getByLabel('Select geoset 0', { exact: true }).count(), 1, 'A geoset baked to 0 stays in the geoset list');
