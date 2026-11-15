@@ -1,8 +1,8 @@
 # Click sweep: check the controls flagged as doing nothing
 
-Status: checked; owner choices and merge pending (local branch `claude/click-sweep-fixes`)
+Status: completed — merged in PR #657 (ca7293b8); owner chose to hide/grey all three controls
 Owner / consolidator: Claude Code (sweep built by Claude Code)
-Updated: 2026-11-15
+Updated: 2026-11-16
 
 ## Goal and completion criteria
 
