@@ -15,19 +15,19 @@ import {createFrameCoalescer} from './viewport-performance.js';
 // onDrag(true/false) brackets a drag so the preview can hold the animation still.
 // The weapon glow's middle carries the main editor's Rotate handles: a turn
 // swings both ends around the middle, so it lines up with a blade in any view.
-export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,preferences}) {
+export default function GlowStageTools({snapshot,glow,layout,weaponMark,onChange:set,onDrag,preferences}) {
   const drag=useRef(null),follow=useRef(null),frame=useRef(null),turn=useRef(null),marks=snapshot?.marks;
   // Each glow change rebuilds the preview model: follow the pointer once per frame.
   frame.current||=createFrameCoalescer(()=>follow.current?.());
   useEffect(()=>()=>frame.current.cancel(),[]);
-  const set=change=>onChange(value=>({...value,...change}));
   useWindowKeyClaim(({event})=>{
     if(event.key!=='Escape'||!drag.current)return false;
     abort();return true;
   },0);
   useWindowKeyClaim(detail=>holdGestureKey(detail,null,()=>!!drag.current),0);
   useMousePressLost(()=>{if(drag.current)abort();});
-  const line=glow?.weapon&&layout?.weapons?.[0],pivot=line?.frame&&line.start&&line.end&&snapshot?.turns?.mid;
+  const mid=glow?.weapon&&marks?.[weaponMark];
+  const line=mid&&layout?.weapons?.[0],pivot=line?.frame&&line.start&&line.end&&snapshot?.turns?.[weaponMark];
   const rings=useStageRotate({editor:'glow',at:pivot?.world,camera:snapshot?.camera,width:snapshot?.width,height:snapshot?.height,preferences,
     onBegin(){turn.current={line:structuredClone(line),bone:pivot.rotation,before:structuredClone(glow)};onDrag?.(true);},
     onTurn(axis,degrees){const t=turn.current;if(t)set(turnWeaponEnds(t.line,t.bone,axis,degrees));},
@@ -36,7 +36,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
   if(!marks||!layout)return null;
   const {width,height}=snapshot;
   // A model's own weapon glow that follows no single weapon bone keeps its corners but has no ends.
-  const weapon=glow.weapon&&marks.mid,ends=weapon&&marks.start&&marks.end&&marks.butt&&marks.tip;
+  const ends=mid&&marks.start&&marks.end&&marks.butt&&marks.tip;
   // Latched screen-space mappings, taken when the drag starts.
   function mapping(kind) {
     if(kind==='move'){const ex=[marks.originX[0]-marks.origin[0],marks.originX[1]-marks.origin[1]],ey=[marks.originY[0]-marks.origin[0],marks.originY[1]-marks.origin[1]],det=ex[0]*ey[1]-ex[1]*ey[0];return Math.abs(det)>1e-6?{ex,ey,det}:null;}
@@ -79,7 +79,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
   const handle=(point,kind,label,word)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><HandleWord point={point} word={word}/><title>{label}</title></g>;
-  const square=marks.mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[marks.mid[0]+a*marks.mid[4],marks.mid[1]+b*marks.mid[4]]);
+  const square=mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[mid[0]+a*mid[4],mid[1]+b*mid[4]]);
   return <>{rings.canvas}<svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Glow handles">
     {rings.targets}
     {glow.origin&&marks.origin&&<>
@@ -87,7 +87,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag,pre
       {handle(marks.edge,'originSize','Resize origin glow','Resize')}
       <g className="pe-move-emitter">{handle(marks.origin,'move','Move origin glow')}<text x={marks.origin[0]+12} y={marks.origin[1]+20}>Move</text></g>
     </>}
-    {weapon&&<g>
+    {mid&&<g>
       {ends&&<><line x1={marks.start[0]} y1={marks.start[1]} x2={marks.end[0]} y2={marks.end[1]}/>
       {handle(marks.start,'weaponFrom','Weapon glow start','Stretch')}{handle(marks.end,'weaponTo','Weapon glow end','Stretch')}</>}
       <polygon points={square.map(p=>p.join(',')).join(' ')}/>

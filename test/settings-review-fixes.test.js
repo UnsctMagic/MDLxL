@@ -77,7 +77,10 @@ test('every window that asks before closing compares with how it opened', () => 
   assert.match(read('app/Forge.jsx'), /data-hotkey-unapplied=\{undoCount > 0 \|\| shapesDirty \? '' : undefined\}/);
   assert.match(read('app/ShapingDialog.jsx'), /unapplied = history\.length > 0 \|\| settingsNow !== startingSettings/);
   assert.match(read('app/SortMyMess.jsx'), /selected = groups\.filter\(item => decisionChanges\(decisions\.get\(item\.key\)\)\)/);
-  assert.match(read('app/SurfaceEffects.jsx'), /unapplied=\[\.\.\.drafts\.current\]\.some\(\(\[index,draft\]\)=>JSON\.stringify\(draft\)!==baselines\.current\.get\(index\)\)/);
+  // FX keeps one pending target (docs/FX-GLOBAL-ANIMATIONS.md): it compares with how that part opened.
+  const fx = read('app/SurfaceEffects.jsx');
+  assert.match(fx, /unapplied=!!trial\|\|JSON\.stringify\(stack\)!==JSON\.stringify\(baseline\.current\)/);
+  assert.match(fx, /baseline\.current=saved\|\|\(chosen\.current\?makeStack\(GLOBAL_LOOKS\[0\],index,sequence\):next\)/, 'choices carried onto another part still ask');
 });
 
 test('the UV Each piece toggle takes no default key', () => {

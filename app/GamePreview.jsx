@@ -370,7 +370,7 @@ export default function GamePreview(inputProps) {
     }
     catch (cause) { setError(`Warcraft preview could not load this model: ${cause.message}`); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas); backgroundCanvas.remove(); return; }
     let collisionReportKey = '';
-    let particleRandom=seededParticleRandom(),particleReportAt=0,particleStatusKey='',particleReportKey='';
+    let particleRandom=seededParticleRandom(),particleReportAt=0,particleStatusKey='',particleReportKey='',particleReportMarks;
     const particleAuthor=latest.current.particleAuthoring?new ParticleAuthoringPreview(native):null;
     const nativeBackground = createGLPreviewBackground(gl);
     const presentation = createPreviewSceneGL(gl, invalidate);
@@ -873,7 +873,13 @@ export default function GamePreview(inputProps) {
     // (Bones show by default), so cycling continues from the emitter picked last.
     let lastPickedParticle=null;
     const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId,{details:true});if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point.position,point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
-    const pickFxPart=event=>{const p=latest.current;if(event.button!==0||!p.onDoubleClickGeoset)return;const rect=canvas.getBoundingClientRect(),geometry=projectPreviewGeosets(posedGeosets,displayCamera||camera,rect.width,rect.height),hit=pickPreviewGeoset(geometry,event.clientX-rect.left,event.clientY-rect.top);if(hit){event.preventDefault();event.stopImmediatePropagation();p.onDoubleClickGeoset(hit.index);}};
+    const pickFxPart=event=>{const p=latest.current;if(event.button!==0||!p.onDoubleClickGeoset||p.onParticleSurfacePlace)return;const rect=canvas.getBoundingClientRect(),geometry=projectPreviewGeosets(posedGeosets,displayCamera||camera,rect.width,rect.height),hit=pickPreviewGeoset(geometry,event.clientX-rect.left,event.clientY-rect.top);if(hit){event.preventDefault();event.stopImmediatePropagation();p.onDoubleClickGeoset(hit.index);}};
+    let particlePress=null;
+    const startParticleClick=event=>{if(latest.current.particlePickOnClick)particlePress={x:event.clientX,y:event.clientY,moved:false};};
+    const trackParticleClick=event=>{if(particlePress&&Math.hypot(event.clientX-particlePress.x,event.clientY-particlePress.y)>=7)particlePress.moved=true;};
+    // A plain click also places on the surface when a caller asks for placement (FX tattoo marks, Snap to surface).
+    const pickParticleClick=event=>{if(latest.current.particlePickOnClick&&particlePress&&!particlePress.moved&&event.detail===1)pickParticle(event);};
+    canvas.addEventListener('pointerdown',startParticleClick,true);canvas.addEventListener('pointermove',trackParticleClick,true);canvas.addEventListener('click',pickParticleClick,true);
     canvas.addEventListener('dblclick',pickFxPart,true);
     canvas.addEventListener('dblclick',pickParticle,true);
     // Double-click an emitter or ribbon symbol: open it in EMTR. The camera is not touched.
@@ -1499,7 +1505,7 @@ export default function GamePreview(inputProps) {
             // A paused view may draw only once after a seek, edit or camera change.
             // Publish that pose immediately; playback still uses the normal report rate.
             const reportKey=p.playing?'':[native.getFrame(),p.particleSelectedId,p.particleLiveRevision,particleStatusKey,canvas.width,canvas.height,...displayCamera.matrixWorldInverse.elements,...displayCamera.projectionMatrix.elements].join(':');
-            if(now-particleReportAt>60||reportKey!==particleReportKey){particleReportAt=now;particleReportKey=reportKey;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
+            if(now-particleReportAt>60||reportKey!==particleReportKey||p.particleStageMarks!==particleReportMarks){particleReportAt=now;particleReportKey=reportKey;particleReportMarks=p.particleStageMarks;const stageBox=canvas.getBoundingClientRect();p.onParticleStage(particleStageSnapshot(native,displayCamera,stageBox.width,stageBox.height,p.particleSelectedId,false,{sweepRange:p.particleSweepRange,anchorId:p.particleAnchorId,marks:p.particleStageMarks}));}
           }
         }
         finally { gl.colorMask(true, true, true, true); }
@@ -1706,6 +1712,7 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      playbackClock() { return disposed?null:{frame:native.getFrame(),globalTime:globalClock,sequence:native.getSequence()}; },
       previewParticleAlpha(ids,alpha) {
         if(disposed)return;
         for(const id of ids)ownedModel.Nodes[id].Alpha=Uint8Array.from(alpha);
@@ -1714,6 +1721,15 @@ export default function GamePreview(inputProps) {
       previewMaterialLayers(index,layers) {
         if(disposed||!ownedModel.Materials[index])return;
         ownedModel.Materials[index].Layers=layers;invalidate();
+      },
+      // A live fitting control re-uploads only this geoset's first UV set.
+      previewGeosetUV(index,uv) {
+        const geo=ownedModel.Geosets[index];
+        if(disposed||!geo||geo.TVertices[0]?.length!==uv.length)return;
+        geo.TVertices[0]=Float32Array.from(uv);
+        const buffer=native.texCoordBuffer?.[index];
+        if(buffer){const prior=gl.getParameter(gl.ARRAY_BUFFER_BINDING);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferSubData(gl.ARRAY_BUFFER,0,geo.TVertices[0]);gl.bindBuffer(gl.ARRAY_BUFFER,prior);}
+        invalidate();
       },
       frames: state.scheduler.frames,
       captureView() {
@@ -1863,7 +1879,7 @@ export default function GamePreview(inputProps) {
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);
-      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('dblclick',pickEmitterMarker,true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); canvas.removeEventListener('pointerdown',startParticleClick,true); canvas.removeEventListener('pointermove',trackParticleClick,true); canvas.removeEventListener('click',pickParticleClick,true); canvas.removeEventListener('dblclick',pickEmitterMarker,true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, uvRestPose, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
@@ -1877,8 +1893,8 @@ export default function GamePreview(inputProps) {
   // Context/recipe replacement rebuilds in the passive effect above. Do not apply
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
-  // Redraw when AnimXL's motion arcs change, even while paused.
-  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths]);
+  // Redraw changed motion arcs or stage handles even while paused.
+  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths,props.particleStageMarks]);
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);

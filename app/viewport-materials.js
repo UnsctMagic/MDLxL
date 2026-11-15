@@ -97,6 +97,9 @@ export function layerMaterial(layer, shaded = true, { extendShader, cacheKey } =
   } else if (filter === 4) material.blending = THREE.AdditiveBlending;
   else if (filter === 5 || filter === 6) {
     material.blending = THREE.CustomBlending; material.blendSrc = THREE.DstColorFactor; material.blendDst = filter === 6 ? THREE.SrcColorFactor : THREE.ZeroFactor;
+    // Like the game preview (war3-model), Modulate keeps the alpha already drawn.
+    // Three otherwise reuses the colour factors for alpha, which washed out Modulate 2x.
+    material.blendSrcAlpha = THREE.ZeroFactor; material.blendDstAlpha = THREE.OneFactor;
   }
   material.userData.layerBlending = material.blending;
   return material;

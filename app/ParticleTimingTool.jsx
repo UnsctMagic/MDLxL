@@ -3,6 +3,14 @@ import {ParticleSlider} from './ParticleCluelessControls.jsx';
 import {particleValue} from '../src/particle-bindings.js';
 import {particleBurstTrack} from '../src/particle-sweep.js';
 import {isGlobalTrack} from '../src/animation.js';
+/** EMTR's Continuous / Burst choice (Squirt). */
+export function EmitModeButtons({emitter,update,unavailable=false}){
+ return <div className="pe-timing-mode"><button disabled={unavailable} title={unavailable?'N/A':undefined} aria-pressed={!unavailable&&!emitter.Squirt} onClick={()=>update('Squirt',false)}>Continuous</button><button disabled={unavailable} title={unavailable?'N/A':undefined} aria-pressed={!unavailable&&!!emitter.Squirt} onClick={()=>update('Squirt',true)}>Burst</button></div>;
+}
+/** EMTR's Carry particles / Leave behind toggle (ModelSpace). */
+export function CarryButton({emitter,update,unavailable=false}){
+ return <button disabled={unavailable} title={unavailable?'N/A':undefined} onClick={()=>update('Flags',emitter.Flags^524288)} aria-pressed={!!(emitter.Flags&524288)}>{emitter.Flags&524288?'Carry particles':'Leave behind'}</button>;
+}
 export default function ParticleTimingTool({emitter,options,begin,change,finish,cancel,update,patch,onSeek,impactOnly=false}){
  // A model without animations has no interval: bursts need one, everything else still edits.
  const edit=useRef(null),clip=!!options.interval,[start,end]=options.interval||[],global=isGlobalTrack(emitter.EmissionRate);
@@ -10,5 +18,5 @@ export default function ParticleTimingTool({emitter,options,begin,change,finish,
  const amount=particleValue(emitter,'EmissionRate',options);
  const place=()=>{try{const at=Math.max(start,Math.min(end-1,Math.round(options.frame)));patch({Squirt:true,EmissionRate:particleBurstTrack(emitter,options.interval,at,Math.max(1,amount))});onSeek?.(Math.min(end,at+120));}catch(error){patch(null,error.message);}};
  const slider=field=><ParticleSlider key={field} field={field} label={field==='EmissionRate'&&emitter.Squirt?'Burst amount':undefined} value={particleValue(emitter,field,options)} {...{begin,change,finish,cancel}}/>;
- return <>{!impactOnly&&<div className="pe-timing-mode"><button aria-pressed={!emitter.Squirt} onClick={()=>update('Squirt',false)}>Continuous</button><button aria-pressed={!!emitter.Squirt} onClick={()=>update('Squirt',true)}>Burst</button></div>}{slider('EmissionRate')}{emitter.Squirt&&<>{!impactOnly&&<button onClick={place} disabled={!clip} title={clip?'Replace amount keys in this animation with one native burst':'Add an animation first: a burst is placed inside an animation'}>Place burst at playhead</button>}{single&&<ParticleSlider label="Impact moment" field="EmissionRate" min={start} max={end-1} step={1} value={events[0].Frame} begin={()=>{edit.current={node:structuredClone(emitter),amount:events[0].Vector[0],interval:[...options.interval]};begin('EmissionRate',{raw:true});}} change={value=>{const d=edit.current;if(d){change(particleBurstTrack(d.node,d.interval,value,d.amount));onSeek?.(Math.min(end,value+120));}}} finish={()=>{edit.current=null;finish();}} cancel={()=>{edit.current=null;cancel();}}/>}</>}<button onClick={()=>update('Flags',emitter.Flags^524288)} aria-pressed={!!(emitter.Flags&524288)}>{emitter.Flags&524288?'Carry particles':'Leave behind'}</button></>;
+ return <>{!impactOnly&&<EmitModeButtons emitter={emitter} update={update}/>}{slider('EmissionRate')}{emitter.Squirt&&<>{!impactOnly&&<button onClick={place} disabled={!clip} title={clip?'Replace amount keys in this animation with one native burst':'Add an animation first: a burst is placed inside an animation'}>Place burst at playhead</button>}{single&&<ParticleSlider label="Impact moment" field="EmissionRate" min={start} max={end-1} step={1} value={events[0].Frame} begin={()=>{edit.current={node:structuredClone(emitter),amount:events[0].Vector[0],interval:[...options.interval]};begin('EmissionRate',{raw:true});}} change={value=>{const d=edit.current;if(d){change(particleBurstTrack(d.node,d.interval,value,d.amount));onSeek?.(Math.min(end,value+120));}}} finish={()=>{edit.current=null;finish();}} cancel={()=>{edit.current=null;cancel();}}/>}</>}<CarryButton emitter={emitter} update={update}/></>;
 }

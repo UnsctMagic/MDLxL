@@ -1,4 +1,4 @@
-const {addEmitter}=require('./helpers/fx-input.cjs');
+const {addEmitter,addFxLayer,selectOption}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -15,7 +15,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const [x,y]=await Promise.all([pixels(a),pixels(b)]);let count=0;for(let i=0;i<x.length;i+=4)if(Math.max(...[0,1,2].map(k=>Math.abs(x[i+k]-y[i+k])))>3)count++;return count;
  },[a,b].map(buf=>buf.toString('base64')));
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt skin');
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await choose('Basalt');
   await fx.getByLabel('Create as overlay').check();await ready();await fx.getByRole('button',{name:'Solo',exact:true}).click();await fx.getByRole('button',{name:'Fit selection'}).click();await page.waitForFunction(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),m=p.props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack;const t=p.runtime.native.rendererData.globalSequencesFrames[m.GlobalSequences.indexOf(s.loop)]/s.loop;return t>.288&&t<.31;});
   await fx.getByRole('button',{name:'Pause',exact:true}).click();
   for(const [i,label] of ['Black stone','Heat seams'].entries()){
@@ -31,7 +31,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
    await page.mouse.up();await ready();await slider.click();await page.keyboard.press('End');await ready();console.log(label,changed,'changed pixels');
   }
   await choose('Living ink');assert.equal(await fx.getByLabel('Enable Ink seal').count(),0);
-  await fx.getByLabel('Add layer',{exact:true}).selectOption('Ink seal');await ready();
+  await addFxLayer(page,fx,'Ink seal');await ready();
   await fx.getByRole('button',{name:'Change texture',exact:true}).click();
   await page.getByRole('button',{name:'Standard',exact:true}).click();
   const search=page.getByRole('searchbox',{name:'Search textures'});await page.getByRole('checkbox',{name:'Vibe search'}).uncheck();await search.fill('DemonRune5');
@@ -39,14 +39,26 @@ const {testModel}=require('./helpers/fixtures.cjs');
   await page.getByRole('button',{name:'Use picture',exact:true}).click();await search.waitFor({state:'hidden'});await ready();
   const checkImage=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,s=m.Geosets.find(g=>g._FxStack)._FxStack,l=s.layers.find(l=>l.label==='Ink seal'),g=m.Geosets.find(g=>g._FxTag===s.owner+'/'+l.id+'/shape');return m.Textures[m.Materials[g.MaterialID].Layers[0].TextureID].Image;});
   assert.match(await checkImage(),/DemonRune5\.blp$/i);
-  await choose('Briar binding');await addEmitter(page,fx,'Pollen (recommended)',ready);await addEmitter(page,fx,'Spores',ready);await fx.getByLabel('Enable Spores',{exact:true}).check();await ready();await select('Spores');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
+  await choose('Briar binding');await addEmitter(page,fx,'Pollen (recommended)',ready);await addEmitter(page,fx,'Bubbles',ready);await fx.getByLabel('Enable Bubbles',{exact:true}).check();await ready();await select('Bubbles');await fx.getByLabel('Change emitter',{exact:true}).selectOption('Rising embers');await ready();
   assert.equal(await fx.getByLabel('Enable Rising embers',{exact:true}).isChecked(),true);
   const particle=fx.getByRole('slider',{name:'Intensity',exact:true});await particle.scrollIntoViewIfNeeded();const pb=await particle.boundingBox();
   await page.mouse.move(pb.x+pb.width-7,pb.y+pb.height/2);await page.mouse.down();await page.mouse.move(pb.x+1,pb.y+pb.height/2,{steps:8});
   const isolated=()=>{const es=mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.map(e=>e.props);
    const selected=es.filter(e=>e.Name.startsWith('FX Rising embers'));return selected.length>0&&selected.every(e=>e.Alpha.every(v=>v===0))&&es.some(e=>e.Name.startsWith('FX Pollen')&&e.Alpha.some(v=>v>0));};
   await page.waitForFunction(isolated,null,{timeout:5000});await page.mouse.up();await ready();assert.ok(await page.evaluate(isolated));
-  await choose('Lightning blade');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
+  // Emitter depth under More, with EMTR's own controls: Draw as and Carry reach every emitter of the layer.
+  await fx.locator('details.fx-more>summary').click();await ready();await page.waitForTimeout(600);
+  await selectOption(page,fx.getByLabel('Draw as',{exact:true}),'Both');await ready();
+  const embers=()=>page.evaluate(()=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),s=p.props.model.Geosets.find(g=>g._FxStack)._FxStack;return {native:s.layers.find(l=>l.label==='Rising embers').native||{},nodes:p.runtime.native.particlesController.emitters.map(e=>e.props).filter(e=>e.Name.startsWith('FX Rising embers')).map(e=>[e.FrameFlags,e.Flags&524288])};});
+  let depth=await embers();assert.equal(depth.native.FrameFlags,3,'Draw as is kept on the layer');assert.ok(depth.nodes.length&&depth.nodes.every(([frames])=>frames===3),'every emitter draws sprites and streaks: '+JSON.stringify(depth.nodes));
+  const carry=fx.getByRole('button',{name:/^(Carry particles|Leave behind)$/});const carried=depth.nodes[0][1];await carry.click();await ready();
+  depth=await embers();assert.ok(depth.nodes.every(([,bit])=>bit!==carried),'Carry toggles every emitter: '+JSON.stringify(depth.nodes));
+  await choose('Fire');await select('Flames');await ready();
+  if(await fx.locator('details.fx-more').getAttribute('open')===null)await fx.locator('details.fx-more>summary').click();await ready();await page.waitForTimeout(600);
+  // The narrow controls column fits EMTR's rows: it never scrolls sideways.
+  const column=await fx.locator('.sfx-controls').evaluate(e=>({scroll:e.scrollWidth,client:e.clientWidth,wide:[...e.querySelectorAll('*')].filter(n=>n.getBoundingClientRect().right>e.getBoundingClientRect().left+e.clientWidth+.5).slice(0,6).map(n=>n.tagName+'.'+n.className+' '+Math.round(n.getBoundingClientRect().width))}));
+  assert.equal(column.scroll,column.client,'controls column scrolls sideways with an emitter\'s More open: '+JSON.stringify(column));
+  await choose('Lightning');await select('Blade arcs');for(const label of ['Time between bursts (s)','Burst duration (s)','Flashes per burst'])assert.equal(await fx.getByLabel(label,{exact:true}).count(),0);
   assert.deepEqual(errors,[]);console.log('PASS live layer isolation, native texture library, emitter substitution and independent lightning controls');
  }catch(error){console.error((await page.locator('body').innerText()).slice(-2100));await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

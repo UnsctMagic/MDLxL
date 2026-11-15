@@ -18,7 +18,7 @@ const {selectOption}=require('./helpers/fx-input.cjs');
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await fx.waitFor();await ready();
   const target=fx.getByLabel('Geoset',{exact:true});
   assert.equal(await target.locator('option:checked').textContent(),'Selected geosets ('+counts.length+')','several checked geosets start combined');
-  await fx.getByLabel('Find a surface effect').fill('Flaming sword');await fx.getByRole('button',{name:'Flaming sword global animation',exact:true}).click();await ready();
+  await fx.getByLabel('Find a surface effect').fill('Fire');await fx.getByRole('button',{name:'Fire global animation',exact:true}).click();await ready();
   let sizes=await overlays();assert.ok(sizes.length>0);for(const size of sizes)assert.equal(size,total,'one overlay covers every selected geoset');
   const overlay=fx.getByRole('checkbox',{name:'Create as overlay',exact:true});assert.equal(await overlay.isChecked(),true);assert.equal(await overlay.isDisabled(),true);
   const box=await fx.locator('.sfx-stage').boundingBox(),camera=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray()),start=await camera();

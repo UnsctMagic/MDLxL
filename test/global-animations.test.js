@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {GLOBAL_LOOKS,makeLayer,LAYER_CHOICES,partFrame} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,findLook,makeLayer,LAYER_CHOICES,partFrame} from '../src/global-animation-looks.js';
 import {animationPart,compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 import {fxData} from '../src/global-animation-data.js';
 import {visitTracks} from '../src/animation.js';
@@ -12,7 +12,7 @@ function fixture(real=false){
  const doc=real?openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx'):createDemoDocument(),g=doc.model.Geosets[0],frame=partFrame(g);
  return {doc,frame,donors:{rune:{Geosets:[structuredClone(g)],Materials:[{Layers:[{TextureID:0}]}],Textures:[{Image:LAYER_CHOICES.find(l=>l.type==='Rune').image}]}}};
 }
-for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
+for(const look of GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' uses persistent global tracks and reopens as editable MDX and MDL',()=>{
  const {doc,frame,donors}=fixture(look.impact),model=doc.model;
  const old=structuredClone(model.Sequences);
  const before={geos:model.Geosets.length,nodes:model.Nodes.filter(Boolean).length,mats:model.Materials.length};
@@ -22,7 +22,8 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
  if(look.id==='fly-swarm')assert.ok(model.ParticleEmitters2.every(p=>p.FilterMode===0),'native alpha blend must preserve dark wings and transparent atlas corners');
  assert.deepEqual(model.Sequences,old);
  let total=0;
- for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag)){
+ const fxColours=model.GeosetAnims.filter(a=>model.Geosets[a.GeosetId]?._FxTag);
+ for(const record of [...model.Materials,...model.TextureAnims,...model.Nodes.filter(Boolean)].filter(v=>v._FxTag).concat(fxColours)){
   visitTracks(record,t=>{
    if(look.impact)assert.equal(t.GlobalSeqId,null,'impacts use the selected local Attack');
    else if(record.EmissionRate===t&&draft.layers.some(l=>l.burstGap!=null&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
@@ -30,11 +31,14 @@ for(const look of GLOBAL_LOOKS)test(look.name+' uses persistent global tracks an
     assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(burst.burstGap+burst.burstWindow))*sites);
    }else if(draft.layers.some(l=>l.powerArcs&&record._FxTag.startsWith(draft.owner+'/'+l.id+'/'))){
     const arcs=draft.layers.find(l=>l.powerArcs);assert.equal(model.GlobalSequences[t.GlobalSeqId],Math.round(1000*(arcs.burstGap+arcs.burstWindow)));
-   }else assert.equal(model.GlobalSequences[t.GlobalSeqId],draft.loop);
+   }else if(t.GlobalSeqId==null&&t.Keys?.length&&t.Keys.every(k=>JSON.stringify(Array.from(k.Vector))===JSON.stringify(Array.from(t.Keys[0].Vector)))){
+    // A constant track (an emitter's fixed aim, written by constantTrack) holds one value in every sequence; it has no motion to loop.
+   }else if(record.GeosetId==null||t.GlobalSeqId!=null)assert.ok(t.GlobalSeqId===model.GlobalSequences.indexOf(draft.loop)||model.Geosets[0]._FxStack.createdClockIds.includes(t.GlobalSeqId),'a global clock the stack owns: '+model.GlobalSequences[t.GlobalSeqId]);
    total++;
   });
  }
- assert.ok(total);
+ // A still look (a tint) has no tracks to keep.
+ assert.ok(total||draft.layers.every(l=>l.fixed&&l.pulse==null&&l.type==='Moving skin'));
  for(const format of ['mdx','mdl']){
   const file=openDocument(doc.serialize(format),'unit.'+format);
   assert.equal(file.readOnly,false);
@@ -57,9 +61,11 @@ test('shared authored clock, independent ribbon ends and externally edited emitt
  s.layers.push(makeLayer(LAYER_CHOICES.find(l=>l.label==='Light edge'),frame,'copper',24));s.layers.at(-1).lower*=.4;
  let graph=compileAnimation(m,0,s,donors),r=m.Nodes[graph.layers[24].id];
  assert.ok(r.HeightAbove>2*r.HeightBelow);const flames=graph.layers[s.layers[1].id].ids.map(id=>m.Nodes[id]);
- assert.equal(flames.length,s.layers[1].count);assert.ok(flames.every(n=>(n.Flags&524288)===0));assert.ok(Math.abs(frame.axis.dot(frame.at(s.layers[1].upper).sub(frame.at(-s.layers[1].lower))))>frame.length*.97);
- flames[0].Speed=99;const mid=flames[Math.floor(flames.length/2)];mid.LifeSpan=.91;
- assert.equal(readAnimationStack(m,0).layers[1].lasts,.91);
+ assert.ok(flames.length>=1&&flames.length<=16,'the flames are a few sites over the part, not one per count: '+flames.length);assert.ok(flames.every(n=>(n.Flags&524288)===0));assert.ok(Math.abs(frame.axis.dot(frame.at(s.layers[1].upper).sub(frame.at(-s.layers[1].lower))))>frame.length*.97);
+ flames[0].Speed=99;const inModel=m.ParticleEmitters2.filter(n=>flames.includes(n)),mid=inModel[Math.floor(inModel.length/2)];mid.LifeSpan=.91;
+ // The layer reads the middle emitter in model order. An EMTR edit of one emitter belongs to that emitter (its own site), not to the whole layer.
+ const midKey=mid._FxTag.split('/').at(-1),read1=readAnimationStack(m,0).layers[1];
+ assert.equal(read1.individuals[midKey].values.native.LifeSpan,.91);assert.equal(read1.lasts,.46,'the layer keeps its own Life');
  const surface=m.Geosets[graph.layers[s.layers[0].id].geoset];
  const nativeLayer=m.Materials[surface.MaterialID].Layers[0];nativeLayer.Alpha=.33;
  m.TextureAnims[nativeLayer.TVertexAnimId].Translation.Keys[1].Vector[0]=3;
@@ -131,7 +137,7 @@ test('water crosses duplicated atlas seams continuously and retains a translucen
  g.VertexGroup=Uint8Array.from([...g.VertexGroup,...g.VertexGroup]);
  g.Faces=Uint16Array.from([...g.Faces,...Array.from(g.Faces,v=>v+count)]);g.PrimitiveCounts=Uint32Array.from([g.Faces.length]);
  const original=structuredClone(m.Materials[base]);
- const s=authoredStack(GLOBAL_LOOKS.find(l=>l.id==='water-skin'),partFrame(g),'water');
+ const s=authoredStack(findLook('water-skin'),partFrame(g),'water');
  const result=compileAnimation(m,0,s);
  assert.deepEqual(m.Materials[base],original,'the authored material stays intact');
  const underlay=m.Materials[g.MaterialID].Layers[0];
@@ -157,7 +163,9 @@ test('runes remain on the exact selected triangles and their authored skin weigh
  assert.deepEqual(shape.Vertices,source.Vertices);assert.deepEqual(shape.Faces,source.Faces);
  assert.deepEqual(shape.Groups,source.Groups);assert.deepEqual(shape.VertexGroup,source.VertexGroup);
  assert.equal(m.Bones.filter(n=>n._FxTag?.startsWith('rune/')).length,0,'no aura pivot or ring geometry');
- const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);assert.ok(layer.Alpha.GlobalSeqId>=0);
+ const layer=m.Materials[shape.MaterialID].Layers[0];assert.equal(layer.TVertexAnimId,null);
+ // Runes pulse by alpha or, with a colour rhythm, by their colour.
+ assert.ok(layer.Alpha.GlobalSeqId>=0||m.GeosetAnims.find(a=>a.GeosetId===m.Geosets.indexOf(shape)).Color.GlobalSeqId>=0);
 });
 
 test('retuning an FX layer preserves the texture, wrapping and UVs edited on its applied geoset',()=>{
@@ -194,7 +202,7 @@ test('retuning an FX layer preserves the texture, wrapping and UVs edited on its
 test('FX clocks do not reuse or delete an authored clock with the same duration',()=>{
  const {doc,frame,donors}=fixture(),model=doc.model;
  model.GlobalSequences.push(2800);
- const stack=authoredStack(GLOBAL_LOOKS.find(look=>look.id==='water-skin'),frame,'owned-clock');
+ const stack=authoredStack(findLook('water-skin'),frame,'owned-clock');
  stack.loop=2800;
  compileAnimation(model,0,stack,donors);
  assert.deepEqual(model.GlobalSequences.filter(duration=>duration===2800),[2800,2800],'FX creates a separate clock');
