@@ -1203,9 +1203,10 @@ export default function App() {
     } catch (error) { say(error.message, true); }
   };
   const selectManagerTextureFiles = async () => { try { if (window.desktop) await selectManagerTextures(await window.desktop.textures()); else managerTextures.current.click(); } catch (error) { say(error.message, true); } };
-  const undo = redo => {
+  // In Showcase, Undo belongs to Showcase's own settings, except in a Manager window: its Undo undoes the model edit it made.
+  const undo = (redo, { model: modelEdit = false } = {}) => {
     if (savingRef.current) return;
-    if(mode==='showcase')return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
+    if(mode==='showcase'&&!modelEdit)return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
     try {
       if(mode!=='paint'){
         // Drawings for the AI share Ctrl+Z / Ctrl+Y with the model while they are shown:
