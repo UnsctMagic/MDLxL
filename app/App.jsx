@@ -30,7 +30,7 @@ import { openOptimizeXLWindow } from './detached-window.js';
 import UVWindow from './UVWindow.jsx';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
-import { hasDesktop, resolveGameFiles } from './desktop.js';
+import { hasDesktop, resolveGameFiles, saveArtifact as writePaintArtifact } from './desktop.js';
 import { useCaptureRegions } from './useCaptureRegions.js';
 import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
@@ -1093,10 +1093,6 @@ export default function App() {
     finally { savingRef.current = false; setSaving(false); }
   }
   const paintArtifactName = (extension, target = session) => `${target.doc.name.replace(/\.(?:mdl|mdx)$/i,'').replace(/[^a-z0-9_-]+/gi,'-') || 'model'}${extension}`;
-  async function writePaintArtifact(blob, name) {
-    if (window.desktop?.saveArtifact) return !!(await window.desktop.saveArtifact({name,bytes:new Uint8Array(await blob.arrayBuffer())}));
-    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return true;
-  }
   function paintDocument(target = session) {
     const staged=EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({includeHistory:false}));
     if(target.paintWorkingModel)staged.model=structuredClone(target.paintWorkingModel);

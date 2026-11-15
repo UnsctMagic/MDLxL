@@ -18,6 +18,10 @@ import { ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { createSequence } from '../src/sequence-editor.js';
 import { displayNumber } from '../src/display-number.js';
 import { visitTextureReferences } from '../src/texture-references.js';
+import { storedZipArchive } from '../src/forge-assets.js';
+import { gamePathKey, toForwardSlashes } from '../src/game-path.js';
+import { findTextureAsset } from '../src/paint-targets.js';
+import { resolveGameFiles, saveArtifact } from './desktop.js';
 import { materialName, textureName } from '../src/resource-relations.js';
 import ResourceDetails from './ResourceDetails.jsx';
 import SortMyMess from './SortMyMess.jsx';
@@ -125,6 +129,7 @@ export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibilit
   const [collapsed, setCollapsed] = useState(new Set()), [propertiesOpen, setPropertiesOpen] = useState(true), [query, setQuery] = useState('');
   const [frame, setFrame] = useState(Math.round(previewFrame || 0)), [message, setMessage] = useState(''), [warnings, setWarnings] = useState(0), [, redraw] = useState(0);
   const [sorting, setSorting] = useState(false);
+  const [bundlingTextures, setBundlingTextures] = useState(false);
   const [managerSequence, setManagerSequence] = useState(doc?.model?.Sequences?.[sequenceIndex] ? sequenceIndex : 0);
   const dialog = useRef(null), list = useRef(null), lastApplySucceeded = useRef(true);
   const [catalog, setCatalog] = useState(null), [catalogError, setCatalogError] = useState('');
@@ -145,6 +150,46 @@ export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibilit
   useEffect(() => { if (list.current?.contains(document.activeElement)) list.current.querySelector(`[data-node-id="${selectedIndex}"]`)?.focus(); }, [selectedIndex]);
   useEffect(() => { list.current?.querySelector(`[data-${currentKind === 'Nodes' ? 'node-id' : 'resource-index'}="${selectedIndex}"]`)?.scrollIntoView({ block: 'nearest' }); const properties = dialog.current?.querySelector('.re-properties'); if (properties) properties.scrollTop = 0; }, [selectedIndex, currentKind, tree, addingNode]);
   const model = doc?.model;
+  async function bundleTextures() {
+    const paths = new Map();
+    for (const texture of model.Textures) {
+      const name = toForwardSlashes(texture.Image);
+      if (name && !paths.has(gamePathKey(name))) paths.set(gamePathKey(name), name);
+    }
+    setBundlingTextures(true);
+    setMessage('');
+    try {
+      const files = [], missing = [], pending = [];
+      for (const [key, name] of paths) {
+        // ZIP entries must stay inside the extraction folder.
+        if (/[<>:"|?*\x00-\x1f]/.test(name) || name.split('/').some(part => !part || part === '.' || part === '..')) {
+          missing.push(name);
+          continue;
+        }
+        const asset = textureAssets?.get(key);
+        if (asset?.bytes?.byteLength) files.push({ name, bytes: asset.bytes });
+        else pending.push(name);
+      }
+      const resolved = new Map((await resolveGameFiles(pending, modelPath)).map(asset => [gamePathKey(asset.name), asset]));
+      for (const name of pending) {
+        const asset = resolved.get(gamePathKey(name)) || findTextureAsset(textureAssets, name);
+        if (asset?.bytes?.byteLength) files.push({ name, bytes: asset.bytes });
+        else missing.push(name);
+      }
+      if (!files.length) {
+        setMessage('No texture files could be bundled.');
+        return;
+      }
+      const base = doc.name.replace(/\.(?:mdl|mdx)$/i, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'model';
+      if (await saveArtifact(storedZipArchive(files), base + '-textures.zip', 'textures') && missing.length) {
+        setMessage('Could not bundle: ' + missing.join(', '));
+      }
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBundlingTextures(false);
+    }
+  }
   const friendly = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Model'].includes(currentKind);
   const allRows = model ? resourceRows(model, currentKind, tree, emittersOnly) : [];
   const matching = query.trim().toLowerCase();
@@ -287,7 +332,7 @@ export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibilit
 
         </>}
       </div></div>}
-      <footer className="re-footer">{['Materials', 'Textures', 'Geosets'].includes(currentKind) && <button data-hotkey="sort-my-mess" disabled={!model || doc.readOnly} onClick={() => setSorting(true)}>Sort My Mess</button>}{friendly && onUndo && <div className="re-history-actions"><button data-hotkey={historyScope + ':undo'} data-hotkey-absolute aria-label="Undo manager edit" disabled={!doc.canUndo || doc.readOnly} onClick={onUndo}>Undo</button><button data-hotkey={historyScope + ':redo'} data-hotkey-absolute aria-label="Redo manager edit" disabled={!doc.canRedo || doc.readOnly} onClick={onRedo}>Redo</button></div>}<div key={warnings} className="re-status" role="status" data-alert={message ? '' : undefined}>{message || (doc?.readOnly ? 'Read-only model.' : '')}</div>{(!friendly || currentKind === 'Nodes' && selected && nodeKind(model,selected.item) === 'EventObjects') && <label className="re-frame">Frame:<input data-hotkey="frame" aria-label="Resource keyframe time" type="number" min="0" step="1" value={frame} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 0 && value <= 0x7fffffff) seek(value); }}/></label>}<button data-hotkey="resourceeditors:action:4" onClick={onClose}>Close</button></footer>
+      <footer className="re-footer">{currentKind === 'Textures' && <button disabled={bundlingTextures || !model?.Textures.some(texture => texture.Image)} title="Save the model’s texture files in a ZIP" onClick={bundleTextures}>Bundle Textures</button>}{['Materials', 'Textures', 'Geosets'].includes(currentKind) && <button data-hotkey="sort-my-mess" disabled={!model || doc.readOnly} onClick={() => setSorting(true)}>Sort My Mess</button>}{friendly && onUndo && <div className="re-history-actions"><button data-hotkey={historyScope + ':undo'} data-hotkey-absolute aria-label="Undo manager edit" disabled={!doc.canUndo || doc.readOnly} onClick={onUndo}>Undo</button><button data-hotkey={historyScope + ':redo'} data-hotkey-absolute aria-label="Redo manager edit" disabled={!doc.canRedo || doc.readOnly} onClick={onRedo}>Redo</button></div>}<div key={warnings} className="re-status" role="status" data-alert={message ? '' : undefined}>{message || (doc?.readOnly ? 'Read-only model.' : '')}</div>{(!friendly || currentKind === 'Nodes' && selected && nodeKind(model,selected.item) === 'EventObjects') && <label className="re-frame">Frame:<input data-hotkey="frame" aria-label="Resource keyframe time" type="number" min="0" step="1" value={frame} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 0 && value <= 0x7fffffff) seek(value); }}/></label>}<button data-hotkey="resourceeditors:action:4" onClick={onClose}>Close</button></footer>
   </ToolWindow>;
 }
 
