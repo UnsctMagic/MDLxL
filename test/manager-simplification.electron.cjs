@@ -25,13 +25,13 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
   assert.equal(await page.locator('.animation-nodes button').count(),0);
   await page.getByLabel('Choose animation sequence',{exact:true}).selectOption({label:'Spell Slam'});
   await page.getByLabel('Select node SoulFountain',{exact:true}).check();
-  await menu('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();
+  await menu('Nodes');await page.getByRole('dialog',{name:'Object Manager',exact:true}).waitFor();
   await page.evaluate(()=> { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) {window.testDoc=props.doc;}  });
   assert.equal(await page.locator('.re-visibility-timeline').count(),0);
   assert.equal(await page.getByLabel('Manager mode').count(),0);
   assert.equal(await page.locator('.re-properties .key-list').count(),0,'emitter visual fields are owned by EMTR');
   assert.equal(await page.locator('.re-properties').getByRole('button',{name:'EMTR…',exact:true}).count(),1);
-  await page.getByRole('button',{name:'Close Node Manager',exact:true}).click();
+  await page.getByRole('button',{name:'Close Object Manager',exact:true}).click();
   const reel=page.getByRole('slider',{name:'Animation frame',exact:true});
   const interval=await page.evaluate(()=>Array.from(testDoc.model.Sequences.find(s=>s.Name==='Spell Slam').Interval));
   const seek=async at=>{const b=await reel.boundingBox();await page.mouse.click(b.x+Math.min(b.width-1,Math.max(1,(at-interval[0])/(interval[1]-interval[0])*b.width)),b.y+8);};

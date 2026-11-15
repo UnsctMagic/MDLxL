@@ -5,7 +5,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
 
 const managers = [
   ['Surface Effects', 'K'], ['Material Manager', 'M'], ['Texture Manager', 'T'],
-  ['Node Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
+  ['Object Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
   ['Sequence Manager', 'Q'], ['Texture Animation Manager', 'X'], ['Global Sequence Manager', 'L'],
 ];
 const fixture = fixturePath('citadel-footman');

@@ -111,12 +111,12 @@ async function main() {
     await manager.waitFor({ state: 'hidden' });
     await closeEditor();
 
-    await clickMenu(app, 'Node Manager…');
-    const nodeManager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
+    await clickMenu(app, 'Object Manager…');
+    const nodeManager = page.getByRole('dialog', { name: 'Object Manager', exact: true });
     await nodeManager.locator('[data-node-type="Bones"]').first().waitFor();
     assert.ok(await nodeManager.getByLabel('Show hierarchy').isVisible());
     assert.deepEqual(errors, []);
-    console.log('Shared Learn and EMTR menu styling, placement and dismissal, normal opening, Glow Up with mouse rotation, Library, emitter-only Manager and full Node Manager passed.');
+    console.log('Shared Learn and EMTR menu styling, placement and dismissal, normal opening, Glow Up with mouse rotation, Library, emitter-only Manager and full Object Manager passed.');
   } finally {
     await closeApp(app);
   }
