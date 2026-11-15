@@ -1,8 +1,8 @@
 # Unresolved OptimizeXL rotation-key cleanup study
 
-Status: completed research; no runtime integration supported by the evidence.
+Status: Codex study completed; Claude study + owner-approved small-turn rule on local branch `claude/optixl-small-turns`, not merged.
 Owner: Codex parent; approved execution GPT-6.1 Sol / low.
-Updated: 2026-11-15.
+Updated: 2026-11-15 (Claude rule).
 
 ## Outcome
 
@@ -24,3 +24,7 @@ Full report: D:/Codex/optixl-unused-study-20261114/report/REPORT.md. Local machi
 ## Future implementation boundary
 
 Only an evidenced new domain of unresolved findings may gain a repair. Preserve existing owners, guards, accepted outputs and clean no-ops. Do not use names, fixture indices, frame constants or accepted reference curves in runtime code. Local similarity and a generic world-space tolerance alone are insufficient; meaningful small motion, timing, hierarchy, hidden geometry, effects, independent globals, camera-facing transforms and rescan accumulation remain relevant. This study established no automatic deletion rule meeting the owner's no-regression requirement. The direct Lahmian repair remains the owner-approved example, not blanket authorization to discard authored turns.
+
+## Claude follow-up study and rule (15 Nov 2026)
+
+Claude's protected-turn study (`test/manual/optimizexl-protected-turn-study.mjs`, all 1,069 inputs, world displacement per deletion against part size) showed linear-track turns stay at most 0.44% of the part; every case above 0.5% was cubic. The owner approved a narrow rule ("Yes, build it"): the existing redundant-key owner removes a small turn on a local linear node track when the mesh it moves stays within 0.25% of the part. Code: `src/optimizexl-small-turns.js` used by `src/optimizexl-redundant-tracks.js`; tests: `test/optimizexl-small-turns.test.js`; boundary: [teaching table](../OPTIMIZEXL_TEACHING.md) "Small turns among similar keys"; numbers: [verification log](../OPTIMIZEXL_VERIFICATION.md#small-linear-turns-removed-by-the-redundant-key-owner-15-november-2026). Branch `claude/optixl-small-turns`, saved locally, not pushed or merged. Next: owner test build (Lahmian), then merge on the owner's word.

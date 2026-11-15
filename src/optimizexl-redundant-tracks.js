@@ -1,6 +1,7 @@
 import { typedJson } from './value-key.js';
 import { sampleTrack } from './animation.js';
 import { optimizexlLocalTrack } from './optimizexl-format.js';
+import { smallTurnReach, trackNode } from './optimizexl-small-turns.js';
 
 const json = typedJson;
 // Largest component difference; NaN anywhere gives NaN, like Math.max.
@@ -21,13 +22,18 @@ function authoredTurn(keys,i){
     return v<Math.min(a[j],c[j])-noise||v>Math.max(a[j],c[j])+noise;
   });
 }
+// Finite controls of one width; rotation controls are unit quaternions.
+function validKeys(keys,lineType,rotation) {
+  const width=keys[0]?.Vector?.length;
+  if(![0,1,2,3].includes(lineType)||![1,3,4].includes(width))return false;
+  const parts=['Vector',...(lineType>=2?['InTan','OutTan']:[])];
+  return !keys.some(k=>parts.some(p=>k[p]?.length!==width||!Array.from(k[p]).every(Number.isFinite)||
+    rotation&&Math.abs(Math.hypot(...k[p])-1)>1e-5));
+}
 function safeCurve(baseline,candidate,property,interval,lo,hi,cache) {
   const rotation=property==='Rotation',keys=baseline.Keys.filter(k=>k.Frame>=lo&&k.Frame<=hi);
   const width=keys[0]?.Vector?.length;
-  if(![0,1,2,3].includes(baseline.LineType)||![1,3,4].includes(width))return false;
-  const parts=['Vector',...(baseline.LineType>=2?['InTan','OutTan']:[])];
-  if(keys.some(k=>parts.some(p=>k[p]?.length!==width||!Array.from(k[p]).every(Number.isFinite)||
-    rotation&&Math.abs(Math.hypot(...k[p])-1)>1e-5)))return false;
+  if(!validKeys(keys,baseline.LineType,rotation))return false;
   const options={interval,fallback:new Array(width).fill(0),quaternion:rotation};
   for(let i=0;i<keys.length;i++) {
     const a=keys[i].Frame,b=keys[i+1]?.Frame??a;
@@ -44,7 +50,7 @@ function safeCurve(baseline,candidate,property,interval,lo,hi,cache) {
 /** One owner per track/domain. Re-evaluate neighbors after each removal, but
  * always compare the resulting curve with the original evidence. */
 export function redundantTrackProposals(model,entries) {
-  const out=[];
+  const out=[];let reach=null;
   for(const {track,path}of entries){
     // Clone and serialize the (possibly long) track once, not per animation.
     let trackJson=null;const trackSignature=()=>trackJson??=json(track);
@@ -58,12 +64,19 @@ export function redundantTrackProposals(model,entries) {
       const preservedTurns=keys.filter((_,i)=>i>0&&i<keys.length-1&&redundant(keys,i)&&authoredTurn(keys,i)).map(k=>k.Frame);
       const overlaps=!global&&model.Sequences.some((s,i)=>i!==domain.sequence&&s.Interval[0]<=hi&&s.Interval[1]>=lo);
       const {Keys:_,...settings}=track,baseline={...structuredClone(settings),GlobalSeqId:null,Keys:structuredClone(keys)},candidate=structuredClone(baseline),frames=[],cache=new Map();
+      // A small turn on a local linear node track may go when the mesh it moves
+      // stays within a quarter percent of that part (optimizexl-small-turns.js).
+      // Once one has gone, every later removal on this domain is measured too.
+      const node=!global&&track.LineType===1&&keys.every(k=>Number.isInteger(k.Frame))&&validKeys(keys,1,path.at(-1)==='Rotation')?trackNode(model,path):null;
+      const smallTurns=[],worldCache=new Map();
       if(!overlaps&&keys.every((k,i)=>!i||k.Frame>keys[i-1].Frame)){
         for(let i=1;i<candidate.Keys.length-1;){
-          if(!redundant(candidate.Keys,i)||authoredTurn(candidate.Keys,i)){i++;continue;}
+          const turn=redundant(candidate.Keys,i)&&authoredTurn(candidate.Keys,i);
+          if(!redundant(candidate.Keys,i)||turn&&!(node&&(reach??=smallTurnReach(model)).part(node))){i++;continue;}
           const a=candidate.Keys[i-1],k=candidate.Keys[i],b=candidate.Keys[i+1];candidate.Keys.splice(i,1);
-          if(safeCurve(baseline,candidate,path.at(-1),domain.interval,a.Frame,b.Frame,cache)){
-            frames.push(k.Frame);i=Math.max(1,i-1);
+          if(safeCurve(baseline,candidate,path.at(-1),domain.interval,a.Frame,b.Frame,cache)&&
+            (!turn&&!smallTurns.length||reach.fits(node,path.at(-1),baseline,candidate,domain.interval,a.Frame,b.Frame,worldCache))){
+            frames.push(k.Frame);if(turn)smallTurns.push(k.Frame);i=Math.max(1,i-1);
           }else{candidate.Keys.splice(i,0,k);i++;}
         }
       }
@@ -71,7 +84,7 @@ export function redundantTrackProposals(model,entries) {
       const remaining=noticed.filter(f=>!frames.includes(f));
       out.push({id:`redundant:${path.join('.')}:${global?'global'+domain.global:domain.sequence}`,kind:'redundantTracks',path,
         sequence:domain.sequence,frame:global?(model.Sequences[0]?.Interval[0]||0):noticed[0],globalSequence:global?domain.global:null,
-        frames,noticed,remaining,preservedTurns,signature:`[${trackSignature()},${json(domain.interval)}]`,...(frames.length?{}:{inspectionOnly:true}),
+        frames,noticed,remaining,preservedTurns:preservedTurns.filter(f=>!smallTurns.includes(f)),...(smallTurns.length?{smallTurns}:{}),signature:`[${trackSignature()},${json(domain.interval)}]`,...(frames.length?{}:{inspectionOnly:true}),
         label:`${name}: ${frames.length||noticed.length} redundant ${path.at(-1)} key${(frames.length||noticed.length)===1?'':'s'}`,
         detail:frames.length?`Remove ${frames.length} mdx-m3-viewer-redundant keys after checking the surrounding curve against the original. ${remaining.length?`${remaining.length} other notices need manual review.`:'Keep the first and last keys and every other animation.'}`:
           'mdx-m3-viewer flags similar values, but an authored turn, overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});
