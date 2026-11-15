@@ -1,4 +1,4 @@
-const {addEmitter}=require('./helpers/fx-input.cjs');
+const {addEmitter,addFxEmitter,addFxLayer,fxPickerNames}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {root,launchApp,closeApp}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -17,7 +17,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
  const part=async i=>{await fx.getByLabel('Geoset',{exact:true}).selectOption(String(i));await ready();};
  const frame=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxTag?.endsWith('/shape')),l=g&&m.Materials[g.MaterialID].Layers[0];return {image:m.Textures[l?.TextureID]?.Image,alpha:l?.Alpha?.Keys?.map(k=>k.Vector[0])??l?.Alpha,uv:Array.from(g?.TVertices[0]||[]),emitters:m.ParticleEmitters2.filter(n=>n._FxTag).map(n=>({p:n.Parent,pos:Array.from(n.PivotPoint),size:Array.from(n.ParticleScaling),name:n.Name}))};});
  try{
-  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await part(27);await choose('Rune blade');
+  await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();await part(27);await choose('Runes');
   assert.equal(await fx.locator('.sfx-controls .uv-editor canvas').isVisible(),true,'rune UV is present immediately');
   for(const tool of ['Move','Rotate','Scale']){
    const button=fx.getByRole('button',{name:tool+' UVs',exact:true});assert.equal((await button.innerText()).trim(),'');const glyph=button.locator('svg:visible,img:visible').first();assert.ok((await glyph.boundingBox())?.width>=16,'the tool icon is visible at editor size');
@@ -32,7 +32,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const choices=await rune.locator('option').evaluateAll(a=>a.map(o=>o.value));assert.ok(choices.length>=3);
   const stage=fx.locator('.sfx-stage');await fx.getByRole('button',{name:'Fit selection',exact:true}).click();
   for(const [i,value] of choices.entries()){await rune.selectOption(value);await ready();assert.equal((await frame()).image,value);await motion(stage,'rune-'+i);}
-  const glow=fx.getByLabel('Rune glow',{exact:true});await glow.selectOption('steady');await ready();assert.equal(typeof (await frame()).alpha,'number');
+  const glow=fx.getByLabel('Rhythm',{exact:true});await glow.selectOption('steady');await ready();assert.equal(typeof (await frame()).alpha,'number');
   await glow.selectOption('flicker');await ready();assert.ok(new Set((await frame()).alpha).size>2);await motion(stage,'flicker');
   await fx.getByRole('button',{name:'Move UVs',exact:true}).click();const uv=fx.locator('.sfx-controls canvas').last();await uv.scrollIntoViewIfNeeded();const b=await uv.boundingBox(),before=(await frame()).uv;
   await page.mouse.move(b.x+b.width*.4,b.y+b.height*.4);await page.mouse.down();await page.mouse.move(b.x+b.width*.7,b.y+b.height*.53,{steps:8});await page.mouse.up();await ready();assert.notDeepEqual((await frame()).uv,before,'drag changes glyph position on the surface');await motion(stage,'moved-rune');
@@ -42,11 +42,10 @@ const {testModel}=require('./helpers/fixtures.cjs');
    assert.notDeepEqual((await frame()).uv,prior,tool+' changes the UV map');
   }
   await fx.locator('.fx-uv-fit').screenshot({path:path.join(out,'rune-uv.png')});
-  await choose('Fissures skin');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
+  await choose('Fissures');assert.equal(await fx.getByLabel('Enable Fire',{exact:true}).count(),0);await addEmitter(page,fx,'Fire (recommended)',ready);const fire=fx.getByLabel('Enable Fire',{exact:true});assert.equal(await fire.isChecked(),false);assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
   await fire.check();await ready();assert.ok((await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props.Name?.startsWith('FX Fire')&&e.particles.length));await motion(stage,'lava-fire');await fire.uncheck();await ready();assert.ok(!(await frame()).emitters.some(n=>n.name.startsWith('FX Fire')));
-  await choose('Arcane blade');const addition=fx.getByLabel('Add layer',{exact:true});
-  assert.equal(await addition.locator('option').first().innerText(),'Add layer');
-  for(const name of ['Diamond flash','Eye','Orbiting stars']){await (name==='Orbiting stars'?fx.getByLabel('Add emitter',{exact:true}):addition).selectOption(name);await ready();if(name==='Orbiting stars'){await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();}assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
+  await choose('Arcane');assert.equal(await fx.getByRole('button',{name:'Add layer',exact:true}).innerText(),'Add layer');assert.ok((await fxPickerNames(page,fx,'layer')).length>0,'Add layer lists its choices');
+  for(const name of ['Diamond flash','Eye','Circling stars']){await (name==='Circling stars'?addFxEmitter(page,fx,name):addFxLayer(page,fx,name));await ready();if(name==='Circling stars'){await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();}assert.equal(await fx.getByLabel('Enable '+name,{exact:true}).isChecked(),true);}
   const overlay=fx.getByLabel('Create as overlay',{exact:true});
   const base=()=>page.evaluate(()=>{const m=mdlxlProbe('.sfx-stage .game-preview-root').props.model,g=m.Geosets.find(g=>g._FxStack);return [g.MaterialID,g._FxStack.baseMaterial];});
   await overlay.check();await ready();const [overlayMat,sourceMat]=await base();assert.equal(overlayMat,sourceMat);

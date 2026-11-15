@@ -31,8 +31,8 @@ const look = page => page.evaluate(parts => Object.fromEntries(Object.entries(pa
     await page.getByRole('button', { name: 'Surface Effects', exact: true }).click();
     const fx = page.getByRole('dialog', { name: 'Surface Effects', exact: true });
     await fx.getByLabel('Geoset', { exact: true }).selectOption('0');
-    await fx.getByLabel('Find a surface effect').fill('Rune blade');
-    await fx.getByRole('button', { name: 'Rune blade global animation', exact: true }).click();
+    await fx.getByLabel('Find a surface effect').fill('Runes');
+    await fx.getByRole('button', { name: 'Runes global animation', exact: true }).click();
     await fx.getByRole('button', { name: 'Change texture', exact: true }).first().click();
     await library.waitFor();
     assert.equal(await page.locator('.resource-editor .tl-dialog').count(), 0, 'The library is outside the tool window styles');

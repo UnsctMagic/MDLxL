@@ -24,7 +24,10 @@ test('consolidated catalogs keep the text that previously won each override', ()
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
   const catalogs = [ru, es, zh, fr, de];
-  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [7964, 7974, 7869, 8097, 8097]);
+  assert.deepEqual(catalogs.map(pack => Object.keys(pack).length), [8599, 8609, 8505, 8732, 8732]);
+  for (const pack of catalogs) assert.ok(pack['Rise on Death']);
+  for (const pack of catalogs) for (const label of ['Apply to all','Keep individual changes','Individual emitter changes','Delete emitter','Formation','Pull the emitters together or spread them apart.']) assert.ok(pack[label],label);
+  for (const pack of catalogs) for (const label of ['Fire hair','Flames','Embers','Splinters','Glow orb','Drops','Bubbles','Spark spray','Circling stars','Circling lights','Grey cloud','Ghost flames','Rune discs','Falling stars','Sparkles','Flare sparks','Ghost wisps','Light wisps','Inward swirl','Rising glyphs','Small sparks','Green haze','Ground rune rings']) assert.ok(pack[label],label);
   for (const pack of catalogs) {
     assert.equal(Object.hasOwn(pack, 'Open the managers at Materials'), false);
     assert.equal(Object.hasOwn(pack, 'Loading managers…'), false);

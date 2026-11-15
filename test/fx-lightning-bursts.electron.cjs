@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{testModel}=require('./helpers/fixtures.cjs');
+const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{testModel}=require('./helpers/fixtures.cjs'),{addFxEmitter}=require('./helpers/fx-input.cjs');
 (async()=>{
  const out=path.join(root,'out/review/lightning');fs.mkdirSync(out,{recursive:true});
  const {app,page,errors}=await launchApp({fixture:testModel('WH_WOC_WarriorSlaaneshDual01.mdx'),out,bounds:{x:0,y:0,width:1450,height:960}});
@@ -7,7 +7,7 @@ const {launchApp,closeApp,root}=require('./helpers/app.cjs'),{testModel}=require
  const ready=()=>page.waitForFunction(()=>{const el=document.querySelector('.sfx-stage .game-preview-root');if(!el)return false;const p=mdlxlProbe(el);return p.runtime?.captureApi.isReady&&p.runtime.particleSourceModel===p.props.model&&!document.querySelector('.sfx-apply')?.disabled;});
  try{
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
-  await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await fx.getByLabel('Find a surface effect').fill('Lightning blade');await fx.getByRole('button',{name:'Lightning blade global animation'}).click();await ready();await fx.getByLabel('Add emitter',{exact:true}).selectOption('Blade crackle');await ready();await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();
+  await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await fx.getByLabel('Find a surface effect').fill('Lightning');await fx.getByRole('button',{name:'Lightning global animation'}).click();await ready();await addFxEmitter(page,fx,'Blade crackle');await ready();await fx.getByRole('button',{name:'Add',exact:true}).click();await ready();
   await fx.getByRole('button',{name:'Fit selection'}).click();const box=await stage.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.wheel(0,190);
   const sites=[];
   for(let i=0;i<4;i++){

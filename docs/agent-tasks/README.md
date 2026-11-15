@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| FX effect redesign after trial 06 | In progress; local branch `claude/fx-effects` | [Effect redesign](fx-effect-redesign.md) / Claude |
 | Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Fixes on seven local Codex branches; reviewed, rework needed on 2 to 7 | [Main review](main-review-2026-11-11.md), [fix verdicts](main-review-fix-verdicts.md) / Claude Code |
 | Review fix 7: BITZ Replace Part, Windows menu bar, translations (PRs #622 to #626) | Local review ready | [Contract 7](review-7-newest-five.md) / Codex |
 | Review fix 1: FX keeps the right geosets and clocks (serious) | References verified; FX window pending | [Contract 1](review-1-fx-references.md) / Codex |
