@@ -3,14 +3,16 @@
 // records what happened. Windows a click opens are swept too. It is excluded from `all` and `core`; name it to run it:
 //   node scripts/run-packaged-tests.mjs default click-sweep
 // MDLXL_SWEEP_SETUPS = comma list of setups below, or "all" (default: baseline).
-// MDLXL_SWEEP_MINUTES = time limit per setup (default 40). What was not reached is listed in the report.
+// MDLXL_SWEEP_MINUTES = time limit per setup (default 90). What was not reached is listed in the report.
 // Exit 1 only for crashes, freezes and failed Undo. Dead controls, clipped and untranslated text are for review.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { launchApp, closeApp, stubDialogs, root } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 
 const out = path.resolve(process.env.MDLXL_SWEEP_OUT || 'out/click-sweep');
-const MINUTES = Number(process.env.MDLXL_SWEEP_MINUTES || 40);
+const MINUTES = Number(process.env.MDLXL_SWEEP_MINUTES || 90);
+// MDLXL_SWEEP_STARTS = comma list of start point names below, to recheck one area. The menus run only without it.
+const STARTS = process.env.MDLXL_SWEEP_STARTS ? process.env.MDLXL_SWEEP_STARTS.split(',').map(name => name.trim()).filter(Boolean) : null;
 const LANGUAGES = ['ru', 'es', 'zh', 'fr', 'de', 'mordor'];
 const THEMES = Object.keys(require('../src/application-themes.json'));
 
@@ -69,15 +71,29 @@ const withTimeout = (promise, ms, label) => { let timer; return Promise.race([pr
 function readControls({ deny, exact }) {
   const visible = element => { const box = element.getBoundingClientRect(), style = getComputedStyle(element); return box.width > 1 && box.height > 1 && style.visibility !== 'hidden' && style.display !== 'none' && box.right > 0 && box.bottom > 0 && box.left < innerWidth && box.top < innerHeight; };
   const onTop = element => { const box = element.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && (element === hit || element.contains(hit) || hit.contains(element) || hit.closest('label')?.contains(element)); };
+  // A control scrolled out of a scrolling pane still "hits" that pane, which contains it; a click there misses it.
+  const unclipped = element => {
+    const box = element.getBoundingClientRect(), x = box.left + box.width / 2, y = box.top + box.height / 2;
+    for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (/auto|scroll|hidden|clip/.test(style.overflowX + style.overflowY)) { const clip = node.getBoundingClientRect(); if (x < clip.left || x > clip.right || y < clip.top || y > clip.bottom) return false; }
+    }
+    return true;
+  };
   const layers = [...document.querySelectorAll('[role="menu"],.context-menu,[role="dialog"],[role="alertdialog"],.mdlxl-window')].filter(element => visible(element) && onTop(element));
   const layer = layers.at(-1) || document.body;
   const layerName = layer === document.body ? 'main' : (layer.getAttribute('aria-label') || layer.querySelector('h1,h2,h3,.title')?.textContent?.trim().slice(0, 40) || String(layer.className).split(' ')[0] || layer.tagName);
-  const textOf = element => (element.getAttribute('aria-label') || element.getAttribute('title') || element.textContent || element.value || '').replace(/\s+/g, ' ').trim().slice(0, 70);
+  // A control's name without its hotkey: the badge, menu key and "Hotkey: …" tooltip line change when keys are
+  // given out in another order, and a changed name would lose the control on the way back to its window.
+  const ownText = element => { const copy = element.cloneNode(true); for (const node of copy.querySelectorAll('[aria-hidden="true"]')) node.remove(); return copy.textContent.trim() || element.textContent; };
+  const titleOf = element => element.hasAttribute('data-hotkey-base-title') ? element.getAttribute('data-hotkey-base-title') : element.getAttribute('title');
+  const textOf = element => (element.getAttribute('aria-label') || titleOf(element) || ownText(element) || element.value || '').replace(/\s+/g, ' ').trim().slice(0, 70);
   const selector = 'button,[role=button],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=tab],[role=checkbox],[role=switch],input[type=checkbox],input[type=radio],select,summary,[data-action]';
   const groups = new Map(), seen = new Map(), controls = [], skipped = { covered: 0, repeated: 0, excluded: [], fields: layer.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea').length };
   for (const element of layer.querySelectorAll(selector)) {
-    if (!visible(element) || element.disabled || element.getAttribute('aria-disabled') === 'true') continue;
-    if (!onTop(element)) { skipped.covered++; continue; }
+    // :disabled also covers controls inside a disabled fieldset, such as Showcase's sidebar while it is busy.
+    if (!visible(element) || element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true') continue;
+    if (!onTop(element) || !unclipped(element)) { skipped.covered++; continue; }
     const label = textOf(element), id = element.getAttribute('data-hotkey') || '';
     const base = `${layerName}|${element.tagName}|${id || label}`, nth = seen.get(base) || 0; seen.set(base, nth + 1);
     const key = base + '~' + nth;
@@ -97,7 +113,10 @@ function readControls({ deny, exact }) {
 // Runs in the page. A fingerprint of everything a click can change except the 3D picture.
 function readState() {
   const hash = text => { let value = 2166136261; for (let i = 0; i < text.length; i++) { value ^= text.charCodeAt(i); value = Math.imul(value, 16777619); } return (value >>> 0).toString(36); };
-  const states = [...document.querySelectorAll('input,select,[aria-pressed],[aria-selected],[aria-checked],[aria-expanded],.active,.selected')].map(element => `${element.checked}${element.value}${element.getAttribute('aria-pressed')}${element.getAttribute('aria-selected')}${element.getAttribute('aria-checked')}${element.getAttribute('aria-expanded')}${element.className}`).join('|');
+  // Folded sections (details) and app-wide looks set as data attributes on the root, such as the Trim toolbar, change
+  // the screen without changing any text or control state.
+  const states = [...document.querySelectorAll('input,select,details,[aria-pressed],[aria-selected],[aria-checked],[aria-expanded],.active,.selected')].map(element => `${element.checked}${element.value}${element.open}${element.getAttribute('aria-pressed')}${element.getAttribute('aria-selected')}${element.getAttribute('aria-checked')}${element.getAttribute('aria-expanded')}${element.className}`).join('|')
+    + [...document.querySelectorAll('.classic-app')].map(element => [...element.attributes].filter(item => item.name.startsWith('data-')).map(item => item.name + '=' + item.value).join(',')).join('|');
   let model = '', dirty = false, selection = '';
   try { const doc = window.__mdlxl.document(); dirty = !!doc?.dirty; const bytes = doc?.serialize('mdx'); if (bytes) { let value = 2166136261; for (let i = 0; i < bytes.length; i++) { value ^= bytes[i]; value = Math.imul(value, 16777619); } model = bytes.length + ':' + (value >>> 0).toString(36); } } catch { /* no document */ }
   try { selection = hash(JSON.stringify(window.__mdlxl.selection(), (key, value) => value instanceof Set ? [...value] : value) || ''); } catch { /* no selection */ }
@@ -137,7 +156,7 @@ async function sweepSetup(name, setup) {
   let catalog = null; try { if (language !== 'en' && language !== 'mordor') catalog = JSON.parse(fs.readFileSync(path.join(root, 'src/locales', language + '.json'), 'utf8')); } catch { /* no catalog */ }
   const started = Date.now(), deadline = started + MINUTES * 60000;
   const result = { setup: name, clicked: 0, outcomes: {}, crashes: [], freezes: [], undo: [], dead: [], unverified: [], stuck: [], unreachable: [], clipped: {}, untranslated: {}, excluded: [], repeatedRows: 0, covered: 0, textFields: 0, notReached: [], restarts: 0 };
-  const seen = new Set(), scopes = new Set(), queue = [...START_POINTS];
+  const seen = new Set(), scopes = new Set(), queue = START_POINTS.filter(point => !STARTS || STARTS.includes(point.name));
   let session = null, shots = 0;
 
   const shot = async label => { if (!session || shots >= 60) return ''; const file = `${String(++shots).padStart(2, '0')}-${label.replace(/[^\w-]+/g, '_').slice(0, 50)}.png`; await session.page.screenshot({ path: path.join(folder, file), timeout: 8000 }).catch(() => {}); return file; };
@@ -178,7 +197,14 @@ async function sweepSetup(name, setup) {
       if (step.press) await session.page.keyboard.press(step.press);
       else if (step.menu) await command(step.menu);
       else if (step.hotkey) { const target = session.page.locator(`[data-hotkey="${step.hotkey}"]:visible`).first(); const box = await target.boundingBox({ timeout: 4000 }); await session.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); }
-      else { const found = (await controls()).controls.find(item => item.key === step.key); if (!found) throw Error('control gone: ' + step.key); if (found.tag === 'SELECT') throw Error('select cannot open a layer'); await session.page.mouse.click(found.x, found.y); }
+      else {
+        // Some controls enable only once their window has finished loading (Showcase presets wait for the preview).
+        let found = null;
+        for (let wait = 0; !found && wait < 5000; wait += 250) { found = (await controls()).controls.find(item => item.key === step.key); if (!found) await session.page.waitForTimeout(250); }
+        if (!found) throw Error('control gone: ' + step.key);
+        if (found.tag === 'SELECT') throw Error('select cannot open a layer');
+        await session.page.mouse.click(found.x, found.y);
+      }
       await session.page.waitForTimeout(350);
     }
     await park(); await session.page.waitForTimeout(250);
@@ -248,6 +274,9 @@ async function sweepSetup(name, setup) {
           result.outcomes.select = (result.outcomes.select || 0) + 1;
           continue;
         }
+        // Reading the picture can let a moving window settle; click where the control is now.
+        const current = (await controls()).controls.find(item => item.key === key);
+        if (current) Object.assign(control, { x: current.x, y: current.y });
         await session.page.mouse.click(control.x, control.y);
         await session.page.waitForTimeout(280); await park(); await session.page.waitForTimeout(40);
         try { await withTimeout(session.page.evaluate(() => 1), 8000, 'frozen'); }
@@ -278,7 +307,7 @@ async function sweepSetup(name, setup) {
           if (changed) result.outcomes.changed = (result.outcomes.changed || 0) + 1;
           else if (control.already) result.outcomes.alreadyOn = (result.outcomes.alreadyOn || 0) + 1;
           else if (noisy) { result.unverified.push(where); result.outcomes.unverified = (result.outcomes.unverified || 0) + 1; }
-          else { result.dead.push(where); result.outcomes.dead = (result.outcomes.dead || 0) + 1; }
+          else { const file = await shot('dead-' + where); result.dead.push(file ? `${where} (${file})` : where); result.outcomes.dead = (result.outcomes.dead || 0) + 1; }
           // A clean document with a different model means the tab closed or another file opened, not an edit.
           if (after.model && after.dirty && after.model !== beforeState.model) {
             await session.page.keyboard.press('Control+z'); await session.page.waitForTimeout(350);
@@ -327,7 +356,7 @@ async function sweepSetup(name, setup) {
   try {
     await start();
     while (queue.length) await sweepScope(queue.shift());
-    await sweepMenus();
+    if (!STARTS) await sweepMenus();
   } finally {
     if (session) await noteProblems('end').catch(() => {});
     await stop();

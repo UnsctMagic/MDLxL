@@ -1203,9 +1203,10 @@ export default function App() {
     } catch (error) { say(error.message, true); }
   };
   const selectManagerTextureFiles = async () => { try { if (window.desktop) await selectManagerTextures(await window.desktop.textures()); else managerTextures.current.click(); } catch (error) { say(error.message, true); } };
-  const undo = redo => {
+  // In Showcase, Undo belongs to Showcase's own settings, except in a Manager window: its Undo undoes the model edit it made.
+  const undo = (redo, { model: modelEdit = false } = {}) => {
     if (savingRef.current) return;
-    if(mode==='showcase')return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
+    if(mode==='showcase'&&!modelEdit)return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
     try {
       if(mode!=='paint'){
         // Drawings for the AI share Ctrl+Z / Ctrl+Y with the model while they are shown:
@@ -2133,7 +2134,7 @@ export default function App() {
       {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><div className="classic-geoset-split"><button disabled={!editable || !selectionCount} title="Splits the selected geometry into one geoset per separate piece." onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} title="Nuclear: splits the selected geometry wherever triangles do not share vertices, even inside one piece." onClick={() => separateSelectedGeosets(true)}>Nuclear</button></div><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button><button disabled={!editable || !selectionCount} title="Quick cleaner: selected vertices on exactly the same spot become one when they use the same material, even across geosets (those geosets merge). The first vertex keeps its UVs, normal and bones. For the careful version use OptimizeXL." onClick={nuclearWeld}>Nuclear Weld</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
-      {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
+      {rigWorkspace && boundBoneIds.length > 0 && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
     <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? activeSession} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
