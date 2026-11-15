@@ -87,12 +87,12 @@ Each was reproduced with real clicks on Footman unless stated. Probe output is i
 | # | Verdict | Evidence |
 | --- | --- | --- |
 | 1 | Works. Sweep blind spot | Menu Trim shrinks the toolbar from 56 to 32 px and ticks Trim, with and without a model. The change is a `data-toolbar` attribute and sizes only, which the sweep's fingerprint did not read. Taught (below) |
-| 2 | Works. Product question | The heading folds and unfolds the section. In Bones it is empty until vertices are selected: after Ctrl+A in Vertices it lists 19 bones and clicking Box04 selects it. Folding an empty section changes no text, so the sweep missed it. Taught (below) |
+| 2 | Works. Owner chose to hide it when empty | The heading folds and unfolds the section. In Bones it is empty until vertices are selected: after Ctrl+A in Vertices it lists 19 bones and clicking Box04 selects it. Folding an empty section changes no text, so the sweep missed it. Taught (below) |
 | 3 | Works | Unticking Stand Defend records "Select animation for Master Controller". With Master Controller at 50%, every other animation doubles in length and Stand Defend keeps its 1000 ms. All 8 boxes toggle when clicked at the sweep's own pace. Not flagged in the 15 Nov sweep |
 | 4 | Works. Sweep misclick | By hand each box unticks and the heading counts "1 off", "2 off", "3 off". The sweep still flags them, and its screenshot shows the Emitters section folded after the "dead" click: it hit the heading because the position it read was stale. The sweep now re-reads the position just before clicking |
 | 5 | Gone | The button was in the full-page Managers workspace, removed in `252f4980` (11 Nov). The name changed per run because the sweep named controls by their "Hotkey: …" tooltip, and keys are given out in order. The sweep now names controls without their hotkey. The popup managers have no button whose only name is a hotkey |
-| 6 | Works. Product question | Object Manager on Footman: Collapse all 57 → 12 rows, Expand all → 57. Expand all with nothing folded does nothing (like Fit when fitted). With Show hierarchy off the list is flat and both buttons do nothing |
-| 7 | Product question | With no model, CORP is now greyed out (`e41542f2`). On the demo model, which has no Death animation, the window says "Auto Corpse needs a Death animation." but + Skull, + Ribs, + Bone and + Hand stay clickable and do nothing (`add` returns when there is no corpse) |
+| 6 | Works. Owner chose to grey them with hierarchy off | Object Manager on Footman: Collapse all 57 → 12 rows, Expand all → 57. Expand all with nothing folded does nothing (like Fit when fitted). With Show hierarchy off the list is flat and both buttons do nothing |
+| 7 | Owner chose to grey them out | With no model, CORP is now greyed out (`e41542f2`). On the demo model, which has no Death animation, the window says "Auto Corpse needs a Death animation." but + Skull, + Ribs, + Bone and + Hand stay clickable and do nothing (`add` returns when there is no corpse) |
 | 8 | Fixed already | Since `e41542f2` (15 Nov) these are greyed with no model: menu Save, Save as, Select all, Clear selection, Copy, Paste, Paste special, Bend to Taper, Auto Corpse, and the toolbar Save |
 | 9 | Works. Not a real difference | The heading holds the word and the Controller dropdown. In German the longer "Gemischt / ungesetzt" widens the dropdown, so the centre of the heading lands on it (left edge 1280 < centre 1297). A click there does not fold the section, by design. The dropdown is greyed until something is selected. Clicking the word folds the section in both languages |
 
@@ -144,15 +144,21 @@ entries under Could not be closed are full pages, left by choosing another mode.
 Not found in these runs: clipped text or untranslated labels. German is the only language run
 so far.
 
-## Owner choices (not decided by an agent)
+## Owner choices (answered 15 Nov: "Yes, all three")
 
-1. Bones: the "Connected Bones" heading shows even when no vertices are selected, with nothing
-   under it. Movement hides it when empty. Hide it in Bones too, or keep it?
-2. Object Manager: with "Show hierarchy" off, "Expand all" and "Collapse all" stay clickable
-   but do nothing. Grey them out then, or keep them?
-3. Auto Corpse on a model without a Death animation: the window says it needs one, but
-   "+ Skull", "+ Ribs", "+ Bone" and "+ Hand" still look clickable and do nothing. Grey them
-   out, or keep them?
+1. Bones: "Connected Bones" now hides when no selected vertices are bound, using Movement's
+   rule (`boundBoneIds.length > 0` in `app/App.jsx`).
+2. Object Manager: "Expand all" and "Collapse all" are greyed out while "Show hierarchy" is off
+   (`app/ResourceEditors.jsx`).
+3. Auto Corpse: "+ Skull", "+ Ribs", "+ Bone" and "+ Hand" are greyed out when no corpse can be
+   fitted, such as with no Death animation; the "needs a Death animation" message stays
+   (`app/AutoCorpse.jsx`).
+
+Small polish, tested by the owner by hand. Clicked hidden in the packaged build: Bones shows no
+panel with nothing selected, and after Ctrl+A in Vertices it lists 19 bones and Box04 selects;
+hierarchy on: Collapse all 57 → 12, Expand all → 57; hierarchy off: both greyed, and they work
+again when it is back on; demo model: all four + buttons greyed with the message; Footman: all
+four on, and + Skull clicks without errors.
 
 ## Changes and verification
 
@@ -182,7 +188,7 @@ so far.
 
 ## Blockers and next action
 
-- No blockers. The owner decides the three choices above; nothing changes until then.
+- No blockers. The three owner choices are done.
 - Two existing test failures above belong to `e41542f2` (no-model start) and the Showcase
   video/clock step. They are not tracked by this note.
 - After the owner says "merge": mark this note completed with the merge revision and remove

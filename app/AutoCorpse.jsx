@@ -238,7 +238,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
             tip="How high the bones rise off the ground. Above 100% they can poke through the body while it sinks."/>
           <div className="acp-color" title="Tints the whole corpse, like Color Tint in Animations."><span>Color Tint:</span><div className="acp-rgb">{['R', 'G', 'B'].map((channel, index) => <label className={`channel-${channel.toLowerCase()}`} key={channel}>{channel}<input aria-label={`Corpse ${channel}`} type="number" min="0" max="255" step="1" value={rgb[index]} onFocus={remember} onChange={event => setRgb(previous => previous.map((value, i) => i === index ? event.target.value : value))}/></label>)}</div></div>
           <div className="acp-add" role="group" aria-label="Add a piece" title="Adds a piece at the middle of the body; drag it into place in the preview.">
-            {Object.entries(ADD).map(([kind, spec]) => <button key={kind} onClick={() => add(kind)}>+ {spec.label}</button>)}
+            {Object.entries(ADD).map(([kind, spec]) => <button key={kind} disabled={!corpse} onClick={() => add(kind)}>+ {spec.label}</button>)}
           </div>
           <label className="check" title="A chalk line around where the body lies, so you can fit the corpse to it.">
             <input data-hotkey="auto-corpse:body-outline" data-hotkey-manual data-hotkey-label="Body outline" type="checkbox" checked={outline} onChange={event => setOutline(event.target.checked)}/>Body outline
