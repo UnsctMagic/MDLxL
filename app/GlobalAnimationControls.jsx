@@ -5,7 +5,7 @@ import {MAX_EMITTER_SITES,withEmitterSiteCount,withEmitterPlacement,individualEm
 import ParticleTimingTool,{CarryButton,EmitModeButtons} from './ParticleTimingTool.jsx';
 import {BlendLookField,DrawAsField} from './ParticlePictureTool.jsx';
 import ParticleFrameStrip from './ParticleFrameStrip.jsx';
-import {particleValue,beginParticleParameter} from '../src/particle-bindings.js';
+import {particleValue,beginParticleParameter,layerRateShare,layerRateTarget} from '../src/particle-bindings.js';
 import ParticleLifeMarker from './ParticleLifeMarker.jsx';
 import GlobalTextureFit from './GlobalTextureFit.jsx';
 import FxLookBar from './FxLookBar.jsx';
@@ -124,8 +124,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   if(stage?.raw){gesture.current={field,raw:true};return;}
   const aggregate=field==='EmissionRate'&&!selectedSite;
   const emitters=!selectedSite?(result?.ids||[]).map(id=>graph.model.Nodes[id]):[real];
-  const parameters=emitters.map(emitter=>({emitter,parameter:beginParticleParameter(emitter,field,options)}));
-  gesture.current={field,stage,emitter:real,displayParameter:beginParticleParameter(real,field,options),parameters,aggregate,group:!selectedSite,representative:particleValue(real,field,options),total:parameters.reduce((sum,p)=>sum+p.parameter.sampled,0)};
+  const parameters=emitters.map(emitter=>({emitter,parameter:beginParticleParameter(emitter,field,options),...(aggregate?{share:layerRateShare(emitter,options)}:{})}));
+  gesture.current={field,stage,emitter:real,displayParameter:beginParticleParameter(real,field,options),parameters,aggregate,group:!selectedSite,representative:particleValue(real,field,options),total:parameters.reduce((sum,p)=>sum+(aggregate?p.share:p.parameter.sampled),0)};
  };
  const nativeChange=value=>{if(gesture.current){gesture.current.value=value;liveFrame.current.schedule();}};
  const nativeFinish=()=>{
@@ -134,8 +134,8 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
   if(g.raw){const hit=g.value?.Keys?.find(k=>k.Vector[0]>0)?.Frame;if(stack.impact&&hit!=null)setStack({...stack,...impactDefaults(graph.model,graph.geoset,stack.sequence,hit)});else depth(g.field,g.value);return;}
   if(g.group){
    let next=layer;
-   for(const {emitter,parameter} of g.parameters){
-    let value=Array.isArray(g.value)?g.value.map((v,i)=>Math.max(0,Math.min(1,parameter.sampled[i]+v-g.representative[i]))):g.aggregate?(g.total?g.value*parameter.sampled/g.total:g.value/g.parameters.length):g.field==='ParticleScaling'&&g.representative?g.value*parameter.sampled/g.representative:parameter.sampled+g.value-g.representative;
+   for(const {emitter,parameter,share} of g.parameters){
+    let value=Array.isArray(g.value)?g.value.map((v,i)=>Math.max(0,Math.min(1,parameter.sampled[i]+v-g.representative[i]))):g.aggregate?layerRateTarget(parameter,share,g.total,g.parameters.length,g.value):g.field==='ParticleScaling'&&g.representative?g.value*parameter.sampled/g.representative:parameter.sampled+g.value-g.representative;
     if(g.field==='Alpha')value=Math.max(0,Math.min(255,value));
     else if(g.field==='Time')value=Math.max(0,Math.min(1,value));
     else if(g.field==='Latitude')value=Math.max(0,Math.min(180,value));
@@ -163,7 +163,7 @@ export default function GlobalAnimationControls({lookActions,overlayLocked=false
  };
  const nativeSlider=(field,disabled=false)=>{
   disabled=disabled||real?.[field]?.GlobalSeqId>=0&&timingOptions.globalTime==null;
-  const value=real?(field==='EmissionRate'&&!selectedSite?(result?.ids||[]).reduce((sum,id)=>sum+particleValue(graph.model.Nodes[id],field,timingOptions),0):particleValue(real,field,timingOptions)):undefined;
+  const value=real?(field==='EmissionRate'&&!selectedSite?(result?.ids||[]).reduce((sum,id)=>sum+layerRateShare(graph.model.Nodes[id],timingOptions),0):particleValue(real,field,timingOptions)):undefined;
   const title=field==='EmissionRate'?(selectedSite?'Particles emitted by this emitter.':'Particles emitted across this layer.')+' '+(real?.Squirt?'Particles per burst.':'Particles per second.'):SLIDER_TIPS[field];
   return <div key={field} title={title}><ParticleSlider decimals={2} units={title} field={field} value={live?.field===field?live.value:value} disabled={disabled||!real} unavailable={disabled||!real} begin={nativeBegin} change={nativeChange} finish={nativeFinish} cancel={()=>{liveFrame.current.cancel();gesture.current=null;setLive(null);}}/></div>;
  };
