@@ -43,7 +43,7 @@ test('quick display follows editor buttons; WC3 dock is above the full-width tab
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<Tool className="smooth-edges-toggle"[^\n]+<\/Tool><button data-hotkey="convertVersion"[^\n]+\{inputStrength\}<\/div>/);
+  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<Tool className="smooth-edges-toggle"[^\n]+<\/Tool>\{doc && <button data-hotkey="convertVersion"[^\n]+\{inputStrength\}<\/div>/);
   assert.match(toolbar,/\{visUI && inputStrength\}/);
   assert.doesNotMatch(app,/\{!visUI && inputStrength\}/);
   assert.doesNotMatch(app,/<LanguageSwitch/);
@@ -63,7 +63,7 @@ test('module menu remains available with the custom module row hidden',()=>{
 // The owner's top-bar contract replaces the former status controls and model row.
 test('model controls are above and open models are below the viewport',()=>{
   assert.doesNotMatch(bar, /ModelTabs|module-divider/);
-  assert.match(app, /<div className="classic-status"><ModelTabs sessions=\{sessions\} session=\{bitReplacement\?\.original \?\? session\}/);
+  assert.match(app, /<div className="classic-status"><ModelTabs sessions=\{sessions\} session=\{bitReplacement\?\.original \?\? activeSession\}/);
   assert.doesNotMatch(app, /statusAlert|\[status, setStatus\]|status-model-actions/);
   assert.match(app, /<WarningToasts /);
 });

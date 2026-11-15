@@ -730,6 +730,8 @@ export default function App() {
   const openLibrary = (preview = uvEditing, full = false, tab) => setDialog({ type: 'library', preview, full, tab, host: preview && uvWindow ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
   const openParticles = (id, initialView) => {
     setPlaying(false);
+    // Like Forge, the Emitter Editor started with no model works in a new one.
+    if (!doc) { install(newSession(createEmptyDocument(preferences.newModelVersion))); setDialog({ type: 'particles', initialView, selection: {} }); return; }
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
     const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
       ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
@@ -1597,7 +1599,7 @@ export default function App() {
       if (id === 'exit') return !!window.desktop;
       if (id === 'undo' || id === 'redo') return mode === 'showcase' && showcaseHistoryState[id];
       if (id === 'toolbarCycle' || id.startsWith('toolbar:')) return !visUI;
-      if (id === 'forge' || id === 'bitsAndParts') return !saving && mode !== 'showcase';
+      if (id === 'forge' || id === 'bitsAndParts' || id === 'particles') return !saving && mode !== 'showcase';
       return emptyWorkspaceCommands.has(id) || /^(language|theme|camera|wheel):/.test(id);
     }
     if (id === 'axes') return axesAvailable && ['vertices', 'bones', 'animation'].includes(mode);
