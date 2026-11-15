@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { combineUVGeosets, projectUVFromView, straightenUVCoordinates, mirrorCopyUVCoordinates, relaxUVCoordinates, NO_MIRROR_POINTS_ERROR, RELAX_EDGE_ERROR } from '../src/uv-tools.js';
 import { boxProjectUVCorners, cylinderProjectUVCorners, unwrapUVCorners, planUVCorners, splitUVCorners, uvCornerCopies, wholeSelectedTriangles, POINT_LIMIT_ERROR, WHOLE_TRIANGLE_ERROR } from '../src/uv-unwrap.js';
 import { uvToolState } from '../src/uv-tool-state.js';
+import { readFileSync } from 'node:fs';
+import { translate } from '../src/localization.js';
 
 // ---- views ----------------------------------------------------------------------------------
 const normalize = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
@@ -380,4 +382,14 @@ test('the new tools follow their selection rules', () => {
   assert.deepEqual([draft.boxProjection, draft.cylinderProjection, draft.unwrap, draft.straighten, draft.mirrorCopy, draft.relax], [false, false, false, true, true, true], 'point-adding tools wait for the test texture, like Uncouple');
   const locked = uvToolState({ readOnly: true, selectionCount: 3, eligibleCount: 10, triangleCount: 1 });
   assert.ok(Object.values(locked).every(value => value === false));
+});
+
+// ---- labels and tooltips ----------------------------------------------------------------------
+test('every new label, tooltip and message is translated in all five languages', () => {
+  const ui = readFileSync(new URL('../app/UVWorkspace.jsx', import.meta.url), 'utf8');
+  const texts = [...ui.matchAll(/(?:title|description)="((?:Projects each|Wraps the|Straighten:|Mirror Copy:|Unwrap:|Relax:)[^"]*)"/g)].map(match => match[1]);
+  assert.equal(texts.length, 6, 'six tooltips found in the UV Wrapper');
+  for (const label of ['Box Projection', 'Cylinder Projection', 'Straighten', 'Mirror Copy', 'Unwrap', 'Relax']) assert.match(ui, new RegExp('data-hotkey-label="' + label + '"'));
+  for (const locale of ['de', 'es', 'fr', 'ru', 'zh']) for (const text of ['Box Projection', 'Cylinder Projection', 'Straighten', 'Mirror Copy', 'Unwrap', 'Relax', ...texts, NO_MIRROR_POINTS_ERROR, RELAX_EDGE_ERROR, POINT_LIMIT_ERROR])
+    assert.notEqual(translate(text, locale), text, locale + ': ' + text);
 });

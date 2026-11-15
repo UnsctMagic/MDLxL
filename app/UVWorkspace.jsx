@@ -7,7 +7,8 @@ import useStoredState from './useStoredState.js';
 import { createFrameCoalescer } from './viewport-performance.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
-import { combineSelectedUVGeosets, otherUVMaterials, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
+import { combineSelectedUVGeosets, mirrorCopyUVCoordinates, otherUVMaterials, projectUVFromView, relaxUVCoordinates, relevantUVMaterials, splitSelectedUVGeosets, straightenUVCoordinates } from '../src/uv-tools.js';
+import { boxProjectUVCorners, cylinderProjectUVCorners, planUVCorners, POINT_LIMIT_ERROR, unwrapUVCorners, uvCornerCopies, wholeSelectedTriangles } from '../src/uv-unwrap.js';
 import { Tool as EditorTool } from './EditorControls.jsx';
 import ToolIcon from './ToolIcon.jsx';
 import { geosetsHiddenByExtras } from '../src/geoset-extras.js';
@@ -37,8 +38,8 @@ const ANGLED_PROJECTIONS = [
 const gridSpacingLabel = value => value < 0.01 ? value.toFixed(4) : value < 1 ? value.toFixed(3) : value.toFixed(2);
 
 // The main toolbar's tool button; the UV icons are in ModernIcon's table.
-function Tool({ action, icon, label, active, disabled, onClick }) {
-  return <EditorTool action={action} icon={`uv_${icon}`} title={label} active={active} disabled={disabled} onClick={onClick} className="uv-tool" data-hotkey-category="UV">{label}</EditorTool>;
+function Tool({ action, icon, label, description, active, disabled, onClick, ...hotkey }) {
+  return <EditorTool action={action} icon={`uv_${icon}`} title={label} description={description} active={active} disabled={disabled} onClick={onClick} {...hotkey} className="uv-tool" data-hotkey-category="UV">{label}</EditorTool>;
 }
 
 function PreviewRgbField({ channel, icon, value, onCommit, disabled, ...hotkeys }) {
@@ -99,7 +100,7 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
 }
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,
-  onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, onMaterialAssign, textureAssets, teamColor, preferences, onPreferences,
+  onPreviewSelectionChange, onUVChanges, onUVCorners, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, onMaterialAssign, textureAssets, teamColor, preferences, onPreferences,
   draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
@@ -216,7 +217,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     const changes = splitSelectedUVGeosets(model, combined.refs, values);
     (preview ? onPreviewChanges : onUVChanges)?.(changes, label);
   };
-  const toolState = uvToolState({ readOnly: editingLocked, selectionCount: selectedCount(allSelected), draftCount });
+  const triangleCount = useMemo(() => combined ? wholeSelectedTriangles(combined.geoset.Faces, combined.selectedVertices).length : 0, [combined]);
+  const toolState = uvToolState({ readOnly: editingLocked, selectionCount: selectedCount(allSelected), draftCount, eligibleCount: combined?.eligibleVertices.length || 0, triangleCount });
   useEffect(() => {
     const body = workspaceBody.current;
     if (!body) return;
@@ -249,6 +251,25 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
       applyCombined(projectUVFromView(combined.geoset, combined.selectedVertices, view.viewMatrix, view.projectionMatrix), false, 'Project UVs from model view');
     } catch (cause) { setMaterialError(cause.message); }
   };
+  // Box, Cylinder, Straighten, Mirror Copy, Unwrap and Relax: a refused tool explains itself on the
+  // warning line, and the next tool that works clears that explanation again.
+  const toolError = useRef('');
+  const runTool = work => {
+    if (!combined || editingLocked) return;
+    try {
+      work();
+      const shown = toolError.current; toolError.current = '';
+      if (shown) setMaterialError(previous => previous === shown ? '' : previous);
+    } catch (cause) { toolError.current = cause.message; setMaterialError(cause.message); }
+  };
+  // Tools that give each triangle corner its own UV; the App adds point copies where a point needs two.
+  const projectCorners = (label, corners) => runTool(() => {
+    const view = projectionView.current;
+    const plans = planUVCorners(combined, corners(combined.geoset, combined.selectedVertices, view?.viewMatrix, view?.projectionMatrix, combined.geoset.TVertices[0]));
+    for (const plan of plans) if (model.Geosets[plan.geosetIndex].Vertices.length / 3 + uvCornerCopies(model.Geosets[plan.geosetIndex], plan.corners) > 65536) throw Error(POINT_LIMIT_ERROR);
+    onUVCorners?.(plans, label);
+  });
+  const moveUVs = (label, next) => runTool(() => applyCombined(next(combined.geoset.TVertices[0]), false, label));
   const chooseProjectionPreset = name => { if (name) setProjectionPreset(previous => ({ name, revision: previous.revision + 1 })); };
   const setActivePreviewPercent = value => setPreviewPercent(clampUVPreviewPercent(value));
   const changeLiveDisplay = change => onPreferences?.({ ...preferences, uvPreviewDisplay: { ...preferences?.uvPreviewDisplay, ...display, ...change } });
@@ -319,7 +340,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
         <Splitter orientation="horizontal" label="Resize live model preview" value={activePreviewPercent} minimum={UV_PREVIEW_MIN} maximum={UV_PREVIEW_MAX} defaultValue={UV_PREVIEW_DEFAULT}
           onValue={setActivePreviewPercent} onPointerValue={event => { const rect = sidePanel.current?.getBoundingClientRect(); if (rect) setActivePreviewPercent(uvPreviewPercentAtPointer(event.clientY, rect)); }}/>
         <div className="uv-side-controls">
-          <section className="uv-projection" aria-label="UV projection"><div className="uv-projection-actions"><button data-hotkey="uv-wrapper:project-from-current-view" data-hotkey-manual data-hotkey-label="Project from Current View" title="Rotate the model to the required viewpoint, or choose a standard projection plane." disabled={editingLocked || !selectedCount(allSelected)} onClick={project}>Project from Current View</button><select data-hotkey="uv-wrapper:standard-projection-view" data-hotkey-manual data-hotkey-label="Standard projection view" aria-label="Standard projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Standard…</option>{STANDARD_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Angled projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Angled…</option>{ANGLED_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>
+          <section className="uv-projection" aria-label="UV projection"><div className="uv-projection-actions"><button data-hotkey="uv-wrapper:project-from-current-view" data-hotkey-manual data-hotkey-label="Project from Current View" title="Rotate the model to the required viewpoint, or choose a standard projection plane." disabled={editingLocked || !selectedCount(allSelected)} onClick={project}>Project from Current View</button><button data-hotkey="uv-wrapper:box-projection" data-hotkey-manual data-hotkey-label="Box Projection" title="Projects each selected triangle from the box side it faces most and lays the six sides out as an unfolded box. Uses the live preview's view." disabled={!toolState.boxProjection} onClick={() => projectCorners('Box Projection', boxProjectUVCorners)}>Box Projection</button><button data-hotkey="uv-wrapper:cylinder-projection" data-hotkey-manual data-hotkey-label="Cylinder Projection" title="Wraps the selected triangles around the live preview's upright axis. The seam goes at the back, away from the viewer." disabled={!toolState.cylinderProjection} onClick={() => projectCorners('Cylinder Projection', cylinderProjectUVCorners)}>Cylinder Projection</button><select data-hotkey="uv-wrapper:standard-projection-view" data-hotkey-manual data-hotkey-label="Standard projection view" aria-label="Standard projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Standard…</option>{STANDARD_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Angled projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Angled…</option>{ANGLED_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>
           <section className="uv-toolbox" aria-label="UV tools"><div className="uv-panel-title"><strong>Tools</strong><div className="uv-axis-controls uv-each-piece-control"><button type="button" aria-label="Each Piece" aria-pressed={preferences?.uvEachPiece === true} data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each Piece" data-hotkey-category="UV" title="On: Rotate and Zoom work on each separate piece, on its own spot. Off: the whole selection moves as one group." onClick={() => onPreferences?.({ ...preferences, uvEachPiece: preferences?.uvEachPiece !== true })}>Each Piece</button></div><div className="uv-axis-controls" role="group" aria-label="UV axis when Shift is held">{['X','Y'].map(value => <button key={value} type="button" aria-label={`UV ${value} axis`} aria-pressed={axis === value} onClick={() => setAxis(previous => previous === value ? null : value)}>{value}</button>)}</div></div><div className="uv-tool-grid">
             <Tool action="select" icon="select" label="Select" active={uvTool === 'select'} onClick={() => setUVTool('select')}/>
             <Tool action="translate" icon="move" label="Move" active={uvTool === 'move'} disabled={!toolState.move} onClick={() => setUVTool('move')}/>
@@ -329,6 +350,10 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             <Tool action="uv:flip-v" icon="mirrorY" label="Mirror by Y" disabled={!toolState.mirror} onClick={() => dispatch('flip-v')}/>
             <Tool action="Uncouple" icon="uncouple" label="Uncouple selected face corners" disabled={!toolState.uncouple} onClick={() => onUncouple?.(Object.fromEntries(Object.entries(allSelected).filter(([, ids]) => ids.length)), Object.fromEntries(materialEntries.flatMap(entry => entry.geosetIndices.map(index => [index, entry.coordId]))))}/>
             <div className="uv-fold-control"><Tool action="uv:fold" icon="fold" label="Fold" disabled={!toolState.fold} onClick={() => dispatch('fold', foldDirection)}/><select data-hotkey="uv-wrapper:fold-direction" data-hotkey-manual data-hotkey-label="Fold direction" aria-label="Fold direction" value={foldDirection} onChange={event => setFoldDirection(event.target.value)}><option value="right-to-left">Right → left</option><option value="left-to-right">Left → right</option><option value="bottom-to-top">Bottom → top</option><option value="top-to-bottom">Top → bottom</option></select></div>
+            <Tool data-hotkey="uv:straighten" data-hotkey-manual data-hotkey-label="Straighten" icon="straighten" label="Straighten" description="Straighten: lines the selected points up in a row, or in a column when they are taller than wide." disabled={!toolState.straighten} onClick={() => moveUVs('Straighten', values => straightenUVCoordinates(values, combined.selectedVertices, combined.geoset))}/>
+            <Tool data-hotkey="uv:mirror-copy" data-hotkey-manual data-hotkey-label="Mirror Copy" icon="mirrorCopy" label="Mirror Copy" description="Mirror Copy: copies the selected points' UVs onto the matching points on the other side of the model." disabled={!toolState.mirrorCopy} onClick={() => moveUVs('Mirror Copy', values => mirrorCopyUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/>
+            <Tool data-hotkey="uv:unwrap" data-hotkey-manual data-hotkey-label="Unwrap" icon="unwrap" label="Unwrap" description="Unwrap: lays the selected triangles out flat. A closed or tube-shaped part is cut along its outline in the live preview." disabled={!toolState.unwrap} onClick={() => projectCorners('Unwrap', unwrapUVCorners)}/>
+            <Tool data-hotkey="uv:relax" data-hotkey-manual data-hotkey-label="Relax" icon="relax" label="Relax" description="Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place." disabled={!toolState.relax} onClick={() => moveUVs('Relax', values => relaxUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/>
           </div></section>
         </div>
       </aside>
