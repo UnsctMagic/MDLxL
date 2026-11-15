@@ -24,7 +24,7 @@ export function resolveEventDefinition(name, tables, { textureExtension = 'blp' 
   let table = sources.find(([key]) => key === event.type || gamePathKey(key) === gamePathKey(event.tablePath))?.[1];
   if (typeof table === 'string') table = parseSlk(table);
   const entries = table instanceof Map ? [...table.entries()] : Object.entries(table || {});
-  const row = entries.find(([key]) => key.toLowerCase() === event.id.toLowerCase())?.[1];
+  const row = entries.find(([key]) => String(key).trim().toLowerCase() === event.id.trim().toLowerCase())?.[1];
   if (!row) return null;
   const fields = new Map(Object.entries(row).map(([key, value]) => [key.toLowerCase(), value]));
   const string = key => String(fields.get(key.toLowerCase()) ?? '').trim();
