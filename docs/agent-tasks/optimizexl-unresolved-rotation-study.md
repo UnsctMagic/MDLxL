@@ -1,6 +1,6 @@
 # Unresolved OptimizeXL rotation-key cleanup study
 
-Status: Codex study completed; Claude study + owner-approved small-turn rule on local branch `claude/optixl-small-turns`, not merged.
+Status: completed. Codex study + Claude study; owner-approved small-turn rule merged via the `claude/optixl-small-turns` PR on 15 Nov 2026.
 Owner: Codex parent; approved execution GPT-6.1 Sol / low.
 Updated: 2026-11-15 (Claude rule).
 
