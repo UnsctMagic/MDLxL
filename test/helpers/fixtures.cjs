@@ -12,6 +12,7 @@ const testModel = (...parts) => path.join(modelsRoot(), ...parts);
 // name: [override variable, default path or null when there is no default]
 const FIXTURES = {
   'glow-eye-effect': ['MDLXL_GLOW_EYE_MODEL', testModel('glow-up/WH_VC_ZombieDragonVCarstein02.mdx')],
+  'glow-dual-weapon': ['MDLXL_GLOW_DUAL_MODEL', testModel('WH_WOC_WarriorSlaaneshDual01.mdx')],
   'optimizexl-exact-unit': ['MDLXL_EXACT_UNIT', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionUnit03_1.mdx')],
   'optimizexl-exact-hero': ['MDLXL_EXACT_HERO', testModel('optimizexl-exact-cleanup/before/WH_WOC_KnightSlaaneshChampionHero03_1.mdx')],
   'optimizexl-pivots': ['MDLXL_OPTIMIZEXL_PIVOTS_MODEL', testModel('optimizexl-pivots/WH_WOC_KnightKhroneBStandard01_FIXED.mdx')],
@@ -30,7 +31,9 @@ const FIXTURES = {
   'sd-bandit': ['MDLXL_SD_BANDIT', testModel('corpus-sd/creeps__bandit.mdx')], // HandRight (a mesh node) is gripped by its skin on +Y
   raider: ['MDLXL_RAIDER', testModel('bone-namer/Raider.mdx')], // owner's wolf rider: renamed helpers, badly named mesh pieces on each joint
   'sd-orc-wolfrider': ['MDLXL_SD_ORC_WOLFRIDER', testModel('corpus-sd/orc__wolfrider.mdx')], // rightfoot is gripped by its skin at Y -22.9
+  'sd-chaos-orc': ['MDLXL_SD_CHAOS_ORC', testModel('corpus-sd/critters__chaosspaceorc.mdx')], // a keyed light, attachments, an emitter, SND/FPT/SPL and an odd SPN event
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
+  'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.

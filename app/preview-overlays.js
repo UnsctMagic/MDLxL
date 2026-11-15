@@ -1,4 +1,5 @@
 import { rigTypeVisible } from '../src/display-overlays.js';
+import { objectSwitches, xlObjectKinds } from '../src/object-display.js';
 import { Vector3, Vector4, Matrix4 } from 'three';
 import { createOverlayDepth } from './preview-depth.js';
 import { gridSegments } from './viewport-grid.js';
@@ -16,7 +17,7 @@ export function previewOverlayOptions(overlays, showNodes = false, editorMode, v
   const grouped = !vanilla && overlays?.events !== undefined;
   const effectSymbols = vanilla || editorMode !== 'animations' || !!overlays?.nodes;
   const focusedBoneLines = !!overlays?.focusedSkeleton;
-  return {
+  const options = {
     boneTypesBones: overlays?.boneTypesBones ?? true, boneTypesHelpers: overlays?.boneTypesHelpers ?? true,
     bones: overlays?.bones ?? markers, helpers: overlays?.helpers ?? overlays?.bones ?? markers, nodes: grouped ? false : overlays?.nodes ?? markers,
     attachments: overlays?.attachments ?? markers, particles: !!(overlays?.particles ?? markers) && effectSymbols,
@@ -27,9 +28,25 @@ export function previewOverlayOptions(overlays, showNodes = false, editorMode, v
     wires: overlays?.wires ?? false, vertices: overlays?.vertices ?? false, grid: overlays?.grid ?? false,
     normals: overlays?.normals ?? false, selectedVerticesOnly: overlays?.selectedVerticesOnly ?? false,
   };
+  if (vanilla) {
+    // VIS = MDLVis 1.40: bones and helpers, attachments and emitters (no ribbons),
+    // only in Bones and Movement; never nodes, events, sounds, lights or collision.
+    const rig = editorMode === 'bones' || editorMode === 'movement';
+    return { ...options, nodes: false, ribbons: false, sounds: false, events: false, wires: false, focusedBoneLines: false, focusedBoneMarkers: false,
+      boneLines: rig && !!(overlays?.skeleton ?? overlays?.boneLines ?? true), ...(!rig && { bones: false, helpers: false, attachments: false, particles: false }) };
+  }
+  // MDLxL look. Lights were part of the old Nodes pile; tool windows keep that.
+  options.lights = options.nodes;
+  // Animations: the model with its effects, no symbols, bones or skeleton.
+  if (editorMode === 'animations' && overlays) return { ...options, bones: false, helpers: false, nodes: false, attachments: false, particles: false, ribbons: false,
+    sounds: false, events: false, lights: false, boneLines: false, focusedBoneLines: false, focusedBoneMarkers: false, wires: false, vertices: false };
+  // Vertices, Bones, Movement (and POSE): Objects shows the checked types, Lights its own switch; collision never.
+  const objects = objectSwitches(overlays);
+  return objects ? { ...options, nodes: false, ...objects } : options;
 }
 
 export function movementNodeCategories(model, vanilla = false) {
+  if (!vanilla) return xlObjectKinds(model);
   const categories = new Map();
   for (const node of model.Bones || []) categories.set(node.ObjectId, 'bones');
   // MDLVis treats Helpers as part of the editable bone hierarchy. This is
@@ -39,12 +56,7 @@ export function movementNodeCategories(model, vanilla = false) {
   for (const node of model.Helpers || []) categories.set(node.ObjectId, 'bones');
   for (const node of model.Attachments || []) categories.set(node.ObjectId, 'attachments');
   for (const collection of ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns']) for (const node of model[collection] || []) categories.set(node.ObjectId, 'particles');
-  for (const node of model.RibbonEmitters || []) categories.set(node.ObjectId, vanilla?'particles':'ribbons');
-  for (const node of vanilla ? [] : model.EventObjects || []) {
-    const type = node.Name?.slice(0, 3).toUpperCase();
-    if (type === 'SND') categories.set(node.ObjectId, 'sounds');
-    else if (['SPL','UBR','FPT'].includes(type)) categories.set(node.ObjectId, 'events');
-  }
+  // MDLVis draws no ribbons, events or sounds; they stay uncategorised and VIS shows no nodes.
   return categories;
 }
 

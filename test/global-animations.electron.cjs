@@ -16,9 +16,11 @@ const {testModel}=require('./helpers/fixtures.cjs');
  };
  try{
   await stubDialogs(app,{message:1});await open();
-  await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Flaming sword global animation').click();await ready();
-  await addEmitter(page,fx,'Blade flames (recommended)',ready);await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Blade flames/}).click();
-  const previous=await stack();assert.equal(previous.layers.length,3);
+  await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await button('Fire global animation').click();await ready();
+  // Fire starts with its Blade flames (owner, 11 Nov), so only the embers are added.
+  await addEmitter(page,fx,'Rising embers',ready);await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Flames/}).click();
+  // Hot core, Blade flames, Flame cards (offered, off since 11 Nov) and the added embers.
+  const previous=await stack();assert.equal(previous.layers.length,4);
   const stage=fx.locator('.sfx-stage'),box=await stage.boundingBox();
   const cam=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.controls.object.position.toArray());
   const oldCamera=await cam(),x=box.x+box.width*.72,y=box.y+box.height*.4;
@@ -46,17 +48,22 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const {openDocument}=await import('../src/editor-document.js');assert.equal(openDocument(fs.readFileSync(dest),dest).model.Geosets[18]._FxStack.loop,2380);
   for(const [name,key] of [['Fly swarm','size']]){
    await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await fx.getByLabel('Find a surface effect').fill(name);await button(name+' global animation').click();await ready();await addEmitter(page,fx,'Orbiting flies (recommended)',ready);
-   await button('Fit selection').click();await button('Position & size').click();
+   // A swarm is wider than its part: zoom the preview out so the round size handle is inside the stage.
+   await button('Fit selection').click();await fx.locator('.sfx-stage').hover();for(let i=0;i<3;i++){await page.mouse.wheel(0,240);await page.waitForTimeout(150);}
+   await button('Position & size').click();
    if(await button('Pause').count())await button('Pause').click();
    const before=(await stack()).layers.at(-1);await drag('Resize particle',18,-8);
    assert.notEqual((await stack()).layers.at(-1)[key],before[key],name+' radius');
    await drag('Move emitter',14,3);assert.notDeepEqual((await stack()).layers.at(-1).offset,before.offset,name+' position');
    if(name==='Fly swarm'){
-    await fx.getByLabel('Amount value').fill('3');await fx.getByLabel('Amount value').press('Enter');await ready();assert.equal((await stack()).layers.at(-1).amount,3);
+    // Flies are quads on billboarded bones (native Flies.mdx technique); Amount adds sets of five.
+    await fx.getByRole('slider',{name:'Amount',exact:true}).fill('15');await ready();assert.equal((await stack()).layers.at(-1).amount,15);
+    // The look starts with its own five-fly swarm; the added layer has fifteen of its own.
+    assert.equal(await page.evaluate(()=>{const m=mdlxlProbe(document.querySelector('.sfx-stage .game-preview-root')).props.model,s=m.Geosets.find(g=>g._FxStack?.layers.some(l=>l.swarm))._FxStack,l=s.layers.at(-1),prefix=s.owner+'/'+l.id+'/fly';return m.Bones.filter(b=>b._FxTag?.startsWith(prefix)&&b.Flags===264).length;}),15,'fifteen billboarded fly bones for the added swarm');
    }
    await button('Cancel').click();await fx.waitFor({state:'hidden'});
   }
-  await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await ready();await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/Blade flames/}).click();await button('Open in EMTR').click();
+  await open();await fx.getByLabel('Geoset',{exact:true}).selectOption('18');await ready();await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/Flames/}).click();await button('Open in EMTR').click();
   await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();assert.deepEqual(errors,[]);
   console.log('Both blade ends, colour, clock, four clips, actual orbit, Apply, Undo, re-edit, MDX and EMTR passed.');
  }catch(error){console.error((await page.locator('body').innerText()).slice(-1100));await page.screenshot({path:path.join(out,'failure.jpg')});throw error;}

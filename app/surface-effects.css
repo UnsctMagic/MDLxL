@@ -19,6 +19,8 @@
 .sfx-colours small{font-size:11px}.sfx-target select{max-width:min(320px,45vw);width:auto}
 
 .surface-effects .sfx-stage svg.pe-stage-tools{display:block}
+.fx-emitter-markers circle{cursor:pointer}.fx-emitter-markers [role=button]:hover>circle:not(.pe-grab),.fx-emitter-markers [role=button]:focus-visible>circle:not(.pe-grab){stroke:#ffb835;stroke-width:3}
+.sfx-controls .sfx-placement{flex-wrap:wrap}.sfx-controls .sfx-place{flex:1 1 auto}.sfx-controls .fx-emitter-policy{grid-template-columns:minmax(0,1fr)}.fx-emitter-policy select{width:100%;min-width:0}
 
 
 .fx-starters,.fx-layer-list{display:grid;gap:3px}.fx-starters h4{margin:5px 0 1px}.fx-starters button,.fx-layer-list button{text-align:left}
@@ -32,7 +34,12 @@
 .surface-effects .sfx-cards .gf-row:hover{background:var(--ui-hover,#2d3b43)}
 .surface-effects .sfx-cards .gf-row.selected{background:var(--ui-selected,#4a4a37);color:var(--ui-selected-text,#fff0c6)}
 .surface-effects .sfx-card{padding-left:22px!important}.surface-effects .sfx-card .gf-name{display:block;overflow:hidden;text-overflow:ellipsis}
+.sfx-own-row{display:flex;align-items:center}.sfx-own-row>.sfx-card{flex:1;min-width:0}.sfx-own-row>.preset-bar-delete{flex:none;height:24px;margin-left:2px}
 .fx-layer-row{display:flex;gap:3px;align-items:center}.fx-layer-row>button{flex:1;min-width:0}.sfx-controls .pe-life-table{width:100%;table-layout:fixed}.sfx-controls .pe-life-table input{max-width:100%;min-width:0;box-sizing:border-box}.sfx-controls .pe-life-table th{font-size:10px}.sfx-controls .pe-life-table input[type=color]{width:38px;height:22px}
+/* EMTR's frame strip under an emitter's More wraps inside the narrow column. */
+.sfx-controls .pe-frame-grid{flex-wrap:wrap;gap:4px 10px}.sfx-controls .pe-frame-pick label,.sfx-controls .pe-frame-pick select{min-width:0}
+/* The narrow controls column: three stage columns fit their header word and three-digit values. */
+.sfx-controls .pe-life-table col.pe-life-label{width:64px}.sfx-controls .pe-life-table th,.sfx-controls .pe-life-table td{padding:2px 1px}.sfx-controls .pe-life-table thead button{padding:2px 1px;font-size:10px;white-space:nowrap;overflow:hidden}.sfx-controls .pe-life-table input[type=number]{padding:1px 2px;font-size:11px;text-align:center;-moz-appearance:textfield;appearance:textfield}.sfx-controls .pe-life-table input[type=number]::-webkit-inner-spin-button,.sfx-controls .pe-life-table input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.sfx-controls .pe-life-table input[type=color]{width:100%;max-width:38px}
 
 .surface-effects .sfx-cards svg{display:block}
 
@@ -45,4 +52,14 @@
 .classic-app:not([data-vis-ui]) .fx-uv-fit .look-icon{display:block}
 .classic-app:not([data-vis-ui]) .fx-uv-fit .has-look-icon>.modern-retro-icon{display:none}
 
+.fx-more>summary{cursor:pointer}.fx-more[open]{display:grid;gap:3px}.fx-layer-loop,.fx-area-actions{display:flex;gap:3px;align-items:flex-end}.fx-layer-loop>.field{flex:1;min-width:0}
 .sfx-controls .fx-add-emitter{grid-template-columns:minmax(0,1fr)}.sfx-controls .fx-add-emitter select{width:100%;min-width:0}.sfx-controls .field>span{min-width:0;overflow-wrap:anywhere}.sfx-controls button{white-space:normal;overflow-wrap:anywhere}
+.sfx-controls .fx-more[open]{grid-template-columns:minmax(0,1fr)}.sfx-controls .fx-more>*{min-width:0;max-width:100%}.sfx-controls .fx-more>label{display:flex;align-items:center;gap:6px;margin:5px 0}.sfx-controls .fx-more>label>select{flex:1;min-width:0}.sfx-controls .fx-more>button{display:block;margin:5px 0}.sfx-controls .fx-more>.pe-slider{margin:3px 0}
+.sfx-controls .pe-life-table col.pe-life-label{width:70px}.sfx-controls .pe-life-table tbody th{white-space:normal;line-height:1.15;overflow-wrap:anywhere}
+.sfx-controls h4.fx-selected{margin:6px 0 1px;padding-top:5px;border-top:1px solid #888;overflow-wrap:anywhere}
+.fx-layer-actions.fx-add-row{flex-wrap:nowrap;position:relative}.fx-layer-actions.fx-add-row select{flex:1 1 0;width:0;min-width:0}
+.fx-picker{flex:1 1 0;min-width:0;display:flex}.fx-picker>button{flex:1;min-width:0}
+.fx-picker-pop{position:absolute;z-index:30;top:100%;left:0;right:0;margin-top:2px;display:grid;gap:3px;padding:4px;box-sizing:border-box;background:var(--ui-field,#fff);color:var(--ui-text,inherit);border:1px solid var(--ui-border,#58636b);box-shadow:0 4px 12px #0002}
+.fx-picker-list{max-height:320px;overflow:auto;min-height:0}.fx-picker-head{position:sticky;top:0;padding:3px 6px 2px;font-size:10px;font-weight:bold;color:var(--ui-muted,#666);background:var(--ui-field,#fff);border-bottom:1px solid var(--ui-border,#58636b)}
+.fx-picker-row{display:flex;flex-direction:column;padding:3px 6px;cursor:pointer;overflow-wrap:anywhere}.fx-picker-row[aria-selected=true]{background:var(--ui-hover,#2d3b43);color:var(--ui-text,inherit)}.fx-picker-row small{color:var(--ui-muted,#666);font-size:10px}.fx-picker-empty{padding:6px;color:var(--ui-muted,#666)}
+.sfx-controls .fx-change-emitter select{min-width:0;max-width:100%}

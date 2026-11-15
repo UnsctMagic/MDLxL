@@ -6,15 +6,24 @@ import {openDocument} from '../src/editor-document.js';
 import {GLOBAL_LOOKS,LAYER_CHOICES,findLook,partFrame,withLayerTexture,withParticleStrength} from '../src/global-animation-looks.js';
 import {compileAnimation,readAnimationStack,FX_SECTIONS} from '../src/global-animation-model.js';
 
-const kept=['basalt','briar','abyss','cairn','mosaic','eclipse','ink','soul','thorn','astral','tide','blood','rift'];
-test('the thirteen remaining candidates are filed and their ingredients work in other looks',()=>{
+const kept=['basalt','briar','abyss','cairn','mosaic','eclipse','ink','soul','thorn','astral','blood','rift'];
+test('the twelve filed candidates and the retired Thorn script work as before',()=>{
  const filed=GLOBAL_LOOKS.filter(l=>l.id.startsWith('sort-'));
- assert.deepEqual(filed.map(l=>l.id),kept.map(id=>'sort-'+id));
+ // Pass 7 (14 November) folded Abyss, Cairn, Eclipse, Ink, Mosaic and Soul into cards of their own folders (Stone, Arcane, Death & spirit, Shadow):
+ // they are no longer filed, and a stack saved with one still reopens.
+ const folded=['abyss','cairn','eclipse','ink','mosaic','soul'];
+ assert.deepEqual(filed.map(l=>l.id).sort(),kept.filter(id=>id!=='thorn'&&!folded.includes(id)).map(id=>'sort-'+id).sort());
+ for(const id of folded)assert.ok(findLook('sort-'+id)&&!filed.some(l=>l.id==='sort-'+id),id+' is folded but still reopens');
+ assert.ok(findLook('sort-thorn')&&!filed.some(l=>l.id==='sort-thorn'),'Thorn script is folded into Runes but still reopens');
+ // Tide etching left the Water folder (14 November); a stack saved with it still reopens.
+ assert.ok(findLook('sort-tide')&&!filed.some(l=>l.id==='sort-tide'),'Tide etching is retired but still reopens');
  assert.ok(GLOBAL_LOOKS.every(l=>!['Impacts','sort'].includes(l.group)));
  for(const id of ['basalt','briar','cairn','mosaic','eclipse'])assert.equal(findLook('sort-'+id).asOverlay,true);
  assert.equal(findLook('sort-ink').layers.some(l=>l.label==='Ink seal'),false);
  assert.ok(LAYER_CHOICES.some(l=>l.label==='Ink seal'));
- for(const option of ['Mossy bark','Spores'])assert.equal(findLook('sort-briar').layers.find(l=>l.label===option).enabled,false);
+ // Pass 7: Mossy bark and the spores are the Mossy bark variation of Vines now, not switched-off layers of the first one.
+ const briar=findLook('sort-briar');assert.equal(briar.variations[0].id,'weave');
+ for(const option of ['Mossy bark','Rising spores'])assert.ok(!briar.variations[0].layers.some(l=>l.label===option)&&briar.variations.find(v=>v.name==='Mossy bark').layers.some(l=>l.label===option&&l.enabled!==false),option);
  assert.ok(findLook('sort-prism'),'old saved stacks still reopen');
 });
 
@@ -51,7 +60,7 @@ test('models with a retired Attack effect retain their native emitters and timin
 });
 
 test('texture edits change the saved native reference for each ingredient family and leave its siblings alone',()=>{
- for(const [id,label] of [['sort-basalt','Black stone'],['sort-ink','Ink clouds'],['sort-oath','Oath mark'],['sort-briar','Pollen'],['frost-blade','Falling mist'],['poison-skin','Poison surface'],['sort-thorn','Thorn trail'],['water-skin','Water surface']]){
+ for(const [id,label] of [['sort-basalt','Black stone'],['sort-ink','Ink clouds'],['sort-oath','Oath mark'],['sort-briar','Drifting pollen'],['frost-blade','Falling mist'],['poison-skin','Poison surface'],['sort-thorn','Thorn trail'],['water-skin','Water surface']]){
   const doc=knight(),m=doc.model,stack=authoredStack(findLook(id),partFrame(m.Geosets[0]),'picture'),image='Textures\\\\DemonRune5.blp';
   doc.apply('Start',FX_SECTIONS,model=>compileAnimation(model,0,stack));const change=readAnimationStack(m,0),before=structuredClone(change.layers);
   const i=change.layers.findIndex(l=>l.label===label);change.layers[i]=withLayerTexture(change.layers[i],image);

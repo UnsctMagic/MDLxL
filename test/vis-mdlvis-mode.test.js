@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import React from 'react';
 import { createSketchStore } from '../src/ai-sketch.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import VIEW_MENU from '../src/view-menu.json' with { type: 'json' };
+// The MDLxL look has its own lists (owner's revised spec); VIS keeps view-menu.json.
+import XL_VIEW_MENU from '../src/view-menu-xl.json' with { type: 'json' };
 
 const toolbar = readFileSync(new URL('../app/AppToolbar.jsx', import.meta.url), 'utf8').replaceAll('\r', '');
 const css = readFileSync(new URL('../app/modules.css', import.meta.url), 'utf8').replaceAll('\r', '');
@@ -53,7 +55,7 @@ const QuickDisplay = module.exports.default;
 
 for (const viewMode of Object.keys(VIEW_MENU)) test(`${viewMode}: VIS renders the classic ordered checkbox list; XL retains its icons and menu`, () => {
   for (const vanilla of [true, false]) {
-    const menu = VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes');
+    const menu = (vanilla ? VIEW_MENU : XL_VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes');
     const checks = Object.fromEntries(menu.map(([, action], i) => [action, i % 2 === 0]));
     const html = renderToStaticMarkup(React.createElement(QuickDisplay, { viewMode, vanilla, checks, isEnabled: action => action !== 'grid', onCommand() {}, onClear() {} }));
     const inputs = [...html.matchAll(/<input ([^>]+)>/g)].map(([, attrs]) => attrs);
@@ -120,10 +122,89 @@ test('VIS defers the body-portaled AI cleanup question and its detached hotkey r
 
 test('desktop and browser View use the same mode rows, including Axis guides where available', () => {
   const { buildMenuTemplate } = createRequire(import.meta.url)('../electron/menu.cjs');
-  for (const [mode, browserRows] of Object.entries(VIEW_MENU)) {
-    const nativeRows = buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode })
+  for (const [vanilla, menus] of [[true, VIEW_MENU], [false, XL_VIEW_MENU]]) for (const [mode, browserRows] of Object.entries(menus)) {
+    const nativeRows = buildMenuTemplate({}, () => {}, 'win32', [], value => value, { viewMode: mode, vanilla })
       .find(menu => menu.label === 'View').submenu;
     assert.deepEqual(nativeRows.map(row => row.label), browserRows.map(([label]) => label), mode);
     assert.equal(browserRows.some(([, id]) => id === 'axes'), mode !== 'animations', mode);
   }
 });
+
+// VIS = MDLVis 1.40 (owner, 14 Nov 2026). Rows per editor, what is drawn, and saves.
+{
+  const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+  const { parseCompatibleMdx } = await import('../src/mdx-compatibility.js');
+  const { previewOverlayOptions, visibleMovementPoints, movementNodeCategories } = await import('../app/preview-overlays.js');
+  const { viewportOverlayOptions } = await import('../app/viewport-overlays.js');
+  const { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay, storedEditorDisplay } = await import('../src/display-overlays.js');
+  const load = name => { const bytes = readFileSync(fixturePath(name)); return parseCompatibleMdx(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length)); };
+  const view = ['Shadows', 'Vertices', 'Normals', 'Grid'], objects = ['Bones', 'Attachment', 'Emitters', 'Skeleton'];
+
+  test('VIS rows per editor are MDLVis 1.40\'s, with no XL-only switches', () => {
+    assert.deepEqual(VIEW_MENU.vertices.map(([label]) => label), [...view, 'Axis guides', 'Clear']);
+    assert.deepEqual(VIEW_MENU.bones.map(([label]) => label), [...view, 'Axis guides', ...objects, 'Clear']);
+    assert.deepEqual(VIEW_MENU.movement.map(([label]) => label), [...view, 'Axis guides', ...objects, 'Clear']);
+    assert.deepEqual(VIEW_MENU.animations.map(([label]) => label), [...view, 'Clear']);
+    for (const rows of Object.values(VIEW_MENU)) for (const [, id] of rows)
+      assert.ok(!['display:focusedSkeleton', 'display:nodes', 'display:events', 'display:sounds', 'display:lights', 'display:wires', 'display:objects', 'rgb'].includes(id), id);
+  });
+
+  // The models are private (MDLxL-TestModels); CI skips this like the Forge and Corpse tests.
+  const privateMissing = !['sd-chaos-orc', 'ribbon-attachment'].every(name => { const file = fixturePath(name); return !!file && existsSync(file); }) && 'private models not on this machine';
+  test('VIS draws and picks only bones, helpers, attachments and emitters, only in Bones and Movement', { skip: privateMissing }, () => {
+    for (const name of ['sd-chaos-orc', 'ribbon-attachment']) {
+      const model = load(name), kinds = movementNodeCategories(model, true);
+      const ids = collection => (model[collection] || []).map(node => node.ObjectId);
+      const all = ['Bones', 'Helpers', 'Attachments', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'EventObjects', 'Lights', 'CollisionShapes'].flatMap(ids);
+      const points = all.map(id => ({ node: { ObjectId: id }, overlayKind: kinds.get(id) || 'nodes', helperNode: ids('Helpers').includes(id) }));
+      const never = new Set(['RibbonEmitters', 'EventObjects', 'Lights', 'CollisionShapes'].flatMap(ids));
+      assert.ok(never.size, name);
+      // Every switch on, including stale keys an old save or a hotkey could leave behind.
+      const everything = { shaded: true, vertices: true, normals: true, grid: true, bones: true, helpers: true, attachments: true, particles: true, skeleton: true, focusedSkeleton: true, nodes: true, events: true, sounds: true, lights: true, wires: true, objects: true };
+      for (const mode of ['bones', 'movement']) {
+        const options = previewOverlayOptions(everything, true, mode, true);
+        const shown = visibleMovementPoints(points, options).map(point => point.node.ObjectId);
+        assert.deepEqual(shown.filter(id => never.has(id)), [], `${name} ${mode}: no ribbons, events, sounds, lights or collision`);
+        assert.ok(shown.length, `${name} ${mode} shows its bones`);
+        assert.deepEqual([options.focusedBoneLines, options.focusedBoneMarkers, options.wires, options.sounds, options.events, options.ribbons], [false, false, false, false, false, false]);
+      }
+      assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions(everything, true, 'animations', true)), [], `${name} Animations draws no objects`);
+      assert.equal(previewOverlayOptions(everything, true, 'animations', true).boneLines, false);
+      const vertex = viewportOverlayOptions({ overlays: everything, vanilla: true });
+      assert.deepEqual(visibleMovementPoints(points, vertex), [], `${name} Vertices draws no objects`);
+      assert.equal(vertex.boneLines, false);
+    }
+    // POSE in VIS shows no Focused Skeleton either.
+    assert.equal(previewOverlayOptions(defaultPoseDisplay(defaultEditorDisplay(true).movement), false, 'movement', true).focusedBoneLines, false);
+  });
+
+  test('VIS object switches are shared by Bones and Movement; Clear elsewhere leaves them', () => {
+    let state = defaultEditorDisplay(true);
+    state = setEditorDisplay(state, 'bones', 'particles', true, true);
+    state = setEditorDisplay(state, 'movement', 'bones', false, true);
+    state = setEditorDisplay(state, 'bones', 'skeleton', true, true);
+    for (const mode of ['bones', 'movement']) assert.deepEqual([state[mode].particles, state[mode].bones, state[mode].helpers, state[mode].skeleton, state[mode].focusedSkeleton], [true, false, false, true, undefined], mode);
+    for (const mode of ['vertices', 'animations']) assert.equal(state[mode].bones, undefined, mode);
+    const cleared = clearQuickDisplay(state, 'animations', true);
+    assert.deepEqual(cleared.bones, state.bones); assert.deepEqual(cleared.movement, state.movement);
+    assert.deepEqual(Object.values(cleared.animations), [false, false, false, false]);
+    const both = clearQuickDisplay(state, 'movement', true);
+    assert.deepEqual([both.bones.particles, both.bones.skeleton, both.bones.boneTypesBones], [false, false, true]);
+  });
+
+  test('old VIS saves drop removed switches and never break loading', () => {
+    const storage = value => ({ getItem: () => typeof value === 'string' ? value : JSON.stringify(value) });
+    const restored = storedEditorDisplay(true, storage({ vis: {
+      vertices: { bones: true, nodes: true, attachments: true, particles: true, wires: true, rgb: true, normals: true },
+      movement: { focusedSkeleton: true, nodes: true, events: true, sounds: true, particles: true, attachments: false },
+      animations: { bones: true, skeleton: true, focusedSkeleton: true, nodes: true, particles: true, wires: true, grid: true },
+    } }));
+    assert.deepEqual(restored.vertices, { shaded: true, vertices: true, normals: true, grid: false });
+    assert.deepEqual([restored.movement.particles, restored.movement.attachments, restored.movement.focusedSkeleton, restored.movement.nodes, restored.movement.events], [true, false, undefined, undefined, undefined]);
+    assert.deepEqual(restored.animations, { shaded: false, vertices: false, normals: false, grid: true });
+    for (const junk of ['{', '"x"', '[1]', 'null', '{"vis":{"movement":7,"bones":null,"animations":[1]}}']) {
+      assert.doesNotThrow(() => storedEditorDisplay(true, storage(junk)), junk);
+      assert.deepEqual(Object.keys(storedEditorDisplay(true, storage(junk))), Object.keys(defaultEditorDisplay(true)));
+    }
+  });
+}
