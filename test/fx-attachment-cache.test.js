@@ -23,20 +23,9 @@ function stacksFor(model,part,only){
  }
  return stacks;
 }
-// One test per look (all its variations, on every part) keeps each under the suite's 5-minute limit; the cache
-// is shared across all of them, so later looks still compile with samples warmed by earlier looks and parts.
-const sharedBase=knight(),sharedAttachments=new Map();
-for(const look of GLOBAL_LOOKS)test('a shared attachment cache compiles '+look.name+' byte-identically on many-region and weapon parts',()=>{
- const changed=[];
- for(const part of PARTS)for(const stack of stacksFor(sharedBase,part,look)){
-  const plain=structuredClone(sharedBase),cached=structuredClone(sharedBase);
-  compileAnimation(plain,part,structuredClone(stack));
-  compileAnimation(cached,part,structuredClone(stack),{attachments:sharedAttachments});
-  if(modelHash(plain)!==modelHash(cached))changed.push(part+' '+stack.look);
- }
- assert.deepEqual(changed,[]);
- assert.ok(sharedAttachments.size>0,'the cache was used');
-});
+import {shardTests} from './helpers/fx-attachment-cache-shard.mjs';
+shardTests(0,4);
+
 test('a second compile of the same stack reads its samples from the cache and writes the same model',()=>{
  const base=knight(),attachments=new Map();
  for(const part of [37,8])for(const id of ['Fire','Frost','Lightning cage']){
