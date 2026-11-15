@@ -41,6 +41,9 @@ const root = path.resolve(__dirname, '..');
     assert.match(error.message, /Target page, context or browser has been closed/);
   });
   try {
+    await editor.locator('.classic-app canvas').waitFor();
+    await editor.keyboard.press('Control+n');
+    await editor.getByRole('tab', { name: 'Untitled.mdx', exact: true }).waitFor();
     let prompt = await openPrompt();
     const layout = await prompt.evaluate(() => [...document.querySelectorAll('button')].map(button => {
       const box = button.getBoundingClientRect(), style = getComputedStyle(button);

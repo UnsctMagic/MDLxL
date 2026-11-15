@@ -80,7 +80,7 @@ import { SelectionHistory } from '../src/selection-history.js';
 import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
-import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
+import { EditorDocument, emptyModel, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { applyChanges, createChanges } from '../src/history-store.js';
 import { calculateExtents } from '../src/model-extents.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
@@ -142,14 +142,22 @@ function sameTextureBytes(left, right) {
 }
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
 const resources = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Sequences', 'TextureAnims', 'GlobalSequences'];
-const blank = () => openDocument(new TextEncoder().encode('Version { FormatVersion 800, }\nModel "Untitled" { BlendTime 150, MinimumExtent { 0, 0, 0 }, MaximumExtent { 0, 0, 0 }, BoundsRadius 0, }\n'), 'Untitled.mdl');
-const sessionDirty = session => !!session && (session.doc.dirty || Object.keys(session.uvPreviews || {}).length > 0 || Object.keys(session.animationDrafts || {}).length > 0 || !!session.paintProject?.dirty);
-const defaultSessionView = doc => {
-  const selectable = initialGeosetSelection(doc.model.Geosets.length);
-  const citadel = doc.model.Textures.some(texture => /^MDLxL_Citadel[\\/]/i.test(texture.Image || ''));
+// The viewport still draws its grid when the editor has no document.
+const emptyScene = emptyModel(800, '');
+const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
+const emptyWorkspaceCommands = new Set([
+  'new', 'open', 'recent', 'clearRecent', 'recovery', 'vertices', 'showcase', 'textureLibrary',
+  'grid', 'axes', 'grid:xy', 'grid:xz', 'grid:yz', 'grid:small', 'cameraToggle', 'fit', ...views,
+  'gameData', 'game-data-rescan', 'addons', 'launcher', 'help', 'about',
+  'visToggle', 'pressedKeys', 'showHotkeys', 'learn', 'learnSettings', ...settingsCommands,
+]);
+const sessionDirty = session => !!session?.doc && (session.doc.dirty || Object.keys(session.uvPreviews || {}).length > 0 || Object.keys(session.animationDrafts || {}).length > 0 || !!session.paintProject?.dirty);
+const defaultSessionView = model => {
+  const selectable = initialGeosetSelection(model.Geosets.length);
+  const citadel = model.Textures.some(texture => /^MDLxL_Citadel[\\/]/i.test(texture.Image || ''));
   return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
 };
-const newSession = (doc = blank(), path = null, assets = builtinTextureAssets()) => ({ doc, path, assets, uvPreviews: {}, animationDrafts: {}, paintProject: null, paintOriginalModelBytes: null, paintWorkingModel: null, paintWorkingRevision: 0, id: crypto.randomUUID(), checkpoint: 0, viewState: defaultSessionView(doc) });
+const newSession = (doc, path = null, assets = builtinTextureAssets()) => ({ doc, path, assets, uvPreviews: {}, animationDrafts: {}, paintProject: null, paintOriginalModelBytes: null, paintWorkingModel: null, paintWorkingRevision: 0, id: crypto.randomUUID(), checkpoint: 0, viewState: defaultSessionView(doc.model) });
 export async function readInputBytes(file){
   const bytes=typeof file.arrayBuffer==='function'?await file.arrayBuffer():file.bytes;
   if(bytes instanceof ArrayBuffer)return new Uint8Array(bytes);
@@ -195,9 +203,11 @@ export default function App() {
   const [showcaseHistoryState,setShowcaseHistoryState]=useState({undo:false,redo:false});
   const showcaseHistoryChanged=useCallback(value=>setShowcaseHistoryState(prior=>prior.undo===value.undo&&prior.redo===value.redo?prior:value),[]);
   const [showcaseSession,setShowcaseSession]=useState(null),[showcaseVisited,setShowcaseVisited]=useState(false);
-  const [session, setSession] = useState(newSession);
+  const [activeSession, setSession] = useState(null);
+  const [workspaceView] = useState(() => ({ id: null, doc: null, path: null, uvPreviews: {}, animationDrafts: {}, assets: new Map() }));
+  const session = activeSession ?? workspaceView;
   const [bitReplacement, setBitReplacement] = useState(null);
-  const [sessions, setSessions] = useState(() => [session]);
+  const [sessions, setSessions] = useState([]);
   const aiReferences = useRef([]);
   const aiDrafts = useRef(new Map());
   const [tick, setTick] = useState(0), [warnings, setWarnings] = useState([]), warningId = useRef(0);
@@ -344,23 +354,24 @@ export default function App() {
   const [gameDataSources, setGameDataSources] = useState([]);
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
   const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), textureResolutions = useRef(new WeakMap()), pendingTextureResolutions = useRef(new WeakMap());
-  const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
+  const doc = activeSession?.doc ?? null;
+  const model = doc?.model ?? emptyScene, revision = doc?.revision ?? 0, geoset = model.Geosets[activeGeoset];
   const cameraPortraitActive = portraitModeActive && !!model.Cameras?.[portraitCameraIndex];
   const axesEnabled = Object.values(preferences.grid.axes).some(Boolean);
   const axesAvailable = !cleanView && !cleanAnimationPreview && !cameraPortraitActive;
   const showAxes = axesAvailable && axesEnabled;
   useEffect(() => {
     const was = lastRevision.current;
-    lastRevision.current = { id: session.id, revision: doc.revision };
-    if (was?.id === session.id && was.revision !== doc.revision && travelRevision.current !== doc.revision) sketchStore.noteModelEdit(session.id);
-  }, [session.id, doc.revision]);
+    lastRevision.current = { id: session.id, revision };
+    if (doc && was?.id === session.id && was.revision !== revision && travelRevision.current !== revision) sketchStore.noteModelEdit(session.id);
+  }, [session.id, revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
   // Hide extras only takes corpse, background, hero glow and part-time effect geosets out of the work area; nothing is deleted.
   // The list is decided when Hide extras is clicked (or the geoset count changes), not after
   // every edit: baking a geoset's visibility to 0 must not pull it out of the list mid-work.
   const extraGeosets = useMemo(() => hideExtras ? geosetsHiddenByExtras(model) : new Set(), [session.id, model.Geosets.length, hideExtras]);
-  const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
-  const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
+  const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, revision, geosetTab, extraGeosets]);
+  const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, revision, geosetTab, extraGeosets]);
   const selectable = useMemo(() => new Set([...checkedGeosets].filter(index => tabVisibleGeosets.has(index) && !hiddenByUser.has(index))), [checkedGeosets, tabVisibleGeosets, hiddenByUser]);
   const selectGeosetTab = next => {
     setActiveGeosetTab(next);
@@ -369,7 +380,7 @@ export default function App() {
     setUvSet(0); rangeAnchor.current = -1;
   };
   const inspectingMotion = mode === 'animation' && globalSeqId === null;
-  const motion = useMotionInspector(session, sequence, doc.revision, inspectingMotion && sequence >= 0);
+  const motion = useMotionInspector(session, sequence, revision, inspectingMotion && sequence >= 0);
   const [motionAnchor, setMotionAnchor] = useState(8);
   const motionOrigin = useRef(null);
   const closeMotion = () => { motion.setActive(null); motion.setFocus(null); motionOrigin.current?.focus({ preventScroll: true }); };
@@ -400,13 +411,13 @@ export default function App() {
     const focus = [Math.max(interval[0], Math.floor(finding.start - padding)), Math.min(interval[1], Math.ceil(finding.end + padding))];
     motion.setFocus(focus); setTime(focus[0]); setPlaying(true);
   };
-  const duplicateAnimations = useMemo(() => scanGeosetAnimationDuplicates(model), [model, doc.revision]);
-  useEffect(() => { if (!model.Cameras?.[portraitCameraIndex]) setPortraitCameraIndex(model.Cameras?.length ? 0 : -1); }, [model, doc.revision, portraitCameraIndex]);
+  const duplicateAnimations = useMemo(() => scanGeosetAnimationDuplicates(model), [model, revision]);
+  useEffect(() => { if (!model.Cameras?.[portraitCameraIndex]) setPortraitCameraIndex(model.Cameras?.length ? 0 : -1); }, [model, revision, portraitCameraIndex]);
   useEffect(() => {
     if (portraitEnabled && !model.Cameras?.length) setPortraitEnabled(false);
-  }, [model, doc.revision, sequence, portraitEnabled]);
+  }, [model, revision, sequence, portraitEnabled]);
   const paintOriginalModel=useMemo(()=>session.paintOriginalModelBytes?openDocument(session.paintOriginalModelBytes,doc.name).model:model,[session.paintOriginalModelBytes,session.id,model]);
-  const animationDomain = useMemo(() => classicTimelineDomain(model, model.Sequences[sequence] ? sequence : -1, model.GlobalSequences?.[globalSeqId] > 0 ? globalSeqId : null), [model, doc.revision, sequence, globalSeqId]);
+  const animationDomain = useMemo(() => classicTimelineDomain(model, model.Sequences[sequence] ? sequence : -1, model.GlobalSequences?.[globalSeqId] > 0 ? globalSeqId : null), [model, revision, sequence, globalSeqId]);
   useLayoutEffect(() => {
     const missingSequence = sequence >= 0 && !model.Sequences[sequence];
     const missingGlobal = globalSeqId !== null && !(model.GlobalSequences?.[globalSeqId] > 0);
@@ -415,12 +426,12 @@ export default function App() {
       if (missingGlobal) setGlobalSeqId(null);
       setPlaying(false); setTime(value => Math.max(animationDomain.start, Math.min(animationDomain.end, value)));
     }
-  }, [model, doc.revision, sequence, globalSeqId, animationDomain]);
-  const selectionHistory = useMemo(() => new SelectionHistory(doc), [doc]);
+  }, [model, revision, sequence, globalSeqId, animationDomain]);
+  const selectionHistory = useMemo(() => doc && new SelectionHistory(doc), [doc]);
   const selectionState = { selectable, visibleOnly, hiddenByUser, selection, activeGeoset, uvSet, selectedNodeIds };
-  useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, hiddenByUser, selection, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
+  useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory?.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, hiddenByUser, selection, activeGeoset, uvSet, selectedNodeIds, revision]);
   latest.current = { session, sessions, bitReplacement, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hiddenByUser, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, vertexAnimation, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
-  useEffect(() => exposeAppForTests(() => latest.current), []);
+  useEffect(() => exposeAppForTests(() => latest.current.doc ? latest.current : { ...latest.current, session: null }), []);
   const refresh = () => setTick(value => value + 1);
   // Info stays quiet. Repeating a warning replaces it and restarts its fade.
   const say = (message, error = false) => {
@@ -441,22 +452,22 @@ export default function App() {
   const totalVertices = model.Geosets.reduce((sum, g, i) => sum + (selectable.has(i) ? g.Vertices.length / 3 : 0), 0), totalFaces = model.Geosets.reduce((sum, g, i) => sum + (selectable.has(i) ? g.Faces.length / 3 : 0), 0);
   let selectedFaces = 0; for (const [gi, ids] of Object.entries(validSelection)) { const picked = new Set(ids), faces = model.Geosets[gi].Faces; for (let i = 0; i < faces.length; i += 3) if (picked.has(faces[i]) && picked.has(faces[i + 1]) && picked.has(faces[i + 2])) selectedFaces++; }
     return {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces};
-  }, [doc, doc.revision, selection, selectable]);
+  }, [doc, revision, selection, selectable]);
   useEffect(() => {
     if (!zoomAnchor) return;
     const anchorGeoset = model.Geosets[zoomAnchor.geosetIndex];
     if (mode !== 'vertices' || tool !== 'scale' || !anchorGeoset || zoomAnchor.vertexIndex < 0 || zoomAnchor.vertexIndex >= anchorGeoset.Vertices.length / 3 || !validSelection[zoomAnchor.geosetIndex]?.includes(zoomAnchor.vertexIndex)) clearZoomAnchor();
-  }, [zoomAnchor, mode, tool, model, doc.revision, validSelection]);
+  }, [zoomAnchor, mode, tool, model, revision, validSelection]);
   // The NormalsXL preview is transient: any other change discards it, except
   // its own Fix facing edit, after which the panel stays open on the result.
   useEffect(() => {
-    const keep = normalizerKeepRef.current === doc.revision;
+    const keep = normalizerKeepRef.current === revision;
     normalizerKeepRef.current = null;
     if (!keep) setNormalizer(null);
-  }, [session.id, doc.revision, mode, selection, selectable, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
-  const editable = !doc.readOnly && mode !== 'animation' && mode !== 'paint' && mode !== 'showcase' && !saving;
+  }, [session.id, revision, mode, selection, selectable, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
+  const editable = !!doc && !doc.readOnly && mode !== 'animation' && mode !== 'paint' && mode !== 'showcase' && !saving;
   const edit = (label, sections, operation, options = {}) => {
-    if (savingRef.current) return false;
+    if (!doc || savingRef.current) return false;
     forgePreview?.cancel();
     try {
       const ticket = selectionHistory.captureEdit(selectionState), guard = captureUVPreviewGuard(doc.model, session.uvPreviews);
@@ -592,7 +603,7 @@ export default function App() {
     const index = edit(kind === 'frame' ? 'Frame portrait subject' : kind === 'front' ? 'Front portrait shot' : 'Level portrait shot', ['Cameras','BindPoses'], current => setCameraFromCurrentView(current, portraitCameraIndex, kind === 'frame' ? framePortraitSubject(current, view, time, sequence) : portraitShot(view, kind), time, sequence));
     if (index !== false) { setPlaying(false); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
   };
-  const hasPortraitBackground = useMemo(() => findPortraitBackground(model) >= 0, [model, doc.revision]);
+  const hasPortraitBackground = useMemo(() => findPortraitBackground(model) >= 0, [model, revision]);
   const portraitBackdropLook = () => (hasPortraitBackground && currentBackdropLook(model, portraitCameraIndex, time, sequence)) || lastBackdropLook();
   const placePortraitBackground = look => {
     rememberBackdropLook(look);
@@ -642,10 +653,11 @@ export default function App() {
     poseSelectionOnly.current = true; setSelectedNodeIdsState(ids); return true;
   };
   const selectMode = async next => {
+    if (!doc && !['vertices', 'showcase'].includes(next)) return;
     if (bitReplacement && next !== 'vertices') return;
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
     // Views drawn by the Warcraft preview need keyframe tracks: offer the fix first.
-    if (['bones', 'animation', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
+    if (['bones', 'animation', 'showcase'].includes(next) && !(next === 'showcase' && showcaseSession) && doc && !doc.readOnly && plainTrackValues(doc.model).length) { setDialog({ type: 'trackFix', next }); return; }
     sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
@@ -699,7 +711,7 @@ export default function App() {
   const selectSequence = index => { setGlobalSeqId(null); setSequence(index); setTime(model.Sequences[index]?.Interval[0] || 0); };
   const selectTimeline = value => { if (portraitModeActive && String(value).startsWith('global:')) return; if (String(value).startsWith('global:')) { setGlobalSeqId(Number(value.split(':')[1])); setSequence(-1); setTime(0); } else selectSequence(Number(value)); };
   const showParticlePreview = value => changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, particles: value } }));
-  const texturedModel = useMemo(() => uvPreviewModel(model, session.uvPreviews), [model, doc.revision, session.uvPreviews]);
+  const texturedModel = useMemo(() => uvPreviewModel(model, session.uvPreviews), [model, revision, session.uvPreviews]);
   const previewModel = useMemo(() => {
     const result = uvPreviewModel(texturedModel, {}, liveUV);
     if (!uvWindow || !uvSet || !result.Geosets[activeGeoset]?.TVertices?.[uvSet]) return result;
@@ -718,6 +730,8 @@ export default function App() {
   const openLibrary = (preview = uvEditing, full = false, tab) => setDialog({ type: 'library', preview, full, tab, host: preview && uvWindow ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
   const openParticles = (id, initialView) => {
     setPlaying(false);
+    // Like Forge, the Emitter Editor started with no model works in a new one.
+    if (!doc) { install(newSession(createEmptyDocument(preferences.newModelVersion))); setDialog({ type: 'particles', initialView, selection: {} }); return; }
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
     const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
       ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
@@ -746,7 +760,7 @@ export default function App() {
     }
     return result;
   };
-  const chooseSets = next => { next = new Set([...next].filter(index => tabVisibleGeosets.has(index) && !hiddenByUser.has(index))); if (mode === 'animation' && animationPanel === 'animations') { setSelectedNodeIds([]); setMaterialVisibility(null); } setSelectable(next); setSelection(previous => filterVertexSelection(previous, next, doc.model)); setActiveGeoset(previous => next.has(previous) ? previous : next.size ? next.values().next().value : -1); };
+  const chooseSets = next => { next = new Set([...next].filter(index => tabVisibleGeosets.has(index) && !hiddenByUser.has(index))); if (mode === 'animation' && animationPanel === 'animations') { setSelectedNodeIds([]); setMaterialVisibility(null); } setSelectable(next); setSelection(previous => filterVertexSelection(previous, next, model)); setActiveGeoset(previous => next.has(previous) ? previous : next.size ? next.values().next().value : -1); };
   const stepGeoset = direction => {
     const indices = [...tabVisibleGeosets], index = indices.indexOf(activeGeoset);
     if (indices.length) chooseSets(new Set([indices[index < 0 ? (direction > 0 ? 0 : indices.length - 1) : (index + direction + indices.length) % indices.length]]));
@@ -801,6 +815,7 @@ export default function App() {
     textureResolutions.current.set(target, generation); return generation;
   };
   async function loadTextures(records, target = session, { resolutionGeneration = null, source = 'manual' } = {}) {
+    if (!target.doc) return 0;
     if (resolutionGeneration === null) nextTextureResolution(target);
     const current = () => resolutionGeneration === null || textureResolutions.current.get(target) === resolutionGeneration;
     if (!current()) return 0;
@@ -830,7 +845,7 @@ export default function App() {
     return count;
   }
   function resolveTextures(target = session) {
-    if (!hasDesktop('resolveTextures')) return Promise.resolve();
+    if (!target.doc || !hasDesktop('resolveTextures')) return Promise.resolve();
     const names = target.doc.model.Textures.map(texture => texture.Image).filter(Boolean);
     if (!names.length) return Promise.resolve();
     const key = JSON.stringify([target.path, names, settings.current.gameData, settings.current.gameDataSources, settings.current.gameDataDiscovery]);
@@ -852,15 +867,15 @@ export default function App() {
   const recovery = useMemo(() => createRecoveryCheckpointer(payload => window.desktop?.writeRecovery ? window.desktop.writeRecovery(payload) : browserRecovery('put', payload), { binary: !!window.desktop?.writeRecovery }), []);
   const checkpoint = recovery.checkpoint;
   function rememberSessionView(target = session) {
-    if (!target) return;
+    if (!target?.doc) return;
     const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hiddenByUser, selection, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, vertexAnimation, renderMode, movementRenderMode, showAllGeosets };
     target.viewState = { mode:view.mode, animationPanel:view.animationPanel, selectable:new Set(view.checkedGeosets), activeGeosetTab:view.activeGeosetTab, visibleOnly:new Set(view.visibleOnly), hiddenByUser:new Set(view.hiddenByUser), selection:structuredClone(view.selection), activeGeoset:view.activeGeoset, uvSet:view.uvSet, selectedNodeIds:[...view.selectedNodeIds], globalSeqId:view.globalSeqId, sequence:view.sequence, time:view.time, rgbPreview:view.rgbPreview, rgbSequence:view.rgbSequence, vertexAnimation:view.vertexAnimation, renderMode:view.renderMode, movementRenderMode:view.movementRenderMode, showAllGeosets:view.showAllGeosets, uvEntrySelection:structuredClone(view.uvEntrySelection), uvEntryId:view.uvEntryId };
   }
   function restoreSessionView(target) {
-    const viewState = target.viewState || (target.viewState = defaultSessionView(target.doc));
+    const viewState = target ? target.viewState || (target.viewState = defaultSessionView(target.doc.model)) : defaultSessionView(emptyScene);
     setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setHiddenByUser(new Set(viewState.hiddenByUser)); setSelection(structuredClone(viewState.selection)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setMovementRenderMode(viewState.movementRenderMode || 'influence'); setShowAllGeosets(viewState.showAllGeosets);
     setVertexAnimation(viewState.vertexAnimation || { enabled: false, index: 0 });
-    setUVWindowState(target.uvWindow || null); setUVFocused(false); setUVEntrySelection(viewState.uvEntrySelection || {}); setUVEntryId(viewState.uvEntryId || 0);
+    setUVWindowState(target?.uvWindow || null); setUVFocused(false); setUVEntrySelection(viewState.uvEntrySelection || {}); setUVEntryId(viewState.uvEntryId || 0);
     setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
   }
   function activateSession(next, { remember = true } = {}) {
@@ -874,7 +889,7 @@ export default function App() {
     if (latest.current.preferencesReady) resolveTextures(next);
     say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
   }
-  function install(next, { replace = false, keepSource = false } = {}) {
+  function install(next, { replace = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
     // Effects from earlier versions used generated pictures; point them at the stock game pictures (one undo step).
     if (!next.doc.readOnly && next.doc.model.Textures?.some(t => nativeStarterTexture(t.Image))) next.doc.apply('Use stock effect pictures', ['Textures'], repointStarterTextures);
@@ -883,10 +898,8 @@ export default function App() {
       setSessions([...currentSessions, next]);
       return;
     }
-    const pristinePlaceholder = currentSessions.length === 1 && active === currentSessions[0] && !active.path && active.doc.name === 'Untitled.mdl' && !sessionDirty(active) && active.doc.revision === 0;
-    const replaceActive = replace || (pristinePlaceholder && !keepSource);
-    const nextSessions = replaceActive ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
-    if (!replaceActive) rememberSessionView(active);
+    const nextSessions = replace ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
+    if (!replace) rememberSessionView(active);
     setSessions(nextSessions); setSession(next); restoreSessionView(next);
     say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Opened ${next.doc.name}`, next.doc.hdViewOnly || next.doc.readOnly);
     if (next.doc.hdViewOnly) setNotice(next.doc.hdBorderline ? { message: HD_BORDERLINE_MESSAGE, convert: next } : { message: HD_VIEW_ONLY_MESSAGE });
@@ -902,11 +915,15 @@ export default function App() {
     const currentSessions = latest.current.sessions || sessions, index = currentSessions.indexOf(target);
     if (index < 0) return;
     aiBridge.closeDocument(target.id);
-    let remaining = currentSessions.filter(item => item !== target);
-    if (!remaining.length) remaining = [newSession(createEmptyDocument(preferences.newModelVersion))];
+    const remaining = currentSessions.filter(item => item !== target);
     setSessions(remaining);
     if (target === (latest.current.bitReplacement?.original ?? latest.current.session ?? session)) {
-      const next = remaining[Math.min(index, remaining.length - 1)];
+      const next = remaining[Math.min(index, remaining.length - 1)] ?? null;
+      if (!next) {
+        sketchStore.clearTool(); clearZoomAnchor();
+        setForgeToolsOpen(false); setForgePreview(null); setForgePicking(null);
+        setAutoCorpseOpen(false); setBoneNamerOpen(false); setAttachematorOpen(false);
+      }
       setSession(next); restoreSessionView(next); say(`Closed ${target.doc.name}`);
     } else { releaseUnusedTextureUrls(); refresh(); }
   }
@@ -991,8 +1008,8 @@ export default function App() {
     setDialog(null);
     say('Fixed duplicate geoset animations. Undo reverses it.');
   }
-  async function save(saveAs = false, requestedFormat = session.doc.format, target = session, calculateSaveExtents = false) {
-    if (savingRef.current) return false;
+  async function save(saveAs = false, requestedFormat = session.doc?.format, target = session, calculateSaveExtents = false) {
+    if (!target.doc || savingRef.current) return false;
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.', true); return false; }
     if (!target.doc.readOnly && plainTrackValues(target.doc.model).length) { if (target !== session) activateSession(target); setDialog({ type: 'trackFix', save: { saveAs, format: requestedFormat, calculateSaveExtents } }); return false; }
@@ -1382,12 +1399,17 @@ export default function App() {
     if(latest.current.session!==session || savingRef.current)return false;
     const drafts=items||[{mesh,name}];
     // Forge adds geometry only; each item shows as clay until it gets a material.
-    const result=edit('Forge item',['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'],m=>{
-      const added=drafts.map(d=>commitForge(m,d.mesh,{name:d.name}));
-      return {...added[0],geosetIndices:added.flatMap(r=>r.geosetIndices)};
-    });
+    const sections = ['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'];
+    const addItems = model => {
+      const added = drafts.map(draft => commitForge(model, draft.mesh, { name: draft.name }));
+      return { ...added[0], geosetIndices: added.flatMap(item => item.geosetIndices) };
+    };
+    const created = doc ? null : newSession(createEmptyDocument(preferences.newModelVersion));
+    const result = created ? created.doc.apply('Forge item', sections, addItems) : edit('Forge item', sections, addItems);
     if(result===false)return false;
-    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
+    if (created) install(created);
+    const geosets = (created?.doc ?? doc).model.Geosets;
+    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say('Forge item created and attached to DummyBone. It shows as clay until you give it a material and texture.');return result;
   }
   function applyGeosetDensity(changes) {
@@ -1484,12 +1506,18 @@ export default function App() {
   async function importPart({source,look=null,assets,keepOpen=false}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
-    const target=session;
-    const result=edit('Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{look}),{rethrow:true});
-    if(result===false)return false;
+    const target = activeSession ?? newSession(createEmptyDocument(preferences.newModelVersion));
+    const sections = ['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'];
+    const addPart = model => commitPart(model, source, { look });
+    const result = activeSession ? edit('Import BitsAndParts', sections, addPart, { rethrow: true }) : target.doc.apply('Import BitsAndParts', sections, addPart);
+    if (result === false) return false;
+    if (!activeSession) {
+      install(target);
+      if (keepOpen) setDialog(dialog);
+    }
     // Select the new part in the same tick as its edit, so the selection joins the
     // import's undo step instead of becoming a separate 'Change selection'.
-    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');setRenderMode('textured');if(look?.channels?.some(value=>value!=null)){setRGBPreview(true);setRGBSequence(-1);}if(!keepOpen)setDialog(null);requestAnimationFrame(()=>frame(false));
+    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:target.doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');setRenderMode('textured');if(look?.channels?.some(value=>value!=null)){setRGBPreview(true);setRGBSequence(-1);}if(!keepOpen)setDialog(null);requestAnimationFrame(()=>frame(false));
     await loadTextures(assets,target,{source:'parts'});
     if(latest.current.session!==target)return result;
     say('Part imported and attached to DummyBone.');return result;
@@ -1567,6 +1595,13 @@ export default function App() {
     'ai:open': () => document.querySelector('[data-hotkey="ai:open"]')?.click(),
   };
   function commandEnabled(id) {
+    if (!doc) {
+      if (id === 'exit') return !!window.desktop;
+      if (id === 'undo' || id === 'redo') return mode === 'showcase' && showcaseHistoryState[id];
+      if (id === 'toolbarCycle' || id.startsWith('toolbar:')) return !visUI;
+      if (id === 'forge' || id === 'bitsAndParts' || id === 'particles') return !saving && mode !== 'showcase';
+      return emptyWorkspaceCommands.has(id) || /^(language|theme|camera|wheel):/.test(id);
+    }
     if (id === 'axes') return axesAvailable && ['vertices', 'bones', 'animation'].includes(mode);
     if (bitReplacement && (
       id !== 'exit' && COMMANDS.some(command => command.id === id && command.category === 'File') ||
@@ -1624,8 +1659,7 @@ export default function App() {
     return true;
   }
   // Playback time changes do not change available commands or shortcut bindings.
-  const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, bitReplacement, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, axesAvailable, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo','launcher','toolbarCycle'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, revision, bitReplacement, uvEditing, overlays.normals, doc?.historyStats.undoSteps, doc?.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, axesAvailable, cleanAnimationPreview, visUI, saving, vertexAnimationAvailable, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) (uiCommands[id] || commands.current[id])?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
@@ -1639,7 +1673,7 @@ export default function App() {
       await api.whenReady?.();
       return api.captureView().toDataURL('image/png');
     },
-    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
+    state: () => ({...latest.current,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     sessions: () => [...latest.current.sessions, ...aiReferences.current, ...aiDrafts.current.values()],
     makeAiDraft: (recovery, assets, view) => {
       const doc = EditorDocument.restoreRecoveryState(recovery);
@@ -1660,10 +1694,10 @@ export default function App() {
       let name = stem + ' (AI)' + extension;
       for (let n = 2; used.has(name.toLowerCase()); n++) name = stem + ' (AI ' + n + ')' + extension;
       draft.doc.name = name;
-      flushSync(() => install(draft, { keepSource: true }));
+      flushSync(() => install(draft));
     },
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
-    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc?.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1696,7 +1730,7 @@ export default function App() {
     sessionOf: id => {
       const target = aiHost.current.sessions().find(item => item.id === id);
       if (!target) throw Error('The model this task works on was closed.');
-      target.viewState ||= defaultSessionView(target.doc);
+      target.viewState ||= defaultSessionView(target.doc.model);
       return target;
     },
     editIn: (id, ...change) => {
@@ -1771,9 +1805,9 @@ export default function App() {
   }, [preferencesReady, toolbarHidden, preferences.toolbarHiddenNoted]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.bitReplacement && !latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || /^(toolbar|language):/.test(action) || latest.current.dialog?.type === 'resource' && (['undo','redo'].includes(action) || latest.current.dialog.emittersOnly && action === 'Nodes') || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
-  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); loadPreferences(); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
+  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); loadPreferences(); const current = latest.current.session; current.doc?.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc?.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
-  const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
+  const hasUnsavedWork=!!doc?.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
   const hasAnyUnsavedWork=!!bitReplacement || sessions.some(sessionDirty);
   const recoverySession = bitReplacement?.original ?? session, recoveryDoc = recoverySession.doc;
   async function saveSessionWork(target, includeNeverSaved = false) {
@@ -1791,17 +1825,17 @@ export default function App() {
     for (const target of latest.current.sessions) if ((sessionDirty(target) || !target.path) && !await saveSessionWork(target, true)) return false;
     return true;
   };
-  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,replacement:!!bitReplacement,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork, bitReplacement]);
+  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,replacement:!!bitReplacement,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc?.name}); document.title = doc ? `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL` : 'MDLxL'; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork, bitReplacement]);
   useEffect(() => { applyApplicationTheme(preferences); }, [preferences]);
   // Without a graphics card the processor draws every frame. Lighten such a
   // PC once; later choices in Graphics settings are kept.
   useEffect(() => { if (preferencesReady && !preferencesRef.current.graphics.softwareLow && detectRenderer().software) changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, ...SOFTWARE_RENDERING_GRAPHICS } })); }, [preferencesReady]);
   useEffect(() => { const handler = event => { if (latest.current.bitReplacement || latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
   useEffect(() => {
-    if (!bitReplacement && !sessionDirty(recoverySession) && recoveryDoc.revision === 0 && recoverySession.checkpoint === 0) return;
+    if (!recoveryDoc || (!bitReplacement && !sessionDirty(recoverySession) && recoveryDoc.revision === 0 && recoverySession.checkpoint === 0)) return;
     const timer = setTimeout(async () => { try { await checkpoint(recoverySession); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
     return () => clearTimeout(timer);
-  }, [bitReplacement, recoveryDoc, recoveryDoc.revision, recoveryDoc.recoveryHistoryRevision, recoverySession, recoverySession.uvPreviews, recoverySession.animationDrafts, recoverySession.paintProject, recoverySession.paintProject?.revision, recoverySession.paintProject?.dirty, recoverySession.paintWorkingRevision, recoverySession.paintAppliedRevision]);
+  }, [bitReplacement, recoveryDoc, recoveryDoc?.revision, recoveryDoc?.recoveryHistoryRevision, recoverySession, recoverySession.uvPreviews, recoverySession.animationDrafts, recoverySession.paintProject, recoverySession.paintProject?.revision, recoverySession.paintProject?.dirty, recoverySession.paintWorkingRevision, recoverySession.paintAppliedRevision]);
   // After "Close without saving" a failed recovery copy loses nothing the user kept, so it does not block closing.
   useEffect(() => window.desktop?.onBeforeClose?.(async ({ discarded } = {}) => { window.dispatchEvent(new CustomEvent('mdlxl-paint-flush')); const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); const drafts=recovery.flush(latest.current.sessions.filter(target => target.doc.revision || target.checkpoint || sessionDirty(target) || latest.current.bitReplacement?.original === target)); await (discarded ? drafts.catch(error => console.warn('Recovery on close: '+error.message)) : drafts); }),[]);
   useEffect(() => window.desktop?.onSaveBeforeClose?.(() => saveBeforeCloseRef.current()),[]);
@@ -1823,7 +1857,7 @@ export default function App() {
   const grabThroughToggle = <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={event => setGrabThrough(event.target.checked)}/>Grabthrough</label>;
   const displayedGeosets = new Set([...selectable, ...visibleOnly].filter(index => tabVisibleGeosets.has(index) && !hiddenByUser.has(index)));
   const hiddenGeosets = new Set([...allGeosets(model.Geosets.length)].filter(index => hiddenByUser.has(index) || !tabVisibleGeosets.has(index) || !showAllGeosets && !displayedGeosets.has(index)));
-  const geosetPicker = <GeosetPicker {...{
+  const geosetPicker = doc && <GeosetPicker {...{
     activeGeoset, changePreferences, chooseSet, chooseSets, cleanView, doc, edit, geosetTab,
     highlightAppearance, model, preferences, saving, selectable, selectGeosetTab, session, setContext,
     setSelectionHoveredGeoset, setShowAllGeosets, showAllGeosets, tabGeosets, tabVisibleGeosets, viewHoveredGeoset,
@@ -1959,7 +1993,7 @@ export default function App() {
   const bitRgbGeosets = bitReplacement ? Object.keys(validSelection).map(Number)
     .filter(id => validSelection[id].length && bitReplacement.geosets.has(model.Geosets[id])) : [];
   const activePortrait = portraitModeActive;
-  const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, doc.revision]);
+  const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, revision]);
   // Props shared by both Movement controller render sites: Bones mode and the
   // Animation > Movement panel. Called while rendering each site, as before.
   const movementControllerProps = () => ({
@@ -1991,7 +2025,7 @@ export default function App() {
       placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); },
       onHiddenTeamColor: () => setLauncherQuery(translate('Team color')),
       onCallForge: async () => { await selectMode('vertices'); setNormalizer(null); setForgeToolsOpen(true); }
-    }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
+    }} aiControl={doc && <AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     <Addons open={addonsOpen} onClose={() => setAddonsOpen(false)} onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/>
     {autoCorpseOpen && <Suspense fallback={null}><AutoCorpse key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={options => {
       const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, current => autoCorpse(current, options), { rethrow: true });
@@ -2002,7 +2036,7 @@ export default function App() {
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}>
-      {mode==='vertices'&&forgeToolsOpen&&<Suspense fallback={null}><ForgeVertexTools key={session.id} model={model} revision={doc.revision} selection={validSelection} selectable={selectable} activeGeoset={activeGeoset} readOnly={doc.readOnly||saving} onPreview={setForgePreview} onPick={setForgePicking} onSelection={setSelection} onWorkTool={setWorkTool} onClose={()=>setForgeToolsOpen(false)} onCommit={(label,result,revision)=>{
+      {doc&&mode==='vertices'&&forgeToolsOpen&&<Suspense fallback={null}><ForgeVertexTools key={session.id} model={model} revision={doc.revision} selection={validSelection} selectable={selectable} activeGeoset={activeGeoset} readOnly={doc.readOnly||saving} onPreview={setForgePreview} onPick={setForgePicking} onSelection={setSelection} onWorkTool={setWorkTool} onClose={()=>setForgeToolsOpen(false)} onCommit={(label,result,revision)=>{
         if(doc.revision!==revision)return false;
         const changed=edit(`Forge ${label}`,['Geosets'],m=>{for(let i=0;i<result.Geosets.length;i++)if(result.Geosets[i]!==model.Geosets[i])m.Geosets[i]=result.Geosets[i];});
         if(changed!==false)setSelection(previous=>({...previous,...result.forgeSelection}));return changed;
@@ -2019,7 +2053,7 @@ export default function App() {
         disabled: !commandEnabled('vertexAnimated'), onToggle: () => runCommand('vertexAnimated'), onChoose: changeVertexAnimation,
         onFrame: frame => changeVertexAnimation(vertexAnimationIndex, frame)
       } : null} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>
-      {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
+      {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name || doc?.name || ''} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport rotateEachPiece moveWorkplaneOnShift={!quadView} onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI}
@@ -2030,10 +2064,10 @@ export default function App() {
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={bitReplacement?.original.id || session.id}
         onSelectParts={forgePicking?.select} forgeGeometryPreview={!!forgePreview} editHandles={forgePreview?.editHandles} onStartPartDrag={forgePreview?.onStartPartDrag} onCancelPartDrag={forgePreview?.cancel}
-        hoveredGeoset={highlightedFromSelection} model={forgePreview?.model || normalizerModel || previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
+        hoveredGeoset={highlightedFromSelection} model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
         selectedVertices={forgePreview?.model?.forgeSelection?.[activeGeoset] || validSelection[activeGeoset] || []}
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={forgePreview ? {...validSelection,...forgePreview.model.forgeSelection} : validSelection}
-        onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
+        onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, model));}}
         normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
@@ -2102,7 +2136,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
+    <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? activeSession} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
     <AppDialogs {...{
       visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

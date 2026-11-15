@@ -9,9 +9,10 @@ const source = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
 const body = source.match(/const openParticles = \(id, initialView\) => \{([\s\S]*?)\n  \};/)[1];
 function open(model, selectedNodeIds = [], id) {
   const dialogs = [], playing = [], selection = { 0: [1] }, singleRigNode = selectedNodeIds.length===1?model.Nodes?.[selectedNodeIds[0]]:null, selectedBone = model.Bones.includes(singleRigNode)?singleRigNode:null;
-  const action = new Function('effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', 'initialView', body);
+  // `doc` is the open document; with none, EMTR opens a new model instead (App.jsx).
+  const action = new Function('doc', 'effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', 'initialView', body);
   const before = structuredClone(model);
-  action(effectNodes, model, selectedNodeIds, selectedBone, singleRigNode, selection, value => playing.push(value), value => dialogs.push(value), id);
+  action({ model }, effectNodes, model, selectedNodeIds, selectedBone, singleRigNode, selection, value => playing.push(value), value => dialogs.push(value), id);
   assert.deepEqual(model, before); assert.deepEqual(playing, [false]);
   const expected=[...(model.Bones||[]),...(model.Helpers||[]),...(model.Attachments||[])].find(n=>n===singleRigNode)?.ObjectId;assert.equal(dialogs[0].attachmentId, expected); assert.equal(dialogs[0].selection, selection);
   return dialogs[0].nodeId;

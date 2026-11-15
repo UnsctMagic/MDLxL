@@ -38,6 +38,8 @@ const root = path.resolve(__dirname, '..');
   try {
 
     await page.waitForFunction(() => !!document.querySelector('.classic-app canvas'));
+    await page.keyboard.press('Control+n');
+    await page.getByRole('tab', { name: 'Untitled.mdx', exact: true }).waitFor();
     assert.equal(await page.locator('.update-shredder-layer').count(),0);
     const sidebar = await page.locator('.classic-sidebar').first().boundingBox();
     await app.evaluate(() => shredderTest.updater.check());

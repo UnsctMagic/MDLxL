@@ -68,7 +68,7 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 function sendToEditor(channel,value){if(win&&!win.isDestroyed())win.webContents.send(channel,value);}
-let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
+let win, modelCloseState={dirty:false,saved:true}, recents=[],settings={},initialModel=null,initialModels=[];
 const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
@@ -742,7 +742,7 @@ async function createWindow(bounds={}){
   externalModelsReady=false;
   const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:!headless,autoHideMenuBar:drawMenuInEditor,backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
   if(!headless)current.maximize();
-  win=current;nativeEditorState={readOnly:true,saving:false};
+  win=current;modelCloseState={dirty:false,saved:true};nativeEditorState={readOnly:true,saving:false};
   if (process.platform === 'win32') captureRegions.set(current, require('./capture-regions.cjs').captureRegionsFor(current));
   current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && frameName==='MDLxL-OptimizeXL' ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:1280,height:800,minWidth:950,minHeight:500,show:!headless,title:'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});

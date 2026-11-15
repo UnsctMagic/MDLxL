@@ -62,7 +62,7 @@ export const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length =
 const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && (path[2] === GEOSET_TAB_KEY || path[2] === FORGE_ITEM_KEY) || path.some(key => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
 const pickSections = (model, keys) => Object.fromEntries([...keys].filter(key => key !== 'Nodes').map(key => [key, model[key]]));
 
-function emptyModel(version = 800, name = 'Untitled') {
+export function emptyModel(version = 800, name = 'Untitled') {
   const model = {
     Version: version, Info: { Name: name, MinimumExtent: V3(), MaximumExtent: V3(), BoundsRadius: 0, BlendTime: 150 },
     Nodes: [],
