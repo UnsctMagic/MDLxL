@@ -8599,5 +8599,17 @@
   "bone-namer\u0004Side": "Сторона",
   "bone-namer\u0004Part": "Часть",
   "bone-kind\u0004Copy": "Копия",
-  "bone-part\u0004Spine": "Позвоночник"
+  "bone-part\u0004Spine": "Позвоночник",
+  "Objects": "Объекты",
+  "Object Manager": "Менеджер объектов",
+  "Object Manager…": "Менеджер объектов…",
+  "F.Skeleton": "Выбр. скелет",
+  "Show attachments, emitters, events and sounds. Right-click to choose which.": "Показать точки крепления, эмиттеры, события и звуки. Щелчок правой кнопкой — выбрать, какие.",
+  "Object types": "Типы объектов",
+  "Event at frame {0}. Drag to change when. Right-click to remove.": "Событие на кадре {0}. Перетащите, чтобы изменить момент. Правая кнопка — удалить.",
+  "Add a diamond at the current frame: the event plays there too.": "Добавить ромб на текущем кадре: событие сработает и там.",
+  "Event at frame {0}": "Событие на кадре {0}",
+  "Clone object": "Клонировать объект",
+  "Object visible at current frame": "Объект виден на текущем кадре",
+  "Set object visibility": "Задать видимость объекта"
 }

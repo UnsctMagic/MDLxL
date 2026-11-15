@@ -7,6 +7,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const VIEW_MENU = require('../src/view-menu.json');
+// The MDLxL look has its own lists (owner's revised spec, 14 Nov 2026); VIS keeps main's.
+const XL_VIEW_MENU = require('../src/view-menu-xl.json');
+// VIS = MDLVis 1.40 (owner, 14 Nov 2026), written out so a change to view-menu.json fails here too.
+const MDLVIS_VIEW = ['Shadows', 'Vertices', 'Normals', 'Grid'], MDLVIS_RIG = [...MDLVIS_VIEW, 'Bones', 'Attachment', 'Emitters', 'Skeleton'];
+const MDLVIS_ROWS = { vertices: MDLVIS_VIEW, bones: MDLVIS_RIG, movement: MDLVIS_RIG, animations: MDLVIS_VIEW };
 const root = path.resolve(__dirname, '..');
 const out = path.resolve(process.env.MDLXL_VIS_OUT || path.join(root, 'out/vis-mdlvis-mode'));
 const pkg = process.env.MDLXL_SUITE_PKG || path.join(root, 'out/pkg/MDLxL-win32-x64');
@@ -82,8 +87,12 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
               hint: document.querySelector('.classic-status').innerText, inputAtTop: !!document.querySelector('.classic-toolbar .compact-input-strength') };
           });
           assert.deepEqual(data.size, [width, height]);
-          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), VIEW_MENU[viewMode].filter(([, action]) => action !== 'clearDisplay'));
+          assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), (vis ? VIEW_MENU : XL_VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && action !== 'axes')); // Axis guides is View-menu only (40304fc4)
           if (vis) {
+            assert.deepEqual(data.quick.map(({ name }) => name), MDLVIS_ROWS[viewMode], `${viewMode}: VIS rows are MDLVis 1.40's`);
+            assert.equal(await page.locator('.animation-node-list').count(), 0, 'VIS has no Nodes list');
+            const nativeView = await app.evaluate(({ Menu }) => Menu.getApplicationMenu()?.items.find(item => item.label === 'View')?.submenu.items.map(item => item.label));
+            if (nativeView) assert.deepEqual(nativeView, VIEW_MENU[viewMode].map(([label]) => label), `${viewMode}: the View menu matches the VIS rows`);
             assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 1); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));
             assert.equal(data.dockInEditorRow, false); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);

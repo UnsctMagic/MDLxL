@@ -59,9 +59,11 @@ export function AppTimeline({
   materialVisibility, mode, model, motion, motionAnchor, motionOrigin, movementMode, playbackSpeed, playing,
   poseConfig, poseViewActive, preferences, registerTimelineCommands, replayMotion, restPose, restrictions,
   rigWorkspace, saving, say, seekMotionTime, selectable, selectedNodeIds, selectMotion, sequence, session,
-  setMotionAnchor, setPlaybackSpeed, setPlaying, time
+  setMotionAnchor, setPlaybackSpeed, setPlaying, time, visUI
 }) {
-  return (<Suspense fallback={<div>Loading keyframes…</div>}><KeyframeTimeline
+  // MDLxL Animations shows no objects, so a selection kept from Movement does not apply there.
+  if (!visUI && animationPanel === 'animations' && selectedNodeIds.length) selectedNodeIds = [];
+  return (<Suspense fallback={<div>Loading keyframes…</div>}><KeyframeTimeline objectKeys={!visUI}
     motionFindings={inspectingMotion ? motion.visible : []} motionActive={!inspectingMotion || motion.stale || motion.active?.resolved ? null : motion.active}
     motionControls={inspectingMotion && sequence >= 0 && (motion.active || motion.desiredCount > 0) ? motion : null}
     onMotionFinding={(finding, element) => { motionOrigin.current = element; setMotionAnchor(element.getBoundingClientRect().left); motion.setActive(finding); selectMotion(finding); }}

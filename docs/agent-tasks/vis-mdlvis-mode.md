@@ -21,8 +21,9 @@ Done means, with VIS on, at every window size:
   Animations/Paint/Showcase). Editors are reached the MDLVis way (menus,
   existing keys), as VIS already did before the new look.
 - Visibility shortcuts are the classic VIS checkboxes from
-  [shared View menu](../../src/view-menu.json), with the existing checkbox
-  order and keys. No icon chips, no new-look styling, no shrinking to icons
+  [shared View menu](../../src/view-menu.json), whose rows follow MDLVis 1.40
+  since 14 Nov 2026 ([node display plan](node-display-plan.md)), with the
+  existing keys. No icon chips, no new-look styling, no shrinking to icons
   or first letters, no other responsive compaction.
 - None of the new-look rules, labels or measurements apply. VIS looks the
   same as the last release before the new look (`v0.30.1`). The owner's latest

@@ -22,7 +22,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     assert.equal(await menu.getByRole('menuitemcheckbox', { name: 'Helpers', exact: true }).getAttribute('aria-checked'), 'false');
     await page.keyboard.press('Escape'); await menu.waitFor({ state: 'hidden' });
     assert.ok(!both.equals(await canvas.screenshot()), 'disabling Helpers changes rendered markers');
-    for (const editor of ['animation', 'animations', 'bones']) {
+    for (const editor of ['animation', 'bones']) {
       await page.locator(`[data-hotkey="${editor}"]`).click(); await open();
       assert.equal(await menu.getByRole('menuitemcheckbox', { name: 'Helpers', exact: true }).getAttribute('aria-checked'), 'false', `${editor} shares helper choice`);
       await page.keyboard.press('Escape');

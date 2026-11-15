@@ -8609,5 +8609,17 @@
   "bone-namer\u0004Side": "Lado",
   "bone-namer\u0004Part": "Parte",
   "bone-kind\u0004Copy": "Copia",
-  "bone-part\u0004Spine": "Columna vertebral"
+  "bone-part\u0004Spine": "Columna vertebral",
+  "Objects": "Objetos",
+  "Object Manager": "Gestor de objetos",
+  "Object Manager…": "Gestor de objetos…",
+  "F.Skeleton": "Esq. enf.",
+  "Show attachments, emitters, events and sounds. Right-click to choose which.": "Muestra puntos de anclaje, emisores, eventos y sonidos. Clic derecho para elegir cuáles.",
+  "Object types": "Tipos de objeto",
+  "Event at frame {0}. Drag to change when. Right-click to remove.": "Evento en el fotograma {0}. Arrastra para cambiar cuándo. Clic derecho para quitarlo.",
+  "Add a diamond at the current frame: the event plays there too.": "Añade un rombo en el fotograma actual: el evento también se reproduce ahí.",
+  "Event at frame {0}": "Evento en el fotograma {0}",
+  "Clone object": "Clonar objeto",
+  "Object visible at current frame": "Objeto visible en el fotograma actual",
+  "Set object visibility": "Definir visibilidad del objeto"
 }

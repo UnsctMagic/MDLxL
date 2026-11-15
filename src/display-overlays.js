@@ -1,11 +1,44 @@
+import { OBJECT_TYPE_KEYS, migrateXLDisplay } from './object-display.js';
+
 export function defaultEditorDisplay(vanilla = false) {
   const base = { shaded: true, vertices: true, bones: false, helpers: false, boneTypesBones: true, boneTypesHelpers: true, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
+  if (!vanilla) return defaultXLDisplay(base);
+  return defaultVISDisplay(base);
+}
+
+// VIS look = MDLVis 1.40. Shadows, Vertices, Normals and Grid in every editor;
+// Bones (with helpers), Attachment, Emitters and Skeleton only in Bones and
+// Movement (MDLVis's Objects submenu, Skeleton and Motion tabs). No Nodes,
+// Focused Skeleton, Wireframe, Events, Sounds or Lights.
+export const VIS_OBJECT_KEYS = Object.freeze(['bones', 'helpers', 'boneTypesBones', 'boneTypesHelpers', 'attachments', 'particles', 'skeleton']);
+function defaultVISDisplay(base) {
+  const view = { shaded: true, vertices: true, normals: false, grid: false };
+  const rig = { ...view, bones: true, helpers: true, boneTypesBones: true, boneTypesHelpers: true, attachments: true, particles: false, skeleton: false };
   return {
-    vertices: { ...base, ...(vanilla && { bones: true, helpers: true, attachments: true }) },
-    // Bones is one shared switch across the rig editors (see shareBones).
-    bones: { ...base, bones: true, helpers: true, ...(vanilla && { helpers: true, attachments: true }) },
-    movement: { ...base, bones: true, helpers: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
-    animations: { ...base, bones: true, helpers: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    vertices: view,
+    // One set of object switches for Bones and Movement, like MDLVis's one menu (see shareVIS).
+    bones: rig,
+    movement: rig,
+    animations: { ...view, shaded: false, vertices: false },
+    uv: { ...base, grid: true },
+    paint: { ...base, shaded: false, vertices: false },
+  };
+}
+
+// MDLxL look: Objects (attachments, emitters, events, sounds; right-click picks
+// which) and Lights replace the old per-kind switches in Vertices, Bones and
+// Movement. Animations draws no symbols; its switches hide the real effects.
+const OBJECT_TYPE_DEFAULTS = Object.fromEntries(OBJECT_TYPE_KEYS.map(key => [key, true]));
+function defaultXLDisplay(base) {
+  const { nodes: _nodes, attachments: _attachments, particles: _particles, sounds: _sounds, events: _events, ...rest } = base;
+  const rig = { ...rest, objects: true, lights: false, ...OBJECT_TYPE_DEFAULTS };
+  return {
+    vertices: { ...rest },
+    // Bones is one shared switch across the rig editors (see shareBones); Objects
+    // and its types are shared between Bones and Movement the same way.
+    bones: { ...rig, bones: true, helpers: true },
+    movement: { ...rig, bones: true, helpers: true, focusedSkeleton: true },
+    animations: { ...rest, bones: true, helpers: true, shaded: false, vertices: false, rgb: true, lights: true, particles: true, sounds: true, events: true },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -13,28 +46,38 @@ export function defaultEditorDisplay(vanilla = false) {
 
 // Rig marker choices follow the user between Bones, Movement and Animations.
 const RIG_EDITORS = ['bones', 'movement', 'animations'];
-function shareBones(overlays, mode, key = 'bones') {
-  if (!RIG_EDITORS.includes(mode)) return overlays;
+const OBJECT_EDITORS = ['bones', 'movement'];
+function shareBones(overlays, mode, key = 'bones', editors = RIG_EDITORS) {
+  if (!editors.includes(mode)) return overlays;
   const enabled = !!overlays[mode]?.[key];
-  return { ...overlays, ...Object.fromEntries(RIG_EDITORS.filter(editor => editor !== mode && overlays[editor])
+  return { ...overlays, ...Object.fromEntries(editors.filter(editor => editor !== mode && overlays[editor])
     .map(editor => [editor, { ...overlays[editor], [key]: enabled }])) };
 }
+const OBJECT_SHARED = ['objects', 'lights', ...OBJECT_TYPE_KEYS];
+const shareObjects = (overlays, mode, keys = OBJECT_SHARED) => keys.reduce((result, key) => result[mode]?.[key] === undefined ? result : shareBones(result, mode, key, OBJECT_EDITORS), overlays);
+const keepsOnClear = key => key.startsWith('boneTypes') || key.startsWith('objectTypes');
+const shareVIS = (overlays, mode, keys) => keys.filter(key => VIS_OBJECT_KEYS.includes(key)).reduce((result, key) => shareBones(result, mode, key, OBJECT_EDITORS), overlays);
 
-export function setEditorDisplay(overlays, mode, key, value) {
+/** vanilla: the VIS look, whose object switches are shared by Bones and Movement only. */
+export function setEditorDisplay(overlays, mode, key, value, vanilla = false) {
   const current = overlays?.[mode] || {};
-  const resolved = typeof value === 'function' ? value(current[key] ?? key.startsWith('boneTypes')) : value;
+  const resolved = typeof value === 'function' ? value(current[key] ?? keepsOnClear(key)) : value;
   const next = { ...current, [key]: !!resolved };
   if (key === 'bones') next.helpers = !!resolved;
-  if (resolved && key === 'skeleton') next.focusedSkeleton = false;
+  if (resolved && key === 'skeleton' && 'focusedSkeleton' in current) next.focusedSkeleton = false;
   if (resolved && key === 'focusedSkeleton') next.skeleton = false;
   const result = { ...overlays, [mode]: next };
+  if (vanilla) return shareVIS(result, mode, key === 'bones' ? ['bones', 'helpers'] : [key]);
   if (key === 'bones') return shareBones(shareBones(result, mode, key), mode, 'helpers');
+  if (OBJECT_SHARED.includes(key)) return shareObjects(result, mode, [key]);
   return ['helpers', 'attachments', 'boneTypesBones', 'boneTypesHelpers'].includes(key) ? shareBones(result, mode, key) : result;
 }
 
 // Clear the active editor's visible options without changing the model or selection.
-export function clearQuickDisplay(overlays, mode) {
-  return shareBones(shareBones({ ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, key.startsWith('boneTypes') ? overlays[mode][key] : false])) }, mode), mode, 'helpers');
+export function clearQuickDisplay(overlays, mode, vanilla = false) {
+  const cleared = { ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, keepsOnClear(key) ? overlays[mode][key] : false])) };
+  if (vanilla) return shareVIS(cleared, mode, VIS_OBJECT_KEYS);
+  return shareObjects(shareBones(shareBones(cleared, mode), mode, 'helpers'), mode, ['objects', 'lights']);
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.
@@ -43,7 +86,7 @@ export function defaultPoseDisplay(overlays) {
   const { helpers: _helpers, ...display } = overlays || {};
   return { ...display, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
     nodes: false, attachments: false, particles: false, sounds: false, events: false,
-    wires: false, normals: false, cameras: false };
+    wires: false, normals: false, cameras: false, ...('objects' in display && { objects: false, lights: false }) };
 }
 
 const EDITOR_DISPLAY_KEY = 'mdlxl-editor-display';
@@ -52,7 +95,7 @@ const EDITOR_DISPLAY_KEY = 'mdlxl-editor-display';
 export function storedEditorDisplay(vanilla = false, storage = globalThis.localStorage) {
   const defaults = defaultEditorDisplay(vanilla);
   let saved = null;
-  try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
+  try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; if (!vanilla) saved = migrateXLDisplay(saved); } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
   return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
     .map(([key, value]) => [key, key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));

@@ -19,7 +19,7 @@ App's small state owners are [usePreferences.js](../app/usePreferences.js)
 [PreferencesContext.jsx](../app/PreferencesContext.jsx) (shared preferences and
 `openHotkeySettings`; explicit GamePreview/Viewport preferences still override it),
 [useEditorDisplay.js](../src/useEditorDisplay.js) (XL/VIS clean views and overlays,
-including POSE's display), [view-menu.json](../src/view-menu.json) (one View/Quick Display list for both looks; [View/vertex task](agent-tasks/view-vertex-display.md)), and [usePortraitState.js](../app/usePortraitState.js)
+including POSE's display), [view-menu.json](../src/view-menu.json) (the VIS look's View/Quick Display lists, as on main; [View/vertex task](agent-tasks/view-vertex-display.md)), [view-menu-xl.json](../src/view-menu-xl.json) (the MDLxL look's lists), [object-display.js](../src/object-display.js) (MDLxL only: Objects and its right-click types `OBJECT_TYPES`, `xlObjectKinds`, `objectSwitches`, old-save `migrateXLDisplay`, event-frame diamonds, and `MOVEMENT_EDITABLE_KINDS`, what Movement may move; used by [preview-overlays.js](../app/preview-overlays.js), [viewport-overlays.js](../app/viewport-overlays.js), [GamePreview.jsx](../app/GamePreview.jsx) and [KeyframeTimeline.jsx](../app/KeyframeTimeline.jsx); [objects task](agent-tasks/node-display-plan.md)), and [usePortraitState.js](../app/usePortraitState.js)
 (portrait controls, session resets and remembered backdrop look).
 Shared shell pieces: the classic window and `LoadingWindow` in
 [Dialog.jsx](../app/Dialog.jsx) (`onSubmit` gives an OK/Cancel form), the tool-window

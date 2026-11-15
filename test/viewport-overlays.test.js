@@ -33,7 +33,10 @@ test('all node types receive the correct independent overlay and helpers partici
     ParticleEmitters:[{ObjectId:7,Parent:1}], ParticleEmitters2:[{ObjectId:8}], ParticleEmitterPopcorns:[{ObjectId:9}], RibbonEmitters:[{ObjectId:10}] };
   const layout = viewportNodeLayout(model, allNodes(model));
   assert.deepEqual(layout.groups.bones.map(n=>n.ObjectId),[0,1,2]);
-  assert.deepEqual(layout.groups.nodes.map(n=>n.ObjectId),[3,5,6]);
+  // MDLxL look: lights have their own kind, every non-SND event is an event; collision alone stays unshown.
+  assert.deepEqual(layout.groups.nodes.map(n=>n.ObjectId),[6]);
+  assert.deepEqual(layout.groups.lights.map(n=>n.ObjectId),[3]);
+  assert.deepEqual(layout.groups.events.map(n=>n.ObjectId),[5]);
   assert.deepEqual(layout.groups.attachments.map(n=>n.ObjectId),[4]);
   assert.deepEqual(layout.groups.particles.map(n=>n.ObjectId),[7,8,9]);
   assert.deepEqual(layout.groups.ribbons.map(n=>n.ObjectId),[10]);
