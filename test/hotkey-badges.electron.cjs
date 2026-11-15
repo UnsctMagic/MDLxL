@@ -55,12 +55,14 @@ const path = require('node:path');
     }
     await click(page.locator('button[data-hotkey="animation"]:visible').first());
     await page.locator('.game-preview-root canvas[data-clean-model-canvas]').waitFor();
-    for(const width of [1600,1100,1920]){
+    // Movement's Quick Display is shorter since one Objects switch replaced the per-kind ones (PR #648): its full editor
+    // names still fit at 1100 (row 1064/1064 px) and first shorten at 1000.
+    for(const width of [1600,1000,1920]){
       await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,800),width);
       // Let AppToolbar's ResizeObserver finish its responsive editor-name change.
       // No click, focus or scroll between resizing and the placement assertion.
       await settlePage(page, 200);
-      assert.equal(await page.locator('.editor-modules').evaluate(row=>row.hasAttribute('data-short-editors')),width===1100,'responsive editor names at '+width);
+      assert.equal(await page.locator('.editor-modules').evaluate(row=>row.hasAttribute('data-short-editors')),width===1000,'responsive editor names at '+width);
       const badges=await verify('Movement resize '+width);
       console.log('✓ Movement resize '+width+': '+badges.length+' labels at their controls\' top-right corners');
     }

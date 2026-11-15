@@ -155,11 +155,10 @@ return null;
       assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false);assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
       const proof={passed:true,hidden:true,out,far:farProof,close:closeProof};await fs.writeFile(path.join(out,'zoom-proof.json'),JSON.stringify(proof,null,2));console.log(JSON.stringify(proof));return;
     }
-    // MDLxL look (owner's revised spec, 14 Nov 2026): Vertices has Objects (off) and no Bones; Bones and Movement
+    // MDLxL look (owner's revised spec, 14 Nov 2026; cc5d38c1): Vertices has no Objects and no Bones; Bones and Movement
     // have Objects (right-click picks attachments, emitters, events, sounds) and Lights; Animations has only the
     // effect switches and draws no symbols. VIS keeps main's switches (checked at the end).
-    await absent(['Bones','Nodes','Emitters','Attachment','Events','Sounds']);
-    assert.equal(await quick.getByLabel('Objects',{exact:true}).isChecked(),false,'Vertices starts with Objects off');
+    await absent(['Bones','Nodes','Objects','Emitters','Attachment','Events','Sounds']);
     assert.equal(await page.locator('[data-node-overlay]').count(),0,'Vertices has no rig markers');
     await screenshot('vertices-default.png');
     await page.getByRole('button',{name:'Bones',exact:true}).click();
@@ -211,7 +210,7 @@ return null;
     await wait(s=>s.particles[0]===0&&s.ribbons[0]===0&&s.decals===0&&s.nodes===0&&s.audio.every(a=>a.paused),'Unticked categories hide their effects');
     await screenshot('animations-all-off.png');
     await page.getByRole('button',{name:'Stop',exact:true}).click();await settlePage(page, 180);await command('camera:rotate');const cameraBefore=(await read()).camera,canvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width*.6,canvas.y+canvas.height*.5,{steps:12});await page.mouse.up();await wait(s=>s.camera.some((v,i)=>Math.abs(v-cameraBefore[i])>1),'Actual mouse rotation');
-    await page.getByRole('button',{name:'Vertices',exact:true}).click();await absent(['Bones','Nodes','Emitters','Attachment','Events','Sounds']);assert.equal(await quick.getByLabel('Objects',{exact:true}).count(),1);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
+    await page.getByRole('button',{name:'Vertices',exact:true}).click();await absent(['Bones','Nodes','Objects','Emitters','Attachment','Events','Sounds']);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
     await command('camera:work');
     assert.equal(await page.locator('.classic-sidebar [data-hotkey="Delete vertices"]').isDisabled(),true,'Vertices cannot delete the retained hidden rig selection');for(const input of await page.locator('.classic-coordinates input').all())assert.equal(await input.isDisabled(),true,'Vertex coordinates cannot move hidden rig selections');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1086,760));

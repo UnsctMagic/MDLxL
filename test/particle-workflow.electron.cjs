@@ -97,10 +97,14 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   for(const [i,clip]of placed.Sequences.entries())for(const frame of Object.values(clip.Interval))assert.equal(emitter.Visibility.Keys.find(k=>k.Frame===frame).Vector[0],i===0?1:0,'Checked full-clip visibility is authored at both endpoints');
   assert.deepEqual(placed.Geosets,beforeModel.Geosets);assert.deepEqual(placed.Bones,beforeModel.Bones);
   await page.getByRole('button',{name:'Close Particle Editor',exact:true}).click();
-  const visible=page.getByRole('checkbox',{name:'Emitter visible at current frame',exact:true});await visible.waitFor();assert.equal(await visible.isChecked(),true);
+  // MDLxL edits emitter visibility in EMTR (PR #648: the strip shows only Edit effect); the Visible tick is the VIS look's (main's) way.
+  const visible=page.getByRole('checkbox',{name:'Emitter visible at current frame',exact:true});await page.getByRole('button',{name:'Edit effect',exact:true}).waitFor();assert.equal(await visible.count(),0,'MDLxL shows no emitter Visible tick');
+  await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(emitter.ObjectId));
+  await visible.waitFor();assert.equal(await visible.isChecked(),true);
   await visible.uncheck();const hidden=await readModel();assert.equal(hidden.ParticleEmitters2[0].Visibility.Keys.find(k=>k.Frame===350).Vector[0],0);
   assert.deepEqual(hidden.ParticleEmitters2[0].SegmentColor,emitter.SegmentColor,'Main visibility never changes RGB');
   await page.screenshot({path:path.join(out,'movement-marker.png')});
+  await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(emitter.ObjectId));
   await page.getByRole('button',{name:'Edit effect',exact:true}).click();assert.equal(await page.getByLabel('Particle context',{exact:true}).inputValue(),'On model');
   await dialog.getByRole('button',{name:'Remove',exact:true}).click();assert.equal((await readModel()).ParticleEmitters2.length,0);
   await dialog.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await readModel()).ParticleEmitters2,hidden.ParticleEmitters2);

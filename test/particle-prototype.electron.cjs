@@ -295,7 +295,10 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await openEffectCollection(page,'My presets');
     await openEffect(page,'MDLxL test ribbon');
     await page.getByLabel('Ribbon upper end',{exact:true}).waitFor();
-    const ribbonBefore=await readLab(),upper=await page.getByRole('slider',{name:'Ribbon upper edge',exact:true}).locator('circle').boundingBox();
+    // Since the FX redesign (PR #645) the Lab shows the Move handle at the ribbon's anchor; at the opening zoom a ribbon only
+    // 8 units tall puts its edge dots on that handle, so fit the view first, as a user would, and grab the dot's centre.
+    await page.getByRole('button',{name:'Fit view',exact:true}).click();await settle(page,300);
+    const ribbonBefore=await readLab(),upperBox=await page.getByRole('slider',{name:'Ribbon upper edge',exact:true}).locator('circle:not(.pe-grab)').boundingBox(),upper={x:upperBox.x+upperBox.width/2-7,y:upperBox.y+upperBox.height/2-7};
     await page.mouse.move(upper.x+7,upper.y+7);await page.mouse.down();await page.mouse.move(upper.x+40,upper.y-20,{steps:6});await page.mouse.up();
     assert.notEqual((await readLab()).model.RibbonEmitters[0].HeightAbove,ribbonBefore.model.RibbonEmitters[0].HeightAbove);
     assert.equal((await readLab()).undo,ribbonBefore.undo+1);

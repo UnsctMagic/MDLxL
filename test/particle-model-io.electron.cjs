@@ -31,7 +31,8 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   }
   console.log('Stock-picture PE2 and ribbon UI MDL/MDX save and reopen passed');
   const savedIds=(await read(page)).model.ParticleEmitters2.map(p=>p.ObjectId),owners=[savedIds[indexA],savedIds[indexB]];
-  await menu('Movement');await page.locator('.game-preview-root [data-clean-model-canvas]').waitFor();const particlesVisible=await page.evaluate(()=>{const el=document.querySelector('.game-preview-root');{ const props = findFiberState(el, props => props?.model&&props?.onTimeChange, { props: true }); if (props) return props.showParticles; }});if(!particlesVisible)await menu('Emitters');
+  await menu('Movement');await page.locator('.game-preview-root [data-clean-model-canvas]').waitFor();// MDLxL shows particles through Objects and its Emitters type (PR #648); View has Objects, not Emitters.
+  const particlesVisible=await page.evaluate(()=>{const el=document.querySelector('.game-preview-root');{ const props = findFiberState(el, props => props?.model&&props?.onTimeChange, { props: true }); if (props) return !!props.overlays?.objects&&props.overlays.objectTypesEmitters!==false; }});if(!particlesVisible)await menu('Objects');
   // Bones are shown by default in the rig editors since #238; a click on a visible bone marker selects that bone, so hide them to test particle picking alone.
   const bonesVisible=await page.evaluate(()=>{const el=document.querySelector('.game-preview-root');{ const props = findFiberState(el, props => props?.model&&props?.onTimeChange, { props: true }); if (props) return !!props.overlays?.bones; }});if(bonesVisible)await menu('Bones');
   // Choose a fixed frame using the existing controller callbacks, then exercise real pointer picking.

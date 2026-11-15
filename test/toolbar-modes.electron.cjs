@@ -6,7 +6,8 @@ const THEMES = require('../src/application-themes.json');
 
 const OUT = path.resolve('out/toolbar-modes');
 const LIGHT_DARK = ['light', 'dark'];
-const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bones': ['Alt+B'] };
+// Vertices has no Bones switch since the Objects display (PR #648); Wireframe Overlay is its Quick Display switch here.
+const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:wires': ['Alt+B'] };
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -173,9 +174,9 @@ const CONTEXT_KEYS = { 'ai:open': ['Alt+J'], teamColor: ['Alt+Y'], 'display:bone
     check('Status row: format chip converts, editor name shows, DPI and Scroll only while they change');
 
     // Contextual keys still fire on the off-screen controls.
-    const bones = page.locator('input[data-hotkey="display:bones"]'), bonesWas = await bones.isChecked();
+    const wires = page.locator('input[data-hotkey="display:wires"]'), wiresWas = await wires.isChecked();
     await focusEditor(); await page.keyboard.press('Alt+b');
-    await page.waitForFunction(([was]) => document.querySelector('[data-hotkey="display:bones"]').checked !== was, [bonesWas]);
+    await page.waitForFunction(([was]) => document.querySelector('[data-hotkey="display:wires"]').checked !== was, [wiresWas]);
     await page.keyboard.press('Alt+b');
     check('Hidden: a contextual Quick Display key still toggles');
 

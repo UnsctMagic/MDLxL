@@ -46,7 +46,8 @@ const { buildSync } = require('esbuild');
   };
   const close = async (keepProfile = false) => { if(app){ await closeApp(app, { keepProfile }); app=null; } };
   const idle = () => settlePage(page, 220);
-  const checks = () => page.evaluate(() => {const p=rigState().props;return [p.overlays.bones && p.overlays.boneTypesBones !== false,p.overlays.bones && p.overlays.boneTypesHelpers !== false,!!p.overlays.attachments];});
+  // MDLxL look: attachments show through Objects and its Attachments type (PR #648), the same rule the Refs tick reads.
+  const checks = () => page.evaluate(() => {const p=rigState().props,o=p.overlays;return [o.bones && o.boneTypesBones !== false,o.bones && o.boneTypesHelpers !== false,!!o.objects && o.objectTypesAttachments !== false];});
   const typeCheck = async (name, checked) => {
     await page.locator('.quick-display input[data-hotkey="display:bones"]').click({button:'right'});
     const item=page.getByRole('menuitemcheckbox',{name,exact:true});
@@ -70,7 +71,10 @@ const { buildSync } = require('esbuild');
   };
   try {
     await launch();
-    assert.deepEqual(await checks(),[true,true,false]);
+    // Bones starts with Objects on (owner's Objects spec, PR #648), so refs show; hide them to check that Create Ref shows its new ref.
+    assert.deepEqual(await checks(),[true,true,true]);
+    await page.locator('.movement-object-filters').getByLabel('Refs',{exact:true}).uncheck(); await idle();
+    assert.equal((await checks())[2],false,'the Refs tick hides attachments');
     const order = await page.evaluate(() => {
       const y = selector => document.querySelector(selector).getBoundingClientRect().top;
       return [y('.movement-object-combo'),y('.movement-object-filters')];
