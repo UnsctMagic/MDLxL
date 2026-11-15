@@ -10,7 +10,7 @@ const { fixturePath, gameFolder } = require('./helpers/fixtures.cjs');
   try {
     await waitForInfo(page, 'Opened ' + path.basename(fixture));
     await page.keyboard.press('Alt+o');
-    const manager = page.getByRole('dialog', { name: 'Node Manager', exact: true });
+    const manager = page.getByRole('dialog', { name: 'Object Manager', exact: true });
     await manager.waitFor();
     const search = manager.getByLabel('Search spawn objects', { exact: true });
     const picker = manager.getByLabel('Spawn Object', { exact: true });
