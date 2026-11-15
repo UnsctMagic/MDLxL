@@ -16,7 +16,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'out/footprint-travel
     await page.locator('[data-hotkey="animations"]').first().dispatchEvent('click');
     await page.getByLabel('Choose animation sequence',{exact:true}).selectOption({label:'Walk'});
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
-    for(const[name,on]of[['Bones',false],['Emitters',true],['Events',true]]){const c=page.getByRole('checkbox',{name,exact:true});if(await c.isChecked()!==on)await c.evaluate(e=>e.click());}
+    // PR #648: Animations draws no bone markers and has no Bones switch.
+    for(const[name,on]of[['Emitters',true],['Events',true]]){const c=page.getByRole('checkbox',{name,exact:true});if(await c.isChecked()!==on)await c.evaluate(e=>e.click());}
     const stop=page.getByRole('button',{name:'Stop',exact:true});if(await stop.count())await stop.dispatchEvent('click');
     await page.evaluate(()=>{window.footprintRuntime=()=>{const host=document.querySelector('.game-preview-root');const r=mdlxlProbe(host?.closest('.game-preview-root') || null).runtime;if(r)return r;throw Error('Preview unavailable');};});
     await page.waitForFunction(()=>footprintRuntime().eventPreview.isReady);

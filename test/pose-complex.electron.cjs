@@ -109,7 +109,7 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),config=await page.evaluate(()=>poseProbe().props.poseConfig),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     results.mapping=config;await shot('01-auto-handles');
-    await page.getByRole('checkbox',{name:'Emitters',exact:true}).uncheck();await tool('Select');
+    await page.getByRole('checkbox',{name:'Objects',exact:true}).uncheck();await tool('Select'); // PR #648: Objects replaces Movement's Emitters switch
     await page.waitForTimeout(600);
     const hoverHandle=config.chains.length ? await handleFor('endpoint',config.chains[0].end) : await handleFor('body'),hoverBox=await viewportBox();
     const overlayPixels=()=>page.locator('[data-node-overlay]').evaluate((canvas,h)=>{const ratio=canvas.width/canvas.clientWidth,data=canvas.getContext('2d').getImageData(Math.round(h.labelX*ratio),Math.round((h.labelY-7)*ratio),Math.ceil(h.labelWidth*ratio),Math.ceil(14*ratio)).data;let alpha=0;for(let i=3;i<data.length;i+=4)alpha+=data[i];return alpha;},hoverHandle);

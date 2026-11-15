@@ -120,7 +120,7 @@ const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
     await page.getByLabel('Render mode',{exact:true}).selectOption('textured');
     await page.getByRole('checkbox',{name:'Bones',exact:true}).uncheck();
     await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
-    await page.getByRole('checkbox',{name:'Emitters',exact:true}).uncheck();
+    await page.getByRole('checkbox',{name:'Objects',exact:true}).uncheck(); // PR #648: Objects replaces Movement's Emitters switch
     await tool('Select');await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),baseline=await configNow(),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     const names=new Map(allNodes(initial.model).map(node=>[node.ObjectId,node.Name]));
