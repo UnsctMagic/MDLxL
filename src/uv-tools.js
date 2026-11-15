@@ -218,7 +218,7 @@ export function otherUVMaterials(model, geosetIndices, excludedMaterialIDs, time
 
 /** Flatten geosets into one temporary UV canvas with their shared model positions. */
 function combineUVGeosetsBySet(model, geosetIndices, eligibleSelection, selectedSelection, uvSetForGeoset) {
-  const refs = [], vertices = [], coordinates = [], faces = [], eligibleVertices = [], selectedVertices = [];
+  const refs = [], vertices = [], coordinates = [], faces = [], eligibleVertices = [], selectedVertices = [], faceStarts = {};
   let offset = 0;
   for (const geosetIndex of uniqueIndices(geosetIndices)) {
     const geoset = model?.Geosets?.[geosetIndex], uvSet = uvSetForGeoset(geosetIndex), uv = geoset?.TVertices?.[uvSet];
@@ -231,11 +231,13 @@ function combineUVGeosetsBySet(model, geosetIndices, eligibleSelection, selected
       if (allowed.has(index)) eligibleVertices.push(offset + index);
       if (selected.has(index)) selectedVertices.push(offset + index);
     }
+    // Where this geoset's corners start, so a per-corner result maps back to its own Faces.
+    faceStarts[geosetIndex] = faces.length;
     for (const index of geoset.Faces || []) faces.push(offset + Number(index));
     offset += count;
   }
   return {
-    refs, eligibleVertices, selectedVertices,
+    refs, eligibleVertices, selectedVertices, faceStarts,
     geoset: {
       Vertices: new Float32Array(vertices),
       TVertices: [new Float32Array(coordinates)],
@@ -299,7 +301,181 @@ export function foldUVCoordinates(values, indices, direction = 'right-to-left') 
   return next;
 }
 
-function copyVertexAttribute(source, sourceIndices, stride) {
+const pointAt = (geoset, index) => [geoset.Vertices[index * 3], geoset.Vertices[index * 3 + 1], geoset.Vertices[index * 3 + 2]];
+/** Seam duplicates: the same UV spot and the same 3D position. */
+const uvSpotKey = (geoset, values, index) => values[index * 2] + ',' + values[index * 2 + 1] + (geoset?.Vertices ? ',' + pointAt(geoset, index).join(',') : '');
+const validPoints = (geoset, values, list) => {
+  const count = Math.min((geoset?.Vertices?.length ?? Infinity) / 3, (values?.length || 0) / 2);
+  return uniqueIndices(list).filter(index => index < count);
+};
+
+/** Straighten: wider than tall, the selected points become a row (every V their average V);
+ * otherwise a column (every U their average U). Seam duplicates count once in the average. */
+export function straightenUVCoordinates(values, indices, geoset) {
+  const selected = validPoints(geoset, values, indices), next = new Float32Array(values || []);
+  if (selected.length < 2) return next;
+  const low = [Infinity, Infinity], high = [-Infinity, -Infinity];
+  for (const index of selected) for (let axis = 0; axis < 2; axis++) { low[axis] = Math.min(low[axis], next[index * 2 + axis]); high[axis] = Math.max(high[axis], next[index * 2 + axis]); }
+  const axis = high[0] - low[0] > high[1] - low[1] ? 1 : 0, spots = new Map();
+  for (const index of selected) spots.set(uvSpotKey(geoset, next, index), next[index * 2 + axis]);
+  let average = 0;
+  for (const value of spots.values()) average += value / spots.size;
+  for (const index of selected) next[index * 2 + axis] = average;
+  return next;
+}
+
+export const NO_MIRROR_POINTS_ERROR = "No mirror points found among the UV Wrapper's points.";
+
+/** Mirror Copy: each selected point's mirror among the other (unselected) UV Wrapper points gets the
+ * selected point's UV. The mirror plane is the model axis with the most matches, through the middle
+ * of the UV Wrapper's points on that axis. Points on the plane stay. Where a mirror position holds
+ * several points, the one whose triangles mirror the selected point's triangles is used; points
+ * there with the same UV spot move together. */
+export function mirrorCopyUVCoordinates(geoset, indices, eligible, values = geoset?.TVertices?.[0]) {
+  const domain = validPoints(geoset, values, eligible), member = new Set(domain);
+  const selected = validPoints(geoset, values, indices).filter(index => member.has(index)), chosen = new Set(selected);
+  const targets = domain.filter(index => !chosen.has(index));
+  if (!selected.length || !targets.length) throw Error(NO_MIRROR_POINTS_ERROR);
+  const at = index => pointAt(geoset, index), low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+  for (const index of domain) at(index).forEach((value, axis) => { low[axis] = Math.min(low[axis], value); high[axis] = Math.max(high[axis], value); });
+  const tolerance = Math.max(1e-4, Math.hypot(high[0] - low[0], high[1] - low[1], high[2] - low[2]) * 1e-3);
+  const cell = p => p.map(value => Math.floor(value / tolerance)), grid = new Map();
+  for (const index of targets) { const key = cell(at(index)).join(','); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(index); }
+  const same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) <= tolerance;
+  const near = p => {
+    const [x, y, z] = cell(p), found = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++)
+      for (const index of grid.get([x + dx, y + dy, z + dz].join(',')) || []) if (same(at(index), p)) found.push(index);
+    return found;
+  };
+  const mirror = (p, axis, middle) => { const q = p.slice(); q[axis] = 2 * middle - p[axis]; return q; };
+  // A posed model's points are not centred on its mirror plane (the Footman's arms and shield), so
+  // besides the middle of the points each axis also tries the plane that most pairs of the UV
+  // Wrapper's points are centred on: the model's own symmetry, whatever is selected.
+  const voted = axis => {
+    const [first, second] = [0, 1, 2].filter(other => other !== axis), columns = new Map(), votes = new Map();
+    const column = p => [Math.floor(p[first] / tolerance), Math.floor(p[second] / tolerance)];
+    for (const index of domain) { const key = column(at(index)).join(','); if (!columns.has(key)) columns.set(key, []); columns.get(key).push(index); }
+    let pairs = 0;
+    for (const index of domain) {
+      const p = at(index), [x, y] = column(p);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const other of columns.get((x + dx) + ',' + (y + dy)) || []) {
+        if (other <= index || ++pairs > 200000) continue;
+        const q = at(other);
+        if (Math.hypot(q[first] - p[first], q[second] - p[second]) > tolerance || Math.abs(q[axis] - p[axis]) <= 2 * tolerance) continue;
+        const middle = (p[axis] + q[axis]) / 2, bin = Math.round(middle / tolerance);
+        if (!votes.has(bin)) votes.set(bin, []); votes.get(bin).push(middle);
+      }
+    }
+    const centre = (low[axis] + high[axis]) / 2;
+    let best = null, bestBin = 0;
+    for (const bin of votes.keys()) {
+      const near = [bin - 1, bin, bin + 1].flatMap(key => votes.get(key) || []);
+      if (!best || near.length > best.length || (near.length === best.length && Math.abs(bin * tolerance - centre) < Math.abs(bestBin * tolerance - centre))) { best = near; bestBin = bin; }
+    }
+    return best ? best.reduce((sum, value) => sum + value, 0) / best.length : null;
+  };
+  let plane = null;
+  for (let axis = 0; axis < 3; axis++) for (const middle of [(low[axis] + high[axis]) / 2, voted(axis)]) {
+    if (middle === null) continue;
+    let matched = 0;
+    for (const index of selected) { const p = at(index); if (Math.abs(p[axis] - middle) > tolerance && near(mirror(p, axis, middle)).length) matched++; }
+    if (!plane || matched > plane.matched) plane = { axis, middle, matched };
+  }
+  if (!plane.matched) throw Error(NO_MIRROR_POINTS_ERROR);
+  const around = new Map(), faces = geoset.Faces || [];
+  for (let corner = 0; corner + 2 < faces.length; corner += 3) {
+    const triangle = [faces[corner], faces[corner + 1], faces[corner + 2]];
+    for (const index of triangle) {
+      const others = triangle.filter(id => id !== index);
+      if (member.has(index) && others.length === 2) { if (!around.has(index)) around.set(index, []); around.get(index).push(others); }
+    }
+  }
+  const score = (source, target) => {
+    const theirs = (around.get(target) || []).map(pair => pair.map(at));
+    let count = 0;
+    for (const pair of around.get(source) || []) {
+      const [a, b] = pair.map(id => mirror(at(id), plane.axis, plane.middle));
+      if (theirs.some(([c, d]) => (same(a, c) && same(b, d)) || (same(a, d) && same(b, c)))) count++;
+    }
+    return count;
+  };
+  const claims = new Map();
+  for (const source of selected) {
+    const p = at(source);
+    if (Math.abs(p[plane.axis] - plane.middle) <= tolerance) continue;
+    const groups = new Map();
+    for (const target of near(mirror(p, plane.axis, plane.middle))) { const key = uvSpotKey(geoset, values, target); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(target); }
+    let pick = null;
+    for (const [key, members] of groups) { const value = Math.max(...members.map(target => score(source, target))); if (!pick || value > pick.score) pick = { key, members, score: value }; }
+    const previous = pick && claims.get(pick.key);
+    if (pick && (!previous || pick.score > previous.score)) claims.set(pick.key, { ...pick, source });
+  }
+  const next = new Float32Array(values);
+  for (const { members, source } of claims.values()) for (const target of members) { next[target * 2] = values[source * 2]; next[target * 2 + 1] = values[source * 2 + 1]; }
+  return next;
+}
+
+export const RELAX_EDGE_ERROR = "Relax keeps the selection's outer edge in place. Select more than the edge.";
+
+/** Relax: selected points move to the mean-value-weighted average of their UV neighbours (weights
+ * from the 3D triangle angles), Gauss–Seidel until the largest move is below 1e-7 UV or 5000
+ * sweeps. Unselected points stay, and so does the selection's outer edge: a point of a triangle
+ * that is not fully selected, or on an open UV edge. Seam duplicates move together. */
+export function relaxUVCoordinates(geoset, indices, eligible, values = geoset?.TVertices?.[0]) {
+  const domain = validPoints(geoset, values, eligible), member = new Set(domain), chosen = new Set(validPoints(geoset, values, indices).filter(index => member.has(index)));
+  const nodeOf = new Map(), nodes = [], spots = new Map();
+  for (const index of domain) {
+    const key = uvSpotKey(geoset, values, index);
+    let node = spots.get(key);
+    if (node === undefined) { node = nodes.length; spots.set(key, node); nodes.push({ points: [], selected: true, position: pointAt(geoset, index), uv: [values[index * 2], values[index * 2 + 1]] }); }
+    nodes[node].points.push(index); if (!chosen.has(index)) nodes[node].selected = false;
+    nodeOf.set(index, node);
+  }
+  const fixed = nodes.map(node => !node.selected), triangles = [], uses = new Map(), faces = geoset.Faces || [], edge = (a, b) => a < b ? a * nodes.length + b : b * nodes.length + a;
+  for (let corner = 0; corner + 2 < faces.length; corner += 3) {
+    const triangle = [faces[corner], faces[corner + 1], faces[corner + 2]].map(index => nodeOf.has(index) ? nodeOf.get(index) : -1);
+    if (!triangle.some(node => node >= 0)) continue;
+    if (!triangle.every(node => node >= 0 && nodes[node].selected)) { for (const node of triangle) if (node >= 0) fixed[node] = true; continue; }
+    if (new Set(triangle).size < 3) continue;
+    triangles.push(triangle);
+    for (let k = 0; k < 3; k++) { const key = edge(triangle[k], triangle[(k + 1) % 3]); uses.set(key, (uses.get(key) || 0) + 1); }
+  }
+  for (const triangle of triangles) for (let k = 0; k < 3; k++) if (uses.get(edge(triangle[k], triangle[(k + 1) % 3])) === 1) fixed[triangle[k]] = fixed[triangle[(k + 1) % 3]] = true;
+  const weights = new Map();
+  for (const triangle of triangles) for (let k = 0; k < 3; k++) {
+    const i = triangle[k]; if (fixed[i]) continue;
+    const j = triangle[(k + 1) % 3], l = triangle[(k + 2) % 3], p = nodes[i].position;
+    const a = nodes[j].position.map((value, axis) => value - p[axis]), b = nodes[l].position.map((value, axis) => value - p[axis]);
+    const la = Math.hypot(...a), lb = Math.hypot(...b);
+    if (!(la > 0 && lb > 0)) continue;
+    const angle = Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb))));
+    const half = Math.tan(Math.min(angle, Math.PI - 1e-6) / 2);
+    if (!weights.has(i)) weights.set(i, new Map());
+    const row = weights.get(i);
+    row.set(j, (row.get(j) || 0) + half / la); row.set(l, (row.get(l) || 0) + half / lb);
+  }
+  const free = [...weights].filter(([, row]) => [...row.values()].reduce((sum, value) => sum + value, 0) > 0)
+    .map(([node, row]) => ({ node, neighbours: Int32Array.from(row.keys()), weights: Float64Array.from(row.values()) }));
+  if (!free.length) throw Error(RELAX_EDGE_ERROR);
+  const u = Float64Array.from(nodes, node => node.uv[0]), v = Float64Array.from(nodes, node => node.uv[1]);
+  for (let sweep = 0; sweep < 5000; sweep++) {
+    let largest = 0;
+    for (const { node, neighbours, weights: w } of free) {
+      let su = 0, sv = 0, total = 0;
+      for (let k = 0; k < neighbours.length; k++) { su += w[k] * u[neighbours[k]]; sv += w[k] * v[neighbours[k]]; total += w[k]; }
+      const nu = su / total, nv = sv / total;
+      largest = Math.max(largest, Math.abs(nu - u[node]), Math.abs(nv - v[node]));
+      u[node] = nu; v[node] = nv;
+    }
+    if (largest < 1e-7) break;
+  }
+  const next = new Float32Array(values);
+  for (const { node } of free) for (const index of nodes[node].points) { next[index * 2] = u[node]; next[index * 2 + 1] = v[node]; }
+  return next;
+}
+
+export function copyVertexAttribute(source, sourceIndices, stride) {
   if (!source?.length) return source;
   const output = new source.constructor(sourceIndices.length * stride);
   sourceIndices.forEach((sourceIndex, index) => output.set(source.subarray(sourceIndex * stride, sourceIndex * stride + stride), index * stride));
