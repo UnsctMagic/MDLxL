@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
+import { poseRecognitionEvidence, inferPoseBranches, poseNameConflicts, posePartGaps, poseExcludedBranchName } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -125,9 +125,13 @@ export function separatePoseChains(model, draft, existing) {
   } catch { return null; }
 }
 
+const poseNameKey = node => String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
+/** Names the reader rules out as anatomy (chains, reins, guards, cameras, cloth...). */
+export const poseNonAnatomyName = node => /chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(poseNameKey(node));
+
 export function poseNodeRole(node) {
-  const name = String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
-  if (/chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(name)) return node?.Name || 'Object';
+  const name = poseNameKey(node);
+  if (poseNonAnatomyName(node)) return node?.Name || 'Object';
   if (/(?:^|[\s_.-])(?:hand|wrist)(?=$|[\s_0-9.\-])|(?:^|[\s_.-])[lr]ah$/.test(name)) return 'Hand';
   if (/hoof/.test(name)) return 'Hoof';
   if (/(?:^|[\s_.-])(?:foot|ankle|toe)(?=$|[\s_0-9.\-])/.test(name)) return 'Foot';
@@ -146,12 +150,13 @@ export const poseRole = (model, config, id, nodes) => config.roles?.[id] || pose
 
 /** Anatomy names locate candidates; hierarchy and skinned geometry resolve the
  * control, including mounted rigs and feet below unnamed mesh children. */
-export function suggestPoseRig(model, frame, sequence) {
+export function suggestPoseRig(model, frame, sequence, options = {}) {
   const nodes = allNodes(model), transforms = transformNodes(model), tree = nodeIndex(model, nodes), { byId } = tree;
   const descendantOf = tree.isAncestor, joints = new Set(transforms.map(node => node.ObjectId)), chains = [], unavailable = [];
-  const roles = {}, children = new Map(), evidence = poseRecognitionEvidence(model);
+  const roles = {}, children = new Map(), clues = options.clues !== false, evidence = poseRecognitionEvidence(model, { clues });
   for (const node of transforms) { const siblings = children.get(node.Parent) || []; siblings.push(node); children.set(node.Parent, siblings); }
   const rootOf = node => tree.root(node?.ObjectId);
+  const trunkAnchor = id => tree.ancestors(id).find(a => ['Chest', 'Spine', 'Pelvis', 'Body', 'Neck'].includes(poseNodeRole(byId.get(a)))) ?? null;
   // Native attachment references often name an otherwise anonymous rig. Prefer
   // its real joint, not the offset attachment (or a mesh's arbitrary pivot).
   for (const ref of model.Attachments || []) {
@@ -161,7 +166,9 @@ export function suggestPoseRig(model, frame, sequence) {
     if ((model.Attachments || []).some(other => other.Parent === ref.Parent && ['Hand','Foot'].includes(poseNodeRole(other)) && poseNodeRole(other) !== role)) continue;
     if (['Head', 'Hand', 'Foot', 'Hoof'].includes(poseNodeRole(parent))) continue;
     if (role === 'Head') {
-      if (poseNodeRole(byId.get(parent.Parent)) === 'Chest' || !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head')) roles[parent.ObjectId] = role;
+      const chestMarksHead = poseNodeRole(byId.get(parent.Parent)) === 'Chest' &&
+        (!clues || !transforms.some(node => poseNodeRole(node) === 'Head' && descendantOf(node.ObjectId, parent.ObjectId)));
+      if (chestMarksHead || (clues ? !transforms.some(node => poseNodeRole(node) === 'Head' && (descendantOf(parent.ObjectId, node.ObjectId) || descendantOf(node.ObjectId, byId.has(parent.Parent) ? parent.Parent : parent.ObjectId) || trunkAnchor(node.ObjectId) === trunkAnchor(parent.ObjectId))) : !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head'))) roles[parent.ObjectId] = role;
       continue;
     }
     if (/(?:arm2|forearm|leg2|leg3|calf|shin|knee)(?:$|[ _.-])/i.test(parent.Name)) continue;
@@ -173,6 +180,7 @@ export function suggestPoseRig(model, frame, sequence) {
     const end = next && distance(next) < distance(parent) * .98 ? next : parent;
     roles[end.ObjectId] = role;
   }
+  for (const [id, role] of Object.entries(clues ? poseNameConflicts(model, evidence, poseNodeRole, roles) : {})) if (roles[id] === undefined) roles[id] = role;
   const roleOf = node => roles[node?.ObjectId] || poseNodeRole(node);
   // Process real ancestors before their mesh children. A pairwise ancestor
   // comparator is not transitive when unrelated limbs sit between the two.
@@ -211,7 +219,7 @@ export function suggestPoseRig(model, frame, sequence) {
     } catch (cause) { unavailable.push({ id: node.ObjectId, reason: cause.message }); }
   }
   const occupied = new Set(chains.flatMap(poseChainIds));
-  for (const branch of inferPoseBranches(evidence, roleOf, occupied)) {
+  for (const branch of inferPoseBranches(evidence, roleOf, occupied, clues ? model : null, clues)) {
     if (branch.ids.some(id => occupied.has(id))) continue;
     const horseLimb = branch.kind === 'leg' && /horse|equine/i.test(byId.get(rootOf(byId.get(branch.ids[0])))?.Name || '');
     const chain = { root: branch.ids[0], middle: branch.ids[1], end: branch.ids.at(-1), joints: branch.ids, kind: branch.kind, key: `limb:${branch.ids.at(-1)}`, ...(branch.label || horseLimb ? { label: branch.label || 'Hoof' } : {}) };
@@ -346,6 +354,8 @@ export function suggestPoseRig(model, frame, sequence) {
       .sort((a,b) => a.error - b.error)[0];
     if (peer?.error < .25) roles[peer.node.ObjectId] = 'Wing';
   }
+  const inferred = {};
+  for (const [id, role] of Object.entries(!clues ? {} : posePartGaps({ evidence, tree, chains, roles, roleOf, body, chainIds: poseChainIds, excluded: node => poseNonAnatomyName(node) || poseExcludedBranchName(node.Name) }))) if (roles[id] === undefined) roles[id] = inferred[id] = role;
   const controls = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail','Wing'].includes(roleOf(node)) && !/death|portrait/i.test(node.Name))
     // One anatomical head can own separately named meshes, flaps or eyelids
     // at any depth. Expose the controlling joint, not a second head handle.
@@ -354,7 +364,7 @@ export function suggestPoseRig(model, frame, sequence) {
     .filter(node => !model.Geosets?.length || evidence.supported(node) && (roles[node.ObjectId] || /^bone[ _]/i.test(node.Name) || evidence.articulated(node) || !byId.has(node.Parent)))
     .filter(node => roleOf(node) !== 'Tail' || !(children.get(node.ObjectId) || []).some(child => roleOf(child) === 'Tail' && evidence.moving(child)))
     .map(node => node.ObjectId).filter(id => id !== body);
-  return { chains, body, nodes: controls, roles, followers, carriers, unavailable };
+  return { chains, body, nodes: controls, roles, inferred, followers, carriers, unavailable };
 }
 
 function rigidRotation(matrix) {

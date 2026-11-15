@@ -4,42 +4,25 @@ import { createPoseSample, poseChainIds, poseDuplicatesBody, poseNodeControl, po
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
+import { POSE_SYMBOL_NAMES, drawPoseSymbol, isPoseMaskSet } from '../src/pose-symbol-sets.js';
+import { drawPoseMask } from './pose-masks.js';
 
-export const poseSymbols = {
-  Magnet: ['M3 2H9V12A3 3 0 0 0 15 12V2H21V12A9 9 0 0 1 3 12Z', 'M3 7H9M15 7H21'],
-  Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
-  Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
-  Hoof: ['M6 2H18L17 12L22 19V22H2V19L7 12Z', 'M7 13H17M12 14V22'],
-  Head: ['M3 20V10Q3 2 12 2Q21 2 21 10V20L15 23H9Z', 'M5 10H19L17 14H7ZM12 14V20'],
-  Chest: ['M3 3L8 1L12 5L16 1L21 3L18 9L19 21L12 23L5 21L6 9Z', 'M7 7L12 10L17 7M12 10V19'],
-  Body: ['M12 1A3 3 0 1 1 12 7A3 3 0 1 1 12 1ZM7 9H17L22 15L19 17L16 13V17L18 23H14L12 18L10 23H6L8 17V13L5 17L2 15Z', ''],
-  Spine: ['M9 1H15V4H18V7H15V10H18V13H15V16H18V19H15V23H9V19H6V16H9V13H6V10H9V7H6V4H9Z', 'M9 7H15M9 13H15M9 19H15'],
-  Wing: ['M2 20L3 5L10 9L16 3L22 5L18 11L21 17L14 15L10 21L6 16Z', 'M3 5L10 13L22 5M10 13L10 21'],
-  Tail: ['M3 4Q15 2 18 9Q23 18 15 22Q6 24 3 17Q1 12 7 10Q12 9 13 14Q9 12 8 16Q11 20 15 17Q18 12 12 9Q7 6 3 7Z', ''],
-  Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
-};
-const symbols = poseSymbols;
 export const posePinPath = 'M5 2H11L10 6L13 9V10H3V9L6 6ZM8 10V15';
-const symbolPaths = new Map();
-const pelvisSymbols = new Map();
-let pelvisFace;
-
-export function loadPoseSymbols(onLoad) {
-  pelvisFace ||= new Image();
-  if (pelvisFace.complete && pelvisFace.naturalWidth) { onLoad(); return () => {}; }
-  pelvisFace.addEventListener('load', onLoad, { once: true });
-  if (!pelvisFace.src) pelvisFace.src = new URL('./pose-trollface.png', import.meta.url).href;
-  return () => pelvisFace.removeEventListener('load', onLoad);
-}
+let pinPath;
 
 export function poseHandleTarget(handle) {
   return { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}), ...(handle.marker ? { marker: true } : {}) };
 }
+/** Hidden-handle identity: an endpoint's chain key, 'body', or 'node:<id>' for a mapped part. Bend handles and unmapped bone markers have none. */
+export const poseHandleKey = handle => handle.quiet || handle.marker || handle.kind === 'bend' ? null : handle.kind === 'endpoint' ? handle.key : handle.kind === 'body' ? 'body' : handle.kind === 'node' ? `node:${handle.id}` : null;
+/** The same identity for a selection target (an elbow/knee target belongs to its limb). */
+export const poseTargetKey = target => !target || target.marker ? null : target.kind === 'endpoint' || target.kind === 'bend' ? target.key : target.kind === 'body' ? 'body' : target.kind === 'node' ? `node:${target.id}` : null;
+export const poseSymbolName = label => POSE_SYMBOL_NAMES.includes(label) ? label : 'Object';
 const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handle.key ?? handle.id ?? ''}:${handle.marker ? 'marker' : 'control'}`;
 
 export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes, appearance = DEFAULT_CONTROLLER_APPEARANCE, mode = 'select') {
   if (!config?.enabled) return [];
-  const handles = [], target = config.target, nodes = allNodes(model);
+  const handles = [], target = config.target, nodes = allNodes(model), hiddenKeys = new Set(config.hidden || []);
   const project = (world, fields) => {
     const screen = world.clone().project(camera);
     const unit = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
@@ -49,9 +32,9 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   for (const chain of config.chains) {
     try {
       sample ||= createPoseSample(model, frame, sequence, globalTime);
-      const pose = samplePoseChain(model, chain, frame, sequence, globalTime, sample), selected = target?.key === chain.key;
-      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: pose.points.map(world => project(world, {})), pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
-      if (selected) {
+      const pose = samplePoseChain(model, chain, frame, sequence, globalTime, sample), selected = target?.key === chain.key, hidden = hiddenKeys.has(chain.key);
+      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], hidden, selected: selected && !hidden && target.kind === 'endpoint', joints: pose.points.map(world => project(world, {})), pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
+      if (selected && !hidden) {
         const direction = pose.end.clone().sub(pose.root).normalize(), bend = pose.middle.clone().sub(pose.root);
         bend.addScaledVector(direction, -bend.dot(direction));
         if (bend.lengthSq() < pose.tolerance * pose.tolerance) {
@@ -66,7 +49,8 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   const matrices = sampleNodeMatrices(model, frame, sequence, globalTime);
   for (const node of nodes) {
     if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
-    const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId;
+    const body = node.ObjectId === config.body, hidden = hiddenKeys.has(body ? 'body' : `node:${node.ObjectId}`) && (body || (config.nodes || []).includes(node.ObjectId));
+    const selected = !hidden && (body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId);
     const quiet = !body && !selected && !(config.nodes || []).includes(node.ObjectId);
     // A Pelvis that would only repeat Body (same Move and Rotate) is left out; Scale differs, so it stays there.
     if (!body && !selected && mode !== 'scale' && poseDuplicatesBody(model, config, node.ObjectId)) continue;
@@ -79,7 +63,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     if (selected) for (const chain of poseAffectedPins(model, config, node.ObjectId)) {
       try { sample ||= createPoseSample(model, frame, sequence, globalTime); const limb = samplePoseChain(model, chain, frame, sequence, globalTime, sample); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
     }
-    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseRole(model, config, node.ObjectId, nodes) }));
+    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, hidden, paths, quiet, label: body ? 'Body' : poseRole(model, config, node.ObjectId, nodes) }));
   }
   if (target?.kind === 'node' && target.marker) {
     const node = nodes.find(node => node.ObjectId === target.id), matrix = matrices.get(target.id), pivot = node?.PivotPoint || model.PivotPoints?.[target.id];
@@ -91,18 +75,18 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   // Nearby body/chest/pelvis pivots can overlap. Keep their labels separately
   // clickable while retaining the actual joint positions and compact overlay.
   const labels = [];
-  for (const handle of handles.filter(handle => handle.visible && !handle.quiet)) {
+  for (const handle of handles.filter(handle => handle.visible && !handle.quiet && !handle.hidden)) {
     handle.labelX = handle.x + handle.size + 4;
     handle.labelWidth = handle.label.length * 7;
     let offset = 0, attempt = 0;
-    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < (other.size || 17) + 9 && handle.labelX < other.x + (other.size || 17) + 2 && other.x - (other.size || 17) - 2 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
+    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && !other.hidden && Math.abs(other.y - (handle.y + offset)) < (other.size || 17) + 9 && handle.labelX < other.x + (other.size || 17) + 2 && other.x - (other.size || 17) - 2 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
     handle.labelY = handle.y + offset; labels.push(handle);
   }
   return handles;
 }
 
 export function pickPoseHandle(handles, x, y, target = null, nodes = null, preferSelected = false) {
-  const visible = handles.filter(handle => handle.visible && (!nodes || !handle.quiet));
+  const visible = handles.filter(handle => handle.visible && !handle.hidden && (!nodes || !handle.quiet));
   // The selected symbol is drawn last, over other controls' labels. Its
   // draggable face must therefore win over a label crossing that face.
   const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
@@ -135,7 +119,7 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
   }
   // Keep the selected symbol above overlapping controllers.
   for (const handle of [...handles.filter(handle => !handle.selected && !handle.hovered), ...handles.filter(handle => !handle.selected && handle.hovered), ...handles.filter(handle => handle.selected)]) {
-    if (!handle.visible || handle.quiet) continue;
+    if (!handle.visible || handle.quiet || handle.hidden) continue;
     const color = handle.pinned ? appearance.pinned : handle.selected ? appearance.selected : appearance.color;
     for (const path of skeleton ? [] : handle.paths || [handle.selected ? handle.joints || [] : []]) if (path.length && path.every(joint => joint.visible)) {
       context.beginPath(); path.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); });
@@ -148,36 +132,19 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     const size = handle.size ?? (handle.kind === 'bend' ? 10 : appearance.size), polygon = controllerShapePoints(handle.shape || appearance.shape, size);
     if (polygon) { polygon.forEach(([x, y], index) => context[index ? 'lineTo' : 'moveTo'](handle.x + x, handle.y + y)); context.closePath(); }
     else context.arc(handle.x, handle.y, size, 0, Math.PI * 2);
-    context.fillStyle = appearance.background; context.fill(); context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
+    if (appearance.filled !== false) { context.fillStyle = appearance.background; context.fill(); } context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
     context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'triangle' ? .65 : handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y + (handle.shape === 'triangle' ? size * .2 : 0)); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (!appearance.symbols) { /* Outline-only rig controls. */ }
-    else if (handle.label === 'Pelvis') {
-      if (pelvisFace?.complete && pelvisFace.naturalWidth) {
-        if (!pelvisSymbols.has(color)) {
-          const icon = document.createElement('canvas'); icon.width = pelvisFace.naturalWidth; icon.height = pelvisFace.naturalHeight;
-          const tint = icon.getContext('2d'); tint.drawImage(pelvisFace, 0, 0);
-          tint.globalCompositeOperation = 'multiply'; tint.fillStyle = color; tint.fillRect(0, 0, icon.width, icon.height);
-          tint.globalCompositeOperation = 'destination-in'; tint.drawImage(pelvisFace, 0, 0); tint.globalCompositeOperation = 'source-over';
-          pelvisSymbols.set(color, icon);
-        }
-        context.drawImage(pelvisSymbols.get(color), handle.x - 16, handle.y - 16, 32, 32);
-      }
-    }
-    else {
-      const name = symbols[handle.label] ? handle.label : handle.label === 'Neck' ? 'Head' : 'Object';
-      if (!symbolPaths.has(name)) symbolPaths.set(name, symbols[name].map(path => new Path2D(path)));
-      const [shape, detail] = symbolPaths.get(name);
-      context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
-      context.strokeStyle = appearance.background; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
-    }
+    else if (isPoseMaskSet(appearance.symbolSet)) drawPoseMask(context, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color);
+    else drawPoseSymbol(context, appearance.symbolSet, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color, appearance.background, appearance.filled === false);
     context.restore();
     if (handle.pinned) {
       // A pin remains legible after selection moves to the body or another limb.
-      if (!symbolPaths.has('Pin')) symbolPaths.set('Pin', new Path2D(posePinPath));
+      pinPath ||= new Path2D(posePinPath);
       context.save(); context.translate(handle.x + 11, handle.y - 11);
       context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = appearance.pinned; context.fill();
-      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = appearance.background; context.stroke(symbolPaths.get('Pin')); context.restore();
+      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = appearance.background; context.stroke(pinPath); context.restore();
     }
     if (!handle.selected && !handle.hovered && handle.kind !== 'bend') continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
@@ -186,7 +153,7 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
     context.lineWidth = 3; context.strokeStyle = appearance.background; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);
   }
-  if (ping) for (const handle of handles.filter(handle => handle.visible && ping.targets.some(target => identity(target) === identity(handle)))) {
+  if (ping) for (const handle of handles.filter(handle => handle.visible && !handle.hidden && ping.targets.some(target => identity(target) === identity(handle)))) {
     const radius = 27 + 5 * Math.sin(ping.age / 75), x = handle.x, y = handle.y;
     context.globalAlpha = Math.min(1, (1200 - ping.age) / 200);
     context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2);

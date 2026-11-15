@@ -62,6 +62,7 @@ import { forgeSaveBlock } from '../src/forge-clay.js';
 import { nativeStarterTexture, repointStarterTextures } from '../src/particle-starters.js';
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
+import { poseTargetKey } from './pose-overlay.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
 import { beginUVPreview, applyUVPreviews, revertUVPreviews, dropUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { uncoupleUVVertices } from '../src/uv-tools.js';
@@ -256,6 +257,15 @@ export default function App() {
     const targets = { ...config.targets }; delete targets[key];
     changePose({ ...config, targets, pins: config.pins.includes(key) ? config.pins.filter(value => value !== key) : [...config.pins, key] });
   };
+  // Hiding a handle only takes it out of sight: no animation key, no Undo step, the model is not marked changed.
+  const hidePose = id => {
+    const config = session.pose || poseConfig;
+    if (!id || (config.hidden || []).includes(id)) return;
+    const selected = poseTargetKey(config.target) === id;
+    if (selected) { poseSelectionOnly.current = true; setSelectedNodeIdsState([]); }
+    changePose({ ...config, hidden: [...(config.hidden || []), id], ...(selected ? { target: null } : {}) });
+  };
+  const revealPose = id => { const config = session.pose || poseConfig; if ((config.hidden || []).includes(id)) changePose({ ...config, hidden: config.hidden.filter(value => value !== id) }); };
   const selectPose = target => { poseSelectionOnly.current = true; setSelectedNodeIdsState(target?.kind === 'node' ? [target.id] : target?.kind === 'body' ? [session.pose.body] : []); changePose({ ...(session.pose || poseConfig), target, ...(session.pose?.picking ? { pickSerial: (session.pose.pickSerial || 0) + 1 } : {}) }); };
   const setSelectedNodeIds = value => {
     if (session.pose?.enabled && value.length === 1) {
@@ -2060,7 +2070,7 @@ export default function App() {
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying}
         teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
-        poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose}
+        poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose} onPoseMenu={(id, x, y) => setContext({ pose: id, x, y })} onPoseReveal={revealPose}
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={(ids, { record = true } = {})=>{if (!record) poseSelectionOnly.current = true; if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
@@ -2096,7 +2106,7 @@ export default function App() {
       visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
       forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
-      importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
+      importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hidePose, hiddenByUser, meshAction, mode, model, normalAngle, notice,
       openLibrary, openOptimizeXL, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
       removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
       selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,

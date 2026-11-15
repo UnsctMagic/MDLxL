@@ -71,7 +71,7 @@ function measureUnit(model) {
   for (const { point } of vertices) { low.min(point); high.max(point); }
   if (!vertices.length) { low.set(-25, -25, 0); high.set(25, 25, 100); }
   let rig = null;
-  try { rig = suggestPoseRig(bare, frame, sequence); } catch { rig = null; }
+  try { rig = suggestPoseRig(bare, frame, sequence, { clues: false }); } catch { rig = null; }
   const world = id => byId.has(id) ? pivotOf(model, byId.get(id)).applyMatrix4(matrices.get(id) || new Matrix4()) : new Vector3();
   return { sequence, frame, matrices, byId, children, tree, transforms, vertices, low, high, height: Math.max(high.z - low.z, 1), rig, world };
 }

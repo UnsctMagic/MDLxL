@@ -31,7 +31,7 @@ export default function AppDialogs({
   visUI, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
   clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
   forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
-  importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hiddenByUser, meshAction, mode, model, normalAngle, notice,
+  importPart, stageBitReplacement, finishBitReplacement, latest, leaveGeosetVisible, hideGeoset, hidePose, hiddenByUser, meshAction, mode, model, normalAngle, notice,
   openLibrary, openOptimizeXL, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
   removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
   selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,
@@ -63,7 +63,8 @@ export default function AppDialogs({
     {saveDataChoice && <SaveEditorData hasFx={model.Geosets.some(g=>g._FxStack)} name={saveDataChoice.name} bytes={saveDataChoice.bytes} onChoose={value => { saveDataChoice.resolve(value); setSaveDataChoice(null); }}/>}
     {dialog?.type === 'recent' && <Dialog title="Recent Files" onClose={()=>setDialog(null)} footer={<><button disabled={!recentFiles.length} onClick={clearRecent}>Clear History</button><button onClick={()=>setDialog(null)}>Close</button></>}>{recentFiles.length ? recentFiles.map(path=><button key={path} title={path} onClick={()=>{setDialog(null);openRecent(path);}} style={{display:'block',width:'100%',textAlign:'left',overflowWrap:'anywhere'}}>{path}</button>) : <p>No recent files.</p>}</Dialog>}
     {context?.uncouple && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - 40) }} onClick={event => event.stopPropagation()}><label className="check" title="On: Uncouple pulls the separated corners apart. Off: they are separated but stay on the same spot."><input type="checkbox" checked={preferences.uncoupleNuke} onChange={event => changePreferences(previous => ({ ...previous, uncoupleNuke: event.target.checked }))}/>Nuke</label></div>}
-    {context && !context.uncouple && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [
+    {context?.pose && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - 40) }}><button role="menuitem" onClick={() => hidePose(context.pose)}>{translate('Hide')}</button></div>}
+    {context && !context.uncouple && !context.pose && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [
       ['Add to tab…', () => setDialog({ type: 'geosetTab', geosetIndex: context.geosetIndex, tabId: (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === geosetTab) ? geosetTab : model[GEOSET_TABS_KEY]?.[0]?.id })],
       ['Hide Geoset', () => hideGeoset(context.geosetIndex)],
       ['Show Always', () => leaveGeosetVisible(context.geosetIndex)],

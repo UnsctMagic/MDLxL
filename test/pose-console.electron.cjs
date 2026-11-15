@@ -133,12 +133,13 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await openSection('Controllers'); await page.getByLabel('Controllers appearance set').selectOption('blender-style'); await paint();
     let mixed = await prefs(); assert.equal(mixed.theme, 'light'); assert.equal(mixed.viewportAppearance.background.color, '#cccccc'); assert.equal(mixed.viewportAppearance.controllers.color, '#ffb765');
     assert.equal(await pin.getAttribute('data-style'), 'icon'); assert.equal((await pin.boundingBox()).width, 30);
-    assert.deepEqual(await page.getByLabel('Handle shape', { exact: true }).locator('option').evaluateAll(options => options.map(option => option.value)), ['circle', 'square', 'diamond'], 'the handle shape offers no triangle');
-    for (const shape of ['square', 'circle', 'diamond']) { await page.getByLabel('Handle shape', { exact: true }).selectOption(shape); await paint(); assert.equal((await prefs()).viewportAppearance.controllers.shape, shape); }
+    // The main handle has no triangle (#628); body and bend shapes keep it.
+    assert.deepEqual(await page.getByLabel('Handle shape', { exact: true }).locator('option').evaluateAll(options => options.map(option => option.value)), ['circle', 'square', 'diamond']);
+    for (const shape of ['circle', 'square', 'diamond']) { await page.getByLabel('Handle shape', { exact: true }).selectOption(shape); await paint(); assert.equal((await prefs()).viewportAppearance.controllers.shape, shape); }
     await page.getByLabel('Pin button style').selectOption('round'); await page.getByLabel('Controller size', { exact: true }).fill('22'); await page.getByLabel('Controller size', { exact: true }).press('Tab');
     await page.getByRole('checkbox', { name: 'Show body-part symbols' }).uncheck(); await paint(); await shot('controllers-mixed');
     mixed = await prefs(); assert.equal(mixed.viewportAppearance.controllers.pinStyle, 'round'); assert.equal(mixed.viewportAppearance.controllers.size, 22); assert.equal(mixed.viewportAppearance.controllers.symbols, false);
-    result.checks.push('all seven global themes change live controllers; Lordaeron interface with independent Blackrock controllers, three shapes and three Pin styles');
+    result.checks.push('all seven global themes change live controllers; Lordaeron interface with independent Blackrock controllers, three handle shapes and three Pin styles');
 
     const titles = [];
     for (const name of await page.locator('.settings-appearance-nav button').allTextContents()) { await openPage(name); titles.push(...await page.locator('.settings-appearance-section > h4').allTextContents()); }
