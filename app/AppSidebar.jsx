@@ -6,7 +6,6 @@ import { sketchStore } from '../src/ai-sketch.js';
 import SidebarSection from './SidebarSection.jsx';
 import GeosetTabs from './GeosetTabs.jsx';
 import './geoset-set.css';
-import AnimationNodes from './AnimationNodes.jsx';
 import LookIcon from './LookIcon.jsx';
 const MovementController = lazy(() => import('./MovementControllerRecomp.jsx'));
 const AnimationController = lazy(() => import('./AnimationController.jsx'));
@@ -29,18 +28,18 @@ function useFold(name) {
 
 /** Vertices mode: counts, coordinates, workplane and the transform / mesh tool buttons. */
 export function VertexTools({
-  cameraRotating, centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane, quadView, meshAction,
-  mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode, setContext, setDialog, setWorkplane,
+  cameraRotating, centroid, commandEnabled, editable, lockedVertexPlane, quadView, meshAction,
+  mode, preferences, selectedFaces, selectionCount, selectMode, setContext, setDialog, setWorkplane,
   setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform, uvAction, validSelection,
-  vertexNodeCenter, workplane, workplaneEnabled
+  workplane, workplaneEnabled
 }) {
   const singleTriangle = Object.values(validSelection).filter(ids => ids.length).length === 1 && selectionCount === 3;
   // While the AI console's Marker, Pen or Eraser has the left button, no editor tool shows as active.
   const drawing = !!useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get).tool;
   const [statsOpen, toggleStats] = useFold('stats'), [coordsOpen, toggleCoords] = useFold('coords');
-  const toolButton = (icon, name, title = name, condition = selectionCount > 0, extra) => {const nodes=name==='Delete vertices'&&vertexNodeCenter;return <Tool look action={name} icon={icon} title={nodes?'Delete object':title} disabled={!editable || !(condition||nodes) || mode === 'uv'} onClick={() => nodes?deleteSelectedNode():meshAction(name)} {...extra}/>;};
+  const toolButton = (icon, name, title = name, condition = selectionCount > 0, extra) => <Tool look action={name} icon={icon} title={title} disabled={!editable || !condition || mode === 'uv'} onClick={() => meshAction(name)} {...extra}/>;
   return <><FoldHeader name="stats" title="Stats" tip="Vertex and triangle counts. Click to fold them into one line." summary={`${totalVertices} verts · ${selectionCount} sel · ${totalFaces} tris`} open={statsOpen} onToggle={toggleStats}/><div className="classic-counts" data-folded={statsOpen ? undefined : ''}><div>Vertices: <span>{totalVertices}</span></div><div>Selected: <span>{selectionCount}</span></div><div>Triangles: <span>{totalFaces}</span></div><div>Selected: <span>{selectedFaces}</span></div></div>
-      <FoldHeader name="coords" title="Coords" tip="Position of the selection; type a number to move it. Click to fold." open={coordsOpen} onToggle={toggleCoords}/><div className="classic-coordinates" data-folded={coordsOpen ? undefined : ''} data-label={preferences.language === 'zh' ? 'Coords:' : translate('Coords:')}>{['X', 'Y', 'Z'].map((axis, i) => <Coordinate key={axis} axis={axis} value={(vertexNodeCenter||centroid)[i]} disabled={!editable || !(selectionCount||vertexNodeCenter) || mode === 'uv'} onCommit={value => { const translation = [0, 0, 0]; translation[i] = value - (vertexNodeCenter||centroid)[i]; if(vertexNodeCenter)moveNodes({nodeIds:selectedNodeIds,mode:'move',values:translation,restPose:true,workplaneEnabled:false});else transform({ translation }); }}/>)}</div>
+      <FoldHeader name="coords" title="Coords" tip="Position of the selection; type a number to move it. Click to fold." open={coordsOpen} onToggle={toggleCoords}/><div className="classic-coordinates" data-folded={coordsOpen ? undefined : ''} data-label={preferences.language === 'zh' ? 'Coords:' : translate('Coords:')}>{['X', 'Y', 'Z'].map((axis, i) => <Coordinate key={axis} axis={axis} value={centroid[i]} disabled={!editable || !selectionCount || mode === 'uv'} onCommit={value => { const translation = [0, 0, 0]; translation[i] = value - centroid[i]; transform({ translation }); }}/>)}</div>
       {!quadView && <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane} locked={lockedVertexPlane}/>}
       {mode === 'vertices' && <EachPieceToggle/>}
       {!cameraRotating && <div className="classic-tools"><TransformTools look value={drawing ? null : tool} onChange={setWorkTool}/><Tool look action="normalRotate" icon="sb_nrot" title="Rotate normals" disabled={!editable || !selectionCount || mode === 'uv'} onClick={() => setDialog({ type: 'normalRotate' })}/>
@@ -94,7 +93,7 @@ export function RigSidebar({
   globalSeqId, materialVisibility, mode, model, movementControllerProps, openAttachemator, openBoneNamer, parentedRigNodes,
   renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes, selectionCount,
   selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying, setSelectedBoneBillboarded,
-  setSelectedNodeIds, setTime, singleRigNode, time
+  setSelectedNodeIds, setTime, singleRigNode, time, visUI
 }) {
   return <>
       {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController key={session.id} {...movementControllerProps()} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} wiggleActive={boneWiggle} onWiggle={() => setBoneWiggle(value => !value)} onAttachemator={openAttachemator} onBoneNamer={openBoneNamer} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0} canDetach={parentedRigNodes.length > 0} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
@@ -102,10 +101,10 @@ export function RigSidebar({
           drag may swap the Animations controls for the camera view. */}
       {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
-        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
-          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
+        {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} cameraPanel={cameraPanel} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} onDeleteNode={activePortrait || visUI ? undefined : deleteSelectedNode} canDeleteNode={!!singleRigNode} /> : <>
+          <AnimationController cameraPanel={cameraPanel} materialVisibility={materialVisibility} selectedNodeIds={[]} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
-          <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
+          {/* VIS keeps its Nodes list; XL Animations shows no objects (their visibility is edited in EMTR or Movement). */}
 
         </>}
       </Suspense>}

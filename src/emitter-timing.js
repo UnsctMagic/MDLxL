@@ -1,16 +1,25 @@
 import {isGlobalTrack} from './animation.js';
 import {sampleAnimationProperty,setAnimationKey} from './animation-tracks.js';
 
-/** On/off parts of any emitter, and a ribbon's size keys, inside one animation. */
-const FAMILIES=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'];
+/** On/off parts of any emitter, light or attachment, and a ribbon's size keys, inside one animation. */
+const FAMILIES=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns','Lights','Attachments'];
 const node=(model,id)=>{const found=FAMILIES.flatMap(family=>model[family]||[]).find(item=>item.ObjectId===id);if(!found)throw Error('The emitter was removed.');return found;};
 const clipOf=(model,sequenceIndex)=>{const clip=model.Sequences[sequenceIndex];if(!clip)throw Error('Choose an animation first.');return Array.from(clip.Interval,Math.round);};
+// A timeline that shows a global sequence runs from 0 to its length; otherwise the animation's frames.
+const ownGlobal=globalSeqId=>Number.isInteger(globalSeqId)&&globalSeqId>=0?globalSeqId:null;
+const rangeOf=(model,sequenceIndex,globalSeqId)=>{
+ const global=ownGlobal(globalSeqId);if(global===null)return clipOf(model,sequenceIndex);
+ const length=model.GlobalSequences?.[global];if(!(length>0))throw Error('Choose an animation first.');return [0,Math.round(length)];
+};
+/** True when the object switches on and off with a Visibility track (emitters, ribbons, lights, attachments). */
+export const hasVisibilityDiamonds=(model,id)=>FAMILIES.some(family=>(model[family]||[]).some(item=>item.ObjectId===id));
 
 /** Visible parts as [shows, hides] frame pairs. A part that lasts to the end hides at the last frame. */
-export function emitterSpans(model,id,sequenceIndex){
- const ribbon=node(model,id),[start,end]=clipOf(model,sequenceIndex);
- if(isGlobalTrack(ribbon.Visibility))return {start,end,spans:[],global:true};
- const target={kind:'node',id,property:'Visibility'},on=frame=>Number(sampleAnimationProperty(model,target,frame,sequenceIndex))>0;
+export function emitterSpans(model,id,sequenceIndex,globalSeqId=null){
+ const ribbon=node(model,id),[start,end]=rangeOf(model,sequenceIndex,globalSeqId),global=ownGlobal(globalSeqId);
+ // Visibility on another clock than the shown one is not edited here (EMTR: a global sequence never is).
+ if(global===null?isGlobalTrack(ribbon.Visibility):ribbon.Visibility?.GlobalSeqId!==global||!ribbon.Visibility?.Keys)return {start,end,spans:[],global:true};
+ const target={kind:'node',id,property:'Visibility'},on=frame=>Number(sampleAnimationProperty(model,target,frame,sequenceIndex,global))>0;
  const changes=[...new Set((ribbon.Visibility?.Keys||[]).map(key=>key.Frame).filter(frame=>frame>start&&frame<end))].sort((a,b)=>a-b);
  const spans=[];let open=on(start)?start:null;
  for(const frame of changes){const visible=on(frame);if(visible&&open===null)open=frame;else if(!visible&&open!==null){spans.push([open,frame]);open=null;}}
@@ -29,9 +38,10 @@ export function normalizeSpans(spans,start,end){
  * Rewrites only this animation's visibility keys: on at each part's first frame, off where it ends.
  * Other animations keep their keys. Visibility steps (no interpolation), as on/off should in game.
  */
-export function setEmitterSpans(model,id,sequenceIndex,spans){
- const ribbon=node(model,id),[start,end]=clipOf(model,sequenceIndex),parts=normalizeSpans(spans,start,end);
- if(isGlobalTrack(ribbon.Visibility))throw Error('This emitter uses a global sequence for visibility. Use Adjust Manually.');
+export function setEmitterSpans(model,id,sequenceIndex,spans,globalSeqId=null){
+ const ribbon=node(model,id),[start,end]=rangeOf(model,sequenceIndex,globalSeqId),parts=normalizeSpans(spans,start,end),global=ownGlobal(globalSeqId);
+ if(global===null&&isGlobalTrack(ribbon.Visibility))throw Error('This emitter uses a global sequence for visibility. Use Adjust Manually.');
+ if(global!==null&&(ribbon.Visibility?.GlobalSeqId!==global||!ribbon.Visibility?.Keys))throw Error('This object\'s visibility is not on this global sequence.');
  const keys=new Map();
  if(ribbon.Visibility?.Keys){for(const key of ribbon.Visibility.Keys)if(key.Frame<start||key.Frame>end)keys.set(key.Frame,key.Vector[0]>0?1:0);}
  else{
@@ -42,7 +52,7 @@ export function setEmitterSpans(model,id,sequenceIndex,spans){
  keys.set(start,parts[0]?.[0]===start?1:0);
  for(const [shows,hides]of parts){if(shows>start)keys.set(shows,1);if(hides<end)keys.set(hides,0);}
  keys.set(end,parts.at(-1)?.[1]===end?1:0);
- ribbon.Visibility={LineType:0,GlobalSeqId:null,Keys:[...keys].sort((a,b)=>a[0]-b[0]).map(([Frame,value])=>({Frame,Vector:new Float32Array([value])}))};
+ ribbon.Visibility={LineType:0,GlobalSeqId:global,Keys:[...keys].sort((a,b)=>a[0]-b[0]).map(([Frame,value])=>({Frame,Vector:new Float32Array([value])}))};
  return parts;
 }
 
@@ -54,6 +64,47 @@ export function addSpan(spans,start,end){
  if(!gap||gap[1]-gap[0]<4)throw Error('There is no hidden time left for another part. Shorten a part first.');
  const third=Math.max(1,Math.round((gap[1]-gap[0])/3));
  return normalizeSpans([...spans,[gap[0]+third,gap[1]-third]],start,end);
+}
+
+/** Event and sound frames shown on this timeline. Events on a global sequence belong to that sequence only. */
+const eventNode=(model,id)=>{const found=(model.EventObjects||[]).find(item=>item.ObjectId===id);if(!found)throw Error('The event was removed.');return found;};
+export const hasEventDiamonds=(model,id)=>(model.EventObjects||[]).some(item=>item.ObjectId===id);
+export function eventDiamonds(model,id,sequenceIndex,globalSeqId=null){
+ const event=eventNode(model,id),[start,end]=rangeOf(model,sequenceIndex,globalSeqId);
+ if(ownGlobal(event.GlobalSeqId)!==ownGlobal(globalSeqId))return {start,end,frames:[],global:true};
+ return {start,end,frames:Array.from(event.EventTrack||[]).filter(frame=>frame>=start&&frame<=end).sort((a,b)=>a-b),global:false};
+}
+/** Rewrites only this timeline's event frames; frames in other animations stay. */
+export function setEventDiamonds(model,id,sequenceIndex,frames,globalSeqId=null){
+ const event=eventNode(model,id),[start,end]=rangeOf(model,sequenceIndex,globalSeqId);
+ if(ownGlobal(event.GlobalSeqId)!==ownGlobal(globalSeqId))throw Error('This event plays on another clock.');
+ const kept=Array.from(event.EventTrack||[]).filter(frame=>frame<start||frame>end),own=frames.map(frame=>Math.max(start,Math.min(end,Math.round(frame))));
+ event.EventTrack=new Uint32Array([...new Set([...kept,...own])].sort((a,b)=>a-b));
+ return own;
+}
+/** One more event frame at the playhead. */
+export function addEventFrame(frames,frame,start,end){
+ const at=Math.max(start,Math.min(end,Math.round(frame)));
+ if(frames.includes(at))throw Error('There is already a diamond at frame '+at+'. Move the playhead first.');
+ return [...frames,at].sort((a,b)=>a-b);
+}
+
+/** The clicked object's diamonds on this timeline, or null (nothing, bones, another clock, no animation). */
+export function timelineDiamonds(model, selectedNodeIds, domain) {
+  const id = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
+  const sequence = domain?.sequenceIndex ?? -1, global = Number.isInteger(domain?.globalSeqId) ? domain.globalSeqId : null;
+  if (id == null || !domain || sequence < 0 && global === null) return null;
+  try {
+    if (hasVisibilityDiamonds(model, id)) {
+      const timing = emitterSpans(model, id, sequence, global);
+      return timing.global ? null : { id, sequence, global, kind: 'spans', start: timing.start, end: timing.end, groups: timing.spans };
+    }
+    if (hasEventDiamonds(model, id)) {
+      const timing = eventDiamonds(model, id, sequence, global);
+      return timing.global ? null : { id, sequence, global, kind: 'events', start: timing.start, end: timing.end, groups: timing.frames.map(frame => [frame]) };
+    }
+  } catch { return null; }
+  return null;
 }
 
 /** Frames inside this animation where the ribbon size is keyed. */

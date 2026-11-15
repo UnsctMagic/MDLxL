@@ -1,5 +1,18 @@
 # FX contract: the Global Animation Maker
 
+12 November 2026 owner update: all nine elemental looks offer the same reusable
+techniques through the existing Variation control. Lightning and Crystal omit
+Enveloping. Element data owns art and motion; technique data owns roles and birth
+geometry. Fresh defaults may improve; saved values never migrate on open/save.
+Only deliberate Variation replaces a recipe, with explicit ownership and conservative
+unique structural legacy recognition. User-added duplicates and ambiguous layers stay.
+Particles use one fixed control layout, including native emitters and geometry-based
+fly swarms. Inapplicable fields remain disabled in place. Native fields/curves are
+authoritative; actual local/global clocks are latched for gestures. Detailed current
+implementation and unrun acceptance gates are in the [placement note](agent-tasks/fx-emitter-placement.md).
+This owner update supersedes older default-tuning restrictions below; it does not
+waive saved-data preservation or authorize testing/builds/packages.
+
 Owner-defined contract for PR #492, updated from the complete 1 November 2026
 owner hand-test round. That round supersedes the earlier promise to keep every
 card. The owner allocates another 15% to these corrections and visual quality.
@@ -50,8 +63,24 @@ is one Undo step. Removing a layer removes only its owned resources.
 | Rune | Native rune glyphs on the surface; optional ground seals are separate, disabled layers |
 | Particles | Native PRE2 emitters and any nodes needed to carry their motion |
 | Edge | Native ribbons fitted to the part |
+| Card | Flat quads with one native texture, each on its own owned bone, in one owned geoset and one single-layer material |
 
-These remain the five layer types. No new types without asking the owner.
+No new types without asking the owner.
+
+11 November 2026: the owner asked to be able to "create anything of the models I showed
+you" in FX. That request is the permission for the sixth type, **Card**: one owned geoset
+holding the layer's quads (1–8 along the part, or stacked on the ground), one owned bone
+per card (billboarded when it faces the camera), one owned material with one layer (Add,
+Unshaded, Unfogged, two-sided by default). Size pulse, spin, jitter and the atlas flipbook
+each run on owned global sequences; several cards use different, non-dividing lengths
+(loop × 1, 1.133, 1.2, 1.3 …). Position and size are dragged with the emitter handles.
+Fields and bounds live in `src/fx-cards.js`. Removing a Card stack leaves the model as it
+was before, including its bounds.
+
+12 November 2026: the owner's Card permission of 11 November together with "fly swarm - doesnt
+look good ... make it scaleable" covers the Fly swarm's owned quad geoset, bones and material
+(below, under the native implementation routes). It is a Card-like set of quads on path-driven
+billboarded bones and stays listed as the existing Particles ingredient, Orbiting flies.
 
 A particle layer exposes all three native segment **Color**, **Size** and
 **See-through %** values in EMTR's **Born / Halfway / End** control. Do not collapse
@@ -66,7 +95,23 @@ Animation Manager and UV controls. Do not invent another control scheme.
 
 One Loop length (milliseconds) drives a permanent stack. Extra global clocks are
 allowed only when the look needs them; retain ownership and reuse equal durations.
-Use the grouped Add layer menu for surface ingredients across all accepted presets. Every preset also has a Particles field with an empty Add emitter choice. Selecting an emitter only previews it (5 November owner request): it shows in the preview but not in the layer list, a new pick replaces it, the empty choice removes it, and **Add** keeps it as a layer through the same layer builder. Apply includes a previewed emitter, so Apply matches the preview. The empty choice allocates no native objects or assets. A layer can use a different native texture from the existing texture library. Particle layers can also change emitter while keeping their placement. Artists can combine different light shapes, rune glyphs, sparks, mist, moving textures and ribbon edges on the same part. The rune UV map opens with its native image and the vertex editor's Move, Rotate and Scale icons. M, R and Z select these tools inside FX.
+Use the grouped **Add layer** menu for surface ingredients across all accepted
+presets. Choosing an item from its open menu adds a layer. Wheel steps over the
+closed menu replace a single temporary surface preview. **Particles → Add
+emitter** previews one emitter recipe. The two pickers share one temporary
+preview. Choosing the empty option clears that picker's preview, and **Add**
+keeps the previewed ingredient in the layer list. Apply includes the temporary
+ingredient, so Apply matches the preview. The empty choice allocates no native
+objects or assets.
+
+Wheel over the closed **Change emitter** menu to step from the current recipe
+while keeping the layer's placement. **Variation** and **Add emitter** also
+accept closed-menu wheel steps. Recipe choices can step through texture loading
+once this target has a fitted frame. A layer can use a different native texture
+from the existing library. Artists can combine light shapes, rune glyphs,
+sparks, mist, moving textures and ribbon edges on the same part. The rune UV map
+opens with its native image and the vertex editor's Move, Rotate and Scale
+icons. M, R and Z select these tools inside FX.
 
 Create as overlay keeps the original material visible and draws the effect on separate geosets fitted to the same surface and skin. With the switch cleared, the effect supplies the visible surface. Only stacks containing a surface ingredient offer the choice. Persist it through Apply and MDX/MDL reopen.
 
@@ -111,18 +156,194 @@ Judge at ordinary game camera distance as well as close up, in motion.
 | --- | --- |
 | Flaming sword | Fire comes from the whole blade, follows its pose and trails briefly behind a swing. The blade still reads through the fire. All three particle colours edit directly in FX. Sparks and embers are visible at default Amount, including on both blades of a dual wielder. |
 | Frost blade | Pale fractured ice moves across the blade with white mist and brief glints. |
-| Lightning blade | Use the surface defaults from `44f8c6c8`. Storm steel and Blade arcs start enabled. Forked arcs starts off. Use the original replacement material by default. The Particles choice starts empty. The Blade arcs surface has no direct burst-duration, burst-interval or flash-count controls. |
-| Arcane blade | Energy flows along the blade with a pulse. |
-| Rune blade | Show the native glyph in the UV editor. The three icon tools position it, and the glow can hold, breathe, flicker, flash or pulse twice. |
-| Water skin | Two continuous crossing currents with translucent highlights; preserve the part's shape. |
+| Lightning blade | Use the surface defaults from `44f8c6c8`. Storm steel and Forked arcs start enabled; Blade arcs starts off (owner, 11 November). Use the original replacement material by default. The Particles choice starts empty. The Blade arcs surface has no direct burst-duration, burst-interval or flash-count controls. |
+| Arcane | Two energy layers cross on two clocks with a violet/blue colour beat; a spinning star card and a few glow orbs. Narrow highlight is offered, off. |
+| Runes | Show the native glyph in the UV editor. The three icon tools position it. Runes and Glowing runes start with a slow colour beat at constant light; Thorn script keeps its glow with a slow colour beat. |
+| Water | Running water with a soft sheen on a shorter clock, and visible drips: drops form along the part and fall with streak tails. Crossing currents crosses a highlight on a 0.66x clock over the surface. |
+| Rift seam | A dark underlay, the crack moving slowly between two colours, softly crackling zap cards; the splinters keep their values and start off. |
 | Ice skin | One Dark ice / White ice selector, with White ice selected for new stacks. Keep the accepted dark striations. White ice uses native Northrend frost and fractured ice. Falling mist is available in both finishes. |
 | Fissures skin | The accepted Lava fissures surface replaces Lava skin in Skins. Fire is an independent layer, off by default. |
 | Glowing skin | The original texture glows in the chosen colour. Maximum Intensity is visibly strong. |
 | Poison skin | Build from Felwood poison and its native poison tileset texture; it reads as poison. |
-| Fly swarm | Compare with the native fly swarm. Correct atlas cell, rows/columns and blend preserve transparent corners. A few dark flies follow separate irregular paths, never an orderly glowing ring. |
+| Fly swarm | Made the way native `Flies.mdx` is made: separate dark flies with transparent corners glide on different closed paths around one centre, never a ring of particle dots. It looks right on any part without touching a control and scales with Amount, Fly size, Swarm size and Speed. |
 | Motes / Rising embers / Frost mist | Distinct drifting points, rising sparks and falling mist respectively. |
 | Glacial fissures | Cold cracks brighten over a solid ice surface. The part remains visible through the whole pulse. |
 | Buffs & curses | Keep the good looks. Every emitter and ground ingredient is optional; ground starts off. |
+
+## Library quality rules (11-12 November 2026)
+
+The study of hand-made native effects (section 2 of the study kept outside Git) set these
+rules for every look in the library. `test/fx-look-quality.test.js` checks the general ones
+over every look and variation.
+
+- **Own clocks.** Every moving layer runs on its own clock, and the lengths never divide
+  each other (sets such as 1000/1133/1200/1300 ms, or the look's loop x 0.66, 1.133, 1.333).
+  A layer's own Loop length is an explicit field on the look; surfaces, Cards, Edges and
+  native emitters can carry one. No two moving layers of a look share a clock.
+- **Nothing flashes (owner, 12 November: "I hate flashing things").** No preset may strobe:
+  no light that drops to near zero and comes back, no hard on/off alpha, no bursts, no
+  flipbook faster than 100 ms a frame, no card size throb faster than 0.4 s or wider than
+  45 %. Flicker, Flash, Lightning, Double pulse, Pulse and Fade stay only on the layers that
+  carried them before 12 November; Uneven beat is used by no preset. New glows use Soft
+  pulse (alpha .78-1); runes and cracks use Colour beat: a slow change (1.5 s or longer)
+  between two colours of the same brightness (luminance within 0.8-1.25). Lightning-type
+  looks crackle softly: zap cards jitter in angle, never in brightness.
+- **Emitters of existing looks keep their values.** The quality pass does not change a
+  look's emitter (texture, timing, alpha, frames, rate). The one exception is Water's
+  Dripping water, which the owner asked to make visible. New looks bring their own emitters.
+- Steadiness is measured, not judged: `out/fx-review/fx-measure.cjs` samples the preview
+  36 times about 100 ms apart against the Original view; an existing look may not swing
+  more than it did before, and a new look's largest step stays small.
+- **Emissive layers** are Unshaded and Unfogged; glow overlays are lifted about .3 off
+  the skin. One pass per material, two (Add alpha + Add of the same texture) for extra
+  bright; the owner's Glow look keeps its 400 % start.
+- **New flame and ember emitters** (Fire column, Lingering embers) hold alpha 255>255>0 with
+  the middle at half life, a cooling colour ramp and shrinking particles; embers are few,
+  slow and long-lived (alpha 200>150>80). Fire's Blade flames keep their own values.
+- **Ribbons** are Add with a steady alpha (about .5); orbiting ribbons ride three helpers
+  on clocks that never line up. Switching Orbit on gives a loop clear of the part.
+- **Water** runs two frame speeds: the highlight on a clock about 0.66x the surface.
+  Water's drips are large enough to see, fall with gravity and draw a short streak tail.
+- **Amount is shared among a weapon's worth of sites (owner, 12 November: Falling mist "on a
+  body it just flashes").** A part with up to four skin regions keeps one set of emitters per
+  region, unchanged. A part with more regions (a body: the Footman's has 27) places
+  `count x 4` sites on its regions by length, instead of a full set on every region; before,
+  the Footman body's 135 mist emitters each released one puff every 6 s. Every site now keeps
+  the density of a four-region weapon (about 1.3 mist particles in flight). Bursts and flies
+  are not split this way. `test/fx-mist-steady.test.js`.
+- **Sizes follow the part's main piece.** Emitter, card and orbit sizes come from the
+  longest skin region of the selected part (before 12 November the first region, which on a
+  Footman body was a small piece, so its mist was a few units wide).
+- Native game textures only; every folder, look, variation and layer name is translated
+  in all five catalogues. Applying and then removing a look leaves the model exactly as
+  before; every look survives MDX save and reopen as the same editable stack.
+
+**Emitter round 2 (owner, 12 November 2026).** These changes apply to new layers;
+saved stacks retain their recipe and compile byte-identically. Native emitters share
+their rate only above four skin regions; ground/flat emitters compile once. New
+surface emitters start clear of the selected mesh, including overlapping skin regions.
+Inward swirl and Ground rune rings use stronger single ground emitters. All new
+built-in emission rates are steady, except **Blade crackle**, which the owner explicitly
+kept unchanged. New drops start with at least two nominal particles alive per site so
+their lifetimes do not leave synchronized empty gaps; saved rates remain unchanged.
+**Rising embers** keeps its name and uses LavaLump, a low rate, long life,
+gentle rise, alpha 200>150>80, Unfogged and a cooling orange ramp.
+
+Add emitter and Change emitter also offer **Falling snow, Maple leaves, Falling feathers,
+Ash flecks, Coal sparks, Hot filings and Fire hair**; Ground dust is excluded. Fire hair
+uses `Textures\clouds_anim1_bw.blp`, 4x4, alpha 255>255>0, middle time .5, cooling colour
+and shrinking particles. Display names merge duplicate choices; stored ingredient labels
+remain unchanged and still resolve through `layerIngredient`.
+
+Under **More**, native kinds gain **Size**, and all particle kinds gain **Spawn width**,
+**Spawn length** and the **Halfway point** marker, using EMTR's existing components.
+Values are stored in `layer.native`; Size scales all three life stages together.
+**Unfogged and Priority plane: left out, preview cannot show them** (owner clarification).
+These omitted controls add no shared-preview behavior. This omission concerns controls, not the explicitly
+requested Unfogged flag in the Rising embers recipe.
+
+Individual emitter placement (`src/fx-emitter-placement.js`) keeps the offered sites stable during edits.
+Position & size uses the shared EMTR move and span handles; Formation commits on release.
+Selecting a small marker or its particles scopes the existing controls to that stable site.
+Escape or the layer button returns to the layer. Delete removes one site; Snap to surface
+uses the existing double-click picker and records the target triangle, including blended
+skin. Whole-layer edits ask only when they overlap an individual value: Apply to all
+resets the touched override and hand placement; Keep individual changes leaves it exact.
+Change emitter retains the site layout, hand placements and deletions across recipes.
+Open in EMTR resolves the selected site after node renumbering. Native values edited
+there return to that individual on the next FX edit. The stack stores these records in
+both MDX and MDL; untouched legacy stacks keep their original compiler output. Fly swarm
+is still geometry on bones, with its existing controls rather than particle-site editing.
+The Emitters and Formation sliders sit directly below Intensity on the selected
+particle layer and commit on release. Emitters changes the site count, including
+zero. Amount still controls particle output. One active site uses the offered
+point nearest the layout centre. Two use the widest pair. Higher counts add the
+site farthest from its nearest active neighbour until the requested count is
+reached. When the count reaches the number available, every nondeleted site is
+active. Site keys and offered positions remain stable, so parked records retain
+their values and hand placements.
+
+Explicit Delete keeps the other live keys, and Change emitter retains the current
+live set. The stack saves these keys as `activeSiteKeys`. A deliberate Emitters
+slider change clears the saved selection and redistributes coverage. Deleted sites
+stay deleted. Additional sites use the existing shape analysis only when requested,
+and `siteRateScale` preserves the aggregate recipe budget for older native layouts.
+Automatic slots refit on another model without carrying foreign triangle bindings.
+
+Rotate reuses EMTR's aim rings and native Rotation binding. It changes emitter
+aim, individually or across the layer, while keeping pivots in place. The same
+individual-edit conflict policy applies. Static quaternion values in the stack
+compile to valid native tracks for the destination model.
+
+Surface Effects keeps one pending target preview. Switching surface/group drops
+its unapplied draft and loads applied document FX or a fresh fit of the chosen
+look. Apply effect and the explicit Open in EMTR apply-and-open action write the
+document; ordinary browsing does not. The owner deferred this polish's behavioral
+QA until release packaging; source review is not visual acceptance.
+
+### Fire and Arcane variations
+
+**Fire → Variation** offers **Surface flames**, **Enveloping flames** and
+**Fireball**. Surface flames retains the existing Hot core and Flames layers.
+Enveloping flames uses two overlapping surface-fitted CloudSingle emitters with
+different lifetimes and launch speeds. Fireball shares one initial surface
+anchor across its compact flame, glow and sparks. Each layer keeps its own
+editable emitter sites. **Arcane → Variation → Shimmering energy** uses a
+DarkPortal03 surface, the moving native cloud skin and rising Star7b particles.
+The existing Arcane option remains the default. Variation changes retain
+user-added layers. All four styles use native textures.
+
+Fresh Surface flames use versioned defaults. On strips, lighter alpha and a
+less white start colour accompany short ballistic motion and differing steady
+birth rates within the same layer budget. Rim sites cap the generated sprite
+size at 0.75 times the sampled physical component's radius. The cap affects
+ParticleScaling and leaves the placement footprint, clearance, site coordinates
+and count unchanged. An explicit Size edit disables the relevant cap. Individual
+values and native overrides retain precedence. Per-site baselines distinguish
+native edits from generated defaults. Own-look refits resample automatic
+positions and their geometry hints on the destination surface. Saved layers
+without the opt-in retain their existing recipe unless the user switches it.
+
+Fire's Size, Speed and Rise/Fall quick controls show the compiled values for
+the selected site or layer representative. When the layer or selected site has
+authored native Speed or Gravity, its quick control edits that native value
+through the shared particle binding. For a track, the binding offsets the curve
+in the current clip, or adds a key if the clip has none. A globally sequenced
+authored track uses the reported local-frame phase when FX lacks the global
+preview phase, which can differ during looping playback. The fresh defaults
+are static. Visual acceptance of these variations, sizing and wheel controls
+is pending.
+
+See [placement work order and evidence](agent-tasks/fx-emitter-placement.md).
+
+New looks from these techniques (`src/fx-technique-looks.js`), filed in the existing
+folders and one new folder, Light:
+
+| Folder | Looks |
+| --- | --- |
+| Fire | Burning cracks (crack shell with a slow ember colour beat, lingering embers), Fire column; Flame cards offered in Fire, Fel fire, Burning cracks and Fire column |
+| Ice | Lit crystal (Inner light / Team colour core) |
+| Water | Liquid body (two frame speeds and glint cards) |
+| Lightning | Lightning cage (jittering zap cards, orbiting arcs) |
+| Arcane | Energy flow (two crossing scrolls), Rune circle (ground rune card over a shadow disc, contracting rune rings) |
+| Light | Glow shell, Star flare, Glow orb, Eye glow (two small cards to drag onto the eyes) |
+| Death & spirit | Ghost trails, Soul vortex, Dark smoke, Hollow shell |
+| Build your own | Tint (Colour wash / Team colour) |
+
+Glow shell's shell layer shows **Thickness** in its main controls (owner, 12 November: "Glow
+shell - add thickness"). It is the layer's Lift (`inflate`, model units along the normals), so
+that layer shows it once and not again under More. The range runs from 0 to a tenth of the
+part's length (`shellReach`), so a sword and a body both get a visible range. The look-only
+spec field `shell` marks the layer and is never saved.
+
+Ground glow is retired (owner, 12 November: "remove ground glow"): a look missing from
+`LIBRARY` is not listed, counted, searched or offered under Add layer, but a model saved with
+it still opens and edits, like Ice skin, Water skin and Thorn script.
+
+Look-only spec fields read by `makeLayer` and never saved: Card `fit` (share of the
+part-fitted size; ground cards fit the unit's footprint), emitter `scale` (multipliers of
+the part-fitted size, speed and gravity), and Edge `orbit` (starts as Orbit switched on).
+Saved stacks made before per-layer editing compile byte-identically.
 
 The good terrain looks are the quality bar. Reuse their technique when it produces
 a better skin, including Felwood poison. Do not preserve a weak card merely to
@@ -141,9 +362,44 @@ keep its count.
   atlas phases. Ice skin uses a fixed section of Ice_Natural01. Glacial fissures
   keeps Ice_IceDull behind the Dungeon2 crack tile; only the cracks pulse.
   Poison skin continues to reuse Felwood poison.
-- Fly swarm uses the five native `Flies.mdx` Hermite paths (1233 ms) and the
-  `Doodads0` fly cell (12 rows, 16 columns, cell 151). Native Blend retains dark
-  bodies and transparent corners. Amount is the total across skin regions.
+- **Fly swarm (native Flies.mdx technique; owner, 12 November 2026: "fly swarm - doesnt look good
+  ... make it scaleable").** Flies are geometry, not particles: one owned geoset holds one quad
+  per fly, each quad entirely on its own owned billboarded bone (bone flags 264), under one owned
+  swarm bone at the part's centre that follows the part without tilting (Don't inherit rotation).
+  One owned material with one layer: Transparent (alpha key), two-sided, lit, priority plane 0,
+  by default the native fly area of `Textures\Abomination.blp` (u .558-.641, v .309-.394), which
+  reference swarms use and which reads darker and narrower than the `Doodads0` cell 151 of native
+  `Flies.mdx`. Each quad copies the measured corner layout of its picture (`FLY_PICTURES` in
+  `src/fx-cards.js`): a turned diamond on the billboarded bone, each corner showing the same
+  picture point as in the native model, triangles 0,1,2 and 3,2,1. Change texture keeps the
+  diamond and shows the whole new picture; Doodads0 keeps the native cell. Each fly rides one of the five
+  native Hermite paths (`FLY_PATHS`, unchanged) as a closed translation track on an owned global
+  sequence. Flies come in sets of five; each further set (`FLY_SETS` in `src/fx-cards.js`) has
+  its own clock, yaw, time phase, width and height, so Amount above five never stacks flies and
+  the swarm never visibly repeats. Clocks are `1233 x sqrt(radius / 88) x [1, 1.16, .89, 1.05, .95,
+  1.11] / Speed` ms, all different. Five fly widths per set: Fly size x [.77, 1.12, .78, 1.47, .87].
+  Defaults: Fly size is 8.5% of the height of the unit's own mesh (stored bounds only without
+  one; the native swarms' mean fly), at least 6 units (readable at game distance) and at most 22,
+  so a 104-unit Footman gets 8.8-unit flies; Swarm size (the
+  mean path radius) is .9 x the main skin region's radius or .3 x its length, never less than four
+  fly widths; a part split into many skin regions still gets one swarm around one centre. Controls:
+  **Amount** 5-30 in steps of 5, **Fly size**, **Swarm size**, **Speed** (0.25-4x, multiplies every
+  clock), colour (geoset colour, default no tint) and **Intensity** (layer alpha); the swarm is
+  moved and resized with the emitter placement handles. **Rise on Death** is off by default.
+  When on, the swarm helper rises by .6 unit height at 1 s and 2.5 at 2.17 s into Death;
+  its owned material hides the flies from 1.9 s. All three times scale proportionally for
+  a Death shorter than 2.17 s. Other clips keep their normal swarm, and original geoset
+  visibility remains intact. There is no portrait hiding. Removing the swarm restores the model exactly, bounds
+  included; it reopens from MDX and MDL as the same editable stack (`test/fx-fly-swarm.test.js`).
+  **Compatibility:** a layer saved with the old emitter flies (no `swarm` field) keeps its emitter
+  flies and their old controls and compiles byte-identically; picking Fly swarm or Orbiting flies
+  fresh from the library, Add emitter or Change emitter gives the new swarm. A saved own look keeps
+  whichever kind it was saved with.
+- Moving skin **Speed** takes fine values from 0 to 8 (step 0.05; owner, 12 November: slow
+  skins must still move). Whole speeds run that many passes on the layer clock, as before; a
+  fractional speed runs the next whole number of passes on a longer owned clock, so a pass
+  always wraps seamlessly. Frame flipbooks, atlas excursions and native cards follow the same
+  rule, and the value reopens unchanged from MDX and MDL (`test/fx-skin-speed.test.js`).
 - Maximum Glow uses up to four additive native material passes, with a fractional
   final pass. Intensity therefore changes continuously and survives reopening.
 - The six retired Attack recipes can be read from saved stacks. They are excluded from the library, folder counts and search.

@@ -6,7 +6,8 @@ import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { formatChord } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
-import VIEW_MENU from '../src/view-menu.json';
+import VIS_VIEW_MENU from '../src/view-menu.json';
+import XL_VIEW_MENU from '../src/view-menu-xl.json';
 import { TEAM_COLORS } from '../src/team-colors.js';
 import { paintMessage } from '../src/paint-messages.js';
 import QuickDisplay from './QuickDisplay.jsx';
@@ -37,6 +38,7 @@ export default function AppToolbar({
   setDialog, setRenderMode,
   setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI, aiControl, placeCorpse, onHiddenTeamColor, onCallForge
 }) {
+  const VIEW_MENU = visUI ? VIS_VIEW_MENU : XL_VIEW_MENU;
   const editorRow = useRef(null), toolbarHidden = preferences.toolbarMode === 'hidden' && !visUI;
   useLayoutEffect(() => {
     if (!toolbarHidden) return undefined;
@@ -95,7 +97,7 @@ export default function AppToolbar({
     if (!visUI && row.scrollWidth > row.clientWidth) row.setAttribute('data-short-editors', '');
   }, [preferences.toolbarMode]);
   // Both looks keep view controls beside the editor buttons.
-  const quickDisplay = mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <QuickDisplay key={displayMode} vanilla={visUI} viewMode={displayMode} checks={menuChecks} onCommand={runCommand} isEnabled={commandEnabled} onClear={clearDisplay}/>;
+  const quickDisplay = mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <QuickDisplay key={`${visUI ? 'vis' : 'xl'}:${displayMode}`} vanilla={visUI} viewMode={displayMode} checks={menuChecks} onCommand={runCommand} isEnabled={commandEnabled} onClear={clearDisplay}/>;
   // With the toolbar hidden this select cannot be seen, so its key searches for a colour instead of taking the keyboard.
   const teamPicker = <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }} onFocus={event => { if (preferences.toolbarMode === 'hidden' && !visUI) { event.currentTarget.blur(); onHiddenTeamColor(); } }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>;
   const learnMenuOpen = iconMenu === 'learn';

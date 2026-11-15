@@ -10,12 +10,13 @@ import { animationTrackId } from '../src/animation-tracks.js';
 import { downstreamBoneIds } from '../src/node-hierarchy.js';
 import { effectNodes } from '../src/particle-recipes.js';
 import { clampPlaybackSpeed } from '../src/playback-speed.js';
+import useReelDiamonds from './ReelDiamonds.jsx';
 import './KeyframeTimeline.css';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** The original compact reel: time selection, with authoring in the controllers. */
-export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, poseEnabled = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
+export default function KeyframeTimeline({ objectKeys = false, model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, poseEnabled = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
   const [range, setRange] = useState(null), [context, setContext] = useState(null), [draftTime, setDraftTime] = useState('0'), [draftSpeed, setDraftSpeed] = useState(String(playbackSpeed));
   const [keySelection, setKeySelection] = useState(null);
   const [, refreshClipboard] = useState(0);
@@ -85,6 +86,8 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   const frameTargets = poseEnabled ? wholePoseTargets : poseTargets;
   const pasteTargets = unrestrictedTimelineTargets(clipboard.current?.wholePose ? wholePoseTargets : highlightKeyframes ? copyTargets : targets, restrictions);
   const pasteBlocked = disabled || !domain || !pasteTargets.length;
+  // MDLxL look: the clicked emitter, light, attachment, event or sound shows EMTR's diamonds on the reel.
+  const diamonds = useReelDiamonds({ model, selectedNodeIds: objectKeys ? selectedNodeIds : [], domain, frame, disabled, onEdit, onSeek: value => seek(value), onStatus });
 
   // Playback displays the live frame directly; only a focused edit owns a draft.
   useEffect(() => { setRange(null); setKeySelection(null); setContext(null); editingTime.current = false; setDraftTime(String(frame)); }, [domainStamp]);
@@ -256,7 +259,9 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
       </div>
       {warningMarkers.map(([at, findings]) => <button key={at} type="button" data-frame={at} className={`motion-reel-warning${findings.every(f => motionControls?.desired[f.signature]) ? ' motion-reel-desired' : ''}`} aria-pressed={!!motionActive && findings.some(f => f.signature === motionActive.signature)} aria-label={`Motion warning: ${findings.map(f => `${f.nodeName}, ${f.property}, ${f.time} ms, ${f.kind}`).join('; ')}`} title={`${findings.length > 1 ? `${findings.length} motion warnings` : `${findings[0].nodeName} · ${findings[0].property}`} · ${at} ms — click to inspect`} style={{ left: `clamp(6px, ${percent(at)}%, calc(100% - 6px))` }} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setRange(null); setContext(null); onMotionFinding?.(findings[0], event.currentTarget); }}><span aria-hidden="true">◆</span><span className="motion-warning-underline" aria-hidden="true"/></button>)}
       <div className="classic-reel-ruler" aria-hidden="true" translate="no">{divisions.map((value, index) => <span key={value} className={index === divisions.length - 1 ? 'is-last' : ''} style={{ left: `${percent(value)}%` }}>{value}</span>)}</div>
+      {diamonds.track}
     </div>
+    {diamonds.add}
     <div className="classic-reel-settings">
       <label className="classic-reel-speed" title="Playback speed"><span>Playback Speed</span><span className="classic-reel-percent"><input type="number" inputMode="decimal" step="1" min="1" max="250" aria-label="Playback speed percent" translate="no" value={draftSpeed} onChange={event => setDraftSpeed(event.target.value)} onBlur={commitPlaybackSpeed} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraftSpeed(String(clampPlaybackSpeed(playbackSpeed))); }}/><span>%</span></span></label>
       <label className="classic-reel-frame"><span>Frame</span><input type="number" inputMode="numeric" step="1" min={domain?.start || 0} max={domain?.end || 0} aria-label="Current animation frame" data-hotkey="keyframe:time" translate="no" className={timeSet.has(frame) ? 'is-keyframe' : ''} value={editingTime.current ? draftTime : String(frame)} disabled={!domain} onFocus={() => { setDraftTime(String(frame)); editingTime.current = true; onPlayingChange?.(false); }} onChange={event => { editingTime.current = true; setDraftTime(event.target.value); }} onBlur={() => commitTime()} onKeyDown={event => {

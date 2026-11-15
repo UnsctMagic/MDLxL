@@ -158,7 +158,8 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
   // so a world-axis turn can be written into the emitter's own Rotation.
   const worldTurn=id=>{const matrix=id==null?null:native.rendererData.nodes[id]?.matrix,turn=new Quaternion();if(matrix)new Matrix4().fromArray(matrix).decompose(new Vector3(),turn,new Vector3());return turn.toArray();};
   const turning=node||ribbon;
-  const turn=turning&&{world:new Vector3().fromArray(turning.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[turning.ObjectId]?.matrix||new Matrix4().elements)).toArray(),parent:worldTurn(turning.Parent)};
+  const turn=turning&&{world:new Vector3().fromArray(turning.PivotPoint||[0,0,0]).applyMatrix4(new Matrix4().fromArray(native.rendererData.nodes[turning.ObjectId]?.matrix||new Matrix4().elements)).toArray(),parent:worldTurn(turning.Parent),
+    globalTime:native.rendererData.globalSequencesFrames[turning.Rotation?.GlobalSeqId]??native.getFrame()};
   let sweep;
   if(options.sweepRange){
     const key=selectedId+':'+native.getSequence()+':'+options.sweepRange.join(':');let cached=sweepCache.get(native);
@@ -527,14 +528,15 @@ export function particleSurfaceAnchor(native,camera,width,height,x,y,anchorId,{d
   const vertices=skinGeoset(geo,matrices);
   for(let i=0;i<geo.Faces.length;i+=3){
    const triangle=[0,1,2].map(k=>new Vector3().fromArray(vertices,geo.Faces[i+k]*3)),point=raycaster.ray.intersectTriangle(...triangle,false,new Vector3());
-   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;binding={index,ids:[geo.Faces[i],geo.Faces[i+1],geo.Faces[i+2]]};}}
+   if(point){const d=point.distanceToSquared(camera.position);if(d<distance){distance=d;nearest=point;binding={index,ids:[geo.Faces[i],geo.Faces[i+1],geo.Faces[i+2]],barycentric:Triangle.getBarycoord(point,...triangle,new Vector3()).toArray()};}}
   }
  }
  if(!nearest)return null;
  const parent=details?particleVertexSelection(native.model,{[binding.index]:binding.ids}).parent:anchor.Parent;
  const matrix=matrices.get(parent)||new Matrix4();if(Math.abs(matrix.determinant())<1e-10)return null;
  const position=nearest.applyMatrix4(matrix.clone().invert()).toArray();
- return details?{position,parent,geoset:binding.index,vertices:binding.ids}:position;
+ const geo=native.model.Geosets[binding.index],bindPosition=[0,1,2].map(axis=>binding.ids.reduce((sum,v,i)=>sum+geo.Vertices[v*3+axis]*binding.barycentric[i],0));
+ return details?{position,parent,geoset:binding.index,vertices:binding.ids,bindPosition,barycentric:binding.barycentric}:position;
 }
 
 /** Depth-writing mesh coverage in the pinned SD renderer. Picking uses base-level

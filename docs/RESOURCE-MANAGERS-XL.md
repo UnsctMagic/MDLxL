@@ -20,7 +20,7 @@ in Animations. Global tracks select their clock; mismatched-clock edits are
 rejected without changing the track. Existing interpolation is retained.
 
 The managers have no duplicate visibility timelines, range panels, filler prose
-or Clueless/Classic selector. Node Manager has a wider, wrapped, color-coded tree
+or Clueless/Classic selector. Object Manager (formerly Node Manager) has a wider, wrapped, color-coded tree
 and native hierarchy, parent, pivot, flags and event controls. EMTR owns emitter
 visual properties. All four managers use the same transparent backdrop and live
 viewport behavior. Windows remain draggable; material/geoset previews isolate
@@ -28,11 +28,14 @@ and frame one geoset, including shared-material cases.
 
 ## Event objects
 
-Node Manager → New opens the Sound, Blood Splat, Footprint, Uber Splat and Spawn
+Object Manager → New opens the Sound, Blood Splat, Footprint, Uber Splat and Spawn
 Object categories. Browse the configured game files, choose an entry, then click
 Add event. The same New panel creates lights and opens EMTR Library or the
 Sphereomancer stage. Create bones, helpers and attachments in their editors.
-Event choices use native IDs and names from the game files.
+Event choices use native IDs and names from the game files. Spawn Object lists
+show effects the app can load and preview. The selected effect loops below the
+list in a rotatable 3D preview. Existing unavailable assignments show a reason
+under the list and keep their native ID.
 Event times can be added at the current frame or removed. Existing parent, pivot
 and event times are preserved when choosing event data.
 

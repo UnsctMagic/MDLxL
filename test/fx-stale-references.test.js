@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { createDemoDocument, openDocument, removeGeosets } from '../src/editor-document.js';
-import { findLook, GLOBAL_LOOKS, partFrame } from '../src/global-animation-looks.js';
+import { findLook, partFrame } from '../src/global-animation-looks.js';
 import { compileAnimation, FX_SECTIONS, readAnimationStack } from '../src/global-animation-model.js';
 import { deleteGlobalSequence } from '../src/sequence-editor.js';
 import { authoredStack } from './helpers/fx-authored-stack.js';
 
-const water = GLOBAL_LOOKS.find(look => look.id === 'water-skin');
+// The FX redesign retired Water skin and gave its highlights their own clock; this
+// one-layer moving skin keeps the single FX-created clock these checks are about.
+const skin = findLook('moving-own');
 const stackAt = (model, index = 0) => model.Geosets[index]._FxStack;
 const applyFx = (doc, index, stack) =>
   doc.apply('Apply FX', FX_SECTIONS, model => compileAnimation(model, index, stack));
@@ -26,7 +28,7 @@ function checkHistory(doc, read, before, after) {
 function groupedModel() {
   const bytes = fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', import.meta.url));
   const doc = openDocument(bytes, 'knight.mdx');
-  const stack = authoredStack(water, partFrame(doc.model.Geosets[0]), 'grouped');
+  const stack = authoredStack(skin, partFrame(doc.model.Geosets[0]), 'grouped');
   applyFx(doc, 0, { ...stack, group: [3, 4] });
   return doc;
 }
@@ -65,7 +67,7 @@ test('FX impact contact keeps its vertex across a delete and clears when its geo
 
 test('deleting an earlier global sequence cannot make FX take an authored clock of equal duration', () => {
   const doc = createDemoDocument();
-  const stack = authoredStack(water, partFrame(doc.model.Geosets[0]), 'clock');
+  const stack = authoredStack(skin, partFrame(doc.model.Geosets[0]), 'clock');
   doc.apply('Add an earlier clock', ['GlobalSequences'], model => model.GlobalSequences.push(500));
   applyFx(doc, 0, stack);
   const nextLoop = stack.loop + 250;
@@ -95,7 +97,7 @@ test('deleting an earlier global sequence cannot make FX take an authored clock 
 
 test('deleting an FX-owned global sequence drops its ownership and duration', () => {
   const doc = createDemoDocument();
-  const stack = authoredStack(water, partFrame(doc.model.Geosets[0]), 'deleted-clock');
+  const stack = authoredStack(skin, partFrame(doc.model.Geosets[0]), 'deleted-clock');
   applyFx(doc, 0, stack);
   doc.apply('Add an authored clock', ['GlobalSequences'], model => model.GlobalSequences.push(7777));
   const before = structuredClone(stackAt(doc.model));
@@ -111,7 +113,7 @@ test('deleting an FX-owned global sequence drops its ownership and duration', ()
 test('FX sweep shifts clock ownership only once in both the edited and other stacks', () => {
   const doc = groupedModel(), stack = readAnimationStack(doc.model, 0);
   const authored = doc.model.GlobalSequences.filter((_, index) => !stack.createdClockIds.includes(index));
-  const other = authoredStack(water, partFrame(doc.model.Geosets[1]), 'second');
+  const other = authoredStack(skin, partFrame(doc.model.Geosets[1]), 'second');
   applyFx(doc, 1, { ...other, loop: stack.loop + 250 });
   applyFx(doc, 0, { ...stack, loop: stack.loop + 500 });
   assert.deepEqual(doc.model.GlobalSequences, [...authored, stack.loop + 250, stack.loop + 500]);

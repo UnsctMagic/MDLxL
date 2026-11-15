@@ -214,7 +214,12 @@ export function indexedSurfaceIslands(geoset) {
   return selectedComponents(geoset,geoset.Faces,true).parts.map(part=>part.vertices);
 }
 
-function selectedComponents(g, indices, nuclear) {
+/** Connected faces across UV seams, with source vertex and triangle indices. */
+export function physicalSurfaceComponents(geoset) {
+  return selectedComponents(geoset, geoset.Faces, false, false).parts.filter(part => part.faceIndices.length);
+}
+
+function selectedComponents(g, indices, nuclear, groupDetails = true) {
   const count = g.Vertices.length / 3;
   if (!Number.isInteger(count) || !count || g.Faces.length % 3) throw new Error('A geoset has invalid vertices or triangles.');
   const selected = new Set(indices);
@@ -262,7 +267,7 @@ function selectedComponents(g, indices, nuclear) {
   }
   const orderedParts = chosen.sort((a, b) => a.vertices[0] - b.vertices[0]);
   return {
-    parts: nuclear ? orderedParts : groupSmallDetails(orderedParts),
+    parts: nuclear || !groupDetails ? orderedParts : groupSmallDetails(orderedParts),
     retained: {
       vertices: retained.flatMap(part => part.vertices).sort((a, b) => a - b),
       faces: retained.flatMap(part => part.faceIndices).sort((a, b) => a - b).flatMap(index => faces[index]),

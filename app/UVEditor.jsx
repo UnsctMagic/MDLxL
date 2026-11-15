@@ -16,10 +16,10 @@ const indicesOf = selection => Array.from(selection || []);
 const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, fitTexture = false, faintWires = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, fitTexture, faintWires, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -32,7 +32,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     let cancelled = false; state.current.image = null; setImageError(false);
     if (!textureUrl || !graphics.textures) { state.current.draw(); return; }
     const image = new Image();
-    image.onload = () => { if (!cancelled) { state.current.image = image; if(current.current.fitUVs){state.current.centered=false;state.current.resize?.();}else state.current.draw(); } };
+    image.onload = () => { if (!cancelled) { state.current.image = image; if(current.current.fitUVs||current.current.fitTexture){state.current.centered=false;state.current.resize?.();}else state.current.draw(); } };
     image.onerror = () => { if (!cancelled) { setImageError(true); state.current.draw(); } };
     image.src = textureUrl;
     return () => { cancelled = true; };
@@ -74,6 +74,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         const initial=mapping();
         s.zoom=constrainZoom(s.zoom*.86*Math.min(width/(initial.sizeX*Math.max(.6,maxU-minU)),height/(initial.sizeY*Math.max(.6,maxV-minV))));
         const {sizeX,sizeY}=mapping();s.panX=(1-minU-maxU)*sizeX/2;s.panY=(1-minV-maxV)*sizeY/2;s.centered=true;return;
+      }
+      if (p.fitTexture) {
+        // The whole picture fills the view with a small margin, keeping its aspect.
+        s.zoom = 1; const initial = mapping();
+        s.zoom = constrainZoom(Math.min((width - 16) / initial.sizeX, (height - 16) / initial.sizeY)); s.panX = 0; s.panY = 0; s.centered = true; return;
       }
       const [frameU, frameV] = occupiedUVTextureFrames(s.uv, faces, allowed)[0] || [0, 0];
       const { sizeX, sizeY } = mapping();
@@ -124,7 +129,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       // in small batches, then stroke the combined path once with identical joins.
       const wirePath = new ownerWindow.Path2D();
       let wireBatch = new ownerWindow.Path2D(), batchFaces = 0;
-      context.strokeStyle = visuals.wireframe; context.lineWidth = visuals.lineWidth;
+      context.save();
+      // Faint wires keep the picture under them readable (rune layout).
+      if (p.faintWires) { context.globalAlpha = .3; context.lineWidth = Math.max(.5, visuals.lineWidth * .5); } else context.lineWidth = visuals.lineWidth;
+      context.strokeStyle = visuals.wireframe;
       for (const ids of faces) {
         // Selected topology remains visible independently of the 3D wire overlay.
         if (!p.showWires && !ids.some(index => selected.has(index))) continue;
@@ -133,7 +141,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         if (++batchFaces === 64) { wirePath.addPath(wireBatch); wireBatch = new ownerWindow.Path2D(); batchFaces = 0; }
       }
       wirePath.addPath(wireBatch);
-      context.stroke(wirePath);
+      context.stroke(wirePath); context.restore();
       for (const i of allowed) {
         if (!p.showVertices && !(p.showSelectedVertices && selected.has(i))) continue;
         const sx = x + uv[i * 2] * sizeX, sy = y + uv[i * 2 + 1] * sizeY;

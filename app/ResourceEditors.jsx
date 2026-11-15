@@ -1,14 +1,14 @@
 import { useWindowHotkeys } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
 import ModelManager from './ModelManager.jsx';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Inspector from './Inspectors.jsx';
 import ToolWindow from './ToolWindow.jsx';
-import NodeEventEditor, { EventDataPicker } from './NodeEventEditor.jsx';
+import NodeEventEditor, { EventDataPicker, useSpawnChoices } from './NodeEventEditor.jsx';
 import NodeEmitterVisibility from './NodeEmitterVisibility.jsx';
 
 import { EFFECT_FAMILIES as EMITTER_KINDS, effectNodes } from '../src/particle-recipes.js';
-import { EVENT_TYPES, assignEventData, loadEventCatalog } from './node-event-data.js';
+import { EVENT_TYPES, assignEventData, loadEventCatalog, loadSpawnChoices } from './node-event-data.js';
 import { Bone, Paperclip, Camera, Volume2, Droplets, Footprints, Lightbulb, Sparkles, Box, Circle, ChevronRight, ChevronDown } from 'lucide-react';
 import { Section, SelectField, Check, TrackEditor } from './Fields.jsx';
 import { nodeHierarchyRows, visibleNodeRows, relatedResourceIndices } from '../src/node-hierarchy.js';
@@ -25,8 +25,8 @@ import { applySortMyMess } from '../src/sort-my-mess.js';
 import './resource-editors.css';
 import './resource-managers-xl.css';
 
-const titles = { Model: 'Model Manager', Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Node Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
-const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Nodes', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences', Model: 'Model' };
+const titles = { Model: 'Model Manager', Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Object Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
+const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Objects', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences', Model: 'Model' };
 const nodeIcons = { Bones: Bone, Helpers: Paperclip, Attachments: Paperclip, EventObjects: Camera, Lights: Lightbulb, ParticleEmitters: Sparkles, ParticleEmitters2: Sparkles, ParticleEmitterPopcorns: Sparkles, RibbonEmitters: Sparkles, CollisionShapes: Box };
 const nodeTypeFor = collection => Object.keys(NODE_TYPES).find(type => NODE_TYPES[type][0] === collection);
 
@@ -85,9 +85,11 @@ function removeResource(model, kind, index) {
   model[kind].splice(index, 1);
 }
 
-function NodeAddOptions({ catalog, catalogError, modelPath, onAdd, onCancel, onOpenParticleEditor, onOpenSphereomancer }) {
+function NodeAddOptions({ catalog, catalogError, modelPath, getSpawnChoices, teamColor, onAdd, onCancel, onOpenParticleEditor, onOpenSphereomancer }) {
   const [type, setType] = useState(null), [id, setId] = useState(null);
-  const event = id && catalog?.[type]?.find(row => row.id === id && !row.missing);
+  const spawnLookup = useSpawnChoices(getSpawnChoices, type === 'SPN');
+  const choices = type === 'SPN' ? spawnLookup?.result?.choices : catalog?.[type];
+  const event = id && choices?.find(row => row.id === id && !row.missing);
   return <div className="re-event-editor">
     <div className="re-node-add-actions" role="group" aria-label="Add nodes">
       <button type="button" onClick={() => onAdd('Light')}>Light</button>
@@ -100,9 +102,10 @@ function NodeAddOptions({ catalog, catalogError, modelPath, onAdd, onCancel, onO
       )}</div>
     </fieldset>
     {type && <>
-      {catalog ? <EventDataPicker key={type} type={type} id={id} modelPath={modelPath} catalog={catalog} error={catalogError} onSelect={setId}/> :
+      {catalog ? <EventDataPicker key={type} type={type} id={id} modelPath={modelPath} catalog={catalog} spawnLookup={spawnLookup} teamColor={teamColor} error={catalogError} onSelect={setId}/> :
         <p role="status">{catalogError || 'Loading event data…'}</p>}
-      {catalog && !catalogError && !catalog[type]?.length && <p role="status">No entries in the configured game files.</p>}
+      {type === 'SPN' && catalog && !spawnLookup && <p role="status">Loading event data…</p>}
+      {catalog && !catalogError && choices && !choices.length && <p role="status">No entries in the configured game files.</p>}
     </>}
     <div className="re-node-add-actions">
       {type && <button type="button" disabled={!event} onClick={() => onAdd('EventObject', type, id)}>Add event</button>}
@@ -125,6 +128,12 @@ export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibilit
   const [managerSequence, setManagerSequence] = useState(doc?.model?.Sequences?.[sequenceIndex] ? sequenceIndex : 0);
   const dialog = useRef(null), list = useRef(null), lastApplySucceeded = useRef(true);
   const [catalog, setCatalog] = useState(null), [catalogError, setCatalogError] = useState('');
+  const spawnRows = catalog?.SPN;
+  const getSpawnChoices = useMemo(() => {
+    if (!spawnRows) return null;
+    let request;
+    return () => request ??= loadSpawnChoices(spawnRows, modelPath);
+  }, [spawnRows, modelPath]);
   useEffect(() => { if(currentKind !== 'Nodes' || emittersOnly || catalog) return; let active=true; loadEventCatalog(modelPath).then(value=>{if(active){setCatalog(value);if(!Object.values(value).some(rows=>rows.length))setCatalogError('Event data not found in the configured game files.');}},cause=>{if(active)setCatalogError(cause.message);});return()=>{active=false;}; }, [currentKind, emittersOnly, modelPath, catalog]);
   useEffect(() => { if (kind !== currentKind) { setCurrentKind(kind); setSelectedIndex(initialIndex()); setAddingNode(false); setMessage(''); } }, [kind]);
   useEffect(() => { setSorting(false); setCurrentKind(kind); setSelectedIndex(initialIndex()); setLocalSelection({}); setAddingNode(false); setMessage(''); }, [doc]);
@@ -271,10 +280,10 @@ export function ResourceEditor({emittersOnly = false, modelPath, onEditVisibilit
         <div className="re-list-actions"><button data-hotkey="resourceeditors:action:1" onClick={add} disabled={!model || doc.readOnly}>New</button><button data-hotkey="resourceeditors:action:2" onClick={clone} disabled={!canClone || doc.readOnly}>Clone</button><button data-hotkey="resourceeditors:action:3" onClick={remove} disabled={!selected || doc.readOnly || currentKind === 'GlobalSequences'}>Remove</button></div>
         {currentKind === 'Cameras' && <button data-hotkey="viewCamera" title="Set the viewport position, target and field of view from this camera" disabled={!selected || !onViewCamera} onClick={() => viewCamera(selected)}>View Through Camera</button>}
               </aside><div className="re-properties" hidden={currentKind === 'Nodes' && !propertiesOpen}>
-        {nodeManager && addingNode && !doc.readOnly ? <NodeAddOptions catalog={catalog} catalogError={catalogError} modelPath={modelPath} onAdd={addNode} onCancel={() => setAddingNode(false)} onOpenParticleEditor={onOpenParticleEditor} onOpenSphereomancer={onOpenSphereomancer}/> : <>
+        {nodeManager && addingNode && !doc.readOnly ? <NodeAddOptions catalog={catalog} catalogError={catalogError} modelPath={modelPath} getSpawnChoices={getSpawnChoices} teamColor={teamColor} onAdd={addNode} onCancel={() => setAddingNode(false)} onOpenParticleEditor={onOpenParticleEditor} onOpenSphereomancer={onOpenSphereomancer}/> : <>
         {selected && friendly && <ResourceDetails key={`preview:${currentKind}:${selected.index}`} doc={doc} kind={currentKind} index={selected.index} edit={apply} select={choose} assets={textureAssets} frame={frame} sequenceIndex={managerSequence} onSeek={seek} onSequenceChange={changeSequence} teamColor={teamColor} onOpenParticleEditor={onOpenParticleEditor} onImportTexture={onImportTexture} onTextureFolder={onTextureFolder}/>}
 
-        {currentKind === 'Nodes' && selected && nodeKind(model, selected.item) === 'EventObjects' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><NodeEventEditor key={selected.index} node={selected.item} model={model} modelPath={modelPath} catalog={catalog} error={catalogError} edit={apply} frame={frame} onSeek={seek} sequenceIndex={managerSequence} onSequenceChange={changeSequence}><Inspector resourceManager key={`properties:Nodes:${selected.index}`} doc={doc} selection={{ kind: 'Nodes', index: selected.index }} edit={apply} select={choose} frame={frame}/></NodeEventEditor></fieldset> : selected ? currentKind === 'GeosetAnims' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><Section title="Geoset animation"><SelectField label="Geoset" value={selected.item.GeosetId} options={model.Geosets.map((_, value) => ({ value, label: `Geoset ${displayNumber(value)}` }))} onChange={value => apply('Assign geoset animation', ['GeosetAnims'], m => { m.GeosetAnims[selected.index].GeosetId = Number(value); })}/><Check label="Drop shadow" value={selected.item.Flags & 1} onChange={value => apply('Set geoset shadow', ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim.Flags = value ? (anim.Flags || 0) | 1 : (anim.Flags || 0) & ~1; })}/>{['Color'].map(property => <TrackEditor key={`${selected.index}:${property}`} label={property === 'Alpha' ? 'Visibility' : 'Color (RGB 0–1)'} value={selected.item[property]} dimensions={property === 'Color' ? 3 : 1} defaultValue={property === 'Color' ? [1, 1, 1] : 1} globalSequences={model.GlobalSequences} frame={frame} onChange={value => apply(`Edit geoset ${property}`, ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim[property] = value; if (property === 'Color') anim.Flags = (anim.Flags || 0) | 2; })}/>)}</Section></fieldset> : <><Inspector resourceManager onEditVisibility={onEditVisibility} onOpenEmitter={onOpenParticleEditor} key={`properties:${currentKind}:${selected.index}`} doc={doc} selection={{ kind: currentKind, index: selected.index }} edit={apply} select={choose} selectedVertices={vertices} frame={frame} onImportTexture={onImportTexture || (() => setMessage('Texture loading is unavailable in this window.'))} onTextureFolder={onTextureFolder || (() => setMessage('Folder resolution is unavailable in this window.'))} onSelectionClear={() => { if (lastApplySucceeded.current) clearVertices(selected.index); }} onVerticesChange={ids => { if (lastApplySucceeded.current) changeVertices(selected.index, ids); }}/>{currentKind === 'Nodes' && EMITTER_KINDS.includes(nodeKind(model, selected.item)) && <fieldset className="inspector-fields" disabled={doc.readOnly}><NodeEmitterVisibility key={selected.index} node={selected.item} model={model} edit={apply} frame={frame} onSeek={seek} sequenceIndex={managerSequence} onSequenceChange={changeSequence}/></fieldset>}</> : <p className="re-empty-properties">{currentKind === 'GeosetAnims' && model?.Geosets?.[inspectedGeoset] ? `Geoset ${displayNumber(inspectedGeoset)} has no geoset-animation record. Click New to create it.` : 'Select an item, or click New.'}</p>}
+        {currentKind === 'Nodes' && selected && nodeKind(model, selected.item) === 'EventObjects' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><NodeEventEditor key={selected.index} node={selected.item} model={model} modelPath={modelPath} catalog={catalog} getSpawnChoices={getSpawnChoices} error={catalogError} edit={apply} teamColor={teamColor} frame={frame} onSeek={seek} sequenceIndex={managerSequence} onSequenceChange={changeSequence}><Inspector resourceManager key={`properties:Nodes:${selected.index}`} doc={doc} selection={{ kind: 'Nodes', index: selected.index }} edit={apply} select={choose} frame={frame}/></NodeEventEditor></fieldset> : selected ? currentKind === 'GeosetAnims' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><Section title="Geoset animation"><SelectField label="Geoset" value={selected.item.GeosetId} options={model.Geosets.map((_, value) => ({ value, label: `Geoset ${displayNumber(value)}` }))} onChange={value => apply('Assign geoset animation', ['GeosetAnims'], m => { m.GeosetAnims[selected.index].GeosetId = Number(value); })}/><Check label="Drop shadow" value={selected.item.Flags & 1} onChange={value => apply('Set geoset shadow', ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim.Flags = value ? (anim.Flags || 0) | 1 : (anim.Flags || 0) & ~1; })}/>{['Color'].map(property => <TrackEditor key={`${selected.index}:${property}`} label={property === 'Alpha' ? 'Visibility' : 'Color (RGB 0–1)'} value={selected.item[property]} dimensions={property === 'Color' ? 3 : 1} defaultValue={property === 'Color' ? [1, 1, 1] : 1} globalSequences={model.GlobalSequences} frame={frame} onChange={value => apply(`Edit geoset ${property}`, ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim[property] = value; if (property === 'Color') anim.Flags = (anim.Flags || 0) | 2; })}/>)}</Section></fieldset> : <><Inspector resourceManager onEditVisibility={onEditVisibility} onOpenEmitter={onOpenParticleEditor} key={`properties:${currentKind}:${selected.index}`} doc={doc} selection={{ kind: currentKind, index: selected.index }} edit={apply} select={choose} selectedVertices={vertices} frame={frame} onImportTexture={onImportTexture || (() => setMessage('Texture loading is unavailable in this window.'))} onTextureFolder={onTextureFolder || (() => setMessage('Folder resolution is unavailable in this window.'))} onSelectionClear={() => { if (lastApplySucceeded.current) clearVertices(selected.index); }} onVerticesChange={ids => { if (lastApplySucceeded.current) changeVertices(selected.index, ids); }}/>{currentKind === 'Nodes' && EMITTER_KINDS.includes(nodeKind(model, selected.item)) && <fieldset className="inspector-fields" disabled={doc.readOnly}><NodeEmitterVisibility key={selected.index} node={selected.item} model={model} edit={apply} frame={frame} onSeek={seek} sequenceIndex={managerSequence} onSequenceChange={changeSequence}/></fieldset>}</> : <p className="re-empty-properties">{currentKind === 'GeosetAnims' && model?.Geosets?.[inspectedGeoset] ? `Geoset ${displayNumber(inspectedGeoset)} has no geoset-animation record. Click New to create it.` : 'Select an item, or click New.'}</p>}
 
         </>}
       </div></div>}

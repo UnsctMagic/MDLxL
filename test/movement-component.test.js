@@ -133,9 +133,10 @@ test('camera toolbar renders inside Movement with one create-or-update action an
 
 test('quick display shows only the active editor options without Reveal',()=>{
   const html=renderToStaticMarkup(React.createElement(QuickDisplay,{viewMode:'animations',checks:{'display:particles':true},isEnabled:()=>true,onCommand:()=>{},onClear:()=>{}}));
-  assert.equal((html.match(/type="checkbox"/g)||[]).length,9);
-  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
-  assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View/);
+  // MDLxL Animations (owner's revised spec): RGB, Shadows, Lights, Emitters, Events, Sounds, Grid, Clear.
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,7);
+  for(const label of ['RGB','Shadows','Lights','Emitters','Events','Sounds','Grid','Clear']) assert.ok(html.includes(label));
+  assert.doesNotMatch(html,/Reveal|Vertices|Textured View|Skeleton|Nodes|Wireframe/);
   assert.match(html,/<input[^>]*data-hotkey="display:particles"[^>]*checked=""/);
 });
 

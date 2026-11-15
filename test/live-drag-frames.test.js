@@ -122,6 +122,7 @@ const coalescedDrags = [
   { name: 'Paint texture brush adjustment', file: 'app/usePaintImageNavigation.js', from: "if(p.type==='brush'){", to: '// A zoom drag', forbidden: /onBrushAdjust|setBrush/ },
   { name: 'Stage Rotate drag', file: 'app/StageRotate.jsx', from: 'function move(event)', to: 'function end()', forbidden: /onTurn/ },
   { name: 'Paint image zoom drag', file: 'app/usePaintImageNavigation.js', from: "if(p.type==='zoom'){p.clientY", to: 'zoomFrame.current.schedule();}', forbidden: /setZoom|getBoundingClientRect/ },
+  { name: 'FX rune layout slider', file: 'app/SurfaceEffects.jsx', from: 'function previewLayout(', to: 'layoutFrame.current.schedule();', forbidden: /previewCoordinates|applyLayout\(\)[^,]/ },
   { name: 'Forge image mask drag', file: 'app/Forge.jsx', from: 'const move = e => {', to: 'applyMove.current = () => {', forbidden: /setPan|setZoom|setPoints|cropContour|polygonMask|onSelected/ },
 ];
 

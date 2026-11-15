@@ -5,20 +5,23 @@ import { defaultEditorDisplay } from '../src/display-overlays.js';
 import { previewOverlayOptions, movementNodeCategories, visibleMovementPoints } from '../app/preview-overlays.js';
 import { markerStyle } from '../app/rig-markers-gl.js';
 
-test('category symbols follow each editor and Animations Nodes gates only enabled categories',()=>{
-  for(const mode of ['bones','movement','animations'])for(const enabled of [false,true])for(const nodes of [false,true]){
-    const display={...defaultEditorDisplay()[mode],bones:false,particles:enabled,sounds:enabled,events:enabled,nodes}, before=structuredClone(display), options=previewOverlayOptions(display,false,mode);
-    for(const kind of ['particles','ribbons','sounds','events'])assert.equal(options[kind],enabled&&(mode!=='animations'||nodes),mode+': '+kind);
+// MDLxL look (owner's revised spec, 14 Nov 2026): Objects shows the effect symbols in Bones and Movement;
+// Animations draws no symbols at all, its switches only hide the real effects.
+test('category symbols follow each editor: Objects in Bones and Movement, none in Animations',()=>{
+  for(const mode of ['bones','movement','animations'])for(const enabled of [false,true]){
+    const display={...defaultEditorDisplay()[mode],bones:false,...(mode==='animations'?{particles:enabled,sounds:enabled,events:enabled}:{objects:enabled})}, before=structuredClone(display), options=previewOverlayOptions(display,false,mode);
+    for(const kind of ['particles','ribbons','sounds','events'])assert.equal(options[kind],enabled&&mode!=='animations',mode+': '+kind);
     assert.equal(options.bones,false);assert.equal(options.nodes,false);assert.deepEqual(display,before);
   }
 });
 test('ribbons and event types keep distinct symbols within shared controls',()=>{
   const model={Bones:[{ObjectId:0}],Attachments:[{ObjectId:1}],ParticleEmitters2:[{ObjectId:2}],RibbonEmitters:[{ObjectId:3}],EventObjects:['SNDxTEST','SPLxTEST','FPTxTEST','UBRxTEST','SPNxTEST'].map((Name,i)=>({ObjectId:i+4,Name}))};
   const kinds=movementNodeCategories(model);
-  assert.deepEqual([0,1,2,3,4,5,6,7,8].map(id=>kinds.get(id)||'nodes'),['bones','attachments','particles','ribbons','sounds','events','events','events','nodes']);
+  // Odd events (SPN) count as events in the MDLxL look.
+  assert.deepEqual([0,1,2,3,4,5,6,7,8].map(id=>kinds.get(id)||'nodes'),['bones','attachments','particles','ribbons','sounds','events','events','events','events']);
   const points=[...kinds].map(([id,overlayKind])=>({node:{ObjectId:id},overlayKind}));
-  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().movement,false,'movement')).map(p=>p.node.ObjectId),[0,2,3]);
-  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().animations,false,'animations')).map(p=>p.node.ObjectId),[0]);
+  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().movement,false,'movement')).map(p=>p.node.ObjectId),[0,1,2,3,4,5,6,7,8]);
+  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().animations,false,'animations')).map(p=>p.node.ObjectId),[]);
   const symbols=['SPLxTEST','FPTxTEST','UBRxTEST'].map(Name=>markerStyle({node:{ObjectId:0,Name},overlayKind:'events'},new Map(),{}).shape);
   assert.equal(new Set(symbols).size,3);
   for(const shape of symbols)assert.ok(shape.billboard&&shape.faces.length>40);
