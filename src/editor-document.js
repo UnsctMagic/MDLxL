@@ -479,6 +479,8 @@ export class EditorDocument {
     this.version = this.model.Version;
     this.revision++;
     this._recordHistory({ label, sections: changed, requestedSections: [...(sections || [])], revision: this.revision });
+    // app/button-done.js lights the button whose click made this edit.
+    globalThis.dispatchEvent?.(new Event('mdlxl-model-edited'));
     return result === undefined ? true : result;
   }
   undo() {
