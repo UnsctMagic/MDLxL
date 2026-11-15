@@ -409,7 +409,8 @@ function AiAssistant({ bridge, visUI }) {
     if (!resume && busy) return steer();
     if ((!resume && !prompt.trim()) || busy || authBusy) return;
     if (native && signedIn === false) {
-      await authenticate('login');
+      // Claude Code signs in in the user's own terminal; MDLxL only checks.
+      await authenticate(provider.ownSignIn ? 'status' : 'login');
       return;
     }
     const text = prompt,
@@ -895,7 +896,9 @@ function AiAssistant({ bridge, visUI }) {
                 )}
                 {native && signedIn !== null && !signedIn && (
                   <div className="ai-account" role="status">
-                    Sign in to connect your AI. Your prompt has been kept.
+                    {provider.ownSignIn
+                      ? 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in. Your prompt has been kept.'
+                      : 'Sign in to connect your AI. Your prompt has been kept.'}
                   </div>
                 )}
                 {native && signedIn && (
