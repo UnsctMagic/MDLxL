@@ -30,8 +30,7 @@ const cases = [
 ];
 for (const [rel, renames, kind] of cases) {
   const file = testModel(rel);
-  test(`renamed bones keep the POSE handles (${kind}): ${rel}`, () => {
-    assert.ok(fs.existsSync(file), `test model missing: ${file}`);
+  test(`renamed bones keep the POSE handles (${kind}): ${rel}`, { skip: !fs.existsSync(file) && `test model not on this machine: ${rel}` }, () => {
     const model = openDocument(fs.readFileSync(file)).model, before = handles(model);
     let renamed = 0;
     for (const node of allNodes(model)) if (renames[node.Name]) { node.Name = renames[node.Name]; renamed++; }
