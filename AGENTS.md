@@ -147,7 +147,7 @@ and [README source development](README.md#source-development) explains setup.
 - **Every release runs the kit's full QA.** When the owner says "release", in any
   tool and however briefly, follow the kit's job "Release" and meet every line of its
   [release standard](docs/QA-AND-RELEASE-KIT.md#release-standard), including the full
-  packaged suite and the click sweep of every setup, on the final build. Only the
+  packaged suite and the `footman` click sweep, on the final build. Only the
   owner can reduce this, and only for that release. A hotfix uses the kit's hotfix line.
 - Report checks actually run and remaining gaps. Static checks do not prove a
   visible result; say `ready to test` when the changed behavior has not run.
