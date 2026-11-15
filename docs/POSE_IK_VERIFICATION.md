@@ -42,7 +42,7 @@ Original base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21
 Current-main integration: `a73f104824e02a976894151e50c671a33b46234d`.
 Sources merged cleanly; generated bundle conflicts were resolved by rebuilding
 from source. Main's paste/geoset changes were retained without source edits.
-The initial POSE feature and Trollface refinement were merged through PR #148.
+The initial POSE feature and pelvis symbol refinement were merged through PR #148.
 The automatic ancestor compensation described below is on `codex/pose-auto-ik`.
 Dependencies and release version remain unchanged; this is a test candidate.
 
@@ -69,7 +69,7 @@ identities; a marker selection receives its real-node transform gizmo without
 drawing an extra virtual symbol. Named labels select their control directly.
 Overlapping labels are placed near their pivots on separate rows; a visible
 axis tip controls the selected object even if another marker lies beneath it.
-Hand, boot, helmet, chest plate, Trollface pelvis and whole-body symbols have dark
+Hand, boot, helmet, chest plate, pelvis and whole-body symbols have dark
 backings over bone markers. Controller and Restrictions start minimized through
 their existing headers. Rotate on Own Axis is removed from Movement. The
 existing sidebar width, other section defaults and camera controls remain unchanged.
@@ -175,23 +175,9 @@ The visible manual test uses that retained `out/pose-v3-package` build and a fre
 `out/pose-v3-manual/Footman_POSE_Test_3.mdx` copy. Its running profile is separate
 from disposable acceptance profiles and is not replaced during integration.
 
-Pelvis icon follow-up: `out/pose-v4-package/MDLxL-win32-x64/MDLxL.exe` uses
-the user's selected black-and-white Trollface reference, prepared with the built-in
-image tool and stored as `app/pose-trollface.png` (96 x 96, 15,070 bytes).
-The selected symbol draws above overlapping controls. Packaged evidence in
-`out/pose-trollface/result.json`, `pelvis-in-editor.png` and `pelvis-closeup.png`
-confirms the actual image draw, unchanged Pelvis label/native node 26 selection,
-unchanged model data, normal Alt+mouse camera rotation and no page errors.
-This rendering-only follow-up uses the existing full regression results below;
-the full solver/source suites were not repeated for the icon change.
-
-Color follow-up: `out/pose-v5-package/MDLxL-win32-x64/MDLxL.exe` tints the
-unchanged Trollface asset with the existing handle color, using cached canvas
-multiply/mask compositing. Normal cyan and selected yellow pixel samples,
-transparent surroundings, unchanged native node/model selection and actual
-Alt+mouse rotation passed in `out/pose-trollface-color/result.json`; its screenshots
-show the selected icon above overlapping handles. No page errors occurred.
-The full solver/source suites were not repeated for this color-only change.
+Pelvis icon follow-ups (a pelvis image symbol with a color tint) were rendering-only
+changes verified earlier. The image and the old symbols have since been replaced by
+the symbol sets described in `docs/POSE_IK.md`.
 
 ## Automatic ancestor posing (2026-10-09)
 
@@ -409,7 +395,7 @@ there are no model filenames or fixed object IDs in runtime recognition.
 
 All changes remain within POSE recognition, connected solving, gesture snapshots
 and two additional symbols in the existing Setup palette. Native markers retain
-ordinary Movement transforms. Sidebar widths, overlap cycling, Trollface palette,
+ordinary Movement transforms. Sidebar widths, overlap cycling, symbol palette,
 track ownership and one-gesture history behavior remain unchanged. No rig repair,
 reparenting, skin-weight edits or texture-path rewrites are performed.
 

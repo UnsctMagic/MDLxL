@@ -47,10 +47,14 @@ rigs, including joints named through their native attachment references.
    It sits on the character's outside flank, beyond the transform arrows.
    Explicit pins can limit ancestor motion at **Reach limit**. Scale retains
    ordinary Movement behavior, with explicit pins compensated.
+6. Right-click a handle (without dragging) and choose **Hide** to take it out of
+   sight. A hidden handle keeps working: its limb still follows the body, keeps its
+   pin and stays in Setup and Copy Pose. It waits as a small button left of **POSE**;
+   click that button to show it again.
 
-Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on themed
-backings so they remain identifiable over bone markers. Whole-body control uses
-a person symbol; hooves have their own symbol. Labels appear for the selected
+Handles show a body-part symbol on themed backings so they remain identifiable
+over bone markers; Focus and appearance below describes the symbol sets.
+Whole-body control uses a body symbol; hooves have their own symbol. Labels appear for the selected
 or hovered handle. Pelvis uses the same handle and selection colours as the other
 controls. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps
@@ -210,6 +214,31 @@ Nested tails and mirrored wings are included when the native rig supports them.
 Real anatomical joints precede same-named mesh children; unused branches, cloth
 and rigid props do not become inferred limbs. Ships keep their local body driver
 without turning imported hand/foot attachment names into human anatomy.
+An unanimated unit is recognised from names, attachment points and skeleton. Limbs
+with no usable name are only found once an animation moves them (they can be
+added by hand with Add).
+A head attachment point marks the head of its own neck even when another body in
+the same model (a rider, a second creature) has a named head.
+A named Head descendant takes precedence when a Head attachment is on its
+ancestor directly below the chest.
+Auto Corpse, Attachemator and AnimXL read the rig without these added clues, so their
+results are unchanged; the added clues apply to the POSE handles shown in Movement.
+
+A name never vetoes what the skeleton clearly shows. Two mirrored siblings that
+both carry a limb (a hand or foot at least two joints below) are ordinary
+thigh or upper-arm joints even when their name reads as pelvis, body or chest,
+and the joint they hang from takes that name when it has none of its own. If
+that joint never moves (a still mesh holder, whatever its name) and the hand or
+foot lies more than two joints below the pair, the pair keeps its names. A body, pelvis, chest or spine bone below a head becomes `Object`. A single
+central pelvis or body is untouched.
+A weapon word excludes only what is held, a joint below a hand; elsewhere a moving, skinned, three-joint branch may be a limb, and a mirrored partner may hang from the mirrored sibling of its parent joint (two shoulders), but only where no joint of it already has a body-part role by name. A branch found only by these two rules whose skin is a sheet (`sqrt(l3 / l2)` of the skin vertices below 0.3) is labelled Wing. In a single file of same-kind hand (or foot) joints where every joint moves and the top one sits next to the trunk (its grandparent is absent or a chest, pelvis, body, spine, neck or head), the one that carries the matching attachment is the end and the joints above it are ordinary limb joints. Any other file, such as a foot with legs above it, is untouched.
+Clues only add: a joint with no role that is the parent of two or more leg
+chains becomes a pelvis, unless a pelvis already sits above or beside it or it
+is a front junction (a head lies beyond it and either no arm hangs from it or a
+leg-only junction sits beside or above it). A moving role-less joint strictly
+between an outermost head and the first chest, spine, pelvis, body or
+limb-carrying joint above it becomes a neck. A name the reader already rules out
+as anatomy never receives either role.
 
 Bodies come first, names second. The bodies are found from their limbs; a bone
 named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
@@ -260,6 +289,11 @@ filter, hand/foot meshes losing their skin grip once named `Bone_`, Head moving 
 the neck, the zergling's Root pair and the Lord of Change's wings changing role
 once their joints were named.
 
+Bone Namer also keeps two names when the five clues add handles a still rig did not
+have before: a follower (`rig.followers`, a mount's co-located carrier) without two
+legs of its own is part of the mount, not another actor; and a bone named like an
+attachment point (`Head Ref`) that POSE shows only from that name keeps its name.
+
 ## Focus and appearance
 
 During POSE, Focused Skeleton shows a compact control skeleton: mapped body
@@ -271,9 +305,21 @@ Settings starts its tab row with Configuration, with Updates at the top.
 Appearance uses collapsed sections and a color-set picker in every section.
 A whole appearance preset also sets the controllers. Controllers can then use
 a separate set, for example Blackrock controls with a Lordaeron interface.
-Lordaeron remains the default. Handle, body and bend shapes offer circles,
-squares, diamonds and triangles; symbols, size, state colors and XYZ colors
-are adjustable. Pin offers a labeled button, square icon and round icon.
+Lordaeron remains the default. Handle shapes offer circles, squares and diamonds
+(a saved triangle becomes a diamond); body and bend shapes also offer triangles; symbols, size, state colors, XYZ colors
+and the handle background (which can be switched off) are adjustable. The symbols
+come in five sets chosen under Controllers: Modern (the default: 13 transparent PNG
+masks in `app/assets/pose-symbols`, a 256 px and a `-64` file each, drawn by
+`app/pose-masks.js` and tinted with **Symbol Color**), Figure (solid body-part pictograms),
+Skeleton (bones), Rig (abstract control glyphs) and Outline (thin line drawings
+with their own metaphors). **Symbol Color** (`symbolColor`) tints the symbol in every set
+and **Ring Color** (the existing `color`, with Selected and Pinned for those states)
+colors the ring and label; each changes only its own layer. A profile saved before
+`symbolColor` existed starts with its Handle colour. The other sets are a fill, a cut and a line path in a
+24 x 24 box in `src/pose-symbol-sets.js`, where `DEFAULT_POSE_SYMBOL_SET` names
+the default set, and the choice is stored like the other controller values
+(profile, appearance sets, Configuration export). The old symbols and the
+pelvis image are gone. Pin offers a labeled button, square icon and round icon.
 These are familiar rig-control primitives, following Autodesk's
 [custom curve control workflow](https://www.autodesk.com/learn/ondemand/tutorial/common-rig-control-methods).
 

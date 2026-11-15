@@ -67,7 +67,10 @@ function planOnce(model, originals) {
   // Shape-only Wing limbs must stay anonymous to retain POSE's limb reading.
   const shapeWingIds = new Set((rig.chains || []).filter(chain => chain.label === 'Wing' && !poseChainIds(chain).some(id => poseNodeRole(tree.byId.get(id)) === 'Wing')).flatMap(poseChainIds));
   const assign = (id, part) => { if (allowed.has(id)) parts.set(id, shapeWingIds.has(id) ? 'keep' : part); };
-  for (const id of identified) { const value = role(id); if (value && !['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value === 'Body' ? 'root' : value.toLowerCase()); }
+  // A bone named like an attachment point ("Head Ref") keeps the name other tools read,
+  // also when POSE shows a handle on it from that name alone.
+  const refNamed = id => !(rig.chains || []).some(chain => poseChainIds(chain).includes(id)) && rig.roles?.[id] === undefined && id !== rig.body && /(?:^|[\s_.-])ref(?=$|[\s_.0-9-])/i.test(originals.get(id) || '');
+  for (const id of identified) { const value = role(id); if (refNamed(id)) continue; if (value && !['Hand', 'Foot', 'Hoof'].includes(value)) assign(id, value === 'Body' ? 'root' : value.toLowerCase()); }
   for (const chain of rig.chains || []) {
     const ids = poseChainIds(chain);
     if (chain.label === 'Chain') { for (const id of ids) { blocked.add(id); assign(id, 'keep'); } continue; }
@@ -115,6 +118,9 @@ function planOnce(model, originals) {
     if (body != null) limbCounts.set(body, (limbCounts.get(body) || 0) + 1);
   }
   const nested = [...bodies].filter(id => role(id) === 'Body' && tree.ancestors(id).some(parent => bodies.has(parent)) && (limbCounts.get(id) || 0) < 2);
+  // A follower without legs of its own moves with the mount's body (POSE rig.followers): part of that actor.
+  const followers = new Set(Object.values(rig.followers || {}).flat().map(Number));
+  nested.push(...[...bodies].filter(id => followers.has(id) && id !== rig.body && (limbCounts.get(id) || 0) < 2 && !nested.includes(id)));
   for (const id of nested) { bodies.delete(id); assign(id, 'keep'); }
   // Hubs are shared structure, not an arm/leg segment, even when POSE also
   // resolves a body role there. Retain their actor identity, but not a rename.
