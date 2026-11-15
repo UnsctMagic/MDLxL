@@ -160,8 +160,8 @@ const RAD = Math.PI / 180;
   // ---- Zoom, the new default: nothing seeded under uvDrag, the owner's mouse numbers.
   await test('zoom-default', {}, async ({ page }) => {
     const opened = await openUV(page), { uv } = opened;
-    const toggle = uv.getByRole('button', { name: 'Each piece', exact: true });
-    check('Each piece is visible in Tools by default', await uv.getByRole('region', { name: 'UV tools' }).getByRole('button', { name: 'Each piece', exact: true }).isVisible());
+    const toggle = uv.getByRole('button', { name: 'Each Piece', exact: true });
+    check('Each piece is visible in Tools by default', await uv.getByRole('region', { name: 'UV tools' }).getByRole('button', { name: 'Each Piece', exact: true }).isVisible());
     check('Each piece starts unpressed', await toggle.getAttribute('aria-pressed'), 'false');
     const r = await rig(page, opened, 'Zoom'), sensitivity = 1.7;
     const size = (distance, grab = 120) => Math.max(0, 1 + (distance - grab) / grab * sensitivity);
@@ -594,13 +594,13 @@ const RAD = Math.PI / 180;
     return { uv };
   }
   await test('each-piece', {}, async ({ page }) => {
-    const opened = await openUV(page), toggle = opened.uv.getByRole('button', { name: 'Each piece', exact: true });
+    const opened = await openUV(page), toggle = opened.uv.getByRole('button', { name: 'Each Piece', exact: true });
     const pieces = await selectTwoPieces(page, opened);
     await eachPieceChecks(page, opened, pieces, toggle);
     check('Each piece: left on for the restart', await setting(page, 'uvEachPiece'), true);
   }, { profile: eachProfile, keepProfile: true });
   await test('each-piece-after-restart', null, async ({ page }) => {
-    const opened = await openUV(page), toggle = opened.uv.getByRole('button', { name: 'Each piece', exact: true });
+    const opened = await openUV(page), toggle = opened.uv.getByRole('button', { name: 'Each Piece', exact: true });
     check('Each piece: remembered after a restart', await toggle.getAttribute('aria-pressed'), 'true');
     await opened.uv.getByRole('button', { name: 'Rotate', exact: true }).click();
     const box = await opened.canvas.boundingBox();
@@ -612,7 +612,7 @@ const RAD = Math.PI / 180;
   // ---- 3D stays out of it.
   const NON_DEFAULT = { uvDrag: { rotateStyle: 'leftRight', rotateSpeed: 200, rotateReverse: true, rotateSnap: 45, zoomStyle: 'leftRight', zoomSpeed: 400, zoomSnap: 25 }, uvEachPiece: true };
   await test('3d-live-view', NON_DEFAULT, async ({ page }) => {
-    const opened = await openUV(page), { uv } = opened, toggle = uv.getByRole('button', { name: 'Each piece', exact: true });
+    const opened = await openUV(page), { uv } = opened, toggle = uv.getByRole('button', { name: 'Each Piece', exact: true });
     const before = await page.evaluate(() => uvCamera());
     await toggle.click();
     await page.waitForFunction(() => document.querySelector('[data-hotkey="uv:each-piece"]').getAttribute('aria-pressed') === 'false');
@@ -673,7 +673,7 @@ const RAD = Math.PI / 180;
     check(`Tools title row ${label}: no wrap, no clipping`, true);
   };
   await test('tools-title', {}, async ({ app, page }) => {
-    const opened = await openUV(page), { uv } = opened, toggle = uv.getByRole('button', { name: 'Each piece', exact: true });
+    const opened = await openUV(page), { uv } = opened, toggle = uv.getByRole('button', { name: 'Each Piece', exact: true });
     const both = async (label, name, options) => {
       if (await toggle.getAttribute('aria-pressed') === 'true') await toggle.click();
       await rowFits(page, label + ' off', options); await shot(page, `tools-each-piece-off-${name}`);

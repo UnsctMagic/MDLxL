@@ -229,7 +229,9 @@ function readViewport(selector){
    await page.waitForFunction(()=>{const {runtime:r,props:p}=mdlxlProbe();return r?.captureApi?.isReady&&Math.round(r.native.getFrame())===Math.round(p.time);});
    const state=await page.evaluate(()=>{const {runtime:r,props:p,session:s}=mdlxlProbe();const c=document.querySelector('[data-clean-model-canvas]');return {model:p.model,document:JSON.stringify(s.doc.model),camera:r.controls.object.toJSON(),quaternion:r.controls.object.quaternion.toArray(),position:r.controls.object.position.toArray(),frame:r.native.getFrame(),sequence:p.sequenceIndex,config:p.poseConfig,selected:p.selectedNodeIds,space:p.transformSpace,width:c.clientWidth,height:c.clientHeight,radius:r.captureApi.showcaseView().radius,appearance:p.preferences.viewportAppearance.controllers,matrices:(r.native.rendererData.nodes||[]).flatMap((node,index)=>node?.matrix?[[index,Array.from(node.matrix)]]:[])};});
    const b=await page.locator('[data-clean-model-canvas]').boundingBox(),camera=new ObjectLoader().parse(state.camera);camera.updateMatrixWorld(true);camera.updateProjectionMatrix();const points=pose?projectPoseHandles(state.model,state.config,state.frame,state.sequence,camera,state.width,state.height):projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height);const active=pose?points.find(h=>h.selected):points.find(h=>h.node.ObjectId===state.selected.at(-1));assert.ok(active,'active control');let start={x:b.x+active.x+100,y:b.y+active.y+80},end={x:start.x+40,y:start.y+17};
-   let crossingAxis, freeDegrees;
+   // Press on the canvas like a user, not on a button drawn over it (the POSE Pin button can sit there).
+    if(!off&&!(await page.evaluate(([x,y])=>document.elementFromPoint(x,y)?.matches('canvas'),[start.x,start.y]))){start={x:b.x+active.x+100,y:b.y+active.y-80};end={x:start.x+40,y:start.y+17};}
+    let crossingAxis, freeDegrees;
    if(off){
     const handles=movementAxisHandles(active,camera,state.width,state.height,state.radius,state.space,'rotate',state.appearance);
     const nodes=projectMovementNodes(state.model,state.frame,state.sequence,camera,state.width,state.height,state.frame,new Map(state.matrices.map(([i,m])=>[i,new Matrix4().fromArray(m)])));
@@ -264,12 +266,17 @@ function readViewport(selector){
   }
   await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();
   await checkMarkerClicks('Movement');
+  // Movement shows every object kind by default since the Objects switch (PR #648); a footprint symbol can sit under the
+  // press point of a bone turn and take the click. These turns are about bones, so hide Objects for them as a user would.
+  const movementObjects=page.getByRole('group',{name:'Quick display',exact:true}).getByLabel('Objects',{exact:true}),objectsWereVisible=await movementObjects.isChecked();
+  await movementObjects.uncheck();
   await page.getByLabel('Movement bone or node').selectOption('0');
   for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await page.getByLabel('Workplane Constraints',{exact:true}).check();for(const plane of ['xy','xz','yz']){await page.locator(`[data-hotkey="plane:${plane}"]`).check();for(let i=0;i<3;i++)await movementTurn({plane});}}
   await movementTurn({plane:'yz',shift:true});await setSpeed('movement',2,.2);await movementTurn({plane:'yz',shift:true,speed:2,precision:.2});await setSpeed('movement',1,.1);
   for(const style of ['lines','rings','arcs']){await setStyle(style);await page.getByLabel('Workplane Constraints',{exact:true}).uncheck();await movementTurn({off:true,style});}
   await tools.getByRole('button',{name:'Move',exact:true}).click();for(const style of ['classic','today','bold']){await setStyle(null,style);for(const view of ['front','top','perspective']){await page.getByLabel('View direction',{exact:true}).selectOption(view);await gameMove('Movement',style);}}
   await gameOrbit('Movement');
+  await movementObjects.setChecked(objectsWereVisible);
   await page.getByRole('button',{name:'POSE',exact:true}).click();await tools.getByRole('button',{name:'Select',exact:true}).click();
   await ensurePoseBody('Rotate');
   const poseBones=page.getByRole('group',{name:'Quick display',exact:true}).locator('input[data-hotkey="display:bones"]');

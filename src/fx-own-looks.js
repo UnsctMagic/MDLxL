@@ -2,7 +2,7 @@
 import {sanitizePresetName} from './settings-presets.js';
 import {layerBasis,LAYER_UNIT_FALLBACK} from './fx-layer-basis.js';
 import {boundedCard,cardSize} from './fx-cards.js';
-import {surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-emitter-surface.js';
+import {surfaceFitInputs,SURFACE_FIT_VERSION} from './fx-surface-fit.js';
 
 export const MAX_OWN_LOOKS=200,MAX_OWN_LAYERS=32,MAX_OWN_LOOK_BYTES=256*1024;
 export const OWN_LOOK_SCHEMA='mdlxl-fx-look',OWN_LOOK_ID=/^own-[a-z0-9-]{1,64}$/;

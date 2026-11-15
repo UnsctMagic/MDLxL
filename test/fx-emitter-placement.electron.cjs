@@ -12,7 +12,7 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs'),{fixtur
   await page.mouse.click(marker.x,marker.y);await fx.getByRole('heading',{name:marker.label,exact:true}).waitFor();return marker.label;
  };
  const drag=async(label,dx,dy)=>{
-  const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle');await knob.waitFor();
+  const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle:not(.pe-grab)');await knob.waitFor();
   const b=await knob.boundingBox(),x=b.x+b.width/2,y=b.y+b.height/2;
   await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:10});await page.mouse.up();await ready();
   if(label==='Move emitter'){const b=await knob.boundingBox();assert.ok(Math.hypot(b.x+b.width/2-x-dx,b.y+b.height/2-y-dy)<12,'the selected move handle follows the real pointer '+JSON.stringify({start:[x,y],end:[b.x+b.width/2,b.y+b.height/2],delta:[dx,dy]}));}
@@ -43,13 +43,20 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs'),{fixtur
   await button('Fit selection').click();await button('Position & size').click();await ready();
   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.filter(e=>e.props._FxTag).reduce((n,e)=>n+e.particles.length,0)>20);
   if(step>=4){await pickParticle(false);await page.keyboard.press('Escape');await ready();}
-  const before=await read();await stage.screenshot({path:path.join(out,'span-before.png')});
-  await drag('Ribbon upper edge',-24,-45);await drag('Ribbon lower edge',18,22);
-  const after=await read();assert.notEqual(after.stack.layers[0].upper,before.stack.layers[0].upper,'upper handle changed its value');
-  assert.notDeepEqual(after.nodes.map(n=>n.PivotPoint),before.nodes.map(n=>n.PivotPoint),'upper handle visibly moves emitter sites on the many-region body');
+  // PR #645 (owner, 14 Nov: "in EMTR I just control 1 emitter and move it easy"): a layer with several emitters shows a dot
+  // per emitter and no handle cluster; EMTR's handle appears for the one emitter whose dot is clicked.
+  const dots=fx.locator('.fx-emitter-markers [role=button]');await dots.first().waitFor();
+  const before=await read();assert.ok(before.nodes.length>1&&await dots.count()>1,'Position & size shows the emitter dots '+JSON.stringify({emitters:before.nodes.length,dots:await dots.count()}));
+  for(const label of ['Move emitter','Ribbon upper edge','Ribbon lower edge'])assert.equal(await fx.getByRole('slider',{name:label,exact:true}).count(),0,label+' waits until one emitter is selected');
+  await stage.screenshot({path:path.join(out,'span-before.png')});
+  const dotLabel=await pickMarker();await ready();assert.equal(await fx.getByRole('heading',{name:dotLabel,exact:true}).count(),1,'clicking a dot selects that emitter');
+  await drag('Move emitter',part===2?40:120,part===2?-24:-80);
+  const after=await read(),movedOne=after.nodes.filter(n=>JSON.stringify(n.PivotPoint)!==JSON.stringify(before.nodes.find(p=>p._FxTag===n._FxTag).PivotPoint));
+  assert.equal(movedOne.length,1,'dragging the selected dot handle moves exactly that emitter');
   assert.ok(Math.hypot(...after.camera.map((v,i)=>v-before.camera[i]))<1e-8,'placement preserves the camera (floating-point orbit recomposition only)');
   await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.filter(e=>e.props._FxTag).reduce((n,e)=>n+e.particles.length,0)>20);
   await stage.screenshot({path:path.join(out,'span-after.png')});
+  await page.keyboard.press('Escape');await ready();assert.equal(await fx.getByRole('heading',{name:dotLabel,exact:true}).count(),0,'Escape returns to the whole layer');
   if(step>=3){
    const slider=fx.getByRole('slider',{name:'Formation',exact:true});assert.equal(await slider.count(),1,'Formation slider is offered');
    const before=await read(),box=await slider.boundingBox();await page.mouse.click(box.x+box.width*.25,box.y+box.height/2);await ready();
@@ -130,7 +137,7 @@ const {launchApp,closeApp,root,stubDialogs}=require('./helpers/app.cjs'),{fixtur
    await openFx();await fx.getByLabel('Preview animation',{exact:true}).selectOption({label:part===2?'Decay Flesh':'Stand - 1'});await ready();if(part===2)await button('Solo').click();await button('Fit selection').click();await button('Position & size').click();
    await page.waitForFunction(()=>mdlxlProbe('.sfx-stage .game-preview-root').runtime.native.particlesController.emitters.some(e=>e.props._FxTag&&e.props.SegmentColor[1][0]===1&&e.props.SegmentColor[1][1]===0&&e.particles.length>0));await stage.screenshot({path:path.join(out,'saved-reopened.png')});
   }
-  assert.deepEqual(errors,[]);console.log('PASS layer span moves emitter sites; camera preserved');
+  assert.deepEqual(errors,[]);console.log('PASS emitter dots; a selected dot handle moves one emitter; camera preserved');
  }catch(error){await page.screenshot({path:path.join(out,'failure.png')});throw error;}finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});
 

@@ -1,6 +1,6 @@
 # Objects display — owner's revised spec (14 Nov 2026, evening)
 
-Status: Ready to merge (owner approved release, 15 Nov 2026). Supersedes the first plan below, which the owner rejected after testing build 01:
+Status: Completed. Merged in PR #648 (8093ad4e), 15 Nov 2026, for 0.40.0. Supersedes the first plan below, which the owner rejected after testing build 01:
 "its too much shit ... I hoped fable would do something smart - this is just way too cluttered and function is lost."
 
 ## The owner's spec (their words, then the settled reading)

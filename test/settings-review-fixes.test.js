@@ -83,6 +83,6 @@ test('every window that asks before closing compares with how it opened', () => 
   assert.match(fx, /baseline\.current=saved\|\|\(chosen\.current\?makeStack\(GLOBAL_LOOKS\[0\],index,sequence\):next\)/, 'choices carried onto another part still ask');
 });
 
-test('the UV Each piece toggle takes no default key', () => {
-  assert.match(read('app/UVWorkspace.jsx'), /data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each piece" data-hotkey-category="UV"/);
+test('the UV Each Piece toggle takes no default key', () => {
+  assert.match(read('app/UVWorkspace.jsx'), /data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each Piece" data-hotkey-category="UV"/);
 });

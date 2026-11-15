@@ -121,6 +121,7 @@ export function snapshotPreviewCamera(camera, perspective, ortho, controls) {
 export function restorePreviewCamera(saved, perspective, ortho, controls) {
   perspective.copy(saved.perspective); ortho.copy(saved.ortho);
   const camera = saved.camera === 'ortho' ? ortho : perspective;
-  controls.object = camera; controls.target.copy(saved.target); controls.update();
+  // The saved view is already settled; re-deriving it can move it by a rounding step.
+  controls.object = camera; controls.target.copy(saved.target); controls.settle?.(); controls.update();
   return camera;
 }

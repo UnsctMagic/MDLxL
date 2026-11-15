@@ -16,8 +16,9 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     await click(page.getByRole('button', { name: 'Surface Effects', exact: true }));
     const fx = page.getByRole('dialog', { name: 'Surface Effects', exact: true });
     await click(fx.getByLabel('Find a surface effect'));
-    await page.keyboard.type('Rune blade');
-    await click(fx.getByRole('button', { name: 'Rune blade global animation', exact: true }));
+    // PR #645 (ff2cedb1): the Rune blade card is now Runes.
+    await page.keyboard.type('Runes');
+    await click(fx.getByRole('button', { name: 'Runes global animation', exact: true }));
     await click(fx.getByRole('button', { name: 'Move UVs', exact: true }));
     const canvas = fx.locator('.fx-uv-canvas .uv-editor canvas');
     await canvas.scrollIntoViewIfNeeded();

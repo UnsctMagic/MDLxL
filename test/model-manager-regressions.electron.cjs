@@ -19,8 +19,11 @@ const root=path.resolve(__dirname,'..');
   app=(await launchApp({ out: run, profile: path.join(run,'profile'), env: { MDLVIS_HEADLESS:'' }, timeout: 30000, fixture: file })).app;
   const page=await app.firstWindow(),errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.unmaximize();w.setContentSize(1300,900);});
+  // Menu clicks reach the page only once it listens: wait for the model like a user would.
+  await page.getByRole('tab',{name:'Collisions.mdx',exact:true}).waitFor();
   await clickMenu(app, 'Material Manager…');
-  await page.getByRole('navigation',{name:'Resource managers'}).getByRole('button',{name:'Model',exact:true}).click();
+  const material=page.getByRole('dialog',{name:'Material Manager',exact:true});await material.waitFor();
+  await material.getByRole('navigation',{name:'Resource managers'}).getByRole('button',{name:'Model',exact:true}).click();
   await page.locator('.mm-handle').first().waitFor();
   await page.evaluate(()=> { const props = findFiberProps('.model-manager', props => props?.doc); if (props) {window.managerDoc=props.doc;}
    });

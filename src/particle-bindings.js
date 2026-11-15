@@ -55,6 +55,21 @@ export function particleValue(emitter, field, options={}) {
   const sampled=typeof value==='number'?value:sampleTrack(value,frame,{interval,globalSequences,globalTime:options.globalTime??frame,fallback:[field==='Visibility'?1:0]});
   return typeof sampled==='number'?sampled:sampled[0];
 }
+/** The rate one emitter adds to its layer's Amount. A pulsing rate counts by its average over
+ * the loop, so the Amount the user typed reads the same on every frame (pre-#645 saves pulse). */
+export function layerRateShare(emitter,options={}) {
+  const track=emitter.EmissionRate,duration=options.globalSequences?.[track?.GlobalSeqId];
+  const range=duration>0?[0,duration]:options.interval;
+  if(!track?.Keys||emitter.Squirt||!range||!(range[1]>range[0]))return particleValue(emitter,'EmissionRate',options);
+  const samples=96;let sum=0;
+  for(let i=0;i<samples;i++){const time=range[0]+(range[1]-range[0])*(i+.5)/samples;sum+=particleValue(emitter,'EmissionRate',{...options,frame:time,globalTime:time});}
+  return sum/samples;
+}
+/** The value for one emitter's EmissionRate gesture so the layer's Amount becomes `value`. */
+export function layerRateTarget(parameter,share,total,count,value) {
+  const target=total?value*share/total:value/count;
+  return share===parameter.sampled?target:parameter.sampled+target-share;
+}
 export function particleSliderDomain(field,value) {
   const [min,max] = particleBindings[field]?.suggested || [0,100];
   return [Math.min(min,Number.isFinite(value)?value:min),Math.max(max,Number.isFinite(value)?value:max)];

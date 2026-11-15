@@ -8,19 +8,11 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| FX effect redesign after trial 06 | In progress; local branch `claude/fx-effects` | [Effect redesign](fx-effect-redesign.md) / Claude |
-| Review of main, 11 Nov: findings, owner decisions, seven fix contracts | Fixes on seven local Codex branches; reviewed, rework needed on 2 to 7 | [Main review](main-review-2026-11-11.md), [fix verdicts](main-review-fix-verdicts.md) / Claude Code |
-| Review fix 7: BITZ Replace Part, Windows menu bar, translations (PRs #622 to #626) | Local review ready | [Contract 7](review-7-newest-five.md) / Codex |
-| Review fix 1: FX keeps the right geosets and clocks (serious) | References verified; FX window pending | [Contract 1](review-1-fx-references.md) / Codex |
-| Review fix 2: saves unblocked but never destroy the file quietly (serious) | Local review ready | [Contract 2](review-2-save-safety.md) / Codex |
-| Review fix 3: settings and keys cannot be wiped by accident | Local review ready | [Contract 3](review-3-settings-keys.md) / Codex |
-| Review fix 4: editor and preview fixes | Local review ready | [Contract 4](review-4-editors-previews.md) / Codex |
-| Review fix 5: Paint brush-size drag and live-drag guard list | Local review ready | [Contract 5](review-5-paint-drags.md) / Codex |
-| Review fix 6: housekeeping (task index, flail check, shared rules) | Local review ready; historical Flail03 reference needed | [Contract 6](review-6-housekeeping.md) / Codex |
+| 0.40.0 release | In progress on `claude/release-0.40.0` | [Release 0.40.0](release-0.40.0.md) / Claude Code |
+| Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | Call Upon Forge in the Vertex editor | Ready for owner review; local branch only | [Workflow and checks](call-upon-forge.md) / Codex |
 | Click sweep: check controls flagged as doing nothing | Ready for Codex; start from `main` | [Click sweep findings](click-sweep-findings.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
-| Objects display (MDLxL look): owner's switch lists, Objects with right-click types, Lights, clicked-object diamonds, Object Manager | Rebuilt to the owner's revised spec on local branch `claude/node-display-37527c`; ready to test; not online | [Plan and build notes](node-display-plan.md) / Claude Code |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed

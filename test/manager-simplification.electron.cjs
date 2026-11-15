@@ -23,25 +23,35 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
    await page.screenshot({path:path.join(out,mode.toLowerCase()+'.png')});
   }
   assert.equal(await page.locator('.animation-nodes button').count(),0);
-  await page.getByLabel('Choose animation sequence',{exact:true}).selectOption({label:'Spell Slam'});
-  await page.getByLabel('Select node SoulFountain',{exact:true}).check();
-  await menu('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();
+  // PR #648: the Animations node list is gone in both looks. An emitter is picked in Movement; MDLxL edits its visibility
+  // in EMTR (the strip shows Edit effect only) and the VIS look keeps the Visible tick (main's way, as emitter-keyframes).
+  assert.equal(await page.getByLabel('Select node SoulFountain',{exact:true}).count(),0,'Animations has no node list');
+  const soulFountain=String(openDocument(original,file).model.ParticleEmitters2.find(n=>n.Name==='SoulFountain').ObjectId);
+  const toggleLook=async vis=>{await page.locator('.vis-toggle').click();await page.locator(vis?'.classic-app[data-vis-ui]':'.classic-app:not([data-vis-ui])').waitFor();await page.getByLabel('Movement bone or node',{exact:true}).selectOption(soulFountain);};
+  const emitterVisible=()=>page.getByLabel('Emitter visible at current frame',{exact:true});
+  await page.getByRole('button',{name:'Movement',exact:true}).click();
+  await page.getByLabel('Movement current sequence',{exact:true}).selectOption({label:'Spell Slam'});
+  await page.getByLabel('Movement bone or node',{exact:true}).selectOption(soulFountain);
+  await page.getByRole('button',{name:'Edit effect',exact:true}).waitFor();assert.equal(await emitterVisible().count(),0,'MDLxL shows no emitter Visible tick');
+  await menu('Nodes');await page.getByRole('dialog',{name:'Object Manager',exact:true}).waitFor();
   await page.evaluate(()=> { const props = findFiberProps('.re-window', props => props?.doc?.serialize); if (props) {window.testDoc=props.doc;}  });
   assert.equal(await page.locator('.re-visibility-timeline').count(),0);
   assert.equal(await page.getByLabel('Manager mode').count(),0);
   assert.equal(await page.locator('.re-properties .key-list').count(),0,'emitter visual fields are owned by EMTR');
   assert.equal(await page.locator('.re-properties').getByRole('button',{name:'EMTR…',exact:true}).count(),1);
-  await page.getByRole('button',{name:'Close Node Manager',exact:true}).click();
+  await page.getByRole('button',{name:'Close Object Manager',exact:true}).click();
   const reel=page.getByRole('slider',{name:'Animation frame',exact:true});
   const interval=await page.evaluate(()=>Array.from(testDoc.model.Sequences.find(s=>s.Name==='Spell Slam').Interval));
   const seek=async at=>{const b=await reel.boundingBox();await page.mouse.click(b.x+Math.min(b.width-1,Math.max(1,(at-interval[0])/(interval[1]-interval[0])*b.width)),b.y+8);};
+  await toggleLook(true);
   await seek(interval[0]);
-  await page.getByLabel('Visible at current frame',{exact:true}).uncheck();
+  await emitterVisible().uncheck();
   await seek(interval[0]+Math.round((interval[1]-interval[0])*.5));
-  assert.equal(await page.getByLabel('Visible at current frame',{exact:true}).isChecked(),false,'first key holds');
-  await page.getByLabel('Visible at current frame',{exact:true}).check();
-  await seek(interval[1]-2);assert.equal(await page.getByLabel('Visible at current frame',{exact:true}).isChecked(),true,'later key holds');
+  assert.equal(await emitterVisible().isChecked(),false,'first key holds');
+  await emitterVisible().check();
+  await seek(interval[1]-2);assert.equal(await emitterVisible().isChecked(),true,'later key holds');
   await page.screenshot({path:path.join(out,'node-visibility.png')});
+  await toggleLook(false);
   await menu('Nodes');
   await page.getByLabel('Search nodes').fill('SND');
   await page.locator('.re-tree-row').filter({hasText:'SNDxDSPV'}).click();
@@ -89,7 +99,7 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
   assert.deepEqual(reopened.model.EventObjects.map(n=>({name:n.Name,times:[...n.EventTrack]})),saved.events);
   await page.getByLabel('Search nodes').fill('');await page.screenshot({path:path.join(out,'node-tree.png')});
   const backgrounds=[];
-  for(const name of ['Materials','Textures','Geosets','Nodes']){
+  for(const name of ['Materials','Textures','Geosets','Objects']){
    await page.getByRole('navigation',{name:'Resource managers'}).getByRole('button',{name,exact:true}).click();
    backgrounds.push(await page.locator('.resource-editor').evaluate(el=>getComputedStyle(el).backgroundColor));
    assert.equal(await page.locator('.re-visibility-timeline').count(),0);
@@ -153,9 +163,13 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), path=require(
   await page.getByLabel('Select geoset 0',{exact:true}).click();
   assert.equal(await page.getByText(/^Material \d+ · Layer \d+$/).count(),0);
   const globalId=await page.evaluate(()=>{let id;testDoc.apply('Global visibility fixture',['Nodes','GlobalSequences'],m=>{id=m.GlobalSequences.push(1000)-1;const n=m.ParticleEmitters2.find(n=>n.Name==='SoulFountain');n.Visibility={LineType:0,GlobalSeqId:id,Keys:[0,1000].map(Frame=>({Frame,Vector:new Float32Array([1])}))};});return id;});
-  await page.getByLabel('Select node SoulFountain',{exact:true}).check();
-  await page.waitForFunction(id=>document.querySelector('[aria-label="Choose animation sequence"]').value===`global:${id}`,globalId);
-  await page.getByLabel('Visible at current frame',{exact:true}).uncheck();
+  // MDLxL: selecting an emitter keyed on a global sequence switches to that timeline, so its diamonds show (PR #648).
+  await page.getByRole('button',{name:'Movement',exact:true}).click();
+  await page.getByLabel('Movement bone or node',{exact:true}).selectOption('');
+  await page.getByLabel('Movement bone or node',{exact:true}).selectOption(soulFountain);
+  await page.waitForFunction(id=>document.querySelector('[aria-label="Movement current sequence"]').value===`global:${id}`,globalId);
+  await toggleLook(true);
+  await emitterVisible().uncheck();
   assert.deepEqual(await page.evaluate(()=>testDoc.model.ParticleEmitters2.find(n=>n.Name==='SoulFountain').Visibility.Keys.map(k=>[k.Frame,k.Vector[0]])),[[0,0],[1000,1]]);
   assert.deepEqual(fs.readFileSync(file),original);assert.deepEqual(errors,[]);
   console.log('PASS original editor pickers; shared visibility checkbox; sound playback; event creation/save; managers without duplicate visibility tracks or filler.');

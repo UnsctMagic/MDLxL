@@ -5,7 +5,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
 
 const managers = [
   ['Surface Effects', 'K'], ['Material Manager', 'M'], ['Texture Manager', 'T'],
-  ['Node Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
+  ['Object Manager', 'O'], ['Geoset Manager', 'G'], ['Geoset Animation Manager', 'H'],
   ['Sequence Manager', 'Q'], ['Texture Animation Manager', 'X'], ['Global Sequence Manager', 'L'],
 ];
 const fixture = fixturePath('citadel-footman');
@@ -88,12 +88,13 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
     await page.mouse.click(status.x + status.width / 2, status.y + status.height / 2);
     await popupMenu('View').waitFor({ state: 'detached' });
     await openMenu('View');
-    const viewBones = popupMenu('View').getByRole('menuitemcheckbox', { name: 'Bones', exact: true });
-    const quickBones = page.locator('.quick-display [data-hotkey="display:bones"]');
-    const wasChecked = await quickBones.isChecked();
-    assert.equal(await viewBones.getAttribute('aria-checked'), String(wasChecked));
-    await viewBones.click();
-    assert.equal(await quickBones.isChecked(), !wasChecked, 'the mouse route toggles the same View setting');
+    // Vertices and Animations have no Bones switch since the Objects display (PR #648); both have Grid.
+    const viewGrid = popupMenu('View').getByRole('menuitemcheckbox', { name: 'Grid', exact: true });
+    const quickGrid = page.locator('.quick-display [data-hotkey="grid"]');
+    const wasChecked = await quickGrid.isChecked();
+    assert.equal(await viewGrid.getAttribute('aria-checked'), String(wasChecked));
+    await viewGrid.click();
+    assert.equal(await quickGrid.isChecked(), !wasChecked, 'the mouse route toggles the same View setting');
 
     const { translate } = await import('../src/localization.js');
     await openMenu('Settings');
@@ -108,14 +109,14 @@ const menuItem = (menus, group, label) => menus.find(menu => menu.label === grou
     await bar.getByRole('menuitem', { name: 'Settings', exact: true }).waitFor();
     await page.keyboard.press('F5');
     await page.getByRole('button', { name: 'Animations', exact: true, pressed: true }).waitFor();
-    const bones = page.locator('.quick-display [data-hotkey="display:bones"]');
-    await page.waitForFunction(() => document.querySelector('.quick-display [data-hotkey="display:bones"]')?.getAttribute('data-hotkey-shortcuts'));
-    const bonesKey = await bones.getAttribute('data-hotkey-shortcuts');
+    const grid = page.locator('.quick-display [data-hotkey="grid"]');
+    await page.waitForFunction(() => document.querySelector('.quick-display [data-hotkey="grid"]')?.getAttribute('data-hotkey-shortcuts'));
+    const gridKey = await grid.getAttribute('data-hotkey-shortcuts');
     const menus = await nativeMenus(app);
-    assert.equal(menuItem(menus, 'View', 'Bones').accelerator, bonesKey, 'View shows the shortcut assigned to Quick Display Bones');
-    const bonesVisible = await bones.isChecked();
-    await page.keyboard.press(bonesKey);
-    assert.equal(await bones.isChecked(), !bonesVisible, 'the shortcut shown in View toggles Bones');
+    assert.equal(menuItem(menus, 'View', 'Grid').accelerator, gridKey, 'View shows the shortcut assigned to Quick Display Grid');
+    const gridVisible = await grid.isChecked();
+    await page.keyboard.press(gridKey);
+    assert.equal(await grid.isChecked(), !gridVisible, 'the shortcut shown in View toggles Grid');
     assert.equal(menuItem(menus, 'Modules', 'Managers'), undefined);
     assert.deepEqual(menus.find(menu => menu.label === 'Managers').children.map(item => item.label), managers.map(([label]) => label + '…'));
     for (const [name, key] of managers) {

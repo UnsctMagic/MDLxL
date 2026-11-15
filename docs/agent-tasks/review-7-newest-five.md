@@ -1,8 +1,8 @@
 # Contract 7: fixes for the five PRs merged on 11 November (#622 to #626)
 
-Status: reworked and ready for Claude re-check.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings H1 to H9 and owner decisions O8 and O11 of the
 [main review](main-review-2026-11-11.md). Read its "Rules for

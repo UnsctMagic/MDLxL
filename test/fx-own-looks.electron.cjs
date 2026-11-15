@@ -30,7 +30,7 @@ const {addEmitter,addFxLayer}=require('./helpers/fx-input.cjs');
   await choose('Fire');await select('Flames');
   await fx.getByLabel('RGB tint').fill('#00ff00');await ready();
   const amount=fx.getByLabel('Amount value',{exact:true});await type(amount,117);await page.keyboard.press('Enter');await ready();
-  const flame=(await stack()).layers.find(l=>l.label==='Blade flames');assert.equal(flame.amount,117);assert.deepEqual(flame.tint,[0,1,0]);
+  const flame=(await stack()).layers.find(l=>l.label==='Blade flames');assert.ok(Math.abs(flame.amount-117)<1e-6,'Amount 117 (the layer amount is rescaled from the emitters, 7e9660b2): '+flame.amount);assert.deepEqual(flame.tint,[0,1,0]);
   const before=await revision();
   await fx.getByRole('button',{name:'Save as…',exact:true}).click();
   await fx.getByLabel('Preset name',{exact:true}).fill('My fire');
@@ -44,12 +44,12 @@ const {addEmitter,addFxLayer}=require('./helpers/fx-input.cjs');
   assert.equal(await fx.getByRole('button',{name:'My fire global animation',exact:true}).getAttribute('aria-pressed'),'true','the library selects the saved look');
 
   // Another geoset: clicking My fire brings its layers with the edited values.
-  await geoset(27);await choose('Glow');await find('');await page.keyboard.press('Backspace');
+  await geoset(27);await choose('Glow shell');await find('');await page.keyboard.press('Backspace');
   await fx.getByRole('button',{name:'My fire global animation',exact:true}).click();await ready();
   const again=await stack();
   assert.equal(again.look,'own-my-fire');
   const mine=again.layers.find(l=>l.label==='Blade flames');
-  assert.equal(mine.amount,117,'the edited Amount comes along');assert.deepEqual(mine.tint,[0,1,0],'the edited colour comes along');
+  assert.ok(Math.abs(mine.amount-117)<1e-6,'the edited Amount comes along: '+mine.amount);assert.deepEqual(mine.tint,[0,1,0],'the edited colour comes along');
   assert.ok(await fx.getByRole('group',{name:'Layers'}).getByRole('button',{name:/^Flames/}).isVisible());
 
   // Restart: the look is still listed.

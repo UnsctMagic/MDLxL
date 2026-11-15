@@ -29,7 +29,7 @@ for(const [name,tab,select]of [['Movement','animation','Movement current sequenc
  await page.locator(`[data-hotkey="${tab}"]`).first().dispatchEvent('click');await page.getByLabel(select,{exact:true}).selectOption({label:'Walk'});
  await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
  if(name==='Movement')await page.getByLabel('Movement bone or node').selectOption('');
- const emitters=page.getByRole('checkbox',{name:'Emitters',exact:true});if(!await emitters.isChecked())await emitters.evaluate(e=>e.click());
+ const emitters=page.getByRole('checkbox',{name:name==='Movement'?'Objects':'Emitters',exact:true});/* PR #648: Objects replaces Movement's Emitters switch */if(!await emitters.isChecked())await emitters.evaluate(e=>e.click());
  await play();await checkTrail(name+' Walk',true);
  if(!documentBefore)documentBefore=await page.evaluate(()=>{const host=document.querySelector('.game-preview-root');{ const state = findFiberState(host, state => state?.doc?.model&&state.assets); if (state) return JSON.stringify(state.doc.model); }throw Error('Editing document missing');});
  await page.getByRole('button',{name:'Stop',exact:true}).dispatchEvent('click');await capture();await page.evaluate(()=>travelSamples=[]);await pump(3);assert.equal((await page.evaluate(()=>travelSamples)).length,0,name+' pause does not drift');

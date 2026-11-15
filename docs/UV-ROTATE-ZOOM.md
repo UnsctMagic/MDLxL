@@ -10,7 +10,7 @@ fix the code, not the test numbers.
 
 **Expanded by the owner on 8 Nov 2026.** Settings → Mouse → UV lets each user
 pick another feel (`preferences.uvDrag`, `src/uv-drag-settings.js`), and an
-always-visible **Each piece** toggle in the UV Wrapper turns or zooms each
+always-visible **Each Piece** toggle in the UV Wrapper turns or zooms each
 separate piece on its own spot. The MDLxL preset and the fallback for existing
 profiles keep centre Zoom for profiles that existed before 11 Nov 2026. On 10 Nov 2026, the owner chose right/up Zoom for
 first launch of fresh downloads. On 11 Nov 2026, the owner confirmed that both

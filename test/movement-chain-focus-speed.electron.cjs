@@ -39,7 +39,7 @@ const assert = require('node:assert/strict');
     await sendMenu(app, 'keyframe:selectAll'); await page.locator('.classic-reel-selection').waitFor(); await sendMenu(app, 'keyframe:copy');
     await waitForInfo(page, '3 stored keys copied.');
 
-    const focused = page.getByLabel('Focused Skeleton', { exact: true }), skeleton = page.getByLabel('Skeleton', { exact: true });
+    const focused = page.getByLabel('F.Skeleton', { exact: true }) /* PR #648 renamed the Movement switch */, skeleton = page.getByLabel('Skeleton', { exact: true });
     await focused.check(); assert.equal(await skeleton.isChecked(), false);
     await skeleton.check(); assert.equal(await focused.isChecked(), false);
 
@@ -83,7 +83,8 @@ const assert = require('node:assert/strict');
     await page.locator('.animation-controller').waitFor();
     const animationSections = page.locator('.classic-sidebar details.sidebar-section');
     assert.ok(await animationSections.count() >= 4);
-    assert.equal(await page.getByLabel('Focused Skeleton', { exact: true }).count(), 1);
+    // PR #648 (owner's rows): Animations has RGB, Shadows, Lights, Emitters, Events, Sounds, Grid, Clear; no Focused Skeleton.
+    assert.equal(await page.getByLabel('F.Skeleton', { exact: true }).count(), 0); assert.equal(await page.getByLabel('Emitters', { exact: true }).count(), 1);
     assert.equal(await page.getByLabel('Playback speed percent').inputValue(), '100');
     await page.screenshot({ path: path.join(out, 'animations.png') });
     console.log('PASS: Highlight Chain copy, Focused Skeleton exclusivity, 1-250% playback speed, and collapsible Movement/Animations sidebars');

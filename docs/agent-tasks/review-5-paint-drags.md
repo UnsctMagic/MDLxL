@@ -1,8 +1,8 @@
 # Contract 5: Paint brush-size drag and the live-drag guard list
 
-Status: reworked and ready for Claude re-check.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 Branch: `codex/main-review-20261111-5`
 Fix revision: `c51c7fcb23e9f37d330ad4c2f45b87571a6bc198`
 

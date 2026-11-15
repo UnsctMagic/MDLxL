@@ -21,7 +21,7 @@ const {selectOption,addFxLayer}=require('./helpers/fx-input.cjs');
  const pulseClock=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Bones.find(b=>b._FxTag?.endsWith('/card0-0')).Scaling.GlobalSeqId);
  const phase=index=>page.evaluate(index=>{const p=mdlxlProbe('.sfx-stage .game-preview-root');return p.runtime.native.rendererData.globalSequencesFrames[index]/p.props.model.GlobalSequences[index];},index);
  const at=async(index,target)=>{await page.waitForFunction(([index,target])=>{const p=mdlxlProbe('.sfx-stage .game-preview-root'),t=p.runtime.native.rendererData.globalSequencesFrames[index]/p.props.model.GlobalSequences[index];return Math.abs(t-target)<.04;},[index,target],{timeout:30000});return stage.screenshot();};
- const handle=async(label,dx,dy)=>{const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle');await knob.waitFor();const b=await knob.boundingBox(),x=b.x+b.width/2,y=b.y+b.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:8});await page.mouse.up();await ready();};
+ const handle=async(label,dx,dy)=>{const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle:not(.pe-grab)');await knob.waitFor();const b=await knob.boundingBox(),x=b.x+b.width/2,y=b.y+b.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:8});await page.mouse.up();await ready();};
  try{
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
   await fx.getByLabel('Geoset',{exact:true}).selectOption('28');await ready();

@@ -35,6 +35,11 @@ const root = path.resolve(__dirname, '..');
     const timer = setTimeout(() => reject(new Error('the close prompt stayed open')), 10000);
     prompt.once('close', () => { clearTimeout(timer); resolve(); });
   });
+  // The prompt answers on the click or key itself and can close before Playwright
+  // acknowledges the action; closedPrompt and the editor checks verify the effect.
+  const acted = action => action.catch(error => {
+    assert.match(error.message, /Target page, context or browser has been closed/);
+  });
   try {
     let prompt = await openPrompt();
     const layout = await prompt.evaluate(() => [...document.querySelectorAll('button')].map(button => {
@@ -48,15 +53,17 @@ const root = path.resolve(__dirname, '..');
     assert.equal(save.background, 'rgb(90, 154, 102)', 'the whole Save button is green');
     assert.equal(cancel.background, 'rgb(227, 196, 106)', 'the whole CANCEL? button is yellow');
     assert.equal(close.background, 'rgb(189, 90, 85)', 'the whole Close button is red');
-    await prompt.getByRole('button', { name: 'CANCEL?' }).click();
-    await closedPrompt(prompt);
+    const closing = closedPrompt(prompt);
+    await acted(prompt.getByRole('button', { name: 'CANCEL?' }).click());
+    await closing;
     await settlePage(editor, 200);
     assert.equal(editor.isClosed(), false, 'CANCEL? keeps the editor open');
     console.log('PASS green Save, yellow CANCEL? above a red Close and keeps the editor open');
 
     prompt = await openPrompt();
-    await prompt.keyboard.down('Escape');
-    await closedPrompt(prompt);
+    const escaped = closedPrompt(prompt);
+    await acted(prompt.keyboard.down('Escape'));
+    await escaped;
     await editor.keyboard.up('Escape');
     await settlePage(editor, 200);
     assert.equal(editor.isClosed(), false, 'Escape cancels');

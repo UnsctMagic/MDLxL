@@ -118,9 +118,13 @@ function runtime(scope){const el=scope?document.querySelector(scope+' .game-prev
     console.log('Body and corpse captured at the same camera scale.');
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;
     // Normal camera tool plus actual pointer drag through Chromium on the
-    // hidden window, never OS-level input on the user's desktop.
-    await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.keyboard.press('Shift+E');
-    const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await settlePage(page, 100);assert.notDeepEqual((await page.evaluate(runtime)).quaternion,view.quaternion);checks.push('Normal mouse camera rotation remains functional');
+    // hidden window, never OS-level input on the user's desktop. After seek()
+    // focus is still in the Frame field, where Shift+E is typing, not the camera
+    // key; the user's Fit click moves focus out of it first.
+    await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.getByRole('button',{name:'Fit',exact:true}).click();await settlePage(page, 100);await page.keyboard.press('Shift+E');
+    const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await settlePage(page, 100);
+    // A real turn, not a rounding step: before 04ec1b2d an idle camera drifted ~1e-16 per frame, which let a drag that never rotated pass.
+    {const turned=(await page.evaluate(runtime)).quaternion;assert.ok(Math.max(...turned.map((v,i)=>Math.abs(v-view.quaternion[i])))>.01,'the drag turns the camera: '+JSON.stringify([view.quaternion,turned]));}checks.push('Normal mouse camera rotation remains functional');
     await page.keyboard.press('Control+z');await settlePage(page, 120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.keyboard.press('Control+y');await settlePage(page, 120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
     await button.click();await window_.waitFor();await window_.getByRole('button',{name:'Create',exact:true}).click();await settlePage(page, 150);
     await window_.getByRole('button',{name:'Close',exact:true}).click();await window_.waitFor({state:'hidden'});

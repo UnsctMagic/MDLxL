@@ -1,6 +1,6 @@
 # FX: effect redesign after the trial 06 rejection
 
-Status: passes 8 and 9 in progress (14 November), saved locally: the pass 8 list is built and committed (`14b6aa47` to the commit that adds this note), captures taken but not reviewed, names not translated, pass 9 items listed under "Not done" in the last section. Builds; compiled in Node, not opened in the app by the designer; of the unit tests only `test/fx-legacy-snapshot.test.js` was run (passes). The owner reviews test build 08 by eye. Local branch only.
+Status: Completed. Merged in PR #645 (956e0259), 15 Nov 2026, for 0.40.0 (team tattoo removed). The "Not done" lists below stay as the next work.
 Branch / checkout: `claude/fx-effects` in `D:\Claude\MDLxL\.claude\worktrees\fx-effects`, started from Codex's `7e9660b2` (`codex/fx-emitters`) to keep its control work.
 Owner / consolidator: Claude (orchestrates; Fable designs the effects; cheaper agents code and capture).
 Background: [emitter placement work order](fx-emitter-placement.md), [FX contract](../FX-GLOBAL-ANIMATIONS.md). Codex's failure report: `D:\Codex\fx-emitters\out\placement\trial-06-failure-handoff.zip`.

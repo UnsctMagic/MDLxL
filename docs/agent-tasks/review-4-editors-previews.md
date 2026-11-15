@@ -1,8 +1,8 @@
 # Contract 4: editor and preview fixes
 
-Status: reworked and ready for Claude re-check.
+Status: completed — merged via PR #635 at c1548e40.
 Owner / consolidator: Codex (fix), Claude Code (contract and review)
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 Findings D1 to D8 of the [main review](main-review-2026-11-11.md). Read its "Rules for
 every contract" first. Eight small, separate fixes; commit each on its own so one can be

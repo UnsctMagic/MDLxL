@@ -86,7 +86,7 @@
   {"id":"auto-corpse:splat-shape","label":"Splat shape","group":"Auto Corpse","category":"Auto Corpse"},
   {"id":"auto-corpse:splat-size","label":"Splat size","group":"Auto Corpse","category":"Auto Corpse"},
   {"id":"auto-corpse:spray","label":"+ Spray","group":"Auto Corpse","category":"Auto Corpse"},
-  {"id":"eachPiece","label":"Each piece","group":"editor","category":"Tools"},
+  {"id":"eachPiece","label":"Each Piece","group":"editor","category":"Tools"},
   {"id":"forge-image:apply-crop","label":"Apply crop","group":"Forge","category":"Forge"},
   {"id":"forge-image:cancel-selection","label":"Cancel selection","group":"Forge","category":"Forge"},
   {"id":"forge-image:checker","label":"Checker","group":"Forge","category":"Forge"},
@@ -307,5 +307,5 @@
   {"id":"uv-wrapper:uv-map-tile-limit","label":"UV map tile limit","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:uv-material","label":"UV material","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:wrap","label":"Wrap U and V","group":"UV Wrapper","category":"UV Wrapper"},
-  {"id":"uv:each-piece","label":"Each piece","group":"UV Wrapper","category":"UV"}
+  {"id":"uv:each-piece","label":"Each Piece","group":"UV Wrapper","category":"UV"}
 ]

@@ -1,6 +1,6 @@
 # POSE handles from several clues
 
-Status: completed (merge revision: pending)
+Status: completed (merged in PR #647, a52f1185)
 Owner / consolidator: Claude (Fable as coordinator; Sonnet agents code and run checks)
 Updated: 2026-11-15
 

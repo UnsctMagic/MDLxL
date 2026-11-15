@@ -84,7 +84,7 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
     }
     result.checks.push('real hand and foot drags with Restrict on/off, isolated preview and exact atomic Undo');
 
-    await page.getByRole('checkbox', { name: 'Focused Skeleton', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'F.Skeleton', exact: true }).check(); // PR #648 renamed the Movement switch (tooltip: Focused Skeleton)
     await tool('Select');
     // Footman's Pelvis only repeats Body, so Select/Move/Rotate leave its handle out (f8ad08cc; Scale keeps it). Select it with the Object picker.
     const pelvis = (await handles('scale')).find(handle => handle.label === 'Pelvis');

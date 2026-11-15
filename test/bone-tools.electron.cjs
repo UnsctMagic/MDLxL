@@ -52,8 +52,8 @@ const path = require('node:path');
     before.target.forEach((value, index) => assert.ok(Math.abs(value - after.target[index]) < 1e-5));
     assert.equal(after.zoom, before.zoom);
     // Bones opens with only bone markers on (e42ae07a made each editor's display independent; b61434b5 turns Bones on in the rig editors).
-    // Its display list has no Nodes switch since 3297c3b2.
-    for (const [label, checked] of [['Bones', true], ['Emitters', false]]) assert.equal(await page.getByRole('group', { name: 'Quick display', exact: true }).getByLabel(label, { exact: true }).isChecked(), checked, label);
+    // Its display list has no Nodes switch since 3297c3b2. PR #648: one Objects switch (on by default in Bones and Movement) replaces Emitters.
+    for (const [label, checked] of [['Bones', true], ['Objects', true]]) assert.equal(await page.getByRole('group', { name: 'Quick display', exact: true }).getByLabel(label, { exact: true }).isChecked(), checked, label);
     await page.getByRole('button', { name: 'Create', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Bone' }).click();
     assert.match(await page.getByLabel('Movement bone or node').inputValue(), /^[0-9]+$/);
