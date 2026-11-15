@@ -1,9 +1,10 @@
 # MDLxL 0.40.0 release
 
-Status: waiting for FX (owner, 12 Nov). Candidate prepared and tested locally; not tagged, not
-published. Full packaged suite done on the candidate; core variants and click sweep not run.
+Status: QA done on the final build 2178f2d7 (15 Nov). Release PR, tag and an unpublished
+draft come next; publishing, Garithos and the website wait for the owner (peer session
+local_a3a16fa6 publishes).
 Owner / consolidator: Claude Code (release handoff session local_2ef9913b-787a-4168-8396-bd0317361c61)
-Updated: 2026-11-14
+Updated: 2026-11-15 (session local_2efbff72-f905-430a-97f2-ebf0b66800ce)
 
 ## Goal and completion criteria
 
@@ -76,75 +77,56 @@ Main CI green after each merge.
 
 ## Release standard
 
+Final build: 2178f2d7, packaged and run from outside the repo
+(`D:\Claude\MDLxL-gate\pkg-fix\MDLxL-win32-x64`). Click sweep rule: owner 15 Nov, every
+release runs only the `footman` setup (rule on `claude/one-setup-sweep` a75ec913, merged by
+the peer session).
+
 | # | Line | State |
 | --- | --- | --- |
-| 1 | Builds and packages from the exact commit, CI green | Packaged locally at 978d36bc; release PR not opened (waits for FX) |
-| 2 | Compatibility and source tests, no new failure | Source 3,466 / 0 failed on the camera branch (main 19481b44 + fix); release branch 3,463 / 0 before the last merges |
-| 3 | Full packaged suite | Done on the 2374f4b6 package: 271 pass, 11 fail, 6 skip; every failure classified below |
-| 4 | `core` on no-gpu-warp, slow-cpu, hidpi | Not run |
-| 5 | Click sweep, all 19 setups | Not run (about 10–11 h) |
-| 6 | Each feature and fix works the user's way | Fail-first packaged checks for each fix merged today; owner hand test not done |
+| 1 | Builds and packages from the exact commit, CI green | Packaged at 2178f2d7; CI on the release PR |
+| 2 | Compatibility and source tests | Compatibility 57 / 0 failed; source 4,022 tests, 0 failed, 10 skipped |
+| 3 | Full packaged suite | Full run 07:00 (253 pass, 44 fail, 1 timeout, 6 skip), then every non-pass rerun on the final package; all classified below |
+| 4 | `core` on no-gpu-warp, slow-cpu, hidpi | Done; failures rerun on 2178f2d7: only showcase (no-gpu) and particle-picture remain, both pre-existing |
+| 5 | Click sweep (`footman`) | Pass on 2178f2d7 (39 min) |
+| 6 | Each feature and fix works the user's way | Fail-first packaged checks per fix; owner hand test not done |
 | 7 | Previews: mouse rotation, Play speed | In the suite (passed) |
 | 8 | Save and reopen .mdx/.mdl | In the suite (passed) |
-| 9 | Release text, six languages, PDFs looked at | Notes cover #642–#648 (15 Nov); guide pages not updated for them |
-| 10 | CI ZIP tested; public SHA-256 | Not reached (no tag) |
+| 9 | Release text, six languages, PDFs | Notes cover #642–#648; New Features PDFs rebuilt, 12 pages, six languages |
+| 10 | CI ZIP tested; public SHA-256 | After the tag |
+| 11 | OptimizeXL flail regression | Pass: Flail01 identical; Flail03 differs only in `mounted-spheres` (owner rule, 11 Nov) |
 
-## Suite results
-
-Full run on the 2374f4b6 package (fresh particle index, profile copy `out/real-profile`):
-271 pass, 11 fail, 6 skip. Backups: `out/suite-results/{full-run-1,rerun-1,v0390}`.
+## Suite results (15 Nov)
 
 | Test | Result | Classification |
 | --- | --- | --- |
-| ai-live, ai-live-tabs, updater-release-gate, updater-bootstrap | skip | Opt-in or manual by design |
-| particle-library-indexing, particle-performance | skip | Always skipped by the runner (real profile / old baseline build) |
-| emtr-add-like-ribbons, updater-packaged | fail → pass | Passed on rerun (fresh profile copy; updater timing) |
-| uv-grabthrough, vis-mdlvis-mode, geoset-merge-conflicts, model-manager-regressions, movement-gizmo, rotation-interaction | fail → pass | Stale tests, fixed in c917464b: "Hide extras" rename (319e9194); VIS has no Axis guides (40304fc4); dialogs and the viewport sit below the new Windows menu (aed041a0); menu click before the page listens; bone label pixel wobble. All passed on 0.39.0 and pass on 0.40.0 now |
-| uv-zoom-collapse | fail → pass | Real bug (camera moved by a rounding step); fixed on `claude/camera-idle-frames`, passes on the 978d36bc package |
-| citadel-studio | fail | Also fails on 0.39.0 (pre-existing): image differs after "Separate this part" |
-| particle-world-effects | fail | Also fails on 0.39.0 (pre-existing): ribbon thumbnail never appears / report folder missing |
-| particle-picture | flaky | Pre-existing: "normal mouse drag rotates the EMTR preview camera" fails 1 in 4 on the 978d36bc package and 2 in 3 on 0.39.0 |
+| 29 tests (FX, POSE, close-prompt, auto-corpse, perspective-zoom…) | fail → pass | Concurrent runners in one worktree killed each other's apps; rerun alone on the final package |
+| hotkey-badges, manager-menu-hotkeys, manager-simplification, node-effect-controls, particle-main-rig, particle-model-io, particle-prototype, particle-workflow, rotation-interaction, surface-effects-warriors, toolbar-modes | fail → pass | Stale tests for the Objects master (#648) and FX renames (#645), fixed in e59a2e2a |
+| object-types | fail → pass | Real bug: Create Ref / Attachemator left new refs hidden in the XL look (old `attachments` key); fixed in 2178f2d7, attachemator and bone-namer rechecked |
+| citadel-studio | fail | Also fails on 0.39.0 (pre-existing) |
+| particle-world-effects | timeout | Also fails on 0.39.0 (pre-existing) |
+| particle-picture | flaky | Pre-existing, fails on 0.39.0 too |
+| showcase (no-gpu-warp only) | fail | Same on 0.39.0: the software renderer has no multisampling |
+| particle-model-io | flaky | Timed out once on the save/reopen wait, passed three times |
 
-Camera fix check on the 978d36bc package (bundle verified to contain the fix): uv-zoom-collapse
-and 11 UV/camera tests pass, then 56 tests that check camera preservation (Quad View,
-portrait, Showcase, POSE, OptimizeXL, Forge, workplane…) all pass. Backup:
-`out/suite-results/camera-978d36bc`.
-
-Profile note: `MDLXL_REAL_PROFILE=D:\Claude\MDLxL\profile` has an October particle library
-without `browse.json`; use the copy `out/real-profile` (fresh index from
-`node scripts/index-particles.mjs --output out/particle-index/particles`).
-
-Repackage note: `pnpm run package` refuses to replace an existing `release/MDLxL-win32-x64`;
-use `node scripts/package.mjs --overwrite`, then copy to `out/pkg` and check the bundle date.
-
-```powershell
-$env:TEMP="$PWD\out\tmp"; $env:TMP=$env:TEMP
-$env:MDLXL_REAL_PLAYWRIGHT='D:\Claude\tools\node_modules\playwright-core'
-$env:MDLXL_REAL_PROFILE="$PWD\out\real-profile"
-node scripts/run-packaged-tests.mjs default <names>   # MDLXL_SUITE_PKG=$PWD\out\pkg-0390\MDLxL-win32-x64 for 0.39.0
-```
+Results: `out/rel/` in the release worktree (`rerun-summary.json`, `*-core-summary.json`,
+`fix-*-summary.json`, `click-sweep-summary.json`, `flail.log`).
 
 ## Known issues and open items
 
-- FX editor (`claude/fx-editor`, local): not ready; owner wants it in 0.40.0. Its own status
-  note is `docs/agent-tasks/fx-owner-test-02.md` on that branch. FX window items A3–A5 from
-  the main review wait for it.
-- POSE handle words (Hand, Foot, Knee, Elbow…) are drawn on the canvas untranslated; they mix
-  in model bone names and double as icon keys, so they need their own change.
-- "Glow Up" stays English inside tooltip and help sentences in all languages.
-- ZH Bone Namer group "Main" reads 主主体 (repeats 主).
-- citadel-studio and particle-world-effects fail on 0.39.0 as well.
-- Missing historical Flail03 reference (owner accepted the known `mounted-spheres` case).
-- D: had about 34 GB free (the kit wants 40 GB for a full run).
+- EMTR Lab: on a ribbon 8 units tall the edge dots sit under the Move handle at the opening
+  zoom, so dragging an edge moves the ribbon; Fit view fixes it (0.39.0 kept them apart).
+  Needs a design call.
+- POSE handle words are drawn on the canvas untranslated; "Glow Up" stays English inside
+  tooltips; ZH Bone Namer group "Main" reads 主主体.
+- Missing historical Flail03 reference (owner accepted the `mounted-spheres` case).
+- FX window items A3–A5 from the main review were not rechecked against the FX redesign.
 
 ## Next steps for whoever continues
 
-1. When FX is merged into main: merge main here, `node scripts/package.mjs --overwrite`,
-   rerun the tests FX touches (fx-*, particle-*, emtr-*, visual-effects-*) plus anything new.
-2. `core` on no-gpu-warp, slow-cpu, hidpi; then the click sweep of all setups.
-3. On the owner's "merge": push `claude/camera-idle-frames`, PR with a `Session:` line,
-   merge with `gh api repos/UnsctMagic/MDLxL/pulls/<n>/merge -X PUT -f merge_method=merge`.
-4. Release PR, CI, merge, tag, finish the draft, website, publish — only with the owner's
-   approval. Add FX to the notes and guides first.
-5. Cleanup: worktree `.claude/worktrees/v0390-baseline` (remove its `node_modules`
-   junction as a link first), `out/pkg-0390`, and `camera-idle-frames` after its merge.
+1. Release PR, CI, merge, tag `v0.40.0`, fill the draft (body, FFmpeg source ZIP, CI ZIP check).
+2. The owner publishes (peer session): release, Garithos post
+   (`D:\Claude\MDLxL-gate\release-0.40.0-material\garithos-post.md`), LowPolyWorks FX tutorial
+   (`D:\Claude\LowPolyWorks-fx-tutorial`, branch `claude/fx-tutorial`), then archive sessions.
+3. Cleanup: worktrees `fx-tests-iso` and `v0390-baseline` (remove junctions as links first),
+   `out/pkg-0390`.
