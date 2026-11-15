@@ -710,3 +710,13 @@ the new scan offers only Death. A new unit regression gives an Alternate
 stance 70 units from the plain one: only its outlying Slam is corrected, toward
 the Alternate pose (fails on the old code). All 207 OptimizeXL source tests
 run: 205 pass, 2 skipped, 0 fail. Packaged-app click-through not run.
+
+## Unresolved near-identical rotations: multi-model study, 15 November 2026
+
+The owner accepted removing five similar-valued linear rotation keys from Lahmian, then required a broader study before any OptimizeXL integration. The local study scanned 1,069 unique inputs: 605 completed the bundled checker and 464 raised checker exceptions, which remain unverified. A frozen 34-file deep selection produced five first-pass deletion experiments, including both accepted Lahmian variants; 130,978 mesh frames and 523,678 native frame positions retained endpoints and unrelated model fields. Largest mesh difference was 0.549981 model units on Sargeras. This is not visual acceptance of the other models.
+
+The 23 final derived real-model cases expose counterexamples: a near-identical key can carry all of a small authored turn; a larger lever arm turns the same small quaternion difference into 10.00016 units of displacement; shortening its rise to 1 ms changes velocity about 1,504 times more at the same displacement maximum. Hidden influenced geometry and non-mesh dependencies also prevent a blanket safety claim. Sargeras rescanning exposed another key; existing owners retained two further candidates.
+
+Existing rules/tolerances remain untouched. The 90 focused tests (including private Fx opt-in), 56 immutable flail comparisons, 581 exact no-ops and five representative disjoint repair-order combinations pass. The absent historical mounted reference was reconstructed from trusted c6dc15ce source and matched the original 084d34e0… hash before use; golden files were not changed. Initial research visibility/binding fixture errors were corrected with the existing owning APIs and rechecked; they are not production fixes.
+
+No automatic deletion domain meeting the owner's no-regression requirement was established, so no runtime rule was integrated. This research does not weaken the small-turn protection or authorize fixture-specific code. Detailed local scope/results and remaining camera/global/Warcraft limits: [study note](agent-tasks/optimizexl-unresolved-rotation-study.md), [compact evidence](agent-tasks/optimizexl-unresolved-rotation-study-results.json), and D:/Codex/optixl-unused-study-20261114/report/REPORT.md.

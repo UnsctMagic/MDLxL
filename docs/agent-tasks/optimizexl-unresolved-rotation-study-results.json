@@ -1,0 +1,3287 @@
+{
+  "baseRevision": "19481b447bf06b3990adfc021dd8e2d77eec0b04",
+  "branch": "codex/optixl-unused-study-20261114",
+  "scope": {
+    "files": 1091,
+    "uniqueInputs": 1069,
+    "allOriginalPathsRehashed": 1091,
+    "versions": {
+      "800": 667,
+      "1800": 400,
+      "MDL": 2
+    },
+    "checkerFailuresByVersion": {
+      "800": 66,
+      "1800": 398
+    }
+  },
+  "census": {
+    "total": 1069,
+    "ok": 605,
+    "errors": [
+      {
+        "relativePath": "corpus-sd/creeps__gnollarcher.mdx",
+        "sha256": "003001dd7cfedd7a8e208b5700e74e470b6f2d267005697466d19b5d3efa85c2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__illidanwagon.mdx",
+        "sha256": "008a2a0d9fd1abfdda7b54d151cecaa26c03ffd5da6343ef6afb0f3621665912",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__wisp.mdx",
+        "sha256": "02115dbf6d3d603c8e89c36009438dfefaece22f0633749eb0921cf8b28b2bca",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__wendigo.mdx",
+        "sha256": "02ac59fb43f91b36a0777c583d1996193f66e3614a017372148f901b28ad52b4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__sheep.mdx",
+        "sha256": "02eb491912730333fe98e63e54bf4c7b9ba0f5570e57a2b7a4e3db1a3c39ffb4",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 24902"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__revenantofthewaves.mdx",
+        "sha256": "032685460e6ba76401a9cc1093bc114da767d4e4940c63c923d6bcb42633a06c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__spiritwyvern.mdx",
+        "sha256": "03509b416b62b763e3af8cd9ecb892b93e3de40fe4f13b8d474f2cdff9de5dd2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/orc__heroblademaster.mdx",
+        "sha256": "0464bc7095533aad067439d9e47cda341209b70456f1e24906099ada8547a961",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__herowarden.mdx",
+        "sha256": "04df9e7f64b896c7683950ad9e0768971acf3b79e8779241a40874ffa72707c8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__reddragonwelp.mdx",
+        "sha256": "05f8e05984a76a7a3e7b2eafcbca877eef2b2b26608a2e135822f8e3bbbc100a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__runner.mdx",
+        "sha256": "0636a07b65233cd58a9c8f770710c608df2235a47b1ecbc827a690f71c21f54c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__dalaranreject.mdx",
+        "sha256": "082db4e2fb00a68be0c46462931e54f01561bcb64610849df6df0254fcfee32f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__riddenhippogryph.mdx",
+        "sha256": "083104e28436a835a3d7b0eae3f2f975332cfb2cf276b0dce672ab5b0170d517",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__giantseaturtlerange.mdx",
+        "sha256": "083643ce54628cd053ec461b88331ace0d95f65247f6fe25126eb59eb3c67d5e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__demonessblue.mdx",
+        "sha256": "096291cc82d48b39d3e51fa850e3ecdcef8cb7ea3a11fae19364893062907ced",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__felhound.mdx",
+        "sha256": "09aca38c682786a28539a08cac2d1bed1b6dc0266d0daee549239415986b0530",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__nerubianqueen.mdx",
+        "sha256": "09fd541b9b4799c91e69ddb9e5b3e2e25c8cba749b34b66de2e6cefd7f0d1d87",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__nightelftransportship.mdx",
+        "sha256": "0a9c98c0c3013ab132cf9cec1bf37c333534e5efebcf64d95dae88334449842a",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1766743155 bytes but have 27547"
+      },
+      {
+        "relativePath": "corpus-sd/orc__hellscream.mdx",
+        "sha256": "0b0d6fe9ede744c3fc1f6e4abdca96e16e0169aeec7ad45243f7d3ee58f41ee5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murgulslave.mdx",
+        "sha256": "0d20c8e5a43ebb966417f1ddc8a68f2b5c47a9d513d1aa73c1011c8873dff850",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__villagerkid.mdx",
+        "sha256": "0d995d3c8464d0536120a0f17cd382798d418274c70b2ae9372c8bf7a4d32603",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__villagerkid1.mdx",
+        "sha256": "0df5b77e4b4be04270ce4ca05fc0463c4e07489ee06d9a9287e58a59ff78eba3",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__irongolem.mdx",
+        "sha256": "0e4e69d4c974758b8bde4f9ae4b7124fc2af4e9f13dd9a973b55369cf0032b43",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__goblinzeppelin.mdx",
+        "sha256": "0e503880124f63fcc373cf5e8698d6fe73c187c9a2a451f79cb9d6296542b6e2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__bloodelfwagon.mdx",
+        "sha256": "0ed22fe1816308b38a0b6670ad4ce32497fc5f27eb85c63826e39abc569ef7df",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__flyingsheep.mdx",
+        "sha256": "0f5d726e69583afa2f2b9a64558d547925a14edb4990d3059c7f7015e219add0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__penguin.mdx",
+        "sha256": "10557ad51811748547d24c97528100d1de41020b01dd576b166ee3b67184e56d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__sentryward.mdx",
+        "sha256": "10a4c6dfe8ddf774fc90e12fa0f113724bb1789b445c37766f873f9478e452ae",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__waterelemental.mdx",
+        "sha256": "110211131410a4df90ce837fa929143293f9e97a1629b21780038e625f87f730",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__humantransportship.mdx",
+        "sha256": "126c246e315467e6a42988330f043d6ce2deb7ef682c7ede3dea0a5f524b3480",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 21561"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__gnolloverseer.mdx",
+        "sha256": "13adefc042b9582b37d0d1935a7ac984a91a2df66b40a80b50b4a2690aa431a9",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/undead__shade.mdx",
+        "sha256": "1443305dc39fc2887818d719fa74c7d9494ba2bbd8ab84dd4b5e6a8d4078faed",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__felgaurdblue.mdx",
+        "sha256": "14445de060ee34134771ca601aa85673f3b606c554c569d636ae79f61c7f9d3a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaosgrunt.mdx",
+        "sha256": "158dc9dab83911ed893acce2b7240d24178b6aba285d2bec5b5db84f23a0da54",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__mammothblack.mdx",
+        "sha256": "179263e9944bd18268bf36e41e6ed73f4f53f3fa3c6e0a1e4982ab7ce98ea22e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__ent.mdx",
+        "sha256": "18623f6570d0953292a42859ac3b911ea93b50c23859d63fe3edb9557e063c10",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1766743155 bytes but have 281697"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__gnollwarden.mdx",
+        "sha256": "18c68cf4b8126215007f9fe16663712eae6d360f8d3629203e453009aff1136f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spider.mdx",
+        "sha256": "1a1f30af4f3b3293641ef80438a15f5efd8a53042d05cbe3aee00ef2bdcd1daa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__furbolgshaman.mdx",
+        "sha256": "1aa9291f813d08ac8c7ad77579eaaefb2a469f9c2dfe07327cdf6722672c17d1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__proudmoore.mdx",
+        "sha256": "1abc1392d260a9c68b7222d0c8d0f697ef7cca4670bcadb67576ec5af6b3f779",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__greendragonwelp.mdx",
+        "sha256": "1b60182e59749ee34bc54011c2eacde752effb75c939eac7a70a2cb3bc7c939c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__abomination.mdx",
+        "sha256": "1c01777ccb681be2d300fa3656e5e8731e5529792cbe53dfa1463fa6c817f3cb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__furbolg.mdx",
+        "sha256": "1c8f70c11e2d5d183589f93d3325030a70be26ca498d5d0a998afe24e6f06515",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__frog.mdx",
+        "sha256": "1cf08a4ea4dffc1516196776b23cfcb9e026dd03ee7afbacf777e2766106b729",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 50603"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bronzedragonwelp.mdx",
+        "sha256": "1cf2e43bab56f7500080c702b34a9e1d07a84464643f649e4b55ca6140db120e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__undeadcar.mdx",
+        "sha256": "1d8b166be13b7088c9397dfb65eb65abb2fcc4e18b9d6a97773b3338c355878f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__magnataur.mdx",
+        "sha256": "1d8bee1e7fdabcb045729dc30cddaee4ef1e1199e3ea1405d794cbd213fa0b21",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__tuskarlord.mdx",
+        "sha256": "1dc77a8728599743987c5238164edeb92e549714403aeef669204900bea7f5da",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__herogoblinalchemist.mdx",
+        "sha256": "1e60341663d668a7c87d934385dd6acaab0d085d929e15bf9ddc8e81e10caf26",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__gnoll.mdx",
+        "sha256": "1e9c229f1543f3a41030949e2045dc37033c6d6e16a50bdfc2271477776a1c8a",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__dragonseaturtlerange.mdx",
+        "sha256": "1ef8bba1570e47bdd11ecc153e31387a0e295a48ac6b24ca4fc531689c675851",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__frostwyrm.mdx",
+        "sha256": "1f00494f49d98e1984427f340a4816e5694791acfa7c59f2c2161e49c673217d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__darktrollshadowpriest.mdx",
+        "sha256": "20577a9b81f6220ca249c4c51191966a32eceaf53256cfb67a69a285956ff548",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__zergling.mdx",
+        "sha256": "20d9e2cfebb22bd78e262b3f293848100736fe30dce23a34ae180230bf819687",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__dalaranmutant.mdx",
+        "sha256": "222cb486fc165ad89700edeec3dfce452c1219e5c8c50c11386ee97faed6af2c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__peasant.mdx",
+        "sha256": "227fe8339f95899446cbe86e95c468c5f4a52570653b2454fc64c0f46dc6242d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__foresttrolltrapper.mdx",
+        "sha256": "22ef8d7fe6957f07cf5581dac37f9612d5f3d8aefa38f63da77bef4a8f26ee38",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__foresttrollshadowpriest.mdx",
+        "sha256": "22f1c69d873e4c3d9ba940da2b3eb95e6c45f59b2a401589a14fea3c83e9db5c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__gnoll.mdx",
+        "sha256": "234a4bc0f4205d43dc7f5fac648fd4747de9e20426487d36a63f5aada68f817d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__blackstagmale.mdx",
+        "sha256": "237e57e83ff744df4b7d298c464b502c0c3f71092ce85a7c95ff7fdd37e5a0c2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__wendigoshaman.mdx",
+        "sha256": "2445ff6f9d47fea600b0cfca530e3ea66cd37d2f2ba28522ddd2868eb76c15da",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__rock1.mdx",
+        "sha256": "246bcb9b4e635dab8bff0d534a22737b36821e70b93e83b02e6be2cd350dbe6e",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1698978931 bytes but have 1568"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__lobstrokkblue.mdx",
+        "sha256": "24d578492b7c6d2efa9d36021e5612a1cfee4c34d432f5ffeb95916a9bb8fcdd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__wyvernrider.mdx",
+        "sha256": "266cffec33cf1dc4f1423fafee58cd4b92ad64c4f1cb319a1b2cdf9a16e1dcd5",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__bristleback.mdx",
+        "sha256": "266e805a06a39ba98a2c82d3247444336461c53d5ad239f6bb0116ca4b7ebee7",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/demon__kiljaedencin.mdx",
+        "sha256": "269ad7feaf8c205920611cc46f18857ed4f35660abb75ecc28608c7413ae50de",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Medivh.mdx",
+        "sha256": "26d0a08f59f09315b9d969478207fc322d1c0020415e459de7fba7729b7492b9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__banshee.mdx",
+        "sha256": "27185d6b13c3c23582b5d875ee7ce4698ab4829417e8f578e0921fd813248e1f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__abominationexplosion.mdx",
+        "sha256": "27a4b621cf08d6fc8f431c8e2ee37b1ecc951ccf12793f7cb22e95000e158da8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__nagamyrmidon.mdx",
+        "sha256": "2856661b7279ae1db1c6ec02286da2835ddea1dfc95ddf123ef6df58eeb4540d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__undeaddestroyership.mdx",
+        "sha256": "29256d7b6569f9ff87484d016cdf4636a518d360d1284e69ecff9a1edf7947f8",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 35872"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__owl.mdx",
+        "sha256": "2a1ebd62807e435cfab266029ae80abb28c3ac566bdfbdc71465c763532311b1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__quillbeast.mdx",
+        "sha256": "2a4a9b438cfd9b684204085ec7513672baa5f6eee4edacbdec7cdde3515deee1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__junglebeast.mdx",
+        "sha256": "2b19fcc888011cd2d9259f2d05758421562e412a9f721d9efe19e655b2e01d4c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__watcher.mdx",
+        "sha256": "2b279e37af630d85171d26653080a0b3f6ee1d3d58d40fc7f80ed0ab8899363a",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__seagiantgreen.mdx",
+        "sha256": "2b5cd69d59cd134990e011406fb4373bf17bc195d81fd4637dfad4a62966ac22",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__heronagaseawitch.mdx",
+        "sha256": "2b8c41909d830d3bd7806b5e6846aa363a67249d30c5b5a6279f303c986a4aeb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herofemaledeathknight.mdx",
+        "sha256": "2cc56a6501986cc81787e0fbf83e8479779a2a2dd30564ba83553dee537aa2cd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__harpywitch.mdx",
+        "sha256": "2d5c2ab418b7e415b5440e71761cd7167814b7f38b538641aa7830293c1fe4b5",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 99843"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocflesheater.mdx",
+        "sha256": "2d617ed938f2db1717461dcfbe1735b7ca5b9f3623a8d45939ae71c94ea26f52",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__heropitlord.mdx",
+        "sha256": "2df31f67f437e41ec672c49009dfc747d14f2c75dd682fa79aa1b11b118e179d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__hippogryph.mdx",
+        "sha256": "2e6c6069c5a52b96e2d7e3859c8bf61ff0dcfa6c44e22bb132e70a66173f18af",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__wareagle.mdx",
+        "sha256": "2e76346e31e38a628879538c59efe8ad4d9d1f52b6da18aa7b6e019a793d267c",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1634496613 bytes but have 122229"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaospeon.mdx",
+        "sha256": "2e818e08ba324585cd16cbfc3249d1ce8e3913ff3f96433bf04c4655fea9ddec",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__icetroll.mdx",
+        "sha256": "314e970667db5de933bba4e43500c08965bb2f102284a81de28106e5b1702743",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__herotinkerrobot.mdx",
+        "sha256": "31522e89d32d454d1e42d415b5b0813aebe299477371d7b08185e5d1dc79b768",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__heromoonpriestess.mdx",
+        "sha256": "3167ef28ca85669e1e7a90c1f77874fbbf35affd12642a4d2d32f8eec85922cc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__stasistotem.mdx",
+        "sha256": "31ef7955507d0dcb808c8e801a209ec68d6f1b5140a5e3eb20179a2359be7466",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__hydra.mdx",
+        "sha256": "31fdfa4d28249e82b91d200360e0e466d7947df483eb08413ab70e02ad3f2a02",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__kiljaeden.mdx",
+        "sha256": "3212be5f102ae73237494c25d9e4d296484d2169ee0d7fbb0efd47dbc2e4e238",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__herokeeperofthegroveghost.mdx",
+        "sha256": "32f0bcfebc2f0a4c303fc8edc3a234dc2487fc32caa4663b4db97ce9b6ec9be0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__nightelfdestroyership.mdx",
+        "sha256": "338a36680f75547e3aa994df61694d732c53600b39ac496ceec03b6da97f3cf4",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/human__heropaladinboss.mdx",
+        "sha256": "343b5ecbd3a91f3bba6feabc516b469c2b9c98f79633a12eb43b940737149ddb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__uther.mdx",
+        "sha256": "34a2596793ecd108ef079c112de32580f55283fda9630b07c108516ffd9050d7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Necromancer.mdx",
+        "sha256": "34c903d5719f66170a5cc1308c643f3e07609db5d3d76822299f55ccbcd532b0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__kotobeast.mdx",
+        "sha256": "35ace5202f428acd6c5bb6d686d3650a49987c2ab633c688d06452fa6c2b6980",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__militia.mdx",
+        "sha256": "35d38fc0cc6091d12f996cf025412952e5b6a5f174120df1c26956676f5cd5ee",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__bloodelfball.mdx",
+        "sha256": "36f80880e80bd369ce2a569fa16308b9600b8c81d8bae628fe8ee2b267f3e421",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__kelthuzad.mdx",
+        "sha256": "37d6182009fe9079a7d01ed3e40c22eb7151dc60847963fd30faa5126d2767e1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herocryptlord.mdx",
+        "sha256": "38598f3ff3880a00e321883e9796358c69b3aafd4078a9decd462fea2bf98dfd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__easterrabbit.mdx",
+        "sha256": "3863e8adf68ab28f4cb8635a38254ce1c91d16b1fda6280412f8982b0a3bc5fe",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 55706"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__nightelfdestroyership.mdx",
+        "sha256": "38709e4b92a566e5668c1f7841fcb1459e737909a2bca7c0115646c0cc2bb254",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1766743155 bytes but have 41010"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__vengeance.mdx",
+        "sha256": "38af7f7b0f65dead0729bdf0c89e5b8b84b17b51b0b885c533369658cb890d4b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__skeleton.mdx",
+        "sha256": "38dd1b15120599375ab35d4d54c7beebbaee801789b8ae4d208f36bce24c2968",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 121919"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__blackdragon.mdx",
+        "sha256": "3a6879c5ec8dfe93473e1d69a0a37c12143fa76ea8699edafd4a22a3e7ad4e0d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__sammycube.mdx",
+        "sha256": "3b05e282cf70a51d084c1e3eee16cdb3c8cf220f9f6db450159375ff8683f310",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/human__herobloodelf.mdx",
+        "sha256": "3b65af85d46b872454fcb1139ab37716833aa623e7b4ff57a0dfa674727449ce",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__tntbarrel.mdx",
+        "sha256": "3bbcea1e5edc7141fbf6a46809894eff94da8cf6733306914a6a857374fc124f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__nerubian.mdx",
+        "sha256": "3cac1f54533691e74da8c367d64fee5862556eca04a4e83bceef081880ef953f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__thunderlizardvizier.mdx",
+        "sha256": "3cbf9a8eeb9d2203070b9a8436f19f2096d15cc8fe92f9d2ecd259eb0ad7293b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__mortarteam.mdx",
+        "sha256": "3cd4f98b6bfbbe1a6b3bb355aa3236ec79801d5252c35f53f1d07ef8d5652cfa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__felboar.mdx",
+        "sha256": "3ce16578c1ff3f6209b8d310cca52ce8b29b56bc5d4f188605061b301f2a8dbf",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__catapult.mdx",
+        "sha256": "3d2bebcf10ca33d06d66d89974f272d97f02f5848b2544bf0475153028ca82ba",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__eredarwarlock.mdx",
+        "sha256": "3d4a0c5f60d517e344f4852a4a4039901824d80b063e19192f093cc9ead2326e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__wyvernrider.mdx",
+        "sha256": "3d8816115e7c7b629c95d810ce140848043a8fef07c6fe62e04eaa6e49b00ba1",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 142923"
+      },
+      {
+        "relativePath": "corpus-sd/other__dranaimage.mdx",
+        "sha256": "3e06feaec29eee030f3162dc3b1596d693ed6fa827765e74800695ed35e1741f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__zombie.mdx",
+        "sha256": "3e74acec12ad1c9b70d080eeff3cead61db512038dd14a8b0a433e04f884fc0a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__koboldgeomancer.mdx",
+        "sha256": "3e7db91f04d294d5beb4888fd5cb2cc2fdb11ca06803f405f4920967785f1375",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__undeaddestroyership.mdx",
+        "sha256": "400f46ed4543cc4c8f6ccca3092248447f32f4fd81335800fe71aa4fca7d108d",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__dragonspawngreen.mdx",
+        "sha256": "408b62f3df4837f63f6c98ef2fd59ef621f12c11199de077996995e5faee47b0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__vulture.mdx",
+        "sha256": "40f5f56d50627f1467a64d4a03b72ac404e62c69e675041eef09d8d6ba103b3b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__nagasiren.mdx",
+        "sha256": "41332e54f99c28e2be388ca50d7c609e8b1b915395086939fde7c69431848015",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__diablocar.mdx",
+        "sha256": "417078e5724380515c48767c537f9f9f561d7be277d8acc2654afb3d66409768",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__banditspearthrower.mdx",
+        "sha256": "41aadebce202b8c04787a540767ebce62caa84aa1e35cba2d98f6a1fdabde6d5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__easterchicken.mdx",
+        "sha256": "41ad9cb77d413984a7d5dad60f4553deb490711b56453a4df01e42b73e8bc9f5",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 46735"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__seaelemental.mdx",
+        "sha256": "4242b9adb3a97e905227e44661c945677210ce73a5b8bd412be0253abed06b65",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__brownwolf.mdx",
+        "sha256": "4266fb2ef80f2df40b5badebc66deaca1b6de8aefc714daed546cb2836f5f699",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__seagiant.mdx",
+        "sha256": "429b1dcb9ae1013dff60f5ff84a2fe9f969fb208025782df52c78db8fa6aeabf",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__druidoftheclaw.mdx",
+        "sha256": "42b01b81f5ac67c40a0109d8c9d38ce7089f403fbbe56840c9cbdead5d9d58da",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__herodemonhunter.mdx",
+        "sha256": "430e70d76fb06a918e3cc77130eb03066ecda812e6f02c3cb6832b8bc7ccc4ca",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__kobold.mdx",
+        "sha256": "439659dbccc0746ddb098890274bd1c88ebfb5504e7f852bc5ac58f950bf0602",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__heroshadowhunter.mdx",
+        "sha256": "440e65098f42673206cd1b4e31f45e746847e7ad9c691999372c226d214a6b2d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__spiritwyvern.mdx",
+        "sha256": "442f88e2554da0237b03aabb17f32426caec8a911d9de2096336b3243d06269b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__nightelfbattleship.mdx",
+        "sha256": "449aa40347856a341a2b0805afc7d0798c5a4ed6040cb0bc0a99d82416ff81b0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__satyrhellcaller.mdx",
+        "sha256": "44b4a9dc0daae634e7dec0c8562b3128fbfcab011ac83c81af2e535e9fea672d",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/critters__skink.mdx",
+        "sha256": "461d645ebe84fb78afcf636926148e2e61e1ea1902c7f46a62f180615ca53211",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__seaturtlerange.mdx",
+        "sha256": "46510c5b8cdedd7fcce791409533901f1bf1913c55203303783ef8cc934a956f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__serpentward.mdx",
+        "sha256": "46eac0a8d150e3b44494c65db75d22cd44e5a62a066e3a501b15b55e8a071969",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 26557"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocwarrior_v1.mdx",
+        "sha256": "4833974fa6c69f36d06b7aea8e2c72d30c81bb478787cec12a8f5972c396fbd8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__bloodelfpeasant.mdx",
+        "sha256": "4865d2067b4c07c116a5af80975dd660295ef8cfd64a0ebafa61c20c0028b567",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murgulshadowcaster.mdx",
+        "sha256": "488df48e91ea0943ec536106f553bddf50ba48270b091e930338145819bdc87f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__diablocar.mdx",
+        "sha256": "48dbeb86ecb57d10db9d3cb3f0a8dda8f35fd81dd0af0f38ef713b07fe52fd18",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocnightcrawler.mdx",
+        "sha256": "4987582871c24334e04ab27d99a0973ce5d2ce001b3550e7fb94afd440a70348",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__sasquatch.mdx",
+        "sha256": "49df6d2dc78232d9b6c54e86df82cf42e2be2b5860c2658dc1299806b2766b06",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__owlscout.mdx",
+        "sha256": "49f49bc34bc7eec9fbe87be0b0c415fce3b985cfa8c733a28a8481c9abab0e4e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__azuredragon.mdx",
+        "sha256": "4b55d19d8a9e1e095667b4e14ddb330a79d7ed74b3b434d29d11a1a7c01a5474",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__ogreoneheadedarmored.mdx",
+        "sha256": "4bec0b7f9d516941ad681607b5723d47abf6b196ee9ddabf72c908fc3cc5c6a0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__ancestralguardian.mdx",
+        "sha256": "4ce3d55ed7884e263d4e9368bdb64ef5de447b0084419388e5204b77df40c518",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1954047316 bytes but have 32051"
+      },
+      {
+        "relativePath": "corpus-sd/human__muradin.mdx",
+        "sha256": "4d0c7af6f8a6f8f467b132f18983b3b3f0881abc329cf699c67bf26226e03e47",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__monsterlure.mdx",
+        "sha256": "4d3497dbc3ff7df9715e289f56983e40f43c4f19dd8edbe9f43ee3457c6668e2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__mountaingiant.mdx",
+        "sha256": "4d75fba4a9a39bd745f84b3fd80073030344cb40f8b651fa95464662e0c01e5f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__herofemaledemonhunter.mdx",
+        "sha256": "4df138f18ec75879b8ddc79d2f285b55674837ed607e574642190f86e3d69f66",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__bloodelflieutenant.mdx",
+        "sha256": "4e36f0c26d1adae6840b697dce76fd127718130146df2f588d51cbacc49765c2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__satyr.mdx",
+        "sha256": "4f38fd4d2bd3ac11296751bdf9465c9f2fc2ebf60ced21365abcd010ec3b9aa3",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__chaosspaceorc.mdx",
+        "sha256": "4fd8b1ea10c68ac0d97aefe4c743a44cb1b1d9b3440c33c5a61230badc4e7b5c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__ballistaold.mdx",
+        "sha256": "50cb6eee5e237c0589c16d25c574592d84a3f0d98ad547795e42f2a98f44763f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__ancestralguardian.mdx",
+        "sha256": "52671c24685d264671f5c1197ab60db0e2da0ab55c15b16e1956f7ca03f12585",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__archnathidgreen.mdx",
+        "sha256": "52a571c047ca6a5d669b9de0ffa0b742227f658a4a8d427248babc1f420954c3",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__blackstagmale.mdx",
+        "sha256": "52c27ea6fcd134aae5cbcc4cd37ef7d97c8585974cf3c7d17d01875cf101cc4f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__humanbattleship.mdx",
+        "sha256": "5451bdae6233654442212165ee7f002fba7b2eb495dcd69898f958521600c0cf",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/orc__stasistotem.mdx",
+        "sha256": "54f6c04c8b71584f38fa301e6aec4682e21e93c608eac5cbd4e2531977258f22",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__gnollarcher.mdx",
+        "sha256": "54f81def2c8800a54164d1c30bb0d0070b200e5a389c448213dec0a015bed92b",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__felstalkerpurple.mdx",
+        "sha256": "5647500f0b9106bb32915eb2d8e8005659c663514238ce2000de8b09e07fef32",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__catapultold.mdx",
+        "sha256": "58061fbd57bfe6dd2faf1b0a3363aad2e387dffca154feea25bbdf301efee1af",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__elfvillagerwoman.mdx",
+        "sha256": "59156c0b90d0e3e4eec1c49dac190e9145146dc66a0bad211d9d97811c8a3c47",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__herobloodsphere.mdx",
+        "sha256": "591685916d4465cf85b4770f4481d8d48ec1d6c674542e95060bb8b36c034d00",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__runner.mdx",
+        "sha256": "59e133851265a3bde57e5d2ab18d80833afd40e7cd6e87bd226a8c6632c90b3b",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__herotinkerfactorymissle.mdx",
+        "sha256": "59e7793e80ffdb41e1a0198412b0bdbdc66b57f8dd49771608fc3abc9e4bae0a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__bloodelfspellthief.mdx",
+        "sha256": "59eb8e9bfd971eb060ca6211d990af22cdd040cde9f1b2445868497107a17df5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__anubarak.mdx",
+        "sha256": "5a58041d520b4e9e06c3dcdaba655a90501e8c78e035c125794cdec937fdbb4f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__skeletonmage.mdx",
+        "sha256": "5a8236686ea41567bc6fed2d38cc18e02ec54d18c33624da29d518c56a85f5cd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__battroll.mdx",
+        "sha256": "5afbf395565b98846653b4539c99d2bb46a689a24f03f6480dd8ece7263dbae4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__spidercrab.mdx",
+        "sha256": "5c4eff46bb2c784c73fc7e80828f407778be4b1e8dd043994ccfeaa59370c129",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__illidanevil.mdx",
+        "sha256": "5dbc1bd14ec1f1922c162c629b48c85a2ba121c3d38d771d74c1a4ec15ae96cd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spiderblack.mdx",
+        "sha256": "5ef129b0a5ca21cfafe07ac875eb817a4b4464cd7d075d85e56980536039a98d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__priest.mdx",
+        "sha256": "609a2aa48b631db2d54d17d37a54c2413f5a2404ea69bde23372fa9b9d6b3eb1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__kelthuzadghost.mdx",
+        "sha256": "60c2a077988883b8911d0e3f59ee8ab2260475e038692ffd56d222ec5eca8a47",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 101210"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__foresttroll.mdx",
+        "sha256": "627c2a2f3e99a80fa396ba1d1f0896812891ea2a2e61b77f7519c594d3ad04f8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__herotinkerfactory.mdx",
+        "sha256": "62a53009e5dbf01711d75b391a71e4199837352d55ef0325f78a8a116d7351f5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__dwarfcar.mdx",
+        "sha256": "62b27396085d498cefbbf17c173fba3e45c5e1c8fde096e4aa4d5e7950f089f0",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/human__jaina.mdx",
+        "sha256": "62c6b62729db76ba7c5a9b9554a1368605241933e57b2725ea018f96abd2c923",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__demoness.mdx",
+        "sha256": "649aaa9df87427e5ee3db2f8777200e9a6cd65c2e0d9118d9c8715eaf06e5f57",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__locust.mdx",
+        "sha256": "64c0d16df891947c825a3b3a08bc83b661abff18b573f1ca68419b7d747962db",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__phoenix.mdx",
+        "sha256": "653160e1f16a0f15ee3e1844710bec13fca57799b4f9aebf315bbd9933d06260",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__herotaurenchieftaincin.mdx",
+        "sha256": "665e497fe58d64e720e5668fd52c4f0bfb882f8a4480650b0faba1cfa0c7bc76",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__catapultold.mdx",
+        "sha256": "6669c21a616f00688177661c07ec3b700390140dd9dc621bcf11e95bc62e1364",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/human__knightnorider.mdx",
+        "sha256": "675a7c7b9f546dd8c5baf1aea49092d900db93d86a23584b6f3f239eda19bb08",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__harpy.mdx",
+        "sha256": "681f25413ca200c343d2940a184374ede1c5a113914d3e40b5a304ad2fa62235",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 99600"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__nightelffishingboat.mdx",
+        "sha256": "68e66a15a3f896316a81531aee6d6216558c8111d895393cb969cb0b2e2a608e",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__magnataurblue.mdx",
+        "sha256": "68ebec5e7f7be4cf34a35c0a91940bb2aa123eb987c89ad6efb413305a2c448d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__heropaladin.mdx",
+        "sha256": "6a3936c09a12673744517fc8a3876a8843697ad032cd30003c79ad69c5f3a06a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__rat.mdx",
+        "sha256": "6adff59c163c00bae97475b5a79328df808e8e746a3f9a9bb817106772cd69fa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__razormanechief.mdx",
+        "sha256": "6b98a00b74b7133f54a215da5d1a32f2ed80d516dd6433ac0302d2a17ecdb39b",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/critters__orcjuggernaught.mdx",
+        "sha256": "6c82c815deeb8ace821b2ce3432f4bdcc541a531fcfdc16fff14b3422cf64fcc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murloc.mdx",
+        "sha256": "6ea8d459dcf3ead2bdcd6ebb1da0f8f410d0bee2b203568853e6d378ab3332dc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__golemstatue.mdx",
+        "sha256": "6ef0d17b76ad04543952eaf8360d2272899b40afcd16e9a365d033f3ff4e48e2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocmutant_v1.mdx",
+        "sha256": "6ef37b016b3d966b7cefee34e7c59241e2e260d3ac7c6d7878a261b4e026aed3",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__voidwalker.mdx",
+        "sha256": "6ef9d4422c0b458c5d3a08cfd5b3a3cac2128357dab6388044e557cf71cd8292",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__fleshgolem.mdx",
+        "sha256": "6f0c76d69ae37d74adf0de9bef4ff3e5bf9f017251be640b066b7382ab2374e3",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1951358067 bytes but have 85653"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__orcwarlockred.mdx",
+        "sha256": "6f1471fd6c105a2a5063e7107913c846e9d497bbc56920ceb3f0678cec2f91db",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__lavaspawn.mdx",
+        "sha256": "6ff3e1cb10360a395e87438c05df81636de65424b572c884f9912130458c6e14",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__watcherward.mdx",
+        "sha256": "70d774822931c8dd806d07dee7df64e554dbccad270d950523273d2d5e45edf0",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__sludgemonster.mdx",
+        "sha256": "70db8e2297385061cc11a103fd8ef8a74a62bfffc6a9f0752995fae4f7c34eb4",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__thunderlizardsalamander.mdx",
+        "sha256": "7153b197634dcf8c6d528b1fda2efb167b3617dd026ec3be4b1d34be2bd49e79",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__hydralisk.mdx",
+        "sha256": "721431be1413d4044a650314ca329c71b113492dc9be8de4dcc55d34af1df13b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__harpyqueen.mdx",
+        "sha256": "72e96dff0147d274ef2743c78bc40548cf1fc45a4f8935fbf95cfe61151aac75",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/other__dalaranreject.mdx",
+        "sha256": "7307540dee82620952821607a39f96008f2a1994855650f086dcfe920b889861",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__razormanechief.mdx",
+        "sha256": "7323756734d2569871bb8117659d50fe9bfa74bdbe3b090e39ef227f90bb7453",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__netherdragon.mdx",
+        "sha256": "7351839c32362f8afc3fb658cdb754c684ce8d2e9868957ca8b7c41b8a1938f8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__orcishtransportship.mdx",
+        "sha256": "736f34bd672b17375c2e7a397368e89ad49ddf2ffe8a2f320cf12894b3d3c035",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 32051"
+      },
+      {
+        "relativePath": "corpus-sd/demon__pitlord.mdx",
+        "sha256": "73eef75eb6fe4259a9d073e663423f1f509790531529f6bba047ea5b7f860226",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__undeadtransportship.mdx",
+        "sha256": "756bbd26c31ad90625c2e70ca50d11a978106cad73600f99a78005a8cfdb02bb",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1970567269 bytes but have 26433"
+      },
+      {
+        "relativePath": "corpus-sd800/demon__doomguard.mdx",
+        "sha256": "75eb21f7dec245f806632ada220b8434e5cd23071bb08a33e3c84249a38acc92",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__whitewolf.mdx",
+        "sha256": "7610b91199cf1b1f727b89d48a89db7087613978bca84d1ed94e7935c7fc3a5e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murgultidewarrior.mdx",
+        "sha256": "76fe4e861efe94542673e695e5f715e6a7891a9a334203c998893e28b98831fe",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__ogreoneheaded.mdx",
+        "sha256": "77334e5125028319b7ff0a1673616c7d59e292d99b26ff70a24dcb5266b9ceb5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__warlock.mdx",
+        "sha256": "78b47f3c643efb579923f83febde1d0a6c2b25b5d89660fc883290686b0f84d8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaoswarlord.mdx",
+        "sha256": "78bcb4fa200c34ba2c81081b07f70bcf6f8ffb5be891fe6f5ca4c562f2430e4a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__dryad.mdx",
+        "sha256": "797fb6957303aaf064e09130088f14dca73ea0f967722059255ce69267d9e24d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__blackdragonwelp.mdx",
+        "sha256": "79ae171b4ba5d89dd951e477765aa0d3d8ce4693c90f3600345e1e64a73ceb88",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__zergling.mdx",
+        "sha256": "79baf26a770e18e6848a3d9579f71b96be2dd8dcc2c66f1a64e1698a47ce3e83",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/human__priest_v1.mdx",
+        "sha256": "79e85bcab43898534b925214e9c8db9ecb71f128a97c8a1405ebce1e3cafd787",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__nagasummoner.mdx",
+        "sha256": "7b13513b847d6cd8107551a6ce06efb28517a19adff51ef0ac6b3152a24d7de9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__thecaptain.mdx",
+        "sha256": "7b5513669557157f1936a7b33f6e0f795195e4bafd2e047b8f8a6472c4c53faf",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__razormane.mdx",
+        "sha256": "7b73316bbb7cd74223a9bd256e4702a80a87309af54a8e1d5d19d698f5906919",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__greendragon.mdx",
+        "sha256": "7bb01b0c2205282a3e998f653b67289aa1c6d68f7fdfc094de4d4f74360d335b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__witchdoctor.mdx",
+        "sha256": "7bf2f7a66fbc52c4182528693f7778bc02b84c90559eea21e2b54db751045f7d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__easterrabbit.mdx",
+        "sha256": "7d3fc771d7086a79a4ba39dd99ff443f8615dac5cb8109e4b14eac8dab0d8a65",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bansheeghost.mdx",
+        "sha256": "7da4d33a8a7ef50e738b974ff9b6a238869ffd63a0ab0f9e464c68771bf6eab7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__sammycube.mdx",
+        "sha256": "7dbc3e61fe91c60c25869df9130a68fcaba71d648b2b666b3416b0a98e3facbc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__orcjuggernaught.mdx",
+        "sha256": "7e3af905022ccbab82a3887ff5ca6ecd3a5af6dbbb5bdcbbf8e13eaad8c3504a",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__rockgolem.mdx",
+        "sha256": "7e8b9071d406053a3daa3de4046472956046047c2a82e27839105c75b4e2d003",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__mammoth.mdx",
+        "sha256": "7ed3517d2259e0f568096fd0f84af9e8509201d9fdc79216b7000ee61a416aba",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__packhorse.mdx",
+        "sha256": "7f35193b9bafa5b04a7418dba8f6164652afa9fd368d04f3beff1a7e7d72d4b0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__hermitcrab.mdx",
+        "sha256": "7f3cd334d6093f82b481e7b4a19c72c758b40e2a6cd0531bed64b362134ff9ab",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__spidercrabcreep.mdx",
+        "sha256": "806f5a2b4e247eab1a657f9a6f0ea691e56ae738c9d0bce97916db2a77084a3f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__dragonspawnblue.mdx",
+        "sha256": "807328ce19bef6067783fddaf390a691c9cc9f11b77ef26abc8a0845a4374957",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__banditlord.mdx",
+        "sha256": "80d31cd4eb13fb86a3d6e55cef06f2eae7689c03caa298858572bbafe6b11a4a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocnightcrawler_v1.mdx",
+        "sha256": "80d71463ac490fdc2900b4180b606bf7d75c14d0d8740a7ec04ce903758d36bd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/DragonSeaTurtle.mdx",
+        "sha256": "815d4dc868126694b7929cabb9d239c4791cd5ff1ffaa0bdb0b13ef17531c3da",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__humantransportship.mdx",
+        "sha256": "8176e56ee82c856bcb3c39ce64110a92ab74d148172b55a437c4e7b3b06f07e4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murgulbloodgill.mdx",
+        "sha256": "8307d34659a366117b1299a2008a093358c8e70123d9396444b43c213f6060d7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__nightelfbattleship.mdx",
+        "sha256": "8339b0e428aa5ffd62cefa46cb2c332c9ce758d3463c63047db422ad33038789",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__beastmaster.mdx",
+        "sha256": "85371a1fd773472a96d1acc87ceee80fd7cb40d56b048b8e5f09b2665b938355",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__centaurarcher.mdx",
+        "sha256": "853e7705cb152c6bc6c2018becabc9bf9e7953f3f3556ef1c05aba4f107356f6",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__furbolgelder.mdx",
+        "sha256": "85aeece65c7cb7255ffebbc72eef5daedeccf72f638ec30bf593bccc10051e29",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__pandarenbrewmaster.mdx",
+        "sha256": "85ec82ab0eb6f536a33e53ed99208b31578e343a39155acc748ec4e60bccb68e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__archnathidpurple.mdx",
+        "sha256": "86468d34d5cf0e988ea3eea00a7d9bb58fa3bc3a1b1433a2cb9916c58188cd97",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/CentaurKhan.mdx",
+        "sha256": "8692afe7d60405e33de76bc4d5ff79977f8f5330f5c20c1388721704bc7f8ce7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__obsidianstatue.mdx",
+        "sha256": "875be8e78f9a015e68a22388facc358475b33268ee7d2753b610fd3ee7f733a9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__unbroken.mdx",
+        "sha256": "88253263e9c09bc1c568f6f2918cd8117439b9d5f8028c0ce34629ca8d1c1387",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__fleshgolem.mdx",
+        "sha256": "885f4b990851196e53596a1f057a5394e61dc2eb5de1e78a1a1611485106ddb2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/demon__felgaurd.mdx",
+        "sha256": "88f6184343c8664fbf14ba665baf71f3ad2595d354144f0a80931898b7d9f03e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__banditmage.mdx",
+        "sha256": "8906c71d81cf925d0611568fb61db0966336254d772c882280ea1a4e244be4cf",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__magnataurbrown.mdx",
+        "sha256": "894cc96ccb1eaa33e781da933d3e9fb619992e6919a29846f497f32638f804cc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__humanbattleship.mdx",
+        "sha256": "89f1949329155c1a311b7d83d36ffb02607cf12c24ea84537620f253e88915e5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__herotaurenchieftain.mdx",
+        "sha256": "8a02a1dc2b8f4a8043a19883e7673cb33147eb0a275fad85696c733ede5f0b98",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__mannoroth.mdx",
+        "sha256": "8ac217c95945580ee4f4b082398846f9596a6ef5cb0dcac2c8989794dd4b4ced",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__healingward.mdx",
+        "sha256": "8c238a18caa9507d9f919f68f7abc0bf9acffc539432d6c93bfabe25d28c0676",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__warwagon.mdx",
+        "sha256": "8d586792e3b6706f80c4b64ab184f2afd0283b91f976f281d288ef83733a6edd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__sylvanuswindrunner.mdx",
+        "sha256": "8d7d06522cd77eaac0083de8714441db135087650706de55ac0e734b38bd267d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herolich_v1.mdx",
+        "sha256": "8eb6ae5d779835aee7f7f20e3be518202cdffa65013633ca6c7f3debe4f11fa4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__arthas.mdx",
+        "sha256": "8f8e61858cb61689ad8ecf0a34a15126862f45d6c673d78f3fa0ff83c0c67199",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__reddragon.mdx",
+        "sha256": "8fbd93254c049fbb9637b6eb0bed2fb04a0f428ce2bd3c704c20f5b5789d8d37",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__vengeance.mdx",
+        "sha256": "90f80ea45b8689fbf0502656a7029e0ff794553d8b7dcf85b6e98af806e83bf3",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/orc__headhunter_v1.mdx",
+        "sha256": "921a4938741520d2f98fbd0af9a666f6ca0170d7d4439e4165f1911fe54fa376",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__abominationcin.mdx",
+        "sha256": "927225f87c7c3b8e3a889a5e06f7aa8025c6ffdbc00d5a82739a57c1aa55f5cc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__chaoswarlockgreen.mdx",
+        "sha256": "92d69cc35ef795af09a764f9b6d8d28f811dd64c9ac7ca134864d5ee4e40a342",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__undeadarthas.mdx",
+        "sha256": "935d2338c0d1454a66ee2ac70cf3cec532fff9728f910e79346bf83f134b8d62",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murgulreaver.mdx",
+        "sha256": "93721b650102b07ee703651c83886f0d2f25d058e56c3ad6e46abce48e2502c8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__evilsylvanas.mdx",
+        "sha256": "93e6edd9d2413868e237ec9924663abdc8bde30c6acc8197d7cb1a6584977e90",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Guldan.mdx",
+        "sha256": "949a46f78e8881121414d058840da297fae5d0bef143da31f12d51f7cfc10d4c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__humanmage.mdx",
+        "sha256": "949ffab9aa8fa33871e78b1a4c7326e32f04d928a30c058a8ed8f138b5f10793",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bandit.mdx",
+        "sha256": "94f78a5ba4445760b74dd8d3af2d5450cabac69160d1823e860809cb654c52e6",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__sorceress_v1.mdx",
+        "sha256": "9517119b92dca4decdfcd3a70203f514e3c599a49f65762228cb4791f4629007",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__centaurkhan.mdx",
+        "sha256": "95215789ec311d5cb73835d689b2b66647db289a442200bd6d5969e710d9ca0f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/demon__herochaosblademaster.mdx",
+        "sha256": "96ec8d7610684d28c8513ab82855d4ff09fd4de9cbae11ea14fcd950b71f8971",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__polarfurbolg.mdx",
+        "sha256": "974916e24ad231f04ec002eb30b93ebe1cc7636c39d6a7e5986cf517665312ba",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__ogrelord.mdx",
+        "sha256": "97d117f1bcc042ecade79e8a241b9e389f0380832aae362989245b53359977d3",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bansheeranger.mdx",
+        "sha256": "98290519683ccc29ee83365739e00b16b83686ff1f8e398fb5f2a416f12d901f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__windserpent.mdx",
+        "sha256": "9875d7300d44399d57320fd79eb60b5ba4b2e0c67ce94027c24fa38f773591cd",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__corruptedent.mdx",
+        "sha256": "989e83ab9d28a978a8d567a3e67f55c889cdf3677a21a5de51021ced653f8a41",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__monsterlure.mdx",
+        "sha256": "9accd3468694dab9bb966f1697fefbd3daf4ca51be9447c7900be7a0b29b2119",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__furion.mdx",
+        "sha256": "9b694098b073b17bfbcc755983326cd85c0e574e1ae3d4517f192abf078a5fc5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__goblinsapper.mdx",
+        "sha256": "9bdb637d513f0f8df3fc03d85aeaa1e6b0746e71676cb0537b9fb4c2517fe076",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__snowowl.mdx",
+        "sha256": "9bde8e14229b0f7535aa355c01b360187d0e48cbc568fd7b0cdaed3783b3d394",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 41790"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__darktrolltrapper.mdx",
+        "sha256": "9c6035731a0670935d96b6fdefb6bdd909bf5ee976cee977877ddb189fe9b187",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__spiritofvengeance.mdx",
+        "sha256": "9c61ce370c82bfde71775a901b77b21f042e2587e58903ec095fd86dcac00e02",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__lobstrokkgreen.mdx",
+        "sha256": "9ce379374d80cb319652455e29ba314ac1ec894234de9d004f04a8529eb9cfa0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__watcher.mdx",
+        "sha256": "9d508e23c9c09b4a261741d13c880911ad1e35e27f13b3e21d172d0acb0fee20",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__firepandarenbrewmaster.mdx",
+        "sha256": "9da554499b8aab6d6dccb23f70a5c8b2eca38bf81ce35d8409dc386aafb79647",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__dwarfcar.mdx",
+        "sha256": "9e16f639588e6aef5e293a8b71c781e8ed8f10735a8beb44108358ff1a9d571b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__shaman.mdx",
+        "sha256": "9edbbf8be272a1404300aa9c29d39f72949dc36f9a4401354481029213f9e9c5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__gargoyle.mdx",
+        "sha256": "9f23e7adc51975ae494c911a730c3a0714317cfba7976260895044224a0268aa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__tuskarranged.mdx",
+        "sha256": "9f321837718d1c8a230026a6b4079aefab1a8efeb07493d704148a4075221f4c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__undeadairbarge.mdx",
+        "sha256": "9fb015e8488903edcb04ab582cbcf2d84a7880cf91e73b82cc1fabf8a4419d73",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__highelfarcher.mdx",
+        "sha256": "9fc7a62a4e8c88b44a85afdcff4e6aa3f5c4caef98e530bb51e9b801e6de08c8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__satyrtrickster.mdx",
+        "sha256": "a06ae66ba1f85dbd2964469318422ef1d4a67d43f5824a2b837b80356a06aa2a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__pig.mdx",
+        "sha256": "a17070162bfc70b4e5e19f05cfd6ff28209586818387627381bc3c541c294b04",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1954047316 bytes but have 27349"
+      },
+      {
+        "relativePath": "corpus-sd/human__bloodelfdragonhawk.mdx",
+        "sha256": "a175aae432931e9a4d29791a52418f99efaf96b54c704d0573cd6632ab97f2b7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__giantseaturtle.mdx",
+        "sha256": "a1a2dca5f5b34761aeb0c08ec80f361f8e7be3bd91e0eddc0676056f868946a2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bronzedragon.mdx",
+        "sha256": "a20cc34ec238d5c1d401e582be0f042f6ded877a8df0d388b3a9b791e235746e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__healingward.mdx",
+        "sha256": "a220e52e32d7a3309789558e84263a28198f6647d4977bfee764756daa0d3ac2",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spidergreen.mdx",
+        "sha256": "a2a77082de569d56ef0673bf71049660a73092ab15e4a92f05073be0ba1fb3ff",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__penguin.mdx",
+        "sha256": "a44da410a33e92214f9036ddc38fc52f1e180a15de97805ebb57c8e14114377e",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__satyrhellcaller.mdx",
+        "sha256": "a4c7fb749e56b7bac4672a01d18f253f1d494488546e5c8ede3c6ffb04af7804",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__infernal.mdx",
+        "sha256": "a5c9d0dc38a549ed65c22cf2e72a87f7882d70ac75a0e9a7c5a40bc3f79ffe86",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__windserpent.mdx",
+        "sha256": "a616d0852fe87b32ed0e983e44a8f4366423cc5791bf62f2856e6d6d6e864f92",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1970567269 bytes but have 95068"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__satyr.mdx",
+        "sha256": "a65008391cfaa9d5983c49fd35a8ec4e254e8657ac1f057de56c9cf8ea3d7ba6",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/orc__kotobeastnorider.mdx",
+        "sha256": "a6f525d3466d6c50f55b41c1993263ed8e977f50653b3673c15e26533e86974c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__nightelftransportship.mdx",
+        "sha256": "a6f7188ee7e2911d7f188cf09d25ac191e5e59fccd4cb09bc74cb5e5ede4c82b",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__humandestroyership.mdx",
+        "sha256": "a82c8b43802c79eb5ba40d30f5d95605910147f41bb44c937bfa4a2616d8a165",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 33636"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__rockgolem.mdx",
+        "sha256": "a850ea727b8dec68c5ce3a75f5941765141e4ac491a591fcbb60c6e817c4ec39",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herolichcin.mdx",
+        "sha256": "a99e3eb4f82e0db45c59c4174dcf2253710420757593d17bf3e696c256f5af45",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__skeletonorc.mdx",
+        "sha256": "a9c3bdee3dbd8f3dc50f8a4440558b745f68f2ec411ba88f97770b21ab3f2732",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 116959"
+      },
+      {
+        "relativePath": "corpus-sd/orc__riderlesswyvern.mdx",
+        "sha256": "a9e3ab426b8ce26dc841d560a99ed801945ca76be336334718ed22869fcca65a",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 109010"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__malfurion.mdx",
+        "sha256": "a9fb55c210641e978dacad916276a1fb472216b39e41d6084131f55b6c32d978",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "forge-hd/Footman.mdx",
+        "sha256": "aa2b13f2440d65ce8b87c24dd6456fc4bf133437263fb044ed3a13efba0b0798",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__icetrollshadowpriest.mdx",
+        "sha256": "aab60590ed0a42bfa2b8769a7e63406bc0c4f55f9c02d6b6e128d5e923b98e68",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__doomguard.mdx",
+        "sha256": "ab71be3f2004ed03c764308faa252dcf2acb5618029adfdda322da31b80aa0d2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murloc_v1.mdx",
+        "sha256": "aba5627153c682b797339a227fc7f25011e7440ba62a4bd1ff5997dedeb8b09a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__huntress.mdx",
+        "sha256": "ac026c20cd52ecc91864e8859560f2cf3ddcd4fd6264c3b2f13076a7e2afa197",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__darktroll.mdx",
+        "sha256": "ac847efdaeae73cd95f25ce1c2a829f8a9f42eac9fb4cead9a38fd480d8267fb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__duneworm.mdx",
+        "sha256": "ae2086b3057c727338d8e3b4fd46a0eed9bec1e2abf46fb1bdb85f1fe7abf905",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__nightelffishingboat.mdx",
+        "sha256": "ae276b3682019128f2fe0d52407a024471f03c04b3c53d7cb6aae757ae258332",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1766743155 bytes but have 23127"
+      },
+      {
+        "relativePath": "corpus-sd/other__dranaiakama.mdx",
+        "sha256": "aeb5e3d70f01448fc8481ae086d4ca4d2fbe0aeb789b7b69ec7060b0b0a69c44",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__furbolgtracker.mdx",
+        "sha256": "af34492a68b5e3c89c18d690c66139c5c5079abd7e08b9743fa8feae3cca86e2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__faeriedragon.mdx",
+        "sha256": "af99d6e2957d7b5a08e5bf4b3f23004a6f41605ed61751c6f8a5945b673ffc90",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__heroarchmage.mdx",
+        "sha256": "b00e179a45db89739dd65c2f8929dafbe21f3df8441fe5b398ac8f29dad3a7d1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocflesheater_v1.mdx",
+        "sha256": "b14ec2166887e55c0cd12d9c20b9793360a15837425370660d23a54acff87e09",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__seaturtle.mdx",
+        "sha256": "b1f2b6615bb32a4545023a91ff7e8f3f4ca1e384d090eec98dea35ec7cd7312d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__bristleback.mdx",
+        "sha256": "b20afcd3b8b51b70a87822cd3162c150cdc5317cd64248705398fd9060de8ea4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/naga__snapdragon.mdx",
+        "sha256": "b3ced23cc19686066b389c3a5597173d01b100b13abbefeb89c6af56c73ea74a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__heromountainking.mdx",
+        "sha256": "b52747fc7cfd6b925d1733d9440e925a5a4726b7c2cb89c33d36b6b1e9ad0039",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__warwagonold.mdx",
+        "sha256": "b5acf7361ae9bad63a1dfb41650849f8991c02ef9dd48d747a432a9311e3bb4b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__herotinkerfactory.mdx",
+        "sha256": "b63c082fbd10061f6f2cb52db516a95665d9c785dd8373062dba878ee0b1d8da",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__gnolloverseer.mdx",
+        "sha256": "b64083a740b475de71ce5a176b30af0c48ee9fad113c05b4c8626d6053ad0bbf",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__archnathid.mdx",
+        "sha256": "b784bd7b013e1e682cfaebe67766328c714ffb0c56f7b5b57f4cd6478005c345",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__albatross.mdx",
+        "sha256": "b83e51841d20237c6babd4ff90b492887b06a33fd4a765e4bf42121abd2f0c88",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 55553"
+      },
+      {
+        "relativePath": "corpus-sd/critters__seal.mdx",
+        "sha256": "b8d44d7b97bbd12384113fab357db766dd9da4b9281e6707aeb969a33cd8cef5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__herokeeperofthegrove.mdx",
+        "sha256": "b8dac36e47fe4213cac00b20e6a84b6cad8d14526b4814e796567fbac4887c73",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__windserpent.mdx",
+        "sha256": "b8efff3975130545b426fa003e5ca9f31f2f90df61afb4da878e121b971f660b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__watcherward.mdx",
+        "sha256": "b9766e5a0c66bb68b599e51a72ee1c71a843e798f20656822668fa6b6ace2cb5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Knight.mdx",
+        "sha256": "b989336e80e9364e995052099e14ff44cbd4c468d488c630d833b08cdfe69a46",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__peon.mdx",
+        "sha256": "b98e9d531ff1d5de3cb4b3f0c77b1943aab8d90f5f44065960fd030bce5fc69f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__stormpandarenbrewmaster.mdx",
+        "sha256": "b9d563c6ced23d75a27140b1fa7863d6717ccc0a0b46c9b7041be5e581ca6353",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__wolfrider.mdx",
+        "sha256": "b9e8167dd37d1fae4d0a67ba15f6fbd3584dfc5cee9ee1c86497dcad7afb41ef",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaoswolfrider.mdx",
+        "sha256": "ba58514121ae3c1eb588b539a3fec21013f9936f3c6dfb6c85332a94ece4d812",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__wispexplode.mdx",
+        "sha256": "bb6164016bd74bca38626bc43aedef800a18733af58c712b5b7987ab55aaed43",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__hydralisk.mdx",
+        "sha256": "bb70377131344602fadaa5b5b694b149a34df48ce0d2417ef189d61a5d442e21",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/critters__raccoon.mdx",
+        "sha256": "bb89d042109457b63549fcaee31ddcc25cc1a5fe63f66ab6fe6e4641989a81e9",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 98335"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__archer.mdx",
+        "sha256": "bbaa371aeb64a601f8c5778f35dbd22af8b70e4db0b6275f381a99506b679768",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__direwolf.mdx",
+        "sha256": "bbc7dc3d2a5b9b1b234b96e0f9dcadd3d4b8551e73179c73656071ec1c90d44c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__irongolem.mdx",
+        "sha256": "bd962e35d7ba7c9876c72351bfc5d752539abe907c1acef0c148d6b108d9bc57",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/other__dranai.mdx",
+        "sha256": "bfe10fb4dd38b5e18f78c2161054e7ec5369100a48668876d66895c0fd5c1627",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__lobstrokkred.mdx",
+        "sha256": "c14da85446a6a6fac26a880a69aab2bff15753c3ff3b989e9853ccdd8203b56e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__highelfpeasant.mdx",
+        "sha256": "c286ada23d7c2a2b1f5cdc68a194931494e468cde22adb2d7b958b36e67e3614",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__gnollwarden.mdx",
+        "sha256": "c28ebf29f0da19cf226deb5bfe08e9e47e68e85ce9ec1bb298c620a748a6a07d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__burningarcher.mdx",
+        "sha256": "c2c184482ef18fb86a2889493a1542be5f4b6320d086e691505dddb6127770e9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__herotinkerrobot.mdx",
+        "sha256": "c3228a6de2dec78cc5c95e7c07a2e62584cd7f14cbb656885680bba5e1a96d59",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 27848"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__earthpandarenbrewmaster.mdx",
+        "sha256": "c337d385f39c98e569c37124ea29a320820e54820c0547b53faa3afd6c5ef564",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__undeadshipbattleship.mdx",
+        "sha256": "c3bc64c8edf6b94f64d5db73313f9b104ab564fca6e101dc8fc84e9f1ae0bd8f",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/other__tntbarrel.mdx",
+        "sha256": "c3cad7f3c4a3cf5c02bd23e7f03a0e170eebfc8a51cc37b63f28cdadfa2c53a4",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__arthaswithsword.mdx",
+        "sha256": "c423ead4fc0c54d33fa5c37b8d55a7279515dfb1d52cf506c2ad8db771830022",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "material-fixture/native-material.mdx",
+        "sha256": "c47f80217c1843d9719e159c9aeba4af7bffaac586cbbaf9514848b2ad6a4393",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__gyrocopter.mdx",
+        "sha256": "c4b79a1126b51e358ca0cd32ca9e7c621e21fcd9ea99978b5782c3d5ded92d22",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__goblinlandmine.mdx",
+        "sha256": "c53c02255fc34e7d8c84b7226afde9e3002ff3781524c6fbaca03c6efa56f728",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__forgottenonetent.mdx",
+        "sha256": "c5749ce0d5993e0aaf539fb4eb31cd8b428814a8456cdd540fe402d86a48d12d",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 23057"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__assassin.mdx",
+        "sha256": "c58cccd5632f6bae33b93fb21d46f2a246632d9aa70e1ac9bd3240d7c8cf1747",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__forgottenone.mdx",
+        "sha256": "c5a5535cb5c3eba50ca0df28367087b4c0b08980cc8b178dfa15262e3ee57d92",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herodreadlord.mdx",
+        "sha256": "c5ef9019cfd28adb2d54075dbffe556fb45e571b354a591a346168bf57b44216",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__rifleman.mdx",
+        "sha256": "c61242624ea471c3aabda64b740c862c1786eadd505008178a69794465c1cb0b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__azuredragonwelp.mdx",
+        "sha256": "c7d67f687f668581616ab8428b504ee65301ea87fb7a23c819537a6aa8777dd1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__herofarseer.mdx",
+        "sha256": "c7edac9fada758847cacc74ffe9df61cf9d380c979c3640c36c6454c4e9381d1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__sorceress.mdx",
+        "sha256": "c83ec20ccfcd81261c7e72f48d31c10311430373f51819a950957c78447e1b02",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__lordgarithos.mdx",
+        "sha256": "c8532f2c911f4f830d30305de88ca029d20726bbd24e9ecc702a537e3122eef1",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__orccar.mdx",
+        "sha256": "c87c410ef3faceb393fcc3bf0eadc2b9f5099c0da7077b6a510b836f20235c30",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__centaur.mdx",
+        "sha256": "c882eaf8b3f4dcb7f6a196ed96176ad4703d3704f0dfe1afeeeaef19b1d7b60d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herodeathknight.mdx",
+        "sha256": "c89b240299d7c337c560efe1571456dd553ea8fe3a2903fe5fb9368a5bd5d8fd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__heroarchmageghost.mdx",
+        "sha256": "c92c48fe5a89b009471e046edaae3f4a82eb70ea23993589084660069cf336f2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__harpyqueen.mdx",
+        "sha256": "c99d68288e1a8d9b83170474b751ffa7ec7e31fbd1bcab4b767c106ff65ea0b5",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1191182336 bytes but have 99843"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__undeadshipbattleship.mdx",
+        "sha256": "caf9e01d35a2fd5445469309c7af83afa15e71f4b9e38545b9f437fba8782bfa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__headhunter.mdx",
+        "sha256": "cb2da47a957b22c45d6130561978e1352f5a72415109ebe8a9027487906730a1",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 143970"
+      },
+      {
+        "relativePath": "corpus-sd800/nightelf__owlscout.mdx",
+        "sha256": "cb7e6cd92221bdfc88f0aa3f5d23d0eda74c62a3bcd1e54d55f9f466cd523bc5",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__ogremagi.mdx",
+        "sha256": "cbb3298e63f73b216aad8beba3c48a3c9b791980515864de48d7df94949925f6",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__illidanevilcaged.mdx",
+        "sha256": "cd6614770428b0737e1a737b64928a54864a7513098f86765e937ff73ab503ce",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__felhound_v1.mdx",
+        "sha256": "cd7751a2c643fa585a0ac119a49890ad6207d067e6f6f08ba0061ee250868006",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__tichondrius.mdx",
+        "sha256": "d095102e36fc3a5f7eddaec237a334211a9eda53bcf98de6611ac66acdcbec5f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__orcishdestroyership.mdx",
+        "sha256": "d177927d4bd4ec898e0e396c6817d0d16c83b3c028831db3362198e343e9751f",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 41632"
+      },
+      {
+        "relativePath": "corpus-sd/undead__cryptfiend.mdx",
+        "sha256": "d1cb787e07d5c497ed6686c6812f9a7a7c9e6642101081c74f53419dbfa3dfeb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__satyrtrickster.mdx",
+        "sha256": "d2db5da35b484fbe8251783370ecdc36cc281cc7907c3cdb228808527f80d5de",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__revenant.mdx",
+        "sha256": "d47bfe442aa231003990422c7d3f3be7d8c6fd0d519728c1c925c860ee4fd5fc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__herolich.mdx",
+        "sha256": "d48c13fa140be401cc1e4e5415291a9d01e354c4f1ca05064ccdd4a6de269cfa",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/critters__hermitcrab.mdx",
+        "sha256": "d48d0c9100c7976f29b20608fa678f6f01368e05dfc1409f7e9bd191df19524a",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaoshellscream.mdx",
+        "sha256": "d49daa0e8ca2372d93b80f3e18e592e143d710e1981bd3d34b5cea5538d96504",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__heroflamelord.mdx",
+        "sha256": "d64eb21a1a7846ea22fb5e792e104146d452f7c68eb47dbb504ffc1726e60c46",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__humandestroyership.mdx",
+        "sha256": "d671d6958c8068ff16afd2f1c48faffd038fcae8f84fddf5ff9937750e5c4351",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/naga__nagaroyalguard.mdx",
+        "sha256": "d891acb52116148fa51813e84c82d8d85b902d3b56348c817516df44d6324b11",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__harpywitch.mdx",
+        "sha256": "d90e3f697e407ef935050d3b8aced95dc8afa1690758e3c0d8140a7dc1bc73c9",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__herotinker.mdx",
+        "sha256": "d9bc016f4cd91ab7aeeb19af3e2364903c17971aa468f4b330e93c3de2281ae7",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__owlbear.mdx",
+        "sha256": "d9c59cbbd19167b3888d77f7dc42e852801375039a045181cbef984477b3eb0e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__spiritwalker.mdx",
+        "sha256": "d9f3bd7aa4fafe6ea5cb49dbfdeb8a81299dee46ed4a9bf49cf87a680febc62d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__meatwagon.mdx",
+        "sha256": "daa31452f4b551bd398dd310e9f32b667604ced5db421c5480f0b272c3dcb0af",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 179661"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__golemstatue.mdx",
+        "sha256": "dabb861e694c907d35bff72135961054fc93cb71131544365854fffe7bc47689",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1917017203 bytes but have 83607"
+      },
+      {
+        "relativePath": "corpus-sd/orc__tauren.mdx",
+        "sha256": "dac60423993790627b5301595ce18571ba720dcb224da859d1d12420051d3225",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__tempart.mdx",
+        "sha256": "db968009799ec376f55089eaf0ddc60b5e3a1dc228e659466529f54767be65f0",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1936028277 bytes but have 1488"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaosorcrange.mdx",
+        "sha256": "dd187574ef5077b68f1a7cd33116a434ae196f876735f5eb233073e480fcbb1a",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Acolyte.mdx",
+        "sha256": "de81c2c25b1f90b304b09676c1623db896b4aba4ca471358fae0f1b6e3be5259",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__catapult.mdx",
+        "sha256": "de83551bdf5dbd60e4ec39464b8b5629a27e6c107f474e1788643df223b7d193",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/human__phoenixegg.mdx",
+        "sha256": "dff5f9f7bf754bcbeceb96c87197b6d968e03d90024d33b8e89b5da43a0c95e3",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "pose/Ogre.mdx",
+        "sha256": "e00cec6c65c138dad5cb89134b4859b12036df8c9b6def475e961e9d7008575f",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__sasquatchshaman.mdx",
+        "sha256": "e08deb8dd0afd32b1f1def0fcfe15753bbd349619e8624b34e5f63f027840bba",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spiritpig.mdx",
+        "sha256": "e10d1ef49bbd77aeb69b9e9492716b0384506e2b6495d0ca5822cf9440c9530b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__heropaladinboss2.mdx",
+        "sha256": "e226a89a01c34bb2b6f07fadaf3103c314094af955850e109750a70b1c458239",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spiderblue.mdx",
+        "sha256": "e33a171a0cd22a17bc2fef95c26a3bad16e5d7d82204d0ff0dc425385aceaabc",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__spiritwolf.mdx",
+        "sha256": "e3530c4e74c894375d40e3376f625ad20ae5d8541f073dbcb23b8f7bb6d99e73",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__ballista.mdx",
+        "sha256": "e3823eddf3a6435b7e04705e0132faa3987cccf7028362ef203b20ef261868db",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocmutant.mdx",
+        "sha256": "e40ee91881c1639faf5ff4c66b9717242b727b70ff75719dbcd77255049b943e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__chimaera.mdx",
+        "sha256": "e459d2acfca8119a402bf52d116716e204b680f7f45ed6d163a923cad65867e2",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__orcwarlock.mdx",
+        "sha256": "e4f92b1ee0a07dbfb27c9d3b34a1583dbc028bc5e700eea90c689fd59a1c1845",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__grizzlybear.mdx",
+        "sha256": "e6967aa4c99e3afb9a348dabba0d82939a735c25fc16afc65a1e72791d980d15",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__scarab.mdx",
+        "sha256": "e7c7db3aa6328a96f83d7cf59ccb584fc0d38aa0761204820611b7e5f9d96397",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/other__undeadcar.mdx",
+        "sha256": "e7fbfd564aa7f63ade9510ef921afefc9a31a41b23972ca5b02435d214bebb96",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/orc__grunt.mdx",
+        "sha256": "e83e87c591c56e660d83188edc343b536dc21a1aef27728f3b8cda8a1bea415e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__villagerman1.mdx",
+        "sha256": "e882694f0266ae2a2c0caa854e1ee15527bc3bc72941941f0bdfb74becd5c514",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__razormane.mdx",
+        "sha256": "e8a348a198c11f1b943fdc8f5cfd1da6359a81047f5dcb1734551618ff925c36",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/orc__thrall.mdx",
+        "sha256": "e8b81916d59b0b84ac39cb617321cc900b346f5e72ccc4dc0fd0e8d1dcae4574",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__timberwolf.mdx",
+        "sha256": "e8f2bbcd71c18abead9feb0a5864e030778bd77ba624bb271647f1991f8e9755",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__eredarwarlockpurple.mdx",
+        "sha256": "e95cac36e727dd285fa29fe3291028485600b99a1a700cc1c85dfa4ba87764cd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__orcishtransportship.mdx",
+        "sha256": "eab472a2381f456878e686777ecfa9b67a25b38ce7f60f726893619360391444",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/other__dranaiwhite.mdx",
+        "sha256": "eb1b878102991da40d62d2f41854f79c0785a8e53ff9e10691a12cbaef3747a6",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__phoenixegg.mdx",
+        "sha256": "ebceb84ee316dc4974bbbcd0acd5e3ff700addcb5cc14eafc2c02c6ade3f251e",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__polarbear.mdx",
+        "sha256": "ecb21ae7245068cec9f0b526762c4be5150452fef354da957e324f60f7f32fb9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__druidofthetalon.mdx",
+        "sha256": "edea56bbfa7d63ec89c872f9023f9cdb3d1f36964891940416837378509b97bb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__infernalcannonflame.mdx",
+        "sha256": "ee8907b747ab086e5b1f1c10b34c6f91c557dc4911ddf050b6385c48444115a9",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__heroforsakenpaladin.mdx",
+        "sha256": "ef20de96f792a2132d4ce254cc46cb630ecc61448ad3313003066ed1669d1cf7",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1937009006 bytes but have 1601659"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__infernalcannoncannon.mdx",
+        "sha256": "ef28b7f178d88074ae8e35cce1dd2b2f37559af5db1bfcd4f9531417b62e655b",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__dragonspawnpurple.mdx",
+        "sha256": "ef77fc8696f3ffbcefc9b4ba74d810b3bf1cd2e3d6650eda0e19df2aad532d5c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__sludgemonster.mdx",
+        "sha256": "f06326bfef9f2ddf095bacc69a56e2b0d90e0a8d589290aff68423672032f8de",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1970567269 bytes but have 132758"
+      },
+      {
+        "relativePath": "corpus-sd/demon__infernalbirth.mdx",
+        "sha256": "f13d5679d948147c957033e78c637fb5b1b8e2266b60377244ea0db7adaf3afb",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/orc__sentryward.mdx",
+        "sha256": "f1b66f05a79a49cd55fec82860ec9086ec26023d982008b71cb5823466e5921d",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/other__orccar.mdx",
+        "sha256": "f236833e93f4992884873bb4309781e3342d6097b7e0045745a3bb8afb2d3d31",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd800/human__warwagonold.mdx",
+        "sha256": "f34d8f3f7c9e88b19b14209019005b0dc6a2ac3413971812b35a9996ffa93d8e",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__skeletonarcher.mdx",
+        "sha256": "f38ced12518ff96daaa1d7727431c7c6fcca35357de96ce315349b14198b6eb0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__facelessone.mdx",
+        "sha256": "f39a2b3feb3a800c5fe2b78365327e0867f6b2eedb4bdf525762fadc51245df8",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaoskotobeast.mdx",
+        "sha256": "f3b55cdb6f7c9dda84794d6f33cfb8e0841e40854da03ec0ddbb4c78b24794f5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__shoveler.mdx",
+        "sha256": "f576b99bcfd10f0bf4de723ecb5b138a05071bc3f24245dba1d50491b481dcca",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/undead__ghoul.mdx",
+        "sha256": "f59ceb46a5c163302edfea8b5f347eb8856cfe5c454ae04788a0872c0b1bbcba",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__villagerman.mdx",
+        "sha256": "f5c923cc809270ff1dbc7e662918ebcd1c1ecaec408521fed965d92ca5557a79",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/critters__villagerwoman.mdx",
+        "sha256": "f70d55369e24f5ab43f47584993df46830c4a9cff28e572240a7cf9966e3f26c",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__murlocwarrior.mdx",
+        "sha256": "f78311382d334ff908929089809807a217b449be14fdfb493f68efd9e0e53e46",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__orcishdestroyership.mdx",
+        "sha256": "f7e8df5c2c2b00dafc972d5662658069acee852e51b4e7f6a5d19890dc0d5976",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__thunderlizard.mdx",
+        "sha256": "f8e878c97c58a34f0fa4444b0f2336b18b1ad4adf94e00afd3d93d7bbe99b38d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/demon__chaoswarlock.mdx",
+        "sha256": "f986987df54091436831dd599db35a14941184b9b0475588ee95e05573a97618",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "pose/Footman.mdx",
+        "sha256": "fa74ae722b151a1cf5e297bebe17d5a734fb89225823e37e29a588ecaf527812",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__furbolgpanda.mdx",
+        "sha256": "fbbcb09cad8b90d657f03de64e563c15fe5520356daf4288b49ec152dd92ffcc",
+        "phase": "checker",
+        "error": "ByteStream: readUint8Array: premature end - want 1954047316 bytes but have 160511"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__spidercrabcreep.mdx",
+        "sha256": "fbd91f2f4de44694e3b6d3ebadcdf24e13615f0785b4f5b44539bdc06c6b809d",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/creeps__undeadtransportship.mdx",
+        "sha256": "fc3ac2a0770bd05b611e7b53ebbd8d7b45ab2506cef35ca515ffaeba377d97fe",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__polarfurbolgtracker.mdx",
+        "sha256": "fd31e6dcb20d6e281c9e41e0678837c2647597bc44eceec35cfde92a11bf6535",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/human__gryphonrider.mdx",
+        "sha256": "fe21e8ec0e8703ede70898f3c4609bbcb00a6996a1b2f87de3c3e417f81518e5",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__tuskar.mdx",
+        "sha256": "fe353b2478dfac62a476171296fca807dc39efd5fc9b416399ad2294d2402ffd",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd800/other__bloodelfwagon.mdx",
+        "sha256": "fe3b5f0dd85408806dae6cb9c96d9fb02b68afe9a31cf7e754fb018d42a35c6a",
+        "phase": "checker",
+        "error": "ByteStream: readBinary: premature end - want 4 bytes but have 0"
+      },
+      {
+        "relativePath": "corpus-sd/nightelf__shandris.mdx",
+        "sha256": "ff16ab03e01b2b7373f766444c14deb2c5c25132e4f8afb343c743c7b7b028a6",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      },
+      {
+        "relativePath": "corpus-sd/creeps__nerubianspiderlord.mdx",
+        "sha256": "ffa19211b23192018e50eae5e02dd5deaa403a4d10c58dbe9a1e34a52c4b76c0",
+        "phase": "checker",
+        "error": "Cannot read properties of undefined (reading '1')"
+      }
+    ],
+    "withEligible": 24,
+    "eligibleKeys": 131,
+    "elapsedSeconds": 164.405
+  },
+  "deep": {
+    "selected": 34,
+    "dispositions": {
+      "no-experiment": 28,
+      "unsupported-checker": 1,
+      "experiment": 5
+    },
+    "experiments": [
+      {
+        "model": "fx-reference/Sargeras_the_great_one/Sargeras the great one/SargerasFerSZ.mdx",
+        "inputSHA256": "59c3c5753100f977d05156dd601c87518a763048a20e1d83a4e5e310b616a2e7",
+        "removed": 16,
+        "bytesSaved": 320,
+        "outputSHA256": "5b50e2fe2272c4b3cbcc60df53072e0bcedcdb35c98e547789b039e7c73033e8",
+        "unusedBefore": 23606,
+        "unusedAfter": 23591,
+        "maximumWorldDifference": 0.5499805330103417,
+        "worst": {
+          "animation": "Stand Channel",
+          "frame": 165149,
+          "vertex": 14,
+          "geoset": 9
+        },
+        "maximumPerPartPercent": 0.13949267793626502,
+        "maximumLocalComponentError": 0.0007925155237036019,
+        "maximumExcursionLoss": 0.9999999999999353,
+        "cameraDependent": false,
+        "globalInfluence": false,
+        "effectTargets": 0,
+        "nativeSamples": 127491,
+        "meshFrames": 31887,
+        "affectedMotionFingerprint": "0119638a6bba9ab4c989ac417fd635ba090b7ed0c1c2235303f7bc4deb06349a",
+        "endpointMaximum": 0,
+        "newStructuralFindings": 0,
+        "allOtherFieldsPreserved": true
+      },
+      {
+        "model": "fx-owner/variety/Chikichiki_opt1.mdx",
+        "inputSHA256": "23b7380b0dfbdbf170f38ec6d7a284e8e0a802eec53dcee7d62ac67b46437786",
+        "removed": 5,
+        "bytesSaved": 100,
+        "outputSHA256": "281411c3918bb7ba048e37b566da2bd4481e326dd7896cfd310937c4cf032ae0",
+        "unusedBefore": 5,
+        "unusedAfter": 0,
+        "maximumWorldDifference": 0.09263679634357788,
+        "worst": {
+          "animation": "Attack",
+          "frame": 7983,
+          "vertex": 3,
+          "geoset": 1
+        },
+        "maximumPerPartPercent": 0.5119518051874988,
+        "maximumLocalComponentError": 0.0009607399002200622,
+        "maximumExcursionLoss": 0.9999999984697254,
+        "cameraDependent": true,
+        "globalInfluence": true,
+        "effectTargets": 1,
+        "nativeSamples": 100679,
+        "meshFrames": 25181,
+        "affectedMotionFingerprint": "a9c70782443b37f223f45e11684a84c7590c95d04e8d950cf924c5a76efa421f",
+        "endpointMaximum": 0,
+        "newStructuralFindings": 0,
+        "allOtherFieldsPreserved": true
+      },
+      {
+        "model": "fx-reference-owner3/Demigod Cenarius  Keeper of the groove/Demigod Cenarius  Keeper of the groove/Cenarius TeamColor.mdx",
+        "inputSHA256": "618acd229ec7b322c01116aa524c41f6615e11dd9c1fa6f4ffcd71a933470fa6",
+        "removed": 5,
+        "bytesSaved": 100,
+        "outputSHA256": "5f68c581b7de91c4f148f13ba3116a038bcd37dc14514b781b6163802c4d7008",
+        "unusedBefore": 389,
+        "unusedAfter": 384,
+        "maximumWorldDifference": 0.1475195811890517,
+        "worst": {
+          "animation": "Stand Ready",
+          "frame": 228800,
+          "vertex": 59,
+          "geoset": 22
+        },
+        "maximumPerPartPercent": 0.23286767528585356,
+        "maximumLocalComponentError": 0.0005602478368928049,
+        "maximumExcursionLoss": 0.9999999999999245,
+        "cameraDependent": true,
+        "globalInfluence": false,
+        "effectTargets": 2,
+        "nativeSamples": 91942,
+        "meshFrames": 22996,
+        "affectedMotionFingerprint": "639383596d1a12ba0d20b0cc63954cdadbf426720f12b239afc9239a95a43c2c",
+        "endpointMaximum": 0,
+        "newStructuralFindings": 0,
+        "allOtherFieldsPreserved": true
+      },
+      {
+        "model": "optimizexl-lahmian-unused/WH_VC_LahmianVampire01.mdx",
+        "inputSHA256": "7301332715e50dfadf5ce9a049a8cd262bd6a1ba387ea394c22ccda69db54488",
+        "removed": 5,
+        "bytesSaved": 100,
+        "outputSHA256": "22dad1df7374ef013f8da6814246bfa0d3c8461fb08759cee5cb853edf8f6301",
+        "unusedBefore": 5,
+        "unusedAfter": 0,
+        "maximumWorldDifference": 0.1261901267735547,
+        "worst": {
+          "animation": "Attack",
+          "frame": 8033,
+          "vertex": 3,
+          "geoset": 18
+        },
+        "maximumPerPartPercent": 2.2136014186714954,
+        "maximumLocalComponentError": 0.0009607399002200622,
+        "maximumExcursionLoss": 0.9999999984697254,
+        "cameraDependent": true,
+        "globalInfluence": true,
+        "effectTargets": 1,
+        "nativeSamples": 101783,
+        "meshFrames": 25457,
+        "affectedMotionFingerprint": "8597179aa73b55812ee5785e864a64d16dae9d7c7d494068669044d27e84f335",
+        "endpointMaximum": 0,
+        "newStructuralFindings": 0,
+        "allOtherFieldsPreserved": true
+      },
+      {
+        "model": "optimizexl-lahmian-unused/WH_VC_LahmianVampire01_variant1.mdx",
+        "inputSHA256": "795bd0a56dd8230cf15281ae0f9de9014e13942a6eb61b5cd7e9c0badaef1f18",
+        "removed": 5,
+        "bytesSaved": 100,
+        "outputSHA256": "040ee125f5c257768e316593fd75780021a86274a18697c4da0d8d4ff994b3a7",
+        "unusedBefore": 5,
+        "unusedAfter": 0,
+        "maximumWorldDifference": 0.09274300633626066,
+        "worst": {
+          "animation": "Attack",
+          "frame": 8033,
+          "vertex": 51,
+          "geoset": 12
+        },
+        "maximumPerPartPercent": 2.2136014186714954,
+        "maximumLocalComponentError": 0.0009607399002200622,
+        "maximumExcursionLoss": 0.9999999984697254,
+        "cameraDependent": true,
+        "globalInfluence": true,
+        "effectTargets": 1,
+        "nativeSamples": 101783,
+        "meshFrames": 25457,
+        "affectedMotionFingerprint": "8597179aa73b55812ee5785e864a64d16dae9d7c7d494068669044d27e84f335",
+        "endpointMaximum": 0,
+        "newStructuralFindings": 0,
+        "allOtherFieldsPreserved": true
+      }
+    ],
+    "distinctAffectedMotionFingerprints": 4
+  },
+  "derived": {
+    "completed": 23,
+    "selected": [
+      {
+        "label": "intentional-small-loop",
+        "eligible": 1,
+        "geometry": [
+          {
+            "frame": 31409,
+            "max": 0.007171930552965291,
+            "hiddenMax": 0,
+            "maxVelocityDifference": 4.76837158203125E-06
+          }
+        ],
+        "local": [
+          {
+            "key": "Bones.104.Rotation:31409",
+            "samples": 12001,
+            "maxComponent": 0.0005000000208533609,
+            "maxAngleDegrees": 0.05729578431224987,
+            "worstFrame": 31409,
+            "sourceRange": [
+              0.0005000000208533609,
+              0,
+              0,
+              1.2500001811410755E-07
+            ],
+            "afterRange": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "lostFraction": [
+              1,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "label": "uneven-one-ms-rise",
+        "eligible": 1,
+        "geometry": [
+          {
+            "frame": 29910,
+            "max": 0.007171930552965291,
+            "hiddenMax": 0,
+            "maxVelocityDifference": 0.007172299608954079
+          }
+        ],
+        "local": [
+          {
+            "key": "Bones.104.Rotation:29910",
+            "samples": 12001,
+            "maxComponent": 0.0005000000208533609,
+            "maxAngleDegrees": 0.05729578431224987,
+            "worstFrame": 29910,
+            "sourceRange": [
+              0.0005000000208533609,
+              0,
+              0,
+              1.2500001811410755E-07
+            ],
+            "afterRange": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "lostFraction": [
+              1,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "label": "hidden-reappearing-skirt",
+        "eligible": 1,
+        "geometry": [
+          {
+            "frame": 31409,
+            "max": 0.007171930552965291,
+            "hiddenMax": 0.007171930552965291,
+            "maxVelocityDifference": 4.76837158203125E-06
+          }
+        ],
+        "local": [
+          {
+            "key": "Bones.104.Rotation:31409",
+            "samples": 12001,
+            "maxComponent": 0.0005000000208533609,
+            "maxAngleDegrees": 0.05729578431224987,
+            "worstFrame": 31409,
+            "sourceRange": [
+              0.0005000000208533609,
+              0,
+              0,
+              1.2500001811410755E-07
+            ],
+            "afterRange": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "lostFraction": [
+              1,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "label": "large-lever-arm",
+        "eligible": 1,
+        "geometry": [
+          {
+            "frame": 31409,
+            "max": 10.000160408016963,
+            "hiddenMax": 0,
+            "maxVelocityDifference": 0.006683349609375
+          }
+        ],
+        "local": [
+          {
+            "key": "Bones.104.Rotation:31409",
+            "samples": 12001,
+            "maxComponent": 0.0005000000208533609,
+            "maxAngleDegrees": 0.05729578431224987,
+            "worstFrame": 31409,
+            "sourceRange": [
+              0.0005000000208533609,
+              0,
+              0,
+              1.2500001811410755E-07
+            ],
+            "afterRange": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "lostFraction": [
+              1,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      },
+      {
+        "label": "blended-skin",
+        "eligible": 1,
+        "geometry": [
+          {
+            "frame": 31409,
+            "max": 0.0035859118817044384,
+            "hiddenMax": 0,
+            "maxVelocityDifference": 2.86102294921875E-06
+          }
+        ],
+        "local": [
+          {
+            "key": "Bones.104.Rotation:31409",
+            "samples": 12001,
+            "maxComponent": 0.0005000000208533609,
+            "maxAngleDegrees": 0.05729578431224987,
+            "worstFrame": 31409,
+            "sourceRange": [
+              0.0005000000208533609,
+              0,
+              0,
+              1.2500001811410755E-07
+            ],
+            "afterRange": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "lostFraction": [
+              1,
+              null,
+              null,
+              null
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "interactions": {
+    "exactNoopModels": 581,
+    "experiments": [
+      {
+        "model": "fx-reference/Sargeras_the_great_one/Sargeras the great one/SargerasFerSZ.mdx",
+        "passes": [
+          {
+            "pass": 0,
+            "unused": 23591,
+            "eligible": 3,
+            "newTargets": [
+              {
+                "path": [
+                  "Bones",
+                  45,
+                  "Rotation"
+                ],
+                "frame": 165112
+              }
+            ]
+          },
+          {
+            "pass": 1,
+            "unused": 23590,
+            "eligible": 2,
+            "newTargets": []
+          }
+        ],
+        "finalSHA256": "fa845fbc886f900aa62ed3c85cd1df4bb4e73c915fbab907a57fba0f05c01289",
+        "additionalBytes": 20,
+        "originalBytes": 1418093,
+        "finalBytes": 1417753,
+        "disjointRepairs": 3,
+        "ordersEqual": true
+      },
+      {
+        "model": "fx-owner/variety/Chikichiki_opt1.mdx",
+        "passes": [
+          {
+            "pass": 0,
+            "unused": 0,
+            "eligible": 0,
+            "newTargets": []
+          }
+        ],
+        "finalSHA256": "281411c3918bb7ba048e37b566da2bd4481e326dd7896cfd310937c4cf032ae0",
+        "additionalBytes": 0,
+        "originalBytes": 245207,
+        "finalBytes": 245107,
+        "disjointRepairs": 0,
+        "ordersEqual": true
+      },
+      {
+        "model": "fx-reference-owner3/Demigod Cenarius  Keeper of the groove/Demigod Cenarius  Keeper of the groove/Cenarius TeamColor.mdx",
+        "passes": [
+          {
+            "pass": 0,
+            "unused": 384,
+            "eligible": 0,
+            "newTargets": []
+          }
+        ],
+        "finalSHA256": "5f68c581b7de91c4f148f13ba3116a038bcd37dc14514b781b6163802c4d7008",
+        "additionalBytes": 0,
+        "originalBytes": 423334,
+        "finalBytes": 423234,
+        "disjointRepairs": 2,
+        "ordersEqual": true
+      },
+      {
+        "model": "optimizexl-lahmian-unused/WH_VC_LahmianVampire01.mdx",
+        "passes": [
+          {
+            "pass": 0,
+            "unused": 0,
+            "eligible": 0,
+            "newTargets": []
+          }
+        ],
+        "finalSHA256": "22dad1df7374ef013f8da6814246bfa0d3c8461fb08759cee5cb853edf8f6301",
+        "additionalBytes": 0,
+        "originalBytes": 236206,
+        "finalBytes": 236106,
+        "disjointRepairs": 0,
+        "ordersEqual": true
+      },
+      {
+        "model": "optimizexl-lahmian-unused/WH_VC_LahmianVampire01_variant1.mdx",
+        "passes": [
+          {
+            "pass": 0,
+            "unused": 0,
+            "eligible": 0,
+            "newTargets": []
+          }
+        ],
+        "finalSHA256": "040ee125f5c257768e316593fd75780021a86274a18697c4da0d8d4ff994b3a7",
+        "additionalBytes": 0,
+        "originalBytes": 233346,
+        "finalBytes": 233246,
+        "disjointRepairs": 0,
+        "ordersEqual": true
+      }
+    ],
+    "productionRule": "none; only offline experiments",
+    "sourceModelsUnchanged": true
+  },
+  "baseline": {
+    "unitPassed": 89,
+    "initialPrivateSkip": 1,
+    "privateOptInPassed": 1,
+    "remainingUnitSkips": 0,
+    "flail01Comparisons": 31,
+    "flail03Comparisons": 25,
+    "historicalReferenceSHA256": "084d34e0deda0e6d2d7c1722698806b4c937db3a45c34f18d94aa1cd3bd8174a"
+  },
+  "conclusion": "Do not integrate a blanket removal or weaken authored-turn protection. The accepted example is approximate cleanup; evidence does not establish that same-valued notices across models are disposable motion.",
+  "productionChanges": false,
+  "limits": [
+    "464 inputs fail in the bundled checker; no checker-clean claim for them.",
+    "Mesh sampling is 1 ms, native quaternion sampling .25 ms; not continuous-time proof.",
+    "Global phases and camera-dependent billboard orientations are not exhaustively sampled.",
+    "Effect attachment transforms do not prove particle trajectories or Warcraft III playback.",
+    "No production change, UI/package/build or live-game acceptance in this research round."
+  ]
+}
