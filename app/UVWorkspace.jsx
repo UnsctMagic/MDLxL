@@ -1,5 +1,7 @@
 import MaterialProperties from './MaterialProperties.jsx';
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { UVWindowTools } from './UVWindow.jsx';
 import UVEditor from './UVEditor.jsx';
 import useStoredState from './useStoredState.js';
 import { createFrameCoalescer } from './viewport-performance.js';
@@ -112,10 +114,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
   const [sidePercent, setSidePercent] = useStoredState(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent);
   const [previewPercent, setPreviewPercent] = useStoredState(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent);
-  const [rightHeaderHeight, setRightHeaderHeight] = useState(69);
-  const [leftHeaderHeight, setLeftHeaderHeight] = useState(38);
   const [densityOpen, setDensityOpen] = useState(false), [densityValue, setDensityValue] = useState(0), [densityResult, setDensityResult] = useState(null);
-  const projectionView = useRef(null), workspaceBody = useRef(null), sidePanel = useRef(null), header = useRef(null);
+  const projectionView = useRef(null), workspaceBody = useRef(null), sidePanel = useRef(null), titleBar = useContext(UVWindowTools);
   const activePreviewPercent = previewPercent;
   const baseMaterialModel = suppliedMaterialModel || sourceModel, basePreviewModel = suppliedPreviewModel || sourceModel;
   const densitySelectionKey = JSON.stringify(suppliedSelectionByGeoset), densityEligibilityKey = JSON.stringify(suppliedEligibleSelection);
@@ -154,14 +154,6 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     if (!current) { setMaterialID(null); return; }
     if (materialID !== current.materialID) setMaterialID(current.materialID);
   }, [current?.materialID, materialID]);
-
-  useEffect(() => {
-    const element = header.current, ownerWindow = element?.ownerDocument.defaultView;
-    if (!element || !ownerWindow?.ResizeObserver) return;
-    const measure = () => { setRightHeaderHeight(Math.ceil(element.getBoundingClientRect().height)); setLeftHeaderHeight(Math.ceil(element.querySelector('.uv-map-header').getBoundingClientRect().height)); };
-    const observer = new ownerWindow.ResizeObserver(measure); observer.observe(element); measure();
-    return () => observer.disconnect();
-  }, []);
 
   const allSelected = useMemo(() => Object.fromEntries(Object.entries(selectionByGeoset).map(([index, ids]) => [index, unique(ids).filter(id => eligibleSelection[index]?.includes(id))])), [selectionKey, eligibilityKey]);
   const allEligible = useMemo(() => Object.fromEntries(materialEntries.flatMap(entry => entry.geosetIndices.map(index => {
@@ -265,21 +257,18 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const viewTileLimit = normalizeUVViewTileLimit(preferences?.uvViewTileLimit);
   const changeViewTileLimit = value => onPreferences?.({ ...preferences, uvViewTileLimit: normalizeUVViewTileLimit(value) });
 
-  return <div className="uv-workspace" aria-label="UV wrapper workspace">
-    <header ref={header} className="uv-workspace-header" style={{ '--uv-side-width': `${sidePercent}%` }}>
-      <div className="uv-map-header"><strong>UV Wrapper</strong><UVGridControls value={uvGrid} onChange={changeUVGrid}>
+  // The map and texture controls live in the window's title bar, which leaves the whole left column to the map.
+  const titleTools = <><UVGridControls value={uvGrid} onChange={changeUVGrid}>
         <button data-hotkey="uv-wrapper:wrap" data-hotkey-manual data-hotkey-label="Wrap U and V" type="button" disabled={editingLocked || !onWrappingChange || !imageLayers.length}
           title="Toggle Wrap U and Wrap V for this material's image textures. Applies to all uses of these textures."
           onClick={() => onWrappingChange?.([...new Set(imageLayers.map(layer => layer.textureID))], !wrappingEnabled)}>{wrappingEnabled ? 'Disable Wrapping' : 'Enable Wrapping'}</button>
         <button data-hotkey="uv-wrapper:triangles" data-hotkey-manual data-hotkey-label="Triangles" type="button" aria-haspopup="dialog" aria-expanded={densityOpen} disabled={readOnly || !densityTargets.length || !onDensityApply} title="Make selected UV triangles more or less dense" onClick={() => { setDensityOpen(value => !value); setDensityValue(0); setDensityResult(null); }}>Triangles</button>
         <label className="uv-view-limit" title="Maximum texture tiles visible while zooming out"><span>View</span><input data-hotkey="uv-wrapper:uv-map-tile-limit" data-hotkey-manual data-hotkey-label="UV map tile limit" aria-label="UV map tile limit" type="number" min={MIN_UV_VIEW_TILE_LIMIT} max={MAX_UV_VIEW_TILE_LIMIT} step="1" value={viewTileLimit} onChange={event => changeViewTileLimit(event.target.value)}/><output>×{viewTileLimit}</output></label>
-      </UVGridControls></div>
-      <div className="uv-header-divider" aria-hidden="true"/>
-      <div className="uv-header-actions"><button data-hotkey="uv-wrapper:replace-texture" data-hotkey-manual data-hotkey-label="Replace Texture…" disabled={editingLocked} onClick={onLibrary}>Replace Texture…</button>{draftCount > 0 && <><button data-hotkey="uv-wrapper:save-texture" data-hotkey-manual data-hotkey-label="Save texture" disabled={editingLocked} onClick={onSavePreview}>Save texture</button><button data-hotkey="uv-wrapper:revert-texture" data-hotkey-manual data-hotkey-label="Revert texture" disabled={editingLocked} onClick={onRevertPreview}>Revert texture</button></>}<button data-hotkey="uv-wrapper:exit-uv-wrapper" data-hotkey-manual data-hotkey-label="Exit UV Wrapper" onClick={onExit}>Exit UV Wrapper</button></div>
-      <div className="uv-material-controls"><label title="Picks the material for the selected geosets. An unsaved test texture on them is cancelled."><select data-hotkey="uv-wrapper:uv-material" data-hotkey-manual data-hotkey-label="UV material" aria-label="UV material" value={current?.materialID ?? ''} disabled={densityOpen} onChange={event => chooseMaterial(event.target.value)}>{materialOptions.map(entry => <option key={entry.materialID} value={entry.materialID}>{entry.label}</option>)}</select></label><MaterialProperties model={materialModel} materialID={current?.materialID} disabled={editingLocked} onChange={(_, preset, tint) => onMaterialPreset?.(model.Geosets[current.geosetIndices[0]].MaterialID, preset, tint)} compact filterModes/></div>
-    </header>
+      </UVGridControls><div className="uv-header-actions"><button data-hotkey="uv-wrapper:replace-texture" data-hotkey-manual data-hotkey-label="Replace Texture…" disabled={editingLocked} onClick={onLibrary}>Replace Texture…</button>{draftCount > 0 && <><button data-hotkey="uv-wrapper:save-texture" data-hotkey-manual data-hotkey-label="Save texture" disabled={editingLocked} onClick={onSavePreview}>Save texture</button><button data-hotkey="uv-wrapper:revert-texture" data-hotkey-manual data-hotkey-label="Revert texture" disabled={editingLocked} onClick={onRevertPreview}>Revert texture</button></>}</div></>;
+  return <div className="uv-workspace" aria-label="UV wrapper workspace">
+    {titleBar ? createPortal(titleTools, titleBar) : <div className="uv-workspace-tools">{titleTools}</div>}
     {(materialError || materialPreview?.warnings?.length > 0) && <div className="uv-workspace-warning" role="status" data-alert="">{materialError || materialPreview.warnings.join(' · ')}</div>}
-    <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%`, '--uv-right-header-height': `${rightHeaderHeight}px`, '--uv-left-header-height': `${leftHeaderHeight}px` }}>
+    <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%` }}>
       <section className="uv-map-pane" aria-label="UV texture map">
         {densityOpen && <div className="uv-density-popup" role="dialog" aria-modal="false" aria-label="Triangle density"><strong>{densityTargets.length === 1 ? `Geoset ${densityTargets[0].index + 1} triangle density` : 'Triangle density'}</strong><MeshDensitySlider compact targets={densityTargets} value={densityValue} onChange={value => { setDensityValue(value); setDensityResult(null); }} onResult={setDensityResult}/><div><button onClick={() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }}>Cancel</button><button className="primary" disabled={!densityValue || !densityResult || densityResult.trianglesAfter === densityResult.trianglesBefore} onClick={() => { const changes = densityResult.changes; setDensityOpen(false); setDensityValue(0); setDensityResult(null); onDensityApply(changes); }}>Apply</button></div></div>}
         {combined?.eligibleVertices.length ? <UVEditor key="selected-geosets" wrapperControls geoset={combined.geoset} uvSet={0} revision={revision} textureUrl={materialPreview?.url} textureSize={materialPreview ? [materialPreview.width, materialPreview.height] : undefined} textureWrapping={!imageLayers.length || wrappingEnabled} viewTileLimit={viewTileLimit}
@@ -292,7 +281,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
       <Splitter orientation="vertical" label="Resize texture and live-view columns" value={sidePercent} minimum={UV_SIDE_MIN} maximum={UV_SIDE_MAX} defaultValue={UV_SIDE_DEFAULT}
         onValue={value => setSidePercent(clampUVSidePercent(value))} onPointerValue={event => { const rect = workspaceBody.current?.getBoundingClientRect(); if (rect) setSidePercent(uvSidePercentAtPointer(event.clientX, rect)); }}/>
       <aside ref={sidePanel} className="uv-side-panel" style={{ '--uv-preview-height': `${activePreviewPercent}%`, '--uv-selection-color': preferences?.visuals?.uvSelection || '#4cff59' }}>
-        <section className="uv-live-options" aria-label="Live view options"><div className="uv-panel-title"><strong>Live View</strong></div>
+        <div className="uv-material-controls"><label title="Picks the material for the selected geosets. An unsaved test texture on them is cancelled."><select data-hotkey="uv-wrapper:uv-material" data-hotkey-manual data-hotkey-label="UV material" aria-label="UV material" value={current?.materialID ?? ''} disabled={densityOpen} onChange={event => chooseMaterial(event.target.value)}>{materialOptions.map(entry => <option key={entry.materialID} value={entry.materialID}>{entry.label}</option>)}</select></label><MaterialProperties model={materialModel} materialID={current?.materialID} disabled={editingLocked} onChange={(_, preset, tint) => onMaterialPreset?.(model.Geosets[current.geosetIndices[0]].MaterialID, preset, tint)} compact filterModes/></div>
+        <section className="uv-live-options" aria-label="Live view options">
           <div className="uv-live-toggles">
             <label><input data-hotkey="uv-wrapper:highlight-live" data-hotkey-manual data-hotkey-label="Highlight live" aria-label="Highlight selected vertices in live preview" type="checkbox" checked={liveView} onChange={event => changeLiveDisplay({ mesh: event.target.checked ? 'selected' : 'none' })}/>Highlight Live</label>
             <label><input data-hotkey="uv-wrapper:highlight-frame" data-hotkey-manual data-hotkey-label="Highlight texture frame" aria-label="Highlight texture frame" type="checkbox" checked={display.textureFrame} onChange={event => changeLiveDisplay({ textureFrame: event.target.checked })}/>Highlight Texture Frame</label>
@@ -300,7 +290,6 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
           <label className="uv-thickness"><span>Thickness</span><input data-hotkey="uv-wrapper:live-selection-thickness" data-hotkey-manual data-hotkey-label="Live selection thickness" aria-label="Live selection thickness" type="range" min="0.25" max="3" step="0.25" value={display.size} onChange={event => changeLiveDisplay({ size: Number(event.target.value) })}/><output>{display.size.toFixed(2)}×</output><input className="uv-color-button" aria-label="Live selection and texture-frame color" title="Choose live selection and texture-frame color" type="color" value={preferences?.visuals?.uvSelection || '#4cff59'} onChange={event => changeLiveColor(event.target.value)}/></label>
         </section>
         <section className="uv-live-preview" aria-label="Live model preview">
-          <div className="uv-panel-title"><strong>Live Model Preview</strong></div>
           <div className="uv-preview-canvas"><Suspense fallback={<div className="classic-empty-view">Loading preview…</div>}><GamePreview {...previewProps} preferences={previewPreferences} onSensitivityChange={setScrollSensitivity} revision={previewWrappingRevision} uvRevision={revision} presentation="preview" preserveCameraView={true} interactivePreview={!densityOpen && !!current} restPose={true} model={previewModel} sequenceIndex={-1} time={0} playing={false} showParticles={false} previewOverlay={liveOverlay}
             uvOnlySelected={showOnlySelected} uvHideExtras={hideExtras} hiddenGeosets={hiddenPreviewGeosets} hideRgbGeoset={hideRGB && rgbTarget >= 0 ? rgbTarget : null} rgbOverride={rgbOverride}
             selectionByGeoset={selectionByGeoset} selectableGeosets={Object.keys(eligibleSelection).map(Number)}
@@ -330,7 +319,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
         <Splitter orientation="horizontal" label="Resize live model preview" value={activePreviewPercent} minimum={UV_PREVIEW_MIN} maximum={UV_PREVIEW_MAX} defaultValue={UV_PREVIEW_DEFAULT}
           onValue={setActivePreviewPercent} onPointerValue={event => { const rect = sidePanel.current?.getBoundingClientRect(); if (rect) setActivePreviewPercent(uvPreviewPercentAtPointer(event.clientY, rect)); }}/>
         <div className="uv-side-controls">
-          <section className="uv-projection" aria-label="UV projection"><div className="uv-panel-title"><strong>Projection</strong></div><p>Rotate the model to the required viewpoint, or choose a standard projection plane.</p><div className="uv-projection-actions"><button data-hotkey="uv-wrapper:project-from-current-view" data-hotkey-manual data-hotkey-label="Project from Current View" disabled={editingLocked || !selectedCount(allSelected)} onClick={project}>Project from Current View</button><select data-hotkey="uv-wrapper:standard-projection-view" data-hotkey-manual data-hotkey-label="Standard projection view" aria-label="Standard projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Standard…</option>{STANDARD_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Angled projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Angled…</option>{ANGLED_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>
+          <section className="uv-projection" aria-label="UV projection"><div className="uv-projection-actions"><button data-hotkey="uv-wrapper:project-from-current-view" data-hotkey-manual data-hotkey-label="Project from Current View" title="Rotate the model to the required viewpoint, or choose a standard projection plane." disabled={editingLocked || !selectedCount(allSelected)} onClick={project}>Project from Current View</button><select data-hotkey="uv-wrapper:standard-projection-view" data-hotkey-manual data-hotkey-label="Standard projection view" aria-label="Standard projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Standard…</option>{STANDARD_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Angled projection view" disabled={densityOpen} defaultValue="" onChange={event => { chooseProjectionPreset(event.target.value); event.target.value = ''; }}><option value="">Angled…</option>{ANGLED_PROJECTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>
           <section className="uv-toolbox" aria-label="UV tools"><div className="uv-panel-title"><strong>Tools</strong><div className="uv-axis-controls uv-each-piece-control"><button type="button" aria-label="Each Piece" aria-pressed={preferences?.uvEachPiece === true} data-hotkey="uv:each-piece" data-hotkey-manual data-hotkey-label="Each Piece" data-hotkey-category="UV" title="On: Rotate and Zoom work on each separate piece, on its own spot. Off: the whole selection moves as one group." onClick={() => onPreferences?.({ ...preferences, uvEachPiece: preferences?.uvEachPiece !== true })}>Each Piece</button></div><div className="uv-axis-controls" role="group" aria-label="UV axis when Shift is held">{['X','Y'].map(value => <button key={value} type="button" aria-label={`UV ${value} axis`} aria-pressed={axis === value} onClick={() => setAxis(previous => previous === value ? null : value)}>{value}</button>)}</div></div><div className="uv-tool-grid">
             <Tool action="select" icon="select" label="Select" active={uvTool === 'select'} onClick={() => setUVTool('select')}/>
             <Tool action="translate" icon="move" label="Move" active={uvTool === 'move'} disabled={!toolState.move} onClick={() => setUVTool('move')}/>
