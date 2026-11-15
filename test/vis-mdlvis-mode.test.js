@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import React from 'react';
@@ -149,7 +149,9 @@ test('desktop and browser View use the same mode rows, including Axis guides whe
       assert.ok(!['display:focusedSkeleton', 'display:nodes', 'display:events', 'display:sounds', 'display:lights', 'display:wires', 'display:objects', 'rgb'].includes(id), id);
   });
 
-  test('VIS draws and picks only bones, helpers, attachments and emitters, only in Bones and Movement', () => {
+  // The models are private (MDLxL-TestModels); CI skips this like the Forge and Corpse tests.
+  const privateMissing = !['sd-chaos-orc', 'ribbon-attachment'].every(name => { const file = fixturePath(name); return !!file && existsSync(file); }) && 'private models not on this machine';
+  test('VIS draws and picks only bones, helpers, attachments and emitters, only in Bones and Movement', { skip: privateMissing }, () => {
     for (const name of ['sd-chaos-orc', 'ribbon-attachment']) {
       const model = load(name), kinds = movementNodeCategories(model, true);
       const ids = collection => (model[collection] || []).map(node => node.ObjectId);
