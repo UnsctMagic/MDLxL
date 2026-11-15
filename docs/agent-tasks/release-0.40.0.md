@@ -65,6 +65,10 @@ Main CI green after each merge.
   by rewriting the existing FX line or trimming elsewhere**; `node scripts/release-material.mjs
   0.40.0 D:\Claude\MDLxL-gate\release-0.40.0-material` checks it. No packaging or packaged
   tests run (owner: compute waits for FX). The guides have no Node Manager page.
+- 15 Nov: notes rewritten in six languages for #642 Glow Up weapons, #643 Modulate fix, #644 ribbon
+  sweeps, #645 FX redesign, #646 Spawn previews, #647 POSE clues and symbol sets, #648 Objects /
+  Object Manager; README summary. Body 4,093 of 4,096: inline and heading bold dropped and older
+  lines shortened to fit; "Default in Hotkeys asks first" dropped.
 - New Features guides rebuilt on the current UI, 7 pages in six languages (Animated,
   UV Preview RGB / Hide extras, Review detected glow, Call Upon Forge, right-click menus and
   Managers, BITZ Manage / Replace Part, Bone Namer). Generator:
@@ -82,7 +86,7 @@ Main CI green after each merge.
 | 6 | Each feature and fix works the user's way | Fail-first packaged checks for each fix merged today; owner hand test not done |
 | 7 | Previews: mouse rotation, Play speed | In the suite (passed) |
 | 8 | Save and reopen .mdx/.mdl | In the suite (passed) |
-| 9 | Release text, six languages, PDFs looked at | Done for notes and all guide pages; FX text still to add |
+| 9 | Release text, six languages, PDFs looked at | Notes cover #642–#648 (15 Nov); guide pages not updated for them |
 | 10 | CI ZIP tested; public SHA-256 | Not reached (no tag) |
 
 ## Suite results

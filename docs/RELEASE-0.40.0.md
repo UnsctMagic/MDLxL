@@ -1,21 +1,20 @@
 # MDLxL 0.40.0
 
-- **Vertices:** **Animated** (Shift+Space) shows an animation pose while you edit. **Each Piece** sits beside **Workplane Constraints**, also in Forge.
-- **Forge:** right-click, **Call Upon Forge** puts its tools in the Vertex editor.
-- **Bones:** **Bone Namer** gives a rig Blizzard's standard bone names.
-- **POSE:** main handles are **Circle**, **Square** or **Diamond**. Drag handles name their job (Move, Stretch…) on hover.
-- **UV Wrapper:** **Preview RGB** and **Hide extras** in the unanimated preview. Fresh installs zoom right/up.
-- **EMTR:** right-click for **Glow Up**, **EMTR Library** or **Manager**. The preview shows the selected emitter; **View All Emitters** shows all. **Review detected glow** excludes single glow pieces.
-- **FX:** **Pause** under the placement preview. Retuning keeps your texture and UV edits.
-- **LIBR:** right-click for **Textures**, **Models**, **Sounds** or **All**. **Save a copy…** in every viewer (DDS, BLP, PNG). **World Editor Style** lists each object once.
-- **BITZ:** **Manage** your Bitz files and folders. **Replace Part** opens Quad View with RGB, **Cancel** and **Commit**.
-- **Menus:** the Managers tab is now the top **Managers** menu. Menus show hotkeys; Alt+K opens **Surface Effects**.
-- **Sounds:** five moved game sounds now play. Sounds with no game file show **No sound file in the game**.
-- **Node Manager:** **New** browses game sounds, splats and spawn objects; **Add event** adds one.
-- **View:** **Axis guides** in Vertices, Bones, Movement and Animations. **Compact Set** fills rows first in Movement and Bones too.
-- **ShareX regions** (Settings > Capture) lets ShareX capture the viewport or toolbox alone.
-- **AI console:** errors already in the model are warnings; new errors still block.
-- **Fixes:** FX keeps its parts after deletes and merges. An unreadable save keeps a copy of the replaced file. Default in Hotkeys asks first. Animated vertex moves follow the mouse. Paint brush drags are smooth and Escape restores them. BITZ warns before closing an unfinished replacement. EMTR keeps its preview when you switch emitters; **Ingredients** pictures show particles and ribbons again.
-- On German and French keyboards, letter keys rebound before 0.39 may have moved; check Settings > Hotkeys.
+- Vertices: Animated (Shift+Space) poses the model as you edit. Each Piece joins Workplane Constraints, also in Forge; right-click Forge > Call Upon Forge for its tools.
+- Bones: Bone Namer sets Blizzard's bone names.
+- POSE: handles from shape, skeleton, names, animation, attachment points; Circle, Square or Diamond; Symbol set, Symbol Color, Ring Color in Settings. Right-click > Hide; a button by POSE restores it. Drag handles name their job on hover.
+- UV Wrapper: Preview RGB, Hide extras; fresh installs zoom right/up.
+- EMTR: right-click Glow Up, EMTR Library, Manager. Preview: chosen emitter or View All Emitters. Review detected glow skips single pieces. Add weapon glow for more weapons. Add ribbon: Sweep (Fire, Frost…), Playback Speed.
+- FX: one layer panel; searchable Add layer, Add emitter; place one emitter at a time (EMTR handles) or click the surface; Save as…, Load from…, My looks; reworked looks; Pause; retuning keeps texture/UV edits.
+- Objects: one Objects switch (right-click: types) and Lights in Bones and Movement, not Vertices. Movement: click an object for EMTR's keyframe diamonds; double-click an emitter symbol for EMTR. VIS matches MDLVis 1.40.
+- LIBR: right-click Textures, Models, Sounds, All. Save a copy… in every viewer. World Editor Style lists objects once.
+- BITZ: Manage files and folders. Replace Part: Quad View, RGB, Cancel, Commit.
+- Menus: Managers is a top menu. Menus show hotkeys; Alt+K: Surface Effects.
+- Sounds: five moved game sounds play; missing ones say No sound file in the game.
+- Object Manager (was Node Manager): New lists game sounds, splats and usable spawn objects, with previews; Add event adds one.
+- View: Axis guides in Vertices, Bones, Movement, Animations; Compact Set fills rows first in Movement, Bones. ShareX regions (Settings > Capture) for the viewport or toolbox.
+- AI console: old model errors warn; new ones block.
+- Fixes: FX keeps parts after deletes/merges. Unreadable saves keep the old file. Animated vertex moves follow the mouse. Paint drags are smooth; Escape restores. BITZ warns before closing unfinished replacements. EMTR keeps its preview across emitters; Ingredients shows particles, ribbons. Textured View draws Modulate/Modulate 2x like the game.
+- German/French keyboards: letter hotkeys rebound before 0.39 may have moved.
 
-Update through Settings > Configuration > Search for updates > Update and restart, or download the portable ZIP from the MDLxL page.
+Update: Settings > Configuration > Search for updates, or the portable ZIP.

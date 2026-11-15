@@ -1,21 +1,20 @@
 # MDLxL 0.40.0
 
-- **Sommets :** **Animé** (Maj+Espace) affiche une pose d’animation pendant l’édition. **Chaque pièce** se trouve à côté de **Contraintes du plan**, aussi dans Forge.
-- **Forge :** clic droit, **Appeler les outils Forge** place ses outils dans l’éditeur de sommets.
-- **Os :** **Nommage des os** donne à un rig les noms d’os standard de Blizzard.
-- **POSE :** les poignées principales sont **Cercle**, **Carré** ou **Losange**. Les poignées de glissement nomment leur rôle (Déplacer, Étirer…) au survol.
-- **Éditeur UV :** **Aperçu RVB** et **Sans extras** dans l’aperçu sans animation. Les nouvelles installations zooment vers la droite ou le haut.
-- **EMTR :** clic droit pour **Lueur de héros**, **Bibliothèque EMTR** ou **Gestionnaire**. L’aperçu montre l’émetteur sélectionné ; **Afficher tous les émetteurs** les montre tous. **Examiner la lueur détectée** exclut des éléments de lueur un par un.
-- **FX :** **Pause** sous l’aperçu de placement. Un nouveau réglage conserve vos modifications de texture et d’UV.
-- **LIBR :** clic droit pour **Textures**, **Modèles**, **Sons** ou **Tout**. **Enregistrer une copie…** dans chaque visionneuse (DDS, BLP, PNG). **Style World Editor** affiche chaque objet une fois.
-- **BITZ :** **Gérer** les fichiers et dossiers Bitz. **Remplacer une pièce** ouvre la vue quad avec RVB, **Annuler** et **Appliquer**.
-- **Menus :** l’onglet des gestionnaires passe dans le menu **Gestionnaires** en haut. Les menus affichent les raccourcis ; Alt+K ouvre **Effets de surface**.
-- **Sons :** cinq sons du jeu déplacés sont de nouveau lus. Les sons sans fichier dans le jeu sont marqués **Aucun fichier son dans le jeu**.
-- **Gestionnaire de nœuds :** **Nouveau** parcourt les sons, éclaboussures et objets générés du jeu ; **Ajouter un événement** en ajoute un.
-- **Vue :** **Guides d’axes** dans Sommets, Os, Mouvement et Animations. **Ensemble compact** remplit aussi par rangées dans Mouvement et Os.
-- **Zones ShareX** (Réglages > Capture) permet à ShareX de capturer seulement la vue ou la boîte à outils.
-- **Console IA :** les erreurs déjà présentes dans le modèle sont des avertissements ; les nouvelles bloquent toujours.
-- **Corrections :** FX garde ses parties après suppressions et fusions. Un enregistrement illisible garde une copie du fichier remplacé. Par défaut dans Raccourcis demande confirmation. Les déplacements de sommets en mode Animé suivent la souris. Les glissements du pinceau dans Peindre sont fluides et Échap les rétablit. BITZ prévient avant de fermer un remplacement inachevé. EMTR garde son aperçu quand vous changez d’émetteur ; les images des **Éléments** montrent de nouveau particules et rubans.
-- Sur les claviers allemands et français, les raccourcis de lettres réattribués avant la version 0.39 peuvent désormais se trouver sur une autre touche. Vérifiez-les dans Paramètres > Raccourcis clavier.
+- Sommets : Animé (Maj+Espace) pose le modèle pendant l’édition. Chaque pièce rejoint Contraintes du plan, aussi dans Forge ; clic droit sur Forge > Appeler les outils Forge pour ses outils.
+- Os : Nommage des os applique les noms d’os de Blizzard.
+- POSE : poignées issues de la forme, du squelette, des noms, de l’animation et des points d’attache ; Cercle, Carré ou Losange ; Jeu de symboles, Couleur du symbole et Couleur de l'anneau dans Réglages. Clic droit > Masquer ; un bouton près de POSE la rétablit. Les poignées de glissement nomment leur rôle au survol.
+- Éditeur UV : Aperçu RVB, Sans extras ; les nouvelles installations zooment vers la droite ou le haut.
+- EMTR : clic droit pour Lueur de héros, Bibliothèque EMTR ou Gestionnaire. Aperçu : l’émetteur choisi ou Afficher tous les émetteurs. Examiner la lueur détectée ignore les éléments isolés. Ajouter une lueur d’arme pour d’autres armes. Ajouter un ruban : Balayage (Feu, Givre…), Vitesse de lecture.
+- FX : un seul panneau de couches ; recherche dans Ajouter une couche et Ajouter un émetteur ; placez un émetteur à la fois (poignées EMTR) ou cliquez sur la surface ; Enregistrer sous…, Charger depuis…, Mes effets ; effets retravaillés ; Pause ; un nouveau réglage conserve les modifications de texture et d’UV.
+- Objets : un seul interrupteur Objets (clic droit : types) et Lumières dans Os et Mouvement, pas dans Sommets. Dans Mouvement, cliquez sur un objet pour voir les losanges d’EMTR sur la piste d’images clés ; un double-clic sur le symbole d’un émetteur ouvre EMTR. VIS suit MDLVis 1.40.
+- LIBR : clic droit pour Textures, Modèles, Sons ou Tout. Enregistrer une copie… dans chaque visionneuse. Style World Editor affiche chaque objet une fois.
+- BITZ : Gérer les fichiers et dossiers. Remplacer une pièce : vue quad, RVB, Annuler, Appliquer.
+- Menus : Gestionnaires est un menu du haut. Les menus affichent les raccourcis ; Alt+K : Effets de surface.
+- Sons : cinq sons du jeu déplacés sont lus ; les absents sont marqués Aucun fichier son dans le jeu.
+- Gestionnaire d’objets (ex-Gestionnaire de nœuds) : Nouveau liste les sons, éclaboussures et objets générés utilisables du jeu, avec aperçu ; Ajouter un événement en ajoute un.
+- Vue : Guides d’axes dans Sommets, Os, Mouvement et Animations ; Ensemble compact remplit par rangées dans Mouvement et Os. Zones ShareX (Réglages > Capture) pour la vue ou la boîte à outils.
+- Console IA : les erreurs déjà présentes dans le modèle avertissent ; les nouvelles bloquent.
+- Corrections : FX garde ses parties après suppressions et fusions. Un enregistrement illisible garde l’ancien fichier. Les déplacements de sommets en mode Animé suivent la souris. Les glissements du pinceau dans Peindre sont fluides ; Échap les rétablit. BITZ prévient avant de fermer des remplacements inachevés. EMTR garde son aperçu quand vous changez d’émetteur ; Éléments montre particules et rubans. Vue texturée affiche Moduler et Moduler 2x comme le jeu.
+- Claviers allemands et français : les raccourcis de lettres réattribués avant la 0.39 ont pu changer de touche.
 
-Mettez à jour via Réglages > Configuration > Rechercher des mises à jour > Mettre à jour et redémarrer, ou téléchargez le ZIP portable complet depuis la page MDLxL.
+Mettez à jour via Réglages > Configuration > Rechercher des mises à jour, ou avec le ZIP portable.
