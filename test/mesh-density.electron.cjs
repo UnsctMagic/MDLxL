@@ -120,7 +120,7 @@ async function setRange(locator, value) {
     assert.notDeepEqual(stretched.model.Geosets[0].TVertices[0], applied.model.Geosets[0].TVertices[0]);
     assert.deepEqual(stretched.model.Geosets[0].Vertices, applied.model.Geosets[0].Vertices);
     assert.deepEqual(stretched.model.Nodes, initial.model.Nodes); checks.push('New UV control point can stretch the texture without changing the surface or rig');
-    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.getByRole('button', { name:'Close UV Wrapper', exact: true }).click();
     await main.keyboard.press('Control+s');
     await main.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Saving'));
     await settlePage(main, 700);

@@ -135,7 +135,7 @@ const { launchApp, closeApp, settle } = require('./helpers/app.cjs');
     assert.equal(await pressN(), false, 'N inside the UV mapper cannot turn normals on');
     assert.equal(await pressN(), false, 'not even on a second press');
     assert.equal(await quickNormals.isDisabled(), true, 'the Quick display Normals box is greyed out while the UV mapper is in use');
-    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.getByRole('button', { name:'Close UV Wrapper', exact: true }).click();
     await uvw.waitFor({ state: 'detached' });
     const mainView = await page.locator('[aria-label="3D model viewport"]').boundingBox();
     await page.mouse.move(mainView.x + mainView.width / 2, mainView.y + mainView.height / 2);

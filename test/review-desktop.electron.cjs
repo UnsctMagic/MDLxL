@@ -150,7 +150,7 @@ test('ShareX helper starts only when enabled and stops when disabled', async () 
     await click(page, editor);
     await page.keyboard.press('Control+a');
     await click(page, page.locator('[data-hotkey="uv"]'));
-    const exitUV = page.getByRole('button', { name: 'Exit UV Wrapper', exact: true });
+    const exitUV = page.getByRole('button', { name:'Close UV Wrapper', exact: true });
     await exitUV.waitFor();
     const updates = await app.evaluate(() => globalThis.reviewCaptureUpdates);
     assert.ok(updates.some(edges => edges?.length === 8 && edges.every(edge => edge === 0)), 'UV sends empty regions');

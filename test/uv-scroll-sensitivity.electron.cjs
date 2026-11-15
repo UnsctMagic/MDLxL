@@ -41,7 +41,7 @@ const preferenceValue = selector => `(() => {
     await uv.getByRole('status').filter({ hasText: 'Scroll sensitivity: 1.59×' }).waitFor();
     await uv.mouse.up({ button: 'right' });
 
-    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.getByRole('button', { name:'Close UV Wrapper', exact: true }).click();
     await uvw.waitFor({ state: 'detached' });
     await main.locator('[aria-label="3D model viewport"]').waitFor();
     assert.equal(await main.evaluate(preferenceValue('[aria-label="3D model viewport"]')), outsideBefore);
