@@ -8,7 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| OptimizeXL unresolved rotation-key study | Plan only, study not run; runtime unchanged | [Study](optimizexl-unresolved-rotation-study.md) / Codex |
+| OptimizeXL unresolved rotation-key study | Study done 15 Nov: no safe automatic rule found; runtime unchanged | [Study](optimizexl-unresolved-rotation-study.md) / Codex |
 | 0.40.0 release | In progress on `claude/release-0.40.0` | [Release 0.40.0](release-0.40.0.md) / Claude Code |
 | Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | Call Upon Forge in the Vertex editor | Ready for owner review; local branch only | [Workflow and checks](call-upon-forge.md) / Codex |
