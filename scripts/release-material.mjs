@@ -29,7 +29,8 @@ export async function releaseMaterial({version,docs,maxLength = discordDescripti
  const notes = {};
  for (const [locale,,suffix] of releaseLanguages) {
   const name = 'RELEASE-' + version + (locale === 'en' ? '' : '-' + suffix) + '.md';
-  const text = await fs.readFile(path.join(docs,name),'utf8');
+  // Windows checkouts may turn line endings into CRLF; Discord's limit counts the posted text, so count LF.
+  const text = (await fs.readFile(path.join(docs,name),'utf8')).replace(/\r\n?/g,'\n');
   if (!text.trim()) throw Error('Empty release notes: ' + name);
   const heading = text.split(/\r?\n/,1)[0];
   if (heading !== '# MDLxL ' + version) throw Error('Release notes heading must be exactly "# MDLxL ' + version + '" (no suffix, any language): ' + name);

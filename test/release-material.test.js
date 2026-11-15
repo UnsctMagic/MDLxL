@@ -63,6 +63,16 @@ test('a body over the Discord description limit fails instead of being truncated
  assert((await fs.stat(docs)).isDirectory());
  assert(material.body.includes('long change long change'));
 });
+test('Windows (CRLF) checkouts give the same body and length as LF ones',async t=>{
+ const notes='- one.\r\n- two.\r\n- three.';
+ const crlf=await releaseMaterial({version:'9.9.9',docs:await fixture(t,'9.9.9',{notes})});
+ const lf=await releaseMaterial({version:'9.9.9',docs:await fixture(t,'9.9.9',{notes:notes.replaceAll('\r\n','\n')})});
+ assert(!crlf.body.includes('\r'));
+ assert.equal(crlf.body,lf.body.replaceAll('\r',''));
+ const length=[...crlf.body.trimEnd()].length;
+ await assert.rejects(releaseMaterial({version:'9.9.9',docs:await fixture(t,'9.9.9',{notes}),maxLength:length-1}),/Discord shows at most/);
+ await releaseMaterial({version:'9.9.9',docs:await fixture(t,'9.9.9',{notes}),maxLength:length});
+});
 test('committed 0.38.x notes follow the title rule',async()=>{
  for(const version of ['0.38.1','0.38.2'])for(const [locale,,suffix]of releaseLanguages){
   const text=await fs.readFile(new URL('../docs/RELEASE-'+version+(locale==='en'?'':'-'+suffix)+'.md',import.meta.url),'utf8');
