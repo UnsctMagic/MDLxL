@@ -1,8 +1,8 @@
 # POSE handles from several clues
 
-Status: active
+Status: completed (merge revision: pending)
 Owner / consolidator: Claude (Fable as coordinator; Sonnet agents code and run checks)
-Updated: 2026-11-11
+Updated: 2026-11-15
 
 ## Goal and completion criteria
 
@@ -235,3 +235,37 @@ Bone Namer library gate faults on 88aef3e1 (renames applied in memory,
   (corpus manifest and the dense twin-head fixture are not in this worktree).
   The renamed test covers the hands-only and the full default rename of both
   zergling copies; the full rename fails on 8f336192 (51 and 52 lose Body).
+
+## Merged to main (2026-11-15, `claude/pose-five-clues`)
+
+Owner, 15 Nov: "merge!! otherwise nothing else works as planned", after testing
+`TestBuilds\pose-02`. Branch `claude/pose-five-clues` = `claude/pose-test` +
+`claude/pose-icon-sets` (keeps the triangle-removal revert) + `origin/main`
+(`40a37825`). Main's #628 is kept: no triangle for the main handle only.
+
+- Bone Namer on these clues: a mount follower without two legs of its own stays
+  with the mount (not a separate actor), and a bone named like an attachment point
+  (`Head Ref`) that POSE shows only by that name keeps its name. Library: Bone
+  Namer plans identical with and without these two rules on 1,091 models (they only
+  change the two synthetic tests that failed after the merge).
+- `app/pose-masks.js`: no crash where `import.meta.url` is missing (the settings
+  preview test bundles it as CommonJS). Built assets unchanged.
+- Consumers against main (`40a37825`), 1,091 models: AnimXL rig (every sequence)
+  and AnimXL build, Auto Corpse, Attachemator: identical on all.
+- POSE handles against main (`scripts/pose-corpus-diff.mjs`), 1,093 models: 844
+  identical, 249 differ. Pelvis added 100, Neck 99, body changed 38 (36 unanimated
+  props gain a body; Lahmian SD 14; Reforged HD Footman `forge-hd/Footman.mdx`
+  moves body to `bone_turret` and gains spine, chest, neck, head and both arms,
+  the arms read as kind `leg`), Head added 24, head count 15, thigh "Pelvis" handles
+  removed 12, limbs added 9, Body part lost 4 (Lahmian copies' `Hair_Rear_Root`),
+  `DeadwoodV2.05` loses `Leaf Neck` (Codex's head fix, known). Lord of Change arms
+  re-chained to the hand row (step 5), no model loses a limb.
+- Bone Namer library gate: 0 of 941 failing (main POSE 0); renamed 20,131 of 53,490
+  (main 19,997). Raider 33 of 44 on both.
+- The open `pose-ik` "commit-throw" failure did not reproduce: the packaged
+  `pose-ik` passes on the merged build.
+- Packaged, hidden desktop, on the merged build: pose-ik, pose-hide, pose-setup,
+  pose-view, pose-one-head, pose-console, pose-copy-body, pose-ragdoll,
+  pose-sd-controls, pose-complex, anim-xl, auto-corpse, attachemator, bone-namer
+  pass. `pose-console` first failed because it still chose a triangle Handle shape,
+  which #628 removed (same on main); the test now expects circle, square, diamond.
