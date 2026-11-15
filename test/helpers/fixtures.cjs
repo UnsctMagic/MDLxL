@@ -33,7 +33,10 @@ const FIXTURES = {
   'sd-orc-wolfrider': ['MDLXL_SD_ORC_WOLFRIDER', testModel('corpus-sd/orc__wolfrider.mdx')], // rightfoot is gripped by its skin at Y -22.9
   'sd-chaos-orc': ['MDLXL_SD_CHAOS_ORC', testModel('corpus-sd/critters__chaosspaceorc.mdx')], // a keyed light, attachments, an emitter, SND/FPT/SPL and an odd SPN event
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
-  'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  'transfer-footman': ['MDLXL_TRANSFER_FOOTMAN', testModel('corpus-sd/human__footman.mdx')], // SD Footman: weapon arm Arm1_L > Arm2_L > Hand_R, right arm ends at Hand Right Ref
+  'transfer-grunt': ['MDLXL_TRANSFER_GRUNT', testModel('corpus-sd/orc__grunt.mdx')], // SD Grunt: axe on the +Y arm, Attack - 1 non-looping
+  'transfer-lord-of-change': ['MDLXL_TRANSFER_LORD_OF_CHANGE', testModel('pose-wings/Lord_of_Changes_Repaired.mdx')], // v800 winged demon, shared shoulder helpers, global FX ribbons
+  'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.
