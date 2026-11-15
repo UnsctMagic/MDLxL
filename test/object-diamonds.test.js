@@ -20,10 +20,13 @@ const keysOf = track => track?.Keys ? track.Keys.map(key => [key.Frame, key.Vect
 const outside = (track, [start, end]) => keysOf(track).filter(([frame]) => frame < start || frame > end);
 
 // The chaos orc has a keyed light, attachments, an emitter and events; Attack is 13200-14067.
-const orc = loadMdx('sd-chaos-orc');
-const ATTACK = orc.Sequences.findIndex(clip => clip.Name === 'Attack');
+// The models are private (MDLxL-TestModels); CI skips these like the Forge and Corpse tests.
+const has = name => { const file = fixturePath(name); return !!file && fs.existsSync(file); };
+const orcMissing = !has('sd-chaos-orc') && 'private chaos orc model not on this machine';
+const orc = orcMissing ? null : loadMdx('sd-chaos-orc');
+const ATTACK = orc ? orc.Sequences.findIndex(clip => clip.Name === 'Attack') : -1;
 
-test('a clicked light shows its on/off pairs and edits only this animation', () => {
+test('a clicked light shows its on/off pairs and edits only this animation', { skip: orcMissing }, () => {
   const model = structuredClone(orc), light = model.Lights[0], domain = classicTimelineDomain(model, ATTACK, null);
   const shown = timelineDiamonds(model, [light.ObjectId], domain);
   assert.equal(shown.kind, 'spans');
@@ -37,7 +40,7 @@ test('a clicked light shows its on/off pairs and edits only this animation', () 
   assert.equal(timelineDiamonds(model, [light.ObjectId], domain).groups.length, 7, '+ ◆◆ adds a pair');
 });
 
-test('a clicked attachment with no Visibility track shows one pair; editing keeps other animations visible', () => {
+test('a clicked attachment with no Visibility track shows one pair; editing keeps other animations visible', { skip: orcMissing }, () => {
   const model = structuredClone(orc), weapon = model.Attachments.find(node => node.Visibility === undefined);
   const stand = classicTimelineDomain(model, 0, null);
   assert.deepEqual(timelineDiamonds(model, [weapon.ObjectId], stand).groups, [[67, 1400]]);
@@ -51,7 +54,7 @@ test('a clicked attachment with no Visibility track shows one pair; editing keep
   assert.deepEqual(emitterSpans(model, weapon.ObjectId, 1).spans, before[1]);
 });
 
-test('a clicked event shows a diamond per frame; move, add at the playhead and remove keep other animations', () => {
+test('a clicked event shows a diamond per frame; move, add at the playhead and remove keep other animations', { skip: orcMissing }, () => {
   const model = structuredClone(orc), sound = model.EventObjects.find(node => node.Name === 'SNDXKGYR');
   const decay = model.EventObjects.find(node => node.Name === 'SNDXDRIF'), domain = classicTimelineDomain(model, ATTACK, null);
   assert.deepEqual(timelineDiamonds(model, [sound.ObjectId], domain), { id: sound.ObjectId, sequence: ATTACK, global: null, kind: 'events', start: 13200, end: 14067, groups: [[13200], [13633]] });
@@ -68,7 +71,7 @@ test('a clicked event shows a diamond per frame; move, add at the playhead and r
   assert.equal(sound.EventTrack instanceof Uint32Array, true);
 });
 
-test('global sequences: shown and edited only on that sequence\'s timeline', () => {
+test('global sequences: shown and edited only on that sequence\'s timeline', { skip: orcMissing }, () => {
   const model = structuredClone(orc), light = model.Lights[0], sound = model.EventObjects[0];
   model.GlobalSequences = [1000];
   light.Visibility = { LineType: 0, GlobalSeqId: 0, Keys: [{ Frame: 0, Vector: new Float32Array([1]) }, { Frame: 400, Vector: new Float32Array([0]) }, { Frame: 1000, Vector: new Float32Array([0]) }] };
@@ -87,7 +90,7 @@ test('global sequences: shown and edited only on that sequence\'s timeline', () 
   assert.equal(timelineDiamonds(model, [model.ParticleEmitters2[0].ObjectId], global), null);
 });
 
-test('diamonds belong to one clicked object: none for bones, several objects or All', () => {
+test('diamonds belong to one clicked object: none for bones, several objects or All', { skip: orcMissing }, () => {
   const light = orc.Lights[0].ObjectId, domain = classicTimelineDomain(orc, ATTACK, null);
   assert.equal(timelineDiamonds(orc, [], domain), null);
   assert.equal(timelineDiamonds(orc, [orc.Bones[0].ObjectId], domain), null);
@@ -117,7 +120,7 @@ function mainSet(model, emitter, sequenceIndex, spans) {
   emitter.Visibility = { LineType: 0, GlobalSeqId: null, Keys: [...keys].sort((a, b) => a[0] - b[0]).map(([Frame, value]) => ({ Frame, Vector: new Float32Array([value]) })) };
 }
 
-test('EMTR: every emitter and ribbon reads and writes exactly as before', () => {
+test('EMTR: every emitter and ribbon reads and writes exactly as before', { skip: !['sd-chaos-orc', 'ribbon-attachment', 'optimizexl-exact-unit', 'effect'].every(has) && 'private models not on this machine' }, () => {
   let compared = 0;
   for (const name of ['sd-chaos-orc', 'ribbon-attachment', 'optimizexl-exact-unit', 'effect']) {
     const model = loadMdx(name);
