@@ -1128,6 +1128,7 @@ export class AiEditorBridge {
       this.awarenessTimer = null;
       if (!this.awarenessEnabled || !this.desktop) return;
       const s = this.state();
+      if (!s.doc) return;
       const context = {
         documentId: s.session.id,
         name: s.doc.name,

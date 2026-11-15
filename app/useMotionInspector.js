@@ -19,6 +19,7 @@ export default function useMotionInspector(session, sequenceIndex, revision, ena
   }, [enabled, session.id, sequenceIndex, revision]);
   useEffect(() => () => worker.current?.terminate(), []);
   useEffect(() => {
+    if (!session.doc) return;
     let active = true;
     sessionMotionStore(session).then(store => { if (active) setDesired(store.desired()); })
       .catch(cause => { if (active) setError(`Desired storage is unavailable: ${cause.message}`); });

@@ -1,5 +1,4 @@
-const { stubDialogs } = require('./helpers/app.cjs');
-const { launchApp, closeApp, settle: settlePage } = require('./helpers/app.cjs');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
 // Exercise the packaged renderer with deterministic release responses and an isolated profile.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -9,12 +8,17 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
 (async()=>{
   const output=path.join(root,'out/updater');fs.mkdirSync(output,{recursive:true});
   const run=fs.mkdtempSync(path.join(output,'ui-')),entry=path.join(run,'main.cjs');
+  const closeOutcome = path.join(run, 'close-outcome.txt');
   fs.writeFileSync(entry,`
     const {app,BrowserWindow,dialog,shell}=require('electron');
     app.getAppPath=()=>${JSON.stringify(appRoot)};app.getVersion=()=> '0.18.8';
     global.updaterTest={calls:[],links:[],installs:0,closePrompts:0};
     shell.openExternal=async url=>{updaterTest.links.push(url);};
-    dialog.showMessageBoxSync=()=>{updaterTest.closePrompts++;return 1;};
+    dialog.showMessageBoxSync=(_,options)=>{
+      updaterTest.closePrompts++;
+      require('node:fs').writeFileSync(${JSON.stringify(closeOutcome)}, options.title);
+      return 1;
+    };
     const {Updater}=require(${JSON.stringify(path.join(appRoot,'electron/updater.cjs'))});
     Updater.prototype.initialize=async function(){this.publish({canInstall:true,previousVersion:'0.18.7'});};
     Updater.prototype.response=async function(url){
@@ -23,12 +27,15 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
       return {text:async()=>url.endsWith('-RU.md')?'- Исправлено сохранение моделей.\\n- Улучшена библиотека текстур.':'- Model saving improved.\\n- Texture library improved.'};
     };
     Updater.prototype.prepare=async function(){updaterTest.installs++;this.pending=true;return this.publish({state:'ready'});};
+    Updater.prototype.launchInstaller=async function(){
+      if (this.pending) require('node:fs').writeFileSync(${JSON.stringify(closeOutcome)}, 'Installer');
+    };
     app.on('browser-window-created',(_,win)=>win.webContents.setBackgroundThrottling(false));
     require(${JSON.stringify(path.join(appRoot,'electron/main.cjs'))});
   `);
-  for(const scenario of ['manual','startup','current']){
+  for(const scenario of ['empty','manual','startup','current']){
     const profile=path.join(run,scenario);fs.mkdirSync(profile,{recursive:true});
-    fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{language:scenario==='startup'?'ru':'en',checkUpdatesOnStartup:scenario==='startup'}}));
+    fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{language:scenario==='startup'?'ru':'en',checkUpdatesOnStartup:scenario==='startup'||scenario==='empty'}}));
     const { app, page, errors } = await launchApp({ out: path.dirname(profile), profile: profile, entry: entry, env: { MDLVIS_HEADLESS:'1', UPDATE_TEST_CURRENT:scenario==='current'?'1':'0' }, timeout: 30000 , pageTimeout: 15000 });
 
     try{
@@ -37,7 +44,16 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
       // waitForFunction treats an async predicate's Promise as truthy and returns at once.
       const until=async check=>{for(const end=Date.now()+15000;!(await check());await new Promise(resolve=>setTimeout(resolve,100)))if(Date.now()>end)throw Error('Timed out waiting for updater state.');};
       const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
-      if(scenario==='startup'){
+      if (scenario === 'empty') {
+        const install = page.locator('[data-hotkey="update:install"]');
+        await install.waitFor({ state: 'visible' });
+        const button = await install.boundingBox();
+        const closed = app.waitForEvent('close', { timeout: 20000 }).catch(() => false);
+        await page.mouse.click(button.x + button.width / 2, button.y + button.height / 2);
+        await until(() => fs.existsSync(closeOutcome));
+        assert.equal(fs.readFileSync(closeOutcome, 'utf8'), 'Installer', 'Update and restart should proceed without Save model? when no model is open');
+        assert.notEqual(await closed, false, 'the editor exits for installation');
+      } else if(scenario==='startup'){
         const prompt=page.locator('[role="dialog"]').filter({has:page.locator('[data-hotkey="update:install"]')});
         await prompt.waitFor();assert.match(await prompt.innerText(),/Обновить и перезапустить/);assert.match(await prompt.innerText(),/Исправлено сохранение моделей/);
         assert.equal(await app.evaluate(()=>updaterTest.installs),0);
@@ -49,6 +65,10 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
         await help.locator('.official-website a').dispatchEvent('click');assert.equal((await app.evaluate(()=>updaterTest.links)).at(-1),'https://www.lowpolyworks.com/mdlxl');
         await help.locator('[data-hotkey="close"]').dispatchEvent('click');
         await command('about');const about=page.getByRole('dialog',{name:'About MDLxL'});await about.waitFor();assert.equal(await about.locator('.official-website a').count(),1);await about.locator('[data-hotkey="close"]').dispatchEvent('click');
+        if (scenario === 'manual') {
+          await page.keyboard.press('Control+n');
+          await page.getByRole('tab', { name: 'Untitled.mdx', exact: true }).waitFor();
+        }
         await command('settings');await page.locator('.settings-window').waitFor();
         await page.locator('.settings-window [data-hotkey="tab:configuration"]').dispatchEvent('click');
         assert.equal(await page.locator('[data-hotkey="updates:startup"]').isChecked(),false);
@@ -71,6 +91,6 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
         }
       }
       assert.deepEqual(errors,[]);console.log('PASS updater UI '+scenario);
-    }finally{await stubDialogs(app, { message: 2 });await closeApp(app);}
+    }finally{await closeApp(app);}
   }
 })().catch(error=>{console.error(error);process.exitCode=1;});

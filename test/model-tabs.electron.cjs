@@ -22,10 +22,12 @@ const { spawn } = require('node:child_process');
 
   try {
 
-    await page.getByRole('tab', { name: 'Untitled.mdl' }).waitFor();
+    await page.locator('.classic-app canvas').waitFor();
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 0, 'startup opens no model tab');
+    assert.equal(await page.evaluate(() => window.__mdlxl.document()), null, 'startup has no model document');
     await launchAgain(firstPath);
     await page.getByRole('tab', { name: 'demo.mdx' }).waitFor();
-    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 1, 'the first externally opened model replaces only the pristine starter tab');
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 1, 'the external file becomes the first model tab');
     await page.evaluate(() => {
       window.modelTabSummary = () => { const props = findFiberProps('.viewport', props => props?.model?.Geosets && props?.model?.Nodes); if (props) {
           const model = props.model, nodes = model.Nodes.filter(Boolean);
@@ -77,6 +79,11 @@ const { spawn } = require('node:child_process');
     assert.equal(await page.locator('.model-tabs [role=tab]').count(), 1);
     await page.locator('[data-hotkey="vertices"]').click();
     assert.deepEqual(await page.evaluate(() => modelTabSummary()), firstBefore);
+    const closeLast = await page.getByRole('button', { name: 'Close demo.mdx', exact: true }).boundingBox();
+    await page.mouse.click(closeLast.x + closeLast.width / 2, closeLast.y + closeLast.height / 2);
+    await page.waitForFunction(() => document.title === 'MDLxL');
+    assert.equal(await page.locator('.model-tabs [role=tab]').count(), 0, 'closing the last model leaves no tab');
+    assert.equal(await page.evaluate(() => window.__mdlxl.document()), null, 'closing the last model leaves no document');
     assert.deepEqual(errors, []);
     console.log('PASS single-instance desktop handoff, model tabs, suspended inactive renderer, cross-tab geometry/node paste, Ctrl+P, DummyBone binding, and close prompt');
   } finally { await closeApp(app).catch(() => {}); }

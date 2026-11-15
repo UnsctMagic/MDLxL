@@ -43,7 +43,9 @@ async function launch(entry, profile, model) {
   const unsaved = await launch(entry, path.join(run, 'unsaved-profile'));
   try {
     const page = await unsaved.firstWindow();
-    await page.waitForFunction(() => !!document.querySelector('.classic-app'));
+    await page.locator('.classic-app canvas').waitFor();
+    await page.keyboard.press('Control+n');
+    await page.getByRole('tab', { name: 'Untitled.mdx', exact: true }).waitFor();
     await page.evaluate(() => window.desktop.close());
     await settlePage(page, 100);
     const prompt = await unsaved.evaluate(() => modelCloseTest.prompts[0]);
