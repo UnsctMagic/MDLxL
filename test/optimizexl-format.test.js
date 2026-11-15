@@ -124,7 +124,10 @@ test('small genuine extrema survive mdx-m3-viewer cleanup and spline resampling 
     const t=track([key(100,base),key(150,turn),key(200,base)]);t.LineType=type;
     if(type===3)for(const k of t.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}
     d.model.Bones[0][property]=t;const fixes=sanityProposals(d.model).filter(f=>f.path?.join('.')===`Bones.0.${property}`);
-    assert.ok(fixes.some(f=>f.kind==='redundantTracks'&&f.inspectionOnly&&f.preservedTurns.includes(150)));
+    // Owner rule 15 Nov 2026: a linear turn whose mesh moves at most 0.25% of
+    // its part is removed by the same owner; cubic turns stay protected.
+    if(type===1)assert.ok(fixes.some(f=>f.kind==='redundantTracks'&&!f.inspectionOnly&&f.smallTurns?.includes(150)&&!f.preservedTurns.includes(150)));
+    else assert.ok(fixes.some(f=>f.kind==='redundantTracks'&&f.inspectionOnly&&f.preservedTurns.includes(150)));
     assert.ok(!fixes.some(f=>f.kind==='splineResample'));
     turn[0]=base[0];t.Keys[1].Vector=new Float32Array(turn);t.LineType=1;
     assert.ok(sanityProposals(d.model).some(f=>f.path?.join('.')===`Bones.0.${property}`&&f.kind==='redundantTracks'&&!f.inspectionOnly));
