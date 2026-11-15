@@ -479,13 +479,14 @@ export default function App() {
   const parentBone = singleRigNode && model.Bones.some(bone => bone.ObjectId === singleRigNode.Parent);
   const selectedRigNodes = selectedNodeIds.map(id => model.Nodes?.[id]).filter(Boolean);
   const parentedRigNodes = selectedRigNodes.filter(node => model.Bones.some(bone => bone.ObjectId === node.Parent));
+  const showAttachments = () => { if (visUI) { changeOverlay('attachments', true); return; } changeOverlay('objectTypesAttachments', true); changeOverlay('objects', true); };
   const createBoneOrAttachment = type => {
     if (type === 'Bone' && !selectionCount) captureAPI.current?.focusPoint?.([0, 0, 0]);
     const created = edit(`Create ${type.toLowerCase()}`, ['Nodes', 'PivotPoints', 'Info'], current => createRigNode(current, type, validSelection));
     setBoneCreateOpen(false);
     if (created && created !== false) {
       setSelectedNodeIds([created.ObjectId]);
-      if (type === 'Attachment') changeOverlay('attachments', true);
+      if (type === 'Attachment') showAttachments();
     }
   };
   const openBoneNamer = () => { setBoneCreateOpen(false); setAttachSourceIds([]); setBoneNamerOpen(true); };
@@ -499,7 +500,7 @@ export default function App() {
   const commitAttachemator = ({ rows, chosen, pivots, parents }) => {
     const result = edit('Attachemator', ['Nodes', 'PivotPoints', 'Info'], current => applyAttachmentPlan(current, rows, { chosen, pivots, parents }), { rethrow: true });
     if (result === false) return false;
-    changeOverlay('attachments', true); setSelectedNodeIds([]);
+    showAttachments(); setSelectedNodeIds([]);
     say(`Attachemator placed ${result.changed} attachment point${result.changed === 1 ? '' : 's'}.`);
     return result;
   };
