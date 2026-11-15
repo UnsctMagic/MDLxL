@@ -13,7 +13,7 @@ Pick a job:
 | A feature or fix checked | **Check** | minutes | [2](#2-setup), [3](#3-which-tests-to-run), [5](#5-repairing-failures) |
 | To know whether everything works | **Click-through QA** | hours | [2](#2-setup), [6](#6-click-through-qa), [5](#5-repairing-failures) |
 | An urgent one-fix release | **Hotfix** | 30–90 min | all, with the [hotfix path](#hotfix-path) |
-| A normal release | **Release** (includes the full QA) | about 14 hours, mostly unattended | all |
+| A normal release | **Release** (includes the full QA) | about 4 hours, mostly unattended | all |
 
 ## Prompts to paste into an AI
 
@@ -56,7 +56,7 @@ from an earlier build does not count.
 | 2 | Compatibility and source tests have no new failure | CI, against [known-test-failures.txt](../.github/known-test-failures.txt) |
 | 3 | The full packaged suite has no new failure | One run on the final package; every non-pass classified using [section 5](#5-repairing-failures) |
 | 4 | Rendering holds up on weaker machines | `core` on `no-gpu-warp`, `slow-cpu` and `hidpi`, no new failure |
-| 5 | Clicking everything causes no crash, freeze or failed Undo | [Click sweep](#the-click-sweep-script) with `MDLXL_SWEEP_SETUPS=all`, nothing left unreached; every dead or stuck control judged |
+| 5 | Clicking everything causes no crash, freeze or failed Undo | [Click sweep](#the-click-sweep-script) with `MDLXL_SWEEP_SETUPS=footman`, nothing left unreached; every dead or stuck control judged |
 | 6 | Every feature and fix in this release works the way a user does it | Real clicks, drags and keys in the packaged app, with a test for each on-screen promise |
 | 7 | Previews still work | Real mouse rotation in each changed preview; Play measured at real speed |
 | 8 | Saved models are safe | Save and reopen `.mdx` and `.mdl`; unedited parts stay identical |
@@ -82,8 +82,8 @@ For line 11, run the flail regression from the release checkout with both inputs
 every line applies. Nothing needs to be asked for. Only the owner can reduce it, for that
 release only, and the reduction is written in the report.
 
-**Time.** Plan for most of a day: about 3 hours for lines 3 and 4 and an estimated 10 to 11
-hours for the sweep of all 19 setups, at about 30 to 36 minutes each. It runs hidden, so
+**Time.** About 3 hours for lines 3 and 4 and 40 minutes for the `footman` sweep
+(owner, 15 Nov 2026: the all-setups sweep is not a release rule). It runs hidden, so
 start it and let it work. Run the suite and sweep one after the other, never at once
 in one worktree, because each run's cleanup stops the other's apps. Run them **once**,
 on the final build. After a fix, rerun only the affected tests and the affected setups.
@@ -192,7 +192,7 @@ profile folder with particles. A skipped test is a gap: list it in the report.
 | Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | every visible change |
 | Core under other machines | `node scripts/run-packaged-tests.mjs <variant> core` | rendering, timing or layout changes; release |
 | Full packaged suite | `node scripts/run-packaged-tests.mjs default all` | release only, about 2 hours |
-| Click sweep | [`node scripts/run-packaged-tests.mjs default click-sweep`](#the-click-sweep-script) | every release, all setups; one setup when a window or shared control changed |
+| Click sweep | [`node scripts/run-packaged-tests.mjs default click-sweep`](#the-click-sweep-script) | every release, `footman`; other setups only when the owner asks |
 | Hand-style QA | [section 6](#things-clicks-cannot-find) | release; on request |
 | Updater gate | [gate guide](UPDATER_RELEASE_GATE.md) | only if the updater, installer or package layout changed, and ask first |
 | Real AI runs | [opt-in](PACKAGED-TESTS.md#opt-in-real-use-ai-measurements) | only when asked; they spend the owner's credits |
@@ -223,7 +223,7 @@ Runner facts ([full guide](PACKAGED-TESTS.md)):
 3. Bump the version first, because a test checks it.
 4. Run `default all` on the final package, with every fixture in place.
 5. Run `no-gpu-warp core`, `slow-cpu core` and `hidpi core`, one at a time.
-6. Run the [click sweep](#the-click-sweep-script) with `MDLXL_SWEEP_SETUPS=all`.
+6. Run the [click sweep](#the-click-sweep-script) with `MDLXL_SWEEP_SETUPS=footman`.
 7. Sort every non-pass using section 5. Only new failures block.
 
 Over the long run, check progress from the summary file rather than guessing.
