@@ -9,6 +9,8 @@ const {fixturePath}=require('../test/helpers/fixtures.cjs');
  try{
   await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();
   const search=fx.getByLabel('Find a surface effect');await search.click();await page.keyboard.type('Fly swarm');await fx.getByRole('button',{name:'Fly swarm global animation',exact:true}).click();await ready();
+  // Since 7e9660b2 (PR #645, unified particle controls) Rise on Death sits under the swarm layer's More.
+  await fx.locator('details.fx-more>summary').click();
   const rise=fx.getByRole('checkbox',{name:'Rise on Death',exact:true});assert.equal(await rise.count(),1,'Rise on Death switch is offered');assert.equal(await rise.isChecked(),false,'off by default');
   await rise.check();await ready();
   const clips=await page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Sequences.map(s=>({name:s.Name,range:Array.from(s.Interval)}))),death=clips.find(s=>/^death\b/i.test(s.name));assert.ok(death);

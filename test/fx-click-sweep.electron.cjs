@@ -5,7 +5,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{pathToFileURL}=require('node:url');
 const {launchApp,closeApp,root}=require('./helpers/app.cjs');
 const {fixturePath,testModel}=require('./helpers/fixtures.cjs');
-const {addFxEmitter,addFxLayer,fxPickerNames}=require('./helpers/fx-input.cjs');
+const {addFxEmitter,addFxLayer,fxPickerNames,clickEmitterDot}=require('./helpers/fx-input.cjs');
 const SETUPS=[
  {name:'footman-sword',model:fixturePath('footman'),part:'sword'},
  {name:'footman-body',model:fixturePath('footman'),part:'body'},
@@ -66,15 +66,17 @@ const chosen=(process.env.FX_SWEEP_SETUPS||'').split(',').filter(Boolean),onlyLo
     if(off)await act('switch on',()=>box.check());
     await act('select layer',()=>row.locator('button').click());
     if(await fx.locator('details.fx-more').count())await act('open More',openMore);
+    // Since 7e9660b2 (PR #645) every particle layer shows the same controls and inapplicable ones stay disabled in place
+    // (a fly swarm's Draw as, for one): the user cannot change those, so the sweep clicks only enabled controls.
     if(type==='Particles'&&await fx.getByLabel('Draw as',{exact:true}).count()){
      const draw=fx.getByLabel('Draw as',{exact:true}),now=await draw.inputValue();
-     await act('Draw as',()=>draw.selectOption(now==='1'?'3':'1'));
+     if(await draw.isEnabled())await act('Draw as',()=>draw.selectOption(now==='1'?'3':'1'));
      const slider=fx.getByRole('slider',{name:/^(Spread|Speed variety)$/}).first();
-     if(await slider.count())await act('More slider',async()=>{await slider.focus();await session.page.keyboard.press('ArrowRight');await session.page.keyboard.press('ArrowRight');});
+     if(await slider.count()&&await slider.isEnabled())await act('More slider',async()=>{await slider.click();await session.page.keyboard.press('ArrowRight');await session.page.keyboard.press('ArrowRight');});
      const plus=fx.locator('.pe-frame-step button',{hasText:'+'}).first();
-     if(await plus.count())await act('Rows +',()=>plus.click());
+     if(await plus.count()&&await plus.isEnabled())await act('Rows +',()=>plus.click());
      const change=fx.getByLabel('Change emitter',{exact:true});
-     if(await change.count()){const value=await change.locator('option').nth(2).getAttribute('value');if(value)await act('Change emitter to '+value,()=>change.selectOption(value));}
+     if(await change.count()&&await change.isEnabled()){const value=await change.locator('option').nth(2).getAttribute('value');if(value)await act('Change emitter to '+value,()=>change.selectOption(value));}
     }
     if(off){const again=rows().nth(i).locator('input[type=checkbox]');if(await again.count()&&await again.isChecked())await act('switch off',()=>again.uncheck());}
    }
@@ -114,7 +116,10 @@ const chosen=(process.env.FX_SWEEP_SETUPS||'').split(',').filter(Boolean),onlyLo
     await act('preview emitter',()=>addFxEmitter(session.page,session.fx,emitters[0]));
     await act('Add',()=>session.fx.getByRole('button',{name:'Add',exact:true}).click());
     await act('Position & size',()=>session.fx.getByRole('button',{name:'Position & size',exact:true}).click());
-    const handle=session.fx.getByRole('slider',{name:'Move emitter',exact:true}).locator('circle').first(),h=await handle.boundingBox();
+    // PR #645: a layer with several emitters shows a dot per emitter; the Move handle belongs to the dot the user clicks.
+    await session.fx.locator('.fx-emitter-markers [role=button], [role=slider][aria-label="Move emitter"]').first().waitFor();
+    if(await session.fx.locator('.fx-emitter-markers [role=button]').count())await act('select emitter dot',async()=>assert.ok(await clickEmitterDot(session.page,session.fx),'an emitter dot is inside the preview'));
+    const handle=session.fx.getByRole('slider',{name:'Move emitter',exact:true}).locator('circle:not(.pe-grab)'),h=await handle.boundingBox();
     await act('drag move handle',async()=>{const {page}=session;await page.mouse.move(h.x+h.width/2,h.y+h.height/2);await page.mouse.down();await page.mouse.move(h.x+h.width/2+24,h.y+h.height/2-14,{steps:8});await page.mouse.up();});
    }catch(e){if(!e.sweep){const failure=setup.name+' | '+where+': '+String(e.message).split('\n')[0].slice(0,300);result.failures.push(failure);failures.push(failure);}}
   }

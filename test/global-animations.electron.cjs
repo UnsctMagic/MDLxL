@@ -1,4 +1,4 @@
-const {addEmitter}=require('./helpers/fx-input.cjs');
+const {addEmitter,clickEmitterDot}=require('./helpers/fx-input.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {launchApp,closeApp,stubDialogs,root}=require('./helpers/app.cjs');
 const {testModel}=require('./helpers/fixtures.cjs');
@@ -10,7 +10,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
  const open=async()=>{await page.getByRole('button',{name:'Surface Effects',exact:true}).click();await ready();};
  const stack=()=>page.evaluate(()=>mdlxlProbe('.sfx-stage .game-preview-root').props.model.Geosets[18]._FxStack);
  const drag=async(label,dx,dy)=>{
-  const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle');await knob.waitFor();
+  const knob=fx.getByRole('slider',{name:label,exact:true}).locator('circle:not(.pe-grab)');await knob.waitFor();
   const b=await knob.boundingBox(),x=b.x+b.width/2,y=b.y+b.height/2;
   await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:8});await page.mouse.up();await ready();
  };
@@ -26,8 +26,13 @@ const {testModel}=require('./helpers/fixtures.cjs');
   const oldCamera=await cam(),x=box.x+box.width*.72,y=box.y+box.height*.4;
   await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+72,y+16,{steps:8});await page.mouse.up();assert.notDeepEqual(await cam(),oldCamera);
   await button('Fit selection').click();await button('Position & size').click();await button('Pause').click();await ready();
-  await drag('Ribbon upper edge',-22,14);await drag('Ribbon lower edge',14,16);
-  const changed=(await stack()).layers[1];assert.notEqual(changed.upper,previous.layers[1].upper);assert.notEqual(changed.lower,previous.layers[1].lower);
+  // PR #645 (owner, 14 Nov): a layer with several emitters shows one dot per emitter instead of a handle cluster;
+  // clicking a dot gives that one emitter EMTR's Move handle.
+  assert.equal(await fx.getByRole('slider',{name:'Move emitter',exact:true}).count(),0,'no handle before an emitter is chosen');
+  await fx.locator('.fx-emitter-markers [role=button]').first().waitFor();assert.ok(await clickEmitterDot(page,fx),'an emitter dot is inside the preview');await ready();
+  await drag('Move emitter',-22,14);
+  const changed=(await stack()).layers[1];assert.ok(Object.values(changed.individuals||{}).some(r=>r.position),'the dragged emitter keeps its own place');assert.deepEqual({...changed,individuals:undefined},{...previous.layers[1],individuals:undefined},'the rest of the layer is unchanged');
+  await page.keyboard.press('Escape');await ready();
   await fx.getByLabel('RGB tint').fill('#ff7645');await fx.getByLabel('Loop length').fill('2380');await fx.getByLabel('Loop length').press('Enter');await ready();
   for(const anim of ['Stand','Walk','Attack','Death']){
    const seq=await fx.getByLabel('Preview animation').locator('option').evaluateAll((a,n)=>a.find(v=>v.textContent.startsWith(n)).value,anim);
@@ -57,7 +62,7 @@ const {testModel}=require('./helpers/fixtures.cjs');
    await drag('Move emitter',14,3);assert.notDeepEqual((await stack()).layers.at(-1).offset,before.offset,name+' position');
    if(name==='Fly swarm'){
     // Flies are quads on billboarded bones (native Flies.mdx technique); Amount adds sets of five.
-    await fx.getByRole('slider',{name:'Amount',exact:true}).fill('15');await ready();assert.equal((await stack()).layers.at(-1).amount,15);
+    /* Typed like a user (fill set no value since the unified sliders of 7e9660b2, PR #645). */const amount=fx.getByLabel('Amount value',{exact:true});await amount.click();await page.keyboard.press('Control+a');await page.keyboard.type('15');await page.keyboard.press('Enter');await ready();assert.equal((await stack()).layers.at(-1).amount,15);
     // The look starts with its own five-fly swarm; the added layer has fifteen of its own.
     assert.equal(await page.evaluate(()=>{const m=mdlxlProbe(document.querySelector('.sfx-stage .game-preview-root')).props.model,s=m.Geosets.find(g=>g._FxStack?.layers.some(l=>l.swarm))._FxStack,l=s.layers.at(-1),prefix=s.owner+'/'+l.id+'/fly';return m.Bones.filter(b=>b._FxTag?.startsWith(prefix)&&b.Flags===264).length;}),15,'fifteen billboarded fly bones for the added swarm');
    }
