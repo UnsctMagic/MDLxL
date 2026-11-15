@@ -2,26 +2,11 @@ import {Box3,Vector3} from 'three';
 import {physicalSurfaceComponents} from './geoset-operations.js';
 import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {clamp,clamp01} from './math.js';
+export {SURFACE_FIT_VERSION,surfaceFitInputs} from './fx-surface-fit.js';
 
-export const SURFACE_FIT_VERSION=1;
 const UP=new Vector3(0,0,1);
 const EPS=1e-8;
 const MAX_SITES=16;
-
-/** Freeze the recipe inputs that determine the default site count and clearance. */
-export function surfaceFitInputs(layer,basis) {
- const spec=layer.nativeSpec;
- const radius=clamp(basis.length*.48,2,55);
- const sizes=layer.native?.ParticleScaling || spec?.size?.map(size=>size*radius*layer.size) || [layer.size];
- const alpha=layer.native?.Alpha || spec?.alpha;
- const visible=Array.from(sizes).filter((_,i)=>!alpha||alpha[i]>0);
- const footprint=Math.max(1,...(visible.length?visible:sizes));
- const rate=spec?(spec.rate??8)*layer.amount/24:layer.amount;
- const liveParticles=rate*(spec?.life??layer.lasts);
- // A compact multi-emitter recipe shares one surface anchor across its layers.
- if(layer.focusedEmitter)return {version:SURFACE_FIT_VERSION,footprint:Math.max(1,basis.length*.1),liveParticles:4};
- return {version:SURFACE_FIT_VERSION,footprint,liveParticles};
-}
 
 function weightedCentre(triangles,area) {
  return triangles.reduce((centre,triangle)=>centre.addScaledVector(triangle.centre,triangle.area),new Vector3()).multiplyScalar(1/area);
