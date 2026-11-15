@@ -2,6 +2,9 @@
 
 Open a model, open **EMTR** (Particle Editor) and click **Glow Up** next to
 Add ribbon. Tick **Origin glow**, **Weapon glow** or both and click **Create**.
+Use **Add weapon glow** to choose another weapon bone. **Edit weapon glow**
+switches which glow the handles and brightness control adjust before you apply.
+**Remove weapon glow** discards the selected extra glow.
 Placement and size are dragged in the preview with EMTR's emitter handles
 (`GlowStageTools`, same markup, CSS, latching and keys as `ParticleStageTools`):
 
@@ -22,9 +25,9 @@ Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer 
 
 ## A model that already glows
 
-When the model already has visible hero glow, Glow Up adjusts that glow instead
-of adding another: the panel says *Adjusts this model's own glow.* and **Create**
-becomes **Apply** (`glowUp`, `glowStart`). `findHeroGlow` splits the glow
+When the model already has visible hero glow, **Create** becomes **Apply**
+(`glowUp`, `glowStart`). Use **Add weapon glow** to add glow to another
+weapon in the same edit. `findHeroGlow` splits the glow
 geosets into connected pieces. Detection requires a team-coloured glow layer
 (ReplaceableId 2) with additive filtering and flat, square geometry. The
 piece's relative size and bone ancestry determine whether it qualifies. Wide,
@@ -174,3 +177,5 @@ Goblin Tinker camera, a quote in Malfurion's sequence name).
   ribbon, trim default panel, real mouse drags on every handle (and Escape),
   wheel zoom, camera kept during handle drags, real mouse orbit, Create,
   undo, Forge without Glow Up.
+- `test/glow-up-multiple.electron.cjs`: two independently adjustable axe glows
+  on the Slaanesh warrior, discard a draft, Create or Apply, and undo.

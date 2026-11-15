@@ -134,3 +134,13 @@ Mordor mode uses the unmodified **Tengwar Annatar 1.20** type family by Johan Wi
 ## Showcase typefaces
 
 Cinzel Decorative, MedievalSharp, Uncial Antiqua, Pirata One, Almendra, IM Fell English, Lato, Lora, Open Sans, Orbitron, Oxanium, Rajdhani, Cormorant SC, Grenze Gotisch, and Marcellus are bundled unmodified from the Google Fonts repository under the SIL Open Font License 1.1. Each family includes its original copyright and license in public/fonts/showcase/<family>/OFL.txt, copied into dist/fonts/showcase/. Font file provenance is in public/fonts/showcase/README.md. Marcellus by Brian J. Bonislawsky / Astigmatic replaces the previously bundled proprietary Friz Quadrata TT font; Friz Quadrata's font file is no longer distributed.
+
+## FX reference models
+
+Particle, ribbon and texture-animation settings of these Hiveworkshop.com models were studied to tune MDLxL's FX effects. No model data is copied into MDLxL. Each author's page allows use with credit.
+
+- **Fire Arrows** (Bonefire Arrow, Firecracker Arrow, Searing Arrow and their Fireless variants), Vinz — [Hive](https://www.hiveworkshop.com/threads/fire-arrows.310448/)
+- **Bloodstone Arrows** (Bloodstone Arrow, Bloodless, LSD 1, LSD 2), Vinz — [Hive](https://www.hiveworkshop.com/threads/bloodstone-arrows.309858/)
+- **Frost Arrows** (Azul Arrow, Azul Arrow Defrosted, Maiz con Arrow), Vinz — [Hive](https://www.hiveworkshop.com/threads/frost-arrows.309707/)
+- **Blue/Red Lightning Missile** (Lightning Missile, Red Lightning Missile), Judash137, submitted by Khil — [Hive](https://www.hiveworkshop.com/threads/blue-red-lightning-missile.363869/)
+- **MM20 Stormforger**, Murlocologist and Vinz — [Hive](https://www.hiveworkshop.com/threads/mm20-stormforger.324968/)
