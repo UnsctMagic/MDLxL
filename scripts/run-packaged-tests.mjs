@@ -41,8 +41,9 @@ const SPECIAL = {
   'ai-model-merge': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-local-workspace': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-review-responsive': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
-  'visual-effects-save': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
-  'visual-effects-review': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
+  // Both walk every FX look; the library grew to about 70 looks on 12 November 2026.
+  'visual-effects-save': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], timeout: 40 * 60 * 1000 },
+  'visual-effects-review': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], timeout: 40 * 60 * 1000 },
   'surface-effects-uv': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects-warriors': { needs: [testModel('optimizexl-diagnostics/WH_WOC_WarriorKhorneGW02.mdx'),testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')] },
   'surface-effects': { needs: [footman,testModel('surface-effects/WH_WOC_KnightTzeentchSword04.mdx')] },
@@ -65,6 +66,9 @@ const SPECIAL = {
   'settings-layout': { timeout: 10 * 60 * 1000 },
   // Named runs only (never all/core). MDLXL_SWEEP_SETUPS picks the setups; each has its own time limit.
   'click-sweep': { timeout: 24 * 60 * 60 * 1000 },
+  // Every FX look, variation and layer on three parts; FX_SWEEP_SETUPS / FX_SWEEP_LOOKS narrow it.
+  'fx-click-sweep': { needs: [footman, testModel('WH_WOC_WarriorSlaaneshDual01.mdx')], timeout: 3 * 60 * 60 * 1000 },
+  'fx-responsiveness': { needs: [footman, testModel('pose-performance/GnomeLindormrRider_TwinHeads_FaceAlphaWrap.mdx')], timeout: 20 * 60 * 1000 },
   // Mouse drag keys and keys pressed during a drag, about 7 app starts.
   'modifier-bindings': { needs: [footman], timeout: 10 * 60 * 1000 },
   // Each Rotate setting from its own seeded profile, about 30 app starts.

@@ -1,5 +1,6 @@
 // What the command launcher lists and how typing narrows it. No DOM here.
 import VIEW_MENU from './view-menu.json' with { type: 'json' };
+import XL_VIEW_MENU from './view-menu-xl.json' with { type: 'json' };
 import { LANGUAGES } from './localization.js';
 import { TEAM_COLORS } from './team-colors.js';
 import { TOOLBAR_MODES, TOOLBAR_MODE_LABELS } from './toolbar-mode.js';
@@ -22,7 +23,7 @@ export function launcherExtraRows({ toolbarMode, visUI, language, antialias, sho
     { id: 'showHotkeys', label: 'Show hotkeys', checked: !!showHotkeys },
     { id: 'learnSettings', label: 'Learn settings' },
     ...(visUI ? [] : [{ id: 'ai:open', label: 'AI console' }]),
-    ...(VIEW_MENU[displayMode] || []).map(([label, id]) => id === 'clearDisplay' ? { id, label: 'Clear display' } : { id, label: 'Display', value: translate(label), checked: !!checks[id] }),
+    ...((visUI ? VIEW_MENU : XL_VIEW_MENU)[displayMode] || []).map(([label, id]) => id === 'clearDisplay' ? { id, label: 'Clear display' } : { id, label: 'Display', value: translate(label), checked: !!checks[id] }),
     ...LANGUAGES.map(item => ({ id: 'language:' + item.id, label: 'Language', value: item.nativeLabel, checked: language === item.id, searchOnly: true })),
     ...TEAM_COLORS.map(row => ({ id: 'team:' + row.rgbHex, label: 'Team color', value: translate(row.name), checked: teamColor === row.rgbHex, searchOnly: true })),
   ];

@@ -1,11 +1,12 @@
 import { Vector3 } from 'three';
 import { nodePivot } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
+import { objectSwitches } from '../src/object-display.js';
 
 export function viewportOverlayOptions(props) {
   const explicit = props.overlays != null, overlays = props.overlays || {};
   const markers = !!props.showSkeleton;
-  return {
+  const options = {
     boneTypesBones: overlays.boneTypesBones ?? true, boneTypesHelpers: overlays.boneTypesHelpers ?? true,
     explicit,
     bones: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.bones : markers,
@@ -22,11 +23,17 @@ export function viewportOverlayOptions(props) {
     grid: explicit ? !!overlays.grid : !!props.showGrid,
     axes: !!(props.showAxes ?? overlays.axes ?? props.showGrid),
   };
+  // VIS: this Viewport is the Vertex editor, which (like MDLVis) draws no objects.
+  if (props.vanilla) return { ...options, bones: false, helpers: false, nodes: false, attachments: false, particles: false, ribbons: false, sounds: false, events: false, boneLines: false };
+  // MDLxL look: lights were part of the old Nodes pile; the Objects switch shows its checked types (no lights, no collision).
+  options.lights = options.nodes;
+  const objects = props.editorDisplayMode === 'vertices' ? null : objectSwitches(explicit ? overlays : null);
+  return objects ? { ...options, nodes: false, ...objects, lights: false } : options;
 }
 
 export function viewportNodeLayout(model, nodes) {
   const kinds = movementNodeCategories(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
-  const groups = { bones: [], nodes: [], attachments: [], particles: [], ribbons: [], sounds: [], events: [] }, allLinks = [], boneLinks = [];
+  const groups = { bones: [], nodes: [], attachments: [], particles: [], ribbons: [], sounds: [], events: [], lights: [] }, allLinks = [], boneLinks = [];
   for (const node of nodes) {
     const kind = kinds.get(node.ObjectId) || 'nodes';
     groups[kind].push(node);

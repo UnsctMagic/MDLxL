@@ -2,6 +2,7 @@ import React,{useState,useEffect,useRef,useCallback} from 'react';
 import {Plus,Trash2,Diamond,ChevronDown} from 'lucide-react';
 import {setKey} from '../src/editor-commands.js';
 import {displayNumber} from '../src/display-number.js';
+import {registerChoiceWheel} from '../src/dropdown-wheel.js';
 const draftText=value=>value??'';
 /** A finite number from the typed text; an empty box or other text is rejected. */
 export function parseDraftNumber(text){const trimmed=String(text??'').trim();if(!trimmed)return undefined;const number=Number(trimmed);return Number.isFinite(number)?number:undefined;}
@@ -48,14 +49,14 @@ export function useDraftNumber({value,format=draftText,parse=parseDraftNumber,on
     },
   };
 }
-export function TextField({label,value,onChange,type='text',min,max,step='any',disabled=false}){
+export function TextField({label,value,onChange,type='text',min,max,step='any',disabled=false,placeholder}){
   const number=type==='number';
   const field=useDraftNumber({value,disabled,onCommit:onChange,parse:(text,final)=>{
     if(!number)return text;
     const next=parseDraftNumber(text);
     return next===undefined||(Number(step)===1&&!Number.isInteger(next))||(min!==undefined&&next<min)||(max!==undefined&&next>max)?undefined:next;
   }});
-  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} {...field}/></label>;
+  return <label className="field"><span>{label}</span><input data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} type={type} min={min} max={max} step={step} placeholder={placeholder} {...field}/></label>;
 }
 export function NumberField(props){return <TextField type="number" {...props}/>;}
 /**
@@ -95,7 +96,12 @@ export function RangeField({label,value,min,max,step,output,ends,className='',ti
     {ends&&<span className="range-field-ends"><span>{ends[0]}</span><span>{ends[1]}</span></span>}
   </label>;
 }
-export function SelectField({label,value,onChange,options,disabled=false}){return <label className="field"><span>{label}</span><select data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} value={value??''} onChange={e=>onChange(e.target.value)}>{options.map(o=>typeof o==='string'?<option key={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}
+export function ChoiceSelect({onChange,onWheelChange=onChange,wheel=true,...props}){
+  const latest=useRef(onWheelChange);latest.current=onWheelChange;
+  const ref=useCallback(node=>{if(node)registerChoiceWheel(node,wheel?value=>latest.current(value):undefined);},[wheel]);
+  return <select {...props} ref={ref} onChange={event=>onChange(event.target.value)}/>;
+}
+export function SelectField({label,value,onChange,options,disabled=false,wheel=false}){return <label className="field"><span>{label}</span><ChoiceSelect data-hotkey={`field:${label}`} data-hotkey-label={`Focus ${label}`} aria-label={label} disabled={disabled} value={value??''} onChange={onChange} wheel={wheel}>{options.map(o=>typeof o==='string'?<option key={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}</ChoiceSelect></label>;}
 /** A checkbox. description is a short line under the label. id names its key (default toggle:label, null for none); a Check with its own id lists its key by the label alone. */
 export function Check({label,value,onChange,description,id,className='check',disabled,title}){const hotkey=id===undefined?`toggle:${label}`:id;return <label className={className}><input data-hotkey={hotkey??undefined} data-hotkey-label={id===undefined?`Toggle ${label}`:label} aria-label={description?undefined:label} title={title} type="checkbox" checked={!!value} disabled={disabled} onChange={e=>onChange(e.target.checked)}/><span>{label}{description&&<small>{description}</small>}</span></label>;}
 export function VectorField({label,value,onChange,size=3,min,max,step='any'}){return <div data-hotkey-prefix={label} className="vector-field"><span>{label}</span><div>{Array.from({length:size},(_,i)=><NumberField key={i} label={['X','Y','Z','W'][i]} value={value?.[i]??0} min={min} max={max} step={step} onChange={v=>{const a=Array.from(value||new Float32Array(size));a[i]=v;onChange(a);}}/>)}</div></div>;}

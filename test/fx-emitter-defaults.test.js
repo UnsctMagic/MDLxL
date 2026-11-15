@@ -6,27 +6,39 @@ import * as looks from '../src/global-animation-looks.js';
 import {openDocument} from '../src/editor-document.js';
 import {compileAnimation} from '../src/global-animation-model.js';
 
-// Captured from makeLayer at 676aaf6f on this checked-in, real Knight model.
+// Captured from makeLayer at 676aaf6f on this checked-in, real Knight model. Entries were renewed
+// only for new looks, the native-card emitters given names (same values), and Water's drip, which the owner
+// asked to make visible (12 November 2026), and Orbiting flies, rebuilt as a quad swarm on billboarded bones
+// (owner, 12 November 2026: "fly swarm - doesnt look good"), and the emitter audit fixes the owner asked for the same day ("EMITTERS ... some are very bad"): flames' own fire colour, Water's drip values on Heavy and Ichor drops, a steady rate for Stars, additive white-to-tint Rune sparks, larger Eye sparks, Blood beads, splinters and embers, steady mist and motes, additive Plague haze. Every other emitter keeps its 676aaf6f values.
+// Round 2 additionally renews the requested fresh ground strengths, steady rates, real Rising embers
+// and the drop lifetime floor. Frozen saved stacks live in fx-legacy-stacks.json and are never renewed.
 const baseline=JSON.parse(fs.readFileSync(new URL('./fixtures/fx-emitter-defaults-676aaf6f.json',import.meta.url)));
 const fixture=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
-const hash=layer=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
-for(const look of looks.GLOBAL_LOOKS)test(look.name+' starts with its intended particle defaults and offers its original emitters first',()=>{
+// recipeOwner and recipeRole tag each started layer with the look and slot it came from (a look keeps its identity when moved to another part).
+// sharedSites (12 November emitter audit) marks a new native layer; it changes how sites share the rate, not its values.
+// surfaceSites changes placement only; the surface-sites regression checks the compiled positions.
+const hash=({sharedSites:_shared,surfaceSites:_surface,...layer})=>createHash('sha256').update(JSON.stringify(layer)).digest('hex');
+for(const look of looks.GLOBAL_LOOKS.filter(l=>l.layers.length))test(look.name+' starts with its intended particle defaults and offers its original emitters first',()=>{
  const doc=fixture(),frame=looks.partFrame(doc.model.Geosets[0]),stack=looks.newStack(look,frame,'empty');
- const own=look.layers.filter(spec=>spec.type==='Particles'),choices=looks.emitterChoices(look);
- const emitterOnly=own.length>0&&own.length===look.layers.length;
- assert.deepEqual(stack.layers,look.layers.flatMap((spec,i)=>spec.type==='Particles'&&!emitterOnly?[]:emitterOnly&&i>0?[]:[looks.makeLayer(spec,frame,look.palette,i+1)]),'only emitter-only presets start with exactly their first own emitter');
- assert.equal(stack.layers.filter(l=>l.type==='Particles').length,emitterOnly?1:0,look.name+' has its intended Particles default');
+ const same=(a,b)=>a.label===b.label&&a.image===b.image&&a.kind===b.kind,choices=looks.emitterChoices(look);
+ const own=(look.variations?look.variations.flatMap(v=>v.layers):look.layers).filter((spec,i,all)=>spec.type==='Particles'&&all.findIndex(o=>o.type==='Particles'&&same(o,spec))===i).filter((spec,i,all)=>all.findIndex(o=>looks.emitterName(o)===looks.emitterName(spec))===i);
+ const emitterOnly=look.layers.length>0&&look.layers.every(spec=>spec.type==='Particles');
+ // An emitter starts when the look marks it, or when the whole preset is one emitter.
+ const starts=(spec,i)=>spec.type!=='Particles'||spec.starts||emitterOnly&&i===0;
+ assert.deepEqual(stack.layers,look.layers.flatMap((spec,i)=>starts(spec,i)?[{...looks.makeLayer(spec,frame,look.palette,i+1),recipeOwner:look.id,recipeRole:spec.recipeRole??String(i)}]:[]),'only emitter-only presets and marked emitters start');
+ assert.equal(stack.layers.filter(l=>l.type==='Particles').length,look.layers.filter((spec,i)=>spec.type==='Particles'&&starts(spec,i)).length,look.name+' has its intended Particles default');
  assert.deepEqual(choices.slice(0,own.length).map(c=>c.spec),own,'own emitters retain their order and full specifications');
- assert.deepEqual(choices.slice(0,own.length).map(c=>c.label),own.map((spec,i)=>spec.label+(i===0?' (recommended)':'')));
+ assert.deepEqual(choices.slice(0,own.length).map(c=>c.label),own.map((spec,i)=>looks.emitterName(spec)+(i===0?' (recommended)':'')));
  assert.equal(choices.filter(c=>c.label.endsWith(' (recommended)')).length,own.length?1:0);
  const rest=choices.slice(own.length);
- assert.deepEqual(rest.map(c=>c.spec),looks.LAYER_CHOICES.filter(s=>s.type==='Particles'&&!own.some(o=>o.label===s.label&&o.image===s.image&&o.kind===s.kind&&o.stamp===s.stamp&&o.nativeSurface?.id===s.nativeSurface?.id)),'other ingredients keep their existing order and values');
- assert.deepEqual(rest.map(c=>c.label),rest.map(c=>c.spec.menuLabel||c.spec.label));
+ assert.deepEqual(rest.map(c=>c.spec),looks.LAYER_CHOICES.filter(s=>s.type==='Particles'&&!own.some(o=>looks.emitterName(o)===looks.emitterName(s))),'other ingredients keep their existing order and values');
+ assert.deepEqual(rest.map(c=>c.label),rest.map(c=>looks.emitterName(c.spec)));
  for(const [i,reference] of baseline[look.id].entries())assert.equal(hash(looks.makeLayer(choices[i].spec,frame,look.palette,reference.id)),reference.hash,reference.label+' has the exact pre-change values and fit');
  const count=doc.model.ParticleEmitters2.length;
  compileAnimation(doc.model,0,stack);
- assert.equal(doc.model.ParticleEmitters2.length>count,emitterOnly,'emitter nodes are allocated only for emitter-only presets');
- for(const reference of baseline[look.id].slice(emitterOnly?1:0)){
+ assert.equal(doc.model.ParticleEmitters2.length>count,stack.layers.some(l=>l.type==='Particles'&&!l.swarm),'emitter nodes are allocated only for emitters that start');
+ // A reference id that a started layer now holds (a look whose layer list changed) legitimately has nodes.
+ for(const reference of baseline[look.id].filter(reference=>!stack.layers.some(l=>l.label===reference.label||l.id===reference.id))){
   const tag=stack.owner+'/'+reference.id+'/';
   assert.ok(doc.model.Nodes.every(node=>!node?._FxTag?.startsWith(tag)),'no particle bone or helper allocated');
   assert.ok(doc.model.Textures.every(texture=>!texture._FxTag?.startsWith(tag)),'no particle texture allocated');
@@ -35,7 +47,7 @@ for(const look of looks.GLOBAL_LOOKS)test(look.name+' starts with its intended p
 
 test('retired impacts retain their original particle layers',()=>{
  const doc=fixture(),frame=looks.partFrame(doc.model.Geosets[0]),look=looks.findLook('iron-hit');
- assert.deepEqual(looks.newStack(look,frame,'impact').layers,look.layers.map((s,i)=>looks.makeLayer(s,frame,look.palette,i+1)));
+ assert.deepEqual(looks.newStack(look,frame,'impact').layers,look.layers.map((s,i)=>({...looks.makeLayer(s,frame,look.palette,i+1),recipeOwner:look.id,recipeRole:s.recipeRole??String(i)})));
 });
 
 test('fly orbit size leaves native sprite scaling alone',()=>{

@@ -11,6 +11,7 @@ import { COMMANDS } from '../src/commands.js';
 import { particleUVGroups, particleFlags } from '../src/particle-editing.js';
 import { localizedCreateElement } from '../app/localized-element.js';
 import viewMenu from '../src/view-menu.json' with { type: 'json' };
+import xlViewMenu from '../src/view-menu-xl.json' with { type: 'json' };
 
 const packs = { ru: russian, es: spanish };
 const slots = text => [...new Set(text.match(/\{\d+\}/g) || [])].sort();
@@ -52,7 +53,7 @@ test('all paint messages, commands, view controls, and particle controls have re
       const populated = source.replace(/\{\w+\}/g, '987');
       assert.equal(translate(populated, locale), pack[key].replace(/\{\d+\}/g, '987'), `${locale}: ${id}`);
     }
-    const labels = [...COMMANDS.map(item => item.label), ...new Set(Object.values(viewMenu).flat().map(row => row[0])), ...particleFlags.map(row => row[0])];
+    const labels = [...COMMANDS.map(item => item.label), ...new Set([viewMenu, xlViewMenu].flatMap(menu => Object.values(menu).flat().map(row => row[0]))), ...particleFlags.map(row => row[0])];
     for (const [label] of particleUVGroups) labels.push(label, ...['Start', 'End', 'Repeat'].map(field => `${label} ${field}`));
     for (const label of labels) if (!brands.has(label)) assert.notEqual(translate(label, locale), label, `${locale}: ${label}`);
   }

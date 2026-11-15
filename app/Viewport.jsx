@@ -904,7 +904,7 @@ export default function Viewport({ children, ...inputProps }) {
         if (now - callbackTime > 32) { callbackTime = now; state.lastReportedFrame = state.frame; p.onTimeChange?.(state.frame); }
       }
       const overlays = viewportOverlayOptions(p);
-      const showMarkers = overlays.bones || overlays.boneLines || overlays.nodes || overlays.attachments || overlays.particles;
+      const showMarkers = overlays.bones || overlays.boneLines || overlays.nodes || overlays.attachments || overlays.particles || overlays.ribbons || overlays.events || overlays.sounds || overlays.lights;
       const clipRadius = modelClipRadius(p.model, state.center, state.radius);
       grid.update(p.preferences, p.workplane, overlays.grid, overlays.axes, surface.clientWidth, surface.clientHeight, quad ? { camera, target: controls.target, settings: appearance.quadView.grid } : null);
       platform.update(p.preferences, state.center, state.radius, state.floor || 0);

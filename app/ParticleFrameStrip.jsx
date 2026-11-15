@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {ChoiceSelect} from './Fields.jsx';
 import {particlePictureCanvas} from './particle-picture-canvas.js';
 import {detectPictureGrid} from './sprite-detect.js';
 import {framesAcrossLife,playedFrames,spriteGridValues,framePatterns,playsPattern} from '../src/sprite-frames.js';
@@ -14,12 +15,12 @@ function Stepper({label,value,onChange}){
 }
 
 /** Frames: one choice and the sprite playing it. Custom… is the only way into the grid and frame picking. */
-export default function ParticleFrameStrip({emitter,asset,pictureName,replaceableId,teamColor,patch}){
+export default function ParticleFrameStrip({emitter,asset,pictureName,replaceableId,teamColor,patch,wheel=false,unavailable=false}){
  const [image,setImage]=useState(null),[detected,setDetected]=useState(null),[drag,setDrag]=useState(null),[custom,setCustom]=useState(false),preview=useRef(null);
  const rows=Math.max(1,emitter.Rows||1),columns=Math.max(1,emitter.Columns||1),count=rows*columns,saved=playedFrames(emitter);
  const [first,last]=drag?[Math.min(drag.anchor,drag.at),Math.max(drag.anchor,drag.at)]:[saved.first,saved.last];
  const game=framePatterns(pictureName);
- useEffect(()=>{let live=true;setImage(null);setDetected(null);particlePictureCanvas(asset,{replaceableId,teamColor}).then(source=>{if(live)setImage(source);}).catch(()=>{});if(!game.length)detectPictureGrid(asset,{name:pictureName,replaceableId}).then(grid=>{if(live)setDetected(grid);}).catch(()=>{});return()=>{live=false;};},[asset,pictureName,replaceableId,teamColor]);
+ useEffect(()=>{if(unavailable)return;let live=true;setImage(null);setDetected(null);particlePictureCanvas(asset,{replaceableId,teamColor}).then(source=>{if(live)setImage(source);}).catch(()=>{});if(!game.length)detectPictureGrid(asset,{name:pictureName,replaceableId}).then(grid=>{if(live)setDetected(grid);}).catch(()=>{});return()=>{live=false;};},[asset,pictureName,replaceableId,teamColor,unavailable]);
  useEffect(()=>{
   const c=preview.current?.getContext('2d');if(!c||!image||count<2)return;let index=0;
   const draw=()=>{const cell=first+index%(last-first+1),sw=image.width/columns,sh=image.height/rows;c.clearRect(0,0,40,40);c.drawImage(image,cell%columns*sw,Math.floor(cell/columns)*sh,sw,sh,0,0,40,40);index++;};
@@ -27,13 +28,13 @@ export default function ParticleFrameStrip({emitter,asset,pictureName,replaceabl
  },[image,rows,columns,first,last,count]);
  const patterns=game.length?game:[{name:'One picture',values:spriteGridValues(emitter,1,1)},...(detected&&detected.rows*detected.columns>1?[{name:'Whole animation',values:spriteGridValues(emitter,detected.rows,detected.columns)}]:[])];
  const current=patterns.find(pattern=>playsPattern(emitter,pattern.values))?.name||(count===1&&!game.length?'One picture':'Custom…');
- const showCustom=custom||current==='Custom…';
+ const showCustom=!unavailable&&(custom||current==='Custom…');
  const finish=()=>{if(!drag)return;const a=Math.min(drag.anchor,drag.at),b=Math.max(drag.anchor,drag.at);setDrag(null);if(a!==saved.first||b!==saved.last)patch(framesAcrossLife(emitter,a,b,saved.repeat));};
  return <div className="pe-frame-strip">
   <div className="pe-frame-pick">
-   <label>Frames<select aria-label="Frames" value={showCustom?'Custom…':current} onChange={e=>{const pick=patterns.find(p=>p.name===e.target.value);if(pick){setCustom(false);patch(pick.values);}else setCustom(true);}}>
-    {patterns.map(pattern=><option key={pattern.name}>{pattern.name}</option>)}<option>Custom…</option>
-   </select></label>
+   <label>Frames<ChoiceSelect disabled={unavailable} wheel={wheel} aria-label="Frames" value={unavailable?'':showCustom?'Custom…':current} onChange={value=>{const pick=patterns.find(p=>p.name===value);if(pick){setCustom(false);patch(pick.values);}else setCustom(true);}}>
+    {unavailable&&<option value="">N/A</option>}{patterns.map(pattern=><option key={pattern.name} value={pattern.name}>{pattern.name}</option>)}<option value="Custom…">Custom…</option>
+   </ChoiceSelect></label>
    {count>1&&<canvas ref={preview} className="pe-frame-preview" width="40" height="40" aria-label="Frame preview"/>}
   </div>
   {showCustom&&<>

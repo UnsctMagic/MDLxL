@@ -25,8 +25,8 @@ import { applySortMyMess } from '../src/sort-my-mess.js';
 import './resource-editors.css';
 import './resource-managers-xl.css';
 
-const titles = { Model: 'Model Manager', Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Node Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
-const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Nodes', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences', Model: 'Model' };
+const titles = { Model: 'Model Manager', Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Object Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
+const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Objects', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences', Model: 'Model' };
 const nodeIcons = { Bones: Bone, Helpers: Paperclip, Attachments: Paperclip, EventObjects: Camera, Lights: Lightbulb, ParticleEmitters: Sparkles, ParticleEmitters2: Sparkles, ParticleEmitterPopcorns: Sparkles, RibbonEmitters: Sparkles, CollisionShapes: Box };
 const nodeTypeFor = collection => Object.keys(NODE_TYPES).find(type => NODE_TYPES[type][0] === collection);
 

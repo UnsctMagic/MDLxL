@@ -1,23 +1,29 @@
 // Claude's kept looks compile with every layer switched on and survive MDX/MDL save.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {openDocument} from '../src/editor-document.js';
-import {GLOBAL_LOOKS,LAYER_CHOICES,partFrame,newStack,makeLayer} from '../src/global-animation-looks.js';
+import {GLOBAL_LOOKS,LIBRARY,LAYER_CHOICES,partFrame,newStack,makeLayer} from '../src/global-animation-looks.js';
 import {CLAUDE_LOOKS,CLAUDE_EMITTERS} from '../src/claude-fx-looks.js';
 import {compileAnimation,FX_SECTIONS} from '../src/global-animation-model.js';
 const open=()=>openDocument(fs.readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx',import.meta.url)),'knight.mdx');
 
 test('the kept looks are in the library and Storm cloud is an emitter choice',()=>{
- assert.deepEqual(CLAUDE_LOOKS.map(l=>l.name),['Fel blade','Tidal blade','Magma flow','Wraith form','Corrupted veins','Blood pact','Plague swarm','Runic plate','Void-cracked plate','Forge-hot plate']);
- for(const look of CLAUDE_LOOKS)assert.ok(GLOBAL_LOOKS.includes(look),look.name);
+ assert.deepEqual(CLAUDE_LOOKS.map(l=>l.name),['Fel blade','Tidal blade','Magma flow','Wraith form','Corrupted veins','Blood pact','Plague cloud','Runic plate','Void-cracked plate','Forge-hot plate']);
+ // The library files and renames them (src/global-animation-looks.js LIBRARY), so match by id.
+ // A look merged into a card is a variation of it, found by its name.
+ const renamed={'Runic plate':'Glowing runes','Void-cracked plate':'Void cracks','Forge-hot plate':'Forge heat'};
+ const home=look=>GLOBAL_LOOKS.find(l=>l.id===look.id)||GLOBAL_LOOKS.find(l=>l.name===look.name||(l.variations||[]).some(v=>v.name===(renamed[look.name]||look.name)));
+ for(const look of CLAUDE_LOOKS)assert.ok(home(look),look.name);
  for(const spec of CLAUDE_EMITTERS)assert.ok(LAYER_CHOICES.includes(spec),spec.label);
  // They sit in the library's normal folders, not a folder of their own.
- const folders=new Set(GLOBAL_LOOKS.filter(l=>!CLAUDE_LOOKS.includes(l)).map(l=>l.group));
- for(const look of CLAUDE_LOOKS)assert.ok(folders.has(look.group),look.name+' in '+look.group);
+ // Pass 7 merged cards, so a folder can hold only one of them (Water): the folders are the library table's own.
+ const folders=new Set(LIBRARY.map(([group])=>group));
+ for(const look of CLAUDE_LOOKS)assert.ok(folders.has(home(look).group),look.name+' in a shared folder');
  const byId=id=>CLAUDE_LOOKS.find(l=>l.id===id);
- assert.equal(byId('claude-fel-blade').layers.find(l=>l.type==='Edge').enabled,false,'Fel edge starts off');
+ assert.ok(!byId('claude-fel-blade').layers.some(l=>l.type==='Edge'),'Fel fire has no Fel edge layer');
+ assert.ok(LAYER_CHOICES.some(l=>l.label==='Fel edge'&&l.type==='Edge'),'Fel edge stays addable from Add layer');
  assert.equal(byId('claude-magma-flow').asOverlay,true,'Magma flow starts as an overlay');
- assert.ok(!byId('claude-magma-flow').layers.some(l=>l.type==='Particles'),'Magma flow has no rising embers');
- assert.ok(byId('claude-plague-swarm').layers.every(l=>l.kind==='native'),'Plague swarm has no flies');
+ assert.deepEqual(byId('claude-magma-flow').layers.filter(l=>l.type==='Particles').map(l=>l.label),['Cinders'],'Magma flow has no rising embers, only its few Cinders');
+ assert.ok(byId('claude-plague-swarm').layers.every(l=>l.kind==='native'),'Plague cloud has no flies');
 });
 for(const look of CLAUDE_LOOKS)test(look.name+' compiles and saves',()=>{
  const doc=open(),m=doc.model,frame=partFrame(m.Geosets[0]);
