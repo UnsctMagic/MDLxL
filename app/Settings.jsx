@@ -141,8 +141,8 @@ function LearnSettings({ value, onChange, preview }) {
     </div>
   </>;
 }
-const VISUAL_COLORS = [['background', 'Viewport background'], ['vertex', 'Vertices'], ['selectedVertex', 'Selected vertices'], ['occludedVertex', 'Occluded vertices'], ['wireframe', 'Wireframe lines'], ['occludedWireframe', 'Occluded wireframe'], ['selectedGeometry', 'Selected geometry'], ['gridMinor', 'Minor grid'], ['gridMajor', 'Major grid'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis'], ['keyframe', 'Keyframes'], ['activeKeyframe', 'Active keyframe'], ['bone', 'Bones and helper bones'], ['node', 'Attachment refs and nodes'], ['particle', 'Particle emitters'], ['event', 'Event objects'], ['selection', 'Selection overlay'], ['uvSelection', 'UV live selection']];
-const APPEARANCE_HELPER_COLORS = VISUAL_COLORS.filter(([key]) => ['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection'].includes(key));
+const VISUAL_COLORS = [['background', 'Viewport background'], ['vertex', 'Vertices'], ['selectedVertex', 'Selected vertices'], ['occludedVertex', 'Occluded vertices'], ['wireframe', 'Wireframe lines'], ['occludedWireframe', 'Occluded wireframe'], ['selectedGeometry', 'Selected geometry'], ['gridMinor', 'Minor grid'], ['gridMajor', 'Major grid'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis'], ['keyframe', 'Keyframes'], ['activeKeyframe', 'Active keyframe'], ['bone', 'Bones and helper bones'], ['node', 'Attachment refs and nodes'], ['particle', 'Particle emitters'], ['event', 'Event objects'], ['selection', 'Selection overlay'], ['uvSelection', 'UV live selection'], ['motionPath', 'Motion path']];
+const APPEARANCE_HELPER_COLORS = VISUAL_COLORS.filter(([key]) => ['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection', 'motionPath'].includes(key));
 
 function WireLinePreview({ wire, background, label }) {
   const dash = wireDashArray(wire).join(' ');

@@ -1749,7 +1749,7 @@ export default function GamePreview(inputProps) {
         const frame = native.getFrame(), sequence = movementSequence(p, Math.round(frame)), inputs = sequence >= 0 ? motionPathInputs(ownedModel, p.motionPathIds) : null;
         if (!inputs) motionPathCache = null;
         else if (!motionPathCache || motionPathCache.sequence !== sequence || !sameInputs(motionPathCache.inputs, inputs)) motionPathCache = { sequence, inputs, ...motionPaths(ownedModel, sequence, p.motionPathIds) };
-        if (motionPathCache) { const marker = motionPathMarker(motionPathCache.frames, frame); motionOverlay = motionPathCache.paths.filter(path => path.points.length > 1).map(path => ({ points: path.points, color: '#ff8a2a', width: 3, alpha: .95, marker })); }
+        if (motionPathCache) { const marker = motionPathMarker(motionPathCache.frames, frame); motionOverlay = motionPathCache.paths.filter(path => path.points.length > 1).map(path => ({ points: path.points, motion: true, width: 3, alpha: .95, marker })); }
       } else motionPathCache = null;
       const pathOverlays = motionOverlay.length ? [...(p.overlayPaths || []), ...motionOverlay] : p.overlayPaths;
       // Motion arcs (AnimXL): model-space polylines over the view, through the live camera.
@@ -1760,8 +1760,9 @@ export default function GamePreview(inputProps) {
         const pw = canvas.clientWidth, ph = canvas.clientHeight, context = pathCanvas.getContext('2d'), point = new THREE.Vector3();
         context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, pathCanvas.width, pathCanvas.height); context.setTransform(pathCanvas.width / Math.max(1, pw), 0, 0, pathCanvas.width / Math.max(1, pw), 0, 0);
         const screen = value => { point.set(value[0], value[1], value[2]).project(camera); return point.z > 1 ? null : [(point.x + 1) / 2 * pw, (1 - point.y) / 2 * ph]; };
+        const motionColor = visualOptions(p.preferences).motionPath;
         for (const path of pathOverlays) {
-          context.strokeStyle = path.color; context.fillStyle = path.color; context.lineWidth = path.width || 2; context.setLineDash(path.dash || []); context.globalAlpha = path.alpha ?? 1;
+          context.strokeStyle = context.fillStyle = path.motion ? motionColor : path.color; context.lineWidth = path.width || 2; context.setLineDash(path.dash || []); context.globalAlpha = path.alpha ?? 1;
           context.beginPath(); let open = false;
           for (const value of path.points) { const xy = screen(value); if (!xy) { open = false; continue; } if (open) context.lineTo(xy[0], xy[1]); else { context.moveTo(xy[0], xy[1]); open = true; } }
           context.stroke(); context.setLineDash([]);
