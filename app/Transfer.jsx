@@ -5,9 +5,11 @@ import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
 import TransferTimeline from './TransferTimeline.jsx';
+import TransferViewStrip from './TransferViewStrip.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { openDocument } from '../src/editor-document.js';
 import { resolveGameFiles } from './desktop.js';
+import { translate } from '../src/localization.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
 import { sanitizePresetName } from '../src/settings-presets.js';
@@ -50,20 +52,28 @@ const FIELDS = [
   { id: 'blend', timing: true, label: () => 'Ease', min: 0, max: 500, step: 10, unit: ' ms', only: 'nonLooping', tip: () => 'Eases the taken movement in after it starts and out before it ends.', get: part => part.blend, set: (part, value) => ({ ...part, blend: value }), reset: d => d.blend },
 ];
 
-/** The donor view: plays its own clock, so only it redraws while it plays. With `clock`
- * ({ sequence, frame }) it follows the result instead: the selected part's source animation at
- * the moment the result shows. The selected part's hand or foot path is drawn over it, with a
- * dot at the current moment. The camera turns with the result view's (cameraAngles). */
-const DonorStage = memo(function DonorStage({ donor, sequence: own, playing, poseConfig, onPoseSelect, path, clock, cameraAnglesRequest, onCameraAnglesChange }) {
-  const sequence = clock ? clock.sequence : own, interval = donor.model.Sequences?.[sequence]?.Interval;
-  const [free, setTime] = useState(interval?.[0] ?? 0);
+/** The donor view and its playback strip: its own clock, Play/Pause and viewing Speed, so only it
+ * redraws while it plays. The dropdown is the same choice as the Animations list. The selected
+ * part's hand or foot path is drawn over it, with a dot at the donor's own moment. The camera turns
+ * with the result view's (cameraAngles). `notes` are drawn over the view. */
+const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseConfig, onPoseSelect, path, cameraAnglesRequest, onCameraAnglesChange, notes }) {
+  const interval = donor.model.Sequences?.[sequence]?.Interval;
+  const [time, setTime] = useState(interval?.[0] ?? 0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   useEffect(() => { setTime(interval?.[0] ?? 0); }, [donor.model, sequence]);
-  const time = clock ? clock.frame : free;
   const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
-  return <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-    <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={clock ? undefined : setTime} playing={clock ? false : playing} cameraAnglesRequest={cameraAnglesRequest} onCameraAnglesChange={onCameraAnglesChange}
-      cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={poseConfig} poseDocumentModel={donor.model} onPoseSelect={onPoseSelect} onPoseCommit={noop} overlayPaths={overlay}/>
-  </Suspense>;
+  const options = useMemo(() => (donor.model.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(donor.model, i), own: true })), [donor.model]);
+  return <>
+    <div className="xf-preview">
+      <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
+        <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing} playbackSpeed={speed} cameraAnglesRequest={cameraAnglesRequest} onCameraAnglesChange={onCameraAnglesChange}
+          cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={poseConfig} poseDocumentModel={donor.model} onPoseSelect={onPoseSelect} onPoseCommit={noop} overlayPaths={overlay}/>
+      </Suspense>
+      {notes}
+    </div>
+    <TransferViewStrip name="Donor view" playing={playing} onPlay={() => setPlaying(v => !v)} donor playTitle="Play or pause the donor view."
+      interval={interval} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={speed} onSpeed={setSpeed}
+      value={String(sequence)} options={options} onChange={value => onSequence(Number(value))} selectTitle="The donor animation to look at and take from. The same choice as the Animations list."/>
+  </>;
 });
 
 /** The Library's game-model browser, picking a donor instead of opening a tab. */
@@ -218,19 +228,26 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     touched.current = new Set(built.driven); swapped.current = false;
     setPreview({ ...made, shape, built, start: made.model.Sequences[made.sequenceIndex].Interval[0], end: made.model.Sequences[made.sequenceIndex].Interval[1] });
   }, [shape, draft, built]);
-  const [original, setOriginal] = useState(false);
   const liveTracks = useMemo(() => {
     if (!preview || !built) return [];
-    if (!original && built === preview.built && !swapped.current) return [];
+    if (built === preview.built && !swapped.current) return [];
     swapped.current = true;
-    const ids = original ? [] : built.driven;
+    const ids = built.driven;
     for (const id of ids) touched.current.add(id);
     const back = [...touched.current].filter(id => !ids.includes(id));
     return [...(ids.length ? transferNodeTracks(preview.model, preview.sequenceIndex, built) : []), ...(back.length ? transferRestoreTracks(model, preview.start, built, back) : [])];
-  }, [preview, built, original, model]);
+  }, [preview, built, model]);
 
   // Playback: one clock for the result; the donor plays its own animation and pauses with it.
-  const [time, setTime] = useState(0), [playing, setPlaying] = useState(true);
+  const [time, setTime] = useState(0), [playing, setPlaying] = useState(true), [resultSpeed, setResultSpeed] = useState(100);
+  // viewSeq: null shows the new animation; an index shows one of the model's own animations (only to
+  // look at: it never changes the Body animation or the recipe). Any recipe change, slider drag or use
+  // of the timeline brings the view back to the new animation.
+  const [viewSeq, setViewSeq] = useState(null);
+  const showNew = () => { if (viewSeq == null) return; setViewSeq(null); if (preview) setTime(preview.start); };
+  const showOwn = index => { if (!preview?.model.Sequences[index]) return; setViewSeq(index); setTime(preview.model.Sequences[index].Interval[0]); };
+  useEffect(() => { showNew(); }, [recipe]);
+  useEffect(() => { if (draft) showNew(); }, [draft]);
   useEffect(() => { if (preview && (time < preview.start || time > preview.end)) setTime(preview.start); }, [preview]);
   const sliderValue = useRef(null), slider = useRef(null);
   slider.current ||= createFrameCoalescer(() => { if (sliderValue.current) setDraft(sliderValue.current); });
@@ -256,7 +273,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   const saveSetupFile = async () => {
     const name = sanitizePresetName(setupName) || 'Transfer setup';
-    try { if (await writePresetFile(name, JSON.stringify(currentSetup(name), null, 1))) { setNaming(false); setSetupStatus(`${name} saved to file.`); } } catch (error) { setSetupStatus(error.message); }
+    try { if (await writePresetFile(name, JSON.stringify(currentSetup(name), null, 1), translate('Save setup'))) { setNaming(false); setSetupStatus(`${name} saved to file.`); } } catch (error) { setSetupStatus(error.message); }
   };
   // One donor of a setup: already loaded, else reopened by its path, else asked for once.
   const reopen = async (source, asked) => {
@@ -300,7 +317,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   const loadSetupFile = async () => {
     if (!window.desktop?.openPresetFile) { setSetupStatus('Opening a file needs the desktop app.'); return; }
-    try { const picked = await window.desktop.openPresetFile(); if (picked) await applySetup(parseSetup(picked.text)); } catch (error) { setSetupStatus(error.message); }
+    try { const picked = await window.desktop.openPresetFile({ title: translate('Load setup') }); if (picked) await applySetup(parseSetup(picked.text)); } catch (error) { setSetupStatus(error.message); }
   };
   const deleteSetup = name => { const list = setups.filter(item => item.name !== name); setSetups(list); writeStored(SETUPS, list); };
 
@@ -318,27 +335,15 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, [poseA, rigA, donor?.id, donorMirror, selected, selectedFrom, takenSummary(effective)]);
   const limb = selectedPart?.kind === 'limb' && selectedTaken;
   const resultPath = useMemo(() => {
-    if (!limb || !preview || original) return null;
+    if (!limb || !preview || viewSeq != null) return null;
     try { return jointPath(withNodeTracks(preview.model, liveTracks), preview.sequenceIndex, selectedPart.marker); } catch { return null; }
-  }, [limb, preview, liveTracks, original, selectedPart]);
+  }, [limb, preview, liveTracks, viewSeq, selectedPart]);
   const resultOverlayPath = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : [], [resultPath, time]);
-  // A selected taken part from the donor shown: the donor view plays that part's animation on
-  // the result's clock (Delay and Speed applied), so both swings happen together.
-  const linked = !!selectedTaken && !!donor && selectedTaken.source === donor.id && !!donor.model.Sequences?.[selectedTaken.sequence]?.Interval;
-  const donorClock = useMemo(() => {
-    if (!linked || !preview) return null;
-    const [first, last] = donor.model.Sequences[selectedTaken.sequence].Interval, length = Math.max(0, last - first);
-    const x = (Math.max(preview.start, Math.min(preview.end, time)) - preview.start - (Number(selectedTaken.start) || 0)) * (selectedTaken.speed > 0 ? selectedTaken.speed : 1);
-    const looping = selectedTaken.loop ?? !donor.model.Sequences[selectedTaken.sequence].NonLooping;
-    const phase = !length ? 0 : looping ? x - length * Math.floor(x / length) : Math.max(0, Math.min(length, x));
-    return { sequence: selectedTaken.sequence, frame: Math.round(first + phase) };
-  }, [linked, preview, time, selectedTaken?.sequence, selectedTaken?.start, selectedTaken?.speed, selectedTaken?.loop, donor?.model]);
-  const donorShows = linked ? selectedTaken.sequence : donorSeq;
   const donorPath = useMemo(() => {
-    const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorShows) : null;
+    const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorSeq) : null;
     if (!rig?.parts?.[selectedFrom]) return null;
-    try { return jointPath(donor.model, donorShows, rig.parts[selectedFrom].marker); } catch { return null; }
-  }, [limb, donor?.model, donorShows, selectedFrom]);
+    try { return jointPath(donor.model, donorSeq, rig.parts[selectedFrom].marker); } catch { return null; }
+  }, [limb, donor?.model, donorSeq, selectedFrom]);
   // The two views turn together: a view's own camera turn is sent to the other view (each keeps
   // its own distance and framing). A report equal to what was just sent is the echo and is ignored.
   const [angles, setAngles] = useState({ donor: null, result: null }), sentAngles = useRef({ donor: null, result: null });
@@ -391,7 +396,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const capture = useRef(null), aim = useRef(null), aimFrame = useRef(null), aimApply = useRef(null);
   aimFrame.current ||= createFrameCoalescer(() => aimApply.current());
   useEffect(() => () => aimFrame.current.cancel(), []);
-  const aimable = !!selectedTaken && selectedPart?.kind === 'limb' && !original && !!preview;
+  const aimable = !!selectedTaken && selectedPart?.kind === 'limb' && viewSeq == null && !!preview;
   const aimDown = event => {
     if (event.button !== 0 || !aimable || !capture.current?.project || !capture.current.ray) return;
     const t = Math.round(time0 - preview.start), base = recipeRef.current;
@@ -519,7 +524,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (live) { sliderValue.current = next; slider.current.schedule(); return; }
     slider.current.cancel(); sliderValue.current = null; setDraft(null); change(next);
   };
-  const selectFix = fix => { setSelected(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
+  const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
+  const selectFix = fix => { showNew(); setSelected(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
   const lacksTip = key => !donor ? 'Choose a model to take animation from first.' : `The donor has no ${transferPartLabel(feedsFrom(key))}.`;
   return <ToolWindow title="Transfer" overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
@@ -536,39 +542,38 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           </div>
           <b className="xf-heading">Animations</b>
           <div className="gf-tree xf-list xf-animations" role="group" aria-label="Donor animations">
-            {donor ? (donor.model.Sequences || []).map((s, i) => <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '') + (linked && i === donorShows ? ' xf-playing' : '')} aria-pressed={i === donorSeq} aria-current={linked && i === donorShows ? 'true' : undefined} title="Play this animation in the donor view." name={sequenceName(donor.model, i)} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>)
+            {donor ? (donor.model.Sequences || []).map((s, i) => <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '')} aria-pressed={i === donorSeq} title="Play this animation in the donor view." name={sequenceName(donor.model, i)} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>)
               : <span className="xf-note xf-empty">Choose a model above.</span>}
           </div>
         </aside>
         <main className="xf-center">
           <div className="xf-stage">
             <section className="xf-view" aria-label="Donor">
-              <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorShows)}</span> : <span>Donor</span>}
+              <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
                 {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}</div>
-              <div className="xf-preview">
-                {donor ? <>
-                  <DonorStage donor={donor} sequence={donorSeq} playing={playing} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} clock={donorClock} cameraAnglesRequest={angles.donor} onCameraAnglesChange={onDonorAngles}/>
-                  {!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}
-                </> : <div className="xf-placeholder">Choose a model under From.</div>}
-                {(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}
-              </div>
+              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} cameraAnglesRequest={angles.donor} onCameraAnglesChange={onDonorAngles}
+                  notes={<>{!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</>}/>
+                : <><div className="xf-preview"><div className="xf-placeholder">Choose a model under From.</div>{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</div>
+                  <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}
             </section>
             <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
               <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}
-                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={resultPose} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={resultOverlay}/>
+                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={viewSeq ?? preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} playbackSpeed={resultSpeed} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}
+                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={viewSeq == null ? resultPose : null} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={viewSeq == null ? resultOverlay : undefined}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
               </div>
+              <TransferViewStrip name="Result view" playing={playing} onPlay={() => setPlaying(v => !v)} playTitle="Play or pause this view."
+                interval={preview ? preview.model.Sequences[viewSeq ?? preview.sequenceIndex]?.Interval : null} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={resultSpeed} onSpeed={setResultSpeed}
+                value={viewSeq == null ? 'new' : String(viewSeq)} options={resultOptions} onChange={value => value === 'new' ? showNew() : showOwn(Number(value))} disabled={!preview}
+                selectTitle="What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts."/>
             </section>
           </div>
-          <TransferTimeline length={axis} time={time0 - (preview?.start || 0)} playing={playing} onPlay={() => setPlaying(v => !v)} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }}
+          <TransferTimeline length={axis} time={viewSeq == null ? time0 - (preview?.start || 0) : 0} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }} dimmed={viewSeq != null} onUse={showNew}
             bodyLane={bodyLane} lanes={lanes} selectedLanes={selectedLanes} onLaneSelect={selectLane} onLaneChange={changeLane} onFixSelect={selectFix} onFixDelete={deleteFix}
-            readout={`${preview ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}>
-            <button data-hotkey="transfer:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the body animation without the taken parts." onClick={() => setOriginal(v => !v)}>Original</button>
-          </TransferTimeline>
+            readout={`${preview && viewSeq == null ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}/>
         </main>
         <aside className="xf-controls" aria-label="Parts">
           <div className="preset-bar xf-setup-bar">
@@ -579,7 +584,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             {naming && <PresetNameRow domain="transfer" name={setupName} onName={setSetupName} onSave={saveSetup} onSaveFile={saveSetupFile} onClose={() => setNaming(false)}/>}
             {loadMenu && <div className="gf-tree xf-list xf-setups" role="group" aria-label="Saved setups">
               {setups.map(item => <div key={item.name} className="gf-row xf-setup-row"><button type="button" className="xf-part-name" title="Use this setup." onClick={() => applySetup(item)}><span translate="no">{item.name}</span></button><button type="button" className="preset-bar-delete" aria-label="Delete this setup" title="Deletes this saved setup." onClick={() => deleteSetup(item.name)}>×</button></div>)}
-              <button type="button" className="gf-row xf-row xf-action" onClick={loadSetupFile}>File…</button>
+              <button type="button" className="gf-row xf-row xf-action" onClick={loadSetupFile}>Load from file…</button>
             </div>}
             {setupStatus && <div className="preset-bar-status" role="status">{setupStatus}</div>}
           </div>

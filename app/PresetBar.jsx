@@ -23,8 +23,9 @@ export function pickPreset(domain, preferences, id, commit, say, requestConfirma
   lastChosen.set(domain, change.presetId); commit(change); say(change.status);
 }
 
-export async function writePresetFile(name, text) {
-  if (globalThis.desktop?.savePresetFile) return !!await globalThis.desktop.savePresetFile({ name, text });
+// title (optional): the save dialog's title; the default says preset.
+export async function writePresetFile(name, text, title) {
+  if (globalThis.desktop?.savePresetFile) return !!await globalThis.desktop.savePresetFile({ name, text, ...(title ? { title } : {}) });
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), link = document.createElement('a');
   link.href = url; link.download = `${name.replace(/[<>:"/\\|?*]/g, '_')}.${PRESET_EXTENSION}`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

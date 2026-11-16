@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -92,7 +92,9 @@ async function storyB() {
     await s.openDonor(grunt);
     await s.animation('Attack - 1');
     await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
+    // Each view has its own Play now: hold the donor still too before aiming at its hand.
+    await dialog.locator('section[aria-label="Donor"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
     await page.waitForTimeout(600);
     // The Grunt's weapon hand: its armL chain (limb:36).
     const gruntModel = await readModel(grunt), { box, list } = await s.handles('Donor', gruntModel);
@@ -163,18 +165,11 @@ async function storyB() {
     await dialog.locator('button[data-part="armR"]').click(); await page.waitForTimeout(200);
     await dialog.locator('.xt-lane:not(.xt-body) .xt-label').click(); await page.waitForTimeout(300);
     assert.equal(await dialog.locator('button[data-part="armL"]').getAttribute('aria-pressed'), 'true', "B: clicking a lane's label selects its part");
-    assert.ok(await dialog.locator('.xf-animations .xf-playing').count() <= 1, 'B: at most one animation marked as playing in step');
+    assert.equal(await dialog.locator('.xf-animations .xf-playing').count(), 0, 'B: no animation marked as playing in step; the donor has its own clock');
     await page.waitForTimeout(600);
     await s.shot('01-story-b-timeline', shots4);
     results.checks.push(`B: timeline clip drag sets Delay ${delay} ms (one history step, the swing moves later), its edge sets Speed ${speed}%, the lane label selects the arm`);
     results.checks.push('B: Strength and Raise drags move the drawn hand path and the arm live, without a renderer rebuild');
-    // W3: the donor plays the selected part's animation on the result's clock.
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(200);
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
-    const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox(), frames = [];
-    for (const at of [0.2, 0.6]) { await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(700); const d = await s.probe('Donor'); frames.push(d.frame); assert.equal(d.sequence, gruntModel.Sequences.findIndex(q => q.Name === 'Attack - 1'), "B: the donor plays the arm's animation"); }
-    assert.ok(Math.abs(frames[1] - frames[0]) > 100, `B: scrubbing the result moves the donor with it (${frames.join(' -> ')})`);
-    results.checks.push(`B: with the arm selected the donor follows the result's clock (${frames.join(' -> ')})`);
     // W3: turning one view's camera turns the other to the same angles.
     await s.dragCamera('Donor'); await page.waitForTimeout(600);
     const quaternion = async name => { const { ObjectLoader } = await import('three'), c = new ObjectLoader().parse((await s.probe(name)).camera); return c.quaternion; };
@@ -324,7 +319,7 @@ async function mix() {
     assert.equal(labels.length, 3, `mix: body lane and two clip lanes (${labels.join(' | ')})`);
     await dialog.locator('.xt-lane:not(.xt-body) .xt-label', { hasText: 'Stand Victory' }).click(); await page.waitForTimeout(300);
     assert.equal(await dialog.locator('button[data-part="all"]').getAttribute('aria-pressed'), 'true', 'mix: a lane of two parts selects All taken parts');
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(800);
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(800);
     await s.shot('03-three-source-mix', shots4);
     await s.shot('07-three-source-mix', shotsF);
     results.checks.push(`mix: ${labels.map(l => l.replace(/\s+/g, ' ')).join(' | ')}`);
@@ -356,7 +351,7 @@ async function aimStory() {
     await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
     await s.openDonor(grunt); await s.animation('Attack - 1');
     await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(800);
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
     const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
     await page.mouse.click(ruler.x + ruler.width * 0.45, ruler.y + ruler.height / 2); await page.waitForTimeout(1000);
     const start = await hand();
@@ -405,7 +400,7 @@ async function weaponStory() {
     assert.equal(await dialog.getByLabel('Keep weapon above the ground').count(), 1, 'weapon: Keep weapon above the ground is shown');
     assert.equal(await dialog.getByLabel('Point weapon like theirs').count(), 1, 'weapon: Point weapon like theirs is shown (the Footman holds a sword)');
     assert.match(await dialog.locator('button[data-part="armL"]').innerText(), /holds the weapon/, 'weapon: the other arm says it holds the weapon');
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
     const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
     await page.mouse.click(ruler.x + ruler.width * 0.45, ruler.y + ruler.height / 2); await page.waitForTimeout(1200);
     await noScroll(s, 'Kurgan weapon arm');
@@ -466,9 +461,10 @@ async function setupStory() {
     await openTransfer(s);
     await stubDialogs(s.app, { open: setupFile });
     await dialog.getByRole('button', { name: 'Load from…' }).click();
-    await dialog.locator('.xf-setups').getByRole('button', { name: 'File…' }).click(); await page.waitForTimeout(3000);
+    await dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }).click(); await page.waitForTimeout(3000);
     assert.equal(await dialog.locator('input[data-part-switch="armL"]').isChecked(), true, 'setup: on the Lord of Change the arm is taken');
-    assert.match(await s.view('Donor').locator('.xf-caption > span').innerText(), /^Attack - 1|grunt donor setup - Attack - 1/i, 'setup: the donor view shows the animation the parts use');
+    assert.match(await s.view('Donor').locator('.xf-caption > span').innerText(), /^grunt donor setup$/i, 'setup: the donor caption is the model name');
+    assert.equal(await s.view('Donor').getByLabel('Animation in this view').evaluate(e => e.selectedOptions[0].textContent), 'Attack - 1', 'setup: the donor view shows the animation the parts use');
     assert.match(await s.view('Donor').locator('.xf-caption > span').innerText(), /grunt donor setup/i, 'setup: the Grunt reopened by its path');
     await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
     assert.equal(await dialog.locator('.xf-part-controls button', { hasText: 'Take from' }).count(), 0, 'setup: no Take from button by itself');
@@ -487,7 +483,7 @@ async function darkStory() {
     await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
     await s.openDonor(grunt); await s.animation('Attack - 1');
     await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(800);
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
     const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
     await page.mouse.click(ruler.x + ruler.width * 0.45, ruler.y + ruler.height / 2); await page.waitForTimeout(1000);
     await dialog.getByRole('button', { name: 'This moment' }).click();
@@ -535,7 +531,7 @@ async function sweep34() {
     await click(dialog.locator('button[data-part="armL"]'), 'select Left arm');
     await click(dialog.getByRole('button', { name: 'Whole movement' }), 'Whole movement');
     await click(dialog.getByRole('button', { name: 'This moment' }), 'This moment');
-    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click().catch(() => {});
+    await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click().catch(() => {});
     await page.mouse.click(rb.x + rb.width * 0.4, rb.y + rb.height / 2); await page.waitForTimeout(800);
     const hand = await page.evaluate(() => { const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root), path = p.props.overlayPaths?.[0]; if (!path) return null; const canvas = root.querySelector('canvas'), box = canvas.getBoundingClientRect(), [x, y] = p.runtime.captureApi.project(path.points[path.marker]), scale = canvas.width / box.width; return { x: box.left + x / scale, y: box.top + y / scale }; });
     assert.ok(hand, 'sweep34: the hand path is drawn');
@@ -564,7 +560,7 @@ async function sweep34() {
     await click(dialog.getByRole('button', { name: 'Load from…' }), 'Load from…');
     await click(dialog.locator('.xf-setups button', { hasText: 'Sweep setup' }), 'load saved setup'); await page.waitForTimeout(1000);
     await click(dialog.getByRole('button', { name: 'Load from…' }), 'Load from… again');
-    await click(dialog.locator('.xf-setups').getByRole('button', { name: 'File…' }), 'load setup file'); await page.waitForTimeout(1500);
+    await click(dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }), 'load setup file'); await page.waitForTimeout(1500);
     // Add all from the donor shown.
     await s.from().locator('[data-source^="file:"]').first().click(); await page.waitForTimeout(500);
     await s.animation('Attack - 1');
@@ -573,6 +569,98 @@ async function sweep34() {
     results.checks.push(`sweep34: ${clicked.length} round 3-4 controls clicked or dragged, no crash or page error`);
     await s.noCrash('sweep34');
   } finally { await s.close(); }
+}
+
+// Round 5: each view has its own strip. The donor's dropdown is the Animations list's choice and its
+// Pause freezes only the donor; the result's dropdown shows one of the model's own animations without
+// touching the recipe; using the timeline brings the new animation back; Speed 50% halves that view only.
+async function viewsStory() {
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 13 views.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor views.mdx');
+  const s = await session(footman, 'views'), { page, dialog } = s;
+  const strip = name => s.view(name).locator('.xs-strip');
+  // How far a view's clock moves in a fixed wait (frames per second, wrapped loops ignored).
+  const advance = async name => { const a = (await s.probe(name)).frame; await page.waitForTimeout(800); const b = (await s.probe(name)).frame; return b - a; };
+  // Frames per wall-clock second, from short steps with the loop's wrap-arounds left out.
+  const steady = async name => { let total = 0, time = 0, last = await page.evaluate(n => ({ f: (() => { const root = document.querySelector(`[role="dialog"][aria-label="Transfer"] section[aria-label="${n}"] .game-preview-root`); return window.__mdlxl.preview(root).runtime.native.getFrame(); })(), t: performance.now() }), name);
+    for (let i = 0; i < 16; i++) { await page.waitForTimeout(100); const now = await page.evaluate(n => ({ f: (() => { const root = document.querySelector(`[role="dialog"][aria-label="Transfer"] section[aria-label="${n}"] .game-preview-root`); return window.__mdlxl.preview(root).runtime.native.getFrame(); })(), t: performance.now() }), name); const d = now.f - last.f; if (d > 0) { total += d; time += now.t - last.t; } last = now; }
+    return time ? Math.round(total / time * 1000) : 0; };
+  try {
+    await openTransfer(s);
+    await s.openDonor(grunt);
+    await page.waitForTimeout(1200);
+    await s.shot('01-default', shots5);
+    // The donor's dropdown switches its animation, and the Animations list follows.
+    await strip('Donor').getByLabel('Animation in this view').selectOption({ label: 'Attack - 1' }); await page.waitForTimeout(600);
+    const attack = (await readModel(grunt)).Sequences.findIndex(q => q.Name === 'Attack - 1');
+    assert.equal((await s.probe('Donor')).sequence, attack, 'views: the donor dropdown switches the donor animation');
+    assert.equal(await s.from().locator(`.xf-animations [data-animation="${attack}"]`).getAttribute('aria-pressed'), 'true', 'views: the Animations list follows');
+    await s.from().locator('.xf-animations button', { hasText: /^Walk$|^walk$/ }).first().click(); await page.waitForTimeout(400);
+    assert.match(await strip('Donor').getByLabel('Animation in this view').evaluate(e => e.selectedOptions[0].textContent), /walk/i, 'views: the dropdown follows the Animations list');
+    await strip('Donor').getByLabel('Animation in this view').selectOption({ label: 'Attack - 1' }); await page.waitForTimeout(400);
+    // Donor Pause freezes the donor; the result keeps playing.
+    await strip('Donor').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
+    assert.equal(await advance('Donor'), 0, 'views: donor Pause freezes the donor');
+    assert.ok(Math.abs(await advance('Result')) > 0, 'views: the result keeps playing');
+    await strip('Donor').getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(300);
+    results.checks.push('views: the donor dropdown and the Animations list are one choice; donor Pause freezes only the donor');
+    // Speed 50% roughly halves that view's advance only.
+    // Measured on the Grunt's looping walk, so the clock never stops at an end.
+    await strip('Donor').getByLabel('Animation in this view').selectOption({ label: 'walk' }); await page.waitForTimeout(600);
+    const donorFull = await steady('Donor'), resultFull = await steady('Result');
+    await strip('Donor').getByLabel('Viewing speed').selectOption('50'); await page.waitForTimeout(400);
+    const donorHalf = await steady('Donor'), resultSame = await steady('Result');
+    assert.ok(donorHalf > donorFull * 0.3 && donorHalf < donorFull * 0.7, `views: donor Speed 50% halves its advance (${donorFull} -> ${donorHalf})`);
+    assert.ok(resultSame > resultFull * 0.75, `views: the result keeps its speed (${resultFull} -> ${resultSame})`);
+    await strip('Donor').getByLabel('Viewing speed').selectOption('100');
+    results.checks.push(`views: donor Speed 50% halves its advance (${donorFull} -> ${donorHalf} ms per second), the result keeps ${resultSame}`);
+    // Whole body, both views playing different things.
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+    await strip('Donor').getByLabel('Animation in this view').selectOption({ label: 'walk' }); await page.waitForTimeout(1200);
+    await s.shot('02-whole-body-both-playing', shots5);
+    // The result shows one of the model's own animations: handles off, recipe and Body animation unchanged.
+    const body = await s.parts().getByLabel('Body animation', { exact: true }).inputValue(), takenBefore = await dialog.locator('input[data-part-switch]:checked').count(), countBefore = await s.count();
+    const cameraOf = async name => { const c = (await s.probe(name)).camera.object; return c.matrix.map(v => Math.round(v * 100) / 100).join(',') + ' zoom ' + c.zoom; };
+    const cameraBefore = await cameraOf('Result'), donorCameraBefore = await cameraOf('Donor');
+    await strip('Result').getByLabel('Animation in this view').selectOption({ label: 'Walk' }); await page.waitForTimeout(1000);
+    assert.equal(await cameraOf('Result'), cameraBefore, 'views: showing an own animation keeps the result camera');
+    assert.equal(await cameraOf('Donor'), donorCameraBefore, 'views: and the donor camera');
+    const own = await s.probe('Result'), walk = (await readModel(footman)).Sequences.findIndex(q => q.Name === 'Walk');
+    assert.equal(own.sequence, walk, 'views: the result plays the model\'s own Walk');
+    assert.equal(own.config, null, 'views: no handles while an own animation is shown');
+    assert.equal(await dialog.locator('.xt-timeline').getAttribute('aria-disabled'), 'true', 'views: the timeline is dimmed');
+    assert.equal(await s.parts().getByLabel('Body animation', { exact: true }).inputValue(), body, 'views: Body animation unchanged');
+    assert.equal(await dialog.locator('input[data-part-switch]:checked').count(), takenBefore, 'views: the taken parts unchanged');
+    assert.equal(await s.count(), countBefore, 'views: the model unchanged');
+    await s.shot('03-result-own-animation', shots5);
+    // A timeline click brings the new animation back.
+    const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
+    await page.mouse.click(ruler.x + ruler.width * 0.3, ruler.y + ruler.height / 2); await page.waitForTimeout(800);
+    assert.equal(await strip('Result').getByLabel('Animation in this view').inputValue(), 'new', 'views: using the timeline returns to New animation');
+    assert.notEqual((await s.probe('Result')).sequence, walk, 'views: the result plays the new animation again');
+    assert.equal(await dialog.locator('.xt-timeline').getAttribute('aria-disabled'), null, 'views: the timeline is active again');
+    assert.equal(await cameraOf('Result'), cameraBefore, 'views: returning to New animation keeps the result camera');
+    // Picking an own animation then moving a slider returns too.
+    await strip('Result').getByLabel('Animation in this view').selectOption({ label: 'Walk' }); await page.waitForTimeout(500);
+    await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
+    await s.dragSlider('amount', 0.8);
+    assert.equal(await strip('Result').getByLabel('Animation in this view').inputValue(), 'new', 'views: a slider change returns to New animation');
+    results.checks.push('views: the result shows the model\'s own Walk with no handles, recipe and Body animation unchanged; the timeline and a slider bring the new animation back');
+    // An arm selected with its path, for the pictures.
+    await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(800);
+    await s.shot('04-arm-selected-path', shots5);
+    await s.noCrash('views');
+  } finally { await s.close(); }
+  // The same window under the dark theme.
+  const footman2 = copyModel('transfer-footman', 'TEST TRANSFER 14 views dark.mdx'), grunt2 = copyModel('transfer-grunt', 'grunt donor views dark.mdx');
+  const d = await session(footman2, 'views-dark', { preferences: { theme: 'dark' } });
+  try {
+    await openTransfer(d);
+    await d.openDonor(grunt2);
+    await d.view('Donor').locator('.xs-strip').getByLabel('Animation in this view').selectOption({ label: 'Attack - 1' }); await d.page.waitForTimeout(400);
+    await d.dialog.locator('input[data-part-switch="armL"]').click(); await d.page.waitForTimeout(1200);
+    await d.shot('05-dark', shots5);
+    await d.noCrash('views dark');
+  } finally { await d.close(); }
 }
 
 // The FX window on the same Footman, for comparing density.
@@ -627,14 +715,20 @@ async function sweep() {
     for (const field of await dialog.locator('input[data-field]').evaluateAll(list => list.map(i => i.dataset.field))) { await s.dragSlider(field, 0.3); clicked.push('All ' + field); await s.noCrash('All ' + field); }
     await click(s.view('Donor').getByRole('button', { name: 'Mirror' }), 'Mirror on');
     await click(s.view('Donor').getByRole('button', { name: 'Mirror' }), 'Mirror off');
-    await click(dialog.getByRole('button', { name: 'Original' }), 'Original on');
-    await click(dialog.getByRole('button', { name: 'Original' }), 'Original off');
-    await click(dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }), 'Pause');
+    await s.view('Result').getByLabel('Animation in this view').selectOption({ label: 'Stand Defend' }); await page.waitForTimeout(400); clicked.push('result view: an own animation'); await s.noCrash('own animation');
+    await s.view('Result').getByLabel('Animation in this view').selectOption({ label: 'New animation' }); await page.waitForTimeout(400); clicked.push('result view: New animation'); await s.noCrash('new animation');
+    await s.view('Donor').getByLabel('Viewing speed').selectOption('50'); clicked.push('donor speed'); await s.noCrash('donor speed');
+    await click(s.view('Donor').locator('.xs-strip').getByRole('button', { name: /Pause|Play/ }), 'donor Play/Pause');
+    const ds = await s.view('Donor').getByLabel('Time in this view').boundingBox();
+    await page.mouse.move(ds.x + 3, ds.y + ds.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(ds.x + ds.width * i / 7, ds.y + ds.height / 2); await page.waitForTimeout(20); }
+    await page.mouse.up(); clicked.push('donor scrub'); await s.noCrash('donor scrub');
+    await click(dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }), 'Pause');
     const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
     await page.mouse.move(sb.x + 4, sb.y + sb.height / 2); await page.mouse.down();
     for (let i = 1; i <= 10; i++) { await page.mouse.move(sb.x + sb.width * i / 11, sb.y + sb.height / 2); await page.waitForTimeout(16); }
     await page.mouse.up(); clicked.push('scrub'); await s.noCrash('scrub');
-    await click(dialog.locator('.xt-timeline').getByRole('button', { name: 'Play' }), 'Play');
+    await click(dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Play' }), 'Play');
     await dialog.getByLabel('Name', { exact: true }).fill('Swing Defend'); clicked.push('Name');
     await click(dialog.getByRole('button', { name: 'Add animation' }), 'Add animation');
     assert.equal(await page.evaluate(() => window.__mdlxl.model().Sequences.at(-1).Name), 'Swing Defend', 'the typed name is used');
@@ -703,7 +797,7 @@ async function trials() {
       await s.openDonor(donor);
       await s.animation(animation);
       await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
-      await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+      await dialog.locator('section[aria-label="Result"] .xs-strip').getByRole('button', { name: 'Pause' }).click();
       const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
       await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(1200);
       await s.shot(file);
@@ -715,11 +809,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

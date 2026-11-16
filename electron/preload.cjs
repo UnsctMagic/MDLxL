@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld('desktop', {
   particleDuplicate: id=>call('particles:duplicate',id),
   particleImport: ()=>call('particles:import'),
   particleExport: id=>call('particles:export',id),
-  openPresetFile: ()=>call('preset:openFile'),
+  openPresetFile: options=>call('preset:openFile',options),
   savePresetFile: payload=>call('preset:saveFile',payload),
   particleRead: id => call('particles:read',id),
   particleSave: payload => call('particles:save',payload),

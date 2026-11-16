@@ -695,3 +695,29 @@ Contract (director):
   has its own Speed under Timing.
 - **P6 Setups wording.** The load menu's lone `File…` row reads `Load from file…`, and the file
   dialogs say setup, not preset.
+
+### Round 5 as built (window coder; awaiting director review)
+
+- `app/TransferViewStrip.jsx`: one 24 px row per view, [Play|Pause] [scrub] [Speed] [animation].
+  The height comes from the preview; the window did not grow. The scrub is coalesced to one update per
+  frame (registered in `test/live-drag-frames.test.js`).
+- Speed is a compact select (25/50/100/200%) on `GamePreview`'s `playbackSpeed`, not the
+  KeyframeTimeline number field: that field ("Playback Speed [n] %") does not fit a ~330 px strip next
+  to the dropdown. Tooltip: "Viewing speed only. It does not change the animation."
+- Donor: `DonorStage` owns its time, Play and Speed; no `onPlayingChange`, so a non-looping clip
+  keeps its clock. Linking (`donorClock`, `linked`, `donorShows`, `xf-playing`) is gone; the
+  caption is the model name; the donor path follows the animation the donor shows.
+- Result: `viewSeq` (null = New animation). Own animations turn off handles, path and aim and dim the
+  timeline (`aria-disabled`, `xt-dimmed`; a pointer-down on it returns to New animation). It also
+  returns on any recipe change (part switch, slider, Take whole body, Clear all, Body animation,
+  setup load), a slider draft or a fix/lane click. Time jumps to the sequence start and back to the
+  preview start; the camera is untouched (the views story asserts both cameras before and after).
+- Timeline Play and `Original` removed with their state; the readout sits in the left cell.
+  `transfer:play` is the result strip's Play; `transfer:original` left the manifest, catalogs and
+  tests; the donor Play is `transfer:play-donor` (manual, "Play donor").
+- `File…` reads `Load from file…`; the setup file dialogs are titled Save setup / Load setup through
+  an additive `title` on `preset:saveFile` / `preset:openFile` (other callers keep "preset").
+- Harness: story `views` (dropdown ↔ Animations list, donor Pause, own animation without touching
+  the recipe, timeline/slider return, Speed 50% on one view, unchanged cameras) and the sweep's
+  Original step replaced by the result dropdown, donor Speed/Play/scrub. Pictures in
+  `out/transfer-ui/round5/`.

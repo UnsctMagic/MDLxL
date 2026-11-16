@@ -6,13 +6,15 @@ const DELAY_MAX = 2000, SPEED = [0.25, 3];
 const rulerStep = length => [100, 250, 500, 1000, 2000, 5000, 10000].find(step => length / step <= 8) || 20000;
 
 /**
- * Transfer's clip timeline under the stage: Play/Pause, a ruler to scrub, the body animation
+ * Transfer's clip timeline under the stage: the time, a ruler to scrub, the body animation
  * lane (its loops drawn as repeats) and one lane per taken source animation. A clip dragged
  * sideways changes Delay, by its right edge Speed; Ease ramps sit at its ends; moment fixes are
  * diamonds. Pointer events only record; the work runs once per display frame
  * (docs/ARCHITECTURE.md "Only do work someone can see"). Times are result ms, 0..length.
+ * `dimmed`: the result view shows another animation; any press on the timeline first calls `onUse`
+ * (which brings the view back to the new animation) and then works as usual.
  */
-export default function TransferTimeline({ length, time, playing, onPlay, onSeek, bodyLane, lanes, selectedLanes = [], onLaneSelect, onLaneChange, onFixSelect, onFixDelete, readout, children }) {
+export default function TransferTimeline({ length, time, onSeek, bodyLane, lanes, selectedLanes = [], onLaneSelect, onLaneChange, onFixSelect, onFixDelete, readout, dimmed = false, onUse }) {
   const track = useRef(null), drag = useRef(null), apply = useRef(null), frame = useRef(null);
   frame.current ||= createFrameCoalescer(() => apply.current());
   useEffect(() => () => frame.current.cancel(), []);
@@ -82,14 +84,14 @@ export default function TransferTimeline({ length, time, playing, onPlay, onSeek
       <span className="xt-gap"/>
     </div>;
   };
-  return <div className="xt-timeline" role="group" aria-label="Clip timeline">
+  return <div className={'xt-timeline' + (dimmed ? ' xt-dimmed' : '')} role="group" aria-label="Clip timeline" aria-disabled={dimmed || undefined} onPointerDownCapture={() => { if (dimmed) onUse?.(); }}>
     <div className="xt-head">
-      <button type="button" data-hotkey="transfer:play" data-hotkey-absolute className="xt-play" title="Play or pause both views." onClick={onPlay}>{playing ? 'Pause' : 'Play'}</button>
+      <span className="xt-readout" title="Time in the new animation.">{readout}</span>
       <div ref={track} className="xt-ruler" role="slider" aria-label="Time" aria-valuemin={0} aria-valuemax={Math.round(span)} aria-valuenow={Math.round(time)} title="Time in the new animation. Click or drag to go there." onPointerDown={seekDown} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         {ticks.map(t => <span key={t} style={{ left: pct(t) }}>{t ? `${(t / 1000).toFixed(t % 1000 ? 2 : 1)}` : '0'}</span>)}
         <i className="xt-head-cursor" style={{ left: pct(time) }}/>
       </div>
-      <div className="xt-tail"><span className="xt-readout" title="Time in the new animation.">{readout}</span>{children}</div>
+      <span className="xt-gap"/>
     </div>
     <div className="xt-lanes">
       {bodyLane && laneRow(bodyLane, true)}

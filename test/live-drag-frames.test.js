@@ -106,6 +106,7 @@ const coalescedDrags = [
   { name: 'EMTR placement ghost drag', file: 'app/ParticlePlacementStage.jsx', from: 'onPointerMove={', to: 'onPointerUp={stop}', forbidden: /onPosition/ },
   { name: 'EMTR ribbon diamond drag', file: 'app/ParticleKeyTrack.jsx', from: 'const move=event=>', to: 'const applyMove=', forbidden: /setDraft|onScrub|frameAt|getBoundingClientRect/ },
   { name: 'Transfer hand or foot aim drag', file: 'app/Transfer.jsx', from: 'const aimMove = event => {', to: 'aimApply.current = () => {', forbidden: /transferAim|dropPoint|setDraft|change\(/ },
+  { name: 'Transfer view strip scrub', file: 'app/TransferViewStrip.jsx', from: 'const scrubInput = event => {', to: 'const applyScrub = () => {', forbidden: /seek\.current|onSeek|setTime/ },
   { name: 'Transfer clip timeline drag', file: 'app/TransferTimeline.jsx', from: 'function move(event) {', to: 'function applyMove() {', forbidden: /onLaneChange|onSeek|getBoundingClientRect/ },
   { name: 'AnimXL strip drag', file: 'app/AnimXL.jsx', from: 'const stripMove = event => {', to: 'stripApply.current = () => {', forbidden: /\bupdate\(|setSettings|setTime|setDraft|stripTime/ },
   { name: 'Showcase layer drag', file: 'app/ShowcaseLayers.jsx', from: 'function move(event){', to: 'function applyMove(){', forbidden: /onChange|scaleTextRuns/ },
