@@ -586,3 +586,83 @@ test('N4 automatic aim: off for a looping stand, on (eased at the ends) for an a
   const off = axisOf(own.weapon, m.get(own.marker)).angleTo(want) * 180 / Math.PI;
   assert.ok(off <= 5, `at ${t} ms the staff is ${off.toFixed(2)} degrees from the sword`);
 });
+
+// ---------------------------------------------------------------- round 7: range, follow, avoid, trim, chain
+const sequenceLike = (model, pattern) => { const index = model.Sequences.findIndex(s => pattern.test(s.Name)); assert.ok(index >= 0, `no animation like ${pattern}`); return index; };
+const nodeNamed = (model, name) => { const node = allNodes(model).find(n => n.Name === name); assert.ok(node, `no node ${name}`); return node.ObjectId; };
+const sameArrays = (a, b) => { assert.deepEqual([...a.tracks.keys()].sort(), [...b.tracks.keys()].sort()); for (const [id, track] of a.tracks) for (const key of ['Rotation', 'Translation']) if (track[key]) assert.deepEqual(Array.from(track[key]), Array.from(b.tracks.get(id)[key]), `joint ${id} ${key}`); };
+const rotationAt = (built, id, k) => new Quaternion().fromArray(built.tracks.get(id).Rotation, k * 4);
+const sampleNear = (built, time) => built.times.reduce((best, t, k) => Math.abs(t - time) < Math.abs(built.times[best] - time) ? k : best, 0);
+
+test('R7 the new recipe fields change nothing while they are off or absent', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const footman = load('transfer-footman'), grunt = load('transfer-grunt'), sources = new Map([['grunt', grunt]]);
+  const recipe = extra => ({ base: { sequence: seq(footman, 'Stand - 1') }, sources: {}, parts: wholeBody(footman, 'grunt', seq(grunt, 'Attack - 1'), extra) });
+  const plain = recipe({}); for (const part of Object.values(plain.parts)) for (const key of ['range', 'follow', 'avoid', 'clip']) delete part[key];
+  const before = buildTransfer(footman, sources, plain);
+  sameArrays(before, buildTransfer(footman, sources, recipe({ range: 0, follow: 0, avoid: 0, clip: null, next: [] })));
+  assert.equal(before.length, buildTransfer(footman, sources, recipe({})).length);
+});
+
+test('R7 range: the Abomination taking the Demon Hunter\'s attack keeps its arms and chest in its own range', { skip: missing('transfer-abomination', 'transfer-demon-hunter') }, () => {
+  const abom = load('transfer-abomination'), hunter = load('transfer-demon-hunter'), sources = new Map([['d', hunter]]);
+  const recipe = extra => ({ base: { sequence: sequenceLike(abom, /^stand/i) }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(transferRig(abom), transferRig(hunter, { sequence: sequenceLike(hunter, /^attack/i) })).parts.map(key => [key, { ...defaultTransferPart(transferRig(abom), key, true), source: 'd', sequence: sequenceLike(hunter, /^attack/i), ...extra }])) });
+  const off = XFER.transferDiagnostics(abom, sources, recipe({})), on = XFER.transferDiagnostics(abom, sources, recipe({ range: 1 }));
+  assert.ok(off.outside.armL > 50, `without the limit the arm leaves its own range by ${off.outside.armL.toFixed(1)} degrees`);
+  // (armR is placed by the weapon's aim and grip afterwards, so the limit leaves it alone.)
+  for (const key of ['armL', 'chest', 'head']) assert.ok(on.outside[key] <= 10.5, `${key} stays within the soft stop (${on.outside[key].toFixed(1)} degrees past its own range)`);
+  assert.ok(on.outside.chest <= off.outside.chest + 1e-6);
+});
+
+test('R7 avoid: the Abomination\'s arms come out of its chest', { skip: missing('transfer-abomination', 'transfer-demon-hunter') }, () => {
+  const abom = load('transfer-abomination'), hunter = load('transfer-demon-hunter'), sources = new Map([['d', hunter]]), rig = transferRig(abom), attack = sequenceLike(hunter, /^attack/i);
+  const recipe = extra => ({ base: { sequence: sequenceLike(abom, /^stand/i) }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(hunter, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'd', sequence: attack, ...extra }])) });
+  const off = XFER.transferDiagnostics(abom, sources, recipe({})), on = XFER.transferDiagnostics(abom, sources, recipe({ avoid: 1 }));
+  assert.ok(off.arms.armL.deficit > 0.1 && off.arms.armR.deficit > 0.05, `the arms start inside (${off.arms.armL.deficit.toFixed(2)}, ${off.arms.armR.deficit.toFixed(2)})`);
+  for (const key of ['armL', 'armR']) assert.ok(on.arms[key].deficit <= 0.04, `${key} is out (${on.arms[key].deficit.toFixed(2)} of a body radius still inside)`);
+});
+
+test('R7 follow: the Slaanesh warrior\'s shoulder pads keep their learned share of the arm, its cape plays its own attack', { skip: missing('glow-dual-weapon', 'transfer-grunt') }, () => {
+  const warrior = load('glow-dual-weapon'), grunt = load('transfer-grunt'), sources = new Map([['g', grunt]]), rig = transferRig(warrior), attack = seq(grunt, 'Attack - 1');
+  const base = sequenceLike(warrior, /^stand/i), recipe = extra => ({ base: { sequence: base }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(grunt, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'g', sequence: attack, ...extra }])) });
+  const learned = XFER.transferDiagnostics(warrior, sources, recipe({}));
+  for (const name of ['Pauldron_L', 'Pauldron_R']) { const item = learned.followers.find(f => f.joint === name); assert.ok(item && item.fit >= 0.95 && Math.abs(item.share - 0.5) < 0.1, `${name}: learned ${item && item.share.toFixed(2)} of ${item && item.driver} (fit ${item && item.fit.toFixed(2)})`); }
+  assert.ok(learned.chains.some(c => c.joint === 'Cape 1') && learned.chains.some(c => c.joint === 'Cape 2'));
+  const off = buildTransfer(warrior, sources, recipe({})), on = buildTransfer(warrior, sources, recipe({ follow: 1 }));
+  for (const name of ['Pauldron_L', 'Pauldron_R', 'Cape 1', 'Cape 2']) { const id = nodeNamed(warrior, name); assert.ok(!off.tracks.has(id), `${name} is left alone without follow`); assert.ok(on.tracks.has(id), `${name} is driven with follow`); }
+  // The pad's turn (against the chest) is the learned share of the arm joint's turn, at every moment.
+  const ref = sampleNodeMatrices(warrior, warrior.Sequences[rig.reference.sequence].Interval[0], rig.reference.sequence);
+  const turn = (matrices, id, anchor) => { const d = rotOf(matrices.get(id)).multiply(rotOf(ref.get(id)).invert()), a = rotOf(matrices.get(anchor)).multiply(rotOf(ref.get(anchor)).invert()); return a.invert().multiply(d); };
+  const power = (q, w) => new Quaternion().slerpQuaternions(new Quaternion(), q.w < 0 ? new Quaternion(-q.x, -q.y, -q.z, -q.w) : q, w);
+  const pad = learned.followers.find(f => f.joint === 'Pauldron_L'), padId = nodeNamed(warrior, 'Pauldron_L'), driverId = nodeNamed(warrior, pad.driver), anchor = rig.parts[pad.part].anchor;
+  let worst = 0;
+  for (let k = 0; k < on.times.length; k++) { const m = builtMatrices(warrior, on, base, k); worst = Math.max(worst, angle(turn(m, padId, anchor), power(turn(m, driverId, anchor), pad.share))); }
+  assert.ok(worst <= 2, `the pad is within ${worst.toFixed(2)} degrees of its share of the arm`);
+  // The cape's own keys of the warrior's Attack, fitted to the taken clip's time.
+  const kind = sequenceLike(warrior, /^attack/i), interval = warrior.Sequences[kind].Interval, cape = nodeNamed(warrior, 'Cape 1'), node = allNodes(warrior).find(n => n.ObjectId === cape);
+  for (const share of [0.25, 0.5, 0.75]) {
+    const k = sampleNear(on, on.length * share), frame = Math.round(interval[0] + on.times[k] / on.length * (interval[1] - interval[0]));
+    const own = new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { interval, globalSequences: warrior.GlobalSequences, globalTime: frame, fallback: [0, 0, 0, 1], quaternion: true }));
+    assert.ok(angle(rotationAt(on, cape, k), own) <= 2, `at ${on.times[k]} ms the cape is ${angle(rotationAt(on, cape, k), own).toFixed(2)} degrees from its own attack`);
+  }
+});
+
+test('R7 trim and chain: part of a clip, then another clip of the same part without falling back to the body animation', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const footman = load('transfer-footman'), grunt = load('transfer-grunt'), sources = new Map([['g', grunt]]), rig = transferRig(footman), base = seq(footman, 'Stand - 1');
+  const first = seq(grunt, 'Attack - 1'), second = seq(grunt, 'Attack - 2'), arm = extra => ({ ...defaultTransferPart(rig, 'armL'), source: 'g', sequence: first, blend: 0, ...extra });
+  const build = part => buildTransfer(footman, sources, { base: { sequence: base }, sources: {}, parts: { armL: part } }), joint = rig.parts.armL.joints[0]; // the arm's first joint: its parent is not blended
+  // Trim: 200..600 ms of the clip is a 400 ms result that starts where the whole clip is at 200 ms.
+  const whole = build(arm({})), cut = build(arm({ clip: [200, 600] }));
+  assert.equal(cut.length, 400);
+  for (const t of [0, 200, 400]) assert.ok(angle(rotationAt(cut, joint, sampleNear(cut, t)), rotationAt(whole, joint, sampleNear(whole, t + 200))) <= 1.5, `the trimmed clip at ${t} ms is the whole clip at ${t + 200} ms`);
+  // Chain: the second clip starts 150 ms before the first ends and fades in over those 150 ms.
+  const length = whole.length, start = length - 150, secondLength = grunt.Sequences[second].Interval[1] - grunt.Sequences[second].Interval[0];
+  const chain = build(arm({ next: [arm({ sequence: second, start, blend: 150 })] })), alone = build(arm({ sequence: second, start, blend: 0 }));
+  assert.equal(chain.length, Math.round(start + secondLength));
+  const mid = sampleNear(chain, start + 75), last = rotationAt(whole, joint, sampleNear(whole, start + 75)), next = rotationAt(alone, joint, sampleNear(alone, start + 75));
+  const between = last.clone().slerp(next, 0.5), bodyPose = rotationAt(build(arm({ amount: 0 })), joint, 0);
+  // (The weapon lift is smoothed over the whole result, so the two builds differ by a few degrees.)
+  assert.ok(angle(rotationAt(chain, joint, mid), between) <= 10, `half way through the hand-over the arm is between the two clips (${angle(rotationAt(chain, joint, mid), between).toFixed(1)} degrees off)`);
+  assert.ok(angle(rotationAt(chain, joint, mid), bodyPose) > 6 || angle(between, bodyPose) <= 6, 'it does not drop back to the body animation in between');
+  const later = sampleNear(chain, start + 300);
+  assert.ok(angle(rotationAt(chain, joint, later), rotationAt(alone, joint, sampleNear(alone, start + 300))) <= 1.5, 'after the hand-over the second clip plays as it does alone');
+});

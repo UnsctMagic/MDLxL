@@ -387,6 +387,7 @@ export function defaultTransferPart(recipientRig, partKey, wholeBody = false) {
     source: null, sequence: null, from: null, flip: false, amount: 1, match: 0,
     offset: [0, 0, 0], start: 0, speed: 1, loop: null, blend: wholeBody ? 0 : 150, plant: true, travel: 1,
     fixes: [], grip: null, clear: null, aim: null,
+    range: 0, follow: 0, avoid: 0, clip: null,
   };
 }
 
@@ -399,6 +400,191 @@ export function transferWholeBody(recipientRig, donorRig) {
   const lower = pairs(recipientRig) !== pairs(donorRig);
   const parts = Object.keys(recipientRig?.parts || {}).filter(key => (donorRig?.parts?.[key] || donorRig?.parts?.[swapSide(key)]) && !(lower && (key === 'hips' || /^leg/.test(key))));
   return { parts, reason: lower ? 'Hips and legs keep the body animation: the two models stand on a different number of legs.' : null };
+}
+
+// ---------------------------------------------------------------- learned from the model's own animations
+// What the open model's own animations say about it, read once per rig: how far
+// each joint ever turns (range), which loose joints turn with a limb and by how
+// much (followers: shoulder pads, plates, volume helpers), which loose chains
+// hang from the trunk with keys of their own (cloaks, hair, belts), and how big
+// the trunk and each held thing are (shapes). Death, decay, dissipate, portrait
+// and birth animations are left out: a unit that falls over there still "stays
+// upright" everywhere else.
+const OWN_SKIP = /death|decay|dissipate|portrait|birth|morph/i;
+const RANGE_MARGIN = 5 * DEG / 2, RANGE_KNEE = 10 * DEG / 2; // half angles, as logQ gives them
+// Arm guard: a point counts as inside below this share of the level the model's own poses show
+// (the shapes are rough ellipsoids), and one shoulder turns at most this far for it.
+const GUARD_LEVEL = 0.8, GUARD_MOST = 30 * DEG;
+const firstWord = name => String(name || '').trim().split(/[\s\-_]+/)[0].toLowerCase();
+/** The model's own animation of the same kind as `name` (exact name, else the
+ * same first word, a plain "Attack" or "Attack - 2" before "Attack Slam"). */
+function sameKindSequence(model, name) {
+  const list = (model.Sequences || []).map((sequence, index) => ({ index, sequence, name: String(sequence.Name || '').trim() })).filter(item => item.sequence.Interval);
+  const wanted = String(name || '').trim().toLowerCase(), word = firstWord(name);
+  const exact = list.find(item => item.name.toLowerCase() === wanted);
+  if (exact) return exact.index;
+  const same = list.filter(item => word && firstWord(item.name) === word);
+  return (same.find(item => /^[a-z]+(\s*-?\s*\d+)?$/i.test(item.name)) || same[0])?.index ?? null;
+}
+const percentile = (values, share) => { const sorted = [...values].sort((a, b) => a - b); return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))] : 0; };
+/** An ellipsoid around a point cloud, in the cloud's own space: principal axes,
+ * radii at the 92nd percentile so a horn or a spike does not inflate it. */
+function ellipsoidOf(points) {
+  if (points.length < 8) return null;
+  const centre = average(points), axes = principalAxes(points, centre);
+  const radii = axes.map(axis => Math.max(1e-3, percentile(points.map(p => Math.abs(p.clone().sub(centre).dot(axis))), 0.92)));
+  return { centre, axes, radii };
+}
+function ownMotion(model, rig) {
+  const info = modelInfo(model);
+  info.own ||= new Map();
+  if (info.own.has(rig)) return info.own.get(rig);
+  const { tree, byId, joints } = info, ref = sampleAt(model, rig.reference.sequence, rig.reference.frame);
+  const parts = Object.values(rig.parts || {}), partOf = new Map();
+  for (const part of parts) for (const id of part.joints) partOf.set(id, part);
+  const sequences = (model.Sequences || []).filter(sequence => sequence.Interval && !OWN_SKIP.test(sequence.Name || ''));
+  const inOwn = track => !!track?.Keys && !isGlobalTrack(track, model) && sequences.some(sequence => keysInInterval(track, sequence.Interval).length > 0);
+  const home = id => tree.ancestors(id).find(a => partOf.has(a)) ?? null;
+  const loose = rig.body == null ? [] : [...joints].filter(id => !partOf.has(id) && id !== rig.body && tree.isAncestor(id, rig.body) && inOwn(byId.get(id).Rotation) && home(id) != null);
+  // Dense own frames, at most about 240: local turns of part joints, world turns of every joint used.
+  const total = sequences.reduce((sum, sequence) => sum + sequence.Interval[1] - sequence.Interval[0], 0), step = Math.max(66, total / 240);
+  const wanted = new Set([...partOf.keys(), ...loose]), frames = [];
+  (model.Sequences || []).forEach((sequence, index) => {
+    if (!sequences.includes(sequence)) return;
+    for (let f = sequence.Interval[0]; f <= sequence.Interval[1]; f += step) {
+      const sample = sampleAt(model, index, f), local = new Map(), world = new Map();
+      for (const id of wanted) { world.set(id, worldRot(sample, id).clone()); if (partOf.has(id)) local.set(id, sample.local.get(id).r.clone()); }
+      frames.push({ local, world, move: rig.body == null ? null : sample.local.get(rig.body).t.clone() });
+    }
+  });
+  // Range: the box around every own local turn of a joint, in the principal axes of those turns.
+  const range = new Map();
+  if (frames.length) for (const id of partOf.keys()) {
+    const start = ref.local.get(id).r.clone(), startInv = inv(start), points = frames.map(frame => logQ(startInv.clone().multiply(frame.local.get(id))));
+    const centre = average(points), axes = principalAxes(points, centre), lo = [0, 0, 0], hi = [0, 0, 0];
+    for (const p of points) axes.forEach((axis, j) => { const x = p.clone().sub(centre).dot(axis); lo[j] = Math.min(lo[j], x); hi[j] = Math.max(hi[j], x); });
+    range.set(id, { ref: start, centre, axes, lo, hi });
+  }
+  const moves = frames.map(frame => frame.move).filter(Boolean);
+  const moveRange = moves.length ? { lo: ['x', 'y', 'z'].map(a => Math.min(...moves.map(m => m[a]))), hi: ['x', 'y', 'z'].map(a => Math.max(...moves.map(m => m[a]))) } : null;
+  // Followers: a loose joint whose own turn is a steady share of one limb joint's turn.
+  const refInv = new Map([...wanted].map(id => [id, inv(worldRot(ref, id))]));
+  const turn = (frame, id, anchor) => {
+    const d = frame.world.get(id).clone().multiply(refInv.get(id));
+    return anchor == null ? d : inv(frame.world.get(anchor).clone().multiply(refInv.get(anchor))).multiply(d);
+  };
+  const followers = [], chains = [], considered = [];
+  const carries = id => [...partOf.keys()].some(joint => tree.isAncestor(joint, id));
+  for (const id of loose) {
+    const at = home(id), part = partOf.get(at);
+    // Its own largest turn against the joint it hangs from: under 2 degrees it is not animated.
+    const ownTurn = Math.max(0, ...frames.map(frame => logQ(turn(frame, id, at)).length())) * 2 / DEG;
+    if (ownTurn < 2 && part.kind === 'trunk') continue;
+    const limbs = parts.filter(limb => limb.kind === 'limb' && (limb === part || limb.anchor != null && partOf.get(limb.anchor) === part));
+    let best = null;
+    for (const limb of limbs) {
+      const from = limb === part ? limb.joints.indexOf(at) : 0, anchor = limb.anchor;
+      const mine = frames.map(frame => logQ(turn(frame, id, anchor)));
+      const most = Math.max(0, ...mine.map(v => v.length())) * 2 / DEG;
+      for (const driver of limb.joints.slice(from)) {
+        let pr = 0, rr = 0, pp = 0;
+        frames.forEach((frame, k) => { const r = logQ(turn(frame, driver, anchor)); pr += mine[k].dot(r); rr += r.lengthSq(); pp += mine[k].lengthSq(); });
+        if (rr < 1e-9 || pp < 1e-9) continue;
+        const share = pr / rr, fit = pr / Math.sqrt(rr * pp);
+        if (!best || fit > best.fit) best = { id, driver, anchor, share, fit, most, part: limb.key, rigid: driver === at && share > 0.9 };
+      }
+    }
+    if (best) considered.push({ ...best, ownTurn });
+    if (best && best.fit >= 0.8 && best.share >= 0.1 && best.share <= 1.3 && best.most >= 4 && !best.rigid) followers.push(best);
+    else if (part.kind === 'trunk' && !carries(id)) chains.push({ id, part: part.key });
+  }
+  const byDepth = (a, b) => tree.depth(a.id) - tree.depth(b.id);
+  const own = { range, moveRange, followers: followers.sort(byDepth), chains: chains.sort(byDepth), keyedLoose: new Set(loose), considered };
+  Object.defineProperty(own, 'shapes', { get() { return this._shapes ||= bodyShapes(model, info, rig, ref, partOf, this.keyedLoose); }, enumerable: false });
+  info.own.set(rig, own);
+  return own;
+}
+/** A joint's local turn kept inside the model's own range: each principal
+ * coordinate may pass its own extremes by 15% and 5 degrees, then eases to a
+ * stop over 10 more. `strength` 1 keeps it fully, less blends. */
+function clampLocal(limit, local, strength) {
+  if (!limit || !(strength > 0)) return local;
+  const v = logQ(inv(limit.ref).multiply(local)).sub(limit.centre), out = limit.centre.clone();
+  let changed = false;
+  for (let j = 0; j < 3; j++) {
+    const x = v.dot(limit.axes[j]), margin = 0.15 * (limit.hi[j] - limit.lo[j]) + RANGE_MARGIN, lo = limit.lo[j] - margin, hi = limit.hi[j] + margin;
+    const y = x > hi ? hi + RANGE_KNEE * Math.tanh((x - hi) / RANGE_KNEE) : x < lo ? lo - RANGE_KNEE * Math.tanh((lo - x) / RANGE_KNEE) : x;
+    if (y !== x) changed = true;
+    out.addScaledVector(limit.axes[j], y);
+  }
+  if (!changed) return local;
+  const kept = limit.ref.clone().multiply(expQ(out)).normalize();
+  return strength >= 1 ? kept : slerpW(local, kept, strength);
+}
+/** The body bone's own travel range, the same way: 15% and a little past its extremes, then a soft stop. */
+function clampMove(limit, move, strength, size) {
+  if (!limit || !(strength > 0)) return move;
+  const out = move.clone(), knee = 0.06 * size;
+  ['x', 'y', 'z'].forEach((axis, j) => {
+    const x = move[axis], margin = 0.15 * (limit.hi[j] - limit.lo[j]) + 0.03 * size, lo = limit.lo[j] - margin, hi = limit.hi[j] + margin;
+    out[axis] = x > hi ? hi + knee * Math.tanh((x - hi) / knee) : x < lo ? lo - knee * Math.tanh((lo - x) / knee) : x;
+  });
+  return strength >= 1 ? out : move.clone().lerp(out, strength);
+}
+/** Ellipsoids of the trunk (one per hips, chest and head joint, from the vertices
+ * that ride it), each in its joint's reference space, plus each arm's own
+ * thickness. Vertices on keyed loose joints (cloaks, pads) are left out: an arm
+ * may pass a cloak. Held weapons and shields are not obstacles: as rough
+ * ellipsoids they pushed arms the wrong way in the trials. */
+function bodyShapes(model, info, rig, ref, partOf, keyedLoose) {
+  const { tree } = info, clouds = new Map(), armClouds = new Map(), invRef = new Map();
+  const local = (id, p) => { if (!invRef.has(id)) invRef.set(id, (ref.world.get(id) || new Matrix4()).clone().invert()); return p.clone().applyMatrix4(invRef.get(id)); };
+  const homeOf = bone => { for (const id of tree.ancestors(bone, true)) { if (keyedLoose.has(id)) return null; if (partOf.has(id)) return id; } return null; };
+  for (const geoset of model.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    if (!count) continue;
+    const skinned = skinGeoset(geoset, ref.world);
+    for (let v = 0; v < count; v++) {
+      const hd = skin?.length >= (v + 1) * 8;
+      const bones = hd ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      if (!bones.length) continue;
+      const homes = bones.map(homeOf);
+      if (homes.some(id => id == null)) continue;
+      const point = new Vector3(skinned[v * 3], skinned[v * 3 + 1], skinned[v * 3 + 2]), part = partOf.get(homes[0]);
+      if (homes.every(id => partOf.get(id).kind === 'trunk')) { if (!clouds.has(homes[0])) clouds.set(homes[0], []); clouds.get(homes[0]).push(local(homes[0], point)); }
+      else if (part.limbKind === 'arm' && homes.every(id => partOf.get(id) === part)) { if (!armClouds.has(part.key)) armClouds.set(part.key, []); armClouds.get(part.key).push({ point, held: bones.every(bone => tree.isAncestor(bone, part.marker)) }); }
+    }
+  }
+  const trunk = [];
+  for (const [joint, points] of clouds) { const shape = ellipsoidOf(points); if (shape) trunk.push({ joint, ...shape }); }
+  const thickness = new Map();
+  for (const part of Object.values(rig.parts)) {
+    if (part.limbKind !== 'arm') continue;
+    const cloud = armClouds.get(part.key) || [], line = part.joints.map(id => worldPos(model, ref, id));
+    // Thickness: the median distance of the arm's own vertices from its bone line.
+    const far = cloud.filter(item => !item.held).map(item => { let best = Infinity; for (let i = 1; i < line.length; i++) { const a = line[i - 1], ab = line[i].clone().sub(a), t = Math.max(0, Math.min(1, item.point.clone().sub(a).dot(ab) / Math.max(1e-9, ab.lengthSq()))); best = Math.min(best, item.point.distanceTo(a.clone().addScaledVector(ab, t))); } return best; }).filter(Number.isFinite);
+    thickness.set(part.key, far.length ? percentile(far, 0.5) : 0.06 * part.length);
+  }
+  return { trunk, thickness };
+}
+/** How deep a point sits in an ellipsoid whose joint has world matrix `matrix`:
+ * `level` is 1 on the surface and 0 at the centre (padded by `pad`). `out(to)`
+ * gives the world move that brings the point out to level `to`. */
+function depthIn(shape, matrix, point, pad) {
+  const inverse = matrix.clone().invert(), q = point.clone().applyMatrix4(inverse), d = q.clone().sub(shape.centre);
+  const u = shape.axes.map((axis, j) => d.dot(axis) / (shape.radii[j] + pad)), level = Math.hypot(...u);
+  return { level, out: to => {
+    const k = level > 1e-6 ? to / level : 0, target = shape.centre.clone();
+    if (level > 1e-6) shape.axes.forEach((axis, j) => target.addScaledVector(axis, u[j] * k * (shape.radii[j] + pad))); else target.addScaledVector(shape.axes[2], to * (shape.radii[2] + pad));
+    return target.applyMatrix4(matrix).sub(point);
+  } };
+}
+/** Dilate (the longest vector within 80 ms either side) then blur (60 ms) a row of correction vectors. */
+function smoothVectors(needs, times, looping) {
+  const n = needs.length, first = times[0], span = times[n - 1] - first;
+  const gap = (a, b) => { const d = Math.abs(times[a] - times[b]); return looping && span > 0 ? Math.min(d, span - d) : d; };
+  const held = needs.map((_, k) => { let best = needs[k]; for (let j = 0; j < n; j++) if (gap(j, k) <= 80 && needs[j].lengthSq() > best.lengthSq()) best = needs[j]; return best; });
+  return held.map((_, k) => { const sum = new Vector3(); let count = 0; for (let j = 0; j < n; j++) if (gap(j, k) <= 60) { sum.add(held[j]); count++; } return sum.divideScalar(count || 1); });
 }
 
 // ---------------------------------------------------------------- clocks
@@ -429,10 +615,15 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const rigB = transferRig(recipient, { sequence: baseIndex }), infoB = modelInfo(recipient), byIdB = infoB.byId;
   const modelOf = id => id === 'self' ? recipient : sources?.get?.(id);
   const refB = sampleAt(recipient, rigB.reference.sequence, rigB.reference.frame);
+  // Read from the model's own animations, only when a taken part asks for it.
+  let ownData = null;
+  const ownOf = () => ownData ||= ownMotion(recipient, rigB);
 
   // Taken parts, each with its donor, mapping and constant rotations.
   const taken = [];
-  for (const [key, part] of Object.entries(recipe.parts || {})) {
+  // A part may carry more clips after its first (`next`): each is an entry of its own.
+  const clips = Object.entries(recipe.parts || {}).flatMap(([key, part]) => [part, ...(Array.isArray(part?.next) ? part.next : [])].map((clip, index) => [key, clip, index]));
+  for (const [key, part, clipIndex] of clips) {
     const own = rigB.parts[key];
     if (!own) { problems.push(`This model has no ${transferPartLabel(key).toLowerCase()}.`); continue; }
     const donor = modelOf(part.source), seq = donor?.Sequences?.[part.sequence];
@@ -444,8 +635,17 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     const from = part.from ?? (whole ? swapSide(key) : key), fromKey = part.flip ? swapSide(from) : from, theirs = rigA.parts[fromKey];
     const mirror = whole !== !!part.flip;
     if (!theirs) { problems.push(`${transferPartLabel(key)}: the donor has no ${transferPartLabel(fromKey).toLowerCase()}, so it keeps the body animation.`); continue; }
-    taken.push(prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient }));
+    const entry = prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient });
+    entry.clipIndex = clipIndex;
+    // The clip before this one in the same part hands over to it (see the hold in pass 1).
+    const before = clipIndex ? taken.findLast(other => other.key === key) : null;
+    if (before) before.then = entry;
+    taken.push(entry);
   }
+  const sameKey = entry => drivenOrder.filter(other => other.key === entry.key), firstOfKey = (entry, index, list) => list.findIndex(other => other.key === entry.key) === index;
+  // The state of a part at one moment: of its clip that weighs most just then.
+  const active = (entries, states) => { let best = null; for (const entry of entries) { const state = states.get(entry); if (state && (!best || state.w > best.w)) best = state; } return best; };
+  for (const entry of taken) { const kind = entry.follow > 0 ? sameKindSequence(recipient, entry.seq.Name) : null; entry.kind = kind != null && kind !== baseIndex ? kind : null; }
   const drivenOrder = [...taken].sort((a, b) => (TRUNK_ORDER.indexOf(a.key) + 1 || 9) - (TRUNK_ORDER.indexOf(b.key) + 1 || 9) || infoB.tree.depth(a.own.joints[0]) - infoB.tree.depth(b.own.joints[0]));
 
   // Length and loops. A taken clip that plays once sets the length (its latest
@@ -467,7 +667,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   length = Math.max(1, Math.round(length));
   const loopRate = (clipLength, speed) => takenOnce ? speed : Math.max(1, Math.round(length / (clipLength / speed))) * clipLength / length;
   const baseClock = { first: baseSeq.Interval[0], length: baseLength, looping: !baseSeq.NonLooping, start: 0, rate: baseSeq.NonLooping ? baseLength / length : loopRate(baseLength, 1), amount: 1, blend: 0, sequence: baseIndex };
-  for (const entry of taken) entry.clock = { first: entry.seq.Interval[0], length: entry.length, looping: entry.looping, start: entry.start, rate: entry.looping ? loopRate(entry.length, entry.speed) : entry.speed, amount: entry.amount, blend: entry.looping ? 0 : entry.blend };
+  for (const entry of taken) entry.clock = { first: entry.first, length: entry.length, looping: entry.looping, start: entry.start, rate: entry.looping ? loopRate(entry.length, entry.speed) : entry.speed, amount: entry.amount, blend: entry.looping ? 0 : entry.blend };
 
   // options.times evaluates chosen moments only (the aim solver); the lift is
   // then that moment's own need, without easing.
@@ -488,23 +688,50 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const hips = taken.find(entry => entry.key === 'hips');
   const moveBody = hips && !isGlobalTrack(byIdB.get(rigB.body)?.Translation, recipient);
   if (moveBody) tracks.get(rigB.body) ? tracks.get(rigB.body).Translation = new Float32Array(n * 3) : (tracks.set(rigB.body, { Translation: new Float32Array(n * 3) }), driven.push(rigB.body));
-  const plantLegs = hips ? drivenOrder.filter(e => e.own.limbKind === 'leg' && e.part.plant !== false && e.donor === hips.donor && e.sequence === hips.sequence) : [];
+  const hipsOf = leg => taken.find(entry => entry.key === 'hips' && entry.donor === leg.donor && entry.sequence === leg.sequence && entry.clipIndex === leg.clipIndex) || taken.find(entry => entry.key === 'hips' && entry.donor === leg.donor && entry.sequence === leg.sequence);
+  const plantLegs = hips ? drivenOrder.filter(e => e.own.limbKind === 'leg' && e.part.plant !== false && hipsOf(e)) : [];
+  for (const leg of plantLegs) leg.hips = hipsOf(leg);
 
   // Weapon arms: point like theirs (aim), stay above the floor (clear), both
   // hands on the weapon (grip). Each is off when its recipe field says so.
-  const weaponArms = drivenOrder.filter(entry => entry.own.weapon).map(entry => {
+  const aimOf = entry => !entry.theirs.weapon ? 0 : entry.part.aim == null ? (entry.looping ? 0 : 1) : Math.max(0, Math.min(1, Number(entry.part.aim) || 0));
+  const weaponArms = drivenOrder.filter(entry => entry.own.weapon).filter(firstOfKey).map(entry => {
     const detected = entry.own.weapon.grip, wanted = entry.part.grip ?? !!detected;
     const otherKey = detected?.arm ?? Object.keys(rigB.parts).find(key => /^arm/.test(key) && rigB.parts[key] !== entry.own && rigB.parts[key].side !== entry.own.side);
     const other = wanted && otherKey ? rigB.parts[otherKey] : null;
     return {
       // Point like theirs: automatic (null) is on for a clip that plays once (an
       // attack reads) and off for a looping one (a stand keeps its own grip).
-      entry, aim: !entry.theirs.weapon ? 0 : entry.part.aim == null ? (entry.looping ? 0 : 1) : Math.max(0, Math.min(1, Number(entry.part.aim) || 0)), clear: entry.part.clear !== false,
+      entry, entries: sameKey(entry), clear: entry.part.clear !== false,
       grip: other ? { part: other, point: v3(detected?.point ?? entry.own.weapon.butt), joints: other.joints.filter(id => !isGlobalTrack(byIdB.get(id)?.Rotation, recipient)), reach: chainLength(other.joints.map(id => worldPos(recipient, refB, id))) } : null,
       need: new Float64Array(n), axis: [],
     };
   });
   for (const arm of weaponArms) if (arm.grip) for (const id of arm.grip.joints) if (!tracks.has(id)) { tracks.set(id, { Rotation: new Float32Array(n * 4) }); driven.push(id); }
+
+  // Loose joints of taken parts that follow (recipe `follow`): pads and plates keep
+  // their learned share of a limb joint's turn; cloaks, hair and belts take the
+  // model's own animation of the same kind as the taken one, fitted to its time.
+  const followEntries = drivenOrder.filter(entry => entry.follow > 0), looseFollowers = [], looseChains = [];
+  if (followEntries.length) {
+    const free = id => !isGlobalTrack(byIdB.get(id)?.Rotation, recipient);
+    for (const item of ownOf().followers) { const entry = followEntries.find(e => e.key === item.part); if (entry && free(item.id)) looseFollowers.push({ ...item, entry, entries: sameKey(entry) }); }
+    for (const item of ownOf().chains) { const entries = followEntries.filter(e => e.key === item.part && e.kind != null); if (entries.length && free(item.id)) looseChains.push({ ...item, entry: entries[0], entries }); }
+    for (const item of [...looseFollowers, ...looseChains]) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
+  }
+  const refTurnInv = new Map(), refInvOf = id => { if (!refTurnInv.has(id)) refTurnInv.set(id, inv(worldRot(refB, id))); return refTurnInv.get(id); };
+  // Arms kept out of the body (recipe `avoid`): the trunk's hips, chest and head.
+  const pointOf = (id, world) => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id));
+  const armPoints = (part, world) => { const points = []; let previous = pointOf(part.joints[0], world); for (const id of part.joints.slice(1)) { const p = pointOf(id, world); points.push(previous.clone().lerp(p, 0.5), p); previous = p; } return points; };
+  const guards = drivenOrder.filter(entry => entry.avoid > 0 && entry.own.limbKind === 'arm' && entry.own.joints.length > 1 && !entry.skip.has(entry.own.joints[0])).filter(firstOfKey).map(entry => {
+    const shapes = ownOf().shapes, obstacles = shapes.trunk, pad = shapes.thickness.get(entry.key) || 0;
+    const levels = world => armPoints(entry.own, world).map(p => obstacles.map(o => depthIn(o, world(o.joint), p, pad).level));
+    return { entry, obstacles, pad, levels, refLevels: levels(id => refB.world.get(id) || new Matrix4()), need: [], entries: sameKey(entry), gripped: weaponArms.some(arm => arm.grip?.part === entry.own) };
+  });
+
+  // Limbs an IK solve places after the transfer (a planted leg, the arm that grips
+  // the weapon): the range limit leaves them alone, the solve needs their freedom.
+  const placed = new Set([...plantLegs, ...drivenOrder.filter(entry => weaponArms.some(arm => arm.grip?.part === entry.own))]);
 
   // Pass 1, per sample: the transfer itself, then the weapon's aim, then how far
   // the weapon arm must lift to keep the weapon above the floor.
@@ -523,44 +750,52 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   for (let k = 0; k < n; k++) {
     const t = times[k], base = sampleAt(recipient, baseIndex, clockAt(baseClock, t).frame);
     const over = new Map(), { world, parentRot, setWorld } = poseTools(base, over);
-    const setRotation = (id, worldRotation, w) => {
-      const own = base.local.get(id), local = inv(parentRot(id)).multiply(worldRotation).normalize();
-      if (own.r.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w);
-      over.set(id, { t: over.get(id)?.t || own.t, r: slerpW(own.r, local, w), s: own.s });
+    const setRotation = (id, worldRotation, w, limit = 0) => {
+      const own = base.local.get(id);
+      let local = inv(parentRot(id)).multiply(worldRotation).normalize();
+      if (limit > 0) local = clampLocal(ownOf().range.get(id), local, limit);
+      const from = over.get(id)?.r || own.r;
+      if (from.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w);
+      over.set(id, { t: over.get(id)?.t || own.t, r: slerpW(from, local, w), s: own.s });
     };
     const states = new Map();
     // Rotation transfer, parts in hierarchy order.
     for (const entry of drivenOrder) {
-      const { frame, w } = clockAt(entry.clock, t);
+      let { frame, w } = clockAt(entry.clock, t);
+      if (entry.then && t >= entry.clock.start && t <= entry.then.clock.start + (entry.then.clock.blend || 0) && clockAt(entry.then.clock, t).w > 0) w = Math.max(w, entry.amount);
       if (!(w > 0)) continue;
       const donorSample = sampleAt(entry.donor, entry.sequence, frame), offset = entry.offsetAt(t, length, !nonLooping);
       const dA = entry.theirs.anchor == null ? new Quaternion() : worldRot(donorSample, entry.theirs.anchor).clone().multiply(entry.refAnchorA);
       const dB = entry.own.anchor == null ? new Quaternion() : rotationOf(world(entry.own.anchor)).multiply(entry.refAnchorB);
-      states.set(entry, { donorSample, w, offset, dA, dB });
+      states.set(entry, { donorSample, w, offset, dA, dB, frame, entry });
       const deltaOf = j => entry.convert(inv(dA).multiply(worldRot(donorSample, entry.theirs.joints[j])).multiply(entry.refInvA[j]));
       const spread = entry.spread ? deltaOf(entry.theirs.joints.length - 1) : null;
       entry.own.joints.forEach((id, i) => {
         if (entry.skip.has(id)) return;
         const delta = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
-        setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w);
+        setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
       // Hips travel: move the body bone so the hip centre follows the donor's.
-      if (entry === hips && moveBody) {
+      if (entry.key === 'hips' && moveBody) {
         const body = rigB.body, current = hipCentreOf(recipient, rigB, id => world(id));
         const donorCentre = hipCentreOf(entry.donor, entry.rigA, id => donorSample.world.get(id));
         const target = rigB.hipCentre.clone().add(entry.convertV(donorCentre.sub(entry.rigA.hipCentre)).multiplyScalar((entry.part.travel ?? 1) * entry.scale));
         const parent = infoB.tree.parentOf(body), linear = new Matrix3().setFromMatrix4(parent == null ? new Matrix4() : world(parent));
         const move = target.sub(current).applyMatrix3(linear.invert()).multiplyScalar(w);
-        const own = over.get(body) || base.local.get(body);
-        over.set(body, { ...own, t: own.t.clone().add(move) });
+        const own = over.get(body) || base.local.get(body), moved = own.t.clone().add(move);
+        const kept = entry.range > 0 ? clampMove(ownOf().moveRange, moved, entry.range, rigB.hipHeight) : moved;
+        // What the range limit took off the travel, in world space: planted feet shift by the same.
+        if (kept !== moved) states.get(entry).held = kept.clone().sub(moved).applyMatrix3(linear.clone().invert()); // linear holds the inverse here
+        over.set(body, { ...own, t: kept });
       }
     }
     // Planted feet: aim each leg's end on the donor foot's scaled path.
     for (const entry of plantLegs) {
-      const state = states.get(entry), hipState = states.get(hips);
+      const state = states.get(entry), hipState = states.get(entry.hips);
       if (!state || !hipState) continue;
       const donorEnd = worldPos(entry.donor, state.donorSample, entry.theirs.marker);
-      const planted = entry.refEndB.clone().add(entry.convertV(donorEnd.clone().sub(entry.refEndA)).multiplyScalar(hips.scale));
+      const planted = entry.refEndB.clone().add(entry.convertV(donorEnd.clone().sub(entry.refEndA)).multiplyScalar(entry.hips.scale));
+      if (hipState.held) planted.add(hipState.held);
       const own = worldPos(recipient, base, entry.own.marker);
       const target = own.clone().lerp(planted, Math.min(1, state.w));
       target.sub(entry.refRootB).applyQuaternion(state.offset).add(entry.refRootB);
@@ -568,15 +803,18 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       if (entry.own.sole && !entry.skip.has(entry.own.marker)) liftSole(recipient, entry.own.marker, entry.own.sole, { world, over, base, parentRot });
     }
     for (const arm of weaponArms) {
-      const { entry } = arm, state = states.get(entry), end = entry.own.marker;
+      const end = arm.entry.own.marker;
       // Point the weapon like theirs: turn the hand so its butt-to-tip axis turns
       // toward where the donor's points, relative to each one's chest.
-      if (state && arm.aim > 0 && !entry.skip.has(end)) {
+      for (const entry of arm.entries) {
+        const state = states.get(entry), aim = aimOf(entry);
+        if (!state || !(aim > 0) || entry.skip.has(end)) continue;
         const hand = rotationOf(world(end)), axis = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(hand);
         const theirs = v3(entry.theirs.weapon.tip).sub(v3(entry.theirs.weapon.butt)).applyQuaternion(worldRot(state.donorSample, entry.theirs.marker));
         const target = entry.convertV(theirs.applyQuaternion(inv(state.dA))).applyQuaternion(state.dB);
-        setWorld(end, qPow(arc(axis, target), arm.aim * aimEase(entry.clock, t) * Math.min(1, state.w)).multiply(hand));
+        setWorld(end, qPow(arc(axis, target), aim * aimEase(entry.clock, t) * Math.min(1, state.w)).multiply(hand));
       }
+      const { entry } = arm;
       if (arm.clear && !entry.skip.has(entry.own.joints[0])) [arm.need[k], arm.axis[k]] = weaponLift(recipient, entry.own, rigB.floor, world);
     }
     poses.push({ base, over, states });
@@ -585,25 +823,90 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   // The lift eases in and out: the largest need within 80 ms either side, a
   // limit on how fast it may change, then a 60 ms blur.
   for (const arm of weaponArms) if (arm.clear) arm.lift = smoothLift(arm.need, times, !nonLooping);
+  const liftArm = (arm, k, tools) => {
+    const root = arm.entry.own.joints[0];
+    if (arm.clear && arm.lift[k] > 1e-6 && arm.axis[k]) tools.setWorld(root, axisAngle(arm.axis[k], arm.lift[k]).multiply(rotationOf(tools.world(root))));
+  };
+  const gripArm = (arm, state, tools, base, over) => {
+    if (!arm.grip || !state) return;
+    const { entry } = arm, { world, parentRot } = tools;
+    const handWorld = world(entry.own.marker), hand = v3(nodePivot(recipient, byIdB.get(arm.grip.part.marker), arm.grip.part.marker)).applyMatrix4(world(arm.grip.part.marker));
+    // Out of the arm's reach, the hand slides along the shaft to the nearest point it reaches.
+    const shoulder = v3(nodePivot(recipient, byIdB.get(arm.grip.joints[0]), arm.grip.joints[0])).applyMatrix4(world(arm.grip.joints[0]));
+    const shaft = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(rotationOf(handWorld)).normalize();
+    const target = slideInReach(arm.grip.point.clone().applyMatrix4(handWorld), shaft, shoulder, arm.grip.reach * 0.98);
+    solveLimb(recipient, arm.grip.joints, hand.lerp(target, Math.min(1, state.w)), { world, over, base, parentRot });
+  };
+  // Arm guard, per sample, on the pose as it will be after the weapon lift: how
+  // far the arm must turn at its shoulder to come out of the trunk. Only a point
+  // clearly deeper than the same arm sits in the body animation and in the
+  // reference pose counts. An arm that grips the other arm's weapon is placed by
+  // that grip and is not turned.
+  if (guards.length) for (let k = 0; k < n; k++) {
+    const { base, over, states } = poses[k], scratch = new Map(over), tools = poseTools(base, scratch), baseWorld = id => base.world.get(id) || new Matrix4();
+    for (const arm of weaponArms) liftArm(arm, k, tools);
+    for (const guard of guards) {
+      const { entry, obstacles, pad } = guard, state = active(guard.entries, states), root = entry.own.joints[0];
+      let total = new Quaternion();
+      if (state && !guard.gripped && obstacles.length) {
+        const baseLevels = guard.levels(baseWorld);
+        for (let pass = 0; pass < 4; pass++) {
+          const shoulder = pointOf(root, tools.world);
+          let worst = null;
+          armPoints(entry.own, tools.world).forEach((p, i) => obstacles.forEach((o, j) => {
+            const allowed = GUARD_LEVEL * Math.min(1, baseLevels[i][j], guard.refLevels[i][j]), depth = depthIn(o, tools.world(o.joint), p, pad);
+            if (depth.level >= allowed - 0.02) return;
+            const move = depth.out(allowed);
+            if (!worst || move.lengthSq() > worst.move.lengthSq()) worst = { move, at: p };
+          }));
+          if (!worst) break;
+          const lever = worst.at.clone().sub(shoulder), omega = lever.clone().cross(worst.move).divideScalar(Math.max(1e-6, lever.lengthSq())), angle = Math.min(omega.length(), 15 * DEG);
+          if (angle < 1e-5) break;
+          const turn = axisAngle(omega.normalize(), angle), next = turn.clone().multiply(total), size = logQ(next).length() * 2;
+          if (size > GUARD_MOST) break;
+          tools.setWorld(root, turn.clone().multiply(rotationOf(tools.world(root))));
+          total = next;
+        }
+      }
+      const need = logQ(total);
+      guard.need.push(entry.own.anchor == null ? need : need.applyQuaternion(inv(rotationOf(tools.world(entry.own.anchor)))));
+    }
+  }
+  for (const guard of guards) guard.turn = smoothVectors(guard.need, times, !nonLooping);
+  const guardArm = (guard, k, state, tools) => {
+    const v = guard.turn[k], { entry } = guard;
+    if (!state || v.lengthSq() < 1e-10) return;
+    const root = entry.own.joints[0], out = entry.own.anchor == null ? v.clone() : v.clone().applyQuaternion(rotationOf(tools.world(entry.own.anchor)));
+    tools.setWorld(root, expQ(out.multiplyScalar(Math.min(1, state.w) * entry.avoid)).multiply(rotationOf(tools.world(root))));
+  };
 
   // Pass 2, per sample: lift the weapon arm, put the other hand back on its grip,
   // and record the driven joints.
   for (let k = 0; k < n; k++) {
     const { base, over, states } = poses[k], { world, parentRot, setWorld } = poseTools(base, over);
-    for (const arm of weaponArms) {
-      const { entry } = arm, root = entry.own.joints[0];
-      if (arm.clear && arm.lift[k] > 1e-6 && arm.axis[k]) setWorld(root, axisAngle(arm.axis[k], arm.lift[k]).multiply(rotationOf(world(root))));
-      const state = states.get(entry);
-      if (arm.grip && state) {
-        const handWorld = world(entry.own.marker), hand = v3(nodePivot(recipient, byIdB.get(arm.grip.part.marker), arm.grip.part.marker)).applyMatrix4(world(arm.grip.part.marker));
-        // Out of the arm's reach, the hand slides along the shaft to the nearest point it reaches.
-        const shoulder = v3(nodePivot(recipient, byIdB.get(arm.grip.joints[0]), arm.grip.joints[0])).applyMatrix4(world(arm.grip.joints[0]));
-        const shaft = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(rotationOf(handWorld)).normalize();
-        const target = slideInReach(arm.grip.point.clone().applyMatrix4(handWorld), shaft, shoulder, arm.grip.reach * 0.98);
-        solveLimb(recipient, arm.grip.joints, hand.lerp(target, Math.min(1, state.w)), { world, over, base, parentRot });
-      }
+    const tools = { world, parentRot, setWorld };
+    // With a guard: every lift, then the guards, then the grips (the order the guard measured).
+    // Without one: each weapon arm's lift and grip together, as before.
+    if (guards.length) {
+      for (const arm of weaponArms) liftArm(arm, k, tools);
+      for (const guard of guards) guardArm(guard, k, active(guard.entries, states), tools);
+      for (const arm of weaponArms) gripArm(arm, active(arm.entries, states), tools, base, over);
+    } else for (const arm of weaponArms) { liftArm(arm, k, tools); gripArm(arm, active(arm.entries, states), tools, base, over); }
+    const blendLocal = (id, local, w) => { const own = base.local.get(id); if (own.r.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w); over.set(id, { t: own.t, r: slerpW(own.r, local, w), s: own.s }); };
+    for (const item of looseChains) {
+      const state = active(item.entries, states);
+      if (!state || !(state.w > 0)) continue;
+      const interval = recipient.Sequences[state.entry.kind].Interval, part = state.entry.length > 0 ? (state.frame - state.entry.first) / state.entry.length : 0;
+      blendLocal(item.id, sampleAt(recipient, state.entry.kind, interval[0] + part * (interval[1] - interval[0])).local.get(item.id).r.clone(), Math.min(1, state.w) * state.entry.follow);
     }
-    options.probe?.({ k, world, states, entries: drivenOrder });
+    for (const item of looseFollowers) {
+      const state = active(item.entries, states);
+      if (!state || !(state.w > 0)) continue;
+      const turnOf = id => rotationOf(world(id)).multiply(refInvOf(id)), anchor = item.anchor == null ? new Quaternion() : turnOf(item.anchor);
+      const target = mul(anchor, qPow(inv(anchor).multiply(turnOf(item.driver)), item.share), worldRot(refB, item.id));
+      blendLocal(item.id, inv(parentRot(item.id)).multiply(target).normalize(), Math.min(1, state.w) * state.entry.follow);
+    }
+    options.probe?.({ k, world, states, entries: drivenOrder, own: ownData });
     for (const id of driven) {
       const value = over.get(id) || base.local.get(id), out = tracks.get(id);
       if (out.Rotation) {
@@ -622,6 +925,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   return { length, times, tracks, driven, nonLooping, moveSpeed, suggestedName, problems, baseClock };
 }
 
+const share = value => Math.max(0, Math.min(1, Number(value) || 0));
 function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient }) {
   const refA = sampleAt(donor, rigA.reference.sequence, rigA.reference.frame);
   // Mirroring reflects the donor across the XZ plane; a facing difference over
@@ -653,6 +957,10 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const align = [];
   own.joints.forEach((id, i) => { align.push(dirB[i] ? qPow(arc(dirB[i], dirA[map[i]]), match) : (align[i - 1] || new Quaternion()).clone()); });
   const looping = part.loop ?? !seq.NonLooping;
+  // Trim: only the part of the donor animation between clip[0] and clip[1] (ms from its start).
+  const whole = Math.max(0, seq.Interval[1] - seq.Interval[0]), cut = Array.isArray(part.clip) ? part.clip.map(Number) : [];
+  const trim = [Number.isFinite(cut[0]) ? Math.max(0, Math.min(whole, cut[0])) : 0, Number.isFinite(cut[1]) ? Math.max(0, Math.min(whole, cut[1])) : whole];
+  if (trim[1] <= trim[0]) { trim[0] = 0; trim[1] = whole; }
   const speed = part.speed > 0 ? part.speed : 1;
   const refRootB = posB(own.joints[0]).clone();
   const offset = partOffset(rigB, own, refB, recipient, part.offset);
@@ -674,8 +982,10 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   };
   return {
     key, part, own, theirs, donor, seq, sequence, rigA, looping, speed,
-    start: Number(part.start) || 0, length: Math.max(0, seq.Interval[1] - seq.Interval[0]),
+    start: Number(part.start) || 0, first: seq.Interval[0] + trim[0], length: Math.max(0, trim[1] - trim[0]),
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
+    // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
+    range: share(part.range), follow: share(part.follow), avoid: share(part.avoid),
     scale: rigB.hipHeight / rigA.hipHeight, convert, convertV, map, spread, align,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
@@ -685,6 +995,46 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     refEndA: posA(theirs.marker).clone(), refEndB: posB(own.marker).clone(), refRootB,
     skip: new Set(),
   };
+}
+
+// ---------------------------------------------------------------- diagnostics
+/** Numbers about one build, for tests and probes (never used by the window):
+ * what was learned from the model's own animations, how far each part's joints
+ * leave their own range (degrees past the allowed box, worst moment), and how
+ * deep each arm goes into the trunk or a held thing (`level` 1 = at the surface,
+ * less = inside; `allowed` is what the body animation and reference pose show). */
+export function transferDiagnostics(recipient, sources, recipe) {
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), info = modelInfo(recipient), own = ownMotion(recipient, rig);
+  const ref = sampleAt(recipient, rig.reference.sequence, rig.reference.frame), name = id => info.byId.get(id)?.Name;
+  const pointOf = (id, world) => v3(nodePivot(recipient, info.byId.get(id), id)).applyMatrix4(world(id));
+  const armPoints = (part, world) => { const points = []; let previous = pointOf(part.joints[0], world); for (const id of part.joints.slice(1)) { const p = pointOf(id, world); points.push(previous.clone().lerp(p, 0.5), p); previous = p; } return points; };
+  const out = { followers: own.followers.map(item => ({ joint: name(item.id), driver: name(item.driver), part: item.part, share: item.share, fit: item.fit })), chains: own.chains.map(item => ({ joint: name(item.id), part: item.part })), considered: own.considered.map(item => ({ joint: name(item.id), driver: name(item.driver), share: item.share, fit: item.fit, most: item.most, rigid: item.rigid })), outside: {}, turn: {}, arms: {}, loose: {} };
+  const arms = Object.values(rig.parts).filter(part => part.limbKind === 'arm' && part.joints.length > 1).map(part => {
+    const obstacles = own.shapes.trunk, pad = own.shapes.thickness.get(part.key) || 0;
+    const levels = world => armPoints(part, world).map(p => obstacles.map(o => depthIn(o, world(o.joint), p, pad).level));
+    return { part, levels, obstacles, refLevels: levels(id => ref.world.get(id) || new Matrix4()) };
+  });
+  const looseIds = [...own.followers, ...own.chains].map(item => item.id), looseTurns = new Map(looseIds.map(id => [id, []]));
+  const built0 = buildTransfer(recipient, sources, recipe, {});
+  const built = buildTransfer(recipient, sources, recipe, { probe: ({ k, world }) => {
+    for (const part of Object.values(rig.parts)) for (const id of part.joints) {
+      const limit = own.range.get(id), parent = info.tree.parentOf(id);
+      if (!limit) continue;
+      const local = (parent == null ? new Quaternion() : inv(rotationOf(world(parent)))).multiply(rotationOf(world(id))), v = logQ(inv(limit.ref).multiply(local));
+      out.turn[part.key] = Math.max(out.turn[part.key] || 0, v.length() * 2 / DEG);
+      const d = v.clone().sub(limit.centre);
+      for (let j = 0; j < 3; j++) { const x = d.dot(limit.axes[j]), margin = 0.15 * (limit.hi[j] - limit.lo[j]) + RANGE_MARGIN; out.outside[part.key] = Math.max(out.outside[part.key] || 0, (x - limit.hi[j] - margin) * 2 / DEG, (limit.lo[j] - margin - x) * 2 / DEG); }
+    }
+    for (const arm of arms) {
+      const now = arm.levels(world), base = arm.levels(id => sampleAt(recipient, recipe.base.sequence, clockAt(built0.baseClock, built0.times[k]).frame).world.get(id) || new Matrix4());
+      now.forEach((row, i) => row.forEach((level, j) => { const allowed = GUARD_LEVEL * Math.min(1, base[i][j], arm.refLevels[i][j]), deficit = allowed - level; if (!out.arms[arm.part.key] || deficit > out.arms[arm.part.key].deficit) out.arms[arm.part.key] = { deficit, level, allowed, moment: built0.times[k], inside: name(arm.obstacles[j].joint), point: i }; }));
+    }
+    for (const id of looseIds) looseTurns.get(id).push(rotationOf(world(id)));
+  } });
+  // How much each loose joint moves over the result (largest turn between any moment and the first).
+  for (const id of looseIds) { const turns = looseTurns.get(id); out.loose[name(id)] = Math.max(0, ...turns.map(q => logQ(inv(turns[0]).multiply(q)).length() * 2 / DEG)); }
+  out.length = built.length;
+  return out;
 }
 
 // ---------------------------------------------------------------- aim (drag a hand or foot)
