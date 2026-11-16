@@ -853,3 +853,49 @@ interact with". Director contract: the same transfer built several ways, as live
   `out/transfer-ui/picks/`. Transfer stories B and setup rerun on the same package after the
   shared-loading refactor.
 - Not built: no case may name the open editor model by tab; every model is read from its path.
+
+## Round 7: four improvements (owner "Go, top four", 16 Nov 2026)
+
+Owner: "How much more powerful can you make it without changing it much? e.g improving algorithms,
+improving controls." He chose the first four of seven; the director codes the movement maths, agents
+do plumbing; looks are judged on a pick sheet of live views ("make sure results are viewpoints - e.g
+models i can interact with"). Regression rule agreed with him: saved setups keep giving today's
+result, and the new limits are switches whose default he picks on the sheet.
+
+### Engine as built (director, commit cafcd8a1 and the next)
+
+Every new recipe field is off when absent, 0, false or null. Proof: `out/transfer-probe/baseline.mjs`
+fingerprints the dense tracks and the saved animation of 30 trial pairs; before and after are
+identical. 31 engine tests.
+
+- **Learned once per rig from the model's own animations** (`ownMotion`; death, decay, dissipate,
+  portrait, birth left out; about 240 frames): each part joint's range of local turn (a box in the
+  principal axes of its own turns); the body bone's travel range; *followers* (a loose joint whose
+  turn is a steady share of one limb joint's turn: fit at least 0.8, share 0.1 to 1.3); *chains*
+  (loose joints with keys of their own that hang from a trunk part, turn at least 2 degrees and
+  carry no body part); trunk ellipsoids and arm thickness for the arm guard.
+  Measured: the Slaanesh warrior's pauldrons follow the upper arm at 0.50 with fit 1.00, the Nurgle
+  warrior's shoulder bones at 0.24 (fit 0.95 and 0.98); capes, belly bones and belts are chains.
+- `part.range` (0..1): the part's joints stay inside their own range (15% and 5 degrees past the
+  extremes, then a soft stop over 10 more); hips travel the same way, planted feet shift with what was
+  taken off. A leg with a planted foot and an arm that grips the weapon are left alone (their IK
+  solve needs the freedom).
+- `part.follow` (0..1): followers of a taken limb keep their learned share of the driver joint's
+  turn; chains of a taken trunk part play the model's own animation of the same kind as the taken
+  clip, fitted to its time (nothing when there is none, or it is the body animation).
+  `transferLooseParts(model, { sequence })` says which parts have such joints.
+- `part.avoid` (0..1, arms): the shoulder turns (at most 30 degrees) so the arm's joints and
+  midpoints come out of the trunk ellipsoids, only where a point is clearly deeper (under 0.8) than
+  the same arm sits in the body animation and in the reference pose; dilated 80 ms, blurred 60 ms.
+  The arm that grips a two-handed weapon is not turned. Held weapons and shields are NOT obstacles:
+  as rough ellipsoids they pushed arms the wrong way (Nurgle warrior, Kurgan); promised to the owner
+  as "body, shield and weapon", delivered as trunk only.
+  Measured (share of a body radius still inside, off -> on): Abomination 0.23 / 0.12 -> 0.01 / 0.01,
+  Nurgle warrior 0.43 / 0.19 -> 0.13 / 0.00, Kurgan weapon arm 0.19 -> 0.12 (its gripping arm
+  unchanged).
+- `part.clip` = [from, to] ms inside the donor animation (trim); `part.next` = more clips of the
+  same part, each a full part object (chain). A clip holds its pose while the next clip of the part
+  fades in, so a hand-over never dips to the body animation: start the next clip its `blend` before
+  the previous one ends. One weapon arm, one arm guard and one set of loose joints per part,
+  whatever its number of clips. Drag-to-aim and moment fixes address a part's first clip.
+- `transferDiagnostics(recipient, sources, recipe)` gives the numbers above for tests and probes.

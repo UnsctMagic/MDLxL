@@ -997,6 +997,17 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   };
 }
 
+/** Which parts of the open model have loose joints that can follow (recipe
+ * `follow`), with their names: `{ armL: ['Pauldron_L'], chest: ['Cape 1', 'Cape 2'] }`.
+ * `sequence` is the body animation (it picks the skeleton, as transferRig does). */
+export function transferLooseParts(model, { sequence } = {}) {
+  const rig = transferRig(model, { sequence });
+  if (!rig.ok) return {};
+  const own = ownMotion(model, rig), info = modelInfo(model), out = {};
+  for (const item of [...own.followers, ...own.chains]) (out[item.part] ||= []).push(info.byId.get(item.id)?.Name || String(item.id));
+  return out;
+}
+
 // ---------------------------------------------------------------- diagnostics
 /** Numbers about one build, for tests and probes (never used by the window):
  * what was learned from the model's own animations, how far each part's joints
