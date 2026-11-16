@@ -30,7 +30,8 @@ function zipEntries(bytes) {
   const { app, page, errors } = await launchApp({ out, profile: path.join(out, 'profile'), fixture: model, timeout: 90000 });
   try {
     await waitForInfo(page, 'Opened Footman.mdx');
-    const images = await page.evaluate(() => [...new Set(findFiberProps('.app', props => props?.model?.Textures)?.model?.Textures.map(texture => texture.Image).filter(Boolean) || [])]);
+    const { openDocument } = await import('../src/editor-document.js');
+    const images = [...new Set(openDocument(fs.readFileSync(model), 'Footman.mdx').model.Textures.map(texture => texture.Image).filter(Boolean))];
     await stubDialogs(app, { save: target });
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Textures'));
     const manager = page.getByRole('dialog', { name: 'Texture Manager', exact: true });
