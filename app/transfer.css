@@ -1,7 +1,7 @@
-/* Transfer: the FX window's size and three columns (surface-effects.css), in the MDLxL theme.
+/* Transfer: the FX window's three columns (surface-effects.css) over the whole editor area, in the MDLxL theme.
    From list left, donor and result with the transport under them in the middle, parts right. */
-.resource-editor.transfer-xl .xf-window{width:1140px;height:740px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);resize:both;overflow:hidden}
-.transfer-xl .xf-body{display:grid;grid-template-columns:190px minmax(300px,1fr) 250px;flex:1;min-height:0;padding:8px;gap:8px}
+.resource-editor.transfer-xl .xf-window{position:fixed;left:var(--xf-x,auto);top:var(--xf-y,auto);width:var(--xf-w,1140px);height:var(--xf-h,740px);min-width:820px;min-height:520px;max-width:100vw;max-height:100vh;resize:both;overflow:hidden}
+.transfer-xl .xf-body{display:grid;grid-template-columns:210px minmax(300px,1fr) 270px;flex:1;min-height:0;padding:8px;gap:8px}
 .transfer-xl .xf-from,.transfer-xl .xf-controls{display:flex;flex-direction:column;min-height:0;gap:5px}
 .transfer-xl .xf-heading{font-size:12px}
 .transfer-xl .xf-list{display:flex;flex-direction:column;gap:0;overflow:auto;min-height:0;background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87)}
@@ -114,7 +114,8 @@
 /* Playback strip under each view (TransferViewStrip.jsx): one ~24 px row taken from the view's height. */
 .transfer-xl .xs-strip{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-height:24px;flex:none;min-width:0}
 .transfer-xl .xs-strip .xs-play{flex:none;min-width:50px;padding:1px 6px}
-.transfer-xl .xs-strip .xs-scrub{order:-1;flex:1 0 100%;min-width:0;margin:0;height:14px}
+.transfer-xl .xs-strip .xs-scrub{order:-2;flex:1 0 calc(100% - 30px);min-width:0;margin:0;height:14px}
+.transfer-xl .xs-strip .xs-reset{order:-1;flex:none;width:24px;min-width:0;height:18px;padding:0;line-height:1;font-size:13px}
 .transfer-xl .xs-strip .xs-speed{flex:none;width:58px;min-width:0;padding:1px 2px}
 .transfer-xl .xs-strip .xs-animation{flex:1 1 120px;min-width:70px;padding:1px 2px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
 /* The timeline while the result view shows another animation: dimmed; using it brings the new animation back. */

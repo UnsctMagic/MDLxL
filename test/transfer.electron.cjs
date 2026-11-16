@@ -180,6 +180,22 @@ async function storyB() {
     const qc = await quaternion('Donor'), qd = await quaternion('Result');
     assert.ok(Math.abs(qc.dot(qd)) > 0.999, 'B: and after turning the result');
     results.checks.push('B: turning either view turns the other to the same angles');
+    // The viewpoint stays level: a sideways drag only turns the model around (no tilt, no change of
+    // height), an upward drag stops at the top instead of flipping over. matrix[2] is how far the
+    // camera's right edge leaves the horizontal, matrix[10] how high the camera sits.
+    const pose = async name => { const m = (await s.probe(name)).camera.object.matrix; return { tilt: Math.asin(Math.max(-1, Math.min(1, m[2]))) * 180 / Math.PI, height: Math.asin(Math.max(-1, Math.min(1, m[10]))) * 180 / Math.PI, turn: Math.atan2(m[9], m[8]) * 180 / Math.PI }; };
+    const steadyDrag = async (name, dx, dy, steps) => { const box = await s.view(name).locator('.xf-preview').boundingBox(), x = box.x + box.width * (dx ? 0.5 : 0.08) - dx * steps / 2, y = box.y + box.height * (dy ? 0.5 : 0.93) - dy * steps / 2, seen = []; await page.mouse.move(x, y); await page.mouse.down(); for (let i = 1; i <= steps; i++) { await page.mouse.move(x + dx * i, y + dy * i); await page.waitForTimeout(16); seen.push(await pose(name)); } await page.mouse.up(); await page.waitForTimeout(300); return seen; };
+    for (const name of ['Donor', 'Result']) {
+      const before = await pose(name), sideways = await steadyDrag(name, 6, 0, 30), other = await pose(name === 'Donor' ? 'Result' : 'Donor');
+      assert.ok(sideways.every(p => Math.abs(p.tilt) < 0.2), `B: a sideways drag in the ${name} view keeps the horizon level (tilt up to ${Math.max(...sideways.map(p => Math.abs(p.tilt))).toFixed(1)}°)`);
+      assert.ok(sideways.every(p => Math.abs(p.height - before.height) < 0.2), `B: a sideways drag in the ${name} view keeps the camera's height`);
+      assert.ok(Math.abs(sideways.at(-1).turn - before.turn) > 20, `B: a sideways drag in the ${name} view turns the model`);
+      assert.ok(Math.abs(other.tilt) < 0.2 && Math.abs(other.height - sideways.at(-1).height) < 0.2, `B: the other view follows the ${name} view level`);
+      const up = await steadyDrag(name, 0, 5, 80), turns = up.map(p => p.turn);
+      assert.ok(up.every(p => Math.abs(p.tilt) < 0.2) && turns.every(t => Math.abs(((t - turns[0] + 540) % 360) - 180) < 1), `B: a long upward drag in the ${name} view never flips or tilts it`);
+      await steadyDrag(name, 0, -5, 30);
+    }
+    results.checks.push('B: sideways drags keep both views level, a long vertical drag never flips them');
     results.checks.push('B: mouse drags turn the camera in both views');
     await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(800);
     assert.equal(await s.count(), before + 1, 'B: Add animation adds one animation');
@@ -648,6 +664,32 @@ async function viewsStory() {
     // An arm selected with its path, for the pictures.
     await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(800);
     await s.shot('04-arm-selected-path', shots5);
+    // Choosing another donor never moves the result's viewpoint; the new donor view faces the same way.
+    const facing = async name => { const m = (await s.probe(name)).camera.object.matrix; return [m[8], m[9], m[10]]; };
+    const resultCamera = await cameraOf('Result'), donorRow = await s.from().locator('[data-source]').evaluateAll(rows => rows.findIndex(row => row.classList.contains('selected')));
+    await s.from().locator('[data-source="self"]').click(); await page.waitForTimeout(1500);
+    assert.equal(await cameraOf('Result'), resultCamera, 'views: choosing another donor keeps the result camera');
+    const fa = await facing('Donor'), fb = await facing('Result');
+    assert.ok(fa[0] * fb[0] + fa[1] * fb[1] + fa[2] * fb[2] > 0.999, 'views: the new donor view faces the same way as the result');
+    await s.from().locator('[data-source]').nth(donorRow).click(); await page.waitForTimeout(1500);
+    assert.equal(await cameraOf('Result'), resultCamera, 'views: and choosing the first donor again');
+    results.checks.push('views: choosing another donor keeps the result viewpoint; the donor view takes the same direction');
+    // Reset view (the small button at the end of each scrubber): after turning, zooming and panning, one
+    // click gives the view a new model opens with, and the other view turns back with it.
+    const opening = [1, -1.5, .9].map(v => v / Math.hypot(1, 1.5, .9)), lens = async name => (await s.probe(name)).camera.object.zoom ?? 1;
+    for (const name of ['Result', 'Donor']) {
+      const box = await s.view(name).locator('.xf-preview').boundingBox(), framed = await cameraOf(name);
+      await s.dragCamera(name); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, -120); await page.waitForTimeout(60); }
+      await page.mouse.down({ button: 'right' }); await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 40, { steps: 6 }); await page.mouse.up({ button: 'right' }); await page.waitForTimeout(300);
+      assert.notEqual(await cameraOf(name), framed, `views: the ${name} view was turned, zoomed and moved`);
+      await strip(name).getByRole('button', { name: name === 'Donor' ? 'Reset donor view' : 'Reset view', exact: true }).click(); await page.waitForTimeout(500);
+      const now = await facing(name), far = await facing(name === 'Donor' ? 'Result' : 'Donor');
+      assert.ok(now[0] * opening[0] + now[1] * opening[1] + now[2] * opening[2] > 0.999, `views: Reset view turns the ${name} view back to the opening angle`);
+      assert.ok(far[0] * opening[0] + far[1] * opening[1] + far[2] * opening[2] > 0.999, `views: and the other view with it`);
+      assert.ok(Math.abs(await lens(name) - 1) < 0.001, `views: Reset view undoes the ${name} view's zoom`);
+    }
+    results.checks.push('views: Reset view beside each scrubber undoes turning, zoom and panning; the other view turns back with it');
     await s.noCrash('views');
   } finally { await s.close(); }
   // The same window under the dark theme.

@@ -724,3 +724,41 @@ Contract (director):
 - Director's change after reviewing the pictures: the scrub track runs the full width of the view
   above the strip's buttons (a 60 px track beside the dropdown was too short to use). Build
   `TestBuilds\transfer-xl-04`: the full harness passed hidden on that exact copy (34 checks).
+
+## Round 6: level viewpoint, window over the editor area (owner, 16 Nov 2026)
+
+Owner on build `transfer-xl-04`, with a screenshot of the Footman tilted in the result view: "Did you
+actually try this program?", "the view point is buggy, jittery, not fun to use - this is still
+difficult just to get started", "also make it slightly bigger, like the UV wrapper", "like the whole
+window should take the editor space".
+
+Found by recording real mouse drags in the packaged app (`out/transfer-probe/feel.cjs`, both cameras
+read at every step): the "views turn together" link sent XYZ camera angles through React state and
+applied them with `setEditorCameraAngles`, which also sets the camera's up vector to the camera's own
+up. From then on OrbitControls orbited around a tilted axis: a sideways drag changed the camera's
+height and rolled the horizon (26 degrees in 240 px), an upward drag went over the top and turned the
+view around, and choosing a donor sent the new donor view's default angles to the result view,
+moving the owner's viewpoint.
+
+As built (director):
+
+- `GamePreview` has an additive `turnCamera` prop, a bus `{ saved, listeners }` like `compareCamera`
+  but sharing only the viewing direction (unit vector from target to camera). Each view keeps its
+  own target, distance and zoom; world up stays up; nothing goes through React. A view that mounts
+  takes the direction already on the bus, and `fit()` frames along it, so a new donor never moves
+  the result's viewpoint. Transfer no longer uses `cameraAnglesRequest` / `onCameraAnglesChange`.
+- The window opens over the whole editor area (`main.classic-workspace`: under the toolbars, across
+  viewport and sidebar), as the UV Wrapper does, and follows that area's size; moving or resizing it
+  by hand still works. Side columns are 210 px and 270 px, the views take the rest.
+- Harness: story B drags sideways and up in both views and reads the cameras at every step (level
+  horizon, same height, no flip); the views story checks that choosing a donor keeps the result
+  camera. Both were run against build 04 first and fail there.
+- Not built: a way back after zooming or panning a view (a Fit button per view); proposed to the owner.
+- Reset view (owner, same morning: "in lowpoly works i have a small reset button next to the scrubber
+  on the view point - that is a handy way to reset view (and can be added to uv map and other places
+  where I have a preview)"): a small `↺` button at the end of each view's scrub track calls the new
+  `captureApi.resetView()` (drops the shared direction, fits the view again); the other view turns
+  back with it and keeps its own zoom and pan. Built for Transfer only; the UV map and the other
+  previews are a separate change, offered to the owner. Build `TestBuilds\transfer-xl-06`: full
+  harness passed on the camera and size change (run on 05, apart from one faulty new test line),
+  then stories B, views and the control sweep passed on the exact 06 copy with the reset button.

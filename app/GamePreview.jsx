@@ -392,7 +392,18 @@ export default function GamePreview(inputProps) {
       const key = [...viewMatrix, ...projectionMatrix].map(value => value.toFixed(6)).join(',');
       if (key !== projectionKey) { projectionKey = key; latest.current.onProjectionViewChange?.({ viewMatrix, projectionMatrix }); }
     };
-    let syncingCamera = false, compareRegistered = false, collisionCanvas = null, externalSeek;
+    let syncingCamera = false, compareRegistered = false, turnRegistered = false, collisionCanvas = null, externalSeek;
+    // turnCamera (Transfer): views that turn together. Only the viewing direction is shared, as a
+    // unit vector from the target to the camera; each view keeps its own target, distance and zoom,
+    // and world up stays up, so a sideways drag never tilts the horizon.
+    const viewDirection = () => { const d = camera.position.clone().sub(controls.target); return d.lengthSq() > 1e-9 ? d.normalize().toArray() : null; };
+    const receiveTurn = direction => {
+      if (state.portraitActive || !direction) return;
+      syncingCamera = true;
+      const distance = Math.max(.001, camera.position.distanceTo(controls.target));
+      camera.up.set(0, 0, 1); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(...direction), distance); camera.lookAt(controls.target);
+      controls.update(); reportProjectionView(); invalidate(); syncingCamera = false;
+    };
     const snapshotCamera = () => ({ ...snapshotPreviewCamera(camera, perspective, ortho, controls), portraitActive: state.portraitActive, portraitDetached: !!latest.current.portraitMode && state.cameraDetached });
     const receiveCamera = saved => {
       // Each pane owns its pre-portrait backup. Do not replace that view while
@@ -412,6 +423,11 @@ export default function GamePreview(inputProps) {
       if(latest.current.showcase)latest.current.onShowcaseViewChange?.();
       const bus = latest.current.compareCamera;
       if (bus && compareRegistered && !syncingCamera) { bus.saved = snapshotCamera(); for (const receive of bus.listeners) if (receive !== receiveCamera) receive(bus.saved); }
+      const turn = latest.current.turnCamera;
+      if (turn && turnRegistered && !syncingCamera) {
+        const direction = viewDirection(), old = turn.saved;
+        if (direction && (!old || Math.abs(old[0] - direction[0]) + Math.abs(old[1] - direction[1]) + Math.abs(old[2] - direction[2]) > 1e-6)) { turn.saved = direction; for (const receive of turn.listeners) if (receive !== receiveTurn) receive(direction); }
+      }
     };
     controls.addEventListener('change', cameraChanged);
     let leftGesture = null, previewSelectHeld = false;
@@ -1177,7 +1193,7 @@ export default function GamePreview(inputProps) {
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
       const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit());
-      const direction = new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
+      const shared = latest.current.turnCamera?.saved, direction = shared ? new THREE.Vector3(...shared) : new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
       const fitCenter = fitBox ? fitBox[0].clone().add(fitBox[1]).multiplyScalar(.5) : effect ? new THREE.Vector3(...effect.center) : center;
       perspective.position.copy(fitCenter).add(direction.multiplyScalar(fitBox ? boxFitDistance(fitBox, direction, width, height) : perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
       controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? (exact ? Math.max(1, radius) / focus.radius : Math.max(1, radius / focus.radius)) : 1; resize(); setView(latest.current.view || 'perspective');
@@ -1371,6 +1387,8 @@ export default function GamePreview(inputProps) {
     if (latest.current.portraitMode) enterPortrait(evaluateModelCamera(model, model?.Cameras?.[latest.current.portraitCameraIndex], latest.current.time, sequenceIndex, latest.current.time));
     const compareCamera = latest.current.compareCamera;
     if (compareCamera) { if (compareCamera.saved) receiveCamera(compareCamera.saved); else compareCamera.saved = snapshotCamera(); compareCamera.listeners.add(receiveCamera); compareRegistered = true; }
+    const turnCamera = latest.current.turnCamera;
+    if (turnCamera) { if (turnCamera.saved) receiveTurn(turnCamera.saved); else turnCamera.saved = viewDirection(); turnCamera.listeners.add(receiveTurn); turnRegistered = true; }
     const checker = new Uint8ClampedArray(8 * 8 * 4);
     for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const value = ((x >> 1) + (y >> 1)) % 2 ? 135 : 90; checker.set([value, value, value, 255], (y * 8 + x) * 4); }
     const assets = textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {}));
@@ -1858,6 +1876,8 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
+      // Back to the framing a new model opens with; views sharing turnCamera turn back with it.
+      resetView() { if (disposed) return; const turn = latest.current.turnCamera; if (turn) turn.saved = null; fit(); controls.update(); cameraChanged(); },
       frameGeosets,
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
@@ -1991,7 +2011,7 @@ export default function GamePreview(inputProps) {
         ? { ...snapshotPreviewCamera(portraitBackup.camera === 'ortho' ? portraitBackup.ortho : portraitBackup.perspective, portraitBackup.perspective, portraitBackup.ortho, { target: portraitBackup.target }), view: portraitBackup.appliedView }
         : { ...snapshotPreviewCamera(camera, perspective, ortho, controls), view: state.appliedView };
       if (latest.current.cameraHandoff) latest.current.cameraHandoff.current = cameraMemory.current;
-      compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
+      compareCamera?.listeners.delete(receiveCamera); turnCamera?.listeners.delete(receiveTurn); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);

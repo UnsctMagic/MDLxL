@@ -296,6 +296,8 @@
   {"id":"transfer:other-side","label":"Other side","group":"transfer","category":"Transfer"},
   {"id":"transfer:play-donor","label":"Play donor","group":"transfer","category":"Transfer"},
   {"id":"transfer:point-weapon","label":"Point weapon like theirs","group":"transfer","category":"Transfer"},
+  {"id":"transfer:reset-view","label":"Reset view","group":"transfer","category":"Transfer"},
+  {"id":"transfer:reset-view-donor","label":"Reset donor view","group":"transfer","category":"Transfer"},
   {"id":"transfer:setup-load","label":"Load setup","group":"transfer","category":"Transfer"},
   {"id":"transfer:setup-save","label":"Save setup","group":"transfer","category":"Transfer"},
   {"id":"transfer:take-from","label":"Take from the donor view","group":"transfer","category":"Transfer"},

@@ -1,6 +1,6 @@
 import { useMousePressLost, useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
-import React, { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
@@ -55,22 +55,23 @@ const FIELDS = [
 /** The donor view and its playback strip: its own clock, Play/Pause and viewing Speed, so only it
  * redraws while it plays. The dropdown is the same choice as the Animations list. The selected
  * part's hand or foot path is drawn over it, with a dot at the donor's own moment. The camera turns
- * with the result view's (cameraAngles). `notes` are drawn over the view. */
-const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseConfig, onPoseSelect, path, cameraAnglesRequest, onCameraAnglesChange, notes }) {
+ * with the result view's (turnCamera). `notes` are drawn over the view. */
+const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseConfig, onPoseSelect, path, turnCamera, notes }) {
   const interval = donor.model.Sequences?.[sequence]?.Interval;
   const [time, setTime] = useState(interval?.[0] ?? 0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   useEffect(() => { setTime(interval?.[0] ?? 0); }, [donor.model, sequence]);
   const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
+  const view = useRef(null), onViewReady = useCallback(api => { view.current = api; }, []);
   const options = useMemo(() => (donor.model.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(donor.model, i), own: true })), [donor.model]);
   return <>
     <div className="xf-preview">
       <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-        <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing} playbackSpeed={speed} cameraAnglesRequest={cameraAnglesRequest} onCameraAnglesChange={onCameraAnglesChange}
-          cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={poseConfig} poseDocumentModel={donor.model} onPoseSelect={onPoseSelect} onPoseCommit={noop} overlayPaths={overlay}/>
+        <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing} playbackSpeed={speed} turnCamera={turnCamera}
+          cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={poseConfig} poseDocumentModel={donor.model} onPoseSelect={onPoseSelect} onPoseCommit={noop} onCaptureReady={onViewReady} overlayPaths={overlay}/>
       </Suspense>
       {notes}
     </div>
-    <TransferViewStrip name="Donor view" playing={playing} onPlay={() => setPlaying(v => !v)} donor playTitle="Play or pause the donor view."
+    <TransferViewStrip name="Donor view" playing={playing} onPlay={() => setPlaying(v => !v)} donor onReset={() => view.current?.resetView()} playTitle="Play or pause the donor view."
       interval={interval} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={speed} onSpeed={setSpeed}
       value={String(sequence)} options={options} onChange={value => onSequence(Number(value))} selectTitle="The donor animation to look at and take from. The same choice as the Animations list."/>
   </>;
@@ -95,8 +96,18 @@ function PartSlider({ field, kind, value, mixed, onDraft, onCommit, onReset }) {
 /** Transfer: give the open model movement from another model (or another of its own
  * animations), body part by body part. Contract: docs/agent-tasks/transfer-xl.md (Round 2). */
 export default function Transfer({ doc, edit, textureAssets, teamColor, modelPath, otherModels = [], onClose }) {
-  const model = doc.model, sequences = model.Sequences || [];
-  const dialog = useRef(null);
+  const model = doc.model, sequences = model.Sequences || [];
+  const dialog = useRef(null);
+  // The window opens over the whole editor area (like the UV Wrapper): under the toolbars, across
+  // the viewport and the sidebar. It follows that area's size; moving or resizing it by hand wins.
+  useLayoutEffect(() => {
+    const element = dialog.current, area = element?.ownerDocument.querySelector('main.classic-workspace');
+    if (!element || !area) return undefined;
+    const place = () => { const box = area.getBoundingClientRect(); if (box.width < 200 || box.height < 200) return; for (const [name, value] of [['--xf-x', box.left], ['--xf-y', box.top], ['--xf-w', box.width], ['--xf-h', box.height]]) element.style.setProperty(name, `${Math.round(value)}px`); };
+    place();
+    const observer = new ResizeObserver(place); observer.observe(area);
+    return () => observer.disconnect();
+  }, []);
 
   // The recipe is the whole editable state; every change rebuilds from it (src/anim-transfer.js).
   const initialBase = firstAnimation(model);
@@ -344,15 +355,10 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!rig?.parts?.[selectedFrom]) return null;
     try { return jointPath(donor.model, donorSeq, rig.parts[selectedFrom].marker); } catch { return null; }
   }, [limb, donor?.model, donorSeq, selectedFrom]);
-  // The two views turn together: a view's own camera turn is sent to the other view (each keeps
-  // its own distance and framing). A report equal to what was just sent is the echo and is ignored.
-  const [angles, setAngles] = useState({ donor: null, result: null }), sentAngles = useRef({ donor: null, result: null });
-  const sameAngles = (a, b) => !!a && !!b && ['x', 'y', 'z'].every(axis => Math.abs(a[axis] - b[axis]) < .01);
-  const turnFrom = useCallback((from, to) => values => {
-    if (!values || sameAngles(values, sentAngles.current[from])) return;
-    sentAngles.current[to] = { ...values }; setAngles(old => ({ ...old, [to]: { ...values } }));
-  }, []);
-  const onDonorAngles = useMemo(() => turnFrom('donor', 'result'), [turnFrom]), onResultAngles = useMemo(() => turnFrom('result', 'donor'), [turnFrom]);
+  // The two views turn together: they share one viewing direction through GamePreview's turnCamera
+  // (each keeps its own target, distance and zoom; world up stays up). A newly chosen donor takes
+  // the direction the views already have, so picking a model never moves the result's viewpoint.
+  const turnCamera = useRef(null); turnCamera.current ||= { saved: null, listeners: new Set() };
   const latestHandlers = useRef({});
   latestHandlers.current.donorHandle = target => {
     const theirs = handlePart(rigA, poseA, target);
@@ -551,21 +557,21 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             <section className="xf-view" aria-label="Donor">
               <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
                 {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}</div>
-              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} cameraAnglesRequest={angles.donor} onCameraAnglesChange={onDonorAngles}
+              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} turnCamera={turnCamera.current}
                   notes={<>{!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</>}/>
                 : <><div className="xf-preview"><div className="xf-placeholder">Choose a model under From.</div>{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</div>
-                  <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}
+                  <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} onReset={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}
             </section>
             <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
               <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={viewSeq ?? preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} playbackSpeed={resultSpeed} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}
+                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={viewSeq ?? preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} playbackSpeed={resultSpeed} liveNodeTracks={liveTracks} turnCamera={turnCamera.current}
                     cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={viewSeq == null ? resultPose : null} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={viewSeq == null ? resultOverlay : undefined}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
               </div>
-              <TransferViewStrip name="Result view" playing={playing} onPlay={() => setPlaying(v => !v)} playTitle="Play or pause this view."
+              <TransferViewStrip name="Result view" playing={playing} onPlay={() => setPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
                 interval={preview ? preview.model.Sequences[viewSeq ?? preview.sequenceIndex]?.Interval : null} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={resultSpeed} onSpeed={setResultSpeed}
                 value={viewSeq == null ? 'new' : String(viewSeq)} options={resultOptions} onChange={value => value === 'new' ? showNew() : showOwn(Number(value))} disabled={!preview}
                 selectTitle="What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts."/>
