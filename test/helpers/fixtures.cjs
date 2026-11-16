@@ -42,6 +42,8 @@ const FIXTURES = {
   'transfer-sorceress': ['MDLXL_TRANSFER_SORCERESS', testModel('corpus-sd/human__sorceress.mdx')],
   'transfer-knight': ['MDLXL_TRANSFER_KNIGHT', testModel('corpus-sd/human__knight.mdx')], // rider on a horse: three leg pairs
   'transfer-ghoul': ['MDLXL_TRANSFER_GHOUL', testModel('corpus-sd/undead__ghoul.mdx')], // long toes skinned to Foot1/Foot2 under the foot joints
+  'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
+  'transfer-nurgle': ['MDLXL_TRANSFER_NURGLE', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // shield and axe
   'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 

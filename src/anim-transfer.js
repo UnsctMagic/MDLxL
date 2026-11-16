@@ -194,7 +194,7 @@ function readRig(model, info, skeleton) {
     const ids = trunk[key];
     if (!ids.length) continue;
     const marker = ids.at(-1);
-    parts[key] = { key, kind: 'trunk', side: null, joints: ids, anchor: key === 'hips' ? null : nearestTrunk(ids[0], ids), marker, length: chainLength(ids.map(pos)), weapon: false };
+    parts[key] = { key, kind: 'trunk', side: null, joints: ids, anchor: key === 'hips' ? null : nearestTrunk(ids[0], ids), marker, length: chainLength(ids.map(pos)), weapon: null };
   }
   // Limbs: the parent path from the chain's top to its last Bone/Helper, extended
   // upward through ancestors that carry only this limb and are not trunk joints.
@@ -237,12 +237,17 @@ function readRig(model, info, skeleton) {
   for (const limb of limbs) { const k = limb.kind + (limb.side || ''); groups.set(k, [...(groups.get(k) || []), limb]); }
   for (const [stem, list] of groups) list.sort(order).forEach((limb, i) => {
     const key = stem + (i ? i + 1 : ''), last = limb.joints.at(-1);
-    const weapon = limb.kind === 'arm' && info.nodes.some(node => node.ObjectId !== last && tree.isAncestor(node.ObjectId, last) && isWeaponName(node.Name));
-    parts[key] = { key, kind: 'limb', side: limb.side, joints: limb.joints, anchor: nearestTrunk(limb.joints[0]), marker: last, length: chainLength([...limb.joints.map(pos), ...(limb.tip ? [limb.tip] : [])]), weapon };
+    const named = limb.kind === 'arm' && info.nodes.some(node => node.ObjectId !== last && tree.isAncestor(node.ObjectId, last) && isWeaponName(node.Name));
+    const length = chainLength([...limb.joints.map(pos), ...(limb.tip ? [limb.tip] : [])]);
+    parts[key] = { key, kind: 'limb', side: limb.side, joints: limb.joints, anchor: nearestTrunk(limb.joints[0]), marker: last, length, weapon: limb.kind === 'arm' ? weaponShape(model, info, ref, last, length, named) : null };
     Object.defineProperty(parts[key], 'tip', { value: limb.tip, enumerable: false });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
+    Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
   });
-  const weapons = Object.values(parts).filter(part => part.weapon);
+  // Which hand holds the weapon (automatic Mirror) stays a naming rule: a
+  // geometric weapon is also found where no node is named (and none on a shield).
+  const weapons = Object.values(parts).filter(part => part.named);
+  for (const part of Object.values(parts).filter(part => part.weapon)) part.weapon.grip = twoHandGrip(model, info, ref, part, Object.values(parts).filter(other => other.limbKind === 'arm' && other !== part));
   const legs = Object.values(parts).filter(part => part.limbKind === 'leg');
   const hipCentre = legs.length ? average(legs.map(part => pos(part.joints[0]))) : bodyPos;
   const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
@@ -251,7 +256,101 @@ function readRig(model, info, skeleton) {
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
   const rig = { ok: true, reference, body, parts, hipHeight: Math.max(1e-3, hipCentre.z - ground), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
+  // The floor a weapon must stay above: the lowest foot vertex, else the ground.
+  const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
+  Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
   return rig;
+}
+
+/** Vertices skinned only to `end` and the nodes below it, in the reference pose. */
+function vertexPointsBelow(model, info, ref, end) {
+  const points = [];
+  for (const geoset of model.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights, picked = [];
+    for (let v = 0; v < count; v++) {
+      const hd = skin?.length >= (v + 1) * 8;
+      const bones = hd ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      if (bones.length && bones.every(id => info.tree.isAncestor(id, end))) picked.push(v);
+    }
+    if (!picked.length) continue;
+    const skinned = skinGeoset(geoset, ref.world);
+    for (const v of picked) points.push(new Vector3(skinned[v * 3], skinned[v * 3 + 1], skinned[v * 3 + 2]));
+  }
+  return points;
+}
+/** Principal axes of a point cloud, longest first (Jacobi on the covariance). */
+function principalAxes(points, centre) {
+  const a = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], v = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (const p of points) { const d = [p.x - centre.x, p.y - centre.y, p.z - centre.z]; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) a[i][j] += d[i] * d[j]; }
+  for (let sweep = 0; sweep < 30; sweep++) for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+    if (Math.abs(a[p][q]) < 1e-12) continue;
+    const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+    for (let k = 0; k < 3; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+    for (let k = 0; k < 3; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+    for (let k = 0; k < 3; k++) { const vkp = v[k][p], vkq = v[k][q]; v[k][p] = c * vkp - s * vkq; v[k][q] = s * vkp + c * vkq; }
+  }
+  return [0, 1, 2].map(i => ({ value: a[i][i], axis: new Vector3(v[0][i], v[1][i], v[2][i]).normalize() })).sort((x, y) => y.value - x.value).map(e => e.axis);
+}
+/** An arm's weapon: the vertices skinned only at or below its end joint, when
+ * they reach further than 0.6 of the arm's length. A held shield is as long as
+ * that too, so the shape must also be a bar (longest extent at least 1.8 times
+ * the next) unless a node below the hand is named as a weapon (the Kurgan's
+ * hammer has a wide head). Kept in the end joint's reference space: the axis
+ * ends (`butt` at the hand's end, `tip` the far end), the length and up to
+ * twelve outline points. */
+function weaponShape(model, info, ref, end, armLength, named) {
+  const points = vertexPointsBelow(model, info, ref, end);
+  if (points.length < 3) return null;
+  const centre = average(points.map(p => p.clone())), axes = principalAxes(points, centre);
+  const span = axis => { let lo = Infinity, hi = -Infinity; for (const p of points) { const d = p.clone().sub(centre).dot(axis); lo = Math.min(lo, d); hi = Math.max(hi, d); } return [lo, hi]; };
+  const [lo, hi] = span(axes[0]), [lo2, hi2] = span(axes[1]), length = hi - lo;
+  if (!(length > 0.6 * armLength) || !(named || length >= 1.8 * (hi2 - lo2))) return null;
+  const toEnd = (ref.world.get(end) || new Matrix4()).clone().invert(), hand = worldPos(model, ref, end);
+  let butt = centre.clone().addScaledVector(axes[0], lo), tip = centre.clone().addScaledVector(axes[0], hi);
+  if (butt.distanceTo(hand) > tip.distanceTo(hand)) [butt, tip] = [tip, butt];
+  const [a, b, c] = axes, outline = [];
+  for (const direction of [a, b, c, a.clone().add(b), a.clone().sub(b), a.clone().add(c)]) for (const sign of [1, -1]) {
+    const d = direction.clone().multiplyScalar(sign);
+    const far = points.reduce((best, p) => p.dot(d) > best.dot(d) ? p : best, points[0]);
+    if (!outline.some(p => p.distanceToSquared(far) < 1e-6)) outline.push(far);
+  }
+  const local = p => p.clone().applyMatrix4(toEnd).toArray();
+  return { length, butt: local(butt), tip: local(tip), outline: outline.map(local), grip: null };
+}
+/** Two hands on one weapon. A hand is on the weapon when its wrist is no further
+ * from the butt-tip line than the weapon hand's own wrist plus a fifth of its
+ * forearm (a wrist sits a hand's width off the handle it holds). The model holds
+ * its weapon with both hands when that is so in its reference pose, else in the
+ * first frame of its Stand Ready (the combat stance), else in most frames of one
+ * of its Attack animations; the Kurgan Warlord stands one-handed and readies
+ * two-handed. The grip is where that hand holds the weapon, in the weapon hand's
+ * space (the mean over the frames that hold). */
+function twoHandGrip(model, info, ref, part, others) {
+  const forearmOf = other => { const joints = other.joints.map(id => worldPos(model, ref, id)); return other.tip ? other.tip.distanceTo(joints.at(-1)) : joints.length > 1 ? joints.at(-1).distanceTo(joints.at(-2)) : 0; };
+  const forearms = new Map(others.map(other => [other, forearmOf(other)]));
+  const holds = sample => {
+    const toWorld = sample.world.get(part.marker) || new Matrix4(), butt = v3(part.weapon.butt).applyMatrix4(toWorld), tip = v3(part.weapon.tip).applyMatrix4(toWorld), line = tip.clone().sub(butt);
+    const offLine = p => p.distanceTo(butt.clone().addScaledVector(line, Math.max(0, Math.min(1, p.clone().sub(butt).dot(line) / line.lengthSq()))));
+    const own = offLine(worldPos(model, sample, part.marker));
+    let best = null;
+    for (const other of others) {
+      const hand = worldPos(model, sample, other.marker), distance = offLine(hand), forearm = forearms.get(other);
+      if (forearm > 0 && distance <= own + forearm / 5 && (!best || distance < best.distance)) best = { arm: other.key, distance, point: hand.clone().applyMatrix4(toWorld.clone().invert()) };
+    }
+    return best;
+  };
+  const found = grips => grips.length && { arm: grips[0].arm, point: average(grips.map(grip => grip.point)).toArray() };
+  const first = holds(ref);
+  if (first) return found([first]);
+  const sequences = model.Sequences || [], named = pattern => sequences.map((sequence, index) => ({ sequence, index })).filter(({ sequence }) => sequence?.Interval && pattern.test(sequence.Name || ''));
+  for (const { sequence, index } of named(/^\s*stand\s+ready/i)) { const grip = holds(sampleAt(model, index, sequence.Interval[0])); if (grip) return found([grip]); }
+  for (const { sequence, index } of named(/^\s*attack/i)) {
+    const [from, to] = sequence.Interval, grips = [];
+    for (let k = 0; k <= 10; k++) { const grip = holds(sampleAt(model, index, from + (to - from) * k / 10)); if (grip) grips.push(grip); }
+    const arm = grips.length > 5 && grips[0].arm;
+    if (arm && grips.filter(grip => grip.arm === arm).length > 5) return found(grips.filter(grip => grip.arm === arm));
+  }
+  return null;
 }
 function chainLength(points) { let total = 0; for (let i = 1; i < points.length; i++) total += points[i].distanceTo(points[i - 1]); return total; }
 function average(points) { return points.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(points.length); }
@@ -287,6 +386,7 @@ export function defaultTransferPart(recipientRig, partKey, wholeBody = false) {
   return {
     source: null, sequence: null, from: null, flip: false, amount: 1, match: 0,
     offset: [0, 0, 0], start: 0, speed: 1, loop: null, blend: wholeBody ? 0 : 150, plant: true, travel: 1,
+    fixes: [], grip: null, clear: null, aim: null,
   };
 }
 
@@ -369,9 +469,14 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const baseClock = { first: baseSeq.Interval[0], length: baseLength, looping: !baseSeq.NonLooping, start: 0, rate: baseSeq.NonLooping ? baseLength / length : loopRate(baseLength, 1), amount: 1, blend: 0, sequence: baseIndex };
   for (const entry of taken) entry.clock = { first: entry.seq.Interval[0], length: entry.length, looping: entry.looping, start: entry.start, rate: entry.looping ? loopRate(entry.length, entry.speed) : entry.speed, amount: entry.amount, blend: entry.looping ? 0 : entry.blend };
 
+  // options.times evaluates chosen moments only (the aim solver); the lift is
+  // then that moment's own need, without easing.
   const times = [];
-  for (let t = 0; t < length - 0.5; t += step) { const f = Math.round(t); if (f !== times.at(-1)) times.push(f); }
-  times.push(length);
+  if (options.times) times.push(...options.times);
+  else {
+    for (let t = 0; t < length - 0.5; t += step) { const f = Math.round(t); if (f !== times.at(-1)) times.push(f); }
+    times.push(length);
+  }
   const n = times.length;
 
   // Driven joints: every joint of a taken part except global-sequence ones.
@@ -385,11 +490,39 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   if (moveBody) tracks.get(rigB.body) ? tracks.get(rigB.body).Translation = new Float32Array(n * 3) : (tracks.set(rigB.body, { Translation: new Float32Array(n * 3) }), driven.push(rigB.body));
   const plantLegs = hips ? drivenOrder.filter(e => e.own.limbKind === 'leg' && e.part.plant !== false && e.donor === hips.donor && e.sequence === hips.sequence) : [];
 
-  for (let k = 0; k < n; k++) {
-    const t = times[k], base = sampleAt(recipient, baseIndex, clockAt(baseClock, t).frame);
-    const over = new Map(), lookup = node => over.get(node.ObjectId) || base.local.get(node.ObjectId);
+  // Weapon arms: point like theirs (aim), stay above the floor (clear), both
+  // hands on the weapon (grip). Each is off when its recipe field says so.
+  const weaponArms = drivenOrder.filter(entry => entry.own.weapon).map(entry => {
+    const detected = entry.own.weapon.grip, wanted = entry.part.grip ?? !!detected;
+    const otherKey = detected?.arm ?? Object.keys(rigB.parts).find(key => /^arm/.test(key) && rigB.parts[key] !== entry.own && rigB.parts[key].side !== entry.own.side);
+    const other = wanted && otherKey ? rigB.parts[otherKey] : null;
+    return {
+      // Point like theirs: automatic (null) is on for a clip that plays once (an
+      // attack reads) and off for a looping one (a stand keeps its own grip).
+      entry, aim: !entry.theirs.weapon ? 0 : entry.part.aim == null ? (entry.looping ? 0 : 1) : Math.max(0, Math.min(1, Number(entry.part.aim) || 0)), clear: entry.part.clear !== false,
+      grip: other ? { part: other, point: v3(detected?.point ?? entry.own.weapon.butt), joints: other.joints.filter(id => !isGlobalTrack(byIdB.get(id)?.Rotation, recipient)), reach: chainLength(other.joints.map(id => worldPos(recipient, refB, id))) } : null,
+      need: new Float64Array(n), axis: [],
+    };
+  });
+  for (const arm of weaponArms) if (arm.grip) for (const id of arm.grip.joints) if (!tracks.has(id)) { tracks.set(id, { Rotation: new Float32Array(n * 4) }); driven.push(id); }
+
+  // Pass 1, per sample: the transfer itself, then the weapon's aim, then how far
+  // the weapon arm must lift to keep the weapon above the floor.
+  const poses = [];
+  const poseTools = (base, over) => {
+    const lookup = node => over.get(node.ObjectId) || base.local.get(node.ObjectId);
     const world = id => composeNodeMatrices(recipient, [id], lookup, byIdB).get(id);
     const parentRot = id => { const parent = infoB.tree.parentOf(id); return parent == null ? new Quaternion() : rotationOf(world(parent)); };
+    const setWorld = (id, worldRotation) => {
+      const current = over.get(id) || base.local.get(id), local = inv(parentRot(id)).multiply(worldRotation).normalize();
+      if (current.r.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w);
+      over.set(id, { t: current.t, r: local, s: current.s });
+    };
+    return { world, parentRot, setWorld };
+  };
+  for (let k = 0; k < n; k++) {
+    const t = times[k], base = sampleAt(recipient, baseIndex, clockAt(baseClock, t).frame);
+    const over = new Map(), { world, parentRot, setWorld } = poseTools(base, over);
     const setRotation = (id, worldRotation, w) => {
       const own = base.local.get(id), local = inv(parentRot(id)).multiply(worldRotation).normalize();
       if (own.r.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w);
@@ -400,16 +533,16 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     for (const entry of drivenOrder) {
       const { frame, w } = clockAt(entry.clock, t);
       if (!(w > 0)) continue;
-      const donorSample = sampleAt(entry.donor, entry.sequence, frame);
-      states.set(entry, { donorSample, w });
+      const donorSample = sampleAt(entry.donor, entry.sequence, frame), offset = entry.offsetAt(t, length, !nonLooping);
       const dA = entry.theirs.anchor == null ? new Quaternion() : worldRot(donorSample, entry.theirs.anchor).clone().multiply(entry.refAnchorA);
       const dB = entry.own.anchor == null ? new Quaternion() : rotationOf(world(entry.own.anchor)).multiply(entry.refAnchorB);
+      states.set(entry, { donorSample, w, offset, dA, dB });
       const deltaOf = j => entry.convert(inv(dA).multiply(worldRot(donorSample, entry.theirs.joints[j])).multiply(entry.refInvA[j]));
       const spread = entry.spread ? deltaOf(entry.theirs.joints.length - 1) : null;
       entry.own.joints.forEach((id, i) => {
         if (entry.skip.has(id)) return;
         const delta = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
-        setRotation(id, mul(dB, entry.offset, delta, entry.align[i], entry.refRotB[i]), w);
+        setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w);
       });
       // Hips travel: move the body bone so the hip centre follows the donor's.
       if (entry === hips && moveBody) {
@@ -430,10 +563,47 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const planted = entry.refEndB.clone().add(entry.convertV(donorEnd.clone().sub(entry.refEndA)).multiplyScalar(hips.scale));
       const own = worldPos(recipient, base, entry.own.marker);
       const target = own.clone().lerp(planted, Math.min(1, state.w));
-      target.sub(entry.refRootB).applyQuaternion(entry.offset).add(entry.refRootB);
+      target.sub(entry.refRootB).applyQuaternion(state.offset).add(entry.refRootB);
       solveLimb(recipient, entry.own.joints.filter(id => !entry.skip.has(id)), target, { world, over, base, parentRot });
       if (entry.own.sole && !entry.skip.has(entry.own.marker)) liftSole(recipient, entry.own.marker, entry.own.sole, { world, over, base, parentRot });
     }
+    for (const arm of weaponArms) {
+      const { entry } = arm, state = states.get(entry), end = entry.own.marker;
+      // Point the weapon like theirs: turn the hand so its butt-to-tip axis turns
+      // toward where the donor's points, relative to each one's chest.
+      if (state && arm.aim > 0 && !entry.skip.has(end)) {
+        const hand = rotationOf(world(end)), axis = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(hand);
+        const theirs = v3(entry.theirs.weapon.tip).sub(v3(entry.theirs.weapon.butt)).applyQuaternion(worldRot(state.donorSample, entry.theirs.marker));
+        const target = entry.convertV(theirs.applyQuaternion(inv(state.dA))).applyQuaternion(state.dB);
+        setWorld(end, qPow(arc(axis, target), arm.aim * aimEase(entry.clock, t) * Math.min(1, state.w)).multiply(hand));
+      }
+      if (arm.clear && !entry.skip.has(entry.own.joints[0])) [arm.need[k], arm.axis[k]] = weaponLift(recipient, entry.own, rigB.floor, world);
+    }
+    poses.push({ base, over, states });
+  }
+
+  // The lift eases in and out: the largest need within 80 ms either side, a
+  // limit on how fast it may change, then a 60 ms blur.
+  for (const arm of weaponArms) if (arm.clear) arm.lift = smoothLift(arm.need, times, !nonLooping);
+
+  // Pass 2, per sample: lift the weapon arm, put the other hand back on its grip,
+  // and record the driven joints.
+  for (let k = 0; k < n; k++) {
+    const { base, over, states } = poses[k], { world, parentRot, setWorld } = poseTools(base, over);
+    for (const arm of weaponArms) {
+      const { entry } = arm, root = entry.own.joints[0];
+      if (arm.clear && arm.lift[k] > 1e-6 && arm.axis[k]) setWorld(root, axisAngle(arm.axis[k], arm.lift[k]).multiply(rotationOf(world(root))));
+      const state = states.get(entry);
+      if (arm.grip && state) {
+        const handWorld = world(entry.own.marker), hand = v3(nodePivot(recipient, byIdB.get(arm.grip.part.marker), arm.grip.part.marker)).applyMatrix4(world(arm.grip.part.marker));
+        // Out of the arm's reach, the hand slides along the shaft to the nearest point it reaches.
+        const shoulder = v3(nodePivot(recipient, byIdB.get(arm.grip.joints[0]), arm.grip.joints[0])).applyMatrix4(world(arm.grip.joints[0]));
+        const shaft = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(rotationOf(handWorld)).normalize();
+        const target = slideInReach(arm.grip.point.clone().applyMatrix4(handWorld), shaft, shoulder, arm.grip.reach * 0.98);
+        solveLimb(recipient, arm.grip.joints, hand.lerp(target, Math.min(1, state.w)), { world, over, base, parentRot });
+      }
+    }
+    options.probe?.({ k, world, states, entries: drivenOrder });
     for (const id of driven) {
       const value = over.get(id) || base.local.get(id), out = tracks.get(id);
       if (out.Rotation) {
@@ -485,12 +655,29 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const looping = part.loop ?? !seq.NonLooping;
   const speed = part.speed > 0 ? part.speed : 1;
   const refRootB = posB(own.joints[0]).clone();
+  const offset = partOffset(rigB, own, refB, recipient, part.offset);
+  // Moment fixes: extra Raise / Turn / Roll (trunk: Lean / Turn / Tilt), full at
+  // `time` and fading smoothly to nothing `width` ms either side.
+  const fixes = (Array.isArray(part.fixes) ? part.fixes : []).filter(fix => Number.isFinite(Number(fix?.time)))
+    .map(fix => ({ time: Number(fix.time), width: Number(fix.width) > 0 ? Number(fix.width) : 250, add: own.kind === 'trunk' ? [fix.raise, fix.roll, fix.turn] : [fix.raise, fix.turn, fix.roll] }));
+  const base = (part.offset || [0, 0, 0]).map(value => Number(value) || 0);
+  const offsetAt = (t, length, looping) => {
+    if (!fixes.length) return offset;
+    const degrees = base.slice();
+    for (const fix of fixes) {
+      let distance = Math.abs(t - fix.time);
+      if (looping && length > 0) distance = Math.min(distance % length, length - distance % length);
+      const weight = smooth(1 - distance / fix.width);
+      if (weight > 0) fix.add.forEach((value, i) => { degrees[i] += weight * (Number(value) || 0); });
+    }
+    return degrees.every((value, i) => value === base[i]) ? offset : partOffset(rigB, own, refB, recipient, degrees);
+  };
   return {
     key, part, own, theirs, donor, seq, sequence, rigA, looping, speed,
     start: Number(part.start) || 0, length: Math.max(0, seq.Interval[1] - seq.Interval[0]),
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     scale: rigB.hipHeight / rigA.hipHeight, convert, convertV, map, spread, align,
-    offset: partOffset(rigB, own, refB, recipient, part.offset),
+    offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
     refAnchorB: own.anchor == null ? null : inv(worldRot(refB, own.anchor)),
     refInvA: theirs.joints.map(id => inv(worldRot(refA, id))),
@@ -498,6 +685,119 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     refEndA: posA(theirs.marker).clone(), refEndB: posB(own.marker).clone(), refRootB,
     skip: new Set(),
   };
+}
+
+// ---------------------------------------------------------------- aim (drag a hand or foot)
+const AIM_LIMIT = 90;
+/** World positions of a limb's root and end joint at result time `time`, from one
+ * evaluation of that moment: `{ root: [x, y, z], end: [x, y, z] }`. */
+export function transferEndPoint(recipient, sources, recipe, partKey, time) {
+  const at = evaluateMoment(recipient, sources, recipe, partKey, time);
+  return { root: at.root.toArray(), end: at.end.toArray() };
+}
+function evaluateMoment(recipient, sources, recipe, partKey, time) {
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), part = rig.parts[partKey];
+  if (!part || part.kind !== 'limb') throw new Error('Aim works on arms, legs, wings and tails.');
+  const byId = modelInfo(recipient).byId, at = id => v3(nodePivot(recipient, byId.get(id), id));
+  let found = null;
+  const built = buildTransfer(recipient, sources, recipe, { times: [Math.round(time)], probe: ({ world, states, entries }) => {
+    const entry = entries.find(e => e.key === partKey), state = entry && states.get(entry);
+    found = { root: at(part.joints[0]).applyMatrix4(world(part.joints[0])), end: at(part.marker).applyMatrix4(world(part.marker)), anchor: state?.dB || null };
+  } });
+  return { ...found, length: built.length, looping: !built.nonLooping };
+}
+/** Raise, Turn and Roll (degrees) that point direction `e` (in the offset's
+ * input frame) along `g`. partOffset is Turn about up, then Raise about the
+ * limb's horizontal raise axis, then Roll about its reference line. Raise sets the
+ * height of the direction, Turn its bearing, and Roll stays as it is unless the
+ * height cannot be reached: when the moving limb points along the raise axis
+ * (an arm that hangs in its reference pose and swings forward in the attack),
+ * Raise only twists it, so Roll then turns it off that axis first. Of the two
+ * Raise answers the one that stays inside the sliders, then nearer `near`, wins. */
+function aimAngles(rig, part, ref, model, e, g, roll, near) {
+  const forward = v3(rig.facing), left = UP.clone().cross(forward).normalize();
+  const root = worldPos(model, ref, part.joints[0]), end = part.tip || worldPos(model, ref, part.marker);
+  const line = end.clone().sub(root), flat = line.clone().setZ(0);
+  const bearing = flat.length() < line.length() * Math.sin(15 * DEG) || flat.lengthSq() < 1e-12
+    ? (part.side === 'R' ? left.clone().negate() : part.side === 'L' ? left.clone() : forward.clone()) : flat.normalize();
+  const raiseAxis = bearing.clone().cross(UP).normalize(), side = raiseAxis.clone().cross(UP), axis = line.lengthSq() > 1e-12 ? line.clone().normalize() : null;
+  const goal = g.clone().normalize(), direction = e.clone().normalize();
+  const rollBy = degrees => axis ? direction.clone().applyQuaternion(axisAngle(axis, degrees * DEG)) : direction.clone();
+  const reach = v => Math.hypot(v.dot(UP), v.dot(side));
+  if (axis && reach(rollBy(roll)) < Math.abs(goal.z) - 1e-6) {
+    // Roll so the direction is as far from the raise axis as it can be.
+    const along = axis.clone().multiplyScalar(direction.dot(axis)), across = direction.clone().sub(along), turned = axis.clone().cross(across);
+    const A = along.dot(raiseAxis), B = across.dot(raiseAxis), C = turned.dot(raiseAxis), R = Math.hypot(B, C);
+    if (R > 1e-9) {
+      const delta = Math.atan2(C, B), spread = Math.acos(Math.max(-1, Math.min(1, -A / R)));
+      const best = [delta + spread, delta - spread].map(c => Math.atan2(Math.sin(c), Math.cos(c)) / DEG)
+        .reduce((x, y) => Math.abs(y - roll) < Math.abs(x - roll) ? y : x);
+      roll = Math.round(best * 100) / 100;
+    }
+  }
+  const rolled = rollBy(roll);
+  // Height after Raise: p cos a - q sin a, p along up and q along raiseAxis x up.
+  const p = rolled.dot(UP), q = rolled.dot(side), radius = Math.hypot(p, q), phase = Math.atan2(q, p);
+  const ratio = radius > 1e-9 ? Math.max(-1, Math.min(1, goal.z / radius)) : 1;
+  const answers = [Math.acos(ratio) - phase, -Math.acos(ratio) - phase].map(a => {
+    const raise = Math.atan2(Math.sin(a), Math.cos(a)), raised = rolled.clone().applyQuaternion(axisAngle(raiseAxis, raise)).setZ(0), wanted = goal.clone().setZ(0);
+    const turn = raised.lengthSq() > 1e-12 && wanted.lengthSq() > 1e-12 ? Math.atan2(raised.clone().cross(wanted).z, raised.dot(wanted)) : 0;
+    return [raise / DEG, turn / DEG];
+  });
+  const outside = ([r, t]) => Math.max(0, Math.abs(r) - AIM_LIMIT) + Math.max(0, Math.abs(t) - AIM_LIMIT);
+  const [raise, turn] = answers.reduce((x, y) => outside(y) < outside(x) - 1e-9 || (Math.abs(outside(y) - outside(x)) <= 1e-9 && Math.abs(y[0] - near) < Math.abs(x[0] - near)) ? y : x);
+  return [raise, turn, roll];
+}
+/** Aim a limb so its end joint points at `point` (world) at result time `time`.
+ * scope 'whole' returns `{ offset: [raise, turn, roll], clamped }`, the part's new
+ * constant offset; scope 'moment' returns `{ fix: { time, raise, turn, roll, width },
+ * index, clamped }`, a moment fix on top of the offset and the other fixes (an
+ * existing fix within its width of `time` is returned updated, `index` says which;
+ * -1 is a new fix). The recipe is not changed. */
+export function transferAim(recipient, sources, recipe, partKey, time, point, { scope = 'whole' } = {}) {
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), part = rig.parts[partKey], taken = recipe?.parts?.[partKey];
+  if (!part || part.kind !== 'limb' || !taken) throw new Error('Take an arm, leg, wing or tail before aiming it.');
+  const ref = sampleAt(recipient, rig.reference.sequence, rig.reference.frame), target = v3(point);
+  const base = (taken.offset || [0, 0, 0]).map(value => Number(value) || 0);
+  const fixes = Array.isArray(taken.fixes) ? taken.fixes : [];
+  const first = evaluateMoment(recipient, sources, recipe, partKey, time), { length, looping } = first;
+  const near = fix => { let d = Math.abs(time - Number(fix.time)); if (looping && length > 0) d = Math.min(d % length, length - d % length); return d; };
+  const index = scope === 'moment' ? fixes.findIndex(fix => near(fix) < (Number(fix.width) > 0 ? Number(fix.width) : 250)) : -1;
+  // Degrees the part effectively has at `time` from the offset and the fixes.
+  const effective = r => {
+    const degrees = base.slice();
+    fixes.forEach((fix, i) => { if (i === index) return; const weight = smooth(1 - near(fix) / (Number(fix.width) > 0 ? Number(fix.width) : 250)); degrees[0] += weight * (Number(fix.raise) || 0); degrees[1] += weight * (Number(fix.turn) || 0); degrees[2] += weight * (Number(fix.roll) || 0); });
+    return degrees;
+  };
+  const others = effective();
+  const held = index >= 0 ? [Number(fixes[index].raise) || 0, Number(fixes[index].turn) || 0, Number(fixes[index].roll) || 0] : [0, 0, 0];
+  let answer = scope === 'moment' ? held : base.slice(), clamped = false;
+  const recipeWith = values => {
+    const parts = { ...recipe.parts };
+    if (scope === 'moment') {
+      const list = fixes.slice(), fix = { time, raise: values[0], turn: values[1], roll: values[2], width: Number(fixes[index]?.width) > 0 ? Number(fixes[index].width) : 250 };
+      if (index >= 0) list[index] = fix; else list.push(fix);
+      parts[partKey] = { ...taken, fixes: list };
+    } else parts[partKey] = { ...taken, offset: values };
+    return { ...recipe, parts };
+  };
+  // Two passes: the analytic step, then one correction from where it landed.
+  for (let pass = 0; pass < 2; pass++) {
+    const now = pass || (scope === 'moment' && index >= 0) ? evaluateMoment(recipient, sources, recipeWith(answer), partKey, time) : first;
+    if (!now?.end) break;
+    const from = now.end.clone().sub(now.root), to = target.clone().sub(now.root);
+    if (from.angleTo(to) < 1 * DEG) break;
+    const degrees = scope === 'moment' ? others.map((v, i) => v + answer[i]) : answer;
+    // The offset sits inside the anchor's change (W = dB O X): in the offset's
+    // own frame the end points along e = O^-1 dB^-1 from and must point along g = dB^-1 to.
+    const anchor = now.anchor || new Quaternion(), current = partOffset(rig, part, ref, recipient, degrees);
+    const e = from.clone().applyQuaternion(inv(anchor)).applyQuaternion(inv(current)), g = to.clone().applyQuaternion(inv(anchor));
+    const [raise, turn, roll] = aimAngles(rig, part, ref, recipient, e, g, degrees[2], degrees[0]);
+    const want = [raise, turn, roll].map((v, i) => scope === 'moment' ? v - others[i] : v);
+    answer = want.map(v => { const c = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, v)); if (Math.abs(c - v) > 1e-6) clamped = true; return Math.round(c * 100) / 100; });
+  }
+  if (scope === 'moment') return { fix: { time, raise: answer[0], turn: answer[1], roll: answer[2], width: Number(fixes[index]?.width) > 0 ? Number(fixes[index].width) : 250 }, index, clamped };
+  return { offset: answer, clamped };
 }
 
 /** Recipient joint i -> donor joint index: one to one when counts match, else
@@ -539,6 +839,73 @@ function hipCentreOf(model, rig, matrixOf) {
   const at = id => v3(nodePivot(model, modelInfo(model).byId.get(id), id)).applyMatrix4(matrixOf(id) || new Matrix4());
   const legs = Object.values(rig.parts).filter(part => part.limbKind === 'leg');
   return legs.length ? average(legs.map(part => at(part.joints[0]))) : at(rig.body);
+}
+
+/** How far (radians) and about which axis the arm must turn up about its root so
+ * that no outline point of its weapon is below the floor. */
+function weaponLift(model, part, floor, world) {
+  const end = world(part.marker), rootId = part.joints[0], root = v3(nodePivot(model, modelInfo(model).byId.get(rootId), rootId)).applyMatrix4(world(rootId));
+  const points = part.weapon.outline.map(p => v3(p).applyMatrix4(end).sub(root));
+  const lowest = points.reduce((a, b) => b.z < a.z ? b : a);
+  const flat = lowest.clone().setZ(0);
+  const axis = flat.lengthSq() > 1e-8 ? flat.normalize().cross(UP).normalize() : new Vector3(0, 1, 0);
+  const heightAt = angle => { const q = axisAngle(axis, angle); return Math.min(...points.map(p => p.clone().applyQuaternion(q).z)) + root.z; };
+  if (heightAt(0) >= floor) return [0, axis];
+  let lo = 0, hi = Math.PI / 2;
+  if (heightAt(hi) < floor) return [hi, axis];
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; }
+  return [hi, axis];
+}
+/** Lift over time. A result that plays once starts and ends in the model's own
+ * stance: the lift is the bare need at the first and last sample, and rises (and
+ * falls) at most 400 degrees a second, so a weapon that dips right after the
+ * start may briefly stay under the floor. Inside, the largest need within 80 ms
+ * either side holds it up, and a 60 ms blur (narrowing toward the ends) takes
+ * off the corners. A looping result smooths across its seam instead, at most
+ * 170 degrees a second, never below the need. */
+function smoothLift(need, times, looping) {
+  const n = need.length, held = new Float64Array(n), first = times[0], last = times[n - 1], span = last - first;
+  const gap = (a, b) => { const d = Math.abs(times[a] - times[b]); return looping && span > 0 ? Math.min(d, span - d) : d; };
+  const room = k => looping ? Infinity : Math.min(times[k] - first, last - times[k]);
+  for (let k = 0; k < n; k++) for (let j = 0; j < n; j++) if (gap(j, k) <= Math.min(80, room(k))) held[k] = Math.max(held[k], need[j]);
+  const rate = (looping ? 170 : 400) * DEG / 1000;
+  if (looping) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 0; k < n; k++) { const p = (k - 1 + n) % n; held[k] = Math.max(held[k], held[p] - rate * gap(k, p)); }
+      for (let k = n - 1; k >= 0; k--) { const q = (k + 1) % n; held[k] = Math.max(held[k], held[q] - rate * gap(k, q)); }
+    }
+  } else {
+    held[0] = need[0]; held[n - 1] = need[n - 1];
+    // Rise and fall no faster than the limit from the two ends inward.
+    for (let k = 1; k < n; k++) held[k] = Math.min(held[k], held[k - 1] + rate * (times[k] - times[k - 1]));
+    for (let k = n - 2; k >= 0; k--) held[k] = Math.min(held[k], held[k + 1] + rate * (times[k + 1] - times[k]));
+  }
+  return Array.from(held, (_, k) => {
+    const radius = Math.min(60, room(k));
+    let sum = 0, count = 0;
+    for (let j = 0; j < n; j++) if (gap(j, k) <= radius) { sum += held[j]; count++; }
+    return looping ? Math.max(sum / count, need[k]) : sum / count;
+  });
+}
+
+/** In a clip that plays once the aim eases in over its first 150 ms and out over
+ * its last (a quarter of a shorter clip), so the result starts and ends with the
+ * model's own grip. */
+function aimEase(clock, t) {
+  if (clock.looping) return 1;
+  const span = clock.length / clock.rate, elapsed = t - clock.start, edge = Math.min(150, span / 4);
+  return edge > 0 ? smooth(Math.min(1, elapsed / edge, (span - elapsed) / edge)) : 1;
+}
+
+/** The point on the line `point + s * along` nearest `point` (smallest |s|) that
+ * lies within `reach` of `centre`; the line's closest point when none does. */
+function slideInReach(point, along, centre, reach) {
+  const offset = point.clone().sub(centre), b = offset.dot(along), c = offset.lengthSq() - reach * reach;
+  if (c <= 0) return point;
+  const disc = b * b - c;
+  if (disc < 0) return point.clone().addScaledVector(along, -b);
+  const roots = [-b - Math.sqrt(disc), -b + Math.sqrt(disc)], s = Math.abs(roots[0]) < Math.abs(roots[1]) ? roots[0] : roots[1];
+  return point.clone().addScaledVector(along, s);
 }
 
 /** Leg solve: scale every interior bend about its own axis by one factor until

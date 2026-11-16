@@ -424,3 +424,165 @@ test('R6 a body animation that plays once is fitted to the taken attack: no snap
   const b = sampleTrack(node(loc), own[1], { interval: own, fallback: [0, 0, 0, 1], quaternion: true });
   assert.ok(angle(new Quaternion().fromArray(a), new Quaternion().fromArray(b)) < 0.01, 'the wing ends on the body animation\'s last frame');
 });
+
+// ---------------------------------------------------------------- round 4 (N1-N5, N5b)
+// New exports are read from the module object so each test fails on its own on
+// code without them.
+const call = (name, ...args) => { assert.equal(typeof XFER[name], 'function', `${name} is exported`); return XFER[name](...args); };
+const storyBRecipe = extra => { const { foot, grunt, sources } = storyB(); return { foot, grunt, sources, recipe: { base: { sequence: seq(foot, 'Stand Defend') }, length: null, sources: {}, parts: { armL: { ...defaultTransferPart(transferRig(foot), 'armL', false), source: 'grunt', sequence: seq(grunt, 'Attack - 1'), ...extra } } } }; };
+const handAt = (model, built, baseIndex, k, id) => pivotAt(model, builtMatrices(model, built, baseIndex, k), id);
+
+test('N5 a moment fix moves the hand at its time, nowhere beyond its width, and nothing when empty', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const plain = storyBRecipe(), fixed = storyBRecipe({ fixes: [{ time: 450, raise: 30, turn: 0, roll: 0, width: 250 }] }), empty = storyBRecipe({ fixes: [] });
+  const { foot, sources } = plain, defend = seq(foot, 'Stand Defend'), hand = transferRig(foot).parts.armL.marker;
+  const a = buildTransfer(foot, sources, plain.recipe), b = buildTransfer(foot, sources, fixed.recipe);
+  assert.deepEqual(buildTransfer(foot, sources, empty.recipe).tracks, a.tracks, 'no fixes is the plain result');
+  const at = a.times.indexOf(a.times.reduce((x, y) => Math.abs(y - 450) < Math.abs(x - 450) ? y : x));
+  const moved = handAt(foot, a, defend, at, hand).distanceTo(handAt(foot, b, defend, at, hand));
+  assert.ok(moved > 5, `the hand moves only ${moved.toFixed(2)} at the fix`);
+  a.times.forEach((t, k) => {
+    if (Math.abs(t - 450) < 250) return;
+    const d = handAt(foot, a, defend, k, hand).distanceTo(handAt(foot, b, defend, k, hand));
+    assert.ok(d < 1e-4, `the hand moves ${d} at ${t} ms, beyond the fix's width`);
+  });
+});
+
+test('N5b aim: the returned offset points the hand at the dropped point; moment scope stays local; no change for the current direction', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const { foot, sources, recipe } = storyBRecipe();
+  const direction = (end, point) => new Vector3(...end.end).sub(new Vector3(...end.root)).angleTo(point.clone().sub(new Vector3(...end.root))) * 180 / Math.PI;
+  for (const time of [200, 450, 700]) for (const shift of [[10, -10, 0], [-8, 12, -10], [6, 6, 8]]) {
+    const now = call('transferEndPoint', foot, sources, recipe, 'armL', time), point = new Vector3(...now.end).add(new Vector3(...shift));
+    const { offset, clamped } = call('transferAim', foot, sources, recipe, 'armL', time, point.toArray());
+    assert.equal(clamped, false, `${time} ms ${shift}`);
+    const after = call('transferEndPoint', foot, sources, { ...recipe, parts: { armL: { ...recipe.parts.armL, offset } } }, 'armL', time);
+    assert.ok(direction(after, point) <= 1.5, `${time} ms ${shift}: ${direction(after, point).toFixed(2)} degrees off`);
+  }
+  // Moment scope: the fix aims at its time and leaves the hand alone beyond its width.
+  const now = call('transferEndPoint', foot, sources, recipe, 'armL', 450), point = new Vector3(...now.end).add(new Vector3(10, -10, 0));
+  const { fix, index } = call('transferAim', foot, sources, recipe, 'armL', 450, point.toArray(), { scope: 'moment' });
+  assert.equal(index, -1);
+  const fixed = { ...recipe, parts: { armL: { ...recipe.parts.armL, fixes: [fix] } } };
+  assert.ok(direction(call('transferEndPoint', foot, sources, fixed, 'armL', 450), point) <= 1.5);
+  for (const time of [450 - fix.width - 20, 450 + fix.width + 20]) {
+    const a = call('transferEndPoint', foot, sources, recipe, 'armL', time).end, b = call('transferEndPoint', foot, sources, fixed, 'armL', time).end;
+    assert.ok(new Vector3(...a).distanceTo(new Vector3(...b)) < 1e-4, `the hand moved at ${time} ms`);
+  }
+  // A point along the limb's current direction keeps the offset.
+  const along = new Vector3(...now.end).sub(new Vector3(...now.root)).multiplyScalar(1.3).add(new Vector3(...now.root));
+  assert.deepEqual(call('transferAim', foot, sources, recipe, 'armL', 450, along.toArray()).offset, [0, 0, 0]);
+});
+
+test('N1 weapon shape: the sword is a weapon, the shield is not; the Kurgan readies its hammer with both hands', { skip: missing('transfer-footman', 'transfer-kurgan', 'transfer-grunt', 'transfer-nurgle') }, () => {
+  const foot = transferRig(load('transfer-footman'));
+  const sword = foot.parts.armL.weapon;
+  assert.ok(sword && sword.length > 0.6 * foot.parts.armL.length, 'the Footman\'s sword arm has a weapon');
+  assert.equal(sword.butt.length, 3); assert.equal(sword.tip.length, 3);
+  assert.ok(sword.outline.length >= 6 && sword.outline.length <= 12);
+  assert.equal(foot.parts.armR.weapon, null, 'the shield is not a weapon');
+  assert.equal(foot.weaponSide, 'L');
+  assert.equal(sword.grip, null);
+  const kurgan = transferRig(load('transfer-kurgan')), hammer = Object.values(kurgan.parts).find(part => part.weapon);
+  assert.ok(hammer, 'the Kurgan has a weapon arm');
+  assert.ok(hammer.weapon.grip && kurgan.parts[hammer.weapon.grip.arm], 'the Kurgan holds its hammer with both hands');
+  for (const key of ['transfer-grunt', 'transfer-nurgle']) {
+    const rig = transferRig(load(key)), weapon = Object.values(rig.parts).find(part => part.weapon);
+    assert.ok(weapon && weapon.weapon.grip === null, `${key}: one-handed weapon`);
+  }
+});
+
+const kurganArm = (grip) => {
+  const kurgan = load('transfer-kurgan'), foot = load('transfer-footman'), stand = seqMatch(kurgan, /^stand - 1/i), attack = seq(foot, 'Attack - 1');
+  const rig = transferRig(kurgan, { sequence: stand }), key = Object.keys(rig.parts).find(k => rig.parts[k].weapon);
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: { [key]: { ...defaultTransferPart(rig, key, false), source: 'foot', sequence: attack, blend: 0, grip } } };
+  return { kurgan, rig, key, stand, recipe, built: buildTransfer(kurgan, new Map([['foot', foot]]), recipe) };
+};
+test('N2 both hands: the Kurgan taking the Footman\'s attack on its hammer arm keeps the other hand on the handle', { skip: missing('transfer-kurgan', 'transfer-footman') }, () => {
+  const rigOf = () => { const { rig, key } = kurganArm(null); return rig.parts[key]; };
+  const gap = grip => {
+    const { kurgan, rig, key, stand, built } = kurganArm(grip), weapon = rig.parts[key], other = rig.parts[weapon.weapon.grip.arm];
+    // Off the shaft (through the grip point) and along it: out of the arm's reach
+    // the hand slides along the handle instead of letting go.
+    const per = built.times.map((_, k) => {
+      const m = builtMatrices(kurgan, built, stand, k), grip = new Vector3(...weapon.weapon.grip.point).applyMatrix4(m.get(weapon.marker));
+      const shaft = new Vector3(...weapon.weapon.tip).applyMatrix4(m.get(weapon.marker)).sub(new Vector3(...weapon.weapon.butt).applyMatrix4(m.get(weapon.marker))).normalize();
+      const offset = pivotAt(kurgan, m, other.marker).sub(grip), along = offset.dot(shaft);
+      return { off: offset.addScaledVector(shaft, -along).length(), along: Math.abs(along), total: Math.hypot(offset.length()) };
+    });
+    return { off: Math.max(...per.map(p => p.off)), along: Math.max(...per.map(p => p.along)), total: Math.max(...per.map(p => p.total)) };
+  };
+  const held = gap(null), loose = gap(false);
+  assert.ok(held.off <= 1.5, `the other hand is ${held.off.toFixed(2)} off the shaft`);
+  // Measured: up to 8.4 units at 367 ms, where the Footman's arm is fully stretched; a tenth of the hammer.
+  assert.ok(held.along <= 0.1 * rigOf().weapon.length, `the other hand slides ${held.along.toFixed(2)} along the shaft from its grip`);
+  const loose_ = loose.total;
+  assert.ok(loose_ > 10, `without the grip the hand is only ${loose_.toFixed(2)} away, so the check proves nothing`);
+});
+
+test('N3 weapon above the ground: the Kurgan\'s hammer stays above the floor through the Grunt\'s attack, eased in', { skip: missing('transfer-kurgan', 'transfer-grunt') }, () => {
+  const kurgan = load('transfer-kurgan'), grunt = load('transfer-grunt'), stand = seqMatch(kurgan, /^stand - 1/i), attack = seq(grunt, 'Attack - 1');
+  const rig = transferRig(kurgan, { sequence: stand }), key = Object.keys(rig.parts).find(k => rig.parts[k].weapon), weapon = rig.parts[key];
+  const { parts } = wholeBodyParts(rig, transferRig(grunt, { sequence: attack }));
+  // Aim 0: the hammer keeps the Kurgan's own grip, so the lift alone is measured.
+  const build = clear => buildTransfer(kurgan, new Map([['grunt', grunt]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'grunt', attack, { clear, aim: 0 }) });
+  const lowest = built => built.times.map((_, k) => { const m = builtMatrices(kurgan, built, stand, k); return Math.min(...weapon.weapon.outline.map(p => new Vector3(...p).applyMatrix4(m.get(weapon.marker)).z)); });
+  const on = build(null), off = build(false), floor = rig.floor;
+  assert.ok(Math.min(...lowest(off)) < floor - 5, `without the lift the hammer only reaches ${Math.min(...lowest(off)).toFixed(1)} (floor ${floor.toFixed(1)})`);
+  // Where the need rises faster than 400 degrees a second (right after the start)
+  // the lift may lag for a moment: at most two samples under, and not by much.
+  const heights = lowest(on), under = heights.map((z, k) => [z, on.times[k]]).filter(([z]) => z < floor - 0.5);
+  assert.ok(under.length <= 2 && Math.min(...heights) >= floor - 5, `under the floor: ${under.map(([z, t]) => `${z.toFixed(1)} at ${t} ms`).join(', ')} (floor ${floor.toFixed(2)})`);
+  // The lift: how far the weapon arm's root turns away from the unlifted result.
+  const lift = on.times.map((_, k) => angle(rotOf(builtMatrices(kurgan, on, stand, k).get(weapon.joints[0])), rotOf(builtMatrices(kurgan, off, stand, k).get(weapon.joints[0]))));
+  // At most 400 degrees a second: 13.3 degrees per 33 ms sample (plus 0.5 for the joint read-back).
+  const step = Math.max(...on.times.slice(1).map((t, k) => t - on.times[k])), jump = Math.max(...lift.slice(1).map((v, k) => Math.abs(v - lift[k])));
+  assert.ok(jump <= 0.4 * step + 0.5, `the lift changes ${jump.toFixed(2)} degrees between neighbouring samples`);
+  // The attack starts and ends in the stance: no lift at the first and last sample.
+  for (const k of [0, on.times.length - 1]) for (const id of weapon.joints) {
+    const d = angle(rotOf(builtMatrices(kurgan, on, stand, k).get(id)), rotOf(builtMatrices(kurgan, off, stand, k).get(id)));
+    assert.ok(d <= 0.5, `${allNodes(kurgan).find(n => n.ObjectId === id).Name} differs by ${d.toFixed(2)} degrees at sample ${k}`);
+  }
+});
+
+test('N4 aim 1 points the Lord of Change\'s staff like the Footman\'s sword, relative to the chests', { skip: missing('transfer-lord-of-change', 'transfer-footman') }, () => {
+  const loc = load('transfer-lord-of-change'), foot = load('transfer-footman'), stand = seq(loc, 'Stand'), attack = seq(foot, 'Attack - 1');
+  const rig = transferRig(loc, { sequence: stand }), donorRig = transferRig(foot, { sequence: attack }), own = rig.parts.armR, theirs = donorRig.parts.armL;
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: { armR: { ...defaultTransferPart(rig, 'armR', false), source: 'foot', sequence: attack, aim: 1, clear: false } } };
+  const built = buildTransfer(loc, new Map([['foot', foot]]), recipe);
+  const refB = sampleNodeMatrices(loc, rig.reference.frame, rig.reference.sequence), refA = sampleNodeMatrices(foot, donorRig.reference.frame, donorRig.reference.sequence), as = foot.Sequences[attack].Interval[0];
+  const axisOf = (weapon, matrix) => new Vector3(...weapon.tip).sub(new Vector3(...weapon.butt)).applyQuaternion(rotOf(matrix));
+  let worst = 0;
+  built.times.forEach((t, k) => {
+    if (t < 150 || t > built.length - 150) return; // blend ramps
+    const m = builtMatrices(loc, built, stand, k), d = sampleNodeMatrices(foot, as + t, attack);
+    const dB = rotOf(m.get(own.anchor)).multiply(rotOf(refB.get(own.anchor)).invert()), dA = rotOf(d.get(theirs.anchor)).multiply(rotOf(refA.get(theirs.anchor)).invert());
+    const donorAxis = axisOf(theirs.weapon, d.get(theirs.marker)).applyQuaternion(dA.clone().invert());
+    const want = new Vector3(donorAxis.x, -donorAxis.y, donorAxis.z).applyQuaternion(dB); // the weapon hands are on opposite sides: mirrored
+    worst = Math.max(worst, axisOf(own.weapon, m.get(own.marker)).angleTo(want) * 180 / Math.PI);
+  });
+  assert.ok(worst <= 5, `the staff points ${worst.toFixed(2)} degrees away from the sword`);
+});
+
+test('N4 automatic aim: off for a looping stand, on (eased at the ends) for an attack that plays once', { skip: missing('transfer-lord-of-change', 'transfer-footman') }, () => {
+  // Story A loops: automatic aim is exactly aim 0.
+  const a = storyA(), auto = buildTransfer(a.loc, a.sources, a.recipe);
+  const zero = structuredClone(a.recipe); for (const part of Object.values(zero.parts)) part.aim = 0;
+  assert.deepEqual(auto.tracks, buildTransfer(a.loc, a.sources, zero).tracks);
+  // The Lord of Change's staff arm from the Footman's attack.
+  const loc = load('transfer-lord-of-change'), foot = load('transfer-footman'), stand = seq(loc, 'Stand'), attack = seq(foot, 'Attack - 1');
+  const rig = transferRig(loc, { sequence: stand }), donorRig = transferRig(foot, { sequence: attack }), own = rig.parts.armR, theirs = donorRig.parts.armL;
+  const build = aim => buildTransfer(loc, new Map([['foot', foot]]), { base: { sequence: stand }, length: null, sources: {}, parts: { armR: { ...defaultTransferPart(rig, 'armR', false), source: 'foot', sequence: attack, aim, clear: false, blend: 0 } } }); // no Ease: the aim's own easing is measured
+  const automatic = build(null), plain = build(0);
+  const axisOf = (weapon, matrix) => new Vector3(...weapon.tip).sub(new Vector3(...weapon.butt)).applyQuaternion(rotOf(matrix));
+  const ownAxis = (built, k) => axisOf(own.weapon, builtMatrices(loc, built, stand, k).get(own.marker));
+  for (const k of [0, automatic.times.length - 1]) {
+    const d = ownAxis(automatic, k).angleTo(ownAxis(plain, k)) * 180 / Math.PI;
+    assert.ok(d <= 2, `sample ${k}: ${d.toFixed(2)} degrees from the model's own grip`);
+  }
+  const refB = sampleNodeMatrices(loc, rig.reference.frame, rig.reference.sequence), refA = sampleNodeMatrices(foot, donorRig.reference.frame, donorRig.reference.sequence);
+  const k = automatic.times.indexOf(automatic.times.reduce((x, y) => Math.abs(y - 500) < Math.abs(x - 500) ? y : x)), t = automatic.times[k];
+  const m = builtMatrices(loc, automatic, stand, k), d = sampleNodeMatrices(foot, foot.Sequences[attack].Interval[0] + t, attack);
+  const dB = rotOf(m.get(own.anchor)).multiply(rotOf(refB.get(own.anchor)).invert()), dA = rotOf(d.get(theirs.anchor)).multiply(rotOf(refA.get(theirs.anchor)).invert());
+  const donorAxis = axisOf(theirs.weapon, d.get(theirs.marker)).applyQuaternion(dA.clone().invert()), want = new Vector3(donorAxis.x, -donorAxis.y, donorAxis.z).applyQuaternion(dB);
+  const off = axisOf(own.weapon, m.get(own.marker)).angleTo(want) * 180 / Math.PI;
+  assert.ok(off <= 5, `at ${t} ms the staff is ${off.toFixed(2)} degrees from the sword`);
+});
