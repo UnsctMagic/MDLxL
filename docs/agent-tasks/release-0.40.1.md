@@ -33,7 +33,7 @@ He also asked: "Confirm that the actual issue with RGB was fixed though - it was
 - Packaged (release variant, hidden): bundle-textures (new; fails on the old build: no button),
   vertex-rgb-preview, vertex-modulate2x, uv-wrapping pass.
 - Source suite: 4032 pass; the only failures were the four Claude digests above, now updated.
-- Click sweep (footman; vertices, animations, material manager, uv): see below.
+- Click sweep (footman; vertices, vertices all selected, animations, material manager, uv): 661 clicks, 0 crashes, 0 freezes, 0 undo problems. 8 "dead" are expected (file dialogs blocked: Bundle Textures, Save MDX…; Fit already fitted; BitsAndParts folder actions; paste with empty clipboard; Expand all with hierarchy off).
 
 ## Open for the owner
 
