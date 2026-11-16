@@ -384,3 +384,96 @@ and their guard fixtures, `test/module-button-labels.test.js` / `.browser.cjs`,
 
 Commits, PR text and docs describe MDLxL's own behaviour only. Older tools (Retera's Model Studio,
 Oinkerwinkle's tools) may be named. No other editor is named anywhere.
+
+## Round 2 (16 Nov 2026): owner hand test and director trials
+
+Owner after the first test build, quoted: "UI is a bit confusing for me - things are not where they
+should be intuitively (play, pause etc)"; "give back makes no sense, just remove or clear all";
+"its a bit too much, too big and sparse - FX is nice because it keeps everything where it needs to
+be"; "The actual animation transfer is nice"; "make sure the sliders are useful - i tried them but
+didnt really understand what I was doing, I saw stuff change though".
+
+Director trials (contact sheets, `out/transfer-probe/trials.mjs` + `trials.json`, looked at by the
+director): Footman attack on the two-headed Ogre, Blademaster leap on the Footman, Tauren two-handed
+smash on the Footman, Footman walk legs under his own attack, Footman death on the Lord of Change
+all read well. What went wrong and what it changes:
+
+### Engine changes
+
+- **R1 default pose.** `match` defaults to 0 for every part. With arms at 1 the Ghoul walked with
+  its arms spread like a T; at 0 every trial started and ended in the model's own stance and the
+  attacks read just as well. `Pose` toward the donor stays the user's choice.
+- **R2 the body the animation moves.** The Demon Hunter has a second skeleton (`... Alternate`) for
+  its demon form; the rig picked it and the transferred attack did nothing. A model's rig follows
+  the animation in use: among separate skeletons with limbs, use the one whose joints carry the
+  most Rotation keys inside that animation (donor: the taken animation; open model: the body
+  animation), and take the reference pose from that skeleton's own Stand. `transferRig(model,
+  { sequence })`; cache per model and skeleton.
+- **R3 upper and lower body.** On rigs whose trunk carries legs in more than one place (Dryad, Pit
+  Lord, Knight with rider) a trunk joint that carries a leg belongs to `hips` (the walking body),
+  never to `chest`; `chest` is the Spine/Chest joints that lead to the arms and carry no leg;
+  `head` is the Neck/Head joints above that chest (a mount's own neck and head stay on the body
+  animation). Export `transferWholeBody(recipientRig, donorRig)`: the parts "Take whole body"
+  takes. When the two models have a different number of leg pairs it leaves out `hips` and every
+  leg (a horse body driven by a biped's hips fell over in the trials) and returns the reason as a
+  plain sentence for the window.
+- **R4 feet above the ground.** After planting, the sole of a planted foot (vertices skinned only to
+  the foot joint, lowest tenth in the reference pose) must not go below its own reference ground
+  level: turn the foot joint the least amount that lifts the sole back (the Ghoul's long toes
+  dipped under the floor during the Footman's walk).
+- **R5 other side.** `part.flip: true` feeds a part from the donor's opposite side (my left arm
+  does what their right arm does), mirrored so it bends the right way. Independent of the
+  whole-donor Mirror.
+- Tests for each (fail first on the old code): R1 defaults; R2 Demon Hunter `Attack` onto the
+  Abomination moves the arms (upper arm turns more than 30 degrees) and uses the non-Alternate
+  skeleton; R3 Dryad chest from the Sorceress leaves every hoof within 0.5 units of the body
+  animation, Knight `transferWholeBody` from the Grunt has no hips or legs; R4 Ghoul soles never
+  below ground level minus 0.5; R5 flipped arm equals the mirrored donor's arm. Fixtures for the
+  new models go in `test/helpers/fixtures.cjs`.
+
+### Window changes (replace the layout above; behaviour rules 5-10 stay)
+
+Same size and three-column shape as the FX window (`app/SurfaceEffects.jsx`): library left, stage
+with the transport directly under it in the middle, controls right, footer with the buttons.
+
+```
+Transfer                                                                    x
++- From ----------+------------- stage -------------------+- Parts ----------------+
+| This model      |  Grunt - Attack - 1 [Mirror] | Footman |  Body animation [v]     |
+| Grunt        <- | +------------+ +------------+          |  [Take whole body] [Clear all] |
+| Footman.mdx     | |   donor    | |   result   |          |  [x] Left arm   Grunt - Attack - 1 |
+| Open file...    | +------------+ +------------+          |  [ ] Right arm                    |
+| Library...      | [Play] ----o------- 0.42 s  [Original] |  [ ] Head ...                     |
+| - Animations -  |                                        |  - Left arm -          [Other side] |
+| Attack - 1   <- |                                        |  Strength --o   Pose Mine --o Theirs |
+| Attack - 2      |                                        |  Raise -o-  Turn -o-  Roll -o-       |
+| Stand - 1 ...   |                                        |  > Timing                            |
++-----------------+----------------------------------------+------------------------+
+| Name [Attack - 3]                 Added Attack - 3        [Cancel] [Add animation] |
++----------------------------------------------------------------------------------+
+```
+
+- **From** is a list like FX's library: the sources (This model, other tabs, loaded donors), then
+  `Open file...` and `Library...`, then the chosen source's animations as a list. Clicking an
+  animation plays it in the donor view. No dropdowns for these.
+- **Stage**: donor and result side by side, each with a one-line caption; `Mirror` sits on the
+  donor's caption. Play/Pause, the scrub bar, the time and `Original` sit directly under the stage,
+  where FX and the main timeline have them.
+- **Parts** is a list, one row per part of the open model: a take switch, the part name and, when
+  taken, its source in small text. The switch takes the part from what the donor view shows or
+  removes it. Clicking the row selects it. `Take whole body` and `Clear all` sit above the list.
+  The words "give back" are gone: a part is taken or removed. Clicking a donor handle still takes,
+  clicking a result handle still selects.
+- **Selected part** controls sit under the list and only for a taken part: `Strength` (was Amount),
+  `Pose` with the ends labelled `Mine` and `Theirs`, `Raise`, `Turn` (was Swing), `Roll` (was Twist;
+  trunk parts keep Lean / Tilt / Turn), `Other side` (R5, limbs), `Keep foot on the ground` (legs),
+  `Travel` (hips), `Take from <source - animation>` only when the donor view shows something else
+  than the part's source. A `Timing` fold, closed by default: `Delay` (was Start), `Speed`, `Ease`
+  (was Blend). Double-clicking a slider resets it. One short tooltip each.
+- **A slider shows what it does.** While a taken limb is selected, the path its hand or foot travels
+  through the whole result is drawn on the result view, and the donor limb's path on the donor
+  view (`overlayPaths`, the way AnimXL draws Arcs). Dragging Raise, Turn, Strength, Pose, Delay or
+  Speed visibly moves or reshapes that path.
+- `Take whole body` uses `transferWholeBody`; when it leaves the lower body out, its sentence shows
+  under the buttons.
+- Footer: `Name`, the `Added <name>` note, `Cancel` (closes), `Add animation`.
