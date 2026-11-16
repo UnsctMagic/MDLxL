@@ -1,6 +1,6 @@
 # Slider − and + buttons
 
-State: built on local branch `claude/slider-steps`, not merged. Owner asked on 16 Nov 2026
+State: completed. Merged in PR #666 (6d7cc2e3). Owner asked on 16 Nov 2026
 (from a Discord request about EMTR): every slider gets small −/+ that move it one step,
 without clutter, sliders slightly smaller; keyframe/time sliders excluded; "anything
 that will be and ever was".
