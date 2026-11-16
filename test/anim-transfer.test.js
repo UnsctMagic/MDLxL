@@ -7,9 +7,10 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
-import { allNodes, composeNodeMatrices, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack, visitTracks } from '../src/animation.js';
+import { allNodes, composeNodeMatrices, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset, visitTracks } from '../src/animation.js';
 import { nodeIndex } from '../src/node-hierarchy.js';
 import { applyTransfer, buildTransfer, defaultTransferPart, transferNodeTracks, transferPreviewModel, transferRestoreTracks, transferRig } from '../src/anim-transfer.js';
+import * as XFER from '../src/anim-transfer.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -135,6 +136,7 @@ test('E2 story A: Lord of Change takes everything from Footman Stand Defend', { 
 
 test('E3 story B: Footman keeps Stand Defend and swings the Grunt weapon arm', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
   const { foot, grunt, recipe, sources } = storyB();
+  recipe.parts.armL.match = 1; // the contract checks the arm direction at Pose "Theirs"
   const built = buildTransfer(foot, sources, recipe), rig = transferRig(foot), gruntRig = transferRig(grunt);
   assert.deepEqual([...built.driven].sort(), [...rig.parts.armL.joints].sort(), 'only the weapon arm is driven');
   const defend = seq(foot, 'Stand Defend'), [ds, de] = foot.Sequences[defend].Interval;
@@ -266,7 +268,8 @@ test('E7 key count of story B (reported)', { skip: missing('transfer-footman', '
 
 test('E8 mirror: Footman to Footman with Mirror gives the mirror image', { skip: missing('transfer-footman') }, () => {
   const foot = load('transfer-footman'), attack = seq(foot, 'Attack - 1'), rig = transferRig(foot);
-  const recipe = { base: { sequence: attack }, length: null, sources: { self: { mirror: true } }, parts: wholeBody(foot, 'self', attack) };
+  // Pose "Theirs" on every part: the arms then point where the mirrored donor's do.
+  const recipe = { base: { sequence: attack }, length: null, sources: { self: { mirror: true } }, parts: wholeBody(foot, 'self', attack, { match: 1 }) };
   const built = buildTransfer(foot, new Map(), recipe), start = foot.Sequences[attack].Interval[0];
   // The SD Footman stands staggered (left foot back, right foot forward) and keeps
   // its own stance (Match pose 0), so the movement is mirrored, not the stance:
@@ -309,4 +312,87 @@ test('transferRestoreTracks: a given-back part gets the same tracks as a transfe
   const node = (m, id) => allNodes(m).find(n => n.ObjectId === id);
   for (const { id, property, track } of restored) assert.deepEqual(track, node(untaken.model, id)[property], `${node(foot, id).Name} ${property}`);
   assert.equal(JSON.stringify(foot.Bones.map(b => b.Rotation)), before, 'the recipient is not changed');
+});
+
+// ---------------------------------------------------------------- round 2 (R1-R5)
+const seqMatch = (model, pattern) => { const index = model.Sequences.findIndex(s => pattern.test(s.Name)); assert.ok(index >= 0, `no animation ${pattern}`); return index; };
+// transferWholeBody is read from the module object so these tests fail (not the
+// whole file) on code without it.
+const wholeBodyParts = (recipientRig, donorRig) => { assert.equal(typeof XFER.transferWholeBody, 'function', 'transferWholeBody is exported'); return XFER.transferWholeBody(recipientRig, donorRig); };
+const take = (rig, keys, source, sequence, extra = {}) => Object.fromEntries(keys.map(key => [key, { ...defaultTransferPart(rig, key, true), source, sequence, ...extra }]));
+
+test('R1 every part starts in the open model\'s own stance (Pose 0)', { skip: missing('transfer-footman') }, () => {
+  const rig = transferRig(load('transfer-footman'));
+  for (const key of Object.keys(rig.parts)) assert.equal(defaultTransferPart(rig, key, true).match, 0, key);
+  assert.equal(defaultTransferPart(rig, 'armL', false).match, 0);
+});
+
+test('R2 Demon Hunter Attack moves the Abomination\'s arms through the skeleton the attack moves', { skip: missing('transfer-demon-hunter', 'transfer-abomination') }, () => {
+  const hunter = load('transfer-demon-hunter'), abom = load('transfer-abomination'), attack = seqMatch(hunter, /^attack/i), stand = seqMatch(abom, /^stand/i);
+  const donorRig = transferRig(hunter, { sequence: attack }), names = new Map(allNodes(hunter).map(n => [n.ObjectId, n.Name]));
+  assert.doesNotMatch(names.get(donorRig.body), /alternate/i, `the attack moves the plain skeleton, not ${names.get(donorRig.body)}`);
+  const rig = transferRig(abom, { sequence: stand }), { parts } = wholeBodyParts(rig, donorRig);
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'hunter', attack) };
+  const built = buildTransfer(abom, new Map([['hunter', hunter]]), recipe);
+  for (const key of ['armL', 'armR']) {
+    const [a, b] = rig.parts[key].joints, upper = k => { const m = builtMatrices(abom, built, stand, k); return pivotAt(abom, m, b).sub(pivotAt(abom, m, a)); };
+    const first = upper(0), turn = Math.max(...built.times.map((_, k) => upper(k).angleTo(first) * 180 / Math.PI));
+    assert.ok(turn > 30, `${key} upper arm turns only ${turn.toFixed(1)} degrees`);
+  }
+});
+
+test('R3 Dryad: chest, head and arms from the Sorceress leave every hoof on the body animation', { skip: missing('transfer-dryad', 'transfer-sorceress') }, () => {
+  const dryad = load('transfer-dryad'), sorc = load('transfer-sorceress'), stand = seqMatch(dryad, /^stand/i), spell = seqMatch(sorc, /^spell/i);
+  const rig = transferRig(dryad, { sequence: stand });
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, ['chest', 'head', 'armL', 'armR'], 'sorc', spell) };
+  const built = buildTransfer(dryad, new Map([['sorc', sorc]]), recipe);
+  const { model, sequenceIndex } = transferPreviewModel(dryad, built, recipe);
+  const [s] = model.Sequences[sequenceIndex].Interval, [ds, de] = dryad.Sequences[stand].Interval;
+  const hooves = Object.values(rig.parts).filter(part => /^leg/.test(part.key));
+  assert.equal(hooves.length, 4);
+  let worst = 0;
+  for (const t of built.times) {
+    const ours = sampleNodeMatrices(model, s + t, sequenceIndex), theirs = sampleNodeMatrices(dryad, ds + (t % (de - ds)), stand);
+    for (const part of hooves) worst = Math.max(worst, pivotAt(dryad, ours, part.marker).distanceTo(pivotAt(dryad, theirs, part.marker)));
+  }
+  assert.ok(worst <= 0.5, `a hoof moves ${worst.toFixed(2)} units off the body animation`);
+});
+
+test('R3 Knight: whole body from the Grunt leaves out hips and legs and says why', { skip: missing('transfer-knight', 'transfer-grunt', 'transfer-footman') }, () => {
+  const knight = load('transfer-knight'), grunt = load('transfer-grunt');
+  const result = wholeBodyParts(transferRig(knight, { sequence: seqMatch(knight, /^stand/i) }), transferRig(grunt, { sequence: seqMatch(grunt, /^Attack - 1/) }));
+  assert.ok(!result.parts.some(key => key === 'hips' || /^leg/.test(key)), `parts: ${result.parts.join(', ')}`);
+  assert.ok(['chest', 'armL', 'armR'].every(key => result.parts.includes(key)), `parts: ${result.parts.join(', ')}`);
+  assert.equal(typeof result.reason, 'string');
+  const same = wholeBodyParts(transferRig(load('transfer-footman')), transferRig(grunt));
+  assert.ok(same.parts.includes('hips') && same.reason === null, 'two bipeds keep hips and legs');
+});
+
+test('R4 Ghoul: walking on the Footman\'s legs keeps every sole on or above its ground', { skip: missing('transfer-ghoul', 'transfer-footman') }, () => {
+  const ghoul = load('transfer-ghoul'), foot = load('transfer-footman'), stand = seqMatch(ghoul, /^stand/i), walk = seqMatch(foot, /^walk$/i);
+  const rig = transferRig(ghoul, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(foot, { sequence: walk }));
+  assert.ok(parts.includes('legL') && parts.includes('hips'));
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'foot', walk) };
+  const built = buildTransfer(ghoul, new Map([['foot', foot]]), recipe), { model, sequenceIndex } = transferPreviewModel(ghoul, built, recipe);
+  const tree = nodeIndex(ghoul), ref = sampleNodeMatrices(ghoul, rig.reference.frame, rig.reference.sequence), s = model.Sequences[sequenceIndex].Interval[0];
+  for (const key of ['legL', 'legR']) {
+    // The foot's own vertices: skinned only to the foot joint and the meshes it carries.
+    const footJoint = rig.parts[key].marker, owned = id => tree.isAncestor(id, footJoint), picks = [];
+    model.Geosets.forEach((geoset, g) => { for (let v = 0; v < geoset.Vertices.length / 3; v++) { const bones = Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []); if (bones.length && bones.every(owned)) picks.push([g, v]); } });
+    assert.ok(picks.length > 3, `${key} has foot vertices`);
+    const lowest = matrices => { const skinned = new Map(); return Math.min(...picks.map(([g, v]) => { if (!skinned.has(g)) skinned.set(g, skinGeoset(model.Geosets[g], matrices)); return skinned.get(g)[v * 3 + 2]; })); };
+    const ground = lowest(ref);
+    let worst = Infinity, at = 0;
+    for (const t of built.times) { const z = lowest(sampleNodeMatrices(model, s + t, sequenceIndex)); if (z < worst) { worst = z; at = t; } }
+    assert.ok(worst >= ground - 0.5, `${key} sole at ${worst.toFixed(2)} (${at} ms), its ground is ${ground.toFixed(2)}`);
+  }
+});
+
+test('R5 Other side: a flipped left arm does what the mirrored donor\'s right arm does', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const foot = load('transfer-footman'), grunt = load('transfer-grunt'), defend = seq(foot, 'Stand Defend'), attack = seq(grunt, 'Attack - 1'), rig = transferRig(foot);
+  const sources = new Map([['grunt', grunt]]);
+  const recipe = (mirror, extra) => ({ base: { sequence: defend }, length: null, sources: { grunt: { mirror } }, parts: take(rig, ['armL'], 'grunt', attack, extra) });
+  const flipped = buildTransfer(foot, sources, recipe(false, { flip: true })), mirrored = buildTransfer(foot, sources, recipe(true)), plain = buildTransfer(foot, sources, recipe(false));
+  assert.deepEqual(flipped.tracks, mirrored.tracks);
+  assert.notDeepEqual(flipped.tracks, plain.tracks);
 });

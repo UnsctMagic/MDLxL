@@ -36,6 +36,12 @@ const FIXTURES = {
   'transfer-footman': ['MDLXL_TRANSFER_FOOTMAN', testModel('corpus-sd/human__footman.mdx')], // SD Footman: weapon arm Arm1_L > Arm2_L > Hand_R, right arm ends at Hand Right Ref
   'transfer-grunt': ['MDLXL_TRANSFER_GRUNT', testModel('corpus-sd/orc__grunt.mdx')], // SD Grunt: axe on the +Y arm, Attack - 1 non-looping
   'transfer-lord-of-change': ['MDLXL_TRANSFER_LORD_OF_CHANGE', testModel('pose-wings/Lord_of_Changes_Repaired.mdx')], // v800 winged demon, shared shoulder helpers, global FX ribbons
+  'transfer-demon-hunter': ['MDLXL_TRANSFER_DEMON_HUNTER', testModel('corpus-sd/nightelf__herodemonhunter.mdx')], // two skeletons: Attack moves the plain one, "... Alternate" is the demon form
+  'transfer-abomination': ['MDLXL_TRANSFER_ABOMINATION', testModel('corpus-sd/undead__abomination.mdx')],
+  'transfer-dryad': ['MDLXL_TRANSFER_DRYAD', testModel('corpus-sd/nightelf__dryad.mdx')], // horse body: BONE_CHEST carries the front legs and the rider torso
+  'transfer-sorceress': ['MDLXL_TRANSFER_SORCERESS', testModel('corpus-sd/human__sorceress.mdx')],
+  'transfer-knight': ['MDLXL_TRANSFER_KNIGHT', testModel('corpus-sd/human__knight.mdx')], // rider on a horse: three leg pairs
+  'transfer-ghoul': ['MDLXL_TRANSFER_GHOUL', testModel('corpus-sd/undead__ghoul.mdx')], // long toes skinned to Foot1/Foot2 under the foot joints
   'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 
