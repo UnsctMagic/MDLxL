@@ -387,7 +387,7 @@ export function defaultTransferPart(recipientRig, partKey, wholeBody = false) {
     source: null, sequence: null, from: null, flip: false, amount: 1, match: 0,
     offset: [0, 0, 0], start: 0, speed: 1, loop: null, blend: wholeBody ? 0 : 150, plant: true, travel: 1,
     fixes: [], grip: null, clear: null, aim: null,
-    range: 0, follow: 0, avoid: 0, clip: null,
+    range: 0, follow: 0, avoid: 0, hang: 0, clip: null,
   };
 }
 
@@ -719,6 +719,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     for (const item of ownOf().chains) { const entries = followEntries.filter(e => e.key === item.part && e.kind != null); if (entries.length && free(item.id)) looseChains.push({ ...item, entry: entries[0], entries }); }
     for (const item of [...looseFollowers, ...looseChains]) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
   }
+  const chainIds = new Set(looseChains.map(item => item.id));
   const refTurnInv = new Map(), refInvOf = id => { if (!refTurnInv.has(id)) refTurnInv.set(id, inv(worldRot(refB, id))); return refTurnInv.get(id); };
   // Arms kept out of the body (recipe `avoid`): the trunk's hips, chest and head.
   const pointOf = (id, world) => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id));
@@ -897,7 +898,11 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const state = active(item.entries, states);
       if (!state || !(state.w > 0)) continue;
       const interval = recipient.Sequences[state.entry.kind].Interval, part = state.entry.length > 0 ? (state.frame - state.entry.first) / state.entry.length : 0;
-      blendLocal(item.id, sampleAt(recipient, state.entry.kind, interval[0] + part * (interval[1] - interval[0])).local.get(item.id).r.clone(), Math.min(1, state.w) * state.entry.follow);
+      const theirs = sampleAt(recipient, state.entry.kind, interval[0] + part * (interval[1] - interval[0]));
+      let local = theirs.local.get(item.id).r.clone();
+      // Hang: the chain's first joint keeps the world angle it has in that animation.
+      if (state.entry.hang > 0 && !chainIds.has(infoB.tree.parentOf(item.id))) local = slerpW(local, inv(parentRot(item.id)).multiply(worldRot(theirs, item.id)).normalize(), state.entry.hang);
+      blendLocal(item.id, local, Math.min(1, state.w) * state.entry.follow);
     }
     for (const item of looseFollowers) {
       const state = active(item.entries, states);
@@ -985,7 +990,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     start: Number(part.start) || 0, first: seq.Interval[0] + trim[0], length: Math.max(0, trim[1] - trim[0]),
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
-    range: share(part.range), follow: share(part.follow), avoid: share(part.avoid),
+    range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang),
     scale: rigB.hipHeight / rigA.hipHeight, convert, convertV, map, spread, align,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),

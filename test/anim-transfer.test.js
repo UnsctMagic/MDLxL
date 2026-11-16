@@ -666,3 +666,18 @@ test('R7 trim and chain: part of a clip, then another clip of the same part with
   const later = sampleNear(chain, start + 300);
   assert.ok(angle(rotationAt(chain, joint, later), rotationAt(alone, joint, sampleNear(alone, start + 300))) <= 1.5, 'after the hand-over the second clip plays as it does alone');
 });
+
+test('R7 hang: the Slaanesh warrior\'s cape keeps the world angle it has in its own attack', { skip: missing('glow-dual-weapon', 'transfer-grunt') }, () => {
+  const warrior = load('glow-dual-weapon'), grunt = load('transfer-grunt'), sources = new Map([['g', grunt]]), rig = transferRig(warrior), attack = seq(grunt, 'Attack - 1');
+  const base = sequenceLike(warrior, /^stand/i), kind = sequenceLike(warrior, /^attack/i), interval = warrior.Sequences[kind].Interval, cape = nodeNamed(warrior, 'Cape 1');
+  const recipe = extra => ({ base: { sequence: base }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(grunt, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'g', sequence: attack, ...extra }])) });
+  const hung = buildTransfer(warrior, sources, recipe({ follow: 1, hang: 1 })), plain = buildTransfer(warrior, sources, recipe({ follow: 1 }));
+  let apart = 0;
+  for (const share of [0.25, 0.5, 0.75]) {
+    const k = sampleNear(hung, hung.length * share), frame = Math.round(interval[0] + hung.times[k] / hung.length * (interval[1] - interval[0]));
+    const own = rotOf(sampleNodeMatrices(warrior, frame, kind).get(cape)), now = rotOf(builtMatrices(warrior, hung, base, k).get(cape));
+    assert.ok(angle(now, own) <= 2, `at ${hung.times[k]} ms the cape is ${angle(now, own).toFixed(2)} degrees from its own attack's world angle`);
+    apart = Math.max(apart, angle(now, rotOf(builtMatrices(warrior, plain, base, k).get(cape))));
+  }
+  assert.ok(apart > 3, `hang changes the cape (${apart.toFixed(1)} degrees at most)`);
+});
