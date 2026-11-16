@@ -1170,3 +1170,47 @@ Models added to the test collection: `transfer-riders/` (Blood Dragon nightmare,
 ### Build 13 (from f5426c5d, built in the clean checkout `transfer-xl-build`)
 
 On that exact copy, hidden: `test/transfer.electron.cjs` stories B, A, riders, features, round7, views, sweep (41 checks), `test/transfer-picks.electron.cjs` (11) and `test/reset-view.electron.cjs` passed; the eight rider cases were gone through once with `out/transfer-probe/picks-check.cjs` (two live views each, no errors) and the pictures looked at. Opened for the owner with `TEST TRANSFER RIDERS 01.mdx` and the riders pick sheet. Awaiting his picks; nothing is online.
+
+## Round 10: the owner's riders picks (16 Nov 2026 evening), merge with main
+
+Owner's picks on the riders sheet (`transfer-riders/answers.json`): Nurgle warrior Stand arms
+Mine; belly rides (not kept); Footman's Attack arms Theirs; full rise on the dragon; cape as now;
+"none looks right" on the Grunt's Walk from the Khorne knight and on both Blood Dragon nightmare
+cases. Then: "im exhausted ... only thing i agree to do is look at models and pick versions i
+like more."
+
+What the picks settle: the defaults stay (full rise, belly rides, cape as now). Arms are split (Mine
+once, Theirs once): two answers are not a rule, so no default changed.
+
+The three "none", against the donor's rider drawn alone (`out/transfer-probe/gate-compare.mjs`):
+
+- **Grunt, Khorne knight's Walk: a real fault.** The knight rider's leg has four joints and one of
+  them keeps its pivot at the body's middle, not on the leg. Pose "Theirs" lined the Grunt's shin
+  up with that pivot-to-pivot direction and folded his legs into his body. Fix (general): a limb's
+  line runs through its top, bend and end (POSE's chain, kept on the part as `line`); a joint
+  between two of those whose pivot is far off that line (detour over 1.5 times the direct
+  distance) is read as lying on it, and a joint with no direction takes the one that follows.
+  The first gate missed it because it measured only the thigh; it now measures the shin too.
+- **Both nightmare cases: the arms.** That rider's arm rests pointing forward, a foot unit's hangs
+  down. The donor's turn was applied as a world turn, so a twist along the rider's forward arm
+  became a swing of the hanging arm (the Footman's elbow rose over his shoulder). New part field
+  **`frame`** (0 = as before, the default; above 0 = the turn is carried in the limb's own rest
+  direction, limbs only). It is a third way between Pose Mine and Theirs, not a default: every
+  recorded result would change, so the owner picks first. No window control yet.
+
+Proof: 45 engine tests (two new, both fail on the previous engine), 32 fingerprints identical,
+gate 95 built, 1 flag as before (shin within 25 degrees of the donor's everywhere).
+
+Merged local main (0b7c7071) into the branch. Conflicts were both sides adding lines at one place
+(five catalogs, hotkey manifest, commands, the Modules/Help menu line, fixtures, this folder's
+index); both kept, catalog counts updated. `test/ui-primitives.test.js` passes (the only bare
+range input in Transfer is the time scrub, marked `data-time-scrub`). Limb paths now pass
+`motion: true` (the shared motion-path colour of PR 668) instead of a fixed orange.
+
+Second pick sheet: `cases.json` in the TestBuilds folder `transfer-riders-2`, 4 cases, three
+versions of the arms each (as before / in the limb's own frame / like the rider), written by
+`out/transfer-probe/make-riders-picks2.mjs`; a version is dropped when it differs by under 15
+degrees from one already shown. Launcher: `TestBuilds\_START HERE\2 TRANSFER - pick versions.cmd`.
+
+Cannot be judged without the owner's eyes: which of the three arm versions reads right, per kind
+of animation. Numbers cannot say it (all three are "correct" by a different rule).
