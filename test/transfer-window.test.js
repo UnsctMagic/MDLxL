@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { addAllPlan, bodyAnimationFor, chipOrder, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
+import { addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -124,4 +124,62 @@ test('bodyAnimationFor: exact name, else the plain animation of the same kind, e
   assert.equal(bodyAnimationFor(model, 'Attack Slam', 0), 3);
   assert.equal(bodyAnimationFor(model, 'Attack - 1', 0), 4);
   assert.equal(bodyAnimationFor(model, 'Death', 5), 5);
+});
+
+test('clip lanes: parts sharing source, animation, Delay and Speed share a lane; fixes and Ease ride along', () => {
+  const parts = {
+    armL: { source: 'grunt', sequence: 2, start: 0, speed: 1, blend: 150, fixes: [{ time: 400 }, { time: 'x' }] },
+    armR: { source: 'grunt', sequence: 2, start: 0, speed: 1, blend: 0 },
+    head: { source: 'self', sequence: 5, start: 200, speed: 0.5, loop: true },
+    chest: { source: 'grunt', sequence: 2, start: 100, speed: 1 },
+  };
+  const lanes = clipLanes(parts, part => ({ length: part.source === 'grunt' ? 1000 : 800, looping: part.source !== 'grunt' }), ['head', 'chest', 'armL', 'armR']);
+  assert.deepEqual(lanes.map(lane => lane.keys), [['head'], ['chest'], ['armL', 'armR']]);
+  const arms = lanes[2];
+  assert.equal(arms.span, 1000); assert.equal(arms.blend, 150); assert.equal(arms.looping, false);
+  assert.deepEqual(arms.fixes, [{ key: 'armL', index: 0, time: 400 }]);
+  assert.equal(lanes[0].span, 1600, 'half speed doubles the clip');
+  assert.equal(lanes[0].looping, true);
+});
+
+test('clip blocks: a play-once clip is one block, a looping one repeats from its Delay, both cut at the end', () => {
+  assert.deepEqual(clipBlocks(300, 1000, false, 1000), [{ from: 300, to: 1000 }]);
+  assert.deepEqual(clipBlocks(1200, 1000, false, 1000), []);
+  assert.deepEqual(clipBlocks(200, 500, true, 1300), [{ from: 200, to: 700 }, { from: 700, to: 1200 }, { from: 1200, to: 1300 }]);
+});
+
+test('dropPoint: the nearer hit on the sphere around the root, else the plane through the end facing the camera', () => {
+  const root = [0, 0, 0], end = [10, 0, 0];
+  const hit = dropPoint({ origin: [0, -50, 6], direction: [0, 1, 0] }, root, end);
+  assert.ok(Math.abs(Math.hypot(...hit) - 10) < 1e-9, 'on the sphere');
+  assert.ok(hit[1] < 0, 'the nearer side');
+  const miss = dropPoint({ origin: [0, -50, 30], direction: [0, 1, 0] }, root, end);
+  assert.deepEqual(miss.map(v => Math.round(v * 1e6) / 1e6), [0, 0, 30], 'missing the sphere lands on the plane through the end');
+});
+
+test('a setup keeps sources by path and animations by name, and maps back onto another model', { skip: missing('transfer-footman', 'transfer-grunt', 'transfer-lord-of-change') }, () => {
+  const foot = load('transfer-footman'), grunt = load('transfer-grunt'), lord = load('transfer-lord-of-change');
+  const attack = grunt.Sequences.findIndex(s => s.Name === 'Attack - 1'), defend = foot.Sequences.findIndex(s => s.Name === 'Stand Defend');
+  const recipe = { base: { sequence: defend }, length: null, sources: { g: { mirror: true } }, parts: {
+    armL: { source: 'g', sequence: attack, amount: 1.2, offset: [10, 0, 0], fixes: [{ time: 300, raise: 5, turn: 0, roll: 0, width: 250 }] },
+    head: { source: 'self', sequence: foot.Sequences.findIndex(s => s.Name === 'Stand Victory'), amount: 1 },
+  } };
+  const describe = id => id === 'g' ? { kind: 'file', path: 'D:/models/grunt.mdx', name: 'grunt.mdx', model: grunt } : id === 'self' ? { kind: 'self', name: 'This model', model: foot } : null;
+  const setup = parseSetup(JSON.stringify(setupFromRecipe(recipe, foot, describe, 'Grunt swing')));
+  assert.equal(setup.body, 'Stand Defend');
+  assert.deepEqual(setup.sources.g, { kind: 'file', path: 'D:/models/grunt.mdx', name: 'grunt.mdx', mirror: true });
+  assert.equal(setup.parts.armL.animation, 'Attack - 1');
+  const back = recipeFromSetup(setup, foot, transferRig(foot), { g: { id: 'file:x', model: grunt }, self: { id: 'self', model: foot } }, 0);
+  assert.deepEqual(back.left, []);
+  assert.equal(back.recipe.base.sequence, defend);
+  assert.deepEqual(back.recipe.parts.armL, { ...recipe.parts.armL, source: 'file:x' });
+  assert.deepEqual(back.recipe.sources, { 'file:x': { mirror: true } });
+  // On the Lord of Change: his own Stand Victory does not exist, so the head is left out; the arm maps by key.
+  const onLord = recipeFromSetup(setup, lord, transferRig(lord), { g: { id: 'file:x', model: grunt }, self: { id: 'self', model: lord } }, 3);
+  assert.ok(onLord.recipe.parts.armL);
+  assert.ok(!onLord.recipe.parts.head);
+  assert.deepEqual(onLord.left, ['animation:Stand Victory']);
+  assert.equal(onLord.recipe.base.sequence, 3, 'no Stand Defend on the Lord of Change: the chosen body animation');
+  assert.equal(recipeFromSetup(setup, foot, transferRig(foot), { self: { id: 'self', model: foot } }, 0).left[0], 'source:g');
+  assert.throws(() => parseSetup('{"kind":"x"}'), /not a Transfer setup/);
 });

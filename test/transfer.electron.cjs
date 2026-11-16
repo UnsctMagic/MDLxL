@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -56,7 +56,10 @@ async function session(fixture, label) {
     assert.ok(!before.equals(await pixels(name)), `${label}: dragging in the ${name} view turns its camera`);
   };
   const dragSlider = async (field, fraction, hold) => {
-    const input = dialog.locator(`input[data-field="${field}"]`), box = await input.boundingBox();
+    const input = dialog.locator(`input[data-field="${field}"]`);
+    // The parts column scrolls: bring the slider into view before the mouse goes to it.
+    await input.scrollIntoViewIfNeeded(); await page.waitForTimeout(100);
+    const box = await input.boundingBox();
     const y = box.y + box.height / 2, start = box.x + box.width * 0.5, to = box.x + box.width * fraction;
     await page.mouse.move(start, y); await page.mouse.down();
     for (let i = 1; i <= 10; i++) { await page.mouse.move(start + (to - start) * i / 10, y); await page.waitForTimeout(25); }
@@ -85,7 +88,7 @@ async function storyB() {
     await s.openDonor(grunt);
     await s.animation('Attack - 1');
     await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
-    await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click();
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
     await page.waitForTimeout(600);
     // The Grunt's weapon hand: its armL chain (limb:36).
     const gruntModel = await readModel(grunt), { box, list } = await s.handles('Donor', gruntModel);
@@ -121,10 +124,43 @@ async function storyB() {
     assert.ok(await runtime(), 'B: nor after a release that keeps the length');
     await page.waitForTimeout(400);
     await s.shot('03-story-b-raise-dragged');
+    // N6: the arm's clip on the timeline. Dragging it later sets Delay and moves the swing later;
+    // its right edge sets Speed; each drag is one step of the window's history.
+    const clip = dialog.locator('.xt-clip.xt-main').first(), lanesBefore = await dialog.locator('.xt-lane').count();
+    assert.equal(lanesBefore, 2, 'B: the timeline has the body lane and one clip lane');
+    assert.match(await dialog.locator('.xt-lane:not(.xt-body) .xt-label').innerText(), /Attack - 1/, 'B: the lane names its source animation');
+    const timingOpen = async () => { if (!(await dialog.locator('.xf-timing[open]').count())) await dialog.locator('.xf-timing > summary').click(); await page.waitForTimeout(200); };
+    await timingOpen();
+    const pathBefore = (await s.probe('Result')).path, cb = await clip.boundingBox(), cells = await dialog.locator('.xt-lane:not(.xt-body) .xt-cells').boundingBox();
+    await page.mouse.move(cb.x + cb.width * 0.3, cb.y + cb.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 10; i++) { await page.mouse.move(cb.x + cb.width * 0.3 + cells.width * 0.25 * i / 10, cb.y + cb.height / 2); await page.waitForTimeout(25); }
+    await page.mouse.up(); await page.waitForTimeout(1200);
+    const delay = Number(await dialog.locator('input[data-field="start"]').inputValue());
+    assert.ok(delay >= 100, `B: dragging the clip later sets Delay (${delay} ms)`);
+    const pathAfter = (await s.probe('Result')).path;
+    // A later swing makes the result longer: the path gains samples, and the samples it starts with stay near the hand's rest.
+    assert.ok(pathAfter.length > pathBefore.length, `B: the swing happens later: the result and its hand path get longer (${pathBefore.length} -> ${pathAfter.length} samples)`);
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(800); await timingOpen();
+    assert.equal(Number(await dialog.locator('input[data-field="start"]').inputValue()), 0, 'B: one Ctrl+Z in the window undoes the whole clip drag');
+    await page.keyboard.press('Control+y'); await page.waitForTimeout(800); await timingOpen();
+    assert.equal(Number(await dialog.locator('input[data-field="start"]').inputValue()), delay, 'B: Ctrl+Y redoes it');
+    const edge = dialog.locator('.xt-clip.xt-main .xt-edge').first(), eb = await edge.boundingBox();
+    await page.mouse.move(eb.x + eb.width / 2, eb.y + eb.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(eb.x + eb.width / 2 - cells.width * 0.15 * i / 8, eb.y + eb.height / 2); await page.waitForTimeout(25); }
+    await page.mouse.up(); await page.waitForTimeout(1200); await timingOpen();
+    const speed = Number(await dialog.locator('input[data-field="speed"]').inputValue());
+    assert.ok(speed > 105, `B: shortening the clip by its right edge speeds it up (${speed}%)`);
+    await dialog.locator('button[data-part="armR"]').click(); await page.waitForTimeout(200);
+    await dialog.locator('.xt-lane:not(.xt-body) .xt-label').click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.locator('button[data-part="armL"]').getAttribute('aria-pressed'), 'true', "B: clicking a lane's label selects its part");
+    assert.ok(await dialog.locator('.xf-animations .xf-playing').count() <= 1, 'B: at most one animation marked as playing in step');
+    await page.waitForTimeout(600);
+    await s.shot('01-story-b-timeline', shots4);
+    results.checks.push(`B: timeline clip drag sets Delay ${delay} ms (one history step, the swing moves later), its edge sets Speed ${speed}%, the lane label selects the arm`);
     results.checks.push('B: Strength and Raise drags move the drawn hand path and the arm live, without a renderer rebuild');
     // W3: the donor plays the selected part's animation on the result's clock.
-    await dialog.locator('.xf-transport').getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(200);
-    await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(200);
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
     const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox(), frames = [];
     for (const at of [0.2, 0.6]) { await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(700); const d = await s.probe('Donor'); frames.push(d.frame); assert.equal(d.sequence, gruntModel.Sequences.findIndex(q => q.Name === 'Attack - 1'), "B: the donor plays the arm's animation"); }
     assert.ok(Math.abs(frames[1] - frames[0]) > 100, `B: scrubbing the result moves the donor with it (${frames.join(' -> ')})`);
@@ -171,6 +207,8 @@ async function storyA() {
     assert.equal(await dialog.locator('button[data-part="all"]').getAttribute('aria-pressed'), 'true', 'A: All taken parts is selected after Take whole body');
     await dialog.locator('.xf-timing > summary').click(); await page.waitForTimeout(300);
     await s.shot('04-story-a-whole-body');
+    assert.equal(await dialog.locator('.xt-lane:not(.xt-body)').count(), 1, 'A: the whole body shares one clip lane');
+    await s.shot('02-story-a-lanes', shots4);
     // One drag slows every taken part down.
     await s.dragSlider('speed', 0.05);
     const speeds = [];
@@ -255,6 +293,163 @@ async function storyAll() {
   } finally { await s.close(); }
 }
 
+// N6: three sources on one Footman: body Walk, the Grunt's attack arm, his own Stand Victory chest and head.
+async function mix() {
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 06 mix.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor mix.mdx');
+  const s = await session(footman, 'mix'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Walk' });
+    await s.openDonor(grunt); await s.animation('Attack - 1');
+    await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(400);
+    await s.from().getByRole('button', { name: 'This model' }).click(); await page.waitForTimeout(400);
+    await s.animation('Stand Victory');
+    await dialog.locator('input[data-part-switch="chest"]').click(); await page.waitForTimeout(300);
+    await dialog.locator('input[data-part-switch="head"]').click(); await page.waitForTimeout(800);
+    const labels = await dialog.locator('.xt-lane .xt-label').allInnerTexts();
+    assert.equal(labels.length, 3, `mix: body lane and two clip lanes (${labels.join(' | ')})`);
+    await dialog.locator('.xt-lane:not(.xt-body) .xt-label', { hasText: 'Stand Victory' }).click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.locator('button[data-part="all"]').getAttribute('aria-pressed'), 'true', 'mix: a lane of two parts selects All taken parts');
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(800);
+    await s.shot('03-three-source-mix', shots4);
+    results.checks.push(`mix: ${labels.map(l => l.replace(/\s+/g, ' ')).join(' | ')}`);
+    await s.noCrash('mix');
+  } finally { await s.close(); }
+}
+
+// N7: drag the Footman's hand on the result; This moment writes a fix with its diamond.
+async function aimStory() {
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 07 aim.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor aim.mdx');
+  const s = await session(footman, 'aim'), { page, dialog } = s;
+  // The hand: the drawn path's dot (the hand at the shown moment), projected by the view itself.
+  const hand = () => page.evaluate(() => {
+    const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root), path = p.props.overlayPaths?.[0];
+    if (!path) return null;
+    const canvas = root.querySelector('canvas'), box = canvas.getBoundingClientRect(), [x, y] = p.runtime.captureApi.project(path.points[path.marker]), scale = canvas.width / box.width;
+    return { x: box.left + x / scale, y: box.top + y / scale, points: path.points };
+  });
+  const raise = async () => Number(await dialog.locator('input[data-field="offset0"]').inputValue());
+  const drag = async (from, dy, during) => {
+    await page.mouse.move(from.x, from.y); await page.mouse.down();
+    for (let i = 1; i <= 10; i++) { await page.mouse.move(from.x + i * 2, from.y - dy * i / 10); await page.waitForTimeout(30); }
+    await page.waitForTimeout(600);
+    if (during) await during();
+    await page.mouse.up(); await page.waitForTimeout(1000);
+  };
+  try {
+    await openTransfer(s);
+    await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
+    await s.openDonor(grunt); await s.animation('Attack - 1');
+    await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(800);
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
+    await page.mouse.click(ruler.x + ruler.width * 0.45, ruler.y + ruler.height / 2); await page.waitForTimeout(1000);
+    const start = await hand();
+    assert.ok(start, 'aim: the hand path is drawn');
+    let during;
+    await drag(start, 70, async () => { during = (await hand()).points; await s.shot('04-hand-mid-drag', shots4); });
+    assert.ok(pathMoved(start.points, during), 'aim: the arm and its path follow during the drag');
+    const raised = await raise();
+    assert.notEqual(raised, 0, `aim: dragging the hand up changes Raise (${raised})`);
+    results.checks.push(`aim: dragging the hand sets Raise ${raised}°; the arm follows during the drag`);
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(800);
+    assert.equal(await raise(), 0, 'aim: one Ctrl+Z restores Raise');
+    // This moment: a fix at the paused time, its diamond on the lane; other moments keep their pose.
+    await dialog.getByRole('button', { name: 'This moment' }).click(); await page.waitForTimeout(200);
+    const before = await hand();
+    await drag(before, 60);
+    assert.equal(await dialog.locator('.xt-fix').count(), 1, 'aim: This moment puts a diamond on the lane');
+    assert.equal(await raise(), 0, 'aim: This moment leaves the whole-movement Raise alone');
+    const after = (await hand()).points, far = 0;
+    assert.ok(Math.hypot(...[0, 1, 2].map(a => after[far][a] - before.points[far][a])) < 1, 'aim: the pose at the start of the animation is unchanged');
+    assert.ok(pathMoved(before.points, after), 'aim: the hand moves at the fixed moment');
+    await s.shot('05-moment-fix', shots4);
+    await dialog.getByRole('button', { name: 'Clear fixes' }).click(); await page.waitForTimeout(500);
+    assert.equal(await dialog.locator('.xt-fix').count(), 0, 'aim: Clear fixes removes it');
+    results.checks.push('aim: This moment writes a fix with a diamond, the start pose stays, Clear fixes removes it');
+    await s.noCrash('aim');
+  } finally { await s.close(); }
+}
+
+// N8: the Kurgan Warlord takes only his weapon arm from the Footman's attack; both hands stay on the hammer.
+async function weaponStory() {
+  const kurgan = fixturePath('transfer-kurgan');
+  if (!kurgan || !fs.existsSync(kurgan)) { results.checks.push('weapon: the Kurgan Warlord is not on this machine, skipped'); return; }
+  const copy = path.join(out, 'TEST TRANSFER 08 kurgan.mdx'); fs.copyFileSync(kurgan, copy);
+  const footman = copyModel('transfer-footman', 'footman donor kurgan.mdx');
+  const s = await session(copy, 'weapon'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    await s.openDonor(footman); await s.animation('Attack - 1');
+    const weaponArm = await page.evaluate(() => null) || 'armR';
+    await dialog.locator(`input[data-part-switch="${weaponArm}"]`).click(); await page.waitForTimeout(1200);
+    const both = dialog.getByLabel('Both hands on the weapon');
+    assert.equal(await both.count(), 1, 'weapon: Both hands on the weapon is shown');
+    assert.equal(await both.isChecked(), true, 'weapon: and on');
+    assert.equal(await dialog.getByLabel('Keep weapon above the ground').count(), 1, 'weapon: Keep weapon above the ground is shown');
+    assert.equal(await dialog.getByLabel('Point weapon like theirs').count(), 1, 'weapon: Point weapon like theirs is shown (the Footman holds a sword)');
+    assert.match(await dialog.locator('button[data-part="armL"]').innerText(), /holds the weapon/, 'weapon: the other arm says it holds the weapon');
+    await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
+    const ruler = await dialog.getByLabel('Time', { exact: true }).boundingBox();
+    await page.mouse.click(ruler.x + ruler.width * 0.45, ruler.y + ruler.height / 2); await page.waitForTimeout(1200);
+    await s.shot('06-kurgan-both-hands', shots4);
+    results.checks.push('weapon: Kurgan takes the weapon arm; the three weapon switches show, both hands on, the other arm holds the weapon');
+    await s.noCrash('weapon');
+  } finally { await s.close(); }
+}
+
+// N9: a setup saved on the Footman (Grunt's attack arm) is kept, cleared, loaded back, saved to a
+// file, and loaded on the Lord of Change, which reopens the Grunt by its path.
+async function setupStory() {
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 09 setup.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor setup.mdx');
+  const setupFile = path.join(out, 'grunt swing.mdlxl-preset');
+  if (fs.existsSync(setupFile)) fs.unlinkSync(setupFile);
+  let s = await session(footman, 'setup'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
+    await s.openDonor(grunt); await s.animation('Attack - 1');
+    await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(500);
+    await s.dragSlider('amount', 0.85);
+    const amount = await dialog.locator('input[data-field="amount"]').inputValue();
+    await dialog.getByRole('button', { name: 'Save as…' }).click();
+    await dialog.getByLabel('Preset name').fill('Grunt swing');
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(300);
+    await dialog.getByText('Grunt swing saved.').waitFor();
+    await dialog.getByRole('button', { name: 'Clear all' }).click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.locator('input[data-part-switch]:checked').count(), 0, 'setup: cleared');
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups button', { hasText: 'Grunt swing' }).click(); await page.waitForTimeout(1500);
+    assert.equal(await dialog.locator('input[data-part-switch="armL"]').isChecked(), true, 'setup: loading takes the arm again');
+    await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(200);
+    assert.equal(await dialog.locator('input[data-field="amount"]').inputValue(), amount, 'setup: with its Strength');
+    await stubDialogs(s.app, { save: setupFile });
+    await dialog.getByRole('button', { name: 'Save as…' }).click();
+    await dialog.getByLabel('Preset name').fill('Grunt swing');
+    await dialog.getByRole('button', { name: 'Save to file…' }).click();
+    for (let i = 0; i < 40 && !fs.existsSync(setupFile); i++) await page.waitForTimeout(250);
+    assert.ok(fs.existsSync(setupFile), 'setup: Save to file wrote it');
+    const saved = JSON.parse(fs.readFileSync(setupFile, 'utf8'));
+    assert.equal(saved.parts.armL.animation, 'Attack - 1', 'setup: animations by name');
+    assert.match(Object.values(saved.sources)[0].path, /grunt donor setup\.mdx$/, 'setup: the donor by its path');
+    results.checks.push('setup: Save keeps it, Clear all then Load from brings the arm back with its Strength, Save to file writes paths and names');
+    await s.noCrash('setup');
+  } finally { await s.close(); }
+  const lord = copyModel('transfer-lord-of-change', 'TEST TRANSFER 10 setup lord.mdx');
+  s = await session(lord, 'setup-lord'); ({ page, dialog } = s);
+  try {
+    await openTransfer(s);
+    await stubDialogs(s.app, { open: setupFile });
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups').getByRole('button', { name: 'File…' }).click(); await page.waitForTimeout(3000);
+    assert.equal(await dialog.locator('input[data-part-switch="armL"]').isChecked(), true, 'setup: on the Lord of Change the arm is taken');
+    assert.match(await s.view('Donor').locator('.xf-caption > span').innerText(), /grunt donor setup/i, 'setup: the Grunt reopened by its path');
+    await s.shot('07-setup-on-lord-of-change', shots4);
+    results.checks.push(`setup: loaded on the Lord of Change, the Grunt reopens by path (${await dialog.locator('.xf-setup-bar .preset-bar-status').innerText()})`);
+    await s.noCrash('setup on lord');
+  } finally { await s.close(); }
+}
+
 // The FX window on the same Footman, for comparing density.
 async function fx() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER FX.mdx');
@@ -309,12 +504,12 @@ async function sweep() {
     await click(s.view('Donor').getByRole('button', { name: 'Mirror' }), 'Mirror off');
     await click(dialog.getByRole('button', { name: 'Original' }), 'Original on');
     await click(dialog.getByRole('button', { name: 'Original' }), 'Original off');
-    await click(dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }), 'Pause');
+    await click(dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }), 'Pause');
     const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
     await page.mouse.move(sb.x + 4, sb.y + sb.height / 2); await page.mouse.down();
     for (let i = 1; i <= 10; i++) { await page.mouse.move(sb.x + sb.width * i / 11, sb.y + sb.height / 2); await page.waitForTimeout(16); }
     await page.mouse.up(); clicked.push('scrub'); await s.noCrash('scrub');
-    await click(dialog.locator('.xf-transport').getByRole('button', { name: 'Play' }), 'Play');
+    await click(dialog.locator('.xt-timeline').getByRole('button', { name: 'Play' }), 'Play');
     await dialog.getByLabel('Name', { exact: true }).fill('Swing Defend'); clicked.push('Name');
     await click(dialog.getByRole('button', { name: 'Add animation' }), 'Add animation');
     assert.equal(await page.evaluate(() => window.__mdlxl.model().Sequences.at(-1).Name), 'Swing Defend', 'the typed name is used');
@@ -383,7 +578,7 @@ async function trials() {
       await s.openDonor(donor);
       await s.animation(animation);
       await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
-      await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click();
+      await dialog.locator('.xt-timeline').getByRole('button', { name: 'Pause' }).click();
       const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
       await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(1200);
       await s.shot(file);
@@ -395,11 +590,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

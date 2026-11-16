@@ -1,16 +1,20 @@
-import { useWindowHotkeys } from './Hotkeys.jsx';
+import { useMousePressLost, useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
 import React, { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
+import TransferTimeline from './TransferTimeline.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { openDocument } from '../src/editor-document.js';
 import { resolveGameFiles } from './desktop.js';
+import { readStored, writeStored } from '../src/local-store.js';
+import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
+import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
-import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
-import { addAllPlan, chipOrder, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
+import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
+import { addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
 import './transfer.css';
@@ -133,7 +137,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     const { previewAssets } = await import('./GameFileBrowser.jsx');
     const preview = previewAssets(textures);
     releases.current.push(preview.release);
-    addDonor({ id, name, model: opened.model, assets: preview.assets, revision: 0 });
+    const record = { id, name, model: opened.model, assets: preview.assets, revision: 0, path: id.slice(id.indexOf(':') + 1) };
+    addDonor(record);
+    return record;
   };
   const openFile = async () => {
     if (!window.desktop?.openTransferModel) { setMessage('Opening a file needs the desktop app.'); return; }
@@ -224,11 +230,75 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Playback: one clock for the result; the donor plays its own animation and pauses with it.
   const [time, setTime] = useState(0), [playing, setPlaying] = useState(true);
   useEffect(() => { if (preview && (time < preview.start || time > preview.end)) setTime(preview.start); }, [preview]);
-  const scrubValue = useRef(null), scrub = useRef(null);
-  scrub.current ||= createFrameCoalescer(() => { if (scrubValue.current != null) setTime(scrubValue.current); });
   const sliderValue = useRef(null), slider = useRef(null);
   slider.current ||= createFrameCoalescer(() => { if (sliderValue.current) setDraft(sliderValue.current); });
-  useEffect(() => () => { scrub.current.cancel(); slider.current.cancel(); }, []);
+  useEffect(() => () => { slider.current.cancel(); }, []);
+
+  // Setups (N9): the recipe with sources by file or game path and animations by name. Saved setups
+  // live in this window's store; Save to file writes one to share. Loading reopens the donors.
+  const SETUPS = 'mdlxl.transfer.setups';
+  const [setups, setSetups] = useState(() => { const list = readStored(SETUPS, []); return Array.isArray(list) ? list : []; });
+  const [naming, setNaming] = useState(false), [setupName, setSetupName] = useState(''), [loadMenu, setLoadMenu] = useState(false), [setupStatus, setSetupStatus] = useState('');
+  const describeSource = id => {
+    if (id === 'self') return { kind: 'self', name: 'This model', model };
+    const d = donors.find(item => item.id === id);
+    if (!d) return null;
+    return { kind: id.startsWith('lib:') ? 'library' : id.startsWith('file:') ? 'file' : 'tab', path: d.path || null, name: d.name, model: d.model };
+  };
+  const currentSetup = name => setupFromRecipe(recipeRef.current, model, describeSource, name);
+  const saveSetup = () => {
+    const name = sanitizePresetName(setupName);
+    if (!name) return;
+    const list = [...setups.filter(item => item.name !== name), currentSetup(name)];
+    setSetups(list); writeStored(SETUPS, list); setNaming(false); setSetupStatus(`${name} saved.`);
+  };
+  const saveSetupFile = async () => {
+    const name = sanitizePresetName(setupName) || 'Transfer setup';
+    try { if (await writePresetFile(name, JSON.stringify(currentSetup(name), null, 1))) { setNaming(false); setSetupStatus(`${name} saved to file.`); } } catch (error) { setSetupStatus(error.message); }
+  };
+  // One donor of a setup: already loaded, else reopened by its path, else asked for once.
+  const reopen = async (source, asked) => {
+    if (source.kind === 'self') return { id: 'self', model };
+    const id = (source.kind === 'library' ? 'lib:' : 'file:') + source.path, known = donors.find(d => d.id === id);
+    if (known) return known;
+    try {
+      if (source.kind === 'library' && window.desktop?.gameFilesFindPath) {
+        const summary = await window.desktop.gameFilesSummary(), entry = await window.desktop.gameFilesFindPath({ path: source.path, variant: 'all' });
+        if (entry) {
+          const read = await window.desktop.gameFilesRead({ id: entry.id, signature: summary.signature }), names = (openDocument(read.bytes, entry.name).model?.Textures || []).map(t => t.Image).filter(Boolean);
+          const textures = names.length ? (await window.desktop.gameFilesResolve({ id: entry.id, signature: summary.signature, names })).found : [];
+          return await loaded(id, entry.name, read.bytes, textures);
+        }
+      } else if (source.kind === 'file' && window.desktop?.readTransferModel) {
+        const record = await window.desktop.readTransferModel(source.path), names = (openDocument(record.bytes, record.name).model?.Textures || []).map(t => t.Image).filter(Boolean);
+        const found = names.length ? await resolveGameFiles(names, record.path) : [];
+        return await loaded(id, record.name, record.bytes, found.filter(item => item?.bytes).map(item => ({ name: item.logicalName || item.texturePath || item.name, bytes: item.bytes })));
+      }
+    } catch { /* asked for below */ }
+    if (asked.has(source.name) || !window.desktop?.openTransferModel) return null;
+    asked.add(source.name);
+    setSetupStatus(`Find ${source.name}`);
+    const record = await window.desktop.openTransferModel();
+    if (!record) return null;
+    const names = (openDocument(record.bytes, record.name).model?.Textures || []).map(t => t.Image).filter(Boolean), found = names.length ? await resolveGameFiles(names, record.path) : [];
+    return loaded('file:' + (record.path || record.name), record.name, record.bytes, found.filter(item => item?.bytes).map(item => ({ name: item.logicalName || item.texturePath || item.name, bytes: item.bytes })));
+  };
+  const applySetup = async setup => {
+    setLoadMenu(false); setSetupStatus('Loading model…');
+    try {
+      const opened = {}, asked = new Set();
+      for (const [key, source] of Object.entries(setup.sources || {})) opened[key] = await reopen(source, asked);
+      const { recipe: next, left } = recipeFromSetup(setup, model, rigB, opened, recipeRef.current.base.sequence);
+      change(next); setSelected(Object.keys(next.parts).length ? 'all' : null);
+      const words = left.map(code => { const [kind, value] = code.split(':'); return kind === 'part' ? transferPartLabel(value) : kind === 'source' ? setup.sources?.[value]?.name || value : value; });
+      setSetupStatus(left.length ? `${setup.name || 'Setup'} loaded. Left out: ${words.join(', ')}` : `${setup.name || 'Setup'} loaded.`);
+    } catch (error) { setSetupStatus(error.message); }
+  };
+  const loadSetupFile = async () => {
+    if (!window.desktop?.openPresetFile) { setSetupStatus('Opening a file needs the desktop app.'); return; }
+    try { const picked = await window.desktop.openPresetFile(); if (picked) await applySetup(parseSetup(picked.text)); } catch (error) { setSetupStatus(error.message); }
+  };
+  const deleteSetup = name => { const list = setups.filter(item => item.name !== name); setSetups(list); writeStored(SETUPS, list); };
 
   // Selection, the handles and the path the selected limb's hand or foot draws.
   // 'all' edits every taken part at once (Strength, Pose, Timing, Travel, Keep foot on the ground).
@@ -247,7 +317,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!limb || !preview || original) return null;
     try { return jointPath(withNodeTracks(preview.model, liveTracks), preview.sequenceIndex, selectedPart.marker); } catch { return null; }
   }, [limb, preview, liveTracks, original, selectedPart]);
-  const resultOverlay = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : undefined, [resultPath, time]);
+  const resultOverlayPath = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : [], [resultPath, time]);
   // A selected taken part from the donor shown: the donor view plays that part's animation on
   // the result's clock (Delay and Speed applied), so both swings happen together.
   const linked = !!selectedTaken && !!donor && selectedTaken.source === donor.id && !!donor.model.Sequences?.[selectedTaken.sequence]?.Interval;
@@ -286,6 +356,17 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const onDonorHandle = useCallback(target => latestHandlers.current.donorHandle(target), []);
   const onResultHandle = useCallback(target => latestHandlers.current.resultHandle(target), []);
 
+  // Weapons (N8): the selected arm's weapon, the donor arm's, the effective "point like theirs", and
+  // untaken arms the build drives because they hold the weapon.
+  const weapon = selectedTaken && selectedPart?.weapon && typeof selectedPart.weapon === 'object' ? selectedPart.weapon : null;
+  const donorWeapon = useMemo(() => {
+    if (!weapon || !selectedTaken) return null;
+    const theirs = modelOf(selectedTaken.source), rig = theirs && rigFor(theirs, selectedTaken.sequence);
+    return rig?.parts?.[sourcePartKey(selected, mirrorOf(selectedTaken.source), !!selectedTaken.flip)]?.weapon || null;
+  }, [weapon, selectedTaken?.source, selectedTaken?.sequence, selectedTaken?.flip, selected]);
+  const aimEffective = selectedTaken?.aim == null ? !!donorWeapon && clipNonLooping(selectedTaken) : selectedTaken.aim > 0.5;
+  const holders = useMemo(() => { const driven = new Set(built?.driven || []); return new Set(Object.values(rigB.parts).filter(part => part.kind === 'limb' && !effective.parts[part.key] && part.joints.some(id => driven.has(id))).map(part => part.key)); }, [built, rigB, effective.parts]);
+  const onResultCapture = useCallback(api => { capture.current = api; }, []);
   // Sliders of the selected taken part. Values come from the committed recipe, so a release commits.
   const kind = selectedPart?.kind, targets = allMode ? taken : selectedTaken ? [selected] : [];
   const applies = (field, key) => field.only === 'hips' ? key === 'hips' : field.only === 'nonLooping' ? clipNonLooping(effective.parts[key]) : !(allMode && /^offset/.test(field.id));
@@ -298,6 +379,60 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   // The slider's own draft ends (release or Escape): drop the live recipe; a release then commits.
   const endDrag = () => { slider.current.cancel(); sliderValue.current = null; setDraft(null); };
+
+  // Drag to aim (N7): the selected taken limb's hand or foot handle on the result view is dragged to
+  // where it should be at the paused moment. Whole movement writes the part's Raise / Turn (/ Roll);
+  // This moment writes a moment fix. Pointer events only record; transferAim runs once per frame.
+  const [aimScope, setAimScope] = useState('whole'), [aimNote, setAimNote] = useState(false), [ghost, setGhost] = useState(null);
+  const capture = useRef(null), aim = useRef(null), aimFrame = useRef(null), aimApply = useRef(null);
+  aimFrame.current ||= createFrameCoalescer(() => aimApply.current());
+  useEffect(() => () => aimFrame.current.cancel(), []);
+  const aimable = !!selectedTaken && selectedPart?.kind === 'limb' && !original && !!preview;
+  const aimDown = event => {
+    if (event.button !== 0 || !aimable || !capture.current?.project || !capture.current.ray) return;
+    const t = Math.round(time0 - preview.start), base = recipeRef.current;
+    let at; try { at = transferEndPoint(model, sources, base, selected, t); } catch { return; }
+    const canvas = event.currentTarget.querySelector('canvas'), box = canvas?.getBoundingClientRect();
+    if (!box) return;
+    const [x, y] = capture.current.project(at.end), scale = canvas.width / Math.max(1, box.width);
+    if (Math.hypot(box.left + x / scale - event.clientX, box.top + y / scale - event.clientY) > 14) return;
+    event.preventDefault(); event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setPlaying(false);
+    aim.current = { key: selected, time: t, base, at, x: event.clientX, y: event.clientY, scope: aimScope, next: null, clamped: false };
+  };
+  const aimMove = event => {
+    const d = aim.current;
+    if (!d) return;
+    event.stopPropagation();
+    d.x = event.clientX; d.y = event.clientY; aimFrame.current.schedule();
+  };
+  aimApply.current = () => {
+    const d = aim.current;
+    if (!d || !capture.current) return;
+    const point = dropPoint(capture.current.ray(d.x, d.y), d.at.root, d.at.end);
+    let result; try { result = transferAim(model, sources, d.base, d.key, d.time, point, { scope: d.scope }); } catch { return; }
+    const part = d.base.parts[d.key];
+    let changed;
+    if (d.scope === 'moment') { const fixes = [...(part.fixes || [])]; if (result.index >= 0) fixes[result.index] = result.fix; else fixes.push(result.fix); changed = { ...part, fixes }; }
+    else changed = { ...part, offset: result.offset };
+    d.next = { ...d.base, parts: { ...d.base.parts, [d.key]: changed } }; d.clamped = !!result.clamped;
+    setDraft(d.next); setGhost({ root: d.at.root, point });
+  };
+  const aimUp = event => {
+    const d = aim.current;
+    if (!d) return;
+    event.stopPropagation();
+    aimFrame.current.flush(); aim.current = null; setGhost(null);
+    if (d.next) { setDraft(null); change(d.next); setAimNote(d.clamped); } else setDraft(null);
+  };
+  const aimCancel = () => { if (!aim.current) return; aimFrame.current.cancel(); aim.current = null; setGhost(null); setDraft(null); };
+  useWindowKeyClaim(({ event }) => { if (event.key !== 'Escape' || !aim.current) return false; aimCancel(); return true; }, 0);
+  useMousePressLost(aimCancel);
+  useEffect(() => { setAimNote(false); }, [selected]);
+  const clearFixes = () => setPart(selected, { fixes: [] });
+  // The drag's ghost: a dashed line from the limb's root to where the hand or foot is dropped.
+  const resultOverlay = useMemo(() => [...resultOverlayPath, ...(ghost ? [{ points: [ghost.root, ghost.point], color: '#1d5fd1', width: 2.5, dash: [6, 4], alpha: .95, marker: 1 }] : [])], [resultOverlayPath, ghost]);
   // Double-click: every target back to its own default.
   const resetField = field => {
     const base = recipeRef.current, parts = { ...base.parts };
@@ -325,13 +460,20 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   // Add all: the donor's whole set with the parts taken from it, one Undo for all (src/transfer-window.js addAllPlan).
   const plan = useMemo(() => donor ? addAllPlan(model, donor.model, donor.id, recipe, recipe.base.sequence) : { clips: [] }, [donor, model, doc.revision, recipe]);
+  // The set takes a few seconds on big models: the button says Adding... and the footer waits,
+  // painted before the work starts.
+  const [adding, setAdding] = useState(false);
   const addAll = () => {
-    if (!plan.clips.length || doc.readOnly) return;
+    if (!plan.clips.length || doc.readOnly || adding) return;
     const clips = plan.clips;
-    const result = edit(`Transfer: add ${clips.length} animations`, SECTIONS, m => { for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); } });
-    clearTransferCache(model);
-    if (result === false) return;
-    addedRecipe.current = JSON.stringify(recipeRef.current); setAdded({ count: clips.length }); setName(null);
+    setAdding(true);
+    requestAnimationFrame(() => setTimeout(() => {
+      try {
+        const result = edit(`Transfer: add ${clips.length} animations`, SECTIONS, m => { for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); } });
+        clearTransferCache(model);
+        if (result !== false) { addedRecipe.current = JSON.stringify(recipeRef.current); setAdded({ count: clips.length }); setName(null); }
+      } finally { setAdding(false); }
+    }, 0));
   };
   const fromDonor = donor && taken.some(key => effective.parts[key].source === donor.id);
   const addAllTip = !donor || !fromDonor ? 'Take a part from the donor first: Add all repeats those parts for each of its animations.' : !plan.clips.length ? 'This model already has every animation of the donor, or only Decay and Portrait animations are left.' : `Adds: ${plan.clips.map(clip => clip.name).join(', ')}`;
@@ -347,6 +489,32 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     ...donors.filter(d => d.id !== 'self' && !d.id.startsWith('tab:')).map(d => [d.id, d.name, 'Only read, never changed.', () => setDonorId(d.id)]),
   ];
   const time0 = preview ? Math.max(preview.start, Math.min(preview.end, time)) : 0;
+  // The clip timeline: the axis is the result as previewed (it changes on release, not mid-drag).
+  const axis = preview ? Math.max(1, preview.end - preview.start) : 1;
+  const bodyLane = useMemo(() => {
+    const clock = built?.baseClock, sequence = model.Sequences[effective.base.sequence];
+    if (!clock || !sequence) return null;
+    const period = clock.looping ? clock.length / (clock.rate || 1) : clock.length;
+    return { id: 'body', label: sequenceName(model, effective.base.sequence), title: 'Body animation', blocks: clipBlocks(0, period, clock.looping, axis) };
+  }, [built, axis, effective.base.sequence, model]);
+  const lanes = useMemo(() => clipLanes(effective.parts, part => { const s = modelOf(part.source)?.Sequences?.[part.sequence]; return s?.Interval ? { length: s.Interval[1] - s.Interval[0], looping: !s.NonLooping } : null; }, chipOrder(taken)).map(lane => ({
+    ...lane, editable: true, label: `${nameOf(lane.source)} - ${sequenceName(modelOf(lane.source), lane.sequence)}`, parts: lane.keys.map(transferPartLabel).join(', '),
+    title: lane.keys.length > 1 ? 'Select All taken parts.' : 'Select this part.', blocks: clipBlocks(lane.start, lane.span, lane.looping, axis),
+  })), [effective.parts, taken.join(','), axis, donors, model]);
+  // A lane's label selects its part; a lane of several parts selects All taken parts.
+  const selectedLanes = lanes.filter(lane => allMode ? lane.keys.length > 1 : lane.keys.includes(selected)).map(lane => lane.id);
+  const selectLane = lane => setSelected(lane.keys.length > 1 ? 'all' : lane.keys[0]);
+  // A clip drag: Delay or Speed for every part in the lane, live once per frame, one history step on release.
+  const changeLane = (lane, value, live) => {
+    if (!value) { endDrag(); return; }
+    const base = recipeRef.current, parts = { ...base.parts };
+    for (const key of lane.keys) if (parts[key]) parts[key] = { ...parts[key], ...value };
+    const next = { ...base, parts };
+    if (live) { sliderValue.current = next; slider.current.schedule(); return; }
+    slider.current.cancel(); sliderValue.current = null; setDraft(null); change(next);
+  };
+  const selectFix = fix => { setSelected(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
+  const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
   const lacksTip = key => !donor ? 'Choose a model to take animation from first.' : `The donor has no ${transferPartLabel(feedsFrom(key))}.`;
   return <ToolWindow title="Transfer" overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
     {!rigB.ok ? <div className="xf-problems" role="alert">{rigB.problems.map(text => <p key={text}>{text}</p>)}</div> : <>
@@ -362,7 +530,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           </div>
           <b className="xf-heading">Animations</b>
           <div className="gf-tree xf-list xf-animations" role="group" aria-label="Donor animations">
-            {donor ? (donor.model.Sequences || []).map((s, i) => <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '')} aria-pressed={i === donorSeq} title="Play this animation in the donor view." name={sequenceName(donor.model, i)} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>)
+            {donor ? (donor.model.Sequences || []).map((s, i) => <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '') + (linked && i === donorShows ? ' xf-playing' : '')} aria-pressed={i === donorSeq} aria-current={linked && i === donorShows ? 'true' : undefined} title="Play this animation in the donor view." name={sequenceName(donor.model, i)} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>)
               : <span className="xf-note xf-empty">Choose a model above.</span>}
           </div>
         </aside>
@@ -381,23 +549,34 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </section>
             <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{doc.name}</span></div>
-              <div className="xf-preview">
+              <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}
-                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={resultPose} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} overlayPaths={resultOverlay}/>
+                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={resultPose} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={resultOverlay}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
               </div>
             </section>
           </div>
-          <div className="xf-transport">
-            <button data-hotkey="transfer:play" data-hotkey-absolute title="Play or pause both views." onClick={() => setPlaying(v => !v)}>{playing ? 'Pause' : 'Play'}</button>
-            {preview && <RangeField className="xf-scrub" aria-label="Time" title="Time in the new animation." min={preview.start} max={Math.max(preview.start + 1, preview.end)} step={1} value={time0} onChange={value => { setPlaying(false); scrubValue.current = value; scrub.current.schedule(); }}/>}
-            <span className="xf-time" title="Time in the new animation.">{preview ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s</span>
+          <TransferTimeline length={axis} time={time0 - (preview?.start || 0)} playing={playing} onPlay={() => setPlaying(v => !v)} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }}
+            bodyLane={bodyLane} lanes={lanes} selectedLanes={selectedLanes} onLaneSelect={selectLane} onLaneChange={changeLane} onFixSelect={selectFix} onFixDelete={deleteFix}
+            readout={`${preview ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}>
             <button data-hotkey="transfer:original" data-hotkey-manual data-hotkey-label="Original" aria-pressed={original} title="Show the body animation without the taken parts." onClick={() => setOriginal(v => !v)}>Original</button>
-          </div>
+          </TransferTimeline>
         </main>
         <aside className="xf-controls" aria-label="Parts">
+          <div className="preset-bar xf-setup-bar">
+            <div className="preset-bar-main">
+              <button type="button" data-hotkey="transfer:setup-save" data-hotkey-manual data-hotkey-label="Save setup" aria-expanded={naming} disabled={!taken.length} title="Keeps the taken parts and their settings as a setup, or writes it to a file to share. Load it on any model." onClick={() => { setLoadMenu(false); setNaming(open => !open); }}>Save as…</button>
+              <button type="button" data-hotkey="transfer:setup-load" data-hotkey-manual data-hotkey-label="Load setup" aria-expanded={loadMenu} title="Uses a saved setup on this model: its donors open again, parts and animations are matched by name." onClick={() => { setNaming(false); setLoadMenu(open => !open); }}>Load from…</button>
+            </div>
+            {naming && <PresetNameRow domain="transfer" name={setupName} onName={setSetupName} onSave={saveSetup} onSaveFile={saveSetupFile} onClose={() => setNaming(false)}/>}
+            {loadMenu && <div className="gf-tree xf-list xf-setups" role="group" aria-label="Saved setups">
+              {setups.map(item => <div key={item.name} className="gf-row xf-setup-row"><button type="button" className="xf-part-name" title="Use this setup." onClick={() => applySetup(item)}><span translate="no">{item.name}</span></button><button type="button" className="preset-bar-delete" aria-label="Delete this setup" title="Deletes this saved setup." onClick={() => deleteSetup(item.name)}>×</button></div>)}
+              <button type="button" className="gf-row xf-row xf-action" onClick={loadSetupFile}>File…</button>
+            </div>}
+            {setupStatus && <div className="preset-bar-status" role="status">{setupStatus}</div>}
+          </div>
           <label className="xf-field" title="This model's own animation under everything. Parts that are not taken keep moving as it does.">Body animation <select data-hotkey="transfer:body-animation" data-hotkey-manual data-hotkey-label="Body animation" aria-label="Body animation" value={recipe.base.sequence} onChange={event => setBase(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i} translate="no">{sequenceName(model, i)}</option>)}</select></label>
           <div className="xf-row-buttons">
             <button data-hotkey="transfer:take-whole-body" data-hotkey-manual data-hotkey-label="Take whole body" disabled={!rigA?.ok || donorSeq < 0 || !whole.parts.length} title="Take every part both models have from the animation the donor view shows." onClick={takeWhole}>Take whole body</button>
@@ -410,7 +589,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               const part = effective.parts[key], lacks = !part && donorLacks(key);
               return <div key={key} className={'gf-row xf-part' + (selected === key ? ' selected' : '')}>
                 <input type="checkbox" data-part-switch={key} aria-label={`Take ${transferPartLabel(key)}`} checked={!!part} disabled={lacks} title={part ? 'Taken. Switch off to remove it.' : lacks ? lacksTip(key) : 'Take this part from the animation the donor view shows.'} onChange={event => event.target.checked ? take(key) : remove([key])}/>
-                <button data-part={key} aria-pressed={selected === key} className="xf-part-name" title={part ? `Taken from ${clipName(part)}.` : 'Select this part.'} onClick={() => setSelected(key)}>{transferPartLabel(key)}{part && <small translate="no">{clipName(part)}</small>}</button>
+                <button data-part={key} aria-pressed={selected === key} className="xf-part-name" title={part ? `Taken from ${clipName(part)}.` : holders.has(key) ? 'Keeps its hand on the weapon.' : 'Select this part.'} onClick={() => setSelected(key)}>{transferPartLabel(key)}{part ? <small translate="no">{clipName(part)}</small> : holders.has(key) && <small className="xf-holds">holds the weapon</small>}</button>
               </div>;
             })}
           </div>
@@ -423,7 +602,18 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             <div className="xf-part-title"><b>{transferPartLabel(selected)}</b>
               {kind === 'limb' && <button data-hotkey="transfer:other-side" data-hotkey-manual data-hotkey-label="Other side" aria-pressed={!!selectedTaken.flip} disabled={!donor || !rigA?.parts?.[feedsFrom(selected, !selectedTaken.flip)]} title="Take this part from the donor's other side: this left arm does what their right arm does." onClick={() => setPart(selected, { flip: !selectedTaken.flip })}>Other side</button>}</div>
             {donor && (selectedTaken.source !== donor.id || selectedTaken.sequence !== donorSeq) && <button data-hotkey="transfer:take-from" data-hotkey-manual data-hotkey-label="Take from the donor view" disabled={donorLacks(selected) || donorSeq < 0} title="Take this part from the animation the donor view shows now." onClick={() => take(selected)}>Take from <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorSeq)}</span></button>}
+            {kind === 'limb' && <div className="xf-scope" role="group" aria-label="Drag the hand or foot" title="Drag the hand or foot handle on the result to aim it. Whole movement turns the whole movement; This moment changes only the paused moment.">
+              <button data-hotkey="transfer:whole-movement" data-hotkey-manual data-hotkey-label="Whole movement" aria-pressed={aimScope === 'whole'} onClick={() => setAimScope('whole')}>Whole movement</button>
+              <button data-hotkey="transfer:this-moment" data-hotkey-manual data-hotkey-label="This moment" aria-pressed={aimScope === 'moment'} onClick={() => setAimScope('moment')}>This moment</button>
+              {selectedTaken.fixes?.length > 0 && <button data-hotkey="transfer:clear-fixes" data-hotkey-manual data-hotkey-label="Clear fixes" title="Remove this part's moment fixes." onClick={clearFixes}>Clear fixes</button>}
+            </div>}
+            {aimNote && <p className="xf-note xf-reason" role="status">The limb cannot reach that point; it goes as far as it can.</p>}
             {slidersFor(false)}
+            {weapon && <>
+              {weapon.grip && <label className="xf-check" title="The other hand stays on the weapon where it holds it."><input data-hotkey="transfer:both-hands" data-hotkey-manual data-hotkey-label="Both hands on the weapon" type="checkbox" checked={selectedTaken.grip ?? true} onChange={event => setPart(selected, { grip: event.target.checked })}/> Both hands on the weapon</label>}
+              <label className="xf-check" title="Lifts the arm where the weapon would go into the ground."><input data-hotkey="transfer:weapon-above-ground" data-hotkey-manual data-hotkey-label="Keep weapon above the ground" type="checkbox" checked={selectedTaken.clear ?? true} onChange={event => setPart(selected, { clear: event.target.checked })}/> Keep weapon above the ground</label>
+              {donorWeapon && <label className="xf-check" title="Turns the weapon so it points the way the donor's weapon points."><input data-hotkey="transfer:point-weapon" data-hotkey-manual data-hotkey-label="Point weapon like theirs" type="checkbox" checked={aimEffective} onChange={event => setPart(selected, { aim: event.target.checked ? 1 : 0 })}/> Point weapon like theirs</label>}
+            </>}
             {/^leg/.test(selected) && kind === 'limb' && <label className="xf-check" title="Keeps the foot on the donor foot's path, scaled to this leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={selectedTaken.plant !== false} onChange={event => setPart(selected, { plant: event.target.checked })}/> Keep foot on the ground</label>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : <p className="xf-note">{!donor ? 'Choose where the animation comes from.' : selected && selected !== 'all' ? 'Switch the part on to take it.' : 'Click a part on the donor to take it, or Take whole body.'}</p>}
@@ -433,9 +623,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
         <label className="xf-name" title="Name of the new animation.">Name <input data-hotkey="transfer:name" data-hotkey-manual data-hotkey-label="Animation name" aria-label="Name" value={shownName} maxLength={79} onChange={event => setName(event.target.value)}/></label>
         {added && <span className="xf-added" role="status">{added.count ? `Added ${added.count} animations` : <>Added <span translate="no">{added.name}</span></>}</span>}
         <span className="xf-spacer"/>
-        <button onClick={onClose} title="Close. Parts not added are lost.">Cancel</button>
-        <button data-hotkey="transfer:add-all" data-hotkey-manual data-hotkey-label="Add all" disabled={!plan.clips.length || doc.readOnly || !built} title={addAllTip} onClick={addAll}>Add all <span translate="no">({plan.clips.length})</span></button>
-        <button data-hotkey="transfer:add-animation" data-hotkey-manual data-hotkey-label="Add animation" className="xf-add" disabled={!built || !taken.length || doc.readOnly} title="Add the result to this model as a new animation. One Undo removes it." onClick={add}>Add animation</button>
+        <button disabled={adding} onClick={onClose} title="Close. Parts not added are lost.">Cancel</button>
+        <button data-hotkey="transfer:add-all" data-hotkey-manual data-hotkey-label="Add all" className="xf-add-all" disabled={adding || !plan.clips.length || doc.readOnly || !built} title={addAllTip} onClick={addAll}>{adding ? 'Adding…' : <>Add all <span translate="no">({plan.clips.length})</span></>}</button>
+        <button data-hotkey="transfer:add-animation" data-hotkey-manual data-hotkey-label="Add animation" className="xf-add" disabled={adding || !built || !taken.length || doc.readOnly} title="Add the result to this model as a new animation. One Undo removes it." onClick={add}>Add animation</button>
       </footer>
     </>}
   </ToolWindow>;

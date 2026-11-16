@@ -1870,6 +1870,13 @@ export default function GamePreview(inputProps) {
       setCameraView(view) { camera = perspective; controls.object = camera; state.cameraDetached = true; applyEvaluatedModelCamera(camera, controls, view, canvas.width / canvas.height); invalidate(); },
       modelCenter() { return center.toArray(); },
       // Canvas pixels of model-space points [x,y,z,...] in the current view, as [x,y,inFront,...].
+      // The pointer's ray in model space, for a window that drags something of its own in the view (Transfer's aim).
+      ray(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
+        camera.updateMatrixWorld();
+        raycaster.setFromCamera(new THREE.Vector2((clientX - rect.left) / Math.max(1, rect.width) * 2 - 1, -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1), camera);
+        return { origin: raycaster.ray.origin.toArray(), direction: raycaster.ray.direction.toArray() };
+      },
       project(points) {
         const out = new Float32Array(points.length), point = new THREE.Vector3();
         camera.updateMatrixWorld();

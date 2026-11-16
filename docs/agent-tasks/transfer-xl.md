@@ -625,3 +625,31 @@ its own, so a shaky item can be left out of the morning build.
   inverse of the engine's offset (a search over buildTransfer, about 30-60 builds per update), too slow
   for a live per-frame path; a release-only solve without the live path was not worth the risk in the
   time box. A clean way: an engine helper that returns the end point for given offsets cheaply.
+
+### Round 4 window as built (window coder; awaiting director review)
+
+- **N6 built.** `app/TransferTimeline.jsx` under the stage: Play/Pause, ruler (click or drag to scrub),
+  time and Original on the strip; body lane (`clipBlocks` repeats from `built.baseClock`), one lane per
+  taken source animation (`clipLanes`: same source + animation + Delay + Speed share a lane). Clip drag
+  = Delay (10 ms steps, 0-2000), right edge = Speed (0.25-3); one window-history step per drag; the axis
+  is the previewed result and changes on release. Lanes are keyed by their parts so a drag keeps its
+  pointer capture. Ease ramps at play-once clip ends; `fixes` diamonds (click = jump + select, Delete =
+  remove). Lane label selects its part, or All taken parts for a lane of several. Registered in
+  `test/live-drag-frames.test.js`. Polish: `Adding…` while Add all runs (footer disabled), Add all drawn
+  secondary, the Animations row the donor actually plays in step is marked.
+- **N7 built.** Capture-phase pointer handler on the result view: only a press within 14 px of the
+  selected taken limb's end (`transferEndPoint`, projected with a new `captureApi.ray` / existing
+  `project` in GamePreview) starts the aim; elsewhere the camera turns. `dropPoint` (sphere around the
+  root, else the plane through the end) feeds `transferAim` once per frame; Whole movement writes
+  `offset`, This moment writes or updates a fix; dashed ghost from root to drop point; one history step;
+  note when `clamped`. `Clear fixes`. Registered in `test/live-drag-frames.test.js`.
+- **N8 built.** Weapon switches on an arm with `weapon`: Both hands (when `weapon.grip`), Keep above
+  ground (`clear`), Point like theirs (`aim`, only when the donor arm has a weapon; null = on for a
+  play-once clip). Untaken limbs the build drives show `holds the weapon`.
+- **N9 built.** `setupFromRecipe` / `parseSetup` / `recipeFromSetup` in `src/transfer-window.js`
+  (source test): sources by kind and path (`file`, `library`, `self`), animations and the body
+  animation by name, parts by key. The bar (`PresetNameRow`, `writePresetFile`, the preset open
+  dialog) sits at the top of the parts column; saved setups live in the profile's store
+  (`mdlxl.transfer.setups`). Loading reopens donors through the new read-only bridge
+  `transfer:readModel` / `readTransferModel` (file) or `gameFilesFindPath` + `gameFilesRead` (library),
+  asks once with the open dialog when one is missing, and names what was left out.

@@ -136,3 +136,95 @@ export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
   });
   return { clips };
 }
+
+// ---------------------------------------------------------------- clip timeline
+/** Timeline lanes of the taken parts: parts sharing source, animation, Delay and Speed share a
+ * lane. `clipOf(part)` gives { length, looping } of the part's source animation (ms, unscaled).
+ * Each lane: { id, keys, source, sequence, start, speed, blend, span, looping, fixes } where span is
+ * the clip's length in the result and fixes are [{ key, index, time }] in result ms. */
+export function clipLanes(parts, clipOf, order = Object.keys(parts || {})) {
+  const lanes = new Map();
+  for (const key of order) {
+    const part = parts?.[key];
+    if (!part) continue;
+    const start = Number(part.start) || 0, speed = part.speed > 0 ? part.speed : 1, id = `${part.source}|${part.sequence}|${start}|${speed}`;
+    let lane = lanes.get(id);
+    if (!lane) {
+      const clip = clipOf(part) || { length: 0, looping: false };
+      lane = { id, keys: [], source: part.source, sequence: part.sequence, start, speed, blend: 0, span: clip.length / speed, looping: !!(part.loop ?? clip.looping), fixes: [] };
+      lanes.set(id, lane);
+    }
+    lane.keys.push(key);
+    lane.blend = Math.max(lane.blend, Number(part.blend) || 0);
+    (part.fixes || []).forEach((fix, index) => { if (Number.isFinite(fix?.time)) lane.fixes.push({ key, index, time: fix.time }); });
+  }
+  return [...lanes.values()];
+}
+
+/** Where a clip sits on the timeline: [{ from, to }] in result ms, cut to `length`. A looping
+ * clip repeats from its Delay to the end (the first one is the clip you drag). */
+export function clipBlocks(start, span, looping, length) {
+  if (!(span > 0)) return [];
+  const blocks = [];
+  if (!looping) return start < length ? [{ from: start, to: Math.min(length, start + span) }] : [];
+  for (let from = start; from < length && blocks.length < 200; from += span) blocks.push({ from, to: Math.min(length, from + span) });
+  return blocks;
+}
+
+// ---------------------------------------------------------------- drag to aim
+/** Where a dragged hand or foot goes: the pointer ray's nearer hit on the sphere around the limb's
+ * root through its end; when the ray misses the sphere, its hit on the plane through the end that
+ * faces the camera. ray = { origin, direction } (model space); returns [x, y, z]. */
+export function dropPoint(ray, root, end) {
+  const o = new Vector3().fromArray(ray.origin), d = new Vector3().fromArray(ray.direction).normalize(), c = new Vector3().fromArray(root), e = new Vector3().fromArray(end);
+  const radius = e.distanceTo(c), oc = o.clone().sub(c), b = oc.dot(d), disc = b * b - (oc.lengthSq() - radius * radius);
+  if (radius > 1e-6 && disc >= 0) { const t = -b - Math.sqrt(disc); if (t > 0) return o.addScaledVector(d, t).toArray(); }
+  const denom = d.dot(d), t = e.clone().sub(o).dot(d) / denom;
+  return o.addScaledVector(d, t).toArray();
+}
+
+// ---------------------------------------------------------------- setups (save and load)
+export const SETUP_KIND = 'mdlxl-transfer-setup';
+const nameIndex = (model, name) => (model?.Sequences || []).findIndex(sequence => String(sequence.Name || '').trim().toLowerCase() === String(name || '').trim().toLowerCase());
+
+/** A setup file: the recipe with sources by file or game path and animations by name.
+ * `describe(sourceId)` gives { kind: 'self' | 'file' | 'library', path, name, model }. */
+export function setupFromRecipe(recipe, model, describe, name) {
+  const sources = {}, parts = {};
+  for (const [key, part] of Object.entries(recipe?.parts || {})) {
+    const source = describe(part.source);
+    if (!source) continue;
+    sources[part.source] ||= { kind: source.kind, path: source.path || null, name: source.name || '', mirror: recipe.sources?.[part.source]?.mirror ?? null };
+    const { source: _id, sequence, ...values } = part;
+    parts[key] = { ...values, source: part.source, animation: source.model?.Sequences?.[sequence]?.Name || '' };
+  }
+  return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', length: recipe?.length ?? null, sources, parts };
+}
+
+/** Reads a setup's text; throws a short sentence when it is not one. */
+export function parseSetup(text) {
+  let value;
+  try { value = JSON.parse(text); } catch { throw new Error('This file is not a Transfer setup.'); }
+  if (value?.kind !== SETUP_KIND || typeof value.parts !== 'object' || typeof value.sources !== 'object') throw new Error('This file is not a Transfer setup.');
+  return value;
+}
+
+/** The recipe a setup makes on `model`: `donors` maps each setup source id to { id, model } (or null when
+ * it could not be opened). Parts the model lacks, animations a donor lacks and missing donors are left
+ * out and named in `left`. `fallbackBase` is used when the model has no animation of the setup's body name. */
+export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
+  const left = [], parts = {}, sources = {};
+  const body = nameIndex(model, setup.body);
+  for (const [key, part] of Object.entries(setup.parts || {})) {
+    const donor = donors[part.source];
+    if (!rig?.parts?.[key]) { left.push(`part:${key}`); continue; }
+    if (!donor) { left.push(`source:${part.source}`); continue; }
+    const sequence = nameIndex(donor.model, part.animation);
+    if (sequence < 0) { left.push(`animation:${part.animation}`); continue; }
+    const { source: _id, animation: _name, ...values } = part;
+    parts[key] = { ...values, source: donor.id, sequence };
+    const mirror = setup.sources?.[part.source]?.mirror;
+    if (mirror != null) sources[donor.id] = { mirror };
+  }
+  return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase }, length: setup.length ?? null, sources, parts }, left: [...new Set(left)] };
+}

@@ -71,3 +71,38 @@
 /* The Library picker opens over Transfer. */
 .xf-library .xf-library-header{justify-content:space-between}
 .xf-library .xf-library-header>span{color:var(--ui-text,#16191e);font-weight:bold;font-size:13px}
+/* Clip timeline under the stage (TransferTimeline.jsx): label column, track, readout column. */
+.transfer-xl .xt-timeline{--xt-label:150px;--xt-tail:104px;display:flex;flex-direction:column;gap:2px;flex:none;font-size:11px;color:var(--ui-text,#16191e)}
+.transfer-xl .xt-head,.transfer-xl .xt-lane{display:grid;grid-template-columns:var(--xt-label) minmax(0,1fr) var(--xt-tail);align-items:center;gap:0 4px}
+.transfer-xl .xt-head .xt-play{justify-self:start;min-width:56px}
+.transfer-xl .xt-ruler{position:relative;height:20px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-field,#fff);cursor:pointer;touch-action:none;overflow:hidden}
+.transfer-xl .xt-ruler>span{position:absolute;top:1px;transform:translateX(2px);font-size:9px;color:var(--ui-muted,#555);pointer-events:none;border-left:1px solid var(--ui-border,#8b8b87);padding-left:2px;height:17px;margin-left:-2px}
+.transfer-xl .xt-head-cursor,.transfer-xl .xt-cursor{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ui-accent,#71b5f3);pointer-events:none;z-index:3}
+.transfer-xl .xt-tail{display:flex;align-items:center;gap:4px;justify-content:flex-end;min-width:0}
+.transfer-xl .xt-readout{font-variant-numeric:tabular-nums;color:var(--ui-muted,#333);white-space:nowrap}
+.transfer-xl .xt-lanes{display:flex;flex-direction:column;gap:2px;max-height:calc(4 * 19px);overflow-y:auto;overflow-x:hidden}
+.transfer-xl .xt-lane{height:17px}
+.transfer-xl .xt-label{height:17px;min-height:0!important;padding:0 4px!important;display:flex;align-items:center;gap:4px;justify-content:flex-start;text-align:left;overflow:hidden;white-space:nowrap;font-size:11px!important;border-radius:0!important}
+.transfer-xl .xt-label>span{overflow:hidden;text-overflow:ellipsis;font-weight:bold;flex:none;max-width:60%}
+.transfer-xl .xt-label>small{overflow:hidden;text-overflow:ellipsis;color:var(--ui-muted,#555);font-size:10px}
+.transfer-xl .xt-body .xt-label{opacity:1;color:var(--ui-muted,#555)}
+.transfer-xl .xt-lane.selected .xt-label{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xt-cells{position:relative;height:17px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-panel,#f0f0f0);touch-action:none;overflow:hidden;cursor:pointer}
+.transfer-xl .xt-clip{position:absolute;top:1px;bottom:1px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-surface,#e4e4e4);overflow:hidden;box-sizing:border-box}
+.transfer-xl .xt-body .xt-clip{background:var(--ui-hover,#ddd);border-style:dashed}
+.transfer-xl .xt-clip.xt-main{background:var(--ui-accent,#71b5f3);border-color:var(--ui-text,#16191e);cursor:grab;z-index:1}
+.transfer-xl .xt-lane.selected .xt-clip.xt-main{box-shadow:inset 0 0 0 1px var(--ui-text,#16191e)}
+.transfer-xl .xt-clip.xt-repeat{opacity:.55}
+.transfer-xl .xt-edge{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize;background:var(--ui-text,#16191e);opacity:.35}
+.transfer-xl .xt-ease{position:absolute;top:0;bottom:0;pointer-events:none;background:var(--ui-text,#16191e);opacity:.25}
+.transfer-xl .xt-ease-in{left:0;clip-path:polygon(0 0,100% 0,0 100%)}
+.transfer-xl .xt-ease-out{right:6px;clip-path:polygon(0 0,100% 0,100% 100%)}
+.transfer-xl .xt-fix{position:absolute;top:2px;width:11px;height:11px;min-height:0!important;margin-left:-6px;padding:0!important;transform:rotate(45deg);background:#ffd23f!important;border:1px solid #6b4e00!important;z-index:4;cursor:pointer}
+.transfer-xl .xt-fix:focus-visible{outline:2px solid var(--ui-accent,#71b5f3)}
+/* Add all is the second choice next to Add animation. */
+.resource-editor.transfer-xl .xf-window .xf-add-all{font-weight:normal;color:var(--ui-muted,#444)}
+.transfer-xl .xf-list .xf-playing{box-shadow:inset 3px 0 var(--ui-accent,#71b5f3);font-style:italic}
+.transfer-xl .xf-scope{display:flex;gap:3px;flex-wrap:wrap}
+.transfer-xl .xf-scope>button{flex:1 1 auto;min-width:0;padding:2px 6px}
+.resource-editor.transfer-xl .xf-window .xf-scope>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-holds{font-style:italic}

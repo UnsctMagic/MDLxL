@@ -231,6 +231,12 @@ ipcMain.handle('preview:openModel',async event=>{
   return result.canceled?null:readModel(result.filePaths[0],false);
 });
 // Transfer's donor: read only, never a tab or a recent file.
+// A saved Transfer setup reopens its donors by path: read only, no dialog, no recent file.
+ipcMain.handle('transfer:readModel',async(event,file)=>{
+  captureOwner(event);
+  if(typeof file!=='string'||!file)throw new Error('No model path.');
+  return readModel(file,false);
+});
 ipcMain.handle('transfer:openModel',async event=>{
   captureOwner(event);
   const result=await dialog.showOpenDialog(win,{title:'Take animation from',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
