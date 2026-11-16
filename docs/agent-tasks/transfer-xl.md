@@ -497,3 +497,54 @@ Transfer                                                                    x
 - `Take whole body` uses `transferWholeBody`; when it leaves the lower body out, its sentence shows
   under the buttons.
 - Footer: `Name`, the `Added <name>` note, `Cancel` (closes), `Add animation`.
+
+## Round 3 (16 Nov 2026): the extra hour
+
+Owner, away from the PC: "work on it for one more hour before delivering - theres no rush, I want a
+really good product"; "I want the best freaking animation transferer WC3 modding has ever seen."
+Director's choices for that hour, in order of value:
+
+### W1. Add all animations (the real "full rig to rig")
+
+A modder's usual job is giving a model a whole animation set, not one clip. Footer button
+`Add all (N)` beside `Add animation`.
+
+- It uses the source shown in the From list and the parts taken from that source as the template:
+  for every animation of that source, the same parts with the same slider values, pointed at that
+  animation. Parts taken from other sources stay exactly as they are.
+- Left out: animations whose name the open model already has (case-insensitive), and Decay and
+  Portrait animations. `N` is what remains; the tooltip lists the names. Disabled with the reason
+  in the tooltip when no part is taken from that source or N is 0.
+- Body animation per added clip: the open model's own animation whose first word matches the
+  donor clip's first word (Walk under `Walk Defend`, Attack under `Attack Slam`), preferring an
+  exact name match, else the chosen Body animation. Untaken parts (wings, tail, cloth) then move
+  the way they do in that kind of animation.
+- Names are the donor's names. Everything is added in one `edit(...)`: one Undo removes the whole
+  set. The note beside the buttons says `Added N animations`.
+- The plan (which clips, which body animation, which names) is a pure helper in
+  `src/transfer-window.js` with a source test; the window loops `buildTransfer` + `applyTransfer`.
+
+### W2. Drag the hand or foot where it should be
+
+Raise and Turn are an aim. On the result view the selected taken limb's end handle can be dragged
+with the mouse, like a POSE handle: on release the limb is turned about its root so the hand or
+foot is where it was dropped at the paused moment, as one constant aim for the whole movement
+(it writes that part's Raise and Turn; the sliders show the new values; the path overlay follows
+live during the drag; one window-history step). Camera rotation on empty space stays. Reuse the
+existing handle drag path if it can hand over a drag position without POSE writing keys;
+otherwise a pointer handler on the view with the projection the path overlay already uses, one
+update per display frame, registered in `test/live-drag-frames.test.js`. Time box: if no clean way
+exists after a short investigation, leave it out and say why.
+
+### W3. The two views work as one
+
+- Turning the camera in one view turns the other to the same angles (each keeps its own distance
+  and framing): `onCameraAnglesChange` / `cameraAnglesRequest`.
+- While a taken part is selected, the donor view plays that part's source animation on the result's
+  clock (Delay and Speed applied), so the donor's swing and the result's swing happen together and
+  Delay/Speed can be seen on both. With nothing selected the donor loops as before.
+
+### Engine
+
+Driven by the director's look at whole animation sets (walks, deaths, victory, spells) once W1
+exists; listed here when found.
