@@ -994,6 +994,7 @@ export default function Viewport({ children, ...inputProps }) {
             material.userData.geosetTint.value.fromArray(sampled.color);
           }
           material.opacity = editOverlay?.preview ? .45 : textured ? Math.max(0, Math.min(1, alpha * sampleTrack(layer.Alpha, frame, { ...animOptions, fallback: 1 }))) : 1;
+          material.userData.additiveScale.value = textured && !editOverlay?.preview && layer.FilterMode === 3 ? material.opacity : 1;
           const transparent = !!editOverlay?.preview || textured && ((layer.FilterMode || 0) >= 2 || material.opacity < 1);
           if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
           // Clockwise faces are culled; counterclockwise winding is front-facing.

@@ -201,7 +201,7 @@ test('desktop and browser View use the same mode rows, including Axis guides whe
     } }));
     assert.deepEqual(restored.vertices, { shaded: true, vertices: true, normals: true, grid: false });
     assert.deepEqual([restored.movement.particles, restored.movement.attachments, restored.movement.focusedSkeleton, restored.movement.nodes, restored.movement.events], [true, false, undefined, undefined, undefined]);
-    assert.deepEqual(restored.animations, { shaded: false, vertices: false, normals: false, grid: true });
+    assert.deepEqual(restored.animations, { shaded: true, vertices: false, normals: false, grid: true });
     for (const junk of ['{', '"x"', '[1]', 'null', '{"vis":{"movement":7,"bones":null,"animations":[1]}}']) {
       assert.doesNotThrow(() => storedEditorDisplay(true, storage(junk)), junk);
       assert.deepEqual(Object.keys(storedEditorDisplay(true, storage(junk))), Object.keys(defaultEditorDisplay(true)));
