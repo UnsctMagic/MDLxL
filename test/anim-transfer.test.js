@@ -700,3 +700,16 @@ test('R7 rider: a knight whose rider hangs from a second mount root gives its ch
   const arm = transferRig(footman).parts[transferRig(footman).weaponSide === 'L' ? 'armL' : 'armR'].joints[0], first = rotationAt(built, arm, 0);
   assert.ok(Math.max(...built.times.map((_, k) => angle(first, rotationAt(built, arm, k)))) > 30);
 });
+
+test('R7 assemblies: the seated upper body is found by structure and place, not by bone names', { skip: missing('transfer-nurgle-knight') }, () => {
+  const named = load('transfer-nurgle-knight'), plain = fresh('transfer-nurgle-knight');
+  // No horse, mount, saddle, seat or death left in any name: only the hierarchy and the pivots say who sits on whom.
+  for (const node of allNodes(plain)) node.Name = String(node.Name).replace(/horse|mount|saddle|seat|death/ig, 'q');
+  assert.ok(!allNodes(plain).some(node => /horse|mount|saddle|seat|death/i.test(node.Name)));
+  const attack = seq(named, 'Attack - 1'), a = transferRig(named, { sequence: attack }), b = transferRig(plain, { sequence: attack });
+  assert.deepEqual(Object.keys(b.parts).sort(), Object.keys(a.parts).sort());
+  for (const key of ['chest', 'head', 'armL', 'armR', 'hips']) assert.deepEqual(b.parts[key].joints, a.parts[key].joints, `${key} has the same joints without the names`);
+  // The rider really is a separate assembly: its chest does not hang from the body joint.
+  const tree = nodeIndex(named, allNodes(named));
+  assert.ok(!tree.isAncestor(a.parts.chest.joints[0], a.body), 'the chest is outside the body joint\'s own subtree');
+});
