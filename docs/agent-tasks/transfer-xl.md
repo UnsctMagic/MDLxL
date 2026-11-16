@@ -786,3 +786,23 @@ Separate commit on this branch (it can be picked onto another branch if Transfer
 - Not clicked one by one: the particle windows, Library browser, OptimizeXL, Sort My Mess,
   Attachemator, Bone Namer, Auto Corpse, Model Manager and the part thumbnails; they use the same
   shared button.
+
+### Reset view: every preview window checked (owner "check that risk and fix it", 16 Nov 2026)
+
+Director's sweep `out/transfer-probe/reset-sweep.cjs` (packaged app, hidden, real mouse): for each
+preview on screen it checks that the button is reachable, what lies under it, and that it returns
+the camera after a wheel zoom and two drags.
+
+- Reset works in: Surface Effects, AnimXL, Auto Corpse, the Particle Editor stage, the Particle
+  Library, the Warcraft III Library model view, Geoset preview, Model Manager, the spawn-object
+  preview, Sort My Mess (both views), Attachemator, Bone Namer and OptimizeXL (both views, compared
+  by picture because that window is detached). No button in the main editor viewport or Showcase.
+- Fault found and fixed: the button (z-index 60) showed through a panel laid over a preview, e.g.
+  the Particle Library over the particle stage, where it sat on the "Coverage" line. A preview that
+  has the button now keeps its layers to itself (`.preview-with-reset{isolation:isolate}`), so the
+  button is above the preview's own canvases and under anything a window lays over the preview.
+  Only previews with the button are isolated; the main editor viewport is unchanged.
+  `test/reset-view.electron.cjs` covers it and fails on build 07.
+- Not reached: the particle comparison, ingredients, test and source views (no simple way in from
+  the default state). They are the same component with the same button.
+- Build `TestBuilds\transfer-xl-08`: reset-view test and the Transfer views story passed on the copy.

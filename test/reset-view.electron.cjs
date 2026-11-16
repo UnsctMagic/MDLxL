@@ -59,6 +59,15 @@ const watchdog = setTimeout(() => { console.error('reset-view timed out'); proce
     const anim = page.getByRole('dialog', { name: 'AnimXL' }); await anim.waitFor(); await page.waitForTimeout(2500);
     await preview('AnimXL', anim.locator('.game-preview-root').first());
     await closeDialog(anim);
+    // A panel a window lays over a preview covers the button too: the Particle Editor opens with its
+    // library over the stage, and the stage's button must not show through it.
+    await page.locator('button.emitter-tool').click();
+    const particles = page.getByRole('dialog', { name: /Particle Editor/ }).first(); await particles.waitFor(); await particles.locator('.pe-library').waitFor({ timeout: 30000 }); await page.waitForTimeout(1500);
+    const leaks = await particles.evaluate(dialog => { const panel = dialog.querySelector('.pe-library').getBoundingClientRect(); return [...dialog.querySelectorAll('.game-preview-root > .preview-reset-view')].filter(button => !button.closest('.pe-library')).map(button => { const box = button.getBoundingClientRect(), x = box.left + box.width / 2, y = box.top + box.height / 2, top = document.elementFromPoint(x, y); return { underPanel: x > panel.left && x < panel.right && y > panel.top && y < panel.bottom, showsThrough: top === button || button.contains(top) }; }); });
+    assert.ok(leaks.some(item => item.underPanel), 'Particle Editor: the stage button lies under the library panel');
+    assert.ok(leaks.every(item => !item.underPanel || !item.showsThrough), 'Particle Editor: the stage button does not show through the library panel');
+    checks.push('Particle Editor: a panel over a preview covers its Reset view button');
+    await closeDialog(particles);
     // Transfer keeps its own button beside each scrubber and has no corner one.
     await page.locator('button.transfer-tool').click();
     const transfer = page.getByRole('dialog', { name: 'Transfer' }); await transfer.waitFor(); await page.waitForTimeout(1500);
