@@ -4,7 +4,12 @@ State: built and tested on local branch `claude/uv-new-tools`, built on `main` 0
 (the PR #656 layout: projection row without title, map tools in the title bar), then
 rebased cleanly on `main` 6c7873b9 (click sweep #657, button flash #659); the UV unit,
 locale and icon tests pass after the rebase (54/54). The test build predates that rebase
-(same UV code). Not online.
+(same UV code). Owner test, 16 Nov: "the error pushes the viewpoint down" (Relax's warning
+line pushed the whole UV Wrapper down 24 px). Fixed: the warning floats over the top of the UV
+map (`.uv-workspace-warning`, clicks pass through); `test/uv-new-tools.electron.cjs` now gets
+Relax's refusal on one lone triangle and checks the workspace, UV map and side panel stay put
+(fails on the earlier build, passes on `TestBuilds\uv-new-tools-02`, with `uv-preview-steady`
+and `uv-wrapper-layout`; UV source tests 139/139).
 Owner: Claude Code. Test tier: new feature (tests prove each tool + source suite).
 
 ## Owner request (15 Nov 2026, exact words)
