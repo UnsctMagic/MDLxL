@@ -1082,7 +1082,87 @@ scaled and added from this model's reference place. Stand now 3.2 (donor 3.4), W
 (donor 5.9). For now only when the donor is a rider read alone (`rigA.actor === 'seated'`): turned
 on for every donor it changed 15 of the 32 recorded transfers, which is the owner's call, not mine.
 
-Still to do: make the dragon rider and the Blood Dragon nightmare read as two creatures (the sweep
-read WH_VC_BloodDragonAxe02 as one), then the gate: plain units made into riders from several
-mounted donors over Stand, Walk and Attack, measured (seat, rise and fall against the donor's
-rider, fingerprints identical) and shown to the owner as live views.
+### Round 9 as built: riders on other mounts (director, engine; commits 7b4695a1, fd0c6aac)
+
+Why the dragon rider stayed mixed: the "hanging legs astride plus an arm" rule did fire, but it took
+the seat as the HIGHEST joint that carries no walking leg. On a dragon that is the mount's upper
+body, so the "rider" held the dragon's chest, wings, neck and head. Five structural repairs, no
+names, each with a test that fails on the old code (`test/anim-transfer.test.js`, R9, 43 pass):
+
+- **Own root.** A seat whose subtree holds wings or two separate lines of neck and head joints is
+  narrowed: from the lowest joint that holds the astride legs and an arm, upward through joints
+  that add no limb, neck, head or tail of another creature. A seat that is one creature's already
+  is left as it was.
+- **Forelimbs walk.** A limb read as an arm that reaches the ground counts as walking, so the front
+  of a four-footed mount is not the rider's.
+- **A neck the arms hang from is not a second head.** The two-heads rule asked for a head outside
+  the seat; a neck that is the seat's own ancestor (Magnataur, Pit Lord) no longer counts, and the
+  seat must itself be one creature. Its seat then climbs to the rider's own root the same way.
+- **A rider on its own root over a mount with arms** (`seatedAssemblies`): accepted when it has
+  legs, a pair astride, all clear of the ground, the walker has no hanging legs of its own (no
+  nested rider), and both are drawn in the same animation (`drawnIn`: a hidden second form such as
+  the Demon Hunter's demon is not a rider).
+- **Cloth is not legs.** When every chain read as the seated creature's leg hangs from the joint
+  its arms hang from, its legs are the pair of plain chains under the hip joint that chest hangs
+  from. A seated creature's tail piece stays put in the 'both' reading, like its legs.
+
+Readings now (`out/transfer-probe/rig-dump.mjs`, 1,197 models, before/after diff): dragon rider,
+Blood Dragon nightmare (owner's Desktop model) and Cold One Rider offer both / seated / walker with
+the rider's chest, head, arms and legs in 'seated'. `WH_VC_BloodDragonAxe02` is a knight on foot:
+one creature is the right reading (the round 7b note called it a miss; that was wrong). Dryad,
+Magnataur, Pit Lord stay one creature. 35 models changed reading, all listed in
+`out/transfer-probe/rigdiff2.txt`; besides the above: the Wyvern Rider is now two creatures (its
+chest part is gone: the rider's chest joint is read as part of an arm, and 'seated' falls back to
+'both'), the Chaos Warlord, Malfurion, both Death Knights and undead Arthas get the rider's own
+root as the seated body.
+
+Sweeps after the change (`survey-all.mjs`): WC3 units 388 rigged, 2,643 builds, 0 threw, 0
+non-finite; two creatures 21 (was 9: the kodo beasts, Chaos Warlord, Moon Priestess, Huntress,
+Malfurion, Far Seer, Thrall, Wyvern Rider, both Death Knights and undead Arthas joined, all real
+riders; the Meat Wagon stays a false one). LowPolyWorks 134 rigged, 1,144 builds, 0 threw, 0
+non-finite; two creatures 19 (the two Cold One Riders joined; `warplock jezzail17` is flagged by
+the two-heads rule: two creatures, but a crew, not a rider; the two Bray Shamans stay false).
+
+### The riders gate (`out/transfer-probe/riders-gate.mjs`, add `--sheets` for contact sheets)
+
+Receivers Footman, Grunt, Nurgle warrior, Slaanesh warrior, Kurgan; donors read 'seated': Knight,
+Nurgle knight, Khorne knight (LowPolyWorks), dragon rider, Blood Dragon nightmare; Stand, Walk,
+Attack, Death. Whole body, hips and legs `match: 1`, `length` = the donor clip. Per row: problems,
+non-finite, thigh angle from straight down (receiver against the donor's rider), chest rise and
+fall against the donor rider's (ratio over the engine's size ratio, flag under 0.6 or over 1.6;
+and the correlation of the two height curves over time), first = last pose on a loop.
+
+Two engine faults it found, fixed generally:
+- **Size of a seated creature.** The size ratio was hip height, which for a rider depends on how
+  its legs are folded (dragon rider 15.5 against a trunk of 26.9): units bobbed 2.3 to 3 times too
+  much. With a rider read alone on either side the trunks (hips to mid-shoulders) are compared
+  (`sizeRatio`, `rig.trunk`). This also moves the knights' ratio a little (Nurgle warrior 0.92 ->
+  0.95, Footman 1.05 -> 0.91, Grunt 1.20 -> 1.04, Kurgan 1.07 -> 0.85).
+- **Pose "Theirs" on stacked joints.** The pose match lines up the direction between a part's
+  joints; the Grunt's root and pelvis sit 0.3 apart, so that direction was noise and he lay on his
+  back. A pair closer than 2% of hip height has no direction.
+
+Result: 95 riders built, 0 problems, 0 non-finite, every loop closes (0 degrees, 0 units).
+
+| Donor | Built | Seat off (median / worst, degrees) | Rise and fall ratio (median, range) | Curve match (lowest) |
+| --- | --- | --- | --- | --- |
+| Knight | 20 | 0 / 5 | 1.05 (0.94 to 1.18) | 0.96 |
+| Nurgle knight | 20 | 3 / 5 | 1.04 (0.85 to 1.23) | 0.94 |
+| Khorne knight | 20 | 2 / 5 | 1.04 (0.84 to 1.25) | 0.93 |
+| Dragon rider | 15 | 3 / 6 | 0.98 (0.58 to 1.10) | 0.89 |
+| Blood Dragon nightmare | 20 | 0 / 1 | 0.98 (0.80 to 1.24) | 0.76 |
+
+One flag: the Kurgan on the dragon rider's Walk rises 1.5 where the rider rises 3.0 (ratio 0.58).
+Five skipped: the dragon's Death shrinks its rider to a point, so there is nothing to take (the
+engine does not say so yet; the gate detects it). Looked at contact sheets for nine rows.
+
+Not general for all donors: the chest and head rise is still carried only for a donor read
+'seated' (15 of 32 recorded transfers change otherwise; the owner's call).
+
+Pick sheet for the owner: `TestBuilds	ransfer-riderscases.json` (8 cases, written by
+`out/transfer-probe/make-riders-picks.mjs`): arms Mine or Theirs (3), belly rides or keeps its own
+movement, one or both hands on the axe, full or half rise on a dragon, cape hangs or not, weapon
+points like theirs or keeps its own swing. Chest/head "Theirs" is not offered: one-joint parts
+have no direction to match, so it changes nothing.
+
+Models added to the test collection: `transfer-riders/` (Blood Dragon nightmare, Cold One Rider).
