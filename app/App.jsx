@@ -66,6 +66,7 @@ import { poseTargetKey } from './pose-overlay.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
 import { beginUVPreview, applyUVPreviews, revertUVPreviews, dropUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, existingTextureIndex, addTextureMaterial, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { uncoupleUVVertices } from '../src/uv-tools.js';
+import { splitUVCorners } from '../src/uv-unwrap.js';
 import './modules.css';
 import './texture-library.css';
 import './material-properties.css';
@@ -1974,9 +1975,24 @@ export default function App() {
     });
     if (result !== false) { setSelection(nextSelection); setUVEntrySelection(nextDomain); setLiveUV(null); }
   };
+  // Box Projection, Cylinder Projection and Unwrap: one UV per triangle corner, in one undo step. A
+  // point that needs two UV spots gets a copy; the selection keeps its points and gains the copies.
+  const commitUVCorners = (plans, label) => {
+    const created = {};
+    const result = edit(label, ['Geosets'], current => {
+      for (const plan of plans || []) {
+        const split = splitUVCorners(current.Geosets[plan.geosetIndex], plan.uvSet, plan.corners);
+        if (split.created.length) created[plan.geosetIndex] = split.created;
+      }
+    });
+    setLiveUV(null);
+    if (result === false || !Object.keys(created).length) return;
+    const grow = previous => ({ ...previous, ...Object.fromEntries(Object.entries(created).map(([index, ids]) => [index, [...new Set([...(previous[index] || []), ...ids])]])) });
+    setSelection(grow(validSelection)); setUVEntrySelection(grow);
+  };
   const uvWorkspace = <AppUVWorkspace {...{
     activeGeoset, applyGeosetDensity, assignUVMaterial, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
-    changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
+    changeSensitivity, commitUVChanges, commitUVCorners, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
     previewSuspended: previewSuspended || !!uvWindow?.minimized, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
     setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
     validSelection, view, uvMinimized: !!uvWindow?.minimized

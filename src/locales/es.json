@@ -8641,5 +8641,20 @@
   "Event at frame {0}": "Evento en el fotograma {0}",
   "Clone object": "Clonar objeto",
   "Object visible at current frame": "Objeto visible en el fotograma actual",
-  "Set object visibility": "Definir visibilidad del objeto"
+  "Set object visibility": "Definir visibilidad del objeto",
+  "Box Projection": "Proyección de caja",
+  "Cylinder Projection": "Proyección cilíndrica",
+  "Straighten": "Enderezar",
+  "Mirror Copy": "Copia reflejada",
+  "Unwrap": "Desplegar",
+  "Relax": "Relajar",
+  "Projects each selected triangle from the box side it faces most and lays the six sides out as an unfolded box. Uses the live preview's view.": "Proyecta cada triángulo seleccionado desde el lado de la caja hacia el que más mira y coloca los seis lados como una caja desplegada. Usa la vista de la vista previa en tiempo real.",
+  "Wraps the selected triangles around the live preview's upright axis. The seam goes at the back, away from the viewer.": "Envuelve los triángulos seleccionados alrededor del eje vertical de la vista previa en tiempo real. La costura queda detrás, lejos del observador.",
+  "Straighten: lines the selected points up in a row, or in a column when they are taller than wide.": "Enderezar: alinea los puntos seleccionados en una fila, o en una columna cuando son más altos que anchos.",
+  "Mirror Copy: copies the selected points' UVs onto the matching points on the other side of the model.": "Copia reflejada: copia las UV de los puntos seleccionados en los puntos correspondientes del otro lado del modelo.",
+  "Unwrap: lays the selected triangles out flat. A closed or tube-shaped part is cut along its outline in the live preview.": "Desplegar: extiende en plano los triángulos seleccionados. Una parte cerrada o en forma de tubo se corta por su contorno en la vista previa en tiempo real.",
+  "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "Relajar: reparte los puntos seleccionados para que sus triángulos dejen de solaparse. Los puntos del borde exterior de la selección no se mueven.",
+  "No mirror points found among the UV Wrapper's points.": "No se encontraron puntos reflejados entre los puntos del Editor UV.",
+  "Relax keeps the selection's outer edge in place. Select more than the edge.": "Relajar mantiene en su sitio el borde exterior de la selección. Seleccione más que el borde.",
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Desconectar las UV superaría el límite de 65536 vértices por geoset. Divida primero el geoset."
 }

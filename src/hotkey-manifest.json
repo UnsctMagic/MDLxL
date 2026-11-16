@@ -280,6 +280,8 @@
   {"id":"texture-library:texture-source","label":"Texture source","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:use-texture","label":"Use texture","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:vibe-search","label":"Vibe search","group":"texture-library","category":"Texture Library"},
+  {"id":"uv-wrapper:box-projection","label":"Box Projection","group":"UV Wrapper","category":"UV Wrapper"},
+  {"id":"uv-wrapper:cylinder-projection","label":"Cylinder Projection","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:exit-uv-wrapper","label":"Exit UV Wrapper","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:fold-direction","label":"Fold direction","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:grabthrough","label":"Grabthrough","group":"UV Wrapper","category":"UV Wrapper"},
@@ -307,5 +309,9 @@
   {"id":"uv-wrapper:uv-map-tile-limit","label":"UV map tile limit","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:uv-material","label":"UV material","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:wrap","label":"Wrap U and V","group":"UV Wrapper","category":"UV Wrapper"},
-  {"id":"uv:each-piece","label":"Each Piece","group":"UV Wrapper","category":"UV"}
+  {"id":"uv:each-piece","label":"Each Piece","group":"UV Wrapper","category":"UV"},
+  {"id":"uv:mirror-copy","label":"Mirror Copy","group":"UV Wrapper","category":"UV"},
+  {"id":"uv:relax","label":"Relax","group":"UV Wrapper","category":"UV"},
+  {"id":"uv:straighten","label":"Straighten","group":"UV Wrapper","category":"UV"},
+  {"id":"uv:unwrap","label":"Unwrap","group":"UV Wrapper","category":"UV"}
 ]

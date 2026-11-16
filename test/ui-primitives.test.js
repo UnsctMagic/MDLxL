@@ -225,7 +225,7 @@ test('window styles name the shared classes once and the layers come from three 
 test('the UV tool row uses the main toolbar Tool with its own icons', async () => {
   const { Tool } = load(await bundle('EditorControls.jsx'));
   const { hasModernIcon } = load(await bundle('ModernIcon.jsx'));
-  for (const name of ['select', 'move', 'rotate', 'scale', 'mirrorX', 'mirrorY', 'uncouple', 'fold']) assert.ok(hasModernIcon('uv_' + name), 'ModernIcon draws uv_' + name);
+  for (const name of ['select', 'move', 'rotate', 'scale', 'mirrorX', 'mirrorY', 'uncouple', 'fold', 'straighten', 'mirrorCopy', 'unwrap', 'relax']) assert.ok(hasModernIcon('uv_' + name), 'ModernIcon draws uv_' + name);
   const html = renderToStaticMarkup(React.createElement(Tool, { action: 'translate', icon: 'uv_move', title: 'Move', active: true, className: 'uv-tool', 'data-hotkey-category': 'UV' }, 'Move'));
   assert.match(html, /^<button data-hotkey="translate" data-hotkey-category="UV" type="button" class="classic-tool active uv-tool" title="Move" aria-label="Move" aria-pressed="true"><svg[^>]*class="modern-retro-icon"/);
   const uv = readFileSync(new URL('../app/UVWorkspace.jsx', import.meta.url), 'utf8');

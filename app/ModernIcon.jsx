@@ -15,6 +15,7 @@ const icons = Object.freeze({
   // The UV Wrapper tool row.
   uv_select: 'select', uv_move: 'move', uv_rotate: 'rotate', uv_scale: 'scale',
   uv_mirrorX: 'mirrorX', uv_mirrorY: 'mirrorY', uv_uncouple: 'uncouple', uv_fold: 'fold',
+  uv_straighten: 'straighten', uv_mirrorCopy: 'mirrorCopy', uv_unwrap: 'unwrap', uv_relax: 'relax',
 });
 
 export function hasModernIcon(name) { return !!icons[name]; }

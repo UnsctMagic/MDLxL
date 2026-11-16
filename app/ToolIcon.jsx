@@ -42,6 +42,11 @@ const ICONS = Object.freeze({
   restoreNormals: [['f', tile, 'orange'], ['s', 'M8 8l8 8M16 8l-8 8', 'white', 3]],
   uv: [['f', round(3, 3, 18, 18, 1.5), 'ink'], ['s', 'M3 12h18M12 3v18', 'ink', 1.4], ['s', 'M5 19l5-5H5Z', 'red', 1.6], ['f', square(13.5, 4.5, 3), 'blue']],
   fold: [['f', 'M4 3h11l5 5v13H4Z', 'ink'], ['f', 'M15 3v5h5Z', 'orange'], ['s', 'M7 14h9M13 11l3 3-3 3', 'blue', 2.2]],
+  // UV Wrapper: Straighten, Mirror Copy, Unwrap (an unfolded box), Relax.
+  straighten: [['s', 'M2.5 12h19', 'ink', 2], ['s', 'M8 4.5v3.5M16 19.5V16', 'red', 2], ['f', square(2, 10, 4) + square(10, 10, 4) + square(18, 10, 4), 'blue']],
+  mirrorCopy: [['f', 'M10 4 3 19h7Z', 'blue'], ['s', 'M14 4l7 15h-7Z', 'dash', 1.5], ['s', 'M12 2v20', 'red', 1.8]],
+  unwrap: [['f', 'M8 3h8v5h5v8h-5v5H8v-5H3V8h5Z', 'ink'], ['s', 'M8 8h8v8H8Z', 'ink', 1.4], ['f', square(9.5, 9.5, 5), 'blue']],
+  relax: [['s', 'M4 3v18M12 3v18M20 3v18', 'ink', 1.6], ['s', 'M3 8q4.5-4 9 0t9 0M3 16q4.5-4 9 0t9 0', 'blue', 2.2]],
   crop: [['s', 'M6 2v16h16M2 6h16v16', 'ink', 2.4], ['f', square(9, 9, 6), 'blue']],
   new: [['f', 'M5 3h9l5 5v13H5Z', 'ink'], ['s', 'M14 3v5h5', 'ink', 1.6], ['f', circle(16.5, 17, 5), 'green'], ['s', 'M16.5 14.5v5M14 17h5', 'white', 2]],
   open: [['f', 'M2.5 6.5a1.5 1.5 0 0 1 1.5-1.5h5l2 2h8.5a1.5 1.5 0 0 1 1.5 1.5V19H2.5Z', 'yellow'], ['f', 'M2.5 19l3-8h17l-3 8Z', 'yellow']],
