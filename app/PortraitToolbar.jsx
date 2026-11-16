@@ -4,6 +4,7 @@ import useDismiss from './useDismiss.js';
 import { evaluateModelCamera, portraitPreviewSequences, MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { CAMERA_NAME_LIMIT } from './portrait-camera-edit.js';
 import { BACKDROP_LOOK, BACKDROP_HEIGHT_RANGE, BACKDROP_SIZE_RANGE, normalizeBackdropLook } from './portrait-background.js';
+import { RangeInput } from './Fields.jsx';
 
 /** The game crop with the team glow as war3-model draws it (the shader of the
  * preview), plus a faint bust for scale. */
@@ -92,9 +93,9 @@ export default function PortraitToolbar({ model, active, cameraIndex, disabled, 
       <div className="portrait-backdrop-body">
         <BackdropPreview look={look} teamColor={teamColor}/>
         <div className="portrait-backdrop-sliders">
-          <label title="How far the glow spreads. Spotlight keeps black around the edges of the portrait; Fill covers it with color.">Size<input data-hotkey="portrait:background-size" data-hotkey-manual data-hotkey-label="Background size" aria-label="Background size" type="range" min={BACKDROP_SIZE_RANGE[0]} max={BACKDROP_SIZE_RANGE[1]} step=".05" value={look.size} onChange={event => setLook(value => ({ ...value, size: Number(event.target.value) }))}/></label>
+          <label title="How far the glow spreads. Spotlight keeps black around the edges of the portrait; Fill covers it with color.">Size<RangeInput data-hotkey="portrait:background-size" data-hotkey-manual data-hotkey-label="Background size" aria-label="Background size" min={BACKDROP_SIZE_RANGE[0]} max={BACKDROP_SIZE_RANGE[1]} step=".05" value={look.size} onChange={event => setLook(value => ({ ...value, size: Number(event.target.value) }))}/></label>
           <small className="portrait-backdrop-ends"><span>Spotlight</span><span>Fill</span></small>
-          <label title="Move the brightest part of the glow up or down the portrait.">Height<input data-hotkey="portrait:background-height" data-hotkey-manual data-hotkey-label="Background height" aria-label="Background height" type="range" min={BACKDROP_HEIGHT_RANGE[0]} max={BACKDROP_HEIGHT_RANGE[1]} step=".05" value={look.height} onChange={event => setLook(value => ({ ...value, height: Number(event.target.value) }))}/></label>
+          <label title="Move the brightest part of the glow up or down the portrait.">Height<RangeInput data-hotkey="portrait:background-height" data-hotkey-manual data-hotkey-label="Background height" aria-label="Background height" min={BACKDROP_HEIGHT_RANGE[0]} max={BACKDROP_HEIGHT_RANGE[1]} step=".05" value={look.height} onChange={event => setLook(value => ({ ...value, height: Number(event.target.value) }))}/></label>
           <small className="portrait-backdrop-ends"><span>Lower</span><span>Higher</span></small>
           <button data-hotkey="portrait:blizzard-default" data-hotkey-manual data-hotkey-label="Blizzard default" title="The size and height Blizzard's SD portraits use: the glow fills the whole portrait." onClick={() => setLook(BACKDROP_LOOK)}>Blizzard default</button>
         </div>
@@ -115,7 +116,7 @@ export default function PortraitToolbar({ model, active, cameraIndex, disabled, 
         {settings.lighting && <label title="Experimental: approximate the game's DNC portrait light rig from your game data. Not verified against the game; the standard portrait light is used when this is off or unavailable."><input data-hotkey="portrait:experimental-dnc-lights" data-hotkey-manual data-hotkey-label="Experimental DNC lights" type="checkbox" checked={!!settings.dncLights} onChange={event => onSettings({dncLights:event.target.checked})}/>Experimental DNC lights</label>}
         {settings.lighting && settings.dncLights && lightingStatus && <small role="status">{lightingStatus}</small>}
         <label title="Show the area outside the game crop, with adjustable dimming."><input data-hotkey="portrait:show-outside-crop" data-hotkey-manual data-hotkey-label="Show outside crop" type="checkbox" checked={settings.composition} onChange={event => onSettings({composition:event.target.checked})}/>Show outside crop</label>
-        {settings.composition && <label title="Darken the area outside the game portrait; this does not change the saved camera.">Outside dimming<input data-hotkey="portrait:outside-dimming" data-hotkey-manual data-hotkey-label="Outside dimming" aria-label="Outside dimming" type="range" min="0" max="1" step=".05" value={settings.mask} onChange={event => onSettings({mask:Number(event.target.value)})}/></label>}
+        {settings.composition && <label title="Darken the area outside the game portrait; this does not change the saved camera.">Outside dimming<RangeInput data-hotkey="portrait:outside-dimming" data-hotkey-manual data-hotkey-label="Outside dimming" aria-label="Outside dimming" min="0" max="1" step=".05" value={settings.mask} onChange={event => onSettings({mask:Number(event.target.value)})}/></label>}
         <label title="Divide the game crop into thirds to help place the face. Guides are not saved or included in captures."><input data-hotkey="portrait:rule-of-thirds" data-hotkey-manual data-hotkey-label="Rule of thirds" type="checkbox" checked={settings.thirds} onChange={event => onSettings({thirds:event.target.checked})}/>Rule of thirds</label>
       </>}
       <small>Game crop: 167 × 170 · Wheel: move nearer/farther · Shift+wheel: lens zoom</small>

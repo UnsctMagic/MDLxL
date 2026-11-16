@@ -22,7 +22,7 @@ import {
   UV_SIDE_DEFAULT, UV_SIDE_MAX, UV_SIDE_MIN, clampUVPreviewPercent, clampUVSidePercent,
   uvPreviewPercentAtPointer, uvSidePercentAtPointer,
 } from './uv-workspace-layout.js';
-import { useDraftNumber } from './Fields.jsx';
+import { RangeInput, useDraftNumber } from './Fields.jsx';
 import './uv-workspace.css';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
@@ -58,13 +58,13 @@ function UVGridControls({ value, onChange, children }) {
     {children}
     <button data-hotkey="uv-wrapper:grid" data-hotkey-manual data-hotkey-label="UV grid" type="button" className={value.enabled ? 'active' : ''} aria-pressed={value.enabled} title="Show UV grid" onClick={() => update({ enabled: !value.enabled })}>Grid</button>
     <button data-hotkey="uv-wrapper:snap" data-hotkey-manual data-hotkey-label="UV grid snap" type="button" className={value.snap ? 'active' : ''} aria-pressed={value.snap} title="Snap a dragged vertex or coincident vertex stack to grid crossings" onClick={() => update({ snap: !value.snap })}>Snap</button>
-    <label className="uv-grid-size"><span>Size</span><input data-hotkey="uv-wrapper:uv-grid-size" data-hotkey-manual data-hotkey-label="UV grid size" aria-label="UV grid size" type="range" min={Math.log10(UV_GRID_SPACING_MIN)} max={Math.log10(UV_GRID_SPACING_MAX)} step="0.01" value={uvGridSpacingSliderValue(value.spacing)} onChange={event => update({ spacing: uvGridSpacingFromSlider(event.target.value) })}/><output>{gridSpacingLabel(value.spacing)}</output></label>
+    <label className="uv-grid-size"><span>Size</span><RangeInput data-hotkey="uv-wrapper:uv-grid-size" data-hotkey-manual data-hotkey-label="UV grid size" aria-label="UV grid size" min={Math.log10(UV_GRID_SPACING_MIN)} max={Math.log10(UV_GRID_SPACING_MAX)} step="0.01" value={uvGridSpacingSliderValue(value.spacing)} onChange={event => update({ spacing: uvGridSpacingFromSlider(event.target.value) })}/><output>{gridSpacingLabel(value.spacing)}</output></label>
     <button data-hotkey="uv-wrapper:grid-settings" data-hotkey-manual data-hotkey-label="UV grid settings" type="button" aria-haspopup="dialog" aria-expanded={open} title="UV grid settings" onClick={() => setOpen(previous => !previous)}>Settings</button>
     {open && <div className="uv-grid-settings" role="dialog" aria-label="UV grid settings">
       <label><span>Spacing</span><input aria-label="UV grid spacing" type="number" min={UV_GRID_SPACING_MIN} max={UV_GRID_SPACING_MAX} step="0.0001" value={value.spacing} onChange={event => update({ spacing: Number(event.target.value) })}/></label>
-      <label><span>Thickness</span><input aria-label="UV grid thickness" type="range" min="0.5" max="6" step="0.25" value={value.thickness} onChange={event => update({ thickness: Number(event.target.value) })}/><output>{value.thickness}px</output></label>
+      <label><span>Thickness</span><RangeInput aria-label="UV grid thickness" min="0.5" max="6" step="0.25" value={value.thickness} onChange={event => update({ thickness: Number(event.target.value) })}/><output>{value.thickness}px</output></label>
       <label><span>Color</span><input aria-label="UV grid color" type="color" value={value.color} onChange={event => update({ color: event.target.value })}/></label>
-      <label><span>Opacity</span><input aria-label="UV grid opacity" type="range" min="0" max="1" step="0.05" value={value.opacity} onChange={event => update({ opacity: Number(event.target.value) })}/><output>{Math.round(value.opacity * 100)}%</output></label>
+      <label><span>Opacity</span><RangeInput aria-label="UV grid opacity" min="0" max="1" step="0.05" value={value.opacity} onChange={event => update({ opacity: Number(event.target.value) })}/><output>{Math.round(value.opacity * 100)}%</output></label>
     </div>}
   </div>;
 }
@@ -309,7 +309,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             <label><input data-hotkey="uv-wrapper:highlight-live" data-hotkey-manual data-hotkey-label="Highlight live" aria-label="Highlight selected vertices in live preview" type="checkbox" checked={liveView} onChange={event => changeLiveDisplay({ mesh: event.target.checked ? 'selected' : 'none' })}/>Highlight Live</label>
             <label><input data-hotkey="uv-wrapper:highlight-frame" data-hotkey-manual data-hotkey-label="Highlight texture frame" aria-label="Highlight texture frame" type="checkbox" checked={display.textureFrame} onChange={event => changeLiveDisplay({ textureFrame: event.target.checked })}/>Highlight Texture Frame</label>
           </div>
-          <label className="uv-thickness"><span>Thickness</span><input data-hotkey="uv-wrapper:live-selection-thickness" data-hotkey-manual data-hotkey-label="Live selection thickness" aria-label="Live selection thickness" type="range" min="0.25" max="3" step="0.25" value={display.size} onChange={event => changeLiveDisplay({ size: Number(event.target.value) })}/><output>{display.size.toFixed(2)}×</output><input className="uv-color-button" aria-label="Live selection and texture-frame color" title="Choose live selection and texture-frame color" type="color" value={preferences?.visuals?.uvSelection || '#4cff59'} onChange={event => changeLiveColor(event.target.value)}/></label>
+          <label className="uv-thickness"><span>Thickness</span><RangeInput data-hotkey="uv-wrapper:live-selection-thickness" data-hotkey-manual data-hotkey-label="Live selection thickness" aria-label="Live selection thickness" min="0.25" max="3" step="0.25" value={display.size} onChange={event => changeLiveDisplay({ size: Number(event.target.value) })}/><output>{display.size.toFixed(2)}×</output><input className="uv-color-button" aria-label="Live selection and texture-frame color" title="Choose live selection and texture-frame color" type="color" value={preferences?.visuals?.uvSelection || '#4cff59'} onChange={event => changeLiveColor(event.target.value)}/></label>
         </section>
         <section className="uv-live-preview" aria-label="Live model preview">
           <div className="uv-preview-canvas"><Suspense fallback={<div className="classic-empty-view">Loading preview…</div>}><GamePreview {...previewProps} preferences={previewPreferences} onSensitivityChange={setScrollSensitivity} revision={previewWrappingRevision} uvRevision={revision} presentation="preview" preserveCameraView={true} interactivePreview={!densityOpen && !!current} restPose={true} model={previewModel} sequenceIndex={-1} time={0} playing={false} showParticles={false} previewOverlay={liveOverlay}

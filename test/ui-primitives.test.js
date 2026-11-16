@@ -4,7 +4,9 @@ import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // The shared field hooks run against a tiny hook runner: each render() calls the
 // hook again with the kept state, then runs the effects whose inputs changed.
@@ -153,13 +155,13 @@ test('a slider released at its old value commits nothing; leaving it commits the
 test('every slider wrapper draws the one shared slider look', () => {
   const { RangeField } = load(fieldsSource);
   const html = renderToStaticMarkup(React.createElement(RangeField, { className: 'ax-slider', label: 'Weight', output: 40, ends: ['Light', 'Heavy'], min: 0, max: 100, value: 40, onChange() {} }));
-  assert.match(html, /^<label class="range-field ax-slider"><span class="range-field-head"><span>Weight<\/span><output>40<\/output><\/span><input class="range-input" type="range"[^>]*aria-label="Weight"/);
+  assert.match(html, /^<label class="range-field ax-slider"><span class="range-field-head"><span>Weight<\/span><output>40<\/output><\/span><span class="range-steps"><input class="range-input" type="range"[^>]*aria-label="Weight"/);
   assert.match(html, /<span class="range-field-ends"><span>Light<\/span><span>Heavy<\/span><\/span><\/label>$/);
   const bare = renderToStaticMarkup(React.createElement(RangeField, { 'aria-label': 'Speed', min: 1, max: 300, value: 100, onCommit() {} }));
   assert.doesNotMatch(bare, /range-field-head/, 'a slider without label or value has no top row');
   const source = name => readFileSync(new URL('../app/' + name, import.meta.url), 'utf8');
   for (const file of ['AnimXL.jsx', 'AutoCorpse.jsx', 'ShowcaseWorkspace.jsx', 'PaintStudioLayout.jsx', 'ParticleRibbonFields.jsx', 'AnimationController.jsx']) assert.match(source(file), /<RangeField /, file + ' uses the shared slider');
-  for (const file of ['ParticleCluelessControls.jsx', 'MeshDensitySlider.jsx']) assert.match(source(file), /className="range-input" [^>]*type="range"/, file + ' adopts the shared look');
+  for (const file of ['ParticleCluelessControls.jsx', 'MeshDensitySlider.jsx']) assert.match(source(file), /<RangeInput className="range-input" /, file + ' adopts the shared look');
   // The wrappers no longer style their own slider.
   assert.doesNotMatch(source('anim-xl.css') + source('auto-corpse.css'), /\.ax-slider|\.ax-ends/);
   assert.doesNotMatch(source('showcase.css'), /\.showcase-slider (input|output)|\.showcase-dialog input\[type=range\]/);
@@ -167,6 +169,32 @@ test('every slider wrapper draws the one shared slider look', () => {
   assert.doesNotMatch(source('mesh-density.css') + source('particle-editor.css') + source('AnimationController.css'), /accent-color:#dfa94c|ribbon-box-row input\[type=range\]|ac-actual-speed input\[type=range\]/);
   assert.match(source('styles.css'), /\.range-field\.range-field\{/);
   assert.match(source('theme.css'), /input\[type=range\]\.range-input\{accent-color:var\(--ui-accent\)\}/);
+});
+test('a slider step moves one step on its grid and stays inside min and max', () => {
+  const { rangeStepValue } = load(fieldsSource);
+  assert.equal(rangeStepValue({ value: 40, min: 0, max: 100, step: 5 }, 1), 45);
+  assert.equal(rangeStepValue({ value: 40, min: 0, max: 100, step: 5 }, -1), 35);
+  assert.equal(rangeStepValue({ value: 42, min: 0, max: 100, step: 5 }, 1), 45, 'off the grid snaps to the next step up');
+  assert.equal(rangeStepValue({ value: 42, min: 0, max: 100, step: 5 }, -1), 40, 'off the grid snaps to the next step down');
+  assert.equal(rangeStepValue({ value: 0.3, min: 0, max: 1, step: '0.1' }, 1), 0.4, 'no float noise');
+  assert.equal(rangeStepValue({ value: 99, min: 0, max: 100, step: 5 }, 1), 100);
+  assert.equal(rangeStepValue({ value: 25, min: '25', max: '200', step: '5' }, -1), 25);
+  assert.equal(rangeStepValue({ value: 7, min: '1', max: '4', step: null }, 1), 4, 'no step attribute moves 1');
+  assert.equal(rangeStepValue({ value: 0.5, min: 0, max: 2, step: 'any' }, 1), 0.52, 'step any moves 1% of the range');
+  const stored = Math.fround(3.6); // a model keeps 3.6 as 3.5999999
+  assert.equal(rangeStepValue({ value: stored, min: -180, max: 180, step: 'any' }, 1), 7.2, 'a 32-bit stored step still moves on');
+  assert.equal(rangeStepValue({ value: stored, min: -180, max: 180, step: 'any' }, -1), 0);
+});
+test('every slider has a small − and + after its input, and only time scrubbers stay plain', () => {
+  const { RangeField } = load(fieldsSource);
+  const html = renderToStaticMarkup(React.createElement(RangeField, { label: 'Weight', min: 0, max: 100, step: 5, value: 100, onChange() {} }));
+  assert.match(html, /<span class="range-steps"><input class="range-input" type="range"[^>]*aria-label="Weight"[^>]*\/><button type="button" tabindex="-1" class="range-step range-step-down" aria-label="One step down Weight" title="One step down">−<\/button><button type="button" tabindex="-1" class="range-step range-step-up" aria-label="One step up Weight" title="One step up" disabled="">\+<\/button><\/span>/, 'the input comes first so a label still names the slider; + is off at the top');
+  // Every <input type="range"> outside the shared control is a time scrubber marked data-time-scrub.
+  const tagAt = (text, start) => { let depth = 0, quote = null; for (let i = start; i < text.length; i++) { const c = text[i]; if (quote) { if (c === quote) quote = null; continue; } if (depth === 0 && (c === '"' || c === "'")) quote = c; else if (c === '{') depth++; else if (c === '}') depth--; else if (depth === 0 && c === '>') return text.slice(start, i + 1); } return text.slice(start); };
+  const plain = [];
+  const visit = dir => { for (const entry of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, entry.name); if (entry.isDirectory()) visit(path); else if (/\.jsx$/.test(entry.name) && entry.name !== 'Fields.jsx') { const text = readFileSync(path, 'utf8'); for (let at = text.indexOf('<input'); at >= 0; at = text.indexOf('<input', at + 1)) { const tag = tagAt(text, at); if (/\btype=(["'])range\1|\btype=\{\s*(["'])range\2\s*\}/.test(tag) && !/\bdata-time-scrub\b/.test(tag)) plain.push(entry.name + ': ' + tag.slice(0, 90)); } } } };
+  visit(fileURLToPath(new URL('../app/', import.meta.url)));
+  assert.deepEqual(plain, [], 'use RangeInput or RangeField (they carry − and +); only time scrubbers stay plain with data-time-scrub');
 });
 test('Section takes a note and a starting state; Check takes a description and its own key id', () => {
   const { Section, Check } = load(fieldsSource);

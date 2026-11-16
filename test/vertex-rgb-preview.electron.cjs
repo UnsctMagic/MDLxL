@@ -61,8 +61,14 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-5,
       }));
     });
     await page.waitForFunction(() => window.viewportState().entries.length === 5 && window.viewportState().entries[0].meshes[0].visible);
+    // Vertices opens with RGB on, like Animations (owner, 16 Nov 2026).
+    assert.equal(await toggle.isChecked(), true, 'Vertices opens with RGB on');
+    await page.waitForFunction(() => window.rgbSnapshot()[0].tint[1] === 0);
+    assert.deepEqual((await page.evaluate(() => rgbSnapshot()))[0].tint, [1, 0, 0], 'the opening view shows the Stand RGB');
+
+    await toggle.uncheck();
+    await page.waitForFunction(() => window.rgbSnapshot().every(entry => entry.tint.every(value => value === 1)));
     const off = await page.evaluate(() => rgbSnapshot());
-    assert.ok(off.every(entry => entry.tint.every(value => value === 1)), 'off means no geoset RGB tint');
     assert.equal(off[0].visible, true);
 
     await toggle.check();

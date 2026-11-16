@@ -30,7 +30,7 @@ const ADD = {
 
 // The shared slider look: label and value above, plain-language ends below.
 function Slider({ label, low, high, tip, value, onChange, onStart }) {
-  return <RangeField className="ax-slider" title={tip} label={label} output={`${value}%`} ends={[low, high]} min="25" max="200" step="5" value={value} inputProps={{ title: tip, onPointerDown: onStart, onKeyDown: onStart }} onChange={onChange}/>;
+  return <RangeField className="ax-slider" title={tip} label={label} output={`${value}%`} ends={[low, high]} min="25" max="200" step="5" value={value} inputProps={{ title: tip, onPointerDown: onStart, onKeyDown: onStart }} onStepStart={onStart} onChange={onChange}/>;
 }
 
 /** A chalk line around the dead body on the ground, for the preview only: the
@@ -227,7 +227,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           </div>
           <div className="acp-transport" title="Play or scrub the Death animation to see the blood">
             <button data-hotkey="auto-corpse:play" data-hotkey-manual data-hotkey-label="Play / pause" aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
-            <input data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
+            <input data-time-scrub data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
             <output>{seconds(bloodTime)}</output>
           </div>
           <button disabled={!changed} title="Back to the fitted corpse and the model's own blood" onClick={reset}>Reset</button>

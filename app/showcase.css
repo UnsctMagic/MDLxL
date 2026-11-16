@@ -86,7 +86,7 @@ button.showcase-wide { margin-top:4px; }
 .showcase-layer-actions { display:flex; gap:3px; margin:4px 0; }
 .showcase-layer-actions button { padding:1px 5px; }
 .showcase-layer-actions button:last-child { margin-left:auto; }
-.showcase-layer-tools input[type=range] { width:126px; min-width:0; }
+.showcase-layer-tools .range-steps { width:126px; flex:none; min-width:0; }
 .showcase-layer-tools textarea { box-sizing:border-box; resize:vertical; min-height:38px; max-height:110px; }
 .showcase-font-palette { margin:2px 0 4px; }
 .showcase-font-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; }

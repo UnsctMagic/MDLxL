@@ -6,6 +6,7 @@ import './showcase-fonts.css';
 import { addCustomFont, customFonts, customFontsVersion, loadCustomFonts, removeCustomFont, subscribeCustomFonts } from './showcase-custom-fonts.js';
 import ShowcaseNumber from './ShowcaseNumber.jsx';
 import { formatTextRange, replaceRichText, textStyleAt } from './showcase-rich-text.js';
+import { RangeInput } from './Fields.jsx';
 
 export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,onEditing,onStatus,length=10,grid,onGrid,gridDensity,onGridDensity,onAlign,presets,onPresets,onAssetURL,onPresetBusy}) {
   const [signaturesOpen,setSignaturesOpen]=useState(false),[textOpen,setTextOpen]=useState(false),[presetName,setPresetName]=useState('');
@@ -103,7 +104,7 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
         {layerList(images,'image')}
         {active?.kind==='image'&&actions()}
         <select className="showcase-wide" aria-label="Signature presets" value="" onChange={event=>{const preset=presets.find(row=>row.id===event.target.value);if(preset){const layer=addImage(preset.blob,preset.name,preset.type,preset.id,preset.rect);layer.opacity=preset.opacity??1;onLayers([...layers,layer]);onActive(layer.id);}}}><option value="">Add preset…</option>{presets.map(preset=><option translate="no" key={preset.id} value={preset.id}>{preset.name}</option>)}</select>
-        {active?.kind==='image'&&<><label>Opacity<input aria-label="Signature opacity" type="range" min="0" max="100" value={Math.round(active.opacity*100)} onChange={event=>update({opacity:Number(event.target.value)/100})}/></label>
+        {active?.kind==='image'&&<><label>Opacity<RangeInput aria-label="Signature opacity" min="0" max="100" value={Math.round(active.opacity*100)} onChange={event=>update({opacity:Number(event.target.value)/100})}/></label>
           <input className="showcase-wide" data-showcase-native-undo="" aria-label="Signature preset name" value={presetName} onChange={event=>setPresetName(event.target.value)} placeholder="Preset name"/>
           <div className="showcase-layer-actions"><button onClick={savePreset}>Save preset</button>{active.presetId&&<button onClick={deletePreset}>Delete preset</button>}</div>
           <small>Drag to place · corner to resize</small></>}

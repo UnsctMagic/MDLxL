@@ -453,7 +453,7 @@ Reference models remain open as ordinary tabs. Image paste also works.
 | Choice | Setup |
 | --- | --- |
 | Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
-| Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup), then click **Sign in**. Your plan must support Claude Code. |
+| Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in to it in your own terminal with `claude auth login`, then click **Check sign-in**. MDLxL uses that sign-in and does not offer a Claude sign-in of its own. Your plan must support Claude Code. |
 | OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
 | Claude API | Enter a workspace-scoped Claude API key and choose a model that supports tools. |
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |

@@ -19,7 +19,7 @@ function defaultVISDisplay(base) {
     // One set of object switches for Bones and Movement, like MDLVis's one menu (see shareVIS).
     bones: rig,
     movement: rig,
-    animations: { ...view, shaded: false, vertices: false },
+    animations: { ...view, vertices: false },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -38,7 +38,7 @@ function defaultXLDisplay(base) {
     // and its types are shared between Bones and Movement the same way.
     bones: { ...rig, bones: true, helpers: true },
     movement: { ...rig, bones: true, helpers: true, focusedSkeleton: true },
-    animations: { ...rest, bones: true, helpers: true, shaded: false, vertices: false, rgb: true, lights: true, particles: true, sounds: true, events: true },
+    animations: { ...rest, bones: true, helpers: true, vertices: false, rgb: true, lights: true, particles: true, sounds: true, events: true },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -90,19 +90,23 @@ export function defaultPoseDisplay(overlays) {
 }
 
 const EDITOR_DISPLAY_KEY = 'mdlxl-editor-display';
+// Until 16 Nov 2026 Animations ignored its Shadows switch and was always lit,
+// so a save without this mark restores Animations' lit default, not its old value.
+const ANIMATION_SHADOWS_MARK = 'animationShadows';
 
 /** The defaults, overlaid with the switches the user last chose (same keys only). */
 export function storedEditorDisplay(vanilla = false, storage = globalThis.localStorage) {
   const defaults = defaultEditorDisplay(vanilla);
-  let saved = null;
-  try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; if (!vanilla) saved = migrateXLDisplay(saved); } catch { saved = null; }
+  let saved = null, marked = false;
+  try { const stored = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null'); marked = stored?.[ANIMATION_SHADOWS_MARK] === 1; saved = stored?.[vanilla ? 'vis' : 'xl']; if (!vanilla) saved = migrateXLDisplay(saved); } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
+  const restorable = (mode, key) => marked || mode !== 'animations' || key !== 'shaded';
   return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
-    .map(([key, value]) => [key, key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+    .map(([key, value]) => [key, key === 'helpers' ? (saved[mode]?.bones ?? display.bones) : typeof saved[mode]?.[key] === 'boolean' && restorable(mode, key) ? saved[mode][key] : value]))]));
 }
 
 export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {
-  try { storage?.setItem(EDITOR_DISPLAY_KEY, JSON.stringify({ xl, vis })); } catch { /* Private or full storage keeps this session's choices only. */ }
+  try { storage?.setItem(EDITOR_DISPLAY_KEY, JSON.stringify({ xl, vis, [ANIMATION_SHADOWS_MARK]: 1 })); } catch { /* Private or full storage keeps this session's choices only. */ }
 }
 
 /** F: Textured View, or back to the view the user last chose in this editor. */

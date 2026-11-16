@@ -9,6 +9,7 @@ import {paintRasterCanvas} from './paint-raster.js';
 import {usePaintImageNavigation} from './usePaintImageNavigation.js';
 import {createFrameCoalescer,sensitivityIndicatorStyle,sensitivityIndicatorText} from './viewport-performance.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
+import {RangeInput} from './Fields.jsx';
 
 /** Selection tools operate on a copyable mask. Closing never changes the source asset. */
 export default function PaintCutoutEditor({preferences,onSensitivityChange,onPointerSensitivityChange,onCameraModeToggle,source,onClose,onUse,onSave,onMask,initialMask}) {
@@ -127,7 +128,7 @@ export default function PaintCutoutEditor({preferences,onSensitivityChange,onPoi
       </div>
       <div className="paint-cutout-toolbar">
         {tool==='crop'&&<label>{msg('paint.cropShape')} <select aria-label={msg('paint.cropShape')} value={cropShape} onChange={e=>changeCropShape(e.target.value)}>{['rectangle','square','ellipse','circle'].map(id=><option key={id} value={id}>{msg('paint.select.'+id)}</option>)}</select></label>}
-        {tool==='wand'&&<><label>{msg('paint.tolerance')} {keyHint('T')}<input aria-label="Selection tolerance" type="range" min="0" max="255" value={tolerance} onChange={e=>setTolerance(+e.target.value)}/>{tolerance}</label><label><input type="checkbox" checked={contiguous} onChange={e=>setContiguous(e.target.checked)}/>{msg('paint.contiguous')}{keyHint('C')}</label></>}
+        {tool==='wand'&&<><label>{msg('paint.tolerance')} {keyHint('T')}<RangeInput aria-label="Selection tolerance" min="0" max="255" value={tolerance} onChange={e=>setTolerance(+e.target.value)}/>{tolerance}</label><label><input type="checkbox" checked={contiguous} onChange={e=>setContiguous(e.target.checked)}/>{msg('paint.contiguous')}{keyHint('C')}</label></>}
         <label>{msg('paint.feather')} {keyHint('F')}<input aria-label="Selection feather" type="number" min="0" max="32" value={feather} onChange={e=>setFeather(Math.max(0,Math.min(32,+e.target.value)))}/></label>
         <label>{msg('paint.zoom')} {keyHint('− + / 0')}<select value={zoom} onChange={e=>setZoom(+e.target.value)}>{[...new Set([.25,.5,1,2,4,8,zoom])].sort((a,b)=>a-b).map(v=><option key={v} value={v}>{Math.round(v*100)}%</option>)}</select></label>
         {tool==='polygon'&&<button disabled={points.length<3} onClick={polygon}>{msg('paint.finishSelection')}{keyHint('Enter')}</button>}

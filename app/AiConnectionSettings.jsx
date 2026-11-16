@@ -31,7 +31,19 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                         ))}
                       </select>
                     </label>
-                    {native ? (
+                    {native && provider.ownSignIn ? (
+                      // Claude Code: the user signs in in their own terminal; MDLxL only checks.
+                      <div className="ai-row">
+                        <button
+                          className={signedIn ? '' : 'ai-primary'}
+                          disabled={anyBusy || authBusy}
+                          title="Checks whether Claude Code on this PC is signed in. To sign in, run claude auth login in your own terminal." data-hotkey="check-sign-in" data-hotkey-label="Check sign-in"
+                          onClick={() => authenticate('status')}
+                        >
+                          Check sign-in
+                        </button>
+                      </div>
+                    ) : native ? (
                       <div className="ai-row">
                         <button
                           className={signedIn ? '' : 'ai-primary'}

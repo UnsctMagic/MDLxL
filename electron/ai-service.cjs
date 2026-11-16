@@ -489,7 +489,7 @@ class AiService {
     if (providerInfo(settings.provider)?.native && !this.signedIn.has(accountKey(settings))) {
       const auth = await this.auth('status');
       if (!auth.loggedIn) {
-        const error = authenticationRequired();
+        const error = authenticationRequired(settings.provider);
         return { ok: false, authRequired: true, error: error.message };
       }
     }
