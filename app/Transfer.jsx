@@ -7,6 +7,7 @@ import GameLibraryRow from './GameLibraryRow.jsx';
 import TransferTimeline from './TransferTimeline.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
+import { exposeTransferForTests } from './test-hook.js';
 import { openDocument } from '../src/editor-document.js';
 import { useEditorArea } from './editor-area.js';
 import { modelFileTextures, previewModel } from './transfer-files.js';
@@ -16,8 +17,8 @@ import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
 import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
-import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
-import { addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
+import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferLooseParts, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
+import { PART_WIDE, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
 import './transfer.css';
@@ -33,6 +34,18 @@ const sequenceName = (model, index) => model?.Sequences?.[index]?.Name || `Anima
 // Model names are shown without their file extension ("grunt donor", not "grunt donor.mdx").
 const plainName = name => String(name || '').replace(/\.(mdx|mdl|mdlxlpaint)$/i, '');
 const firstAnimation = model => { const stand = standSequenceIndex(model); return stand >= 0 ? stand : model?.Sequences?.length ? 0 : -1; };
+
+const RANGE_TIP = 'Keeps this part inside what this model\'s own animations do: no deeper bend, lean or crouch than it has anywhere else.';
+const AVOID_TIP = 'Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.';
+const followTip = names => translate('{0} move with this part, the way they do in this model\'s own animations.').replace('{0}', () => names.join(', '));
+const HAND_OVER = 150;
+
+/** A switch shared by several parts (All taken parts): on when all are, a dash when they differ. */
+function SharedCheck({ values, onChange, label, title, ...input }) {
+  const ref = useRef(null), on = values.length > 0 && values.every(Boolean), mixed = !on && values.some(Boolean);
+  useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);
+  return <label className="xf-check" title={title}><input ref={ref} type="checkbox" {...input} checked={on} aria-checked={mixed ? 'mixed' : on} onChange={event => onChange(event.target.checked)}/> {label}</label>;
+}
 
 // The selected part's sliders. `get`/`set` convert between the recipe and the slider;
 // `reset` is the value a double-click puts back. Timing ones sit in the Timing fold.
@@ -97,8 +110,8 @@ function PartSlider({ field, kind, value, mixed, onDraft, onCommit, onReset }) {
 /** Transfer: give the open model movement from another model (or another of its own
  * animations), body part by body part. Contract: docs/agent-tasks/transfer-xl.md (Round 2). */
 export default function Transfer({ doc, edit, textureAssets, teamColor, modelPath, otherModels = [], onClose }) {
-  const model = doc.model, sequences = model.Sequences || [];
-  const dialog = useRef(null);
+  const model = doc.model, sequences = model.Sequences || [];
+  const dialog = useRef(null);
   // The window opens over the whole editor area (like the UV Wrapper): under the toolbars, across
   // the viewport and the sidebar. It follows that area's size; moving or resizing it by hand wins.
   useEditorArea(dialog);
@@ -173,7 +186,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
 
   const taken = Object.keys(effective.parts).filter(key => rigB.parts[key]);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(null), [clipAt, setClipAt] = useState(0);
+  const select = (key, index = 0) => { setSelected(key); setClipAt(index); };
   const mirrorOf = id => {
     const own = recipe.sources?.[id]?.mirror;
     if (own != null) return own;
@@ -190,8 +204,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const take = key => {
     if (!donor || donorLacks(key) || donorSeq < 0) return;
     const old = recipe.parts[key];
-    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq } : { ...defaultTransferPart(rigB, key, false), source: donor.id, sequence: donorSeq } } });
-    setSelected(key);
+    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq, clip: old.source === donor.id && old.sequence === donorSeq ? old.clip ?? null : null } : { ...defaultTransferPart(rigB, key, false), source: donor.id, sequence: donorSeq } } });
+    select(key);
   };
   const remove = keys => { const parts = { ...recipe.parts }; for (const key of keys) delete parts[key]; change({ ...recipe, parts }); };
   const whole = useMemo(() => rigA?.ok ? wholeBodyParts(rigB, rigA) : { parts: [], reason: '' }, [rigB, rigA, donorMirror]);
@@ -200,11 +214,21 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!donor || donorSeq < 0 || !whole.parts.length) return;
     const parts = { ...recipe.parts };
     for (const key of whole.parts) parts[key] = { ...defaultTransferPart(rigB, key, true), source: donor.id, sequence: donorSeq };
-    change({ ...recipe, parts }); setWholeReason(whole.reason || ''); setSelected('all');
+    change({ ...recipe, parts }); setWholeReason(whole.reason || ''); select('all');
   };
   const clearAll = () => { remove(Object.keys(recipe.parts)); setWholeReason(''); };
   const toggleMirror = () => { if (donor) change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { mirror: !donorMirror } } }); };
-  const setPart = (key, values) => { if (recipe.parts[key]) change({ ...recipe, parts: { ...recipe.parts, [key]: { ...recipe.parts[key], ...values } } }); };
+  const setPart = (key, values) => { if (recipe.parts[key]) change({ ...recipe, parts: { ...recipe.parts, [key]: Object.keys(values).every(name => PART_WIDE.includes(name)) ? withPartWide(recipe.parts[key], values) : { ...recipe.parts[key], ...values } } }); };
+  const setParts = (keys, values) => { const parts = { ...recipe.parts }; for (const key of keys) if (parts[key]) parts[key] = withPartWide(parts[key], values); change({ ...recipe, parts }); };
+  // Add after: the donor view's animation after what is taken, for the selected part (or every taken
+  // part), starting a hand-over before the result ends.
+  const addAfter = () => {
+    if (!canAddAfter) return;
+    const keys = afterKeys, start = Math.max(0, built.length - HAND_OVER), parts = { ...recipe.parts };
+    for (const key of keys) { const part = parts[key]; parts[key] = { ...part, next: [...(part.next || []), chainedClip(part, defaultTransferPart(rigB, key, false), donor.id, donorSeq, start, HAND_OVER)] }; }
+    change({ ...recipe, parts });
+    select(keys.length > 1 ? 'all' : keys[0], partClips(parts[keys[0]]).length - 1);
+  };
   const setBase = sequence => change({ ...recipe, base: { sequence } });
 
   // Built motion. Slider drags change `draft` at most once per display frame.
@@ -306,7 +330,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
       const opened = {}, asked = new Set();
       for (const [key, source] of Object.entries(setup.sources || {})) opened[key] = await reopen(source, asked);
       const { recipe: next, left } = recipeFromSetup(setup, model, rigB, opened, recipeRef.current.base.sequence);
-      change(next); setSelected(Object.keys(next.parts).length ? 'all' : null);
+      change(next); select(Object.keys(next.parts).length ? 'all' : null);
       const first = Object.values(next.parts)[0];
       if (first) { setDonorId(first.source); setDonorSeqs(old => ({ ...old, [first.source]: first.sequence })); if (first.source === 'self' && !donors.some(d => d.id === 'self')) setDonors(list => [...list.filter(d => d.id !== 'self'), { id: 'self', name: 'This model' }]); }
       const words = left.map(code => { const [kind, value] = code.split(':'); return kind === 'part' ? transferPartLabel(value) : kind === 'source' ? setup.sources?.[value]?.name || value : value; });
@@ -324,6 +348,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const allMode = selected === 'all' && taken.length > 0;
   const selectedPart = selected && selected !== 'all' ? rigB.parts[selected] : null, selectedTaken = selectedPart && effective.parts[selected] ? effective.parts[selected] : null;
   const selectedFrom = selectedTaken && selectedTaken.source === donor?.id ? feedsFrom(selected) : null;
+  // at: which clip of the selected part(s) the sliders edit (0 = the first; chained clips after it).
+  const clipCount = key => partClips(effective.parts[key]).length;
+  const at = clipAt > 0 && (allMode ? taken.some(key => clipCount(key) > clipAt) : !!selectedTaken && clipCount(selected) > clipAt) ? clipAt : 0;
+  const selectedClip = selectedTaken ? clipOfPart(selectedTaken, at) : null;
+  const afterKeys = !donor || donorSeq < 0 || !rigA?.ok ? [] : (selectedTaken ? [selected] : taken).filter(key => !donorLacks(key));
+  const canAddAfter = !!built && taken.length > 0 && afterKeys.length > 0;
+  // Parts whose loose joints (pads, capes) can follow: `follow` does something only for these.
+  const loose = useMemo(() => { try { return transferLooseParts(model, { sequence: recipe.base.sequence }); } catch { return {}; } }, [model, doc.revision, recipe.base.sequence]);
   // The result view has handles for taken parts only; the parts list selects the others.
   const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(',')]);
   const donorPose = useMemo(() => {
@@ -354,7 +386,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!rigB.parts[key]) { setMessage(`This model has no ${transferPartLabel(key)}.`); return; }
     setMessage(''); take(key);
   };
-  latestHandlers.current.resultHandle = target => { const key = handlePart(rigB, poseB, target); if (key) setSelected(key); };
+  latestHandlers.current.resultHandle = target => { const key = handlePart(rigB, poseB, target); if (key) select(key); };
   const onDonorHandle = useCallback(target => latestHandlers.current.donorHandle(target), []);
   const onResultHandle = useCallback(target => latestHandlers.current.resultHandle(target), []);
 
@@ -370,11 +402,11 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const holders = useMemo(() => { const driven = new Set(built?.driven || []); return new Set(Object.values(rigB.parts).filter(part => part.kind === 'limb' && !effective.parts[part.key] && part.joints.some(id => driven.has(id))).map(part => part.key)); }, [built, rigB, effective.parts]);
   const onResultCapture = useCallback(api => { capture.current = api; }, []);
   // Sliders of the selected taken part. Values come from the committed recipe, so a release commits.
-  const kind = selectedPart?.kind, targets = allMode ? taken : selectedTaken ? [selected] : [];
-  const applies = (field, key) => field.only === 'hips' ? key === 'hips' : field.only === 'nonLooping' ? clipNonLooping(effective.parts[key]) : !(allMode && /^offset/.test(field.id));
+  const kind = selectedPart?.kind, targets = allMode ? taken.filter(key => clipCount(key) > at) : selectedTaken ? [selected] : [];
+  const applies = (field, key) => field.only === 'hips' ? key === 'hips' : field.only === 'nonLooping' ? clipNonLooping(clipOfPart(effective.parts[key], at)) : !(allMode && /^offset/.test(field.id));
   const setField = (field, value, live) => {
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of targets) if (parts[key] && applies(field, key)) parts[key] = field.set(parts[key], value);
+    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), value));
     const next = { ...base, parts };
     if (live) { sliderValue.current = next; slider.current.schedule(); return; }
     slider.current.cancel(); sliderValue.current = null; setDraft(null); change(next);
@@ -389,7 +421,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const capture = useRef(null), aim = useRef(null), aimFrame = useRef(null), aimApply = useRef(null);
   aimFrame.current ||= createFrameCoalescer(() => aimApply.current());
   useEffect(() => () => aimFrame.current.cancel(), []);
-  const aimable = !!selectedTaken && selectedPart?.kind === 'limb' && viewSeq == null && !!preview;
+  const aimable = !!selectedTaken && at === 0 && selectedPart?.kind === 'limb' && viewSeq == null && !!preview;
   const aimDown = event => {
     if (event.button !== 0 || !aimable || !capture.current?.project || !capture.current.ray) return;
     const t = Math.round(time0 - preview.start), base = recipeRef.current;
@@ -438,16 +470,19 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Double-click: every target back to its own default.
   const resetField = field => {
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of targets) if (parts[key] && applies(field, key)) parts[key] = field.set(parts[key], field.reset(defaultTransferPart(rigB, key, shareClip(base.parts, parts[key]))));
+    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), field.reset(defaultTransferPart(rigB, key, shareClip(base.parts, parts[key])))));
     endDrag(); change({ ...base, parts });
   };
   // With All, a slider shows the shared value, or stays empty ('–') when the parts differ.
   const slidersFor = timing => FIELDS.filter(field => !!field.timing === timing && targets.some(key => applies(field, key))).map(field => {
-    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get((laneLive ? effective.parts[key] : recipe.parts[key]) || effective.parts[key]) * 100) / 100);
-    return <PartSlider key={field.id} field={field} kind={kind} value={values[0]} mixed={values.some(v => v !== values[0])}
+    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get(clipOfPart((laneLive ? effective.parts[key] : recipe.parts[key]) || effective.parts[key], at) || clipOfPart(effective.parts[key], at)) * 100) / 100);
+    // A chained clip starts late: Delay's slider reaches past it.
+    const shown = field.id === 'start' ? { ...field, max: Math.max(field.max, Math.ceil((Math.max(0, ...values) + 500) / 1000) * 1000) } : field;
+    return <PartSlider key={field.id} field={shown} kind={kind} value={values[0]} mixed={values.some(v => v !== values[0])}
       onDraft={value => value == null ? endDrag() : setField(field, value, true)} onCommit={value => setField(field, value, false)} onReset={() => resetField(field)}/>;
   });
   const legsTaken = targets.filter(key => /^leg/.test(key) && rigB.parts[key]?.kind === 'limb');
+  const followKeys = taken.filter(key => loose[key]?.length), armKeys = taken.filter(key => /^arm/.test(key) && rigB.parts[key]?.kind === 'limb');
 
   // Add animation: one edit, one Undo step, built afresh from the document's own model.
   const [name, setName] = useState(null), [added, setAdded] = useState(''), addedRecipe = useRef(null);
@@ -499,26 +534,43 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     const period = clock.looping ? clock.length / (clock.rate || 1) : clock.length;
     return { id: 'body', label: sequenceName(model, effective.base.sequence), title: 'Body animation', blocks: clipBlocks(0, period, clock.looping, axis) };
   }, [built, axis, effective.base.sequence, model]);
-  const lanes = useMemo(() => clipLanes(effective.parts, part => { const s = modelOf(part.source)?.Sequences?.[part.sequence]; return s?.Interval ? { length: s.Interval[1] - s.Interval[0], looping: !s.NonLooping } : null; }, chipOrder(taken)).map(lane => ({
+  const lanes = useMemo(() => clipLanes(effective.parts, clip => { const s = modelOf(clip.source)?.Sequences?.[clip.sequence]; return s?.Interval ? { length: s.Interval[1] - s.Interval[0], looping: !s.NonLooping } : null; }, chipOrder(taken)).map(lane => ({
     ...lane, editable: true, label: `${sequenceName(modelOf(lane.source), lane.sequence)} - ${nameOf(lane.source)}`, parts: lane.keys.map(transferPartLabel).join(', '),
     title: `${sequenceName(modelOf(lane.source), lane.sequence)} - ${nameOf(lane.source)}: ${lane.keys.map(transferPartLabel).join(', ')}`, blocks: clipBlocks(lane.start, lane.span, lane.looping, axis),
   })), [effective.parts, taken.join(','), axis, donors, model]);
   // A lane's label selects its part; a lane of several parts selects All taken parts.
-  const selectedLanes = lanes.filter(lane => allMode ? lane.keys.length > 1 : lane.keys.includes(selected)).map(lane => lane.id);
-  const selectLane = lane => setSelected(lane.keys.length > 1 ? 'all' : lane.keys[0]);
-  // A clip drag: Delay or Speed for every part in the lane, live once per frame, one history step on release.
+  const selectedLanes = lanes.filter(lane => lane.index === at && (allMode ? lane.keys.length > 1 : lane.keys.includes(selected))).map(lane => lane.id);
+  const selectLane = lane => select(lane.keys.length > 1 ? 'all' : lane.keys[0], lane.index);
+  // A clip drag: Delay or a trim for that clip of every part in the lane, live once per frame, one history step on release.
   const [laneLive, setLaneLive] = useState(false);
   const changeLane = (lane, value, live) => {
     setLaneLive(!!value && live);
     if (!value) { endDrag(); return; }
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of lane.keys) if (parts[key]) parts[key] = { ...parts[key], ...value };
+    for (const key of lane.keys) { const clip = clipOfPart(parts[key], lane.index); if (clip) parts[key] = withClip(parts[key], lane.index, { ...clip, ...value }); }
     const next = { ...base, parts };
     if (live) { sliderValue.current = next; slider.current.schedule(); return; }
     slider.current.cancel(); sliderValue.current = null; setDraft(null); change(next);
   };
+  // A chained clip can be removed on its own: the x on its lane, or Delete while its lane is selected.
+  const removeClip = lane => {
+    if (!(lane.index > 0)) return;
+    const parts = { ...recipe.parts };
+    for (const key of lane.keys) if (parts[key]) parts[key] = withoutClip(parts[key], lane.index);
+    change({ ...recipe, parts }); select(selected, 0);
+  };
+  useWindowKeyClaim(({ event }) => {
+    if ((event.key !== 'Delete' && event.key !== 'Backspace') || !(at > 0) || event.ctrlKey || event.altKey || event.metaKey) return false;
+    if (!dialog.current?.contains(event.target) || event.target.closest?.('input,select,textarea,.xt-fix')) return false;
+    const lane = lanes.find(item => selectedLanes.includes(item.id));
+    if (!lane) return false;
+    removeClip(lane); return true;
+  }, 5);
+  // The parts list names a part's clips in order: "Attack - 1, then Attack - 2".
+  const chainName = part => partClips(part).map((clip, i) => i === 0 || clip.source !== part.source ? clipName(clip) : sequenceName(modelOf(clip.source), clip.sequence)).reduce((a, b) => translate('{0}, then {1}').replace('{0}', () => a).replace('{1}', () => b));
+  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at })); return () => exposeTransferForTests(null); });
   const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
-  const selectFix = fix => { showNew(); setSelected(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
+  const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
   const lacksTip = key => !donor ? 'Choose a model to take animation from first.' : `The donor has no ${transferPartLabel(feedsFrom(key))}.`;
   return <ToolWindow title="Transfer" overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
@@ -565,7 +617,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </section>
           </div>
           <TransferTimeline length={axis} time={viewSeq == null ? time0 - (preview?.start || 0) : 0} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }} dimmed={viewSeq != null} onUse={showNew}
-            bodyLane={bodyLane} lanes={lanes} selectedLanes={selectedLanes} onLaneSelect={selectLane} onLaneChange={changeLane} onFixSelect={selectFix} onFixDelete={deleteFix}
+            bodyLane={bodyLane} lanes={lanes} selectedLanes={selectedLanes} onLaneSelect={selectLane} onLaneChange={changeLane} onLaneRemove={removeClip} onFixSelect={selectFix} onFixDelete={deleteFix}
             readout={`${preview && viewSeq == null ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}/>
         </main>
         <aside className="xf-controls" aria-label="Parts">
@@ -585,28 +637,32 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           <div className="xf-row-buttons">
             <button data-hotkey="transfer:take-whole-body" data-hotkey-manual data-hotkey-label="Take whole body" disabled={!rigA?.ok || donorSeq < 0 || !whole.parts.length} title="Take every part both models have from the animation the donor view shows." onClick={takeWhole}>Take whole body</button>
             <button data-hotkey="transfer:clear-all" data-hotkey-manual data-hotkey-label="Clear all" disabled={!Object.keys(recipe.parts).length} title="Remove every taken part." onClick={clearAll}>Clear all</button>
+            <button data-hotkey="transfer:add-after" data-hotkey-manual data-hotkey-label="Add after" disabled={!canAddAfter} title="Plays the donor view's animation after what is already taken, for the same parts." onClick={addAfter}>Add after</button>
           </div>
           {wholeReason && <p className="xf-note xf-reason" role="status">{wholeReason}</p>}
           <div className="gf-tree xf-list xf-parts" role="group" aria-label="Parts list">
-            <div className={'gf-row xf-part xf-all' + (allMode ? ' selected' : '')}><button data-part="all" data-hotkey="transfer:all-taken-parts" data-hotkey-manual data-hotkey-label="All taken parts" aria-pressed={allMode} disabled={!taken.length} className="xf-part-name" title="Change every taken part at once." onClick={() => setSelected('all')}>All taken parts</button></div>
+            <div className={'gf-row xf-part xf-all' + (allMode ? ' selected' : '')}><button data-part="all" data-hotkey="transfer:all-taken-parts" data-hotkey-manual data-hotkey-label="All taken parts" aria-pressed={allMode} disabled={!taken.length} className="xf-part-name" title="Change every taken part at once." onClick={() => select('all')}>All taken parts</button></div>
             {chipOrder(Object.keys(rigB.parts)).map(key => {
               const part = effective.parts[key], lacks = !part && donorLacks(key);
               return <div key={key} className={'gf-row xf-part' + (selected === key ? ' selected' : '')}>
                 <input type="checkbox" data-part-switch={key} aria-label={`Take ${transferPartLabel(key)}`} checked={!!part} disabled={lacks} title={part ? 'Taken. Switch off to remove it.' : lacks ? lacksTip(key) : 'Take this part from the animation the donor view shows.'} onChange={event => event.target.checked ? take(key) : remove([key])}/>
-                <button data-part={key} aria-pressed={selected === key} className="xf-part-name" title={part ? `Taken from ${clipName(part)}.` : holders.has(key) ? 'Keeps its hand on the weapon.' : 'Select this part.'} onClick={() => setSelected(key)}>{transferPartLabel(key)}{part ? <small translate="no">{clipName(part)}</small> : holders.has(key) && <small className="xf-holds">holds the weapon</small>}</button>
+                <button data-part={key} aria-pressed={selected === key} className="xf-part-name" title={part ? `Taken from ${chainName(part)}.` : holders.has(key) ? 'Keeps its hand on the weapon.' : 'Select this part.'} onClick={() => select(key)}>{transferPartLabel(key)}{part ? <small translate="no">{chainName(part)}</small> : holders.has(key) && <small className="xf-holds">holds the weapon</small>}</button>
               </div>;
             })}
           </div>
           {allMode ? <div className="xf-part-controls" role="group" aria-label="All taken parts">
-            <div className="xf-part-title"><b>All taken parts</b></div>
+            <div className="xf-part-title"><b>All taken parts{at > 0 && targets.length > 0 && <small className="xf-clip-name" translate="no">{sequenceName(modelOf(clipOfPart(effective.parts[targets[0]], at).source), clipOfPart(effective.parts[targets[0]], at).sequence)}</small>}</b></div>
             {slidersFor(false)}
-            {legsTaken.length > 0 && <label className="xf-check" title="Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={legsTaken.every(key => effective.parts[key].plant !== false)} onChange={event => { const parts = { ...recipe.parts }; for (const key of legsTaken) parts[key] = { ...parts[key], plant: event.target.checked }; change({ ...recipe, parts }); }}/> Keep foot on the ground</label>}
+            {legsTaken.length > 0 && <label className="xf-check" title="Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={legsTaken.every(key => effective.parts[key].plant !== false)} onChange={event => setParts(legsTaken, { plant: event.target.checked })}/> Keep foot on the ground</label>}
+            <SharedCheck data-hotkey="transfer:own-range" data-hotkey-manual data-hotkey-label="Stay in own range" label="Stay in own range" title={RANGE_TIP} values={taken.map(key => effective.parts[key].range > 0)} onChange={on => setParts(taken, { range: on ? 1 : 0 })}/>
+            {followKeys.length > 0 && <SharedCheck data-hotkey="transfer:follow" data-hotkey-manual data-hotkey-label="Pads and cloth follow" label="Pads and cloth follow" title={followTip([...new Set(followKeys.flatMap(key => loose[key]))])} values={followKeys.map(key => effective.parts[key].follow > 0)} onChange={on => setParts(followKeys, { follow: on ? 1 : 0 })}/>}
+            {armKeys.length > 0 && <SharedCheck data-hotkey="transfer:avoid-body" data-hotkey-manual data-hotkey-label="Keep arm out of the body" label="Keep arm out of the body" title={AVOID_TIP} values={armKeys.map(key => effective.parts[key].avoid > 0)} onChange={on => setParts(armKeys, { avoid: on ? 1 : 0 })}/>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : selectedTaken ? <div className="xf-part-controls" role="group" aria-label={transferPartLabel(selected)}>
-            <div className="xf-part-title"><b>{transferPartLabel(selected)}</b>
+            <div className="xf-part-title"><b>{transferPartLabel(selected)}{at > 0 && <small className="xf-clip-name" translate="no">{sequenceName(modelOf(selectedClip.source), selectedClip.sequence)}</small>}</b>
               {kind === 'limb' && <button data-hotkey="transfer:other-side" data-hotkey-manual data-hotkey-label="Other side" aria-pressed={!!selectedTaken.flip} disabled={!donor || !rigA?.parts?.[feedsFrom(selected, !selectedTaken.flip)]} title="Take this part from the donor's other side: this left arm does what their right arm does." onClick={() => setPart(selected, { flip: !selectedTaken.flip })}>Other side</button>}</div>
-            {donor && (selectedTaken.source !== donor.id || selectedTaken.sequence !== donorSeq) && <button data-hotkey="transfer:take-from" data-hotkey-manual data-hotkey-label="Take from the donor view" disabled={donorLacks(selected) || donorSeq < 0} title="Take this part from the animation the donor view shows now." onClick={() => take(selected)}>Take from <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorSeq)}</span></button>}
-            {kind === 'limb' && <div className="xf-scope" role="group" aria-label="Drag the hand or foot" title="Drag the hand or foot handle on the result to aim it. Whole movement turns the whole movement; This moment changes only the paused moment.">
+            {donor && at === 0 && (selectedTaken.source !== donor.id || selectedTaken.sequence !== donorSeq) && <button data-hotkey="transfer:take-from" data-hotkey-manual data-hotkey-label="Take from the donor view" disabled={donorLacks(selected) || donorSeq < 0} title="Take this part from the animation the donor view shows now." onClick={() => take(selected)}>Take from <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorSeq)}</span></button>}
+            {kind === 'limb' && at === 0 && <div className="xf-scope" role="group" aria-label="Drag the hand or foot" title="Drag the hand or foot handle on the result to aim it. Whole movement turns the whole movement; This moment changes only the paused moment.">
               <button data-hotkey="transfer:whole-movement" data-hotkey-manual data-hotkey-label="Whole movement" aria-pressed={aimScope === 'whole'} onClick={() => setAimScope('whole')}>Whole movement</button>
               <button data-hotkey="transfer:this-moment" data-hotkey-manual data-hotkey-label="This moment" aria-pressed={aimScope === 'moment'} onClick={() => setAimScope('moment')}>This moment</button>
               {selectedTaken.fixes?.length > 0 && <button data-hotkey="transfer:clear-fixes" data-hotkey-manual data-hotkey-label="Clear fixes" title="Remove this part's moment fixes." onClick={clearFixes}>Clear fixes</button>}
@@ -619,6 +675,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               {donorWeapon && <label className="xf-check" title="Turns the weapon so it points the way the donor's weapon points."><input data-hotkey="transfer:point-weapon" data-hotkey-manual data-hotkey-label="Point weapon like theirs" type="checkbox" checked={aimEffective} onChange={event => setPart(selected, { aim: event.target.checked ? 1 : 0 })}/> Point weapon like theirs</label>}
             </>}
             {/^leg/.test(selected) && kind === 'limb' && <label className="xf-check" title="Keeps the foot on the donor foot's path, scaled to this leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={selectedTaken.plant !== false} onChange={event => setPart(selected, { plant: event.target.checked })}/> Keep foot on the ground</label>}
+            <label className="xf-check" title={RANGE_TIP}><input data-hotkey="transfer:own-range" data-hotkey-manual data-hotkey-label="Stay in own range" type="checkbox" checked={selectedTaken.range > 0} onChange={event => setPart(selected, { range: event.target.checked ? 1 : 0 })}/> Stay in own range</label>
+            {loose[selected]?.length > 0 && <label className="xf-check" title={followTip(loose[selected])}><input data-hotkey="transfer:follow" data-hotkey-manual data-hotkey-label="Pads and cloth follow" type="checkbox" checked={selectedTaken.follow > 0} onChange={event => setPart(selected, { follow: event.target.checked ? 1 : 0 })}/> Pads and cloth follow</label>}
+            {/^arm/.test(selected) && kind === 'limb' && <label className="xf-check" title={AVOID_TIP}><input data-hotkey="transfer:avoid-body" data-hotkey-manual data-hotkey-label="Keep arm out of the body" type="checkbox" checked={selectedTaken.avoid > 0} onChange={event => setPart(selected, { avoid: event.target.checked ? 1 : 0 })}/> Keep arm out of the body</label>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : <p className="xf-note">{!donor ? 'Choose where the animation comes from.' : selected && selected !== 'all' ? 'Switch the part on to take it.' : 'Click a part on the donor to take it, or Take whole body.'}</p>}
         </aside>

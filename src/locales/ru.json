@@ -8727,7 +8727,6 @@
   "Take a part from the donor first: Add all repeats those parts for each of its animations.": "Сначала возьмите часть у донора: «Добавить все» повторяет эти части для каждой его анимации.",
   "This model already has every animation of the donor, or only Decay and Portrait animations are left.": "У этой модели уже есть все анимации донора, или остались только анимации Decay и Portrait.",
   "Clip timeline": "Шкала клипов",
-  "Drag to change when it starts (Delay); drag its right edge to change its Speed.": "Перетащите, чтобы изменить начало (Задержка); тяните правый край, чтобы изменить Скорость.",
   "A moment fix. Click to go there; Delete removes it.": "Правка момента. Щелчок переходит к нему; Delete удаляет.",
   "Time in the new animation. Click or drag to go there.": "Время в новой анимации. Щёлкните или тяните, чтобы перейти.",
   "Select All taken parts.": "Выбрать «Все взятые части».",
@@ -8775,5 +8774,16 @@
   "The donor animation to look at and take from. The same choice as the Animations list.": "Анимация донора для просмотра и взятия. Тот же выбор, что в списке анимаций.",
   "What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts.": "Что показывает этот вид: новую анимацию или одну из собственных анимаций модели для просмотра. Просмотр не меняет анимацию тела и части.",
   "New animation": "Новая анимация",
-  "Load from file…": "Загрузить из файла…"
+  "Load from file…": "Загрузить из файла…",
+  "Stay in own range": "В пределах своих движений",
+  "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.": "Держит эту часть в пределах того, что делают собственные анимации модели: не сгибается, не наклоняется и не приседает сильнее, чем где-либо ещё.",
+  "Pads and cloth follow": "Наплечники и ткань следуют",
+  "{0} move with this part, the way they do in this model's own animations.": "{0} двигаются вместе с этой частью так же, как в собственных анимациях модели.",
+  "Keep arm out of the body": "Не пускать руку в тело",
+  "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.": "Поворачивает плечо, чтобы рука не проходила сквозь грудь, бёдра или голову. Рука, держащая двуручное оружие вместе с другой, не меняется.",
+  "Add after": "Добавить после",
+  "Plays the donor view's animation after what is already taken, for the same parts.": "Проигрывает анимацию вида донора после уже взятого, для тех же частей.",
+  "Remove this clip": "Удалить этот клип",
+  "{0}, then {1}": "{0}, затем {1}",
+  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Тяните, чтобы изменить начало (задержка); тяните край, чтобы обрезать. Двойной щелчок по краю возвращает этот конец."
 }

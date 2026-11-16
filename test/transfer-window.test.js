@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
+import { PART_WIDE, chainedClip, clipOfPart, partClips, restoredClip, trimmedClip, withClip, withPartWide, withoutClip, addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -182,4 +182,83 @@ test('a setup keeps sources by path and animations by name, and maps back onto a
   assert.equal(onLord.recipe.base.sequence, 3, 'no Stand Defend on the Lord of Change: the chosen body animation');
   assert.equal(recipeFromSetup(setup, foot, transferRig(foot), { self: { id: 'self', model: foot } }, 0).left[0], 'source:g');
   assert.throws(() => parseSetup('{"kind":"x"}'), /not a Transfer setup/);
+});
+
+// ---------------------------------------------------------------- round 7: trim and chained clips
+test('a part\'s clips: the part itself and its chain; one clip changes alone, whole-part settings on all', () => {
+  const part = { source: 'g', sequence: 2, amount: 1, flip: false, next: [{ source: 'g', sequence: 3, amount: 1, start: 850 }, { source: 's', sequence: 1, amount: 1, start: 1700 }] };
+  assert.deepEqual(partClips(part).map(clip => clip.sequence), [2, 3, 1]);
+  assert.equal(partClips(part)[0].next, undefined, 'the first clip comes without the chain');
+  assert.equal(clipOfPart(part, 2).source, 's');
+  const second = withClip(part, 1, { ...clipOfPart(part, 1), amount: 0.4 });
+  assert.deepEqual(second.next.map(clip => clip.amount), [0.4, 1]); assert.equal(second.amount, 1, 'only that clip changes');
+  const first = withClip(part, 0, { ...part, amount: 0.7, next: [] });
+  assert.equal(first.amount, 0.7); assert.equal(first.next, part.next, 'clip 0 keeps the chain');
+  assert.deepEqual(withoutClip(part, 1).next.map(clip => clip.sequence), [1]);
+  assert.equal(withoutClip(withoutClip(part, 2), 1).next, undefined, 'no chain left: no next');
+  const wide = withPartWide(part, { range: 1, flip: true });
+  assert.deepEqual([wide, ...wide.next].map(clip => [clip.range, clip.flip]), [[1, true], [1, true], [1, true]]);
+  for (const key of ['range', 'follow', 'avoid', 'hang', 'flip', 'plant']) assert.ok(PART_WIDE.includes(key), key);
+});
+
+test('Add after: the chained clip starts a hand-over before the end and copies the part\'s whole-part settings', () => {
+  const defaults = { source: null, sequence: null, amount: 1, start: 0, speed: 1, blend: 0, fixes: [], range: 0, follow: 0, avoid: 0, hang: 0, clip: null, flip: false };
+  const clip = chainedClip({ range: 1, follow: 1, hang: 1, flip: true, fixes: [{ time: 10 }], clip: [0, 300] }, defaults, 'g', 4, 1499.6, 150);
+  assert.equal(clip.source, 'g'); assert.equal(clip.sequence, 4); assert.equal(clip.start, 1500); assert.equal(clip.blend, 150);
+  assert.deepEqual([clip.range, clip.follow, clip.hang, clip.flip], [1, 1, 1, true]);
+  assert.deepEqual(clip.fixes, [], 'moment fixes stay on the first clip'); assert.equal(clip.clip, null, 'the new clip is whole');
+  assert.equal(clip.next, undefined);
+});
+
+test('trim by an edge: the kept part stays in time; double-click puts that end back; whole is null', () => {
+  const lane = { full: 1000, clip: null, speed: 2, start: 100 };
+  // Left edge 100 result ms later at speed 2 cuts 200 ms of the donor and starts 100 ms later.
+  assert.deepEqual(trimmedClip(lane, 'left', 100), { clip: [200, 1000], start: 200 });
+  assert.deepEqual(trimmedClip(lane, 'right', -150), { clip: [0, 700], start: 100 });
+  assert.deepEqual(trimmedClip(lane, 'left', -50), { clip: null, start: 100 }, 'nothing left of the start to bring back');
+  assert.deepEqual(trimmedClip({ ...lane, clip: [0, 700] }, 'right', 400), { clip: null, start: 100 }, 'dragged past the end: whole again');
+  assert.deepEqual(trimmedClip(lane, 'left', 5000), { clip: [950, 1000], start: 575 }, 'at least 50 ms stay');
+  const cut = { full: 1000, clip: [200, 700], speed: 2, start: 200 };
+  assert.deepEqual(restoredClip(cut, 'left'), { clip: [0, 700], start: 100 });
+  assert.deepEqual(restoredClip(cut, 'right'), { clip: [200, 1000], start: 200 });
+});
+
+test('clip lanes per chain position: first clips first, a trimmed clip has a lane of its own; fixes on first clips only', () => {
+  const parts = {
+    armL: { source: 'g', sequence: 2, start: 0, speed: 1, fixes: [{ time: 400 }], next: [{ source: 'g', sequence: 3, start: 850, speed: 1, blend: 150, fixes: [{ time: 900 }] }] },
+    armR: { source: 'g', sequence: 2, start: 0, speed: 1, next: [{ source: 'g', sequence: 3, start: 850, speed: 1, blend: 150 }] },
+    head: { source: 'g', sequence: 2, start: 0, speed: 1, clip: [100, 600] },
+  };
+  const lanes = clipLanes(parts, () => ({ length: 1000, looping: false }), ['head', 'armL', 'armR']);
+  assert.deepEqual(lanes.map(lane => [lane.index, lane.keys]), [[0, ['head']], [0, ['armL', 'armR']], [1, ['armL', 'armR']]]);
+  assert.deepEqual(lanes[0].clip, [100, 600]); assert.equal(lanes[0].span, 500); assert.equal(lanes[0].full, 1000);
+  assert.equal(lanes[1].clip, null); assert.equal(lanes[1].span, 1000);
+  assert.equal(lanes[2].start, 850); assert.equal(lanes[2].blend, 150);
+  assert.deepEqual(lanes[1].fixes, [{ key: 'armL', index: 0, time: 400 }]); assert.deepEqual(lanes[2].fixes, []);
+  assert.equal(clipLanes({ a: { source: 'g', sequence: 2, clip: [0, 1000] } }, () => ({ length: 1000 }))[0].clip, null, 'a trim of the whole clip is no trim');
+});
+
+test('setups carry range, follow, avoid, hang, trim and chained clips; an old setup loads as before; Add all keeps first clips', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const foot = load('transfer-footman'), grunt = load('transfer-grunt');
+  const attack = grunt.Sequences.findIndex(s => s.Name === 'Attack - 1'), attack2 = grunt.Sequences.findIndex(s => s.Name === 'Attack - 2'), stand = foot.Sequences.findIndex(s => s.Name === 'Stand - 1');
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: {
+    armL: { source: 'g', sequence: attack, amount: 1, range: 1, follow: 1, avoid: 1, hang: 1, clip: [100, 700], future: 'kept', next: [{ source: 'g', sequence: attack2, amount: 0.5, start: 600, blend: 150, range: 1, clip: [0, 400] }] },
+  } };
+  const describe = id => id === 'g' ? { kind: 'file', path: 'D:/models/grunt.mdx', name: 'grunt.mdx', model: grunt } : null;
+  const setup = parseSetup(JSON.stringify(setupFromRecipe(recipe, foot, describe, 'Chain')));
+  assert.equal(setup.parts.armL.next[0].animation, 'Attack - 2');
+  const back = recipeFromSetup(setup, foot, transferRig(foot), { g: { id: 'file:x', model: grunt } }, 0);
+  assert.deepEqual(back.left, []);
+  assert.deepEqual(back.recipe.parts.armL, { ...recipe.parts.armL, source: 'file:x', next: [{ ...recipe.parts.armL.next[0], source: 'file:x' }] });
+  // A chained clip whose animation the donor lacks is left out and named; the first clip stays.
+  const lacking = JSON.parse(JSON.stringify(setup)); lacking.parts.armL.next[0].animation = 'Nope';
+  const partial = recipeFromSetup(lacking, foot, transferRig(foot), { g: { id: 'file:x', model: grunt } }, 0);
+  assert.deepEqual(partial.left, ['animation:Nope']); assert.equal(partial.recipe.parts.armL.next, undefined); assert.equal(partial.recipe.parts.armL.range, 1);
+  // An old setup (no new fields) gives the same recipe as before.
+  const old = { kind: 'mdlxl-transfer-setup', version: 1, name: 'Old', body: 'Stand - 1', length: null, sources: { g: { kind: 'file', path: 'D:/models/grunt.mdx', name: 'grunt.mdx', mirror: null } }, parts: { armL: { amount: 1, offset: [0, 0, 0], start: 0, speed: 1, blend: 150, source: 'g', animation: 'Attack - 1' } } };
+  assert.deepEqual(recipeFromSetup(old, foot, transferRig(foot), { g: { id: 'file:x', model: grunt } }, 0).recipe, { base: { sequence: stand }, length: null, sources: {}, parts: { armL: { amount: 1, offset: [0, 0, 0], start: 0, speed: 1, blend: 150, source: 'file:x', sequence: attack } } });
+  // Add all: first clips only, the retargeted part loses its trim and keeps the new switches.
+  const plan = addAllPlan(foot, grunt, 'g', recipe, stand);
+  assert.ok(plan.clips.length > 0);
+  for (const clip of plan.clips) { const arm = clip.recipe.parts.armL; assert.equal(arm.next, undefined); assert.equal(arm.clip, null); assert.deepEqual([arm.range, arm.follow, arm.avoid, arm.hang, arm.future], [1, 1, 1, 1, 'kept']); }
 });

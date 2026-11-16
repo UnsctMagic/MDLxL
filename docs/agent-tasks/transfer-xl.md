@@ -899,3 +899,38 @@ identical. 31 engine tests.
   the previous one ends. One weapon arm, one arm guard and one set of loose joints per part,
   whatever its number of clips. Drag-to-aim and moment fixes address a part's first clip.
 - `transferDiagnostics(recipient, sources, recipe)` gives the numbers above for tests and probes.
+
+### Round 7 window as built (window coder)
+
+- **Switches** in the part controls and in All taken parts, below Keep foot on the ground, as
+  `xf-check` rows like Keep weapon above the ground: **Stay in own range** (`range`), **Pads and
+  cloth follow** (`follow`, only for parts `transferLooseParts` lists for the body animation; the
+  tooltip is one neutral sentence with the joint names), **Keep arm out of the body** (`avoid`, arms).
+  All taken parts shows a dash (indeterminate, `aria-checked="mixed"`) when the parts differ. New
+  transfers keep all three off. Whole-part settings (`PART_WIDE`: flip, plant, grip, clear, aim,
+  range, follow, avoid, hang) are written to every clip of the part, and copied to a chained clip.
+- **Trim**: dragging a clip's left or right edge sets `clip` (`trimmedClip`); a left trim moves
+  `start` later by the cut / Speed so the kept part stays in time; at least 50 ms stay; trimming back
+  to the whole clip is `clip: null`. Cut ends are dashed with a lighter edge. Double-click an edge
+  puts that end back (`restoredClip`). The right edge no longer sets Speed. Per frame, Escape and a
+  lost press cancel, as before. Taking a part from another animation drops its old trim.
+- **Add after** beside Take whole body / Clear all (labels no longer wrap): for the selected taken part,
+  else every taken part, that the donor has, a chained clip (`chainedClip`) from the donor view's
+  animation starting `built.length - 150` with blend 150. Lanes are per clip group (`clipLanes` now
+  has `index`, `clip`, `full`); a lane label selects that clip (`clipAt`), and the sliders edit
+  it (`clipOfPart` / `withClip`); the part or All title then names that clip's animation. Chained
+  lanes have an × ("Remove this clip") and Delete removes the selected chained clip. Drag to aim,
+  Whole movement / This moment, Take from and the fix diamonds are first-clip only. The parts list
+  says "Attack - 1, then Attack - 2". The Delay slider reaches past a chained clip's late start.
+- **Setups** carry every part field (range, follow, avoid, hang, clip, unknown ones) and `next`, each
+  chained clip with its own source reference and animation name; a chained clip whose donor or
+  animation is missing is left out and named. Old setups load to the same recipe. **Add all** keeps
+  first clips only (no `next`) and drops the trim of the retargeted parts (a trim belongs to the
+  animation it was made on); it keeps the switches and unknown fields.
+- Test hook: `window.__mdlxl.transfer()` gives `{ recipe, selected, clip }` of the open window.
+- Tests: `test/transfer-window.test.js` 20 (5 new); harness story `round7` (7 checks) with real
+  mouse input; B and the sweep trim by the right edge instead of setting Speed. Pictures in
+  `out/transfer-ui/round7/`.
+- Found while testing: on the Abomination with the Demon Hunter's attack, Keep arm out of the body
+  changed nothing with only the left arm taken; with the whole body taken it changes both arms. The
+  test uses the whole body.

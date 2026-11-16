@@ -1827,7 +1827,6 @@
     "Take a part from the donor first: Add all repeats those parts for each of its animations.",
     "This model already has every animation of the donor, or only Decay and Portrait animations are left.",
     "Clip timeline",
-    "Drag to change when it starts (Delay); drag its right edge to change its Speed.",
     "A moment fix. Click to go there; Delete removes it.",
     "Time in the new animation. Click or drag to go there.",
     "Select All taken parts.",
@@ -1875,7 +1874,18 @@
     "The donor animation to look at and take from. The same choice as the Animations list.",
     "What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts.",
     "New animation",
-    "Load from file…"
+    "Load from file…",
+    "Stay in own range",
+    "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.",
+    "Pads and cloth follow",
+    "{0} move with this part, the way they do in this model's own animations.",
+    "Keep arm out of the body",
+    "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.",
+    "Add after",
+    "Plays the donor view's animation after what is already taken, for the same parts.",
+    "Remove this clip",
+    "{0}, then {1}",
+    "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back."
   ],
   "paint": [
     "Citadel Paint",

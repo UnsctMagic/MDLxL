@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5'), shots7 = path.join(out, 'round7');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -134,7 +134,7 @@ async function storyB() {
     await page.waitForTimeout(400);
     await s.shot('03-story-b-raise-dragged');
     // N6: the arm's clip on the timeline. Dragging it later sets Delay and moves the swing later;
-    // its right edge sets Speed; each drag is one step of the window's history.
+    // its right edge trims it (Speed stays on its slider); each drag is one step of the window's history.
     const clip = dialog.locator('.xt-clip.xt-main').first(), lanesBefore = await dialog.locator('.xt-lane').count();
     assert.equal(lanesBefore, 2, 'B: the timeline has the body lane and one clip lane');
     assert.match(await dialog.locator('.xt-lane:not(.xt-body) .xt-label').innerText(), /Attack - 1/, 'B: the lane names its source animation');
@@ -156,19 +156,20 @@ async function storyB() {
     assert.equal(Number(await dialog.locator('input[data-field="start"]').inputValue()), 0, 'B: one Ctrl+Z in the window undoes the whole clip drag');
     await page.keyboard.press('Control+y'); await page.waitForTimeout(800); await timingOpen();
     assert.equal(Number(await dialog.locator('input[data-field="start"]').inputValue()), delay, 'B: Ctrl+Y redoes it');
-    const edge = dialog.locator('.xt-clip.xt-main .xt-edge').first(), eb = await edge.boundingBox();
+    const edge = dialog.locator('.xt-clip.xt-main .xt-edge-right').first(), eb = await edge.boundingBox();
     await page.mouse.move(eb.x + eb.width / 2, eb.y + eb.height / 2); await page.mouse.down();
     for (let i = 1; i <= 8; i++) { await page.mouse.move(eb.x + eb.width / 2 - cells.width * 0.15 * i / 8, eb.y + eb.height / 2); await page.waitForTimeout(25); }
     await page.mouse.up(); await page.waitForTimeout(1200); await timingOpen();
-    const speed = Number(await dialog.locator('input[data-field="speed"]').inputValue());
-    assert.ok(speed > 105, `B: shortening the clip by its right edge speeds it up (${speed}%)`);
+    const speed = Number(await dialog.locator('input[data-field="speed"]').inputValue()), trimmedArm = (await page.evaluate(() => window.__mdlxl.transfer())).recipe.parts.armL;
+    assert.equal(speed, 100, 'B: the right edge no longer changes Speed');
+    assert.ok(Array.isArray(trimmedArm.clip) && trimmedArm.clip[0] === 0 && trimmedArm.clip[1] > 0, `B: the right edge trims the clip (${JSON.stringify(trimmedArm.clip)})`);
     await dialog.locator('button[data-part="armR"]').click(); await page.waitForTimeout(200);
     await dialog.locator('.xt-lane:not(.xt-body) .xt-label').click(); await page.waitForTimeout(300);
     assert.equal(await dialog.locator('button[data-part="armL"]').getAttribute('aria-pressed'), 'true', "B: clicking a lane's label selects its part");
     assert.equal(await dialog.locator('.xf-animations .xf-playing').count(), 0, 'B: no animation marked as playing in step; the donor has its own clock');
     await page.waitForTimeout(600);
     await s.shot('01-story-b-timeline', shots4);
-    results.checks.push(`B: timeline clip drag sets Delay ${delay} ms (one history step, the swing moves later), its edge sets Speed ${speed}%, the lane label selects the arm`);
+    results.checks.push(`B: timeline clip drag sets Delay ${delay} ms (one history step, the swing moves later), its right edge trims it to ${JSON.stringify(trimmedArm.clip)} with Speed left at ${speed}%, the lane label selects the arm`);
     results.checks.push('B: Strength and Raise drags move the drawn hand path and the arm live, without a renderer rebuild');
     // W3: turning one view's camera turns the other to the same angles.
     await s.dragCamera('Donor'); await page.waitForTimeout(600);
@@ -542,7 +543,7 @@ async function sweep34() {
     await page.mouse.move(cbx.x + cbx.width * 0.3, cbx.y + cbx.height / 2); await page.mouse.down();
     for (let i = 1; i <= 8; i++) { await page.mouse.move(cbx.x + cbx.width * 0.3 + 40 * i / 8, cbx.y + cbx.height / 2); await page.waitForTimeout(25); }
     await page.mouse.up(); await page.waitForTimeout(800); clicked.push('clip drag (Delay)'); await s.noCrash('clip drag');
-    await drag(dialog.locator('.xt-clip.xt-main .xt-edge').first(), -30, 'clip edge drag (Speed)');
+    await drag(dialog.locator('.xt-clip.xt-main .xt-edge-right').first(), -30, 'clip edge drag (trim)');
     // Aim: scope buttons, a moment fix, its diamond clicked and deleted, Clear fixes.
     await click(dialog.locator('button[data-part="armL"]'), 'select Left arm');
     await click(dialog.getByRole('button', { name: 'Whole movement' }), 'Whole movement');
@@ -705,6 +706,215 @@ async function viewsStory() {
   } finally { await d.close(); }
 }
 
+// Round 7: the three switches, trim by the clip edges, Add after (chained clips) and setups that carry
+// all of it. The window's recipe is read through the test hook (window.__mdlxl.transfer()); the result's
+// motion through a checksum of its preview model and swapped tracks.
+async function round7Story() {
+  const recipeOf = page => page.evaluate(() => window.__mdlxl.transfer());
+  const motion = page => page.evaluate(() => {
+    const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root).props;
+    let sum = 0, n = 0;
+    const add = track => { for (const key of track?.Keys || []) { const v = key.Vector || []; for (let i = 0; i < v.length; i++) sum += v[i] * (++n % 97 + 1); } };
+    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) { add(bone.Rotation); add(bone.Translation); }
+    for (const item of p.liveNodeTracks || []) add(item.track);
+    return Math.round(sum * 1000) / 1000;
+  });
+  const ruler = async dialog => Number(await dialog.getByLabel('Time', { exact: true }).getAttribute('aria-valuemax'));
+  const check = async (dialog, page, label) => { await dialog.getByText(label, { exact: true }).click(); await page.waitForTimeout(1500); };
+  // (a) Range and Keep arm out of the body: the Abomination takes the Demon Hunter's attack.
+  {
+    const abom = copyModel('transfer-abomination', 'TEST TRANSFER 15 switches.mdx'), hunter = copyModel('transfer-demon-hunter', 'demon hunter r7.mdx');
+    const hunterModel = await readModel(hunter), attack = hunterModel.Sequences.find(q => /^attack/i.test(q.Name) && !/alternate/i.test(q.Name))?.Name;
+    assert.ok(attack, 'round7: the Demon Hunter has an attack');
+    const s = await session(abom, 'round7-switches'), { page, dialog } = s;
+    try {
+      await openTransfer(s); await s.openDonor(hunter); await s.animation(attack);
+      // Whole body: the arms go into the trunk in this attack (engine measurements, round 7).
+      await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+      const all = s.parts().locator('[role="group"][aria-label="All taken parts"]');
+      let before = await motion(page);
+      await check(all, page, 'Keep arm out of the body');
+      let parts = (await recipeOf(page)).recipe.parts;
+      assert.deepEqual([parts.armL.avoid, parts.armR.avoid], [1, 1], 'round7: Keep arm out of the body sets avoid on both arms');
+      let after = await motion(page);
+      assert.notEqual(after, before, 'round7: Keep arm out of the body changes the motion of the arms');
+      await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
+      const arm = s.parts().locator('[role="group"][aria-label="Left arm"]');
+      for (const label of ['Stay in own range', 'Keep arm out of the body']) assert.equal(await arm.getByText(label, { exact: true }).count(), 1, `round7: an arm shows ${label}`);
+      assert.equal((await recipeOf(page)).recipe.parts.armL.range, 0, 'round7: new transfers keep Stay in own range off');
+      await s.shot('01-switches-on-an-arm', shots7);
+      before = after;
+      await check(arm, page, 'Stay in own range');
+      assert.equal((await recipeOf(page)).recipe.parts.armL.range, 1, 'round7: Stay in own range sets range');
+      assert.notEqual(await motion(page), before, 'round7: Stay in own range changes the motion of the arm');
+      await check(arm, page, 'Keep arm out of the body');
+      assert.equal((await recipeOf(page)).recipe.parts.armL.avoid, 0, 'round7: the switch of the arm turns avoid off for that arm');
+      await check(arm, page, 'Stay in own range');
+      assert.equal((await recipeOf(page)).recipe.parts.armL.range, 0, 'round7: and range off again');
+      results.checks.push('round7: on the Abomination with the Demon Hunter\'s attack, Keep arm out of the body (All, whole body) sets avoid on both arms and Stay in own range (Left arm) sets range; each changes the motion');
+      await s.noCrash('round7 switches');
+    } finally { await s.close(); }
+  }
+  // (a) Pads and cloth follow: the Slaanesh warrior takes the Grunt's Attack - 1 whole body.
+  {
+    const warrior = copyModel('glow-dual-weapon', 'TEST TRANSFER 16 follow.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor r7 follow.mdx');
+    const s = await session(warrior, 'round7-follow'), { page, dialog } = s;
+    try {
+      await openTransfer(s); await s.openDonor(grunt); await s.animation('Attack - 1');
+      await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+      const all = s.parts().locator('[role="group"][aria-label="All taken parts"]');
+      for (const label of ['Stay in own range', 'Pads and cloth follow', 'Keep arm out of the body']) assert.equal(await all.getByText(label, { exact: true }).count(), 1, `round7: All taken parts shows ${label}`);
+      await s.shot('02-all-taken-parts-switches', shots7);
+      const shows = async key => { await dialog.locator(`button[data-part="${key}"]`).click(); await page.waitForTimeout(300); return s.parts().getByText('Pads and cloth follow', { exact: true }).count(); };
+      for (const key of ['armL', 'armR', 'chest']) assert.equal(await shows(key), 1, `round7: Pads and cloth follow shows for ${key}`);
+      for (const key of ['legL', 'legR']) if (await dialog.locator(`input[data-part-switch="${key}"]:checked`).count()) assert.equal(await shows(key), 0, `round7: and not for ${key}`);
+      await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
+      const tip = await s.parts().locator('label.xf-check', { hasText: 'Pads and cloth follow' }).getAttribute('title');
+      assert.match(tip, /move with this part, the way they do in this model's own animations\./, 'round7: the tooltip names the joints in one sentence');
+      const before = await motion(page);
+      await check(s.parts().locator('[role="group"][aria-label="Left arm"]'), page, 'Pads and cloth follow');
+      assert.equal((await recipeOf(page)).recipe.parts.armL.follow, 1, 'round7: Pads and cloth follow sets follow');
+      assert.notEqual(await motion(page), before, 'round7: the pads move differently');
+      // All taken parts shows the mixed state, then sets every listed part.
+      await dialog.locator('button[data-part="all"]').click(); await page.waitForTimeout(300);
+      const shared = all.locator('label.xf-check', { hasText: 'Pads and cloth follow' }).locator('input');
+      assert.equal(await shared.getAttribute('aria-checked'), 'mixed', 'round7: All taken parts shows a mixed switch');
+      await shared.click(); await page.waitForTimeout(1500);
+      const parts = (await recipeOf(page)).recipe.parts;
+      for (const key of ['armL', 'armR', 'chest']) assert.equal(parts[key].follow, 1, `round7: All sets follow on ${key}`);
+      results.checks.push(`round7: on the Slaanesh warrior Pads and cloth follow shows for the arms and the chest, not the legs (tooltip: ${tip}); it sets follow and moves the pads; All shows mixed, then sets them all`);
+      await s.noCrash('round7 follow');
+    } finally { await s.close(); }
+  }
+  // (b)-(e) Trim, Add after and setups on the Footman with the Grunt.
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 17 trim chain.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor r7.mdx');
+  const oldSetup = path.join(out, 'old setup r7.mdlxl-preset');
+  fs.writeFileSync(oldSetup, JSON.stringify({ kind: 'mdlxl-transfer-setup', version: 1, name: 'Old swing', body: 'Stand - 1', length: null, sources: { g: { kind: 'file', path: grunt, name: 'grunt donor r7.mdx', mirror: null } },
+    parts: { armL: { from: null, flip: false, amount: 0.8, match: 0, offset: [5, 0, 0], start: 0, speed: 1, loop: null, blend: 150, plant: true, travel: 1, fixes: [], grip: null, clear: null, aim: null, source: 'g', animation: 'Attack - 1' } } }));
+  let s = await session(footman, 'round7'), { page, dialog } = s;
+  try {
+    await openTransfer(s); await s.openDonor(grunt); await s.animation('Attack - 1');
+    await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(1200);
+    const lengthWhole = await ruler(dialog), cells = await dialog.locator('.xt-lane:not(.xt-body) .xt-cells').first().boundingBox();
+    const dragEdge = async (side, fraction) => {
+      const e = await dialog.locator(`.xt-clip.xt-main .xt-edge-${side}`).first().boundingBox(), x = e.x + e.width / 2, y = e.y + e.height / 2;
+      await page.mouse.move(x, y); await page.mouse.down();
+      for (let i = 1; i <= 10; i++) { await page.mouse.move(x + cells.width * fraction * i / 10, y); await page.waitForTimeout(25); }
+      await page.mouse.up(); await page.waitForTimeout(1200);
+    };
+    await dragEdge('right', -0.2);
+    let arm = (await recipeOf(page)).recipe.parts.armL;
+    assert.ok(arm.clip && arm.clip[0] === 0 && arm.clip[1] > 0, `round7: the right edge trims the end (${JSON.stringify(arm.clip)})`);
+    assert.equal(arm.start, 0, 'round7: a right trim keeps Delay');
+    const lengthRight = await ruler(dialog);
+    assert.ok(lengthRight < lengthWhole - 100, `round7: the result gets shorter (${lengthWhole} -> ${lengthRight} ms)`);
+    await dragEdge('left', 0.12);
+    arm = (await recipeOf(page)).recipe.parts.armL;
+    assert.ok(arm.clip[0] > 0, `round7: the left edge trims the start (${JSON.stringify(arm.clip)})`);
+    assert.ok(Math.abs(arm.start - arm.clip[0] / arm.speed) <= 1, `round7: the kept part stays in time: Delay = cut / Speed (${arm.start} ms)`);
+    assert.ok(Math.abs(await ruler(dialog) - lengthRight) <= 2, 'round7: a left trim does not move the end');
+    assert.equal(await dialog.locator('.xt-clip.xt-main.xt-cut-left.xt-cut-right').count(), 1, 'round7: the cut ends are drawn as cut');
+    await s.shot('03-trimmed-clip', shots7);
+    const dbl = async side => { const e = await dialog.locator(`.xt-clip.xt-main .xt-edge-${side}`).first().boundingBox(); await page.mouse.dblclick(e.x + e.width / 2, e.y + e.height / 2); await page.waitForTimeout(1200); };
+    await dbl('left');
+    arm = (await recipeOf(page)).recipe.parts.armL;
+    assert.ok(arm.clip && arm.clip[0] === 0 && arm.start === 0, `round7: double-click puts the start back (${JSON.stringify(arm.clip)}, Delay ${arm.start})`);
+    await dbl('right');
+    assert.equal((await recipeOf(page)).recipe.parts.armL.clip, null, 'round7: and the end: the clip is whole again');
+    assert.equal(await ruler(dialog), lengthWhole, 'round7: with its whole length');
+    results.checks.push(`round7: trimming the right edge shortens the result (${lengthWhole} -> ${lengthRight} ms), the left edge moves Delay by the cut, double-clicks restore both ends`);
+
+    // (c) Add after with the whole body taken.
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+    const firstLength = await ruler(dialog), firstLanes = await dialog.locator('.xt-lane:not(.xt-body)').count();
+    await s.animation('Attack - 2');
+    await s.parts().getByRole('button', { name: 'Add after' }).click(); await page.waitForTimeout(2000);
+    let state = await recipeOf(page);
+    const takenKeys = Object.keys(state.recipe.parts), attack2 = (await readModel(grunt)).Sequences.findIndex(q => q.Name === 'Attack - 2');
+    for (const key of takenKeys) {
+      const next = state.recipe.parts[key].next;
+      assert.equal(next?.length, 1, `round7: Add after chains a clip on ${key}`);
+      assert.equal(next[0].sequence, attack2, `round7: from the donor view's animation (${key})`);
+      assert.equal(next[0].start, firstLength - 150, `round7: starting 150 ms before the result ended (${key})`);
+      assert.equal(next[0].blend, 150);
+    }
+    assert.ok(await ruler(dialog) > firstLength + 300, `round7: the result gets longer (${firstLength} -> ${await ruler(dialog)} ms)`);
+    const chained = dialog.locator('.xt-lane[data-clip-index="1"]');
+    assert.ok(await chained.count() >= 1, 'round7: the chained clips have lanes of their own');
+    assert.equal(await dialog.locator('.xt-lane:not(.xt-body)').count(), firstLanes + await chained.count(), 'round7: one more lane per clip group');
+    assert.match(await dialog.locator('button[data-part="armL"] small').innerText(), /Attack - 1, then Attack - 2/, 'round7: the parts list names the clips in order');
+    // The second lane selected: Strength edits that clip only; Whole movement and This moment hide.
+    await chained.first().locator('.xt-label').click(); await page.waitForTimeout(400);
+    state = await recipeOf(page);
+    assert.equal(state.clip, 1, 'round7: selecting a chained lane selects that clip');
+    assert.equal(await s.parts().getByRole('button', { name: 'This moment' }).count(), 0, 'round7: no This moment on a chained clip');
+    const amountsBefore = Object.fromEntries(takenKeys.map(key => [key, [state.recipe.parts[key].amount, state.recipe.parts[key].next[0].amount]]));
+    await s.dragSlider('amount', 0.3); await page.waitForTimeout(800);
+    state = await recipeOf(page);
+    const changedKeys = takenKeys.filter(key => state.recipe.parts[key].next[0].amount !== amountsBefore[key][1]);
+    assert.ok(changedKeys.length > 0, 'round7: Strength changes the chained clip');
+    for (const key of takenKeys) assert.equal(state.recipe.parts[key].amount, amountsBefore[key][0], `round7: and not the first clip of ${key}`);
+    await s.shot('04-two-chained-lanes-second-selected', shots7);
+    results.checks.push(`round7: Add after chains Attack - 2 on ${takenKeys.length} parts at ${firstLength - 150} ms with a 150 ms hand-over, lanes per clip, the parts list says "then"; Strength on the second lane changes only the second clip`);
+
+    // (d) A setup round trip keeps the switches, a trim and the chain.
+    await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
+    await check(s.parts().locator('[role="group"][aria-label="Left arm"]'), page, 'Stay in own range');
+    await dragEdge('right', -0.05);
+    const keep = JSON.stringify((await recipeOf(page)).recipe.parts);
+    assert.match(keep, /"range":1/); assert.match(keep, /"clip":\[/); assert.match(keep, /"next":\[/);
+    await dialog.getByRole('button', { name: 'Save as…' }).click();
+    await dialog.getByLabel('Preset name').fill('Chain r7');
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(300);
+    await dialog.getByRole('button', { name: 'Clear all' }).click(); await page.waitForTimeout(500);
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups button', { hasText: 'Chain r7' }).click(); await page.waitForTimeout(2000);
+    assert.deepEqual((await recipeOf(page)).recipe.parts, JSON.parse(keep), 'round7: a saved setup brings back switches, trims and chained clips exactly');
+    results.checks.push('round7: Save as / Load from keeps range, the trim and the chained clips');
+
+    // Removing chained clips: the x on a lane, and Delete while a chained lane is selected.
+    const chainedLanes = await chained.count();
+    await chained.first().locator('.xt-remove').click(); await page.waitForTimeout(1200);
+    assert.equal(await chained.count(), chainedLanes - 1, 'round7: the x removes that clip');
+    if (await chained.count()) {
+      const keysLeft = Object.entries((await recipeOf(page)).recipe.parts).filter(([, part]) => part.next).length;
+      await chained.first().locator('.xt-label').click(); await page.waitForTimeout(300);
+      await page.keyboard.press('Delete'); await page.waitForTimeout(1200);
+      assert.ok(Object.entries((await recipeOf(page)).recipe.parts).filter(([, part]) => part.next).length < keysLeft, 'round7: Delete removes the selected chained clip');
+    } else {
+      await s.parts().getByRole('button', { name: 'Add after' }).click(); await page.waitForTimeout(1500);
+      await chained.first().locator('.xt-label').click(); await page.waitForTimeout(300);
+      await page.keyboard.press('Delete'); await page.waitForTimeout(1200);
+      assert.equal(await chained.count(), 0, 'round7: Delete removes the selected chained clip');
+    }
+    assert.ok(Object.values((await recipeOf(page)).recipe.parts).every(part => part.amount != null), 'round7: the first clips stay');
+    results.checks.push('round7: the x on a chained lane and Delete on a selected chained lane remove that clip');
+
+    // (e) An old setup without the new fields loads to the same recipe as before.
+    await dialog.getByRole('button', { name: 'Clear all' }).click(); await page.waitForTimeout(500);
+    await stubDialogs(s.app, { open: oldSetup });
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }).click(); await page.waitForTimeout(2500);
+    const loaded = (await recipeOf(page)).recipe, gruntAttack = (await readModel(grunt)).Sequences.findIndex(q => q.Name === 'Attack - 1');
+    const expected = { from: null, flip: false, amount: 0.8, match: 0, offset: [5, 0, 0], start: 0, speed: 1, loop: null, blend: 150, plant: true, travel: 1, fixes: [], grip: null, clear: null, aim: null, source: loaded.parts.armL?.source, sequence: gruntAttack };
+    assert.deepEqual(loaded.parts, { armL: expected }, 'round7: an old setup gives exactly the old recipe (no new fields added)');
+    results.checks.push('round7: an old setup without the new fields loads to the same recipe as before');
+    await s.noCrash('round7');
+  } finally { await s.close(); }
+  // Dark theme: a trimmed first clip and a chained one.
+  const footman2 = copyModel('transfer-footman', 'TEST TRANSFER 18 r7 dark.mdx'), grunt2 = copyModel('transfer-grunt', 'grunt donor r7 dark.mdx');
+  const d = await session(footman2, 'round7-dark', { preferences: { theme: 'dark' } });
+  try {
+    await openTransfer(d); await d.openDonor(grunt2); await d.animation('Attack - 1');
+    await d.dialog.locator('input[data-part-switch="armL"]').click(); await d.page.waitForTimeout(1000);
+    await d.animation('Attack - 2');
+    await d.parts().getByRole('button', { name: 'Add after' }).click(); await d.page.waitForTimeout(1500);
+    await d.dialog.locator('.xt-lane[data-clip-index="1"] .xt-label').first().click(); await d.page.waitForTimeout(800);
+    await d.shot('05-dark', shots7);
+    await d.noCrash('round7 dark');
+  } finally { await d.close(); }
+}
+
 // The FX window on the same Footman, for comparing density.
 async function fx() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER FX.mdx');
@@ -851,11 +1061,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

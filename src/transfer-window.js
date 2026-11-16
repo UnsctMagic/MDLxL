@@ -119,9 +119,12 @@ export function bodyAnimationFor(recipient, donorName, fallback) {
   return (plain || same[0])?.index ?? fallback;
 }
 
+const firstClipOnly = part => { const { next: _drop, ...first } = part; return first; };
+
 /** Add all: every animation of `donor` (source `sourceId`) the open model does not have yet by
  * name (case-insensitive), without Decay and Portrait ones, each with the parts taken from that
  * source pointed at it and its own body animation. Parts from other sources stay as they are.
+ * Only first clips: chained clips (`next`) stay out, and a retargeted part loses its trim (`clip`).
  * Returns { clips: [{ sequence, name, recipe }] }. */
 export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
   const taken = Object.entries(recipe?.parts || {}).filter(([, part]) => part.source === sourceId);
@@ -131,32 +134,36 @@ export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
     const name = String(sequence.Name || '').trim(), key = name.toLowerCase();
     if (!name || !sequence.Interval || leftOut(name) || have.has(key)) return;
     have.add(key);
-    const parts = Object.fromEntries(Object.entries(recipe.parts).map(([part, value]) => [part, value.source === sourceId ? { ...value, sequence: index } : value]));
+    const parts = Object.fromEntries(Object.entries(recipe.parts).map(([part, value]) => [part, firstClipOnly(value.source === sourceId ? { ...value, sequence: index, clip: null } : value)]));
     clips.push({ sequence: index, name, recipe: { ...recipe, base: { sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts } });
   });
   return { clips };
 }
 
 // ---------------------------------------------------------------- clip timeline
-/** Timeline lanes of the taken parts: parts sharing source, animation, Delay and Speed share a
- * lane. `clipOf(part)` gives { length, looping } of the part's source animation (ms, unscaled).
- * Each lane: { id, keys, source, sequence, start, speed, blend, span, looping, fixes } where span is
- * the clip's length in the result and fixes are [{ key, index, time }] in result ms. */
+/** Timeline lanes of the taken parts, one per clip group: parts whose n-th clip comes from the same
+ * source and animation with the same Delay, Speed and trim share a lane. `clipOf(clip)` gives
+ * { length, looping } of the clip's source animation (ms, unscaled, untrimmed).
+ * Each lane: { id, index, keys, source, sequence, start, speed, blend, clip, full, span, looping, fixes }
+ * where index is the position in the parts' chains (0 = first clip), clip the trim ([from, to] ms in
+ * the donor animation, or null), full the untrimmed length, span the clip's length in the result,
+ * and fixes [{ key, index, time }] in result ms (first clips only). First clips come first. */
 export function clipLanes(parts, clipOf, order = Object.keys(parts || {})) {
-  const lanes = new Map();
-  for (const key of order) {
-    const part = parts?.[key];
-    if (!part) continue;
-    const start = Number(part.start) || 0, speed = part.speed > 0 ? part.speed : 1, id = `${part.source}|${part.sequence}|${start}|${speed}`;
+  const lanes = new Map(), depth = Math.max(0, ...order.map(key => partClips(parts?.[key]).length));
+  for (let index = 0; index < depth; index++) for (const key of order) {
+    const part = parts?.[key], clip = partClips(part)[index];
+    if (!clip) continue;
+    const start = Number(clip.start) || 0, speed = clip.speed > 0 ? clip.speed : 1, trim = trimOf(clip);
+    const id = `${index}|${clip.source}|${clip.sequence}|${start}|${speed}|${trim ? trim.join('-') : ''}`;
     let lane = lanes.get(id);
     if (!lane) {
-      const clip = clipOf(part) || { length: 0, looping: false };
-      lane = { id, keys: [], source: part.source, sequence: part.sequence, start, speed, blend: 0, span: clip.length / speed, looping: !!(part.loop ?? clip.looping), fixes: [] };
+      const found = clipOf(clip) || { length: 0, looping: false }, full = found.length, cut = trim ? normalTrim(trim, full) : null;
+      lane = { id, index, keys: [], source: clip.source, sequence: clip.sequence, start, speed, blend: 0, clip: cut, full, span: (cut ? cut[1] - cut[0] : full) / speed, looping: !!(clip.loop ?? found.looping), fixes: [] };
       lanes.set(id, lane);
     }
     lane.keys.push(key);
-    lane.blend = Math.max(lane.blend, Number(part.blend) || 0);
-    (part.fixes || []).forEach((fix, index) => { if (Number.isFinite(fix?.time)) lane.fixes.push({ key, index, time: fix.time }); });
+    lane.blend = Math.max(lane.blend, Number(clip.blend) || 0);
+    if (index === 0) (clip.fixes || []).forEach((fix, i) => { if (Number.isFinite(fix?.time)) lane.fixes.push({ key, index: i, time: fix.time }); });
   }
   return [...lanes.values()];
 }
@@ -169,6 +176,66 @@ export function clipBlocks(start, span, looping, length) {
   if (!looping) return start < length ? [{ from: start, to: Math.min(length, start + span) }] : [];
   for (let from = start; from < length && blocks.length < 200; from += span) blocks.push({ from, to: Math.min(length, from + span) });
   return blocks;
+}
+
+// ---------------------------------------------------------------- chained clips and trim
+/** Settings that belong to the whole part, not to one of its clips: they are copied to a chained
+ * clip and changed on every clip of the part together. */
+export const PART_WIDE = ['flip', 'plant', 'grip', 'clear', 'aim', 'range', 'follow', 'avoid', 'hang'];
+/** The clips of a taken part in order: the part itself (without `next`) and its chained clips. */
+export function partClips(part) {
+  if (!part) return [];
+  const { next, ...first } = part;
+  return [first, ...(Array.isArray(next) ? next : [])];
+}
+/** One clip of a part: 0 is the part itself. */
+export function clipOfPart(part, index) {
+  return index > 0 ? part?.next?.[index - 1] : part;
+}
+/** The part with clip `index` replaced (clip 0 keeps the part's chain). */
+export function withClip(part, index, clip) {
+  if (!(index > 0)) { const { next: _drop, ...first } = clip; return part?.next ? { ...first, next: part.next } : first; }
+  return { ...part, next: part.next.map((item, i) => i === index - 1 ? clip : item) };
+}
+/** The part without chained clip `index` (1 or more). */
+export function withoutClip(part, index) {
+  if (!(index > 0) || !part?.next) return part;
+  const next = part.next.filter((_, i) => i !== index - 1), { next: _drop, ...first } = part;
+  return next.length ? { ...first, next } : first;
+}
+/** The part with whole-part settings set on every clip. */
+export function withPartWide(part, values) {
+  const first = { ...part, ...values };
+  return part.next ? { ...first, next: part.next.map(clip => ({ ...clip, ...values })) } : first;
+}
+/** A clip chained after `part`'s clips: `defaults` (defaultTransferPart) with the source, animation and
+ * start, a 150 ms hand-over, and the part's whole-part settings. */
+export function chainedClip(part, defaults, source, sequence, start, blend = 150) {
+  const { next: _drop, fixes: _fixes, ...base } = defaults;
+  const clip = { ...base, fixes: [], source, sequence, start: Math.max(0, Math.round(start)), blend };
+  for (const key of PART_WIDE) if (part?.[key] !== undefined) clip[key] = part[key];
+  return clip;
+}
+const trimOf = clip => Array.isArray(clip?.clip) && clip.clip.length === 2 && clip.clip.every(Number.isFinite) ? clip.clip.map(Number) : null;
+const normalTrim = (trim, full) => { const from = Math.max(0, Math.min(full, trim[0])), to = Math.max(0, Math.min(full, trim[1])); return to > from && (from > 0 || to < full) ? [from, to] : null; };
+/** A trim by one edge of a lane's clip, dragged `dt` result ms: { clip, start }. The kept part stays
+ * where it is in time: a left trim moves Delay later by what was cut (scaled by Speed). A clip back
+ * to its whole length is `clip: null`. Times round to 10 ms (donor) and 1 ms (Delay). */
+export function trimmedClip(lane, edge, dt, minLength = 50) {
+  const full = lane.full, [from, to] = lane.clip || [0, full], speed = lane.speed > 0 ? lane.speed : 1;
+  const step = value => Math.round(value / 10) * 10, keep = Math.min(minLength, full);
+  if (edge === 'left') {
+    const cut = Math.max(0, Math.min(to - keep, step(from + dt * speed)));
+    return { clip: normalTrim([cut, to], full), start: Math.max(0, Math.round(lane.start + (cut - from) / speed)) };
+  }
+  const end = Math.max(from + keep, Math.min(full, step(to + dt * speed)));
+  return { clip: normalTrim([from, end], full), start: lane.start };
+}
+/** Double-click on an edge: that end of the clip back, the kept part where it was. */
+export function restoredClip(lane, edge) {
+  const full = lane.full, [from, to] = lane.clip || [0, full], speed = lane.speed > 0 ? lane.speed : 1;
+  if (edge === 'left') return { clip: normalTrim([0, to], full), start: Math.max(0, Math.round(lane.start - from / speed)) };
+  return { clip: normalTrim([from, full], full), start: lane.start };
 }
 
 // ---------------------------------------------------------------- drag to aim
@@ -191,12 +258,20 @@ const nameIndex = (model, name) => (model?.Sequences || []).findIndex(sequence =
  * `describe(sourceId)` gives { kind: 'self' | 'file' | 'library', path, name, model }. */
 export function setupFromRecipe(recipe, model, describe, name) {
   const sources = {}, parts = {};
+  // Every part field travels (range, follow, avoid, clip, ...): only the source becomes a reference
+  // and the animation a name, for the part and for each chained clip in `next`.
+  const saved = clip => {
+    const source = describe(clip.source);
+    if (!source) return null;
+    sources[clip.source] ||= { kind: source.kind, path: source.path || null, name: source.name || '', mirror: recipe.sources?.[clip.source]?.mirror ?? null };
+    const { source: _id, sequence, next: _next, ...values } = clip;
+    return { ...values, source: clip.source, animation: source.model?.Sequences?.[sequence]?.Name || '' };
+  };
   for (const [key, part] of Object.entries(recipe?.parts || {})) {
-    const source = describe(part.source);
-    if (!source) continue;
-    sources[part.source] ||= { kind: source.kind, path: source.path || null, name: source.name || '', mirror: recipe.sources?.[part.source]?.mirror ?? null };
-    const { source: _id, sequence, ...values } = part;
-    parts[key] = { ...values, source: part.source, animation: source.model?.Sequences?.[sequence]?.Name || '' };
+    const first = saved(part);
+    if (!first) continue;
+    const next = (Array.isArray(part.next) ? part.next : []).map(saved).filter(Boolean);
+    parts[key] = next.length ? { ...first, next } : first;
   }
   return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', length: recipe?.length ?? null, sources, parts };
 }
@@ -221,10 +296,22 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
     if (!donor) { left.push(`source:${part.source}`); continue; }
     const sequence = nameIndex(donor.model, part.animation);
     if (sequence < 0) { left.push(`animation:${part.animation}`); continue; }
-    const { source: _id, animation: _name, ...values } = part;
-    parts[key] = { ...values, source: donor.id, sequence };
+    const { source: _id, animation: _name, next: savedNext, ...values } = part;
     const mirror = setup.sources?.[part.source]?.mirror;
     if (mirror != null) sources[donor.id] = { mirror };
+    // Chained clips: one whose donor or animation is missing is left out and named.
+    const next = [];
+    for (const clip of Array.isArray(savedNext) ? savedNext : []) {
+      const from = donors[clip?.source];
+      if (!from) { left.push(`source:${clip?.source}`); continue; }
+      const index = nameIndex(from.model, clip.animation);
+      if (index < 0) { left.push(`animation:${clip.animation}`); continue; }
+      const { source: _cid, animation: _cname, next: _deeper, ...clipValues } = clip;
+      next.push({ ...clipValues, source: from.id, sequence: index });
+      const clipMirror = setup.sources?.[clip.source]?.mirror;
+      if (clipMirror != null) sources[from.id] = { mirror: clipMirror };
+    }
+    parts[key] = next.length ? { ...values, source: donor.id, sequence, next } : { ...values, source: donor.id, sequence };
   }
   return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase }, length: setup.length ?? null, sources, parts }, left: [...new Set(left)] };
 }

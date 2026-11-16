@@ -8737,7 +8737,6 @@
   "Take a part from the donor first: Add all repeats those parts for each of its animations.": "Primero toma una parte del donante: Añadir todas repite esas partes en cada una de sus animaciones.",
   "This model already has every animation of the donor, or only Decay and Portrait animations are left.": "Este modelo ya tiene todas las animaciones del donante, o solo quedan animaciones Decay y Portrait.",
   "Clip timeline": "Línea de clips",
-  "Drag to change when it starts (Delay); drag its right edge to change its Speed.": "Arrastra para cambiar cuándo empieza (Retraso); arrastra su borde derecho para cambiar la Velocidad.",
   "A moment fix. Click to go there; Delete removes it.": "Un ajuste de momento. Haz clic para ir allí; Supr lo quita.",
   "Time in the new animation. Click or drag to go there.": "Tiempo en la nueva animación. Haz clic o arrastra para ir allí.",
   "Select All taken parts.": "Seleccionar Todas las partes tomadas.",
@@ -8785,5 +8784,16 @@
   "The donor animation to look at and take from. The same choice as the Animations list.": "La animación del donante para ver y tomar. La misma elección que la lista de animaciones.",
   "What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts.": "Lo que muestra esta vista: la animación nueva o una de las animaciones propias del modelo para verla. Mirar nunca cambia la animación del cuerpo ni las partes.",
   "New animation": "Animación nueva",
-  "Load from file…": "Cargar desde archivo…"
+  "Load from file…": "Cargar desde archivo…",
+  "Stay in own range": "Dentro de su propio rango",
+  "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.": "Mantiene esta parte dentro de lo que hacen las animaciones propias del modelo: no se dobla, inclina ni agacha más que en ninguna otra.",
+  "Pads and cloth follow": "Hombreras y tela siguen",
+  "{0} move with this part, the way they do in this model's own animations.": "{0} se mueven con esta parte, como lo hacen en las animaciones propias del modelo.",
+  "Keep arm out of the body": "Mantener el brazo fuera del cuerpo",
+  "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.": "Gira el hombro para que el brazo no atraviese el pecho, las caderas ni la cabeza. Un brazo que sostiene un arma a dos manos con el otro no se toca.",
+  "Add after": "Añadir después",
+  "Plays the donor view's animation after what is already taken, for the same parts.": "Reproduce la animación de la vista del donante después de lo ya tomado, para las mismas partes.",
+  "Remove this clip": "Quitar este clip",
+  "{0}, then {1}": "{0}, luego {1}",
+  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Arrastra para cambiar cuándo empieza (retraso); arrastra un borde para recortarlo. Doble clic en un borde devuelve ese extremo."
 }

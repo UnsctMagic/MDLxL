@@ -37,7 +37,8 @@
 .transfer-xl .xf-field{display:flex;align-items:center;gap:5px}
 .transfer-xl .xf-field select{flex:1;min-width:0}
 .transfer-xl .xf-row-buttons{display:flex;gap:4px}
-.transfer-xl .xf-row-buttons>button{flex:1;min-width:0;padding:3px 4px}
+.transfer-xl .xf-row-buttons>button{flex:1 1 auto;min-width:0;padding:3px 4px;white-space:nowrap}
+.transfer-xl .xf-clip-name{margin-left:6px;font-weight:normal;color:var(--ui-muted,#555)}
 .transfer-xl .xf-reason{font-size:11px}
 .transfer-xl .xf-parts{flex:none}
 .transfer-xl .xf-list .xf-part{height:auto;min-height:21px;padding:0 4px;gap:4px}
@@ -100,9 +101,16 @@
 .transfer-xl .xt-lane.selected .xt-clip.xt-main{box-shadow:inset 0 0 0 1px var(--ui-text,#16191e)}
 .transfer-xl .xt-clip.xt-repeat{opacity:.55}
 .transfer-xl .xt-edge{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize;background:var(--ui-text,#16191e);opacity:.35}
+.transfer-xl .xt-edge-left{left:0;right:auto}
+/* A trimmed end: a lighter, dashed cap, so a cut clip reads differently from a whole one. */
+.transfer-xl .xt-clip.xt-cut-left{border-left:2px dashed var(--ui-text,#16191e)}
+.transfer-xl .xt-clip.xt-cut-right{border-right:2px dashed var(--ui-text,#16191e)}
+.transfer-xl .xt-cut-left>.xt-edge-left,.transfer-xl .xt-cut-right>.xt-edge-right{background:var(--ui-panel,#f0f0f0);opacity:.75}
+.transfer-xl .xt-chained .xt-label{padding-left:12px!important}
+.transfer-xl .xt-remove{min-height:0!important;height:17px;width:20px;padding:0!important;line-height:1;font-size:12px}
 .transfer-xl .xt-ease{position:absolute;top:0;bottom:0;pointer-events:none;background:var(--ui-text,#16191e);opacity:.25}
 .transfer-xl .xt-ease-in{left:0;clip-path:polygon(0 0,100% 0,0 100%)}
-.transfer-xl .xt-ease-out{right:6px;clip-path:polygon(0 0,100% 0,100% 100%)}
+.transfer-xl .xt-ease-out{right:0;clip-path:polygon(0 0,100% 0,100% 100%)}
 .transfer-xl .xt-fix{position:absolute;top:2px;width:11px;height:11px;min-height:0!important;margin-left:-6px;padding:0!important;transform:rotate(45deg);background:#ffd23f!important;border:1px solid #6b4e00!important;z-index:4;cursor:pointer}
 .transfer-xl .xt-fix:focus-visible{outline:2px solid var(--ui-accent,#71b5f3)}
 /* Add all is the second choice next to Add animation. */
