@@ -681,3 +681,22 @@ test('R7 hang: the Slaanesh warrior\'s cape keeps the world angle it has in its 
   }
   assert.ok(apart > 3, `hang changes the cape (${apart.toFixed(1)} degrees at most)`);
 });
+
+test('R7 rider: a knight whose rider hangs from a second mount root gives its chest, head and arms', { skip: missing('transfer-nurgle-knight', 'transfer-footman') }, () => {
+  const knight = load('transfer-nurgle-knight'), footman = load('transfer-footman'), attack = seq(knight, 'Attack - 1'), rig = transferRig(knight, { sequence: attack });
+  const names = key => rig.parts[key].joints.map(id => allNodes(knight).find(n => n.ObjectId === id).Name);
+  for (const key of ['hips', 'chest', 'head', 'armL', 'armR']) assert.ok(rig.parts[key], `the knight has ${key}`);
+  assert.equal(Object.keys(rig.parts).filter(key => /^leg/.test(key)).length, 4, 'four legs: the mount walks, the rider\'s legs are left alone');
+  assert.ok(names('head').every(name => !/horse/i.test(name)), `head is the rider's (${names('head')})`);
+  assert.ok(names('chest').every(name => !/horse/i.test(name)), `chest is the rider's (${names('chest')})`);
+  assert.ok(names('hips').some(name => /horse/i.test(name)), `hips are the mount's (${names('hips')})`);
+  const whole = XFER.transferWholeBody(transferRig(footman), rig);
+  assert.deepEqual([...whole.parts].sort(), ['armL', 'armR', 'chest', 'head']);
+  assert.match(whole.reason, /different number of legs/);
+  const parts = Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(transferRig(footman), key, true), source: 'k', sequence: attack }]));
+  const built = buildTransfer(footman, new Map([['k', knight]]), { base: { sequence: seq(footman, 'Attack - 1') }, sources: {}, parts });
+  assert.deepEqual(built.problems, []);
+  // The Footman's weapon arm really swings: its first joint turns well over 30 degrees during the result.
+  const arm = transferRig(footman).parts[transferRig(footman).weaponSide === 'L' ? 'armL' : 'armR'].joints[0], first = rotationAt(built, arm, 0);
+  assert.ok(Math.max(...built.times.map((_, k) => angle(first, rotationAt(built, arm, k)))) > 30);
+});

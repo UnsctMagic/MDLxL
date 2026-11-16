@@ -126,6 +126,15 @@ function readPose(model) {
 }
 const failedRig = sentence => ({ ok: false, reference: { sequence: -1, frame: 0 }, body: null, parts: {}, hipHeight: 0, ground: 0, weaponSide: null, facing: [1, 0, 0], problems: [sentence] });
 
+/** The skeleton a joint belongs to: its hierarchy root, except that a rider POSE
+ * reports as carried by the body (followers, seat carriers) belongs to the
+ * body's skeleton even when it hangs from a root of its own. */
+function skeletonRoot(info, id) {
+  const { pose } = info.pose, root = info.tree.root(id);
+  if (!pose || pose.body == null) return root;
+  if (!info.carriedRoots) info.carriedRoots = new Set([...(pose.followers?.[pose.body] || []), ...Object.keys(pose.carriers || {}).map(Number)].filter(carried => info.byId.has(carried)).map(carried => info.tree.root(carried)));
+  return info.carriedRoots.has(root) ? info.tree.root(pose.body) : root;
+}
 /** Rotation keys a skeleton (a hierarchy root) carries inside one animation. */
 function skeletonKeys(model, info, root, sequence) {
   const interval = model.Sequences?.[sequence]?.Interval;
@@ -133,7 +142,7 @@ function skeletonKeys(model, info, root, sequence) {
   let count = 0;
   for (const id of info.joints) {
     const track = info.byId.get(id).Rotation;
-    if (track?.Keys && info.tree.root(id) === root && !isGlobalTrack(track, model)) count += keysInInterval(track, interval).length;
+    if (track?.Keys && skeletonRoot(info, id) === root && !isGlobalTrack(track, model)) count += keysInInterval(track, interval).length;
   }
   return count;
 }
@@ -142,7 +151,7 @@ function skeletonKeys(model, info, root, sequence) {
 function skeletonFor(model, info, sequence) {
   const { pose } = info.pose, key = `skeleton:${sequence}`;
   if (info.skeletons.has(key)) return info.skeletons.get(key);
-  const roots = [...new Set(pose.chains.map(chain => info.tree.root(chain.root)))];
+  const roots = [...new Set(pose.chains.map(chain => skeletonRoot(info, chain.root)))];
   let best = pose.body != null ? info.tree.root(pose.body) : roots[0] ?? null, most = best == null ? -1 : skeletonKeys(model, info, best, sequence);
   for (const root of roots) { const count = skeletonKeys(model, info, root, sequence); if (count > most) { best = root; most = count; } }
   info.skeletons.set(key, best);
@@ -154,7 +163,7 @@ function readRig(model, info, skeleton) {
   const roleOf = id => pose.roles?.[id] || poseNodeRole(byId.get(id));
   // The body of this skeleton: POSE's body, else the joint that drives all its limbs.
   let body = pose.body != null && tree.root(pose.body) === skeleton ? pose.body : null;
-  const own = pose.chains.filter(chain => tree.root(chain.root) === skeleton);
+  const own = pose.chains.filter(chain => skeletonRoot(info, chain.root) === skeleton);
   if (body == null && own.length) {
     try { body = suggestPoseBody(model, own, tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
   }
@@ -171,10 +180,16 @@ function readRig(model, info, skeleton) {
   const fail = sentence => ({ ...failedRig(sentence), reference, problems: [...problems, sentence] });
   if (body == null || !joints.has(body)) return fail('No body bone was found, so this model has no parts to transfer.');
   const ref = sampleAt(model, sequence, frame), pos = id => worldPos(model, ref, id).clone();
-  const under = id => tree.isAncestor(id, body);
+  // A rider carried by this body without being parented under it (POSE's followers
+  // and seat carriers: a knight whose rider hangs from a second mount root).
+  const riders = [...(pose.followers?.[body] || []), ...Object.keys(pose.carriers || {}).map(Number)].filter(id => joints.has(id) && skeletonRoot(info, id) === skeleton && !tree.isAncestor(id, body) && pose.chains.some(chain => tree.isAncestor(chain.root, id)));
+  const ridden = id => riders.some(rider => tree.isAncestor(id, rider));
+  const under = id => tree.isAncestor(id, body) || ridden(id);
   const byDepth = (a, b) => tree.depth(a) - tree.depth(b);
-  // Only the actor that owns the body; a rider or second creature stays put.
-  const chains = pose.chains.filter(chain => under(chain.root));
+  // The actor that owns the body, and of its rider the arms (with chest and head
+  // below): the upper body is the rider's, the mount walks. A rider's legs and a
+  // second creature stay put.
+  const chains = pose.chains.filter(chain => tree.isAncestor(chain.root, body) || ridden(chain.root) && chain.kind === 'arm' && chain.label !== 'Wing');
   const limbIds = new Set(chains.flatMap(poseChainIds));
   const controls = (pose.nodes || []).filter(id => under(id) && joints.has(id) && !limbIds.has(id));
   // Upper and lower body: a trunk joint that carries a leg walks with the hips
@@ -183,7 +198,7 @@ function readRig(model, info, skeleton) {
   // that chest, so a mount's own neck and head stay on the body animation.
   const carriesLeg = id => chains.some(chain => chain.kind === 'leg' && chain.label !== 'Wing' && tree.isAncestor(chain.root, id));
   const arms = chains.filter(chain => chain.kind === 'arm' && chain.label !== 'Wing');
-  const hips = [body, ...controls.filter(id => roleOf(id) === 'Pelvis' || ['Spine', 'Chest', 'Neck', 'Head'].includes(roleOf(id)) && carriesLeg(id))];
+  const hips = [body, ...controls.filter(id => !ridden(id) && (roleOf(id) === 'Pelvis' || ['Spine', 'Chest', 'Neck', 'Head'].includes(roleOf(id)) && carriesLeg(id)))];
   const chest = controls.filter(id => ['Spine', 'Chest'].includes(roleOf(id)) && !carriesLeg(id) && (!arms.length || arms.some(chain => tree.isAncestor(chain.root, id))));
   const head = controls.filter(id => ['Neck', 'Head'].includes(roleOf(id)) && !carriesLeg(id) && (!chest.length || chest.some(c => tree.isAncestor(id, c))));
   const trunk = { hips: [...new Set(hips)].sort(byDepth), chest: chest.sort(byDepth), head: head.sort(byDepth) };
