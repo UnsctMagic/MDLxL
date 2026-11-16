@@ -102,6 +102,22 @@ export class EditorCameraControls extends OrbitControls {
     // and editable roll change up later, so keep that cached basis synchronized.
     if (this._quat) { this._quat.setFromUnitVectors(this.object.up.clone().normalize(), new Vector3(0, 1, 0)); this._quatInverse.copy(this._quat).invert(); }
   }
+  /** Top and Bottom tip the camera's up sideways so it can look straight down.
+   * Turning from there orbits the model's vertical axis like every other view:
+   * hand the same picture to a Z-up camera, a hair off the pole so the picture
+   * keeps its direction. */
+  _levelStraightDownView() {
+    const camera = this.object, up = camera.up;
+    if (Math.abs(up.z) > 1e-6) return;
+    const offset = camera.position.clone().sub(this.target), distance = offset.length();
+    if (!distance || Math.hypot(offset.x, offset.y) > distance * 1e-6) return;
+    const screenUp = new Vector3(up.x, up.y, 0).normalize();
+    if (!screenUp.lengthSq()) return;
+    camera.position.addScaledVector(screenUp, -Math.sign(offset.z) * distance * 1e-5);
+    up.set(0, 0, 1);
+  }
+  _rotateLeft(angle) { this._levelStraightDownView(); super._rotateLeft(angle); }
+  _rotateUp(angle) { this._levelStraightDownView(); super._rotateUp(angle); }
   /** Adopts the current camera as already settled (an exact restore of a saved view),
    * so the next update() leaves it unchanged unless something differs. */
   settle() { this._syncUp(); this._settledCamera = this._cameraKey(); }
