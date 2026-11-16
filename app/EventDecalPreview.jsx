@@ -40,6 +40,6 @@ export default function EventDecalPreview({ definition, modelPath }) {
   }, [definition, modelPath]);
   return <div className="re-decal-preview">
     <canvas ref={canvas} width="512" height="256" aria-label="Blood splat animation preview"/>
-    {error ? <p className="field-error" role="alert">{error}</p> : <div><button type="button" aria-label={playing ? 'Pause splat preview' : 'Play splat preview'} onClick={() => { clock.current.playing = !playing; setPlaying(!playing); }}>{playing ? 'Pause' : 'Play'}</button><input type="range" aria-label="Splat preview time" min="0" max={definition.lifeSpanMs || 1} step="1" value={age} onChange={event => { const value = Number(event.target.value); clock.current.age = value; setAge(value); }}/></div>}
+    {error ? <p className="field-error" role="alert">{error}</p> : <div><button type="button" aria-label={playing ? 'Pause splat preview' : 'Play splat preview'} onClick={() => { clock.current.playing = !playing; setPlaying(!playing); }}>{playing ? 'Pause' : 'Play'}</button><input data-time-scrub type="range" aria-label="Splat preview time" min="0" max={definition.lifeSpanMs || 1} step="1" value={age} onChange={event => { const value = Number(event.target.value); clock.current.age = value; setAge(value); }}/></div>}
   </div>;
 }

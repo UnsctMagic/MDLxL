@@ -78,6 +78,12 @@ separate and are not a shared handover.
   infer permission to create from words such as add, fix, improve or "make it
   look like"; when a request can be met either way, reuse. If nothing existing
   fits, ask the owner instead of making something.
+- **Standing rule (owner, 16 Nov 2026): every slider, existing and future, in every
+  window and feature branch, has a small − and + that move it one step.** Build sliders
+  only with `RangeField` or `RangeInput` from [Fields.jsx](app/Fields.jsx), which carry
+  them; never a bare `<input type="range">`. Time and keyframe scrubbers (playheads,
+  animation time) are the one exception: plain, marked `data-time-scrub`.
+  `test/ui-primitives.test.js` fails on any other bare slider.
 - Complicated or ambiguous controls need a short plain-language tooltip when
   hovering either the control or label. For example, `Billboarded` explains that
   the bone and attached parts turn toward the viewer as the camera moves.

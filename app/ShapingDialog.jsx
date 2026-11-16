@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { resolveShapeSelection, previewShape } from '../src/shaping.js';
 import { prepareShapeSupport } from '../src/shaping-support.js';
 import ForgeEditor from './ForgeEditor.jsx';
+import { RangeInput } from './Fields.jsx';
 import { HotkeyBadge } from './Hotkeys.jsx';
 import { SURFACE_COLORS, geosetModelingOverlay } from './forge-surface-colors.js';
 import { setVertexPositions, transformVertices } from '../src/editor-commands.js';
@@ -80,7 +81,7 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
     <ForgeEditor model={previewModel} editorState={editorState} surfaceColors={previewColors} modelingOverlay={modelingOverlay} selection={localSelection} onSelectionChange={select} onTransform={transform} onUndo={()=>restore(false)} onRedo={()=>restore(true)} canUndo={history.length>0} canRedo={future.length>0} toolbar={<button data-hotkey="forge:effect:original" aria-label="Original" aria-pressed={original} className={original?'active':''} onClick={()=>setOriginal(!original)}>Original</button>}
       sidebar={<div className="forge-effect-controls" data-hotkey-prefix="forge:effect">      <div className="shaping-tools" role="group" aria-label="Shape effect">{TOOLS.map(([label, next, style, path]) => <button data-hotkey={'tool:'+label} aria-label={label} key={label} className={tool === next && bendStyle === style ? 'active' : ''} aria-pressed={tool === next && bendStyle === style} onClick={() => chooseTool(next, style)}><svg viewBox="0 0 64 46" aria-hidden="true"><path d={path}/></svg>{label}</button>)}</div>
       <label className="shaping-amount">Amount<HotkeyBadge actionId="forge:effect:amount"/><input data-hotkey="amount" aria-label="Amount" type="number" min={range[0]} max={range[1]} value={amount} onChange={e => changeAmount(+e.target.value)}/></label>
-      <input data-hotkey="amount-slider" type="range" min={range[0]} max={range[1]} step="0.5" value={amount} onChange={e => changeAmount(+e.target.value)} aria-label="Shaping amount"/>
+      <RangeInput data-hotkey="amount-slider" min={range[0]} max={range[1]} step="0.5" value={amount} onChange={e => changeAmount(+e.target.value)} aria-label="Shaping amount"/>
       <button data-hotkey="reverse" aria-label="Reverse" className="shaping-reverse" onClick={() => changeAmount(-amount)}>↔ Reverse</button>
       {tool !== 'Dome' && <><div className="shaping-caption">Direction</div><div className="shaping-segments">{[[frame.horizontal, 'Across'], [frame.vertical, 'Up / down']].map(([value, label]) => <button data-hotkey={'direction:'+label} aria-label={label} key={label} aria-pressed={axis === value} className={axis === value ? 'active' : ''} onClick={() => { setLengthAxis(value); setDirection(frame.depth); }}>{label}</button>)}</div></>}
       {tool !== 'Dome' && <><div className="shaping-caption">Center</div><div className="shaping-segments">{[['start', 'Start'], ['middle', 'Middle'], ['end', 'End']].map(([value, label]) => <button data-hotkey={'center:'+value} aria-label={label} key={value} className={pivot === value ? 'active' : ''} aria-pressed={pivot === value} onClick={() => setPivot(value)}>{label}</button>)}</div></>}

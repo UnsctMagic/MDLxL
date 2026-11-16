@@ -2,6 +2,7 @@ import {initialPaintLamp,paintLampDistance,setPaintLampDistance} from './paint-l
 import React,{useRef,useState} from 'react';
 import {WC3_DNC_ENVIRONMENTS} from '../src/warcraft-dnc.js';
 import {paintMessage as msg} from '../src/paint-messages.js';
+import {RangeInput} from './Fields.jsx';
 
 export const DEFAULT_PAINT_SCENE={background:'',backgroundColor:'#cccccc',customBackground:'',backgroundDisplay:'fill',lighting:'flat',environment:'Lordaeron',hour:12,lamps:[],showLamps:true,textureSmoothing:false};
 export default function PaintSceneOptions({selectedLampId,onSelectedLamp,value,onChange,backgrounds,onClose,onMove,onPlace,onCamera,dncStatus,onDncFile}) {
@@ -20,7 +21,7 @@ export default function PaintSceneOptions({selectedLampId,onSelectedLamp,value,o
       <label>{msg('paint.imageFit')}<select value={value.backgroundDisplay} onChange={e=>set('backgroundDisplay',e.target.value)}>{['fit','fill','stretch','center'].map(id=><option key={id} value={id}>{msg('paint.image.'+id)}</option>)}</select></label>
       <h3>{msg('paint.wc3Light')}</h3><select aria-label={msg('paint.wc3Light')} value={value.lighting} onChange={e=>set('lighting',e.target.value)}><option value="flat">{msg('paint.light.flat')}</option><option value="dnc">{msg('paint.light.dnc')}</option><option value="lamps">{msg('paint.light.lamps')}</option></select>
       {value.lighting==='dnc'&&<><select aria-label={msg('paint.environment')} value={value.environment} onChange={e=>onChange({...value,environment:e.target.value,dncModel:null})}>{WC3_DNC_ENVIRONMENTS.map(name=><option key={name}>{name}</option>)}{value.environment==='custom'&&<option value="custom">{msg('paint.custom')}</option>}</select>
-        <label>{msg('paint.timeOfDay')}<input type="range" min="0" max="23.99" step=".05" value={value.hour} onChange={e=>set('hour',+e.target.value)}/><output>{String(Math.floor(value.hour)).padStart(2,'0')}:{String(Math.round((value.hour%1)*60)).padStart(2,'0')}</output></label>
+        <label>{msg('paint.timeOfDay')}<RangeInput min="0" max="23.99" step=".05" value={value.hour} onChange={e=>set('hour',+e.target.value)}/><output>{String(Math.floor(value.hour)).padStart(2,'0')}:{String(Math.round((value.hour%1)*60)).padStart(2,'0')}</output></label>
         <div className="paint-button-row">{[['dawn',6],['noon',12],['dusk',18],['midnight',0]].map(([id,hour])=><button key={id} onClick={()=>set('hour',hour)}>{msg('paint.time.'+id)}</button>)}</div>
         <p role="status">{dncStatus}</p><button onClick={()=>dncFile.current.click()}>{msg('paint.openDnc')}</button>
         <input hidden ref={dncFile} type="file" accept=".mdl,.mdx" onChange={async e=>{const file=e.target.files[0];if(file)await onDncFile(file);e.target.value='';}}/>
@@ -30,7 +31,7 @@ export default function PaintSceneOptions({selectedLampId,onSelectedLamp,value,o
         {lamp&&<><label className="paint-check"><input type="checkbox" checked={lamp.enabled} onChange={e=>editLamp({enabled:e.target.checked})}/>{msg('paint.lampOn')}</label>
           <p>{msg('paint.omni')}</p>
           <label className="paint-color">{msg('paint.lightColor')}<input type="color" value={lamp.color} onChange={e=>editLamp({color:e.target.value})}/></label>
-          <label>{msg('paint.lampDistance')}<input aria-label={msg('paint.lampDistance')} type="range" min=".1" max={Math.max(radius*6,paintLampDistance(lamp))} step=".1" value={paintLampDistance(lamp)} onChange={e=>editLamp(setPaintLampDistance(lamp,+e.target.value))}/><output>{Math.round(paintLampDistance(lamp))}</output></label>
+          <label>{msg('paint.lampDistance')}<RangeInput aria-label={msg('paint.lampDistance')} min=".1" max={Math.max(radius*6,paintLampDistance(lamp))} step=".1" value={paintLampDistance(lamp)} onChange={e=>editLamp(setPaintLampDistance(lamp,+e.target.value))}/><output>{Math.round(paintLampDistance(lamp))}</output></label>
           <p className="paint-help">{msg('paint.lampDistanceHelp')}</p>
           <div className="paint-button-row"><button onClick={()=>{if(!value.showLamps)set('showLamps',true);onSelectedLamp?.(lamp.id);onMove?.(lamp.id);onClose();}}>{msg('paint.moveLamp')}</button><button onClick={()=>{onPlace(lamp.id);onClose();}}>{msg('paint.placeLamp')}</button><button onClick={()=>{const pose=initialPaintLamp(onCamera?.());editLamp(pose);}}>{msg('paint.lampCamera')}</button></div>
           <button onClick={()=>{set('lamps',value.lamps.filter((_,i)=>i!==selected));setSelected(0);onSelectedLamp?.(null);}}>{msg('paint.removeLamp')}</button>

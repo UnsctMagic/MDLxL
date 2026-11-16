@@ -2,7 +2,7 @@ import { translate } from '../src/localization.js';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import useDismiss from './useDismiss.js';
-import {RangeField,parseDraftNumber,useDraftNumber} from './Fields.jsx';
+import {RangeField,RangeInput,parseDraftNumber,useDraftNumber} from './Fields.jsx';
 import ToolIcon from './ToolIcon.jsx';
 import {PAINT_BRUSH_SHAPES} from '../src/paint-brush-shapes.js';
 import {paintRampColor} from '../src/paint-palette.js';
@@ -97,7 +97,7 @@ export default function PaintStudioLayout(p){
           <section><div className="studio-segments"><Action label="Color" keys="B" aria-pressed={tool==='paint'} onClick={()=>p.onTool('paint')}/><Action label="Blend" keys="D" aria-pressed={tool==='blend'} onClick={()=>p.onTool('blend')}/><button title="Pick color (I)" aria-label="Pick color from model" data-paint-key="I" data-hotkey="paint-key:I" data-hotkey-absolute data-hotkey-badges="false" aria-pressed={tool==='sample'} onClick={()=>p.onTool('sample')}><ToolIcon name="pick" size={14}/><PaintKey>I</PaintKey></button></div>
             <div className="studio-color-row"><label className="paint-color">Color<input aria-label="Paint color" type="color" value={brush.color} onChange={e=>p.onBrush({color:e.target.value})}/></label><Action label="Related colors" keys="C" onClick={p.onPalette}/></div>
             <div className="studio-swatches">{swatches.map(color=><button key={color} aria-label={'Color '+color} style={{background:color}} onClick={()=>p.onBrush({color})}/>)}</div>
-            {p.palette&&<><div className="studio-ramp" role="group" aria-label="Related color palette">{p.palette.map((color,i)=><button key={i} aria-label={`Related shade ${i+1}: ${color}`} title={color} style={{background:color}} onClick={()=>p.onBrush({color})}/>)}</div><input key={p.palette[4]} aria-label="Color gradient" className="studio-gradient" type="range" min="0" max="1000" defaultValue="500" style={{background:`linear-gradient(to right,${p.palette.join(',')})`}} onChange={e=>p.onBrush({color:paintRampColor(p.palette,+e.target.value/1000)})}/><small>Shadow · midtone · highlight</small></>}
+            {p.palette&&<><div className="studio-ramp" role="group" aria-label="Related color palette">{p.palette.map((color,i)=><button key={i} aria-label={`Related shade ${i+1}: ${color}`} title={color} style={{background:color}} onClick={()=>p.onBrush({color})}/>)}</div><RangeInput key={p.palette[4]} aria-label="Color gradient" className="studio-gradient" min="0" max="1000" defaultValue="500" style={{background:`linear-gradient(to right,${p.palette.join(',')})`}} onChange={e=>p.onBrush({color:paintRampColor(p.palette,+e.target.value/1000)})}/><small>Shadow · midtone · highlight</small></>}
           </section>
           <section><div className="studio-brushes" role="group" aria-label="Brush shapes">{PAINT_BRUSH_SHAPES.map((shape,i)=><button key={shape.id} aria-label={shape.name+' brush'} title={shape.name+' ('+paintKeyText(bound,String(i+4))+')'} aria-pressed={p.shape===shape.id} onClick={()=>p.onShape(shape.id)}><span className={'studio-tip studio-tip-'+shape.id}/><span>{shape.name}</span><PaintKey>{String(i+4)}</PaintKey></button>)}</div></section>
         </>}

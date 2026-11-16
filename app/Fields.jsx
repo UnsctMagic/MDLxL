@@ -79,6 +79,59 @@ export function useRangeCommit({value,onCommit,onDraft}){
     onKeyDown:event=>{if(event.key==='Escape'&&pending.current!==null){event.preventDefault();event.stopPropagation();setDraft(null);}},
   };
 }
+const nativeValue=Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement?.prototype??{},'value')?.set;
+/** One step of a range input: its step attribute (1 when unset; 'any' moves 1% of the range), kept inside min and max. */
+export function rangeStepValue({value,min,max,step},direction){
+  const low=min===''||min==null?0:Number(min),high=max===''||max==null?100:Number(max),current=Number(value);
+  const size=step==null||step===''?1:step==='any'||!(Number(step)>0)?(high-low)/100:Number(step);
+  if(!(size>0)||!Number.isFinite(current))return current;
+  // Models keep 32-bit numbers (3.6 is stored as 3.5999999): a value that close to a step counts as on it.
+  const index=(current-low)/size,next=low+(direction>0?Math.floor(index+1e-5)+1:Math.ceil(index-1e-5)-1)*size;
+  return Math.min(high,Math.max(low,Number(next.toPrecision(12))));
+}
+/**
+ * Every slider: the range input with a small − and + on its ends that move it one step.
+ * Takes the props of <input type="range">. A click is one edit (the input event, then the
+ * native change event, like an arrow key); holding repeats and commits once on release.
+ * Sliders that open an edit on pointer down pass onStepStart and close it with onStepEnd.
+ * Time scrubbers (playheads, animation time) stay plain inputs marked data-time-scrub.
+ */
+export function RangeInput({ref,onStepStart,onStepEnd,className,...props}){
+  const input=useRef(null),hold=useRef(null);
+  const setRef=useCallback(node=>{input.current=node;if(typeof ref==='function')ref(node);else if(ref)ref.current=node;},[ref]);
+  const stepOnce=direction=>{
+    const node=input.current;if(!node||node.disabled)return false;
+    const next=rangeStepValue({value:node.value,min:node.getAttribute('min'),max:node.getAttribute('max'),step:node.getAttribute('step')},direction);
+    if(Object.is(next,Number(node.value)))return false;
+    nativeValue?nativeValue.call(node,String(next)):(node.value=String(next));
+    node.dispatchEvent(new Event('input',{bubbles:true}));return true;
+  };
+  const latest=useRef(null);latest.current={onStepEnd};
+  const release=useRef(()=>{
+    const held=hold.current;if(!held)return;hold.current=null;
+    clearTimeout(held.timer);clearInterval(held.repeat);for(const type of ['pointerup','pointercancel','blur'])held.view.removeEventListener(type,release);
+    if(held.moved)input.current?.dispatchEvent(new Event('change',{bubbles:true}));latest.current.onStepEnd?.();
+  }).current;
+  const press=direction=>event=>{
+    if(event.button!==0||props.disabled)return;
+    event.preventDefault();release();
+    onStepStart?.();
+    // The release is heard on the window: a button that reaches the end turns disabled under the pointer.
+    const view=event.currentTarget.ownerDocument.defaultView;
+    const held=hold.current={moved:stepOnce(direction),timer:0,repeat:0,view};
+    for(const type of ['pointerup','pointercancel','blur'])view.addEventListener(type,release);
+    held.timer=setTimeout(()=>{held.repeat=setInterval(()=>{if(stepOnce(direction))held.moved=true;},70);},400);
+  };
+  // Keyboard and screen-reader clicks have no pointer: one step, committed at once.
+  const click=direction=>event=>{if(event.detail!==0||props.disabled)return;onStepStart?.();if(stepOnce(direction))input.current?.dispatchEvent(new Event('change',{bubbles:true}));onStepEnd?.();};
+  useEffect(()=>release,[]);
+  const value=Number(props.value),low=props.min==null||props.min===''?0:Number(props.min),high=props.max==null||props.max===''?100:Number(props.max);
+  const name=props['aria-label'];
+  // Plain − and + characters: some windows hide icons inside their panels.
+  const button=(direction,glyph,word)=><button type="button" tabIndex={-1} className={`range-step range-step-${direction>0?'up':'down'}`} aria-label={name?`${word} ${name}`:word} title={word} disabled={props.disabled||(Number.isFinite(value)&&(direction>0?value>=high:value<=low))} onPointerDown={press(direction)} onClick={click(direction)}>{glyph}</button>;
+  // The input comes first so a surrounding <label> still names and focuses the slider.
+  return <span className="range-steps"><input ref={setRef} className={className} type="range" {...props}/>{button(-1,'−','One step down')}{button(1,'+','One step up')}</span>;
+}
 /**
  * A slider in the one shared look: label and value above, the slider below, optional
  * words under its two ends. onChange makes it live; onCommit makes one edit per drag
@@ -86,13 +139,13 @@ export function useRangeCommit({value,onCommit,onDraft}){
  * sit beside the value (for example a number box). Without label or output there is no
  * top row. inputProps go to the range input.
  */
-export function RangeField({label,value,min,max,step,output,ends,className='',title,onChange,onCommit,onDraft,disabled,children,inputProps,'aria-label':ariaLabel}){
+export function RangeField({label,value,min,max,step,output,ends,className='',title,onChange,onCommit,onDraft,disabled,children,inputProps,onStepStart,onStepEnd,'aria-label':ariaLabel}){
   const committed=useRangeCommit({value,onCommit:next=>onCommit?.(next),onDraft});
   const range=onCommit?committed:{value,onChange:event=>onChange?.(Number(event.target.value))};
   const shown=onCommit?committed.value:value,head=label!=null||output!==undefined||children;
   return <label className={`range-field${className?' '+className:''}`} title={title}>
     {head&&<span className="range-field-head"><span>{label}</span>{output!==undefined&&<output>{typeof output==='function'?output(shown):output}</output>}{children}</span>}
-    <input className="range-input" type="range" min={min} max={max} step={step} disabled={disabled} aria-label={ariaLabel??(typeof label==='string'?label:undefined)} {...inputProps} {...range}/>
+    <RangeInput className="range-input" min={min} max={max} step={step} disabled={disabled} aria-label={ariaLabel??(typeof label==='string'?label:undefined)} onStepStart={onStepStart} onStepEnd={onStepEnd} {...inputProps} {...range}/>
     {ends&&<span className="range-field-ends"><span>{ends[0]}</span><span>{ends[1]}</span></span>}
   </label>;
 }
