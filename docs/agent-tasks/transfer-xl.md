@@ -971,3 +971,28 @@ As built (director; no bone names anywhere in the rule, a test strips them):
   is a false one), LowPolyWorks 16 (the 13 Chaos knights, Knight of the Blazing Sun; the two Bray
   Shamans are false ones). Not separated: Cold One Riders and the Blood Dragon knight read as one
   creature.
+
+### Round 7b window as built (window coder)
+
+- **Both | Rider | Mount** buttons (caption-button look, pressed state, `data-actor`) on the donor
+  caption beside Mirror when the donor's rig offers more than one reading, and on the result caption
+  when the open model's does. Not shown for one creature. Donor choice: `sources[id].actor`; open
+  model: `base.actor`; each is one Undo step and lives in the recipe, so it is remembered per donor
+  while the window is open (and Undo, setups and the pick sheet carry it).
+- Removal rule (`partsLostByReading`): a taken part is removed when the new reading lacks the part
+  that feeds it or makes it of other joints (Rider -> Both: the hips and legs become the mount's, so
+  they go; chest, head and arms are the same joints and stay; Rider -> Mount removes everything taken
+  from the rider). One sentence under Take whole body names them ("Removed with this choice: …");
+  an Undo clears it.
+- `rigFor(model, sequence, actor)` everywhere the window reads a rig: the open model, the donor,
+  Mirror's automatic choice, the weapon arm, the donor path; `transferLooseParts` gets
+  `base.actor`. On a two-creature donor the handles are only the reading's parts
+  (`takenPoseConfig` over the reading's parts); one-creature donors are unchanged.
+- Rider seats a unit (`seatedMatch`): hips and legs taken from a 'seated' reading get `match: 1` for a
+  handle click, the parts-list switch, Take whole body and Add after.
+- Setups save `sources[*].actor` and `bodyActor` (the open model's reading) only when set; an old
+  setup loads without them. Add all keeps `base.actor` (it used to rebuild `base`) and the sources.
+  Changing the Body animation and Mirror keep the readings (they used to rebuild `base` / the
+  source entry).
+- Tests: `test/transfer-window.test.js` 23 (3 new: readings on both knights, the seat rule, setups and
+  Add all); harness story `riders` (7 checks); pictures in `out/transfer-ui/round7b/`.

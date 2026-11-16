@@ -1885,7 +1885,21 @@
     "Plays the donor view's animation after what is already taken, for the same parts.",
     "Remove this clip",
     "{0}, then {1}",
-    "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back."
+    "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.",
+    "Both",
+    "Rider",
+    "Mount",
+    "This model is two creatures. Both: the rider's upper body on the mount's legs.",
+    "The rider alone, hips and legs included. Taking it seats your unit like a rider.",
+    "The mount alone.",
+    "The rider alone, hips and legs included.",
+    "Removed with this choice: {0}.",
+    "Donor: Both",
+    "Donor: Rider",
+    "Donor: Mount",
+    "This model: Both",
+    "This model: Rider",
+    "This model: Mount"
   ],
   "paint": [
     "Citadel Paint",

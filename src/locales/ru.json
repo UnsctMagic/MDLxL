@@ -8785,5 +8785,17 @@
   "Plays the donor view's animation after what is already taken, for the same parts.": "Проигрывает анимацию вида донора после уже взятого, для тех же частей.",
   "Remove this clip": "Удалить этот клип",
   "{0}, then {1}": "{0}, затем {1}",
-  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Тяните, чтобы изменить начало (задержка); тяните край, чтобы обрезать. Двойной щелчок по краю возвращает этот конец."
+  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Тяните, чтобы изменить начало (задержка); тяните край, чтобы обрезать. Двойной щелчок по краю возвращает этот конец.",
+  "Rider": "Всадник",
+  "This model is two creatures. Both: the rider's upper body on the mount's legs.": "Эта модель — два существа. Оба: верх тела всадника на ногах скакуна.",
+  "The rider alone, hips and legs included. Taking it seats your unit like a rider.": "Только всадник, включая бёдра и ноги. Взятое усаживает вашего юнита как всадника.",
+  "The mount alone.": "Только скакун.",
+  "The rider alone, hips and legs included.": "Только всадник, включая бёдра и ноги.",
+  "Removed with this choice: {0}.": "Удалено при этом выборе: {0}.",
+  "Donor: Both": "Донор: оба",
+  "Donor: Rider": "Донор: всадник",
+  "Donor: Mount": "Донор: скакун",
+  "This model: Both": "Эта модель: оба",
+  "This model: Rider": "Эта модель: всадник",
+  "This model: Mount": "Эта модель: скакун"
 }

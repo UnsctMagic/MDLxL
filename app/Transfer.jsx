@@ -18,7 +18,7 @@ import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferLooseParts, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
-import { PART_WIDE, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
+import { PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
 import './transfer.css';
@@ -39,6 +39,14 @@ const RANGE_TIP = 'Keeps this part inside what this model\'s own animations do: 
 const AVOID_TIP = 'Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.';
 const followTip = names => translate('{0} move with this part, the way they do in this model\'s own animations.').replace('{0}', () => names.join(', '));
 const HAND_OVER = 150;
+// A model that is two creatures (a rider on a mount) is read one of three ways (round 7b).
+const ACTORS = [
+  ['both', 'Both', 'This model is two creatures. Both: the rider\'s upper body on the mount\'s legs.'],
+  ['seated', 'Rider', 'The rider alone, hips and legs included. Taking it seats your unit like a rider.'],
+  ['walker', 'Mount', 'The mount alone.'],
+];
+const OWN_RIDER_TIP = 'The rider alone, hips and legs included.';
+const removedSentence = keys => translate('Removed with this choice: {0}.').replace('{0}', () => keys.map(transferPartLabel).join(', '));
 
 /** A switch shared by several parts (All taken parts): on when all are, a dash when they differ. */
 function SharedCheck({ values, onChange, label, title, ...input }) {
@@ -126,14 +134,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const stepHistory = redo => {
     const h = history.current, from = redo ? h.redo : h.undo, to = redo ? h.undo : h.redo;
     if (!from.length) return;
-    to.push(recipeRef.current); const previous = from.pop(); recipeRef.current = previous; setRecipe(previous); setDraft(null);
+    to.push(recipeRef.current); const previous = from.pop(); recipeRef.current = previous; setRecipe(previous); setDraft(null); setWholeReason('');
   };
   // A base animation removed by an Undo in the editor falls back to the first one.
-  useEffect(() => { if (!sequences[recipe.base.sequence] && sequences.length) change({ ...recipe, base: { sequence: initialBase } }); }, [doc.revision]);
+  useEffect(() => { if (!sequences[recipe.base.sequence] && sequences.length) change({ ...recipe, base: { ...recipe.base, sequence: initialBase } }); }, [doc.revision]);
   const effective = draft || recipe;
 
   // The open model's rig as its body animation moves it. An edit (Add animation, Undo) starts afresh.
-  const rigB = useMemo(() => { clearTransferCache(model); return rigFor(model, recipe.base.sequence); }, [model, doc.revision, recipe.base.sequence]);
+  const rigB = useMemo(() => { clearTransferCache(model); return rigFor(model, recipe.base.sequence, recipe.base.actor); }, [model, doc.revision, recipe.base.sequence, recipe.base.actor]);
   const poseB = useMemo(() => { try { return rigB.ok ? suggestPoseRig(model, rigB.reference.frame, Math.max(0, rigB.reference.sequence)) : null; } catch { return null; } }, [rigB]);
 
   // Donors loaded in this window. Never tabs, never changed. 'self' is the open model.
@@ -146,7 +154,10 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const nameOf = id => id === 'self' ? 'This model' : plainName(donors.find(d => d.id === id)?.name);
   const sources = useMemo(() => new Map(donors.filter(d => d.id !== 'self').map(d => [d.id, d.model])), [donors]);
   const donorSeq = donor ? donorSeqs[donor.id] ?? firstAnimation(donor.model) : -1;
-  const rigA = useMemo(() => donor ? rigFor(donor.model, donorSeq) : null, [donor?.model, donor?.revision, donorSeq]);
+  // Each donor's reading (Both, Rider, Mount) lives in the recipe: sources[id].actor.
+  const actorOf = id => recipe.sources?.[id]?.actor || 'both';
+  const donorActor = donor ? actorOf(donor.id) : 'both';
+  const rigA = useMemo(() => donor ? rigFor(donor.model, donorSeq, donorActor) : null, [donor?.model, donor?.revision, donorSeq, donorActor]);
   const poseA = useMemo(() => { try { return rigA?.ok ? suggestPoseRig(donor.model, rigA.reference.frame, Math.max(0, rigA.reference.sequence)) : null; } catch { return null; } }, [rigA]);
   const addDonor = (record, sequence) => {
     setDonors(list => [...list.filter(d => d.id !== record.id), record]);
@@ -191,7 +202,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const mirrorOf = id => {
     const own = recipe.sources?.[id]?.mirror;
     if (own != null) return own;
-    const rig = modelOf(id) && rigFor(modelOf(id), id === donor?.id ? donorSeq : undefined);
+    const rig = modelOf(id) && rigFor(modelOf(id), id === donor?.id ? donorSeq : undefined, actorOf(id));
     return id !== 'self' && !!rig?.weaponSide && !!rigB.weaponSide && rig.weaponSide !== rigB.weaponSide;
   };
   const donorMirror = donor ? mirrorOf(donor.id) : false;
@@ -204,7 +215,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const take = key => {
     if (!donor || donorLacks(key) || donorSeq < 0) return;
     const old = recipe.parts[key];
-    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq, clip: old.source === donor.id && old.sequence === donorSeq ? old.clip ?? null : null } : { ...defaultTransferPart(rigB, key, false), source: donor.id, sequence: donorSeq } } });
+    const seat = seatedMatch(donorActor, key), match = seat != null ? { match: seat } : {};
+    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq, clip: old.source === donor.id && old.sequence === donorSeq ? old.clip ?? null : null, ...match } : { ...defaultTransferPart(rigB, key, false), source: donor.id, sequence: donorSeq, ...match } } });
     select(key);
   };
   const remove = keys => { const parts = { ...recipe.parts }; for (const key of keys) delete parts[key]; change({ ...recipe, parts }); };
@@ -213,11 +225,29 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const takeWhole = () => {
     if (!donor || donorSeq < 0 || !whole.parts.length) return;
     const parts = { ...recipe.parts };
-    for (const key of whole.parts) parts[key] = { ...defaultTransferPart(rigB, key, true), source: donor.id, sequence: donorSeq };
+    for (const key of whole.parts) { const seat = seatedMatch(donorActor, key); parts[key] = { ...defaultTransferPart(rigB, key, true), source: donor.id, sequence: donorSeq, ...(seat != null ? { match: seat } : {}) }; }
     change({ ...recipe, parts }); setWholeReason(whole.reason || ''); select('all');
   };
   const clearAll = () => { remove(Object.keys(recipe.parts)); setWholeReason(''); };
-  const toggleMirror = () => { if (donor) change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { mirror: !donorMirror } } }); };
+  const toggleMirror = () => { if (donor) change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { ...recipe.sources?.[donor.id], mirror: !donorMirror } } }); };
+  // Both, Rider or Mount for the donor: one Undo step; taken parts the new reading reads from other
+  // joints (or lacks) are removed and named.
+  const chooseActor = actor => {
+    if (!donor || actor === donorActor) return;
+    const next = rigFor(donor.model, donorSeq, actor), mine = Object.fromEntries(Object.entries(recipe.parts).filter(([, part]) => part.source === donor.id));
+    const lost = partsLostByReading(mine, rigA, next, (key, part) => sourcePartKey(key, donorMirror, !!part.flip)), parts = { ...recipe.parts };
+    for (const key of lost) delete parts[key];
+    change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { ...recipe.sources?.[donor.id], actor } }, parts });
+    setWholeReason(lost.length ? removedSentence(lost) : '');
+  };
+  // The same for the open model (base.actor): the parts list shows that reading's parts.
+  const chooseBaseActor = actor => {
+    if (actor === (recipe.base.actor || 'both')) return;
+    const lost = partsLostByReading(recipe.parts, rigB, rigFor(model, recipe.base.sequence, actor)), parts = { ...recipe.parts };
+    for (const key of lost) delete parts[key];
+    change({ ...recipe, base: { ...recipe.base, actor }, parts });
+    setWholeReason(lost.length ? removedSentence(lost) : '');
+  };
   const setPart = (key, values) => { if (recipe.parts[key]) change({ ...recipe, parts: { ...recipe.parts, [key]: Object.keys(values).every(name => PART_WIDE.includes(name)) ? withPartWide(recipe.parts[key], values) : { ...recipe.parts[key], ...values } } }); };
   const setParts = (keys, values) => { const parts = { ...recipe.parts }; for (const key of keys) if (parts[key]) parts[key] = withPartWide(parts[key], values); change({ ...recipe, parts }); };
   // Add after: the donor view's animation after what is taken, for the selected part (or every taken
@@ -225,11 +255,11 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const addAfter = () => {
     if (!canAddAfter) return;
     const keys = afterKeys, start = Math.max(0, built.length - HAND_OVER), parts = { ...recipe.parts };
-    for (const key of keys) { const part = parts[key]; parts[key] = { ...part, next: [...(part.next || []), chainedClip(part, defaultTransferPart(rigB, key, false), donor.id, donorSeq, start, HAND_OVER)] }; }
+    for (const key of keys) { const part = parts[key], seat = seatedMatch(donorActor, key); parts[key] = { ...part, next: [...(part.next || []), { ...chainedClip(part, defaultTransferPart(rigB, key, false), donor.id, donorSeq, start, HAND_OVER), ...(seat != null ? { match: seat } : {}) }] }; }
     change({ ...recipe, parts });
     select(keys.length > 1 ? 'all' : keys[0], partClips(parts[keys[0]]).length - 1);
   };
-  const setBase = sequence => change({ ...recipe, base: { sequence } });
+  const setBase = sequence => change({ ...recipe, base: { ...recipe.base, sequence } });
 
   // Built motion. Slider drags change `draft` at most once per display frame.
   const outcome = useMemo(() => {
@@ -355,13 +385,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const afterKeys = !donor || donorSeq < 0 || !rigA?.ok ? [] : (selectedTaken ? [selected] : taken).filter(key => !donorLacks(key));
   const canAddAfter = !!built && taken.length > 0 && afterKeys.length > 0;
   // Parts whose loose joints (pads, capes) can follow: `follow` does something only for these.
-  const loose = useMemo(() => { try { return transferLooseParts(model, { sequence: recipe.base.sequence }); } catch { return {}; } }, [model, doc.revision, recipe.base.sequence]);
+  const loose = useMemo(() => { try { return transferLooseParts(model, { sequence: recipe.base.sequence, actor: recipe.base.actor }); } catch { return {}; } }, [model, doc.revision, recipe.base.sequence, recipe.base.actor]);
   // The result view has handles for taken parts only; the parts list selects the others.
   const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(',')]);
   const donorPose = useMemo(() => {
     if (!poseA || !donor) return null;
     const shown = selectedPart && !donorLacks(selected) ? feedsFrom(selected) : null;
-    return { ...poseA, enabled: true, picking: null, pins: poseA.pins || [], target: shown ? partHandle(rigA, poseA, shown) : null, inspectPaths: selectedFrom && rigA.parts[selectedFrom] ? [rigA.parts[selectedFrom].joints] : [], inspectColor: HIGHLIGHT };
+    const handles = rigA.actors?.length > 1 ? takenPoseConfig(poseA, rigA, Object.keys(rigA.parts)) || poseA : poseA;
+    return { ...handles, enabled: true, picking: null, pins: handles.pins || [], target: shown ? partHandle(rigA, poseA, shown) : null, inspectPaths: selectedFrom && rigA.parts[selectedFrom] ? [rigA.parts[selectedFrom].joints] : [], inspectColor: HIGHLIGHT };
   }, [poseA, rigA, donor?.id, donorMirror, selected, selectedFrom, takenSummary(effective)]);
   const limb = selectedPart?.kind === 'limb' && selectedTaken;
   const resultPath = useMemo(() => {
@@ -370,7 +401,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, [limb, preview, liveTracks, viewSeq, selectedPart]);
   const resultOverlayPath = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : [], [resultPath, time]);
   const donorPath = useMemo(() => {
-    const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorSeq) : null;
+    const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorSeq, donorActor) : null;
     if (!rig?.parts?.[selectedFrom]) return null;
     try { return jointPath(donor.model, donorSeq, rig.parts[selectedFrom].marker); } catch { return null; }
   }, [limb, donor?.model, donorSeq, selectedFrom]);
@@ -395,7 +426,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const weapon = selectedTaken && selectedPart?.weapon && typeof selectedPart.weapon === 'object' ? selectedPart.weapon : null;
   const donorWeapon = useMemo(() => {
     if (!weapon || !selectedTaken) return null;
-    const theirs = modelOf(selectedTaken.source), rig = theirs && rigFor(theirs, selectedTaken.sequence);
+    const theirs = modelOf(selectedTaken.source), rig = theirs && rigFor(theirs, selectedTaken.sequence, actorOf(selectedTaken.source));
     return rig?.parts?.[sourcePartKey(selected, mirrorOf(selectedTaken.source), !!selectedTaken.flip)]?.weapon || null;
   }, [weapon, selectedTaken?.source, selectedTaken?.sequence, selectedTaken?.flip, selected]);
   const aimEffective = selectedTaken?.aim == null ? !!donorWeapon && clipNonLooping(selectedTaken) : selectedTaken.aim > 0.5;
@@ -595,14 +626,24 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           <div className="xf-stage">
             <section className="xf-view" aria-label="Donor">
               <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
-                {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}</div>
+                {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}
+                {donor && rigA?.actors?.length > 1 && <>
+                  <button data-hotkey="transfer:donor-both" data-hotkey-manual data-hotkey-label="Donor: Both" data-actor="both" aria-pressed={donorActor === 'both'} title={ACTORS[0][2]} onClick={() => chooseActor('both')}>Both</button>
+                  <button data-hotkey="transfer:donor-rider" data-hotkey-manual data-hotkey-label="Donor: Rider" data-actor="seated" aria-pressed={donorActor === 'seated'} title={ACTORS[1][2]} onClick={() => chooseActor('seated')}>Rider</button>
+                  <button data-hotkey="transfer:donor-mount" data-hotkey-manual data-hotkey-label="Donor: Mount" data-actor="walker" aria-pressed={donorActor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseActor('walker')}>Mount</button>
+                </>}</div>
               {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} turnCamera={turnCamera.current}
                   notes={<>{!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</>}/>
                 : <><div className="xf-preview"><div className="xf-placeholder">Choose a model under From.</div>{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</div>
                   <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} onReset={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}
             </section>
             <section className="xf-view" aria-label="Result">
-              <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
+              <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span>
+                {rigB.actors?.length > 1 && <>
+                  <button data-hotkey="transfer:model-both" data-hotkey-manual data-hotkey-label="This model: Both" data-actor="both" aria-pressed={(recipe.base.actor || 'both') === 'both'} title={ACTORS[0][2]} onClick={() => chooseBaseActor('both')}>Both</button>
+                  <button data-hotkey="transfer:model-rider" data-hotkey-manual data-hotkey-label="This model: Rider" data-actor="seated" aria-pressed={recipe.base.actor === 'seated'} title={OWN_RIDER_TIP} onClick={() => chooseBaseActor('seated')}>Rider</button>
+                  <button data-hotkey="transfer:model-mount" data-hotkey-manual data-hotkey-label="This model: Mount" data-actor="walker" aria-pressed={recipe.base.actor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseBaseActor('walker')}>Mount</button>
+                </>}</div>
               <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={viewSeq ?? preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} playbackSpeed={resultSpeed} liveNodeTracks={liveTracks} turnCamera={turnCamera.current}

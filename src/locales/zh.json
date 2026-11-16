@@ -8691,5 +8691,17 @@
   "Plays the donor view's animation after what is already taken, for the same parts.": "在已获取的内容之后，为相同部位播放来源视图的动画。",
   "Remove this clip": "移除此片段",
   "{0}, then {1}": "{0}，然后 {1}",
-  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "拖动以更改开始时间（延迟）；拖动边缘以裁剪。双击边缘可恢复该端。"
+  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "拖动以更改开始时间（延迟）；拖动边缘以裁剪。双击边缘可恢复该端。",
+  "Rider": "骑手",
+  "This model is two creatures. Both: the rider's upper body on the mount's legs.": "此模型是两个生物。两者：骑手的上半身在坐骑的腿上。",
+  "The rider alone, hips and legs included. Taking it seats your unit like a rider.": "仅骑手，包括臀部和腿。获取它会让你的单位像骑手一样坐着。",
+  "The mount alone.": "仅坐骑。",
+  "The rider alone, hips and legs included.": "仅骑手，包括臀部和腿。",
+  "Removed with this choice: {0}.": "此选择移除了：{0}。",
+  "Donor: Both": "来源：两者",
+  "Donor: Rider": "来源：骑手",
+  "Donor: Mount": "来源：坐骑",
+  "This model: Both": "此模型：两者",
+  "This model: Rider": "此模型：骑手",
+  "This model: Mount": "此模型：坐骑"
 }

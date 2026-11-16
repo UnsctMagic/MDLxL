@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { PART_WIDE, chainedClip, clipOfPart, partClips, restoredClip, trimmedClip, withClip, withPartWide, withoutClip, addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
+import { PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, restoredClip, trimmedClip, withClip, withPartWide, withoutClip, addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -261,4 +261,45 @@ test('setups carry range, follow, avoid, hang, trim and chained clips; an old se
   const plan = addAllPlan(foot, grunt, 'g', recipe, stand);
   assert.ok(plan.clips.length > 0);
   for (const clip of plan.clips) { const arm = clip.recipe.parts.armL; assert.equal(arm.next, undefined); assert.equal(arm.clip, null); assert.deepEqual([arm.range, arm.follow, arm.avoid, arm.hang, arm.future], [1, 1, 1, 1, 'kept']); }
+});
+
+// ---------------------------------------------------------------- round 7b: two creatures
+test('rigFor reads a two-creature model as Both, Rider or Mount; one creature offers Both only', { skip: missing('transfer-knight', 'transfer-nurgle-knight', 'transfer-grunt') }, () => {
+  assert.deepEqual(rigFor(load('transfer-grunt')).actors, ['both']);
+  for (const name of ['transfer-knight', 'transfer-nurgle-knight']) {
+    const model = load(name), both = rigFor(model), rider = rigFor(model, undefined, 'seated'), mount = rigFor(model, undefined, 'walker');
+    assert.deepEqual(both.actors, ['both', 'seated', 'walker'], name);
+    assert.equal(rider.actor, 'seated'); assert.equal(mount.actor, 'walker'); assert.equal(rigFor(model, undefined, 'both').actor, 'both');
+    assert.ok(rider.parts.legL && rider.parts.legR && rider.parts.hips, `${name}: the rider has hips and legs`);
+    assert.ok(!mount.parts.armL && !mount.parts.armR, `${name}: the mount has no arms`);
+    // Rider -> Both: hips and legs come from the mount now; chest, head and arms stay the rider's.
+    const taken = Object.fromEntries(Object.keys(rider.parts).map(key => [key, { source: 'k' }]));
+    const lost = partsLostByReading(taken, rider, both);
+    assert.ok(lost.includes('hips') && lost.includes('legL') && lost.includes('legR'), `${name}: ${lost}`);
+    for (const key of ['chest', 'head', 'armL', 'armR']) assert.ok(!lost.includes(key) || !both.parts[key], `${name}: ${key} stays`);
+    assert.deepEqual(partsLostByReading(taken, rider, rider), [], 'the same reading loses nothing');
+  }
+});
+
+test('Rider seats a unit: hips and legs at Pose Theirs, other parts and other readings as usual', () => {
+  for (const key of ['hips', 'legL', 'legR', 'legL2']) assert.equal(seatedMatch('seated', key), 1, key);
+  for (const key of ['chest', 'head', 'armL']) assert.equal(seatedMatch('seated', key), null, key);
+  for (const actor of ['both', 'walker', undefined]) assert.equal(seatedMatch(actor, 'hips'), null, String(actor));
+});
+
+test('setups and Add all carry the readings; an old setup gets none', { skip: missing('transfer-footman', 'transfer-knight') }, () => {
+  const foot = load('transfer-footman'), knight = load('transfer-knight');
+  const attack = knight.Sequences.findIndex(s => /^attack/i.test(s.Name)), stand = foot.Sequences.findIndex(s => s.Name === 'Stand - 1');
+  const recipe = { base: { sequence: stand, actor: 'both' }, length: null, sources: { k: { actor: 'seated' } }, parts: { hips: { source: 'k', sequence: attack, match: 1 } } };
+  const describe = id => id === 'k' ? { kind: 'file', path: 'D:/models/knight.mdx', name: 'knight.mdx', model: knight } : null;
+  const setup = parseSetup(JSON.stringify(setupFromRecipe(recipe, foot, describe, 'Seat')));
+  assert.equal(setup.sources.k.actor, 'seated'); assert.equal(setup.bodyActor, 'both');
+  const back = recipeFromSetup(setup, foot, transferRig(foot), { k: { id: 'file:k', model: knight } }, 0).recipe;
+  assert.deepEqual(back.base, { sequence: stand, actor: 'both' }); assert.deepEqual(back.sources, { 'file:k': { actor: 'seated' } });
+  const old = { ...setup, sources: { k: { kind: 'file', path: 'D:/models/knight.mdx', name: 'knight.mdx', mirror: null } } }; delete old.bodyActor;
+  const plain = recipeFromSetup(old, foot, transferRig(foot), { k: { id: 'file:k', model: knight } }, 0).recipe;
+  assert.deepEqual(plain.base, { sequence: stand }); assert.deepEqual(plain.sources, {});
+  const plan = addAllPlan(foot, knight, 'k', recipe, stand);
+  assert.ok(plan.clips.length > 0);
+  for (const clip of plan.clips) { assert.equal(clip.recipe.base.actor, 'both'); assert.deepEqual(clip.recipe.sources, { k: { actor: 'seated' } }); }
 });

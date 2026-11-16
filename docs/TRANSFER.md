@@ -18,6 +18,7 @@ with the playback controls under them, the parts on the right, the buttons at th
 | Donor and result views | The donor plays the chosen animation; the result shows the open model with the taken parts. Click a part's handle on the donor to take that part. The result shows handles only for taken parts; click one to select it. Turning one view turns the other the same way; zoom and pan stay with each view, and the horizon stays level. Each view plays on its own clock. |
 | Playback strip | Under each view: Play / Pause, a thin track to drag through the animation, a viewing Speed (25, 50, 100 or 200%; it only changes how fast the view plays, never the animation) and a dropdown of what the view shows. The donor's dropdown lists its animations. The result's lists **New animation** (the one being built) and then the model's own animations, only to look at: while one is shown the handles and path are off and the timeline is dimmed, and using the timeline, a part switch or a slider goes back to New animation. The small ↺ button at the end of the scrub track resets that view: the model is framed again and both views turn back to the starting angle. |
 | Mirror | On the donor view's caption: swaps left and right for the whole donor. It switches itself on when the two models hold their weapon in opposite hands. |
+| Both / Rider / Mount | On a view's caption when its model is two creatures (a rider on a mount). **Both** reads the rider's upper body on the mount's legs, **Rider** the rider alone with its own hips and legs, **Mount** the mount alone. On the donor it chooses what you take from; on the result it chooses which parts of this model are listed. Taken parts the new choice reads from the other creature (or lacks) are removed and named. One Undo step. |
 | Timeline | Under the views: the time and a ruler to click or drag through the new animation. Below it one lane for the body animation (its loops drawn as repeats) and one lane for each clip group: parts whose clip comes from the same animation with the same Delay, Speed and trim share a lane, named animation first, like `Attack - 1 - Grunt` (point at it for the full name and its parts). Clips added with **Add after** get lanes of their own below the first ones. Drag a clip sideways to change when it starts (Delay). Drag either edge to trim it, like a video editor: the part you keep stays where it is in time; a cut end is drawn dashed; double-click an edge to put that end back. The slopes at its ends are its Ease. Click a lane's name to select that clip of its part (a lane of several parts selects All taken parts); the sliders then edit that clip. A lane added with Add after has a small × that removes that clip; Delete does the same while its lane is selected. Yellow diamonds are moment fixes: click one to go there, Delete removes it. |
 | Drag the hand or foot | With a taken arm, leg, wing or tail selected (its first clip), drag its hand or foot handle on the result to where it should be at the moment shown. **Whole movement** turns the whole movement (it sets Raise, Turn and, if needed, Roll); **This moment** fixes only that moment, fading in and out around it, and shows a diamond on the timeline. **Clear fixes** removes the part's moment fixes. |
 | Weapon switches | On an arm that holds a weapon: **Both hands on the weapon** (shown when the model holds it with two hands; the other arm's row then says it holds the weapon), **Keep weapon above the ground**, and **Point weapon like theirs** (when the donor's arm holds a weapon too). |
@@ -44,6 +45,14 @@ with the playback controls under them, the parts on the right, the buttons at th
 | Ctrl+Z / Ctrl+Y | Step through your changes inside the window. |
 
 Double-click a slider to put its default back.
+
+## A rider on a mount
+
+A model that is two creatures, such as the Knight or a Chaos knight, shows **Both | Rider | Mount** on
+its view. To make a unit sit like a rider: choose the knight under From, choose **Rider**, then **Take
+whole body**. Hips and legs take the rider with Pose at Theirs, so the unit takes the rider's seated
+stance; its legs are not kept on the ground. **Both** gives the rider's arms and upper body only when
+the unit walks on two legs and the mount on four.
 
 ## Two examples
 

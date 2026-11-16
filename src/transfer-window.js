@@ -47,9 +47,25 @@ export function takenSummary(recipe) {
 // ---------------------------------------------------------------- engine hooks
 // The round 2 engine hooks (docs/agent-tasks/transfer-xl.md, R2, R3, R5), as the window reads them.
 
-/** The rig as the given animation moves it (R2: transferRig(model, { sequence })). */
-export function rigFor(model, sequence) {
-  return transferRig(model, { sequence });
+/** The rig as the given animation moves it (R2: transferRig(model, { sequence })), in one reading of a
+ * model that is two creatures (round 7b): 'both' (default), 'seated' (the rider) or 'walker' (the mount).
+ * `rig.actors` lists the readings the model offers; a one-creature model offers 'both' only. */
+export function rigFor(model, sequence, actor) {
+  return transferRig(model, actor && actor !== 'both' ? { sequence, actor } : { sequence });
+}
+
+/** Taken parts that a new reading changes: the keys whose part is missing or made of other joints in
+ * `next` than in `before` (rider hips become the mount's hips). `feeds(key, part)` gives the rig part
+ * key that feeds a taken part (the donor side for a donor; the key itself for the open model). */
+export function partsLostByReading(parts, before, next, feeds = key => key) {
+  const same = (a, b) => !!a && !!b && a.joints.join(',') === b.joints.join(',');
+  return Object.entries(parts || {}).filter(([key, part]) => { const from = feeds(key, part); return from != null && !same(before?.parts?.[from], next?.parts?.[from]); }).map(([key]) => key);
+}
+
+/** Readings with Pose at Theirs for hips and legs: taking hips and legs from the rider alone seats a
+ * unit (the seat is the rider's stance itself, round 7b). */
+export function seatedMatch(actor, key) {
+  return actor === 'seated' && (key === 'hips' || /^leg/.test(key)) ? 1 : null;
 }
 
 /** The parts "Take whole body" takes, and a sentence when the lower body is left out
@@ -135,7 +151,7 @@ export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
     if (!name || !sequence.Interval || leftOut(name) || have.has(key)) return;
     have.add(key);
     const parts = Object.fromEntries(Object.entries(recipe.parts).map(([part, value]) => [part, firstClipOnly(value.source === sourceId ? { ...value, sequence: index, clip: null } : value)]));
-    clips.push({ sequence: index, name, recipe: { ...recipe, base: { sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts } });
+    clips.push({ sequence: index, name, recipe: { ...recipe, base: { ...recipe.base, sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts } });
   });
   return { clips };
 }
@@ -263,7 +279,7 @@ export function setupFromRecipe(recipe, model, describe, name) {
   const saved = clip => {
     const source = describe(clip.source);
     if (!source) return null;
-    sources[clip.source] ||= { kind: source.kind, path: source.path || null, name: source.name || '', mirror: recipe.sources?.[clip.source]?.mirror ?? null };
+    sources[clip.source] ||= { kind: source.kind, path: source.path || null, name: source.name || '', mirror: recipe.sources?.[clip.source]?.mirror ?? null, ...(recipe.sources?.[clip.source]?.actor ? { actor: recipe.sources[clip.source].actor } : {}) };
     const { source: _id, sequence, next: _next, ...values } = clip;
     return { ...values, source: clip.source, animation: source.model?.Sequences?.[sequence]?.Name || '' };
   };
@@ -273,7 +289,7 @@ export function setupFromRecipe(recipe, model, describe, name) {
     const next = (Array.isArray(part.next) ? part.next : []).map(saved).filter(Boolean);
     parts[key] = next.length ? { ...first, next } : first;
   }
-  return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', length: recipe?.length ?? null, sources, parts };
+  return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', ...(recipe?.base?.actor ? { bodyActor: recipe.base.actor } : {}), length: recipe?.length ?? null, sources, parts };
 }
 
 /** Reads a setup's text; throws a short sentence when it is not one. */
@@ -290,6 +306,11 @@ export function parseSetup(text) {
 export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
   const left = [], parts = {}, sources = {};
   const body = nameIndex(model, setup.body);
+  // A source's Mirror and reading (Both, Rider, Mount) when the setup has them; an old setup has neither.
+  const keepSource = (savedId, id) => {
+    const saved = setup.sources?.[savedId], value = { ...(saved?.mirror != null ? { mirror: saved.mirror } : {}), ...(saved?.actor ? { actor: saved.actor } : {}) };
+    if (Object.keys(value).length) sources[id] = { ...sources[id], ...value };
+  };
   for (const [key, part] of Object.entries(setup.parts || {})) {
     const donor = donors[part.source];
     if (!rig?.parts?.[key]) { left.push(`part:${key}`); continue; }
@@ -297,8 +318,7 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
     const sequence = nameIndex(donor.model, part.animation);
     if (sequence < 0) { left.push(`animation:${part.animation}`); continue; }
     const { source: _id, animation: _name, next: savedNext, ...values } = part;
-    const mirror = setup.sources?.[part.source]?.mirror;
-    if (mirror != null) sources[donor.id] = { mirror };
+    keepSource(part.source, donor.id);
     // Chained clips: one whose donor or animation is missing is left out and named.
     const next = [];
     for (const clip of Array.isArray(savedNext) ? savedNext : []) {
@@ -308,10 +328,9 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
       if (index < 0) { left.push(`animation:${clip.animation}`); continue; }
       const { source: _cid, animation: _cname, next: _deeper, ...clipValues } = clip;
       next.push({ ...clipValues, source: from.id, sequence: index });
-      const clipMirror = setup.sources?.[clip.source]?.mirror;
-      if (clipMirror != null) sources[from.id] = { mirror: clipMirror };
+      keepSource(clip.source, from.id);
     }
     parts[key] = next.length ? { ...values, source: donor.id, sequence, next } : { ...values, source: donor.id, sequence };
   }
-  return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase }, length: setup.length ?? null, sources, parts }, left: [...new Set(left)] };
+  return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase, ...(setup.bodyActor ? { actor: setup.bodyActor } : {}) }, length: setup.length ?? null, sources, parts }, left: [...new Set(left)] };
 }

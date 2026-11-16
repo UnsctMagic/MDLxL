@@ -8795,5 +8795,17 @@
   "Plays the donor view's animation after what is already taken, for the same parts.": "Reproduce la animación de la vista del donante después de lo ya tomado, para las mismas partes.",
   "Remove this clip": "Quitar este clip",
   "{0}, then {1}": "{0}, luego {1}",
-  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Arrastra para cambiar cuándo empieza (retraso); arrastra un borde para recortarlo. Doble clic en un borde devuelve ese extremo."
+  "Drag to change when it starts (Delay); drag an edge to trim it. Double-click an edge to put that end back.": "Arrastra para cambiar cuándo empieza (retraso); arrastra un borde para recortarlo. Doble clic en un borde devuelve ese extremo.",
+  "Rider": "Jinete",
+  "This model is two creatures. Both: the rider's upper body on the mount's legs.": "Este modelo son dos criaturas. Ambos: la parte superior del jinete sobre las patas de la montura.",
+  "The rider alone, hips and legs included. Taking it seats your unit like a rider.": "El jinete solo, con caderas y piernas. Tomarlo sienta a tu unidad como un jinete.",
+  "The mount alone.": "La montura sola.",
+  "The rider alone, hips and legs included.": "El jinete solo, con caderas y piernas.",
+  "Removed with this choice: {0}.": "Quitado con esta elección: {0}.",
+  "Donor: Both": "Donante: ambos",
+  "Donor: Rider": "Donante: jinete",
+  "Donor: Mount": "Donante: montura",
+  "This model: Both": "Este modelo: ambos",
+  "This model: Rider": "Este modelo: jinete",
+  "This model: Mount": "Este modelo: montura"
 }

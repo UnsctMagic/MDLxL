@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5'), shots7 = path.join(out, 'round7');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5'), shots7 = path.join(out, 'round7'), shots7b = path.join(out, 'round7b');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -915,6 +915,143 @@ async function round7Story() {
   } finally { await d.close(); }
 }
 
+// Round 7b: a model that is two creatures (a rider on a mount) is read as Both, Rider or Mount, on the
+// donor (sources[id].actor) and on the open model (base.actor). Real mouse input; the window's recipe
+// through the test hook; the result's motion through a checksum of its preview.
+async function ridersStory() {
+  const recipeOf = page => page.evaluate(() => window.__mdlxl.transfer().recipe);
+  const motion = page => page.evaluate(() => {
+    const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root).props;
+    let sum = 0, n = 0;
+    const add = track => { for (const key of track?.Keys || []) { const v = key.Vector || []; for (let i = 0; i < v.length; i++) sum += v[i] * (++n % 97 + 1); } };
+    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) { add(bone.Rotation); add(bone.Translation); }
+    for (const item of p.liveNodeTracks || []) add(item.track);
+    return Math.round(sum * 1000) / 1000;
+  });
+  const { rigFor } = await import('../src/transfer-window.js');
+  const chooser = (s, view) => s.view(view).locator('.xf-caption button[data-actor]');
+  const pick = async (s, view, actor) => { await s.view(view).locator(`.xf-caption button[data-actor="${actor}"]`).click(); await s.page.waitForTimeout(1500); };
+  const checked = async (dialog, key) => dialog.locator(`input[data-part-switch="${key}"]`).isChecked();
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 19 riders.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor riders.mdx'), knight = copyModel('transfer-knight', 'knight donor riders.mdx');
+  const knightModel = await readModel(knight), attack = knightModel.Sequences.find(q => /^attack/i.test(q.Name))?.Name;
+  assert.ok(attack, 'riders: the Knight has an attack');
+  let s = await session(footman, 'riders'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    await s.openDonor(grunt);
+    assert.equal(await chooser(s, 'Donor').count(), 0, 'riders: no chooser for the Grunt (one creature)');
+    assert.equal(await chooser(s, 'Result').count(), 0, 'riders: and none for the Footman');
+    await s.openDonor(knight); await s.animation(attack);
+    assert.equal(await chooser(s, 'Donor').count(), 3, 'riders: Both, Rider and Mount for the Knight');
+    assert.equal(await s.view('Donor').locator('button[data-actor="both"]').getAttribute('aria-pressed'), 'true', 'riders: Both at first');
+    await s.shot('01-chooser-on-the-donor-both', shots7b);
+    // Both + Take whole body: the rider's upper body; the legs stay (two legs against four).
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+    for (const key of ['chest', 'head', 'armL', 'armR']) assert.equal(await checked(dialog, key), true, `riders: Both takes ${key}`);
+    for (const key of ['hips', 'legL', 'legR']) assert.equal(await checked(dialog, key), false, `riders: Both leaves ${key}`);
+    assert.match(await s.parts().locator('.xf-reason').innerText(), /number of legs/, 'riders: the sentence about the legs shows');
+    results.checks.push('riders: no chooser for the Grunt; the Knight offers Both, Rider, Mount; Both + Take whole body takes chest, head and arms and says why the legs stay');
+    // Rider + Take whole body: seven parts, hips and legs at Pose Theirs, the unit sits.
+    const standing = await motion(page);
+    await pick(s, 'Donor', 'seated');
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(2000);
+    let recipe = await recipeOf(page);
+    const knightId = Object.keys(recipe.sources).find(id => /knight donor riders/.test(id));
+    assert.equal(Object.keys(recipe.parts).length, 7, `riders: Rider + Take whole body takes seven parts (${Object.keys(recipe.parts)})`);
+    assert.equal(recipe.sources[knightId].actor, 'seated', 'riders: the donor reads as the rider (sources[id].actor)');
+    for (const key of ['hips', 'legL', 'legR']) assert.equal(recipe.parts[key].match, 1, `riders: ${key} takes the rider at Pose Theirs`);
+    assert.notEqual(await motion(page), standing, 'riders: the result changes: the legs take the seat');
+    await dialog.locator('button[data-part="hips"]').click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.locator('input[data-field="match"]').inputValue(), '100', 'riders: the Pose slider shows Theirs');
+    await s.shot('02-rider-whole-body-footman-seated', shots7b);
+    const before = await s.count();
+    await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(1500);
+    assert.equal(await s.count(), before + 1, 'riders: Add animation adds the seated animation');
+    results.checks.push('riders: Rider + Take whole body takes seven parts with sources[knight].actor = seated and hips and legs at Pose Theirs; the result changes; Add animation adds it');
+    // Rider -> Both removes hips and legs with the sentence; Undo brings them back.
+    await pick(s, 'Donor', 'both');
+    for (const key of ['hips', 'legL', 'legR']) assert.equal(await checked(dialog, key), false, `riders: Both removes ${key}`);
+    for (const key of ['chest', 'head', 'armL', 'armR']) assert.equal(await checked(dialog, key), true, `riders: and keeps ${key}`);
+    assert.match(await s.parts().locator('.xf-reason').innerText(), /^Removed with this choice: .*Hips/, 'riders: one sentence names what was removed');
+    await dialog.locator('.xf-caption').first().click(); await page.keyboard.press('Control+z'); await page.waitForTimeout(1500);
+    recipe = await recipeOf(page);
+    assert.equal(recipe.sources[knightId].actor, 'seated', 'riders: Undo puts Rider back');
+    for (const key of ['hips', 'legL', 'legR']) assert.equal(await checked(dialog, key), true, `riders: and ${key}`);
+    results.checks.push('riders: Rider -> Both removes hips and legs and names them; one Undo brings Rider and them back');
+    // Mount: the donor's handles are the mount's only.
+    await pick(s, 'Donor', 'walker');
+    const mountRig = rigFor(knightModel, knightModel.Sequences.findIndex(q => q.Name === attack), 'walker'), mountJoints = new Set(Object.values(mountRig.parts).flatMap(part => part.joints));
+    const config = (await s.probe('Donor')).config;
+    assert.ok(config.chains.length > 0, 'riders: the mount has handles');
+    for (const chain of config.chains) assert.ok(mountJoints.has(chain.end) || mountJoints.has(chain.root), `riders: the handle on joint ${chain.end} belongs to the mount`);
+    assert.ok(!Object.values(mountRig.parts).some(part => /^arm/.test(part.key)), 'riders: the mount has no arms');
+    await s.shot('03-mount', shots7b);
+    results.checks.push(`riders: Mount shows the mount's ${config.chains.length} handles only`);
+    await s.noCrash('riders');
+    // One Undo in the editor removes the added animation.
+    await dialog.getByRole('button', { name: 'Cancel' }).click(); await page.waitForTimeout(500);
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(800);
+    assert.equal(await s.count(), before, 'riders: one Undo removes the added animation');
+    results.checks.push('riders: one Undo in the editor removes the seated animation');
+  } finally { await s.close(); }
+
+  // The Nurgle knight as the open model: the chooser in the result caption changes the parts list.
+  const nurgle = copyModel('transfer-nurgle-knight', 'TEST TRANSFER 20 knight open.mdx'), knight2 = copyModel('transfer-knight', 'knight donor open.mdx');
+  const oldSetup = path.join(out, 'old setup r7b.mdlxl-preset');
+  s = await session(nurgle, 'riders-open'); ({ page, dialog } = s);
+  try {
+    await openTransfer(s);
+    assert.equal(await chooser(s, 'Result').count(), 3, 'riders: the Nurgle knight shows the chooser on the result');
+    const legs = () => dialog.locator('button[data-part^="leg"]').count();
+    const bothLegs = await legs();
+    assert.equal(bothLegs, 4, 'riders: Both lists the mount\'s four legs');
+    await pick(s, 'Result', 'seated');
+    assert.equal(await legs(), 2, 'riders: Rider lists two legs');
+    assert.equal((await recipeOf(page)).base.actor, 'seated', 'riders: base.actor');
+    await s.openDonor(knight2); await s.animation(attack);
+    await pick(s, 'Donor', 'seated');
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(2000);
+    await s.shot('04-knight-as-the-open-model', shots7b);
+    results.checks.push('riders: with the Nurgle knight open, the result caption chooser switches the parts list (Both: four legs, Rider: two)');
+    // A setup round trip keeps both readings.
+    const keep = await recipeOf(page);
+    await dialog.getByRole('button', { name: 'Save as…' }).click();
+    await dialog.getByLabel('Preset name').fill('Two readings');
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(300);
+    await dialog.getByRole('button', { name: 'Clear all' }).click(); await page.waitForTimeout(300);
+    await pick(s, 'Result', 'both');
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups button', { hasText: 'Two readings' }).click(); await page.waitForTimeout(2500);
+    const back = await recipeOf(page);
+    assert.deepEqual(back.base, keep.base, 'riders: the setup keeps base.actor');
+    assert.deepEqual(back.sources, keep.sources, 'riders: and sources[*].actor');
+    assert.deepEqual(back.parts, keep.parts, 'riders: and the parts');
+    // An old setup (no readings) loads as before: no actor fields.
+    fs.writeFileSync(oldSetup, JSON.stringify({ kind: 'mdlxl-transfer-setup', version: 1, name: 'Old knight', body: back.base.sequence != null ? (await readModel(nurgle)).Sequences[back.base.sequence].Name : '', length: null,
+      sources: { k: { kind: 'file', path: knight2, name: 'knight donor open.mdx', mirror: null } }, parts: { head: { amount: 1, offset: [0, 0, 0], start: 0, speed: 1, blend: 150, source: 'k', animation: attack } } }));
+    await stubDialogs(s.app, { open: oldSetup });
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }).click(); await page.waitForTimeout(2500);
+    const plain = await recipeOf(page);
+    assert.equal(plain.base.actor, undefined, 'riders: an old setup sets no reading for the open model');
+    assert.ok(Object.values(plain.sources).every(source => source.actor === undefined), 'riders: nor for its donor');
+    assert.deepEqual(Object.keys(plain.parts), ['head'], 'riders: and takes what it says');
+    results.checks.push('riders: a setup keeps base.actor and sources[*].actor; an old setup loads without them');
+    await s.noCrash('riders open');
+  } finally { await s.close(); }
+
+  // Dark theme: the Footman seated by the Knight's rider.
+  const footman3 = copyModel('transfer-footman', 'TEST TRANSFER 21 riders dark.mdx'), knight3 = copyModel('transfer-knight', 'knight donor dark.mdx');
+  const d = await session(footman3, 'riders-dark', { preferences: { theme: 'dark' } });
+  try {
+    await openTransfer(d); await d.openDonor(knight3); await d.animation(attack);
+    await pick(d, 'Donor', 'seated');
+    await d.parts().getByRole('button', { name: 'Take whole body' }).click(); await d.page.waitForTimeout(2000);
+    await d.shot('05-dark', shots7b);
+    await d.noCrash('riders dark');
+  } finally { await d.close(); }
+}
+
 // The FX window on the same Footman, for comparing density.
 async function fx() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER FX.mdx');
@@ -1061,11 +1198,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }
