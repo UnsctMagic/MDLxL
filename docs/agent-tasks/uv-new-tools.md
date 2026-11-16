@@ -1,7 +1,10 @@
 # UV Wrapper: six new tools
 
-State: built and tested on local branch `claude/uv-new-tools`, rebased on `main` 0f8e4d99
-(the PR #656 layout: projection row without title, map tools in the title bar). Not online.
+State: built and tested on local branch `claude/uv-new-tools`, built on `main` 0f8e4d99
+(the PR #656 layout: projection row without title, map tools in the title bar), then
+rebased cleanly on `main` 6c7873b9 (click sweep #657, button flash #659); the UV unit,
+locale and icon tests pass after the rebase (54/54). The test build predates that rebase
+(same UV code). Not online.
 Owner: Claude Code. Test tier: new feature (tests prove each tool + source suite).
 
 ## Owner request (15 Nov 2026, exact words)
