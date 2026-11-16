@@ -542,6 +542,8 @@
   "All per-animation RGB tracks are saved.": "保存所有按动画划分的 RGB 轨道。",
   "Choose an animation for each geoset’s RGB at its start frame.": "为每个地理集选择动画，并使用其起始帧的 RGB。",
   "Sort My Mess": "整理混乱",
+  "Bundle Textures": "打包纹理",
+  "Save the model’s texture files in a ZIP": "将模型的纹理文件保存为 ZIP",
   "Curve": "弯曲",
   "Twist": "扭转",
   "Roll": "卷曲",

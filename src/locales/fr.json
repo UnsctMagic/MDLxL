@@ -540,6 +540,8 @@
   "All per-animation RGB tracks are saved.": "Toutes les pistes RGB par animation sont enregistrées.",
   "Choose an animation for each geoset’s RGB at its start frame.": "Choisissez une animation pour le RGB de chaque géoset à son image initiale.",
   "Sort My Mess": "Sort My Mess",
+  "Bundle Textures": "Regrouper les textures",
+  "Save the model’s texture files in a ZIP": "Enregistre les fichiers de texture du modèle dans un ZIP",
   "Curve": "Courber",
   "Twist": "Tordre",
   "Roll": "Enrouler",
