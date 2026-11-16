@@ -38,7 +38,7 @@ import GlowStageTools from './GlowStageTools.jsx';
 import {findHeroGlow,glowLayout,glowStart,glowUp,heroGlowFaults,repairHeroGlow,weaponChoices} from '../src/glow-up.js';
 import './resource-editors.css';
 import './particle-editor.css';
-import { gamePathKey } from '../src/game-path.js';
+import { gamePathKey, effectPicturePath } from '../src/game-path.js';
 import { hasDesktop, resolveGameFiles } from './desktop.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
@@ -171,9 +171,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const usePicture=async asset=>{
       const bytes=new Uint8Array(asset.bytes);
       if(bytes.byteLength>MAX_PARTICLE_PICTURE_BYTES)throw Error('Choose a picture smaller than 4 MiB for a portable preset.');
-      const name=asset.name||asset.path;
+      // A game picture from the Library is named by its .blp path; a file the user loads keeps its own name.
+      const native=asset.libraryKey&&asset.source!=='custom',name=native?effectPicturePath(asset.name||asset.path):asset.name||asset.path;
       if(!/\.(blp|dds|tga)$/i.test(name||''))throw Error('Choose a .blp, .dds or .tga picture to keep its original texture path.');
-      const nextAsset={...asset,name,bytes,...(asset.libraryKey&&asset.source!=='custom'?{}:{origin:'particle-custom',source:'parts'})};
+      const nextAsset={...asset,name,bytes,...(native?{}:{origin:'particle-custom',source:'parts'})};
       if(latest.current.activeDoc!==activeDoc||latest.current.emitterId!==emitterId)return;
       cancel();const result=apply('Choose particle picture',m=>{let index=m.Textures.findIndex(t=>t.Image===name);if(index<0)index=m.Textures.push({Image:name,ReplaceableId:0,Flags:0})-1;const emitter=m.ParticleEmitters2.find(n=>n.ObjectId===emitterId);emitter.TextureID=index;emitter.ReplaceableId=0;},['Nodes','Textures']);
       if(result===false)return;const next=new Map(assets);if(!next.has(gamePathKey(name)))next.set(gamePathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);await fitFrames(nextAsset,name);

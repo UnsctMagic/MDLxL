@@ -2,3 +2,5 @@
 export const gamePathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 export const toBackslashes = value => String(value || '').replaceAll('/', '\\');
 export const toForwardSlashes = value => String(value || '').replaceAll('\\', '/');
+/** Effect tools (FX, EMTR) name a game picture by its .blp path; the game finds a stored .dds itself. */
+export const effectPicturePath = value => String(value || '').replace(/\.dds$/i, '.blp');
