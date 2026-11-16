@@ -371,7 +371,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     for (let parent = tree.parentOf(limb[0]); parent != null && joints.has(parent) && !trunkIds.has(parent) && chainsBelow(parent) === 1; parent = tree.parentOf(parent)) limb.unshift(parent);
     if (!limb.length) continue;
     const tip = chain.end !== endJoint ? pos(chain.end) : null;
-    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip });
+    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip, line: ids });
   }
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
@@ -403,6 +403,8 @@ function readRig(model, info, skeleton, wanted = 'both') {
     const length = chainLength([...limb.joints.map(pos), ...(limb.tip ? [limb.tip] : [])]);
     parts[key] = { key, kind: 'limb', side: limb.side, joints: limb.joints, anchor: nearestTrunk(limb.joints[0]), marker: last, length, weapon: limb.kind === 'arm' ? weaponShape(model, info, ref, last, length, named) : null };
     Object.defineProperty(parts[key], 'tip', { value: limb.tip, enumerable: false });
+    // The joints the limb's own line runs through (its top, its bend, its end).
+    Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
   });
@@ -555,7 +557,7 @@ export function defaultTransferPart(recipientRig, partKey, wholeBody = false) {
     source: null, sequence: null, from: null, flip: false, amount: 1, match: 0,
     offset: [0, 0, 0], start: 0, speed: 1, loop: null, blend: wholeBody ? 0 : 150, plant: true, travel: 1,
     fixes: [], grip: null, clear: null, aim: null,
-    range: 0, follow: 0, avoid: 0, hang: 0, clip: null,
+    range: 0, follow: 0, avoid: 0, hang: 0, clip: null, frame: 0,
   };
 }
 
@@ -995,7 +997,10 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const spread = entry.spread ? deltaOf(entry.theirs.joints.length - 1) : null;
       entry.own.joints.forEach((id, i) => {
         if (entry.skip.has(id)) return;
-        const delta = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
+        const turned = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
+        // In the limb's own frame: the donor's turn is carried over as a turn of this limb from its own
+        // rest direction, so a twist along the donor's bone stays a twist along this one.
+        const delta = entry.frame && entry.own.kind === 'limb' ? mul(inv(entry.toTheirs[i]), turned, entry.toTheirs[i]) : turned;
         setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
       // Shift: how far the donor part's first joint sits from where riding its anchor would put
@@ -1184,7 +1189,23 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const convert = q => mul(turn, mirror ? mirrorQ(q) : q, turnInv);
   const convertV = v => (mirror ? mirrorV(v) : v.clone()).applyQuaternion(turn);
   const posA = id => worldPos(donor, refA, id), posB = id => worldPos(recipient, refB, id);
-  const pointsA = theirs.joints.map(posA), pointsB = own.joints.map(posB);
+  // A limb's line runs through its top, bend and end. A joint between two of those whose pivot
+  // lies far off that line (kept at the body's middle, say) is read as lying on it: its pivot
+  // says where it turns, not where the limb is.
+  const onLine = (part, points) => {
+    if (part.kind !== 'limb' || !part.line) return points;
+    const on = part.joints.map(id => part.line.includes(id)), out = points.map(p => p.clone());
+    for (let i = 1; i < points.length - 1; i++) {
+      if (on[i]) continue;
+      let a = i - 1, b = i + 1; while (a >= 0 && !on[a]) a--; while (b < points.length && !on[b]) b++;
+      if (a < 0 || b >= points.length) continue;
+      const span = points[b].clone().sub(points[a]), direct = span.length();
+      if (direct < 1e-6 || points[i].distanceTo(points[a]) + points[i].distanceTo(points[b]) <= 1.5 * direct) continue;
+      out[i] = points[a].clone().addScaledVector(span, Math.max(0, Math.min(1, points[i].clone().sub(points[a]).dot(span) / (direct * direct))));
+    }
+    return out;
+  };
+  const pointsA = onLine(theirs, theirs.joints.map(posA)), pointsB = onLine(own, own.joints.map(posB));
   // The tip (an end attachment such as Hand Right Ref) counts toward arc length,
   // so a two-joint forearm still maps to the recipient's forearm.
   const map = jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
@@ -1199,10 +1220,14 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     return next && next.distanceTo(p) > 0.02 * size ? convertDir(next.clone().sub(p)) : null;
   });
   const dirB = dirs(pointsB, own.tip, v => v, rigB.hipHeight), dirA = dirs(pointsA, theirs.tip, convertV, rigA.hipHeight);
+  // A joint with no direction of its own takes the one that follows it, the last one the one before.
+  for (let j = dirA.length - 2; j >= 0; j--) if (!dirA[j] && dirA[j + 1]) dirA[j] = dirA[j + 1];
   for (let j = dirA.length - 1; j > 0; j--) if (!dirA[j]) dirA[j] = dirA[j - 1];
   const match = Math.max(0, Math.min(1, part.match ?? defaultTransferPart(rigB, key).match));
-  const align = [];
+  const align = [], toTheirs = [];
   own.joints.forEach((id, i) => { align.push(dirB[i] ? qPow(arc(dirB[i], dirA[map[i]]), match) : (align[i - 1] || new Quaternion()).clone()); });
+  // The turn from this limb's rest direction to the donor's, joint by joint (for `frame`).
+  own.joints.forEach((id, i) => { toTheirs.push(dirB[i] ? arc(dirB[i], dirA[map[i]]) : (toTheirs[i - 1] || new Quaternion()).clone()); });
   const looping = part.loop ?? !seq.NonLooping;
   // Trim: only the part of the donor animation between clip[0] and clip[1] (ms from its start).
   const whole = Math.max(0, seq.Interval[1] - seq.Interval[0]), cut = Array.isArray(part.clip) ? part.clip.map(Number) : [];
@@ -1232,7 +1257,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     start: Number(part.start) || 0, first: seq.Interval[0] + trim[0], length: Math.max(0, trim[1] - trim[0]),
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
-    range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang),
+    range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang), frame: share(part.frame) > 0, toTheirs,
     scale: sizeRatio(rigB, rigA), convert, convertV, map, spread, align,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),

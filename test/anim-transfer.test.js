@@ -865,3 +865,35 @@ test('R9 a unit made into a rider from a dragon\'s rider stays upright and bobs 
   assert.ok(riseA > 3, `the dragon's rider rises and falls (${riseA.toFixed(1)})`);
   assert.ok(rise > 0.6 * riseA && rise < 1.6 * riseA, `the Grunt rises and falls ${rise.toFixed(1)}, the rider ${riseA.toFixed(1)}`);
 });
+
+// A unit made into a rider: the whole body from the donor's rider, hips and legs with Pose at Theirs.
+const asRider = (rec, donor, name, arms = {}) => {
+  const sequence = seq(donor, name), base = seq(rec, 'Stand - 1'), rigB = transferRig(rec, { sequence: base }), rigA = transferRig(donor, { sequence, actor: 'seated' }), keys = XFER.transferWholeBody(rigB, rigA).parts;
+  const recipe = { base: { sequence: base }, length: donor.Sequences[sequence].Interval[1] - donor.Sequences[sequence].Interval[0], sources: { d: { actor: 'seated' } },
+    parts: Object.fromEntries(keys.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence, match: /^(hips|leg)/.test(key) ? 1 : 0, ...(/^arm/.test(key) ? arms : {}) }])) };
+  const by = new Map(allNodes(rec).map(node => [node.ObjectId, node])), frames = [];
+  const built = buildTransfer(rec, new Map([['d', donor]]), recipe, { probe: ({ world }) => frames.push(id => new Vector3().fromArray(nodePivot(rec, by.get(id), id)).applyMatrix4(world(id))) });
+  return { rigA, rigB, built, frames, recipe };
+};
+
+test('R9 a donor leg joint whose pivot is off the leg does not fold the shins inward', { skip: missing('transfer-grunt', 'transfer-khorne-knight') }, () => {
+  const { rigA, rigB, built, frames } = asRider(load('transfer-grunt'), load('transfer-khorne-knight'), 'Walk');
+  assert.equal(rigA.actor, 'seated');
+  assert.ok(rigA.parts.legL.joints.length > rigA.parts.legL.line.length, 'the donor leg has a joint that is not on its line');
+  assert.deepEqual(built.problems, []);
+  for (const key of ['legL', 'legR']) {
+    const [, knee, foot] = rigB.parts[key].joints, drop = Math.min(...frames.map(at => at(knee).z - at(foot).z));
+    assert.ok(drop > 0.5 * rigB.parts[key].length / 2, `${key}: the foot hangs below the knee all through the walk (least ${drop.toFixed(1)})`);
+  }
+});
+
+test('R9 frame: a turn carried in the limb\'s own frame keeps a hanging arm hanging; off, nothing changes', { skip: missing('transfer-footman', 'transfer-nightmare-rider') }, () => {
+  const footman = load('transfer-footman'), donor = load('transfer-nightmare-rider');
+  const plain = asRider(footman, donor, 'Walk'), off = asRider(footman, donor, 'Walk', { frame: 0 }), own = asRider(footman, donor, 'Walk', { frame: 1 });
+  for (const [id, track] of plain.built.tracks) assert.deepEqual(off.built.tracks.get(id).Rotation, track.Rotation, 'frame 0 is today\'s result');
+  // The rider's right arm rests pointing forward, the Footman's hangs down: the same world turn lifts his elbow over his shoulder.
+  const [shoulder, elbow] = plain.rigB.parts.armR.joints, above = run => Math.max(...run.frames.map(at => at(elbow).z - at(shoulder).z));
+  assert.ok(above(plain) > 0, `as today the elbow rises over the shoulder (${above(plain).toFixed(1)})`);
+  assert.ok(above(own) < -5, `in the limb's own frame it stays below (${above(own).toFixed(1)})`);
+  assert.deepEqual(own.built.problems, []);
+});
