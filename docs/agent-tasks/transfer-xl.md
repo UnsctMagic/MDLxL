@@ -666,3 +666,32 @@ its own, so a shaky item can be left out of the morning build.
   dashed line over a white halo. Add all keeps the taken parts and the selection.
 - Harness: one run covers every story, a dark-theme story (`preferences.theme = 'dark'`) and
   `sweep34`, a click-through of every round 3-4 control.
+
+## Round 5: a playback strip under each view (owner, 16 Nov 2026 morning)
+
+Owner on build `transfer-xl-03`: "What is load from and presets for? Why cant I easily view
+animations on each model? you gated me hard here. I have two view points - Each should have its own
+play track where the green box is. Play, Pause, Speed and a drop box to select animations to view.
+Havent been able to test beyond that as it gates me". The green box in his screenshot spans the
+bottom edge of both view panes, directly above the timeline.
+
+Contract (director):
+
+- **P1 Strip per view.** Each of the two views gets its own playback strip along its bottom edge:
+  Play/Pause, a thin scrub track, a viewing Speed, and a dropdown with the animation the view shows.
+  The two views play independently: own clock, own Play/Pause, own Speed.
+- **P2 Donor strip.** Its dropdown lists the donor's animations and is the same choice as the
+  Animations list on the left (either one changes both). The donor no longer follows the result's
+  clock when a taken part is selected; nothing changes what the donor shows except the owner.
+- **P3 Result strip.** Its dropdown has `New animation` first (the result being built; the default),
+  then every animation the open model already has, to look at. Picking one only changes what the
+  view shows; it never changes the Body animation or the recipe. While an own animation is shown the
+  taken-part handles, the path and the drag-to-aim are off and the timeline is dimmed; using the
+  timeline, taking a part or moving a slider returns the view to `New animation`.
+- **P4 One Play per view.** The timeline's own Play button and the `Original` button go (the result
+  strip's Play and the dropdown replace them); the timeline keeps its ruler, time readout and lanes.
+- **P5 Speed is for viewing.** Reuse the app's existing playback-speed control and `GamePreview`'s
+  `playbackSpeed`; it never changes the animation that is added. Its tooltip says so, because a part
+  has its own Speed under Timing.
+- **P6 Setups wording.** The load menu's lone `File…` row reads `Load from file…`, and the file
+  dialogs say setup, not preset.
