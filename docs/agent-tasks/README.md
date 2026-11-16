@@ -10,7 +10,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | --- | --- | --- |
 | Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
-| Report a problem (Help menu → LowPolyWorks inbox) | Built locally on `claude/report-button` + LowPolyWorks `claude/report-inbox`; owner hand test pending | [Report a problem](report-button.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

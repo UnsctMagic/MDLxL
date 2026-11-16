@@ -1,6 +1,6 @@
 # Report a problem
 
-Status: awaiting approval (owner hand test, then "merge")
+Status: completed — merged in PR #670 (7b442742); LowPolyWorks PR #97 (fe9af7c39), Worker deployed 16 Nov (version 228d1fd7)
 Owner / consolidator: Claude Code (two Sonnet subagents built the server and app parts)
 Updated: 2026-11-16
 
@@ -53,15 +53,15 @@ Updated: 2026-11-16
 - Packaged hidden click check (16 Nov): Help → Report a problem opens, Send disabled
   when empty, 3 × "Sent.", 4th "Daily limit reached. Try again tomorrow." (server 429
   pc), Cancel closes, no page errors.
-- Remaining: Vault Reports tab not clicked in a browser; live Worker not deployed.
+- Live check after deploy (16 Nov): app `GET` 200 `{"open":true}`, browser `GET` 403, a
+  test report stored with name and hashed IP, then deleted; inbox empty.
+- Remaining: Vault Reports tab not clicked in a browser.
 
 ## Blockers and next action
 
-- Waiting on the owner's hand test and "merge".
-- On merge: push and merge both PRs; deploy the LowPolyWorks Worker with every step
-  in its `tracker/README.md` "Problem reports" (migration, deploy, private setup);
-  check `GET /api/feedback` with an `MDLxL/x.y.z` User-Agent returns `{"open":true}`.
-  The button reaches users with the next MDLxL release.
+- Done. The button reaches users with the next MDLxL release.
+- The token reader file (`.internal/usage-reader.json`) was not on the owner's PC on
+  16 Nov; until it is, read reports in the Vault's Reports tab.
 - Weekly review: read `GET /api/feedback?inbox=1` with `USAGE_READ_TOKEN`
   (LowPolyWorks `.internal/usage-reader.json`), summarize for the owner, then mark the
   reports reviewed with `POST ?inbox=1 {"reviewed":[ids]}`. Set up a weekly scheduled
