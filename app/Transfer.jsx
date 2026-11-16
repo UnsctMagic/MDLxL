@@ -27,6 +27,8 @@ const SECTIONS = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAn
 const HIGHLIGHT = '#ffe14d', PATH = '#ff8a2a';
 const noop = () => {};
 const sequenceName = (model, index) => model?.Sequences?.[index]?.Name || `Animation ${index + 1}`;
+// Model names are shown without their file extension ("grunt donor", not "grunt donor.mdx").
+const plainName = name => String(name || '').replace(/\.(mdx|mdl|mdlxlpaint)$/i, '');
 const firstAnimation = model => { const stand = standSequenceIndex(model); return stand >= 0 ? stand : model?.Sequences?.length ? 0 : -1; };
 
 // The selected part's sliders. `get`/`set` convert between the recipe and the slider;
@@ -113,7 +115,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   useEffect(() => () => { for (const release of releases.current) release(); }, []);
   const donor = useMemo(() => { const d = donors.find(item => item.id === donorId); return d?.id === 'self' ? { ...d, model, assets: textureAssets, revision: doc.revision } : d; }, [donors, donorId, model, textureAssets, doc.revision]);
   const modelOf = id => id === 'self' ? model : donors.find(d => d.id === id)?.model;
-  const nameOf = id => id === 'self' ? 'This model' : donors.find(d => d.id === id)?.name || '';
+  const nameOf = id => id === 'self' ? 'This model' : plainName(donors.find(d => d.id === id)?.name);
   const sources = useMemo(() => new Map(donors.filter(d => d.id !== 'self').map(d => [d.id, d.model])), [donors]);
   const donorSeq = donor ? donorSeqs[donor.id] ?? firstAnimation(donor.model) : -1;
   const rigA = useMemo(() => donor ? rigFor(donor.model, donorSeq) : null, [donor?.model, donor?.revision, donorSeq]);
@@ -290,6 +292,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
       for (const [key, source] of Object.entries(setup.sources || {})) opened[key] = await reopen(source, asked);
       const { recipe: next, left } = recipeFromSetup(setup, model, rigB, opened, recipeRef.current.base.sequence);
       change(next); setSelected(Object.keys(next.parts).length ? 'all' : null);
+      const first = Object.values(next.parts)[0];
+      if (first) { setDonorId(first.source); setDonorSeqs(old => ({ ...old, [first.source]: first.sequence })); if (first.source === 'self' && !donors.some(d => d.id === 'self')) setDonors(list => [...list.filter(d => d.id !== 'self'), { id: 'self', name: 'This model' }]); }
       const words = left.map(code => { const [kind, value] = code.split(':'); return kind === 'part' ? transferPartLabel(value) : kind === 'source' ? setup.sources?.[value]?.name || value : value; });
       setSetupStatus(left.length ? `${setup.name || 'Setup'} loaded. Left out: ${words.join(', ')}` : `${setup.name || 'Setup'} loaded.`);
     } catch (error) { setSetupStatus(error.message); }
@@ -395,7 +399,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     const canvas = event.currentTarget.querySelector('canvas'), box = canvas?.getBoundingClientRect();
     if (!box) return;
     const [x, y] = capture.current.project(at.end), scale = canvas.width / Math.max(1, box.width);
-    if (Math.hypot(box.left + x / scale - event.clientX, box.top + y / scale - event.clientY) > 14) return;
+    if (Math.hypot(box.left + x / scale - event.clientX, box.top + y / scale - event.clientY) > 20) return;
     event.preventDefault(); event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     setPlaying(false);
@@ -432,7 +436,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   useEffect(() => { setAimNote(false); }, [selected]);
   const clearFixes = () => setPart(selected, { fixes: [] });
   // The drag's ghost: a dashed line from the limb's root to where the hand or foot is dropped.
-  const resultOverlay = useMemo(() => [...resultOverlayPath, ...(ghost ? [{ points: [ghost.root, ghost.point], color: '#1d5fd1', width: 2.5, dash: [6, 4], alpha: .95, marker: 1 }] : [])], [resultOverlayPath, ghost]);
+  const resultOverlay = useMemo(() => [...resultOverlayPath, ...(ghost ? [{ points: [ghost.root, ghost.point], color: '#ffffff', width: 7, alpha: .85 }, { points: [ghost.root, ghost.point], color: '#1d5fd1', width: 3.5, dash: [7, 4], alpha: 1, marker: 1 }] : [])], [resultOverlayPath, ghost]);
   // Double-click: every target back to its own default.
   const resetField = field => {
     const base = recipeRef.current, parts = { ...base.parts };
@@ -441,7 +445,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   // With All, a slider shows the shared value, or stays empty ('–') when the parts differ.
   const slidersFor = timing => FIELDS.filter(field => !!field.timing === timing && targets.some(key => applies(field, key))).map(field => {
-    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get(recipe.parts[key] || effective.parts[key]) * 100) / 100);
+    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get((laneLive ? effective.parts[key] : recipe.parts[key]) || effective.parts[key]) * 100) / 100);
     return <PartSlider key={field.id} field={field} kind={kind} value={values[0]} mixed={values.some(v => v !== values[0])}
       onDraft={value => value == null ? endDrag() : setField(field, value, true)} onCommit={value => setField(field, value, false)} onReset={() => resetField(field)}/>;
   });
@@ -485,8 +489,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
 
   const sourceRows = [
     ['self', 'This model', 'Another animation of this model.', chooseSelf],
-    ...otherModels.map(s => ['tab:' + s.id, s.doc.name, 'This open model. It is only read, never changed.', () => chooseTab(s)]),
-    ...donors.filter(d => d.id !== 'self' && !d.id.startsWith('tab:')).map(d => [d.id, d.name, 'Only read, never changed.', () => setDonorId(d.id)]),
+    ...otherModels.map(s => ['tab:' + s.id, plainName(s.doc.name), 'This open model. It is only read, never changed.', () => chooseTab(s)]),
+    ...donors.filter(d => d.id !== 'self' && !d.id.startsWith('tab:')).map(d => [d.id, plainName(d.name), 'Only read, never changed.', () => setDonorId(d.id)]),
   ];
   const time0 = preview ? Math.max(preview.start, Math.min(preview.end, time)) : 0;
   // The clip timeline: the axis is the result as previewed (it changes on release, not mid-drag).
@@ -498,14 +502,16 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     return { id: 'body', label: sequenceName(model, effective.base.sequence), title: 'Body animation', blocks: clipBlocks(0, period, clock.looping, axis) };
   }, [built, axis, effective.base.sequence, model]);
   const lanes = useMemo(() => clipLanes(effective.parts, part => { const s = modelOf(part.source)?.Sequences?.[part.sequence]; return s?.Interval ? { length: s.Interval[1] - s.Interval[0], looping: !s.NonLooping } : null; }, chipOrder(taken)).map(lane => ({
-    ...lane, editable: true, label: `${nameOf(lane.source)} - ${sequenceName(modelOf(lane.source), lane.sequence)}`, parts: lane.keys.map(transferPartLabel).join(', '),
-    title: lane.keys.length > 1 ? 'Select All taken parts.' : 'Select this part.', blocks: clipBlocks(lane.start, lane.span, lane.looping, axis),
+    ...lane, editable: true, label: `${sequenceName(modelOf(lane.source), lane.sequence)} - ${nameOf(lane.source)}`, parts: lane.keys.map(transferPartLabel).join(', '),
+    title: `${sequenceName(modelOf(lane.source), lane.sequence)} - ${nameOf(lane.source)}: ${lane.keys.map(transferPartLabel).join(', ')}`, blocks: clipBlocks(lane.start, lane.span, lane.looping, axis),
   })), [effective.parts, taken.join(','), axis, donors, model]);
   // A lane's label selects its part; a lane of several parts selects All taken parts.
   const selectedLanes = lanes.filter(lane => allMode ? lane.keys.length > 1 : lane.keys.includes(selected)).map(lane => lane.id);
   const selectLane = lane => setSelected(lane.keys.length > 1 ? 'all' : lane.keys[0]);
   // A clip drag: Delay or Speed for every part in the lane, live once per frame, one history step on release.
+  const [laneLive, setLaneLive] = useState(false);
   const changeLane = (lane, value, live) => {
+    setLaneLive(!!value && live);
     if (!value) { endDrag(); return; }
     const base = recipeRef.current, parts = { ...base.parts };
     for (const key of lane.keys) if (parts[key]) parts[key] = { ...parts[key], ...value };
@@ -548,7 +554,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               </div>
             </section>
             <section className="xf-view" aria-label="Result">
-              <div className="xf-caption"><span translate="no">{doc.name}</span></div>
+              <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
               <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}

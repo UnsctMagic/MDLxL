@@ -653,3 +653,16 @@ its own, so a shaky item can be left out of the morning build.
   (`mdlxl.transfer.setups`). Loading reopens donors through the new read-only bridge
   `transfer:readModel` / `readTransferModel` (file) or `gameFilesFindPath` + `gameFilesRead` (library),
   asks once with the open dialog when one is missing, and names what was left out.
+
+### Final polish as built (window coder)
+
+- Parts-column sliders are single rows (name 58 px, track, value 40 px; Mine / Theirs under the
+  track) and the column's gaps are tighter: a selected weapon arm (Kurgan) or story B's arm shows the
+  scope buttons, five sliders and the weapon switches without a scrollbar with Timing closed (the
+  harness checks `scrollHeight <= clientHeight`). No column widths changed.
+- Model names never show their extension; lane labels are animation first, the full label and parts
+  in the lane's tooltip. Timing sliders follow a clip drag live. Loading a setup selects the donor and
+  animation of its first part. The aim grab radius is the POSE handle's (20 px); the ghost is a blue
+  dashed line over a white halo. Add all keeps the taken parts and the selection.
+- Harness: one run covers every story, a dark-theme story (`preferences.theme = 'dark'`) and
+  `sweep34`, a click-through of every round 3-4 control.

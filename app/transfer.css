@@ -2,7 +2,7 @@
    From list left, donor and result with the transport under them in the middle, parts right. */
 .resource-editor.transfer-xl .xf-window{width:1140px;height:740px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);resize:both;overflow:hidden}
 .transfer-xl .xf-body{display:grid;grid-template-columns:190px minmax(300px,1fr) 250px;flex:1;min-height:0;padding:8px;gap:8px}
-.transfer-xl .xf-from,.transfer-xl .xf-controls{display:flex;flex-direction:column;min-height:0;gap:6px}
+.transfer-xl .xf-from,.transfer-xl .xf-controls{display:flex;flex-direction:column;min-height:0;gap:5px}
 .transfer-xl .xf-heading{font-size:12px}
 .transfer-xl .xf-list{display:flex;flex-direction:column;gap:0;overflow:auto;min-height:0;background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87)}
 .transfer-xl .xf-from>.xf-list:first-of-type{flex:none;max-height:40%}
@@ -40,7 +40,7 @@
 .transfer-xl .xf-row-buttons>button{flex:1;min-width:0;padding:3px 4px}
 .transfer-xl .xf-reason{font-size:11px}
 .transfer-xl .xf-parts{flex:none}
-.transfer-xl .xf-list .xf-part{height:auto;min-height:24px;padding:0 4px;gap:4px}
+.transfer-xl .xf-list .xf-part{height:auto;min-height:21px;padding:0 4px;gap:4px}
 .transfer-xl .xf-part>input{flex:none;margin:0}
 .transfer-xl .xf-list .xf-all{border-bottom:1px solid var(--ui-border,#8b8b87)}
 .transfer-xl .xf-list .xf-all>.xf-part-name{font-weight:bold;padding-left:20px}
@@ -48,12 +48,18 @@
 .transfer-xl .xf-list .xf-part-name{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:flex-start;gap:6px;padding:3px 2px;border:0;border-radius:0;background:transparent!important;box-shadow:none!important;color:inherit!important;text-align:left;font-size:12px}
 .transfer-xl .xf-part-name>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
 .transfer-xl .xf-part.selected .xf-part-name>small{color:inherit}
-.transfer-xl .xf-part-controls{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--ui-border,#8b8b87);padding-top:5px}
-.transfer-xl .xf-part-title{display:flex;align-items:center;gap:6px;min-height:24px}
+.transfer-xl .xf-part-controls{display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--ui-border,#8b8b87);padding-top:4px}
+.transfer-xl .xf-part-title{display:flex;align-items:center;gap:6px;min-height:22px}
 .transfer-xl .xf-part-title>b{flex:1}
 .transfer-xl .xf-part-controls>button{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.transfer-xl .xf-slider .range-field{width:100%}
-.transfer-xl .xf-check{display:flex;gap:4px;align-items:center}
+/* Single-row sliders in the parts column: name, track, value; Mine / Theirs under the track. */
+.transfer-xl .xf-slider .range-field.range-field{width:100%;display:grid;grid-template-columns:58px minmax(0,1fr) 40px;align-items:center;column-gap:5px;row-gap:0;font-size:11px}
+.transfer-xl .xf-slider .range-field-head{display:contents}
+.transfer-xl .xf-slider .range-field-head>span:first-child{grid-column:1;grid-row:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-xl .xf-slider .range-field-head>output{grid-column:3;grid-row:1;text-align:right;font-variant-numeric:tabular-nums}
+.transfer-xl .xf-slider .range-input{grid-column:2;grid-row:1;min-width:0;margin:0;height:16px}
+.transfer-xl .xf-slider .range-field-ends{grid-column:2;grid-row:2;font-size:9px;line-height:1;margin-top:-2px}
+.transfer-xl .xf-check{display:flex;gap:4px;align-items:center;font-size:11px;min-height:18px}
 .transfer-xl .xf-timing{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
 .transfer-xl .xf-timing>summary{cursor:pointer;font-weight:bold;padding:2px 0}
 .transfer-xl .xf-timing>summary>:is(svg,.spacer){display:none}
