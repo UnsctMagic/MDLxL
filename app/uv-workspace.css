@@ -29,3 +29,5 @@
 
 .uv-toolbox{container-type:inline-size}
 @container(max-width:650px){.uv-tool-grid{grid-template-columns:repeat(3,minmax(54px,1fr))}.uv-fold-control{grid-column:span 2;grid-row:auto}}
+
+.uv-map-pane>.uv-texture-caption{max-width:calc(100% - 48px)}

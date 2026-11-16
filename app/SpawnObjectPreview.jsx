@@ -24,7 +24,7 @@ export default function SpawnObjectPreview({ model, modelPath, teamColor, loadin
   if (current?.error) return <p className="field-error" role="alert">{current.error}</p>;
   return <div className="re-model-stage" role="region" aria-label="Spawn Object preview">
     <Suspense fallback={<span role="status">Loading preview…</span>}>
-      {current ? <GamePreview model={model} modelPath={modelPath} textureAssets={current.assets} teamColor={teamColor}
+      {current ? <GamePreview resetViewButton model={model} modelPath={modelPath} textureAssets={current.assets} teamColor={teamColor}
         presentation="preview" interactivePreview cameraMode="rotate" cameraHandoff={camera} preserveCameraView
         fitModel fitSequenceExtent sequenceIndex={0} playing showParticles showGrid={false} view="perspective"/>
         : <span role="status">Loading preview…</span>}

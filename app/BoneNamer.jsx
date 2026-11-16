@@ -128,7 +128,7 @@ export default function BoneNamer({ doc, modelPath, textureAssets, teamColor, on
         </React.Fragment>)}
       </div>
       <section className="atm-preview" aria-label="Bone Namer preview">
-        <GamePreview textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} model={draft.model}
+        <GamePreview resetViewButton textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} model={draft.model}
           hiddenGeosets={hidden} restPose sequenceIndex={-1} time={0} playing={false} showGrid fitModel showAxes={false} showParticles={false} overlays={OVERLAYS}
           cameraMode="work" emptyDragRotates markersOnTop nodeLabels={labels} transformMode="move" transformSpace="world" compareCamera={camera.current} preserveCameraView
           selectedNodeIds={selected != null ? [selected] : []} onSelectNodes={ids => { const id = ids.at(-1); select(rows.some(row => row.id === id) ? id : null); rowElements.current.get(id)?.scrollIntoView({ block: 'nearest' }); }}/>

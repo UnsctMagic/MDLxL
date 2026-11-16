@@ -393,6 +393,12 @@ export default function GamePreview(inputProps) {
       if (key !== projectionKey) { projectionKey = key; latest.current.onProjectionViewChange?.({ viewMatrix, projectionMatrix }); }
     };
     let syncingCamera = false, compareRegistered = false, turnRegistered = false, collisionCanvas = null, externalSeek;
+    // Reset view: the camera as it was before the user's first own gesture since the view was last
+    // framed by the program (opening, Fit, a newly framed part). Views on one compareCamera share it.
+    const ownHome = { home: null }, homeStore = () => latest.current.compareCamera || ownHome;
+    let userGesture = false, resettingView = false;
+    controls.addEventListener('start', () => { userGesture = true; const store = homeStore(); if (!store.home) store.home = snapshotCamera(); });
+    controls.addEventListener('end', () => { userGesture = false; });
     // turnCamera (Transfer): views that turn together. Only the viewing direction is shared, as a
     // unit vector from the target to the camera; each view keeps its own target, distance and zoom,
     // and world up stays up, so a sideways drag never tilts the horizon.
@@ -420,6 +426,8 @@ export default function GamePreview(inputProps) {
     const cameraReport = createFrameCoalescer(() => latest.current.onCameraAnglesChange?.(reportedAngles), { request: requestPreviewFrame, cancel: cancelPreviewFrame });
     const cameraChanged = () => {
       reportedAngles = editorCameraAngles(camera); cameraReport.schedule(); reportProjectionView(); invalidate();
+      // The program framed the view again: that framing is what Reset view returns to from now on.
+      if (!userGesture && !syncingCamera && !resettingView) homeStore().home = null;
       if(latest.current.showcase)latest.current.onShowcaseViewChange?.();
       const bus = latest.current.compareCamera;
       if (bus && compareRegistered && !syncingCamera) { bus.saved = snapshotCamera(); for (const receive of bus.listeners) if (receive !== receiveCamera) receive(bus.saved); }
@@ -1876,8 +1884,16 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
-      // Back to the framing a new model opens with; views sharing turnCamera turn back with it.
-      resetView() { if (disposed) return; const turn = latest.current.turnCamera; if (turn) turn.saved = null; fit(); controls.update(); cameraChanged(); },
+      // Back to the view as the window framed it, before the user turned, zoomed or moved it.
+      resetView() {
+        if (disposed) return;
+        const turn = latest.current.turnCamera;
+        // Views that turn together (Transfer) go back to the opening direction and frame the model again.
+        if (turn) { turn.saved = null; fit(); controls.update(); cameraChanged(); return; }
+        const home = homeStore().home; if (!home) return;
+        resettingView = true;
+        try { camera = restorePreviewCamera(home, perspective, ortho, controls); resize(); reportProjectionView(); invalidate(); cameraChanged(); } finally { resettingView = false; }
+      },
       frameGeosets,
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
@@ -2050,6 +2066,9 @@ export default function GamePreview(inputProps) {
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.collisionMovePlane, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;
+  // Reset view: every tool-window preview has the small button in its corner (presentation="preview",
+  // or resetViewButton where a window uses another presentation). false leaves it to the window.
+  const resetViewButton = (props.resetViewButton ?? (props.presentation === 'preview' && !props.showcase)) && !props.portraitMode;
   const frame = portraitFrame.current, portrait = !!props.portraitMode, framed = portraitHasFrame(props), hasCamera = !!model?.Cameras?.[props.portraitCameraIndex];
   const composition = portraitComposition(props), crop = portraitCompositionRect(portraitArea.width,portraitArea.height);
   const guideStyle = composition ? {left:crop.x,top:crop.y,width:crop.width,height:crop.height,'--portrait-mask':props.portraitSettings.mask} : {left:'calc(100% * 8 / 184)',top:'calc(100% * 9 / 184)',width:'calc(100% * 167 / 184)',height:'calc(100% * 170 / 184)'};
@@ -2064,6 +2083,7 @@ export default function GamePreview(inputProps) {
       {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status" data-alert="">{frame.error}</div>}
     </div>
+    {resetViewButton && <button type="button" className="preview-reset-view" aria-label="Reset view" title="Reset view" onPointerDown={event => event.stopPropagation()} onClick={() => runtime.current?.captureApi?.resetView()}><span aria-hidden="true">↺</span></button>}
     <SensitivityIndicator value={adjustingSensitivity} />
     {gestureLabel && <div role="status" style={{ position:'absolute', top:8, left:8, padding:'4px 7px', background:'#182638', color:'#fff', fontSize:12 }}>{gestureLabel}</div>}
     {warnings.length>0&&<div role="status" style={{position:'absolute',bottom:3,left:4,fontSize:11,color:'#500'}}>{warnings.join(' ')}</div>}

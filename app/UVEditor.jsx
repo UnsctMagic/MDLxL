@@ -320,6 +320,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     function action(event) {
       const p = current.current, { kind, value } = event.detail || {};
+      if (kind === 'reset-view') { fit(); return; }
       if (p.suspended) return;
       if (kind === 'frame') return fit();
       const indices = selection(), all = eligible(), allowed = new Set(all);

@@ -762,3 +762,27 @@ As built (director):
   previews are a separate change, offered to the owner. Build `TestBuilds\transfer-xl-06`: full
   harness passed on the camera and size change (run on 05, apart from one faulty new test line),
   then stories B, views and the control sweep passed on the exact 06 copy with the reset button.
+
+## Reset view in every preview (owner "Yes, add it", 16 Nov 2026)
+
+Separate commit on this branch (it can be picked onto another branch if Transfer is held back).
+
+- `GamePreview` draws a small `↺` button (`.preview-reset-view`, bottom-right corner, no hotkey id)
+  on every tool-window preview: default for `presentation="preview"`, opt-in with `resetViewButton`
+  where a window uses the editor presentation (Attachemator, Bone Namer, spawn-object preview),
+  off for Showcase, portrait mode, the off-screen thumbnail renderer, the main editor viewport (it
+  has Fit) and Transfer (its own button sits beside each scrubber).
+- What it returns to: the camera as it was before the user's first own gesture since the program
+  last framed the view (opening, Fit, a newly framed part). The preview records that on the
+  controls' `start` event and forgets it when the camera changes outside a gesture. Views on one
+  `compareCamera` share it, so Reset in either of a Before/After pair works. This keeps each
+  window's own framing (FX frames the chosen part, the UV preview faces the selected faces).
+- The UV map (2D) has the same button; it runs the map's own fit through `mdlvis-uv-action`
+  `reset-view`.
+- `test/reset-view.electron.cjs` (real mouse, packaged app): FX, AnimXL, the UV live preview and
+  the UV map; Transfer has no corner button. It fails on build 06 (no button). Whole source suite
+  4063 pass, 0 fail. Build `TestBuilds\transfer-xl-07`: this test plus Transfer stories B, views and
+  the control sweep passed on the exact copy.
+- Not clicked one by one: the particle windows, Library browser, OptimizeXL, Sort My Mess,
+  Attachemator, Bone Namer, Auto Corpse, Model Manager and the part thumbnails; they use the same
+  shared button.
