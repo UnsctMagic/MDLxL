@@ -813,6 +813,15 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     if (isGlobalTrack(byIdB.get(id)?.Rotation, recipient)) { problems.push(`${byIdB.get(id).Name} turns on a global sequence, so it is left as it is.`); entry.skip.add(id); continue; }
     if (!tracks.has(id)) { tracks.set(id, { Rotation: new Float32Array(n * 4) }); driven.push(id); }
   }
+  // A chest or head whose first joint the donor moves by position keys in this animation: its
+  // shift beyond riding its anchor is carried too (see the rotation transfer).
+  for (const entry of taken) {
+    const mine = entry.own.joints[0], theirs = entry.theirs.joints[0], track = modelInfo(entry.donor).byId.get(theirs)?.Translation;
+    // Only for a rider read alone, for now: turned on for every donor it changed 15 of the 32
+    // recorded transfers (any donor with position keys on its chest), which is the owner's call.
+    entry.shifts = entry.rigA.actor === 'seated' && entry.own.kind === 'trunk' && entry.key !== 'hips' && !entry.skip.has(mine) && !!track?.Keys && !isGlobalTrack(track, entry.donor) && keysInInterval(track, entry.seq.Interval).length > 1 && !isGlobalTrack(byIdB.get(mine)?.Translation, recipient);
+    if (entry.shifts) { const out = tracks.get(mine); if (out && !out.Translation) out.Translation = new Float32Array(n * 3); }
+  }
   const hips = taken.find(entry => entry.key === 'hips');
   const moveBody = hips && !isGlobalTrack(byIdB.get(rigB.body)?.Translation, recipient);
   if (moveBody) tracks.get(rigB.body) ? tracks.get(rigB.body).Translation = new Float32Array(n * 3) : (tracks.set(rigB.body, { Translation: new Float32Array(n * 3) }), driven.push(rigB.body));
@@ -909,6 +918,18 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         const delta = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
         setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
+      // Shift: how far the donor part's first joint sits from where riding its anchor would put
+      // it, compared with the reference pose, scaled to this model and added to its own joint.
+      if (entry.shifts) {
+        const a = entry.theirs.joints[0], b = entry.own.joints[0], anchorA = entry.theirs.anchor, anchorB = entry.own.anchor;
+        const now = worldPos(entry.donor, donorSample, a).clone().sub(anchorA == null ? new Vector3() : worldPos(entry.donor, donorSample, anchorA));
+        const extra = now.sub(entry.refShiftA.clone().applyQuaternion(dA)).applyQuaternion(inv(dA));
+        const want = entry.convertV(extra).multiplyScalar(entry.scale).applyQuaternion(dB);
+        const parent = infoB.tree.parentOf(b), linear = new Matrix3().setFromMatrix4(parent == null ? new Matrix4() : world(parent)).invert();
+        // From this model's reference place for the joint, not on top of the body animation's own shift.
+        const own = over.get(b) || base.local.get(b), target = refB.local.get(b).t.clone().add(want.applyMatrix3(linear));
+        over.set(b, { ...own, t: own.t.clone().lerp(target, Math.min(1, w)) });
+      }
       // Hips travel: move the body bone so the hip centre follows the donor's.
       if (entry.key === 'hips' && moveBody) {
         const body = rigB.body, current = hipCentreOf(recipient, rigB, id => world(id));
@@ -1131,6 +1152,8 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     refInvA: theirs.joints.map(id => inv(worldRot(refA, id))),
     refRotB: own.joints.map(id => worldRot(refB, id).clone()),
     refEndA: posA(theirs.marker).clone(), refEndB: posB(own.marker).clone(), refRootB,
+    // The donor part's first joint against its anchor in the reference pose (for the shift).
+    refShiftA: posA(theirs.joints[0]).clone().sub(theirs.anchor == null ? new Vector3() : posA(theirs.anchor)),
     skip: new Set(),
   };
 }

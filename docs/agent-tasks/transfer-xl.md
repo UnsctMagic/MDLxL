@@ -1062,3 +1062,27 @@ Engine as built (director), no names, no model-specific rule:
   so a track swap alone no longer counts as a change; round 7's follow check became "the switch is
   gone". Story `features` (6 checks); helper test 24.
 - Found: the Footman has one feature (Box04, Hips), so "a model with no features" uses the Grunt.
+
+## Round 9: riders rise and fall; the riders gate (owner, 16 Nov 2026 evening)
+
+Owner on build 12: "Its almost perfect - I can almost make the nurgle warrior into a mounted unit.
+However - the only thing that I couldnt figure out is how to get that rise and fall ... I know the
+rider raises regardless of the horse ... try to create different riders - just animated riders,
+that could be used on horses - that would be a great acceptance gate", then "use also other mounts
+- vampire dragon. blood dragon nightmare."
+
+Measured (`out/transfer-probe/rise.mjs`, Nurgle warrior taking WH_WOC_KnightNurgle16's rider): in
+Walk and Attack the rise came across already (body up-down 8.1 -> 7.4, 13.9 -> 15.4). In Stand the
+donor rider's body joint is still and its CHEST moves 3.4 up and down by position keys; the result's
+chest moved 0. Only rotations were carried for parts other than the hips.
+
+As built (director, engine): a taken chest or head whose first joint the donor moves by position
+keys gets a Translation track; its shift beyond riding its anchor (against the reference pose) is
+scaled and added from this model's reference place. Stand now 3.2 (donor 3.4), Walk chest 5.4
+(donor 5.9). For now only when the donor is a rider read alone (`rigA.actor === 'seated'`): turned
+on for every donor it changed 15 of the 32 recorded transfers, which is the owner's call, not mine.
+
+Still to do: make the dragon rider and the Blood Dragon nightmare read as two creatures (the sweep
+read WH_VC_BloodDragonAxe02 as one), then the gate: plain units made into riders from several
+mounted donors over Stand, Walk and Attack, measured (seat, rise and fall against the donor's
+rider, fingerprints identical) and shown to the owner as live views.
