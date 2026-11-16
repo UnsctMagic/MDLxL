@@ -293,8 +293,9 @@ const bounds = layouts => {
 };
 
 /** Unwrap. Whole selected triangles, joined through shared 3D positions, are flattened per piece
- * with LSCM. A piece without an open edge is cut along its outline in the live preview: triangles
- * facing the viewer, then the rest laid to their right with a 5% gap. Returns Map corner → [u, v]. */
+ * with LSCM. A piece without an open edge, with more than one outline loop (a tube) or that LSCM
+ * folds over is cut along its outline in the live preview: triangles facing the viewer, then the
+ * rest laid to their right with a 5% gap. Returns Map corner → [u, v]. */
 export function unwrapUVCorners(geoset, indices, viewMatrix, projectionMatrix, source = geoset?.TVertices?.[0]) {
   const { faces, triangles: starts, points } = startTriangles(geoset, indices);
   const space = viewSpace(geoset, points, viewMatrix, projectionMatrix);

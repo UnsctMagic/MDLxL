@@ -12,7 +12,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | Call Upon Forge in the Vertex editor | Ready for owner review; local branch only | [Workflow and checks](call-upon-forge.md) / Codex |
 | CORP: body-sized corpse on the POSE body parts (0.37.0 waits) | Anatomy correction ready for owner review; no PR | [Body-sized corpse](corp-body-sized-corpse.md) / Codex |
-| UV Wrapper: Box/Cylinder projection, Straighten, Mirror Copy, Unwrap, Relax | In progress on local `claude/uv-new-tools` | [UV new tools](uv-new-tools.md) / Claude Code |
+| UV Wrapper: Box/Cylinder projection, Straighten, Mirror Copy, Unwrap, Relax | Built and tested on local `claude/uv-new-tools`; test build ready for the owner; not online | [UV new tools](uv-new-tools.md) / Claude Code |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed

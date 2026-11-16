@@ -1,6 +1,7 @@
 # UV Wrapper: six new tools
 
-State: in progress on local branch `claude/uv-new-tools` (from `main` a7c5ed17).
+State: built and tested on local branch `claude/uv-new-tools`, rebased on `main` 0f8e4d99
+(the PR #656 layout: projection row without title, map tools in the title bar). Not online.
 Owner: Claude Code. Test tier: new feature (tests prove each tool + source suite).
 
 ## Owner request (15 Nov 2026, exact words)
@@ -116,7 +117,73 @@ column"; Mirror copy "copies one half's UVs onto the other half".
 
 ## Status
 
-- [ ] Algorithms + unit tests
-- [ ] Buttons, icons, tooltips, locales, wiring
-- [ ] Packaged test, source suite vs `.github/known-test-failures.txt`
-- [ ] Test build `TestBuilds\uv-new-tools`, hidden click smoke, `TEST UV TOOLS 01.mdx`
+- [x] Algorithms + unit tests
+- [x] Buttons, icons, tooltips, locales, wiring
+- [x] Packaged test, source suite vs `.github/known-test-failures.txt`
+- [x] Test build `TestBuilds\uv-new-tools`, hidden click smoke, `TEST UV TOOLS 01.mdx`
+
+## Results (16 Nov 2026)
+
+Placement on the #656 layout: Box Projection and Cylinder Projection follow Project
+from Current View in the projection row (the row wraps onto a second line when the
+right column is narrow); Straighten, Mirror Copy, Unwrap and Relax follow Fold in
+`uv-tool-grid` with icons `straighten`, `mirrorCopy`, `unwrap`, `relax` (ToolIcon,
+mapped as `uv_*` in ModernIcon). Manual hotkeys: `uv-wrapper:box-projection`,
+`uv-wrapper:cylinder-projection`, `uv:straighten`, `uv:mirror-copy`, `uv:unwrap`,
+`uv:relax` (no default keys; manifest regenerated). Button rules
+(`src/uv-tool-state.js`): Box, Cylinder, Unwrap need a whole selected triangle and no
+unsaved test texture; Relax a whole selected triangle; Straighten two points; Mirror
+Copy a selected point and at least one unselected UV Wrapper point.
+
+Deviations from the plan above, each because the plan failed on the real Footman:
+
+- **Unwrap cuts more than closed pieces.** Plain LSCM folded 20 of 288 body
+  triangles and, on an open tube (an arm), folded triangles with a 25,000:1 area
+  spread. A piece is now cut along its outline in the live preview (front-facing
+  part, the rest to its right with the 5% gap) when it has no open edge, more than
+  one outline loop (a tube, a piece with holes) or folded triangles after LSCM. A
+  part of that cut that still folds is cut once more by the box side its triangles
+  face (Box Projection's sides), each laid flat and centred where Project from
+  Current View puts it. Result: 0 folded triangles on all five Footman geosets in
+  four views; tubes unroll with even triangle sizes. Pieces are joined through
+  shared edges (two shared positions), not a single shared point.
+- **Mirror Copy also looks for the model's own mirror plane.** The middle of the
+  Footman body's points on Y is -5.9 (arm and shield pose); its symmetry plane is
+  0.55 (161 point pairs), so the planned plane matched nothing. Each axis now also
+  tries the plane most pairs of UV Wrapper points are centred on; the plane with
+  the most matches wins (the middle first on ties).
+
+Known gaps: separate Unwrap pieces are centred where Project from Current View puts
+them, so pieces that overlap in that view (front and back of a body that are not
+one closed piece) can overlap in UV. Cylinder Projection flips triangles that face
+the axis (inherent). Box and Cylinder use each triangle's winding for its normal.
+Not verified: the owner's judgement by eye, Warcraft III itself.
+
+Checks run on the rebased branch (Windows, Node 22):
+
+- `node --test test/uv-new-tools.test.js test/uv-tools.test.js`: 28 pass, 0 fail.
+  Fail-first: on `main` 0f8e4d99 the new file fails to load (`src/uv-unwrap.js` missing).
+- `node --test test/localization-*.test.js`: 34 pass; `test/hotkey-*.test.js`: 48 pass;
+  `test/ui-primitives.test.js` and the other UVWorkspace source checks pass.
+  `test/uv-tool-state.test.js` and `test/localization-catalogs.test.js` sizes gained
+  the new keys and texts.
+- `node --test tests/*.test.js`: 57 pass, 0 fail.
+- Full source suite `node --test --test-concurrency=4 test/*.test.js`: 4043 tests, 4033
+  pass, 0 fail, 10 skipped (the usual opt-in and private-model skips);
+  `.github/known-test-failures.txt` lists nothing. Two earlier runs at the default
+  concurrency, while other sessions loaded the PC, lost test processes to out-of-memory
+  aborts, one `spawn UNKNOWN` and one hung AI-questions agent; each of those files
+  passes when rerun (158 tests, 0 fail), and the first run's seven also pass on `main`.
+- Packaged (`out/pkg`, hidden MDLxLTests desktop): `node scripts/run-packaged-tests.mjs
+  default uv-new-tools,uv-controls,uv-wrapper-layout,uv-zoom-collapse,uv-rotate-steady`:
+  5 pass. `uv-new-tools` (79 checks) clicks each button on the Footman body, compares
+  every UV with the src functions under the live view, checks 3D unchanged, the
+  selection keeps its points plus the copies, no folded triangles (Box, Unwrap),
+  camera and UV view unchanged, one Ctrl+Z per tool, Mirror Copy after a marquee on
+  the Box Projection's left island. Fail-first: against a package of `main`
+  0f8e4d99 it fails waiting for the `Box Projection` button.
+- Test build `D:\Claude\MDLxL\TestBuilds\uv-new-tools\MDLxL-win32-x64\MDLxL.exe` with
+  `D:\Claude\MDLxL\TestBuilds\test-models\TEST UV TOOLS 01.mdx` (Footman copy; its
+  textures were already beside it). Hidden click smoke on that package: all six
+  buttons clicked once and each changed the model, UV Wrapper closed, no error
+  screen, no page or console errors, model file unchanged.
