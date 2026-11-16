@@ -36,7 +36,7 @@ function builtMatrices(model, built, baseIndex, k) {
   const interval = model.Sequences[baseIndex].Interval, clock = built.baseClock, t = built.times[k];
   let frame;
   if (clock.looping) { const x = t * clock.rate; let p = x - clock.length * Math.floor(x / clock.length + 1e-9); frame = interval[0] + Math.max(0, p); }
-  else frame = interval[0] + Math.min(clock.length, t);
+  else frame = interval[0] + Math.min(clock.length, t * clock.rate);
   frame = Math.round(frame);
   const options = { interval, globalSequences: model.GlobalSequences, globalTime: frame };
   return composeNodeMatrices(model, allNodes(model).map(n => n.ObjectId), node => {
@@ -395,4 +395,32 @@ test('R5 Other side: a flipped left arm does what the mirrored donor\'s right ar
   const flipped = buildTransfer(foot, sources, recipe(false, { flip: true })), mirrored = buildTransfer(foot, sources, recipe(true)), plain = buildTransfer(foot, sources, recipe(false));
   assert.deepEqual(flipped.tracks, mirrored.tracks);
   assert.notDeepEqual(flipped.tracks, plain.tracks);
+});
+
+test('R6 a body animation that plays once is fitted to the taken attack: no snap at the end', { skip: missing('transfer-lord-of-change', 'transfer-footman') }, () => {
+  const loc = load('transfer-lord-of-change'), foot = load('transfer-footman'), attack = seqMatch(loc, /^attack$/i), donorAttack = seq(foot, 'Attack - 1');
+  const rig = transferRig(loc, { sequence: attack }), { parts } = wholeBodyParts(rig, transferRig(foot, { sequence: donorAttack }));
+  const recipe = { base: { sequence: attack }, length: null, sources: {}, parts: take(rig, parts, 'foot', donorAttack) };
+  const built = buildTransfer(loc, new Map([['foot', foot]]), recipe);
+  assert.equal(built.length, 1000, 'as long as the taken attack, not the body animation (1302 ms)');
+  assert.equal(built.nonLooping, true);
+  // No snap: over the last 400 ms no driven joint turns 25 degrees between samples.
+  let worst = 0, where = '';
+  built.times.forEach((t, k) => {
+    if (!k || t < built.length - 400) return;
+    for (const [id, dense] of built.tracks) {
+      if (!dense.Rotation) continue;
+      const d = angle(new Quaternion().fromArray(dense.Rotation, k * 4), new Quaternion().fromArray(dense.Rotation, (k - 1) * 4));
+      if (d > worst) { worst = d; where = `${allNodes(loc).find(n => n.ObjectId === id).Name} at ${t} ms`; }
+    }
+  });
+  assert.ok(worst < 25, `${where} turns ${worst.toFixed(1)} degrees in one sample`);
+  // The untaken wing finishes its own attack with the result.
+  const { model, sequenceIndex } = transferPreviewModel(loc, built, recipe), wing = rig.parts.wingR.joints[0];
+  assert.ok(!built.driven.includes(wing));
+  const end = model.Sequences[sequenceIndex].Interval[1], own = loc.Sequences[attack].Interval;
+  const node = m => allNodes(m).find(n => n.ObjectId === wing).Rotation;
+  const a = sampleTrack(node(model), end, { interval: model.Sequences[sequenceIndex].Interval, fallback: [0, 0, 0, 1], quaternion: true });
+  const b = sampleTrack(node(loc), own[1], { interval: own, fallback: [0, 0, 0, 1], quaternion: true });
+  assert.ok(angle(new Quaternion().fromArray(a), new Quaternion().fromArray(b)) < 0.01, 'the wing ends on the body animation\'s last frame');
 });

@@ -348,20 +348,25 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   }
   const drivenOrder = [...taken].sort((a, b) => (TRUNK_ORDER.indexOf(a.key) + 1 || 9) - (TRUNK_ORDER.indexOf(b.key) + 1 || 9) || infoB.tree.depth(a.own.joints[0]) - infoB.tree.depth(b.own.joints[0]));
 
-  // Length and loops (director addendum): any non-looping clip makes the result
-  // non-looping and as long as its latest end; otherwise every looping clip plays
-  // a whole number of loops inside the longest clip.
+  // Length and loops. A taken clip that plays once sets the length (its latest
+  // end) and the result plays once; looping clips then run at their own speed
+  // and are cut. When every taken clip loops, they play whole loops inside the
+  // result: the longest clip when the body animation loops too, else the body
+  // animation's length. A body animation that plays once is fitted to the
+  // result, first frame to first frame and last to last, so untaken parts
+  // (wings, cloth) finish their own action with the taken one.
   const baseLength = baseSeq.Interval[1] - baseSeq.Interval[0];
-  const nonLooping = !!baseSeq.NonLooping || taken.some(entry => !entry.looping);
+  const takenOnce = taken.some(entry => !entry.looping), nonLooping = !!baseSeq.NonLooping || takenOnce;
   let length = recipe.length;
   if (!(Number.isFinite(length) && length > 0)) {
     if (!taken.length) length = baseLength;
-    else if (nonLooping) length = Math.max(...(baseSeq.NonLooping ? [baseLength] : []), ...taken.filter(e => !e.looping).map(e => e.start + e.length / e.speed));
+    else if (takenOnce) length = Math.max(...taken.filter(e => !e.looping).map(e => e.start + e.length / e.speed));
+    else if (baseSeq.NonLooping) length = baseLength;
     else length = Math.max(baseLength, ...taken.map(e => e.length / e.speed));
   }
   length = Math.max(1, Math.round(length));
-  const loopRate = (clipLength, speed) => nonLooping ? speed : Math.max(1, Math.round(length / (clipLength / speed))) * clipLength / length;
-  const baseClock = { first: baseSeq.Interval[0], length: baseLength, looping: !baseSeq.NonLooping, start: 0, rate: baseSeq.NonLooping ? 1 : loopRate(baseLength, 1), amount: 1, blend: 0, sequence: baseIndex };
+  const loopRate = (clipLength, speed) => takenOnce ? speed : Math.max(1, Math.round(length / (clipLength / speed))) * clipLength / length;
+  const baseClock = { first: baseSeq.Interval[0], length: baseLength, looping: !baseSeq.NonLooping, start: 0, rate: baseSeq.NonLooping ? baseLength / length : loopRate(baseLength, 1), amount: 1, blend: 0, sequence: baseIndex };
   for (const entry of taken) entry.clock = { first: entry.seq.Interval[0], length: entry.length, looping: entry.looping, start: entry.start, rate: entry.looping ? loopRate(entry.length, entry.speed) : entry.speed, amount: entry.amount, blend: entry.looping ? 0 : entry.blend };
 
   const times = [];
@@ -760,7 +765,7 @@ function copyBodyAnimation(model, clock, start, length) {
   const loops = clock.looping && clock.length > 0 ? Math.ceil(length / period - 1e-9) : 1;
   const seams = [];
   for (let m = 1; m < loops; m++) seams.push(Math.round(m * period));
-  const mapFrame = (f, m) => (m * period || 0) + (f - bs) / (clock.looping ? clock.rate : 1);
+  const mapFrame = (f, m) => (m * period || 0) + (f - bs) / clock.rate;
   // Stray keys that already sit past the last animation (some repaired models
   // have them) would play inside the new one; they belong to no animation.
   const outside = frame => frame < start || frame > start + length;
@@ -792,7 +797,7 @@ function copyBodyAnimation(model, clock, start, length) {
     // A sampled key cuts a cubic segment: refit the tangents on both sides of it
     // to the body animation's own rate, so the curve carries on through the cut.
     if (track.LineType >= 2) {
-      const scale = clock.looping ? clock.rate : 1, rate = (entry, side) => { const r = rateOf(sampleBase, entry.base, rotation, side); return rotation ? r.multiplyScalar(scale) : r.map(v => v * scale); };
+      const scale = clock.rate, rate = (entry, side) => { const r = rateOf(sampleBase, entry.base, rotation, side); return rotation ? r.multiplyScalar(scale) : r.map(v => v * scale); };
       list.forEach((entry, i) => {
         if (!entry.sampled) return;
         if (list[i - 1]) fitSegment(list[i - 1].key, entry.key, rate(list[i - 1], 1), rate(entry, -1), track.LineType, rotation);
