@@ -1214,3 +1214,5 @@ degrees from one already shown. Launcher: `TestBuilds\_START HERE\2 TRANSFER - p
 
 Cannot be judged without the owner's eyes: which of the three arm versions reads right, per kind
 of animation. Numbers cannot say it (all three are "correct" by a different rule).
+
+Build 14 (from 7ee61bcc, clean checkout `transfer-xl-build`), on that exact copy, hidden: Transfer stories B, A, riders, features, round7, views, sweep (41 checks), pick sheet (11), reset view: passed; the four new cases gone through once (three live views each, no errors), pictures looked at. Source suite on the merged branch: 4,135 tests, 0 failing, 0 outside the known-failures list. Not opened: the owner is away.
