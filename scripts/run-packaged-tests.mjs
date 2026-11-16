@@ -38,6 +38,7 @@ const SPECIAL = {
   'glow-detection': { needs: [fixturePath('glow-eye-effect')] },
   'glow-up-multiple': { needs: [fixturePath('glow-dual-weapon')] },
   'vertex-modulate2x': { needs: [fixturePath('vertex-modulate2x')] },
+  'vertex-rgb-antialias': { needs: [fixturePath('vertex-rgb-match')] },
   'ai-model-merge': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-local-workspace': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-review-responsive': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },

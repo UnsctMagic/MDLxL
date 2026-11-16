@@ -5,14 +5,20 @@ import { createGLProgram, preserveGLState } from './gl-utils.js';
 // wires, dots, grid and raw GL rig markers keep the single-sample canvas.
 export const MODEL_LAYER = 1;
 
-export function createModelSmoothing(renderer) {
+// encodedModel: the model layers write sRGB-encoded colour (layerMaterial
+// encodedOutput), so the anti-aliasing target holds encoded values like the
+// game preview: the grid copy encodes into it and the final copy passes it as is.
+export function createModelSmoothing(renderer, { encodedModel = false } = {}) {
   let target, base;
   const size = new THREE.Vector2(), viewport = new THREE.Vector4();
   const copyScene = new THREE.Scene(), copyCamera = new THREE.Camera();
   const material = new THREE.ShaderMaterial({
-    uniforms: { color: { value: null }, depth: { value: null } },
+    uniforms: { color: { value: null }, depth: { value: null }, encode: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
-    fragmentShader: `uniform sampler2D color; uniform sampler2D depth; varying vec2 vUv;
+    fragmentShader: encodedModel ? `uniform sampler2D color; uniform sampler2D depth; uniform float encode; varying vec2 vUv;
+      void main(){ gl_FragColor=texture2D(color,vUv); gl_FragDepth=texture2D(depth,vUv).x;
+      if (encode > .5) gl_FragColor = sRGBTransferOETF(gl_FragColor);
+      }` : `uniform sampler2D color; uniform sampler2D depth; varying vec2 vUv;
       void main(){ gl_FragColor=texture2D(color,vUv); gl_FragDepth=texture2D(depth,vUv).x;
       #include <colorspace_fragment>
       }`,
@@ -45,7 +51,7 @@ export function createModelSmoothing(renderer) {
         target.setSize(size.x, size.y); base.setSize(size.x, size.y);
         renderer.setRenderTarget(base); camera.layers.set(2);
         renderer.render(scene, camera);
-        material.uniforms.color.value = base.texture; material.uniforms.depth.value = base.depthTexture;
+        material.uniforms.color.value = base.texture; material.uniforms.depth.value = base.depthTexture; material.uniforms.encode.value = 1;
         renderer.setRenderTarget(target); renderer.render(copyScene, copyCamera);
         // Seed exact grid pixels before the model: translucent/modulate layers
         // must blend OVER the grid, not have grid lines painted on top of them.
@@ -54,7 +60,7 @@ export function createModelSmoothing(renderer) {
         // Resolves color AND depth. Copying depth keeps hidden wires and bone
         // previews on the same side of the model as in Classic (59cf9ce7).
         renderer.setRenderTarget(null); renderer.autoClear = autoClear;
-        material.uniforms.color.value = target.texture; material.uniforms.depth.value = target.depthTexture;
+        material.uniforms.color.value = target.texture; material.uniforms.depth.value = target.depthTexture; material.uniforms.encode.value = 0;
         renderer.render(copyScene, copyCamera);
         renderer.autoClear = false; scene.background = null; camera.layers.set(0);
         renderer.render(scene, camera);
