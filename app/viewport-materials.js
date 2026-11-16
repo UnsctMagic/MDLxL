@@ -61,7 +61,10 @@ export async function textureFromAsset(asset, textureInfo = {}, { fallbackDecode
   return configureEditorTexture(texture);
 }
 
-export function layerMaterial(layer, shaded = true, { extendShader, cacheKey } = {}) {
+// encodedOutput: the layer writes sRGB-encoded colour itself, so tint and blending
+// work on encoded values like the game preview (war3-model), also inside the
+// anti-aliasing target, where Three would otherwise keep linear values.
+export function layerMaterial(layer, shaded = true, { extendShader, cacheKey, encodedOutput = false } = {}) {
   const shading = layer.Shading || 0, filter = layer.FilterMode || 0;
   const material = !shaded || shading & 1 ? new THREE.MeshBasicMaterial() : new THREE.MeshPhongMaterial({ shininess: 9, specular: 0x1c242d });
   material.userData.geosetTint = { value: new THREE.Vector3(1, 1, 1) };
@@ -73,7 +76,7 @@ export function layerMaterial(layer, shaded = true, { extendShader, cacheKey } =
     shader.uniforms.uMdlxlAdditiveScale = material.userData.additiveScale;
     // Warcraft GeosetRGB multiplies the encoded final color. Applying it to
     // Three's linear material color makes intermediate authored RGB too bright.
-    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\nuniform float uMdlxlAdditiveScale;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', '#include <colorspace_fragment>\ngl_FragColor.rgb *= uMdlxlGeosetTint * uMdlxlAdditiveScale;');
+    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\nuniform float uMdlxlAdditiveScale;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', (encodedOutput ? 'gl_FragColor = sRGBTransferOETF(gl_FragColor);' : '#include <colorspace_fragment>') + '\ngl_FragColor.rgb *= uMdlxlGeosetTint * uMdlxlAdditiveScale;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\nvec4 sampledDiffuseColor = sRGBTransferEOTF(texture2D(map, vMapUv));\ndiffuseColor *= sampledDiffuseColor;\n#endif');
     if (material.isMeshPhongMaterial) {
       // A zero authored normal must stay finite before interpolation. Fixing
@@ -90,7 +93,9 @@ export function layerMaterial(layer, shaded = true, { extendShader, cacheKey } =
     }
     extendShader?.(shader);
   };
-  if (cacheKey !== undefined) material.customProgramCacheKey = () => cacheKey;
+  // The encoded variant compiles different code from the same onBeforeCompile; keep its programs apart.
+  const programKey = encodedOutput ? `${cacheKey ?? 'mdlxl-layer'}-encoded` : cacheKey;
+  if (programKey !== undefined) material.customProgramCacheKey = () => programKey;
   material.side = shading & 16 ? THREE.DoubleSide : THREE.FrontSide;
   material.depthTest = !(shading & 64);
   material.depthWrite = !(shading & 128) && filter < 2;
