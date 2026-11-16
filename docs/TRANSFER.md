@@ -15,7 +15,7 @@ with the playback controls under them, the parts on the right, the buttons at th
 | --- | --- |
 | From | Where the movement comes from: **This model**, any other open model, **Open file...** or **Library...** (the game's own models). The model is only read; it never opens as a tab and is never changed. |
 | Animations | The chosen model's animations. Click one to play it in the donor view. |
-| Donor and result views | The donor plays the chosen animation; the result shows the open model with the taken parts. Click a part's handle on the donor to take that part. The result shows handles only for taken parts; click one to select it. Each view turns with the mouse as usual. |
+| Donor and result views | The donor plays the chosen animation; the result shows the open model with the taken parts. Click a part's handle on the donor to take that part. The result shows handles only for taken parts; click one to select it. Turning one view turns the other the same way. While a taken part is selected, the donor plays that part's animation in step with the result, with its Delay and Speed. |
 | Mirror | On the donor view's caption: swaps left and right for the whole donor. It switches itself on when the two models hold their weapon in opposite hands. |
 | Play / time bar / Original | Under the views: play or pause both, scrub the result, or show the body animation without the taken parts. |
 | Body animation | The open model's own animation under everything. Parts that are not taken keep moving as it does. |
@@ -32,6 +32,7 @@ with the playback controls under them, the parts on the right, the buttons at th
 | Take from … | Shown when the donor view plays something else than the part's source: takes the part from that instead. |
 | Timing | Closed at first. **Delay** (when the movement starts), **Speed**, and **Ease** (soft start and end, for animations that play once, such as attacks). |
 | Name / Add animation / Cancel | The new animation's name (a suggestion until you type), the button that adds it (the window stays open, so you can add another), and Cancel, which closes. |
+| Add all (N) | Gives this model the donor's whole animation set: every donor animation it does not have yet by name (Decay and Portrait ones are left out), each with the parts and slider values you took from that donor. Each plays over this model's own animation of the same kind (a Walk under Walk Defend), else the chosen Body animation. One Undo removes the whole set. The tooltip lists the names. |
 | Ctrl+Z / Ctrl+Y | Step through your changes inside the window. |
 
 Double-click a slider to put its default back.

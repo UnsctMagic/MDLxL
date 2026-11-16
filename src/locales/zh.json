@@ -8628,5 +8628,10 @@
   "Hips and legs keep the body animation: the two models stand on a different number of legs.": "臀部和腿保持身体动画：两个模型的腿数不同。",
   "All taken parts": "所有已获取的部位",
   "Change every taken part at once.": "同时更改所有已获取的部位。",
-  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "让每只脚沿来源脚的轨迹移动，并按腿长缩放，使踩地的脚保持在地面上。需臀部来自同一动画。"
+  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "让每只脚沿来源脚的轨迹移动，并按腿长缩放，使踩地的脚保持在地面上。需臀部来自同一动画。",
+  "Add all": "全部添加",
+  "Adds: {0}": "将添加：{0}",
+  "Added {0} animations": "已添加 {0} 个动画",
+  "Take a part from the donor first: Add all repeats those parts for each of its animations.": "请先从来源获取部位：“全部添加”会对来源的每个动画重复这些部位。",
+  "This model already has every animation of the donor, or only Decay and Portrait animations are left.": "此模型已有来源的所有动画，或只剩 Decay 和 Portrait 动画。"
 }

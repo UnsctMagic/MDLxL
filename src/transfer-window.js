@@ -103,3 +103,36 @@ export function takenPoseConfig(pose, rig, takenKeys) {
   const nodes = (pose.nodes || []).filter(id => joints.has(id) && parts.some(part => part.kind === 'trunk' && part.joints.includes(id)));
   return { ...pose, chains, nodes, body: takenKeys.includes('hips') ? pose.body : -1 };
 }
+
+// ---------------------------------------------------------------- Add all
+const firstWord = name => String(name || '').trim().split(/[\s\-_]+/)[0].toLowerCase();
+const leftOut = name => /\b(decay|portrait)\b/i.test(String(name || ''));
+
+/** The open model's animation a donor clip plays over: exact name, else the same first word
+ * (preferring the plain one, "Walk" or "Attack - 1", over "Walk Defend"), else `fallback`. */
+export function bodyAnimationFor(recipient, donorName, fallback) {
+  const list = (recipient?.Sequences || []).map((sequence, index) => ({ index, name: String(sequence.Name || '').trim() })), wanted = String(donorName || '').trim().toLowerCase(), word = firstWord(donorName);
+  const exact = list.find(item => item.name.toLowerCase() === wanted);
+  if (exact) return exact.index;
+  const same = list.filter(item => firstWord(item.name) === word && word);
+  const plain = same.find(item => /^[a-z]+(\s*-?\s*\d+)?$/i.test(item.name));
+  return (plain || same[0])?.index ?? fallback;
+}
+
+/** Add all: every animation of `donor` (source `sourceId`) the open model does not have yet by
+ * name (case-insensitive), without Decay and Portrait ones, each with the parts taken from that
+ * source pointed at it and its own body animation. Parts from other sources stay as they are.
+ * Returns { clips: [{ sequence, name, recipe }] }. */
+export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
+  const taken = Object.entries(recipe?.parts || {}).filter(([, part]) => part.source === sourceId);
+  if (!taken.length) return { clips: [] };
+  const have = new Set((recipient?.Sequences || []).map(sequence => String(sequence.Name || '').trim().toLowerCase())), clips = [];
+  (donor?.Sequences || []).forEach((sequence, index) => {
+    const name = String(sequence.Name || '').trim(), key = name.toLowerCase();
+    if (!name || !sequence.Interval || leftOut(name) || have.has(key)) return;
+    have.add(key);
+    const parts = Object.fromEntries(Object.entries(recipe.parts).map(([part, value]) => [part, value.source === sourceId ? { ...value, sequence: index } : value]));
+    clips.push({ sequence: index, name, recipe: { ...recipe, base: { sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts } });
+  });
+  return { clips };
+}

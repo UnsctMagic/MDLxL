@@ -609,3 +609,19 @@ its own, so a shaky item can be left out of the morning build.
   animations by name. Loading on another model reopens the donors (a missing one is asked for
   once), maps parts and animations by name and leaves out what the model lacks. With Add all this
   turns a whole warband into one setup. Time box: last, only if N6-N8 are solid.
+
+### Round 3 as built (16 Nov 2026, window coder; awaiting director review)
+
+- **W1 built.** `addAllPlan` / `bodyAnimationFor` in `src/transfer-window.js` (source tests); footer
+  `Add all (N)` with the names in its tooltip and the reason when disabled; one `edit(...)` loops
+  `buildTransfer` + `applyTransfer` (cache cleared per clip); note `Added N animations`. Harness: Lord
+  of Change + Footman, Add all (7), one Undo removes all 7, Redo, Save as and reopen keep them.
+- **W3 built.** Camera angles shared through `onCameraAnglesChange` / `cameraAnglesRequest` (the echo
+  of a request is ignored); with a taken part from the shown donor selected, the donor view plays that
+  part's animation at the result's time (Delay, Speed, looping wrap or clamp) instead of its own clock.
+- **W2 not built.** The POSE handle drag writes keys through its own gesture and hands back track
+  changes, not a drop position, so it cannot be reused without changing GamePreview's pose gesture.
+  A separate pointer handler can find the drop point, but turning it into Raise and Turn needs an
+  inverse of the engine's offset (a search over buildTransfer, about 30-60 builds per update), too slow
+  for a live per-frame path; a release-only solve without the live path was not worth the risk in the
+  time box. A clean way: an engine helper that returns the end point for given offsets cheaply.

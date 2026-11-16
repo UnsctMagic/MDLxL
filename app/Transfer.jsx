@@ -10,7 +10,7 @@ import { resolveGameFiles } from './desktop.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
-import { chipOrder, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
+import { addAllPlan, chipOrder, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
 import './transfer.css';
@@ -44,15 +44,18 @@ const FIELDS = [
   { id: 'blend', timing: true, label: () => 'Ease', min: 0, max: 500, step: 10, unit: ' ms', only: 'nonLooping', tip: () => 'Eases the taken movement in after it starts and out before it ends.', get: part => part.blend, set: (part, value) => ({ ...part, blend: value }), reset: d => d.blend },
 ];
 
-/** The donor view: plays its own clock, so only it redraws while it plays. The selected
- * part's hand or foot path is drawn over it, with a dot at the current moment. */
-const DonorStage = memo(function DonorStage({ donor, sequence, playing, poseConfig, onPoseSelect, path }) {
-  const interval = donor.model.Sequences?.[sequence]?.Interval;
-  const [time, setTime] = useState(interval?.[0] ?? 0);
+/** The donor view: plays its own clock, so only it redraws while it plays. With `clock`
+ * ({ sequence, frame }) it follows the result instead: the selected part's source animation at
+ * the moment the result shows. The selected part's hand or foot path is drawn over it, with a
+ * dot at the current moment. The camera turns with the result view's (cameraAngles). */
+const DonorStage = memo(function DonorStage({ donor, sequence: own, playing, poseConfig, onPoseSelect, path, clock, cameraAnglesRequest, onCameraAnglesChange }) {
+  const sequence = clock ? clock.sequence : own, interval = donor.model.Sequences?.[sequence]?.Interval;
+  const [free, setTime] = useState(interval?.[0] ?? 0);
   useEffect(() => { setTime(interval?.[0] ?? 0); }, [donor.model, sequence]);
+  const time = clock ? clock.frame : free;
   const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
   return <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-    <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing}
+    <GamePreview key={donor.id} presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={donor.model} revision={donor.revision} textureAssets={donor.assets} sequenceIndex={sequence} time={time} onTimeChange={clock ? undefined : setTime} playing={clock ? false : playing} cameraAnglesRequest={cameraAnglesRequest} onCameraAnglesChange={onCameraAnglesChange}
       cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={poseConfig} poseDocumentModel={donor.model} onPoseSelect={onPoseSelect} onPoseCommit={noop} overlayPaths={overlay}/>
   </Suspense>;
 });
@@ -245,10 +248,32 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     try { return jointPath(withNodeTracks(preview.model, liveTracks), preview.sequenceIndex, selectedPart.marker); } catch { return null; }
   }, [limb, preview, liveTracks, original, selectedPart]);
   const resultOverlay = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : undefined, [resultPath, time]);
+  // A selected taken part from the donor shown: the donor view plays that part's animation on
+  // the result's clock (Delay and Speed applied), so both swings happen together.
+  const linked = !!selectedTaken && !!donor && selectedTaken.source === donor.id && !!donor.model.Sequences?.[selectedTaken.sequence]?.Interval;
+  const donorClock = useMemo(() => {
+    if (!linked || !preview) return null;
+    const [first, last] = donor.model.Sequences[selectedTaken.sequence].Interval, length = Math.max(0, last - first);
+    const x = (Math.max(preview.start, Math.min(preview.end, time)) - preview.start - (Number(selectedTaken.start) || 0)) * (selectedTaken.speed > 0 ? selectedTaken.speed : 1);
+    const looping = selectedTaken.loop ?? !donor.model.Sequences[selectedTaken.sequence].NonLooping;
+    const phase = !length ? 0 : looping ? x - length * Math.floor(x / length) : Math.max(0, Math.min(length, x));
+    return { sequence: selectedTaken.sequence, frame: Math.round(first + phase) };
+  }, [linked, preview, time, selectedTaken?.sequence, selectedTaken?.start, selectedTaken?.speed, selectedTaken?.loop, donor?.model]);
+  const donorShows = linked ? selectedTaken.sequence : donorSeq;
   const donorPath = useMemo(() => {
-    if (!limb || !donor || !selectedFrom || !rigA?.parts?.[selectedFrom] || selectedTaken.sequence !== donorSeq) return null;
-    try { return jointPath(donor.model, donorSeq, rigA.parts[selectedFrom].marker); } catch { return null; }
-  }, [limb, donor?.model, donorSeq, selectedFrom, rigA]);
+    const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorShows) : null;
+    if (!rig?.parts?.[selectedFrom]) return null;
+    try { return jointPath(donor.model, donorShows, rig.parts[selectedFrom].marker); } catch { return null; }
+  }, [limb, donor?.model, donorShows, selectedFrom]);
+  // The two views turn together: a view's own camera turn is sent to the other view (each keeps
+  // its own distance and framing). A report equal to what was just sent is the echo and is ignored.
+  const [angles, setAngles] = useState({ donor: null, result: null }), sentAngles = useRef({ donor: null, result: null });
+  const sameAngles = (a, b) => !!a && !!b && ['x', 'y', 'z'].every(axis => Math.abs(a[axis] - b[axis]) < .01);
+  const turnFrom = useCallback((from, to) => values => {
+    if (!values || sameAngles(values, sentAngles.current[from])) return;
+    sentAngles.current[to] = { ...values }; setAngles(old => ({ ...old, [to]: { ...values } }));
+  }, []);
+  const onDonorAngles = useMemo(() => turnFrom('donor', 'result'), [turnFrom]), onResultAngles = useMemo(() => turnFrom('result', 'donor'), [turnFrom]);
   const latestHandlers = useRef({});
   latestHandlers.current.donorHandle = target => {
     const theirs = handlePart(rigA, poseA, target);
@@ -296,8 +321,20 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     const result = edit(`Transfer: add ${finalName}`, SECTIONS, m => { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, current), current, { name: finalName }); });
     clearTransferCache(model);
     if (result === false) return;
-    addedRecipe.current = JSON.stringify(current); setAdded(finalName); setName(null);
+    addedRecipe.current = JSON.stringify(current); setAdded({ name: finalName }); setName(null);
   };
+  // Add all: the donor's whole set with the parts taken from it, one Undo for all (src/transfer-window.js addAllPlan).
+  const plan = useMemo(() => donor ? addAllPlan(model, donor.model, donor.id, recipe, recipe.base.sequence) : { clips: [] }, [donor, model, doc.revision, recipe]);
+  const addAll = () => {
+    if (!plan.clips.length || doc.readOnly) return;
+    const clips = plan.clips;
+    const result = edit(`Transfer: add ${clips.length} animations`, SECTIONS, m => { for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); } });
+    clearTransferCache(model);
+    if (result === false) return;
+    addedRecipe.current = JSON.stringify(recipeRef.current); setAdded({ count: clips.length }); setName(null);
+  };
+  const fromDonor = donor && taken.some(key => effective.parts[key].source === donor.id);
+  const addAllTip = !donor || !fromDonor ? 'Take a part from the donor first: Add all repeats those parts for each of its animations.' : !plan.clips.length ? 'This model already has every animation of the donor, or only Decay and Portrait animations are left.' : `Adds: ${plan.clips.map(clip => clip.name).join(', ')}`;
   useEffect(() => { if (added && addedRecipe.current !== JSON.stringify(recipe)) setAdded(''); }, [recipe]);
   const unapplied = taken.length > 0 && !doc.readOnly && addedRecipe.current !== JSON.stringify(recipe);
 
@@ -332,11 +369,11 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
         <main className="xf-center">
           <div className="xf-stage">
             <section className="xf-view" aria-label="Donor">
-              <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorSeq)}</span> : <span>Donor</span>}
+              <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)} - {sequenceName(donor.model, donorShows)}</span> : <span>Donor</span>}
                 {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}</div>
               <div className="xf-preview">
                 {donor ? <>
-                  <DonorStage donor={donor} sequence={donorSeq} playing={playing} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath}/>
+                  <DonorStage donor={donor} sequence={donorSeq} playing={playing} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} clock={donorClock} cameraAnglesRequest={angles.donor} onCameraAnglesChange={onDonorAngles}/>
                   {!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}
                 </> : <div className="xf-placeholder">Choose a model under From.</div>}
                 {(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}
@@ -346,7 +383,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               <div className="xf-caption"><span translate="no">{doc.name}</span></div>
               <div className="xf-preview">
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} liveNodeTracks={liveTracks}
+                  <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} liveNodeTracks={liveTracks} cameraAnglesRequest={angles.result} onCameraAnglesChange={onResultAngles}
                     cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={resultPose} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} overlayPaths={resultOverlay}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
@@ -394,9 +431,10 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
       </div>
       <footer className="xf-footer">
         <label className="xf-name" title="Name of the new animation.">Name <input data-hotkey="transfer:name" data-hotkey-manual data-hotkey-label="Animation name" aria-label="Name" value={shownName} maxLength={79} onChange={event => setName(event.target.value)}/></label>
-        {added && <span className="xf-added" role="status">Added <span translate="no">{added}</span></span>}
+        {added && <span className="xf-added" role="status">{added.count ? `Added ${added.count} animations` : <>Added <span translate="no">{added.name}</span></>}</span>}
         <span className="xf-spacer"/>
         <button onClick={onClose} title="Close. Parts not added are lost.">Cancel</button>
+        <button data-hotkey="transfer:add-all" data-hotkey-manual data-hotkey-label="Add all" disabled={!plan.clips.length || doc.readOnly || !built} title={addAllTip} onClick={addAll}>Add all <span translate="no">({plan.clips.length})</span></button>
         <button data-hotkey="transfer:add-animation" data-hotkey-manual data-hotkey-label="Add animation" className="xf-add" disabled={!built || !taken.length || doc.readOnly} title="Add the result to this model as a new animation. One Undo removes it." onClick={add}>Add animation</button>
       </footer>
     </>}

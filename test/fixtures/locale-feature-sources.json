@@ -1822,7 +1822,12 @@
     "Hips and legs keep the body animation: the two models stand on a different number of legs.",
     "All taken parts",
     "Change every taken part at once.",
-    "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation."
+    "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.",
+    "Add all",
+    "Adds: {0}",
+    "Added {0} animations",
+    "Take a part from the donor first: Add all repeats those parts for each of its animations.",
+    "This model already has every animation of the donor, or only Decay and Portrait animations are left."
   ],
   "paint": [
     "Citadel Paint",

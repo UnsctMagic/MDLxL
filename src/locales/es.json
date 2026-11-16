@@ -8732,5 +8732,10 @@
   "Hips and legs keep the body animation: the two models stand on a different number of legs.": "Las caderas y las piernas mantienen la animación del cuerpo: los dos modelos se apoyan en un número distinto de patas.",
   "All taken parts": "Todas las partes tomadas",
   "Change every taken part at once.": "Cambiar todas las partes tomadas a la vez.",
-  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "Mantiene cada pie en la trayectoria del pie del donante, escalada a la pierna, para que un pie apoyado siga en el suelo. Funciona cuando las caderas vienen de la misma animación."
+  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "Mantiene cada pie en la trayectoria del pie del donante, escalada a la pierna, para que un pie apoyado siga en el suelo. Funciona cuando las caderas vienen de la misma animación.",
+  "Add all": "Añadir todas",
+  "Adds: {0}": "Añade: {0}",
+  "Added {0} animations": "{0} animaciones añadidas",
+  "Take a part from the donor first: Add all repeats those parts for each of its animations.": "Primero toma una parte del donante: Añadir todas repite esas partes en cada una de sus animaciones.",
+  "This model already has every animation of the donor, or only Decay and Portrait animations are left.": "Este modelo ya tiene todas las animaciones del donante, o solo quedan animaciones Decay y Portrait."
 }

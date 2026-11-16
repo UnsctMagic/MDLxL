@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -28,7 +28,7 @@ async function session(fixture, label) {
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.waitForFunction(() => !!window.__mdlxl?.model?.(), null, { timeout: 60000 });
   const dialog = page.getByRole('dialog', { name: 'Transfer' });
-  const shot = async name => { const file = path.join(shots, name + '.png'); await page.screenshot({ path: file }); results.screenshots.push(file); };
+  const shot = async (name, folder = shots) => { const file = path.join(folder, name + '.png'); await page.screenshot({ path: file }); results.screenshots.push(file); };
   const from = () => dialog.locator('aside[aria-label="From"]'), parts = () => dialog.locator('aside[aria-label="Parts"]');
   const view = name => dialog.locator(`section[aria-label="${name}"]`);
   const count = () => page.evaluate(() => window.__mdlxl.model().Sequences.length);
@@ -122,7 +122,23 @@ async function storyB() {
     await page.waitForTimeout(400);
     await s.shot('03-story-b-raise-dragged');
     results.checks.push('B: Strength and Raise drags move the drawn hand path and the arm live, without a renderer rebuild');
-    await s.dragCamera('Donor'); await s.dragCamera('Result');
+    // W3: the donor plays the selected part's animation on the result's clock.
+    await dialog.locator('.xf-transport').getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(200);
+    await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
+    const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox(), frames = [];
+    for (const at of [0.2, 0.6]) { await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(700); const d = await s.probe('Donor'); frames.push(d.frame); assert.equal(d.sequence, gruntModel.Sequences.findIndex(q => q.Name === 'Attack - 1'), "B: the donor plays the arm's animation"); }
+    assert.ok(Math.abs(frames[1] - frames[0]) > 100, `B: scrubbing the result moves the donor with it (${frames.join(' -> ')})`);
+    results.checks.push(`B: with the arm selected the donor follows the result's clock (${frames.join(' -> ')})`);
+    // W3: turning one view's camera turns the other to the same angles.
+    await s.dragCamera('Donor'); await page.waitForTimeout(600);
+    const quaternion = async name => { const { ObjectLoader } = await import('three'), c = new ObjectLoader().parse((await s.probe(name)).camera); return c.quaternion; };
+    const qa = await quaternion('Donor'), qb = await quaternion('Result');
+    assert.ok(Math.abs(qa.dot(qb)) > 0.999, `B: both views face the same way after turning the donor (dot ${qa.dot(qb).toFixed(4)})`);
+    await s.shot('03-both-views-same-angle', shots3);
+    await s.dragCamera('Result'); await page.waitForTimeout(600);
+    const qc = await quaternion('Donor'), qd = await quaternion('Result');
+    assert.ok(Math.abs(qc.dot(qd)) > 0.999, 'B: and after turning the result');
+    results.checks.push('B: turning either view turns the other to the same angles');
     results.checks.push('B: mouse drags turn the camera in both views');
     await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(800);
     assert.equal(await s.count(), before + 1, 'B: Add animation adds one animation');
@@ -188,6 +204,54 @@ async function storyA() {
     assert.equal(reopened.Sequences.at(-1).Name, name, 'A: under its name');
     results.checks.push(`A: Add animation added "${name}"; Save as and reopening the file keep it`);
     await s.noCrash('story A');
+  } finally { await s.close(); }
+}
+
+// W1: Add all on the Lord of Change from the Footman: one Undo for the set, save and reopen keeps it.
+async function storyAll() {
+  const lord = copyModel('transfer-lord-of-change', 'TEST TRANSFER 05 add all.mdx'), footman = copyModel('transfer-footman', 'footman donor all.mdx');
+  const s = await session(lord, 'all'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    const before = await s.count(), names = await page.evaluate(() => window.__mdlxl.model().Sequences.map(q => q.Name));
+    await s.openDonor(footman);
+    await s.animation('Stand Defend');
+    const button = dialog.locator('button[data-hotkey="transfer:add-all"]');
+    assert.equal(await button.isDisabled(), true, 'all: Add all waits for a taken part');
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+    const label = await button.innerText(), n = Number(label.match(/\((\d+)\)/)[1]), tip = await button.getAttribute('title');
+    assert.ok(n > 5, `all: ${label}`);
+    assert.ok(!/decay|portrait/i.test(tip) && !tip.split(/: |, /).includes('Death'), `all: the tooltip lists only new names (${tip})`);
+    await button.hover(); await page.waitForTimeout(1200);
+    await s.shot('01-footer-add-all', shots3);
+    await button.click(); await page.waitForTimeout(3000);
+    assert.equal(await s.count(), before + n, `all: Add all adds ${n} animations`);
+    await dialog.getByText(`Added ${n} animations`).waitFor();
+    const added = await page.evaluate(count => window.__mdlxl.model().Sequences.slice(-count).map(q => q.Name), n);
+    assert.ok(added.every(name => !names.some(old => old.toLowerCase() === name.toLowerCase())), `all: new names only (${added.join(', ')})`);
+    results.checks.push(`all: Add all (${n}) adds ${added.join(', ')}`);
+    await dialog.getByRole('button', { name: 'Close Transfer' }).click(); await page.waitForTimeout(300);
+    await page.keyboard.press('Control+Z'); await page.waitForTimeout(2000);
+    assert.equal(await s.count(), before, 'all: one Undo removes the whole set');
+    await page.keyboard.press('Control+Y'); await page.waitForTimeout(2000);
+    assert.equal(await s.count(), before + n, 'all: Redo brings it back');
+    // The new names in the editor's own animation list (the Sequence Manager).
+    await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'Sequences')); await page.waitForTimeout(1500);
+    await s.shot('02-lord-of-change-animation-list', shots3);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(500);
+    const saved = path.join(out, 'TEST TRANSFER 05 saved.mdx');
+    if (fs.existsSync(saved)) fs.unlinkSync(saved);
+    await stubDialogs(s.app, { save: saved, message: 0 });
+    await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'saveAs'));
+    await page.waitForTimeout(1000);
+    const format = page.getByRole('button', { name: 'Save MDX…' });
+    if (await format.count()) await format.click();
+    for (let i = 0; i < 60 && !fs.existsSync(saved); i++) await page.waitForTimeout(250);
+    await page.waitForTimeout(800);
+    const reopened = await readModel(saved);
+    assert.deepEqual(reopened.Sequences.slice(-n).map(q => q.Name), added, 'all: the saved file keeps every added animation');
+    results.checks.push(`all: one Undo removes all ${n}, Redo restores them, Save as and reopening keep them`);
+    await s.noCrash('add all');
   } finally { await s.close(); }
 }
 
@@ -331,11 +395,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

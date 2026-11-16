@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { chipOrder, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
+import { addAllPlan, bodyAnimationFor, chipOrder, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -93,4 +93,35 @@ test('the result view gets handles for taken parts only, and none when nothing i
   assert.equal(body.body, pose.body);
   assert.equal(body.chains.length, 0);
   assert.ok(body.nodes.every(id => rig.parts.head.joints.includes(id) || rig.parts.hips.joints.includes(id)));
+});
+
+test('Add all: every new donor animation, Decay and Portrait and names the model has left out, each over its kind of body animation', { skip: missing('transfer-footman', 'transfer-lord-of-change') }, () => {
+  const lord = load('transfer-lord-of-change'), foot = load('transfer-footman'), name = (m, i) => m.Sequences[i].Name;
+  const stand = lord.Sequences.findIndex(s => s.Name === 'Stand'), defend = foot.Sequences.findIndex(s => s.Name === 'Stand Defend');
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: { armL: { source: 'foot', sequence: defend, amount: 0.8 }, head: { source: 'other', sequence: 3 } } };
+  const { clips } = addAllPlan(lord, foot, 'foot', recipe, stand);
+  const names = clips.map(clip => clip.name), have = new Set(lord.Sequences.map(s => s.Name.toLowerCase()));
+  assert.ok(names.length > 5, names.join(', '));
+  assert.ok(names.every(n => !/decay|portrait/i.test(n) && !have.has(n.toLowerCase())), names.join(', '));
+  assert.ok(!names.includes('Death'), 'the Lord of Change already has Death');
+  for (const clip of clips) {
+    assert.equal(name(foot, clip.sequence), clip.name);
+    assert.equal(clip.recipe.parts.armL.sequence, clip.sequence, 'the part from this source points at the clip');
+    assert.equal(clip.recipe.parts.armL.amount, 0.8, 'with the same slider values');
+    assert.deepEqual(clip.recipe.parts.head, recipe.parts.head, 'parts from other sources stay as they are');
+  }
+  const body = n => name(lord, clips.find(clip => clip.name === n).recipe.base.sequence);
+  assert.equal(body('Walk Defend'), 'Walk', 'Walk Defend plays over the Walk');
+  assert.equal(body('Attack - 1'), 'Attack', 'Attack - 1 plays over the plain Attack');
+  assert.equal(body('Stand Victory'), 'Stand');
+  assert.equal(addAllPlan(lord, foot, 'nobody', recipe, stand).clips.length, 0, 'nothing taken from that source, nothing to add');
+});
+
+test('bodyAnimationFor: exact name, else the plain animation of the same kind, else the chosen one', () => {
+  const model = { Sequences: ['Stand', 'Walk Defend', 'Walk', 'Attack Slam', 'Attack - 2', 'Spell'].map(Name => ({ Name, Interval: [0, 1] })) };
+  assert.equal(bodyAnimationFor(model, 'Walk Defend', 0), 1);
+  assert.equal(bodyAnimationFor(model, 'Walk Fast', 0), 2);
+  assert.equal(bodyAnimationFor(model, 'Attack Slam', 0), 3);
+  assert.equal(bodyAnimationFor(model, 'Attack - 1', 0), 4);
+  assert.equal(bodyAnimationFor(model, 'Death', 5), 5);
 });

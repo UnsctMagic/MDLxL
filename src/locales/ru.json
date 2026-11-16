@@ -8722,5 +8722,10 @@
   "Hips and legs keep the body animation: the two models stand on a different number of legs.": "Бёдра и ноги остаются на анимации тела: модели стоят на разном числе ног.",
   "All taken parts": "Все взятые части",
   "Change every taken part at once.": "Изменить все взятые части сразу.",
-  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "Держит каждую ступню на пути ступни донора с учётом длины ноги, чтобы стоящая нога оставалась на земле. Работает, если бёдра взяты из той же анимации."
+  "Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation.": "Держит каждую ступню на пути ступни донора с учётом длины ноги, чтобы стоящая нога оставалась на земле. Работает, если бёдра взяты из той же анимации.",
+  "Add all": "Добавить все",
+  "Adds: {0}": "Добавит: {0}",
+  "Added {0} animations": "Добавлено анимаций: {0}",
+  "Take a part from the donor first: Add all repeats those parts for each of its animations.": "Сначала возьмите часть у донора: «Добавить все» повторяет эти части для каждой его анимации.",
+  "This model already has every animation of the donor, or only Decay and Portrait animations are left.": "У этой модели уже есть все анимации донора, или остались только анимации Decay и Portrait."
 }
