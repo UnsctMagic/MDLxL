@@ -238,8 +238,10 @@ function claudeCompaction(data) {
 const CANCELLED = 'AI request cancelled.';
 // Said when a provider asks for anything beyond MDLxL's own editor tools.
 const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
-function authenticationRequired() {
-  return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'), {
+const CLAUDE_SIGN_IN = 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in.';
+function authenticationRequired(provider) {
+  const message = provider === 'claude' ? CLAUDE_SIGN_IN + ' Your prompt has been kept.' : 'Sign in to connect your AI. Your prompt has been kept.';
+  return Object.assign(Error(message), {
     code: 'AI_AUTH_REQUIRED',
   });
 }
@@ -1299,6 +1301,9 @@ async function providerAuth(settings, action, { directory, signal, openExternal,
       await client.close();
     }
   }
+  // MDLxL never signs in or out of Claude Code: the user does that in their
+  // own terminal, and MDLxL only checks the result.
+  if (action !== 'status') throw Error(CLAUDE_SIGN_IN);
   const env = await prepareEnvironment(directory, 'claude');
   if (signal.aborted) throw Error('Sign-in cancelled.');
   const child = spawnAgent(settings.executable || 'claude', ['auth', action], {

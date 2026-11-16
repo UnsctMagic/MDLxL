@@ -107,9 +107,9 @@
 .settings-plane-choices{display:flex;align-items:center;gap:14px;min-height:var(--settings-row)}
 .settings-plane-choices label{display:flex;align-items:center;gap:4px}
 .settings-sensitivity{display:flex;align-items:center;gap:16px;margin-top:6px}
-.settings-sensitivity>input{flex:1;min-width:60px;accent-color:var(--ui-accent)}
+.settings-sensitivity>.range-steps{flex:1;min-width:60px}.settings-sensitivity input[type=range]{accent-color:var(--ui-accent)}
 .settings-sensitivity label{display:flex;align-items:center;gap:4px}
-.settings-range-labels{display:flex;justify-content:space-between;margin:3px 92px 8px 0;font-size:11px;color:var(--ui-muted)}
+.settings-range-labels{display:flex;justify-content:space-between;margin:3px 106px 8px 14px;font-size:11px;color:var(--ui-muted)}
 .settings-form :is(.settings-select,.settings-number,.settings-color,.settings-toggle,.settings-rotation-speed,.settings-plane-choices){border-radius:var(--settings-inner-radius)}
 .settings-form :is(.settings-select,.settings-number,.settings-color,.settings-toggle,.settings-rotation-speed):hover{background:var(--settings-soft);box-shadow:-6px 0 var(--settings-soft),6px 0 var(--settings-soft)}
 .settings-rotation-speed>.settings-toggle:hover{background:transparent;box-shadow:none}

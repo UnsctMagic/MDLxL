@@ -78,7 +78,7 @@ export default function Viewport({ children, ...inputProps }) {
     renderer.domElement.style.cssText = 'display:block;position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;outline:none';
     renderer.domElement.tabIndex = 0;
     host.current.appendChild(renderer.domElement);
-    const modelSmoothing = createModelSmoothing(renderer);
+    const modelSmoothing = createModelSmoothing(renderer, { encodedModel: true });
     const scene = new THREE.Scene(), modelGroup = new THREE.Group();
     scene.add(modelGroup);
     // The classic single view uses the canvas; Quad View adds its own input panes.
@@ -994,6 +994,7 @@ export default function Viewport({ children, ...inputProps }) {
             material.userData.geosetTint.value.fromArray(sampled.color);
           }
           material.opacity = editOverlay?.preview ? .45 : textured ? Math.max(0, Math.min(1, alpha * sampleTrack(layer.Alpha, frame, { ...animOptions, fallback: 1 }))) : 1;
+          material.userData.additiveScale.value = textured && !editOverlay?.preview && layer.FilterMode === 3 ? material.opacity : 1;
           const transparent = !!editOverlay?.preview || textured && ((layer.FilterMode || 0) >= 2 || material.opacity < 1);
           if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
           // Clockwise faces are culled; counterclockwise winding is front-facing.
@@ -1274,7 +1275,7 @@ export default function Viewport({ children, ...inputProps }) {
         if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); layerGeometry.setIndex(geometry.index); }
         const uv = geoset.TVertices?.[layer.CoordId || 0] || geoset.TVertices?.[0];
         layerGeometry.setAttribute('uv', new THREE.BufferAttribute(uv?.length ? new Float32Array(uv) : new Float32Array(geoset.Vertices.length / 3 * 2), 2));
-        const material = layerMaterial(layer, shaded && graphics.lighting); material.polygonOffset = false;
+        const material = layerMaterial(layer, shaded && graphics.lighting, { encodedOutput: true }); material.polygonOffset = false;
         material.flatShading = !!props.modelingOverlay;
         // Coverage is enabled only while rendering into the multisampled model target.
         material.alphaToCoverage = layer.FilterMode === 1 && graphics.antialias;

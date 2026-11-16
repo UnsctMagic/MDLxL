@@ -40,6 +40,7 @@ const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
+const {Reporter}=require('./report.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
 const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
 const {safeWindowsName}=require('./windows-name.cjs');
@@ -417,11 +418,15 @@ ipcMain.handle('model:backup',(event,payload)=>{
 });
 async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
-  if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
-  const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The painter artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The painter artifact exceeds 512 MB.');
-  const destination=await chooseSavePath({title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
+  const textureBundle=payload?.kind==='textures';
+  if(textureBundle && extension!=='.zip')throw Error('Texture bundles must use .zip.');
+  if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip artifacts can be saved.');
+  const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The artifact exceeds 512 MB.');
+  const title=textureBundle?'Bundle Textures':extension==='.zip'?'Export Warcraft paint package':'Save editable paint project';
+  const destination=await chooseSavePath({title,defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
   if(!destination)return null;
-  if(!allowed.has(path.extname(destination).toLowerCase()))throw Error('The selected painter artifact extension is not allowed.');
+  const selectedExtension=path.extname(destination).toLowerCase();
+  if(textureBundle ? selectedExtension!=='.zip' : !allowed.has(selectedExtension))throw Error('The selected artifact extension is not allowed.');
   await writeFileAtomic(destination,bytes,{verify:true});
   return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }
@@ -583,6 +588,9 @@ const publicSettings=()=>({...settings,gameData:settings.gameData||null,gameData
 // A normal launch must not wait on every saved draft before starting the viewport.
 ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialModel,models:initialModels,recoveryPrompt,recovery:recoveryPrompt?(await recoveryStore.list()).filter(r=>r.dirty!==false):[]}));
 ipcMain.handle('settings:get',publicSettings);
+let reporter;
+ipcMain.handle('report:status',event=>{editorOnly(event,'Reports require the main editor.');return(reporter??=new Reporter({version:app.getVersion(),profile})).status();});
+ipcMain.handle('report:send',(event,text,name='')=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string'||typeof name!=='string')throw Error('Report text must be text.');const message=text.trim();if(!message||message.length>2000||name.trim().length>40)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message,name);});
 ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{editorOnly(event,'Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a

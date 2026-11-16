@@ -95,7 +95,7 @@ async function visibleCanvas(page, team) {
     await uv.mouse.move(bounds.x + bounds.width * .75, bounds.y + bounds.height * .65, { steps: 12 }); await uv.mouse.up();
     await waitFor(async () => JSON.stringify((await uv.evaluate(runtime)).camera) !== JSON.stringify(before.camera), 'normal mouse drag rotates preview');
     const redCanvas = await visibleCanvas(uv, [255, 3, 3]); await uv.screenshot({ path: path.join(out, 'red.png') });
-    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
+    await uvw.getByRole('button', { name:'Close UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
     await main.getByLabel('Team color', { exact: true }).selectOption('#0042ff');
     await main.locator('[data-hotkey="uv"]').click();
     await uvw.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });

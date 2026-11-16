@@ -23,6 +23,7 @@ import { showcaseOrbitRadius, setShowcaseOrbitCamera, showcaseFraming } from './
 import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js';
 import { textureFromAsset } from './Viewport.jsx';
 import { drawGeosetHighlight } from './geoset-highlight.js';
+import { motionPathInputs, motionPathMarker, motionPaths, sameInputs } from '../src/motion-path.js';
 import { allNodes, localSequenceAtFrame, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { isolateGlobalSequence } from '../src/global-sequence-preview.js';
 import { motionPose } from '../src/motion-inspector.js';
@@ -278,7 +279,7 @@ export default function GamePreview(inputProps) {
     hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, poseRight = null, revealStrip = null, revealSignature = '', revealLayout = '', pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], projectedNodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, poseRight = null, revealStrip = null, revealSignature = '', revealLayout = '', pinButton, pinPlacement = null, pinOffset = null, native, showcaseTravelRate = 1, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, motionPathCache = null, geometryCanvas, cameraCanvas, nodePoints = [], projectedNodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -1810,16 +1811,27 @@ export default function GamePreview(inputProps) {
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);
       } else { if (pinButton) { pinButton.remove(); pinButton = null; } updateRevealStrip([], 0); nodePoints = []; nodeHandles = []; if (gizmoHoverAxis !== null) clearGizmoHover(); poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
       }
+      // Motion path (Movement): the curve each chosen joint draws through the animation, sampled
+      // from this preview's own tracks so it follows a drag live; sampled again only when they change.
+      let motionOverlay = [];
+      if (p.motionPathIds?.length && !p.restPose) {
+        const frame = native.getFrame(), sequence = movementSequence(p, Math.round(frame)), inputs = sequence >= 0 ? motionPathInputs(ownedModel, p.motionPathIds) : null;
+        if (!inputs) motionPathCache = null;
+        else if (!motionPathCache || motionPathCache.sequence !== sequence || !sameInputs(motionPathCache.inputs, inputs)) motionPathCache = { sequence, inputs, ...motionPaths(ownedModel, sequence, p.motionPathIds) };
+        if (motionPathCache) { const marker = motionPathMarker(motionPathCache.frames, frame); motionOverlay = motionPathCache.paths.filter(path => path.points.length > 1).map(path => ({ points: path.points, motion: true, width: 3, alpha: .95, marker })); }
+      } else motionPathCache = null;
+      const pathOverlays = motionOverlay.length ? [...(p.overlayPaths || []), ...motionOverlay] : p.overlayPaths;
       // Motion arcs (AnimXL): model-space polylines over the view, through the live camera.
-      if (p.overlayPaths?.length) {
+      if (pathOverlays?.length) {
         if (!pathCanvas) { pathCanvas = ownerDocument.createElement('canvas'); pathCanvas.dataset.pathOverlay = ''; pathCanvas.style.cssText = 'position:absolute;z-index:41;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(pathCanvas); }
         if (pathCanvas.width !== canvas.width) pathCanvas.width = canvas.width;
         if (pathCanvas.height !== canvas.height) pathCanvas.height = canvas.height;
         const pw = canvas.clientWidth, ph = canvas.clientHeight, context = pathCanvas.getContext('2d'), point = new THREE.Vector3();
         context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, pathCanvas.width, pathCanvas.height); context.setTransform(pathCanvas.width / Math.max(1, pw), 0, 0, pathCanvas.width / Math.max(1, pw), 0, 0);
         const screen = value => { point.set(value[0], value[1], value[2]).project(camera); return point.z > 1 ? null : [(point.x + 1) / 2 * pw, (1 - point.y) / 2 * ph]; };
-        for (const path of p.overlayPaths) {
-          context.strokeStyle = path.color; context.fillStyle = path.color; context.lineWidth = path.width || 2; context.setLineDash(path.dash || []); context.globalAlpha = path.alpha ?? 1;
+        const motionColor = visualOptions(p.preferences).motionPath;
+        for (const path of pathOverlays) {
+          context.strokeStyle = context.fillStyle = path.motion ? motionColor : path.color; context.lineWidth = path.width || 2; context.setLineDash(path.dash || []); context.globalAlpha = path.alpha ?? 1;
           context.beginPath(); let open = false;
           for (const value of path.points) { const xy = screen(value); if (!xy) { open = false; continue; } if (open) context.lineTo(xy[0], xy[1]); else { context.moveTo(xy[0], xy[1]); open = true; } }
           context.stroke(); context.setLineDash([]);
@@ -2046,7 +2058,7 @@ export default function GamePreview(inputProps) {
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
   // Redraw changed motion arcs or stage handles even while paused.
-  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths,props.particleStageMarks]);
+  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths,props.motionPathIds,props.particleStageMarks]);
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);

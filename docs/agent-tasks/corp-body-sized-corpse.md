@@ -1,6 +1,6 @@
 # CORP: body-sized corpse on the POSE body parts
 
-Status: owner requested branch push; per-model visual review remains pending. No PR opened.
+Status: completed — shipped via claude/release-0.36.1 (merge 7f8cf6eb); later CORP work built on it.
 Owner: Codex, chat `01a18c85-4bcf-74f2-9520-9aff51b2a0c9`
 Updated: 2026-10-30
 Branch: `claude/corp-long-bones`; worktree:

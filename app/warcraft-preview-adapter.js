@@ -106,6 +106,21 @@ export function applyReplaceableTextureColor(native, gl, textureID) {
   return true;
 }
 
+/**
+ * war3-model keeps one GL texture per image path and sets its wrap from the
+ * first texture entry with that path. Each entry has its own WrapWidth and
+ * WrapHeight (as in the vertex editor and the Hive viewer), so re-apply the
+ * drawn entry's wrap after its texture is bound.
+ */
+export function applyTextureWrap(native, gl, textureID) {
+  const texture = native?.model?.Textures?.[textureID];
+  if (!texture?.Image || !native.rendererData?.textures?.[texture.Image]) return false;
+  const flags = Number(texture.Flags) || 0;
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, flags & 1 ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, flags & 2 ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+  return true;
+}
+
 /** Reforged skin weights do not guarantee Reforged/PBR materials. */
 export function isExplicitHdMaterial(material) {
   return /^Shader_HD_/i.test(material?.Shader || '') || (material?.Layers || []).some(layer => layer?.ShaderTypeId > 0);
@@ -205,6 +220,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock, isUVWorkingGe
         activeLayer = layer;
         const result = setLayerProps.call(this, layer, textureID);
         applyReplaceableTextureColor(this, gl, textureID);
+        applyTextureWrap(this, gl, textureID);
         // Additive is ONE + ONE, as in the vertex editor. SRC_COLOR squares
         // the texture/tint and suppresses the soft edges of glow textures.
         if (layer.FilterMode === 3) gl.blendFunc(gl.ONE, gl.ONE);

@@ -47,6 +47,11 @@ separate and are not a shared handover.
   files, even during cleanups the owner asks for; only add to it. Tests read
   real models from it through `test/helpers/fixtures.cjs`, never from Downloads,
   Desktop or a checkout's `out/`.
+- Models on the owner's PC come and go. When a test, check, review or release
+  step names a model or reference file that is missing, use a similar model that
+  exists (same kind of rig, part or effect) and say which one you used. Never
+  search drives for it, never block a test, review, merge or release on it, and
+  never ask the owner to find it.
 - Remove task-created disposable builds/profiles/runtimes after verification,
   keeping the small report and needed captures. Stop unused task-started processes.
   After pushing or merging, remove the finished task worktree and prune its
@@ -73,6 +78,12 @@ separate and are not a shared handover.
   infer permission to create from words such as add, fix, improve or "make it
   look like"; when a request can be met either way, reuse. If nothing existing
   fits, ask the owner instead of making something.
+- **Standing rule (owner, 16 Nov 2026): every slider, existing and future, in every
+  window and feature branch, has a small − and + that move it one step.** Build sliders
+  only with `RangeField` or `RangeInput` from [Fields.jsx](app/Fields.jsx), which carry
+  them; never a bare `<input type="range">`. Time and keyframe scrubbers (playheads,
+  animation time) are the one exception: plain, marked `data-time-scrub`.
+  `test/ui-primitives.test.js` fails on any other bare slider.
 - Complicated or ambiguous controls need a short plain-language tooltip when
   hovering either the control or label. For example, `Billboarded` explains that
   the bone and attached parts turn toward the viewer as the camera moves.
@@ -120,10 +131,25 @@ separate and are not a shared handover.
 
 [Testing rules](docs/TESTING-RULES.md) are binding for every agent: tests do what
 the user does and fail on the broken code first. Codex, Claude or another agent
-may test using the same shared rules and scripts. Before merging, build and run
-focused checks proportional to the change; reuse valid results without a
-mandatory second-agent rerun. The full regression and packaged-app suites are
-release gates. Read the rules before writing or changing any test.
+may test using the same shared rules and scripts. Read the rules before writing or
+changing any test.
+
+**How much to test** (owner, 12 Nov 2026: "we are wasting time and credits running
+big tests all the time"; the release runs the serious testing):
+
+- **Small repairs and tweaks:** the owner tests by hand. Build and package, open
+  the test build hidden and click the changed control once so it does not crash,
+  then hand it over with its named test model and a short click list. No new
+  automated tests and no test suites unless the owner asks. PR CI at merge is the
+  safety net; fix it there if it goes red.
+- **A whole new feature (like FX) while it is being built:** tests that prove its
+  new behaviour, plus the source suite before hand-back, until it reaches the
+  owner's hand-testing phase.
+- **That feature's polish phase** (the owner is testing it by hand): same as small
+  repairs.
+- **Release:** the full QA kit, unchanged (see below). Only the owner reduces it.
+- Do not repeat a check the release or CI will run anyway. When unsure which tier
+  a task is, treat it as a small repair.
 
 Use Node.js 22.12+ and pnpm; [package.json](package.json) owns script definitions
 and [README source development](README.md#source-development) explains setup.

@@ -51,7 +51,8 @@ const FIXTURES = {
   'transfer-cold-one-rider': ['MDLXL_TRANSFER_COLD_ONE_RIDER', testModel('transfer-riders/Cold_One_Rider_UNIT.mdx')], // rider on its own root over a two-legged mount that has arms
   'transfer-magnataur': ['MDLXL_TRANSFER_MAGNATAUR', testModel('corpus-sd/creeps__magnataur.mdx')], // one creature: a torso on a four-legged body, hanging from a joint read as a neck
   'transfer-khorne-knight': ['MDLXL_TRANSFER_KHORNE_KNIGHT', testModel('transfer-riders/WH_WOC_KnightKhorneAxe03.mdx')], // the rider's leg has a joint whose pivot sits at the body's middle, off the leg
-  'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
 
 // Absolute path of a named fixture, or null when it has no default and its variable is not set.

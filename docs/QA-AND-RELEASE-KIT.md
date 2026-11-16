@@ -187,9 +187,9 @@ profile folder with particles. A skipped test is a gap: list it in the report.
 
 | Layer | Command | When |
 | --- | --- | --- |
-| Compatibility | `node --test tests/*.test.js` | every change |
-| Source | `node --test test/*.test.js`, or the named files | named files per change; all before a PR |
-| Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | every visible change |
+| Compatibility | `node --test tests/*.test.js` | new features while being built; CI runs it on every PR |
+| Source | `node --test test/*.test.js`, or the named files | new features before hand-back; CI runs it on every PR |
+| Focused app tests | `node scripts/run-packaged-tests.mjs default name,name` | new features while being built; small repairs only when the owner asks ([tiers](../AGENTS.md#build-and-verification)) |
 | Core under other machines | `node scripts/run-packaged-tests.mjs <variant> core` | rendering, timing or layout changes; release |
 | Full packaged suite | `node scripts/run-packaged-tests.mjs default all` | release only, about 2 hours |
 | Click sweep | [`node scripts/run-packaged-tests.mjs default click-sweep`](#the-click-sweep-script) | every release, `footman`; other setups only when the owner asks |
@@ -289,12 +289,14 @@ node scripts/run-packaged-tests.mjs default click-sweep
 | Setting | Meaning |
 | --- | --- |
 | `MDLXL_SWEEP_SETUPS` | `baseline`, `no-model`, `footman`, `toolbar-trim`, `toolbar-hidden`, `vis`, `small`, `theme-<id>`, `lang-<ru, es, zh, fr, de, mordor>`, or `all` |
-| `MDLXL_SWEEP_MINUTES` | Time limit per setup, default 40 |
+| `MDLXL_SWEEP_MINUTES` | Time limit per setup, default 90 |
+| `MDLXL_SWEEP_STARTS` | Only these start points, such as `showcase` (names in `START_POINTS` in the script); skips the menus. For rechecking one area after a fix |
 | `MDLXL_SWEEP_OUT` | Results folder, default `out/click-sweep` |
 | first argument (`default`) | Any machine variant, such as `slow-cpu` or `hidpi` |
 
 It is never part of `all` or `core`; it runs only when named. Measured on 9 Nov 2026:
-about 36 minutes for `footman` (830 clicks), 23 for `no-model`. Use a real model where you can: the bare demo
+about 36 minutes for `footman` (830 clicks), 23 for `no-model`. On 15 Nov `footman` hit the
+old 40-minute limit with 185 controls and all menus left, so the default is now 90. Use a real model where you can: the bare demo
 model reports some working buttons as dead.
 
 It starts from each main mode, with and without a selection, plus Settings. It gives
@@ -320,7 +322,8 @@ fields; color pickers and file pickers; dragging; hotkeys
 ([window-hotkeys](../test/window-hotkeys.electron.cjs) and
 [hotkey-defaults-audit](../test/hotkey-defaults-audit.electron.cjs) cover those);
 right-click menus; AI features; a second window such as the OptimizeXL review, which
-is closed when it opens; and long lists beyond their first eight rows. Native menu items
+is closed when it opens; long lists beyond their first eight rows; and controls scrolled out
+of view inside a window's pane (counted under "Covered by another layer"). Native menu items
 are fired by the menu itself rather than a mouse. Dropdowns choose their next option
 rather than opening the list, and only those with a command id are exercised.
 

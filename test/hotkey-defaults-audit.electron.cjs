@@ -31,7 +31,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   try {
     await page.waitForFunction(() => document.querySelector('.model-tabs')?.textContent.includes('HotkeyAudit.mdx'));
     for (const mode of ['vertices', 'bones', 'animation', 'animations']) await visit(mode, () => click(control(mode)));
-    await visit('uv', async () => { await click(control('vertices')); await page.keyboard.press('Control+a'); await click(control('uv')); await page.locator('.uv-workspace').waitFor(); await pause(400); await click(page.getByRole('button', { name: 'Exit UV Wrapper', exact: true })); await page.locator('.uv-workspace').waitFor({ state: 'detached' }); });
+    await visit('uv', async () => { await click(control('vertices')); await page.keyboard.press('Control+a'); await click(control('uv')); await page.locator('.uv-workspace').waitFor(); await pause(400); await click(page.getByRole('button', { name:'Close UV Wrapper', exact: true })); await page.locator('.uv-workspace').waitFor({ state: 'detached' }); });
     await page.keyboard.press('Escape'); await visit('vertices again', () => click(control('vertices')));
     await visit('AnimXL', async () => { await click(control('animation')); await click(control('animXL')); await page.getByRole('dialog', { name: 'AnimXL', exact: true }).waitFor(); });
     await visit('Particle Editor', async () => { await click(control('particles')); await page.getByRole('dialog', { name: 'Particle Editor', exact: true }).waitFor(); });

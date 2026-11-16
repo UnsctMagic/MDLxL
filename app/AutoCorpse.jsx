@@ -30,7 +30,7 @@ const ADD = {
 
 // The shared slider look: label and value above, plain-language ends below.
 function Slider({ label, low, high, tip, value, onChange, onStart }) {
-  return <RangeField className="ax-slider" title={tip} label={label} output={`${value}%`} ends={[low, high]} min="25" max="200" step="5" value={value} inputProps={{ title: tip, onPointerDown: onStart, onKeyDown: onStart }} onChange={onChange}/>;
+  return <RangeField className="ax-slider" title={tip} label={label} output={`${value}%`} ends={[low, high]} min="25" max="200" step="5" value={value} inputProps={{ title: tip, onPointerDown: onStart, onKeyDown: onStart }} onStepStart={onStart} onChange={onChange}/>;
 }
 
 /** A chalk line around the dead body on the ground, for the preview only: the
@@ -227,7 +227,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           </div>
           <div className="acp-transport" title="Play or scrub the Death animation to see the blood">
             <button data-hotkey="auto-corpse:play" data-hotkey-manual data-hotkey-label="Play / pause" aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
-            <input data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
+            <input data-time-scrub data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
             <output>{seconds(bloodTime)}</output>
           </div>
           <button disabled={!changed} title="Back to the fitted corpse and the model's own blood" onClick={reset}>Reset</button>
@@ -238,7 +238,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
             tip="How high the bones rise off the ground. Above 100% they can poke through the body while it sinks."/>
           <div className="acp-color" title="Tints the whole corpse, like Color Tint in Animations."><span>Color Tint:</span><div className="acp-rgb">{['R', 'G', 'B'].map((channel, index) => <label className={`channel-${channel.toLowerCase()}`} key={channel}>{channel}<input aria-label={`Corpse ${channel}`} type="number" min="0" max="255" step="1" value={rgb[index]} onFocus={remember} onChange={event => setRgb(previous => previous.map((value, i) => i === index ? event.target.value : value))}/></label>)}</div></div>
           <div className="acp-add" role="group" aria-label="Add a piece" title="Adds a piece at the middle of the body; drag it into place in the preview.">
-            {Object.entries(ADD).map(([kind, spec]) => <button key={kind} onClick={() => add(kind)}>+ {spec.label}</button>)}
+            {Object.entries(ADD).map(([kind, spec]) => <button key={kind} disabled={!corpse} onClick={() => add(kind)}>+ {spec.label}</button>)}
           </div>
           <label className="check" title="A chalk line around where the body lies, so you can fit the corpse to it.">
             <input data-hotkey="auto-corpse:body-outline" data-hotkey-manual data-hotkey-label="Body outline" type="checkbox" checked={outline} onChange={event => setOutline(event.target.checked)}/>Body outline

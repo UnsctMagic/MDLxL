@@ -40,7 +40,7 @@ const { launchApp, closeApp, settle, stubDialogs, clickMenu } = require('./helpe
       await uvw.getByLabel('UV coordinate editor').waitFor(); await installHelpers(uv);
     };
     const closeUV = async () => {
-      await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
+      await uvw.getByRole('button', { name:'Close UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
       await main.getByLabel('3D model viewport', { exact: true }).waitFor();
     };
     const replaceTexture = async () => {

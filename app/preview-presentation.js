@@ -23,7 +23,8 @@ export function previewPresentationProps(props) {
   const display = { ...CLEAN_DISPLAY, ...(props.overlays || {}), wires, vertices, grid, axes: grid && neutralBackground };
   if (props.vanilla && props.cleanAnimationPreview) display.particles = !!props.selectedNodeIds?.length;
   return {
-    ...props, preferences: preferenceCache.get(original), mode: previewMode, shaded: true, rgbPreview: false, restPose: props.restPose ?? false,
+    // Shadows (lighting) follows the switch; previews without one stay lit.
+    ...props, preferences: preferenceCache.get(original), mode: previewMode, shaded: props.shaded !== false, rgbPreview: false, restPose: props.restPose ?? false,
     overlays: display, showGrid: grid, showAxes: grid && neutralBackground,
     showParticles: props.vanilla && props.cleanAnimationPreview ? true : props.showParticles,
     showNodes: display.nodes, showSkeleton: display.bones || display.skeleton || display.nodes || display.attachments || display.particles,

@@ -64,7 +64,7 @@ export default function ParticleKeyTrack({model,emitter,timed,ribbon,sequence,st
  const box=useRef(null),[menu,setMenu]=useState(null),span=Math.max(1,end-start);
  const menuBox=useRef(null);
  useDismiss(menu,[menuBox],()=>setMenu(null),{stopEscape:false});
- const range=<input aria-label="Particle preview playhead" type="range" min={start} max={end} step="1" value={frame} onChange={e=>onScrub(Number(e.target.value))}/>;
+ const range=<input data-time-scrub aria-label="Particle preview playhead" type="range" min={start} max={end} step="1" value={frame} onChange={e=>onScrub(Number(e.target.value))}/>;
  const timing=timed&&model.Sequences[sequence]?emitterSpans(model,emitter.ObjectId,sequence):null;
  if(!timing||timing.global)return <div className="pe-key-track">{range}
   {emitterKeyFrames(emitter,start,end).map(({frame:at,fields})=><button key={at} type="button" className={'pe-key-mark'+(at===Math.round(frame)?' current':'')} style={{left:left(at,start,span)}}

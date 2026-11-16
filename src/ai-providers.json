@@ -22,7 +22,7 @@
     "spendLimit": false,
     "stepLimit": true,
     "web": true,
-    "homeVariable": "CLAUDE_CONFIG_DIR",
+    "ownSignIn": true,
     "logFolders": ["claude/projects"]
   },
   {

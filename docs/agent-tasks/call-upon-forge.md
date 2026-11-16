@@ -1,6 +1,6 @@
 # Call Upon Forge — review contract
 
-Status: Claude reviewed 7d83b462 with no blocking findings; permanent probe tests pass. Owner hand-test acceptance remains open. Local only.
+Status: completed — merged in PR #630 (11cd04c7).
 Owner: Codex / Call Upon Forge chat. Updated: 2026-11-11.
 Worktree: `D:\Codex\mdlxl-call-upon-forge-20261111`, branch `codex/call-upon-forge`.
 Durable behavior: [Forge guide](../FORGE.md). Historical implementation/test details remain in Git history.

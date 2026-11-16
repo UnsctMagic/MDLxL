@@ -2,6 +2,7 @@ import {vertexBoneWeights} from './part-bones.js';
 import {Triangle,Vector3} from 'three';
 import {weaponStripFrame} from './particle-ribbon-fit.js';
 import {SURFACE_EFFECTS} from './surface-effects.js';
+import {effectPicturePath} from './game-path.js';
 import {surfacePalette,tintFromHex} from './surface-effect-colours.js';
 import {layerBasis,LAYER_UNIT_FALLBACK,swarmRadiusFor} from './fx-layer-basis.js';
 import {cardSpec,cardSize,groundCardSize} from './fx-cards.js';
@@ -1162,6 +1163,7 @@ export function withParticleStrength(layer,currentAlpha,value){
  return {...layer,opacityBase,particleStrength:value,native:{...layer.native,Alpha:opacityBase.map(a=>Math.round(a*value))}};
 }
 export function withLayerTexture(layer,image){
+ image=effectPicturePath(image);
  const next={...layer,image,own:false,pictureOverride:true};
  if(image===layer.image)return layer;
  delete next.frames;delete next.team;delete next.atlasRect;delete next.atlas;
