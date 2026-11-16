@@ -176,6 +176,37 @@ const { fixturePath } = require('./helpers/fixtures.cjs');
       ok('Mirror Copy: only unselected points take the copied UVs', moved.length > 0 && moved.every(i => !selected.has(i)), { moved: moved.length });
     });
     await undo('Mirror Copy', modelBoxed, mirrored.before);
+
+    // A refused tool's warning floats over the UV map: the workspace and the map do not move (owner,
+    // 16 Nov: "the error pushes the viewpoint down"). A marquee selects one lone triangle; Relax then
+    // has only outline points, so it refuses.
+    const now = await page.evaluate(() => toolCanvas());
+    const onScreen = i => screen(mapping, now.uv.slice(i * 2, i * 2 + 2));
+    let lone = null;
+    for (let corner = 0; corner < now.faces.length && !lone; corner += 3) {
+      const ids = [0, 1, 2].map(k => now.faces[corner + k]), pts = ids.map(onScreen);
+      const lo = [Math.min(...pts.map(p => p[0])) - 5, Math.min(...pts.map(p => p[1])) - 5], hi = [Math.max(...pts.map(p => p[0])) + 5, Math.max(...pts.map(p => p[1])) + 5];
+      if (lo[0] < area.x + 12 || lo[1] < area.y + 12 || hi[0] > area.x + area.width - 12 || hi[1] > area.y + area.height - 12 || hi[0] - lo[0] < 16 || hi[1] - lo[1] < 16) continue;
+      const corners = new Set(ids.map(i => now.uv.slice(i * 2, i * 2 + 2).join()));
+      if (now.eligible.every(i => corners.has(now.uv.slice(i * 2, i * 2 + 2).join()) || (([x, y]) => x < lo[0] || x > hi[0] || y < lo[1] || y > hi[1])(onScreen(i)))) lone = { lo, hi };
+    }
+    ok('the UV map shows a triangle with no other point near it', !!lone);
+    const loneKey = await page.evaluate(() => toolKey());
+    await page.mouse.move(lone.lo[0], lone.lo[1]); await page.mouse.down(); await page.mouse.move(lone.hi[0], lone.hi[1], { steps: 10 }); await page.mouse.up();
+    const loneMarked = await changedFrom(loneKey);
+    ok('the marquee selects that one triangle', loneMarked.selected.length >= 3 && loneMarked.selected.length < 12, { selected: loneMarked.selected.length });
+    const layout = () => page.evaluate(() => { const box = element => { const r = document.querySelector(element).getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+      return { body: box('.uv-tab-window .uv-workspace-body'), map: box('.uv-tab-window .uv-editor canvas'), side: box('.uv-tab-window .uv-side-panel') }; });
+    const layoutBefore = await layout(), mapViewBefore = await page.evaluate(() => toolMap()), uvBeforeRelax = (await page.evaluate(() => toolCanvas())).uv;
+    check('no warning before the refused Relax', await page.evaluate(() => toolWarning()), '');
+    await button('Relax').click();
+    await page.waitForFunction(() => /Relax keeps the selection's outer edge in place/.test(toolWarning()), null, { timeout: 10000 });
+    checks.push('Relax refuses an outline-only selection on the warning line'); console.log('PASS Relax refuses an outline-only selection on the warning line');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    check('the warning moves neither the workspace, the UV map nor the side panel', await layout(), layoutBefore);
+    check('the refused Relax keeps the UV view', await page.evaluate(() => toolMap()), mapViewBefore);
+    check('the refused Relax changes no UV', (await page.evaluate(() => toolCanvas())).uv, uvBeforeRelax);
+    await page.screenshot({ path: path.join(out, 'relax-warning.png') });
     // Back to the start: the marquee and the Box Projection are undone too.
     for (let press = 0; press < 4 && await page.evaluate(() => toolModel()) !== modelStart; press++) {
       const current = await page.evaluate(() => toolKey());
