@@ -139,6 +139,8 @@ contextBridge.exposeInMainWorld('desktop', {
   openShowcaseModel: () => call('preview:openModel'),
   openTransferModel: () => call('transfer:openModel'),
   readTransferModel: file => call('transfer:readModel', file),
+  transferPicks: () => call('transfer:picks'),
+  writeTransferPicks: (file, text) => call('transfer:writePicks', file, text),
   open: () => call('model:open'),
   droppedPath: file => webUtils.getPathForFile(file),
   openDropped: (paths,showcase=false) => call('model:openDropped',paths,showcase),

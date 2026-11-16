@@ -1,6 +1,6 @@
 import { useMousePressLost, useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
-import React, { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
 import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
@@ -8,7 +8,8 @@ import TransferTimeline from './TransferTimeline.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { openDocument } from '../src/editor-document.js';
-import { resolveGameFiles } from './desktop.js';
+import { useEditorArea } from './editor-area.js';
+import { modelFileTextures, previewModel } from './transfer-files.js';
 import { translate } from '../src/localization.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
@@ -100,14 +101,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const dialog = useRef(null);
   // The window opens over the whole editor area (like the UV Wrapper): under the toolbars, across
   // the viewport and the sidebar. It follows that area's size; moving or resizing it by hand wins.
-  useLayoutEffect(() => {
-    const element = dialog.current, area = element?.ownerDocument.querySelector('main.classic-workspace');
-    if (!element || !area) return undefined;
-    const place = () => { const box = area.getBoundingClientRect(); if (box.width < 200 || box.height < 200) return; for (const [name, value] of [['--xf-x', box.left], ['--xf-y', box.top], ['--xf-w', box.width], ['--xf-h', box.height]]) element.style.setProperty(name, `${Math.round(value)}px`); };
-    place();
-    const observer = new ResizeObserver(place); observer.observe(area);
-    return () => observer.disconnect();
-  }, []);
+  useEditorArea(dialog);
 
   // The recipe is the whole editable state; every change rebuilds from it (src/anim-transfer.js).
   const initialBase = firstAnimation(model);
@@ -155,12 +149,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     addDonor({ id, name: session.doc.name, model: copy, assets: session.assets, revision: 0 });
   };
   const loaded = async (id, name, bytes, textures) => {
-    const opened = openDocument(bytes, name);
-    if (!opened.model) throw new Error('This model could not be read.');
-    const { previewAssets } = await import('./GameFileBrowser.jsx');
-    const preview = previewAssets(textures);
+    const preview = await previewModel(name, bytes, textures);
     releases.current.push(preview.release);
-    const record = { id, name, model: opened.model, assets: preview.assets, revision: 0, path: id.slice(id.indexOf(':') + 1) };
+    const record = { id, name, model: preview.model, assets: preview.assets, revision: 0, path: id.slice(id.indexOf(':') + 1) };
     addDonor(record);
     return record;
   };
@@ -170,9 +161,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
       const record = await window.desktop.openTransferModel();
       if (!record) return;
       setLoading(record.name);
-      const names = (openDocument(record.bytes, record.name).model?.Textures || []).map(texture => texture.Image).filter(Boolean);
-      const found = names.length ? await resolveGameFiles(names, record.path) : [];
-      await loaded('file:' + (record.path || record.name), record.name, record.bytes, found.filter(item => item?.bytes).map(item => ({ name: item.logicalName || item.texturePath || item.name, bytes: item.bytes })));
+      await loaded('file:' + (record.path || record.name), record.name, record.bytes, await modelFileTextures(record));
     } catch (error) { setMessage(error.message); }
     finally { setLoading(''); }
   };
@@ -300,9 +289,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           return await loaded(id, entry.name, read.bytes, textures);
         }
       } else if (source.kind === 'file' && window.desktop?.readTransferModel) {
-        const record = await window.desktop.readTransferModel(source.path), names = (openDocument(record.bytes, record.name).model?.Textures || []).map(t => t.Image).filter(Boolean);
-        const found = names.length ? await resolveGameFiles(names, record.path) : [];
-        return await loaded(id, record.name, record.bytes, found.filter(item => item?.bytes).map(item => ({ name: item.logicalName || item.texturePath || item.name, bytes: item.bytes })));
+        const record = await window.desktop.readTransferModel(source.path);
+        return await loaded(id, record.name, record.bytes, await modelFileTextures(record));
       }
     } catch { /* asked for below */ }
     if (asked.has(source.name) || !window.desktop?.openTransferModel) return null;
@@ -310,8 +298,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     setSetupStatus(`Find ${source.name}`);
     const record = await window.desktop.openTransferModel();
     if (!record) return null;
-    const names = (openDocument(record.bytes, record.name).model?.Textures || []).map(t => t.Image).filter(Boolean), found = names.length ? await resolveGameFiles(names, record.path) : [];
-    return loaded('file:' + (record.path || record.name), record.name, record.bytes, found.filter(item => item?.bytes).map(item => ({ name: item.logicalName || item.texturePath || item.name, bytes: item.bytes })));
+    return loaded('file:' + (record.path || record.name), record.name, record.bytes, await modelFileTextures(record));
   };
   const applySetup = async setup => {
     setLoadMenu(false); setSetupStatus('Loading model…');

@@ -806,3 +806,50 @@ the camera after a wheel zoom and two drags.
 - Not reached: the particle comparison, ingredients, test and source views (no simple way in from
   the default state). They are the same component with the same button.
 - Build `TestBuilds\transfer-xl-08`: reset-view test and the Transfer views story passed on the copy.
+
+## Pick sheet as built (test builds only, 16 Nov 2026)
+
+Owner: "show me results to pick from" and "make sure results are viewpoints - e.g models i can
+interact with". Director contract: the same transfer built several ways, as live views, one click to pick.
+
+- Launch: `MDLxL.exe "<model>" --transfer-picks="<absolute path of a cases .json>"`. Main reads the
+  argument (`transfer:picks` returns `{ path, text, answers }` or null; preload
+  `window.desktop.transferPicks()`). Without the argument nothing renders and no chunk loads; there
+  is no button, menu item, hotkey id or string. With it the sheet opens once the editor shows a model
+  (`PickSheetLauncher` in `app/AppDialogs.jsx`).
+- Cases file rules (`parseCases` in `src/transfer-picks.js`, each failure is one sentence naming
+  the case and variant, shown in the window): a JSON object; `answers` an absolute path ending
+  `.json`; `cases` a non-empty list; each case `id` 1-80 of letters, digits, `.`, `-`, `_` and
+  unique; `question` non-empty; `hint` optional text; `model` an absolute `.mdx`/`.mdl` path;
+  `donors` optional object of names (same id rule, not `self`) to absolute `.mdx`/`.mdl` paths;
+  `variants` 2 to 4, each with a unique `id` (not `same` or `none`) and a `recipe` object with
+  `base.sequence` an integer >= 0, `parts` an object whose parts have `source` `self` or a donor
+  name and `sequence` an integer >= 0. Everything else in a recipe is passed to the engine untouched.
+- Window (`app/TransferPicks.jsx`): the Transfer shell and sizing (`useEditorArea` in
+  `app/editor-area.js`, now shared with Transfer); header with question, hint and "3 / 8"; one
+  live `GamePreview` per variant in one row, built as Transfer's result view builds it
+  (`buildTransfer` + `transferPreviewModel`, body animation's box for framing, fitBox, no
+  grid/axes), with a big letter. Models and donors load through `app/transfer-files.js`
+  (`readPreviewModel`: Transfer's file reading and texture lookup, now shared), team colour from the
+  editor. Letters are shuffled per case, seeded by the case id. One `compareCamera` bus per case
+  (turn, zoom and pan together; a new case frames anew) and one clock: the first built view reports
+  time, every view gets the same time, playing and speed. One strip under the row
+  (`TransferViewStrip plain`: Play/Pause, scrub, Speed, reset; no dropdown, no hotkey ids). Loops,
+  starts playing. A variant that fails shows the engine's sentence in its place and cannot be picked.
+- Picks: "Pick A" under each view, "No difference" (`same`), "None looks right" (`none`), Back.
+  Each pick writes the answers file at once and goes to the next case; after the last: "Done. You
+  can close this window." Format `{ "<case id>": { "pick", "letters": { "A": id, ... }, "at" } }`.
+  Reopening resumes at the first unanswered case. Keys: A-D pick, Space plays/pauses (window key
+  claim, not catalog hotkeys). `transfer:writePicks` writes only the `answers` path of the cases
+  file given on the command line and refuses any other path.
+- English only: the window section carries `translate="no"`. The repository has no exemption list
+  for untranslated surfaces (the catalog tests check listed strings, not every source file), so no
+  test or catalog changed. The strip's plain reset tooltip is English-only too.
+- Tests: `test/transfer-picks.test.js` (reader rules, letters, resume; 4 pass) and
+  `test/transfer-picks.electron.cjs` (packaged, real mouse; 11 checks: three views play, a drag in
+  B turns all, the scrub holds every view on one frame where the variants differ, Space, Pick B
+  writes the mapping, Back and the A key change it, other paths refused, resume, None looks right
+  and Done, malformed file sentence, no trace without the argument). Pictures in
+  `out/transfer-ui/picks/`. Transfer stories B and setup rerun on the same package after the
+  shared-loading refactor.
+- Not built: no case may name the open editor model by tab; every model is read from its path.

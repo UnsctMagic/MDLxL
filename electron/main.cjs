@@ -242,6 +242,34 @@ ipcMain.handle('transfer:openModel',async event=>{
   const result=await dialog.showOpenDialog(win,{title:'Take animation from',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
   return result.canceled?null:readModel(result.filePaths[0],false);
 });
+// Transfer pick sheet (test builds only): exists only when the app starts with
+// --transfer-picks="<cases .json>". The page reads the cases file and the answers so far; it may
+// write only the answers file that the cases file names (src/transfer-picks.js checks the rest).
+const transferPicksFile=(()=>{const arg=process.argv.find(value=>typeof value==='string'&&value.startsWith('--transfer-picks='));const file=arg?.slice('--transfer-picks='.length).replace(/^"(.*)"$/,'$1');return file&&path.isAbsolute(file)?path.resolve(file):null;})();
+const MAX_PICKS_FILE=8*1024*1024;
+async function transferPicksAnswersPath(){
+  const text=await fs.readFile(transferPicksFile,'utf8');let answers;
+  try{answers=JSON.parse(text)?.answers;}catch{throw Error('The cases file is not valid JSON.');}
+  if(typeof answers!=='string'||!path.isAbsolute(answers)||path.extname(answers).toLowerCase()!=='.json')throw Error('The cases file names no answers .json file.');
+  return path.resolve(answers);
+}
+ipcMain.handle('transfer:picks',async event=>{
+  editorOnly(event,'The pick sheet opens only in the editor.');
+  if(!transferPicksFile)return null;
+  const info=await fs.stat(transferPicksFile);if(info.size>MAX_PICKS_FILE)throw Error('The cases file is too large.');
+  const text=await fs.readFile(transferPicksFile,'utf8');let answers=null;
+  try{answers=await fs.readFile(await transferPicksAnswersPath(),'utf8');}catch{answers=null;}
+  return {path:transferPicksFile,text,answers};
+});
+ipcMain.handle('transfer:writePicks',async(event,file,text)=>{
+  editorOnly(event,'The pick sheet writes only from the editor.');
+  if(!transferPicksFile)throw Error('No pick sheet is open.');
+  if(typeof file!=='string'||typeof text!=='string'||Buffer.byteLength(text)>MAX_PICKS_FILE)throw Error('Invalid answers.');
+  const target=await transferPicksAnswersPath();
+  if(!path.isAbsolute(file)||path.resolve(file).toLowerCase()!==target.toLowerCase())throw Error('The pick sheet writes only the answers file named in the cases file.');
+  try{JSON.parse(text);}catch{throw Error('Invalid answers.');}
+  await writeFileAtomic(target,text);return {path:target};
+});
 ipcMain.handle('parts:list',(_,manage)=>getBitsAndPartsLibrary().list(manage === true));
 ipcMain.handle('parts:change',(_,data)=>getBitsAndPartsLibrary().change(data,file=>shell.trashItem(file)));
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));

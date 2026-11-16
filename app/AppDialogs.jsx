@@ -1,5 +1,5 @@
 import { usePreferencesContext } from './PreferencesContext.jsx';
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import DetachedWindow from './DetachedWindow.jsx';
 import Dialog, { LoadingWindow } from './Dialog.jsx';
 import UpdatePrompt, { OfficialWebsite } from './UpdatePrompt.jsx';
@@ -24,6 +24,13 @@ const ShapingDialog = lazy(() => import('./ShapingDialog.jsx'));
 const Settings = lazy(() => import('./Settings.jsx'));
 const AnimXL = lazy(() => import('./AnimXL.jsx'));
 const Transfer = lazy(() => import('./Transfer.jsx'));
+const TransferPicks = lazy(() => import('./TransferPicks.jsx'));
+/** The Transfer pick sheet exists only when the app was started with --transfer-picks (test builds). */
+function PickSheetLauncher({ teamColor }) {
+  const [found, setFound] = useState(null);
+  useEffect(() => { window.desktop?.transferPicks?.().then(value => { if (value) setFound(value); }, error => setFound({ error: error.message })); }, []);
+  return found ? <Suspense fallback={null}><TransferPicks found={found} teamColor={teamColor}/></Suspense> : null;
+}
 const MODEL_NAME_TIP = 'The name stored inside the model, separate from the file name.';
 
 /** Dialogs, popups, detached windows and the geoset context menu rendered at the end of App.
@@ -121,6 +128,7 @@ export default function AppDialogs({
     }} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
     {settingsTab && <Suspense fallback={null}><Settings visUI={visUI} onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
     {notice && <Dialog title={notice.title || "HD models"} onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : notice.saveAs ? <><button onClick={() => { setNotice(null); notice.saveAs(); }}>Save as</button><button onClick={() => setNotice(null)}>Cancel</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
+    <PickSheetLauncher teamColor={teamColor}/>
     {updates.open && <UpdatePrompt helmetEffects={updates.effects} status={updates.status} onInstall={updates.install} onClose={updates.close} disableSounds={preferences.disableSounds} onDisableSounds={disableSounds => changePreferences(previous => ({ ...previous, disableSounds }))}/> }
   </>;
 }
