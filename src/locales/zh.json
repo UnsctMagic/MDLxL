@@ -8557,5 +8557,7 @@
   "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "松弛：均匀调整所选点，直到它们的三角形不再重叠。选区外边缘上的点保持不动。",
   "No mirror points found among the UV Wrapper's points.": "在 UV 编辑器的点中没有找到镜像点。",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "松弛会保持选区的外边缘不动。请选择比边缘更多的点。",
-  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。"
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。",
+  "Motion path": "运动轨迹",
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "绘制所选骨骼或所选 POSE 控柄在动画中经过的曲线。拖动调整时曲线会实时跟随。"
 }

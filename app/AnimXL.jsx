@@ -305,7 +305,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, teamCo
   }, [arcs, arcWeapon, tipOf, arcFrames, result, model, seq]);
   const arcMarker = Math.max(0, Math.min(arcFrames.length - 1, Math.round((time - interval[0]) / arcStep)));
   const originalPath = originalArc && { points: originalArc, color: '#9fb4c8', width: 2, dash: [6, 4], alpha: 0.95, marker: arcMarker };
-  const shapedPath = shapedArc && { points: shapedArc, color: '#ff8a2a', width: 2.5, marker: arcMarker };
+  const shapedPath = shapedArc && { points: shapedArc, motion: true, width: 2.5, marker: arcMarker };
   // Ghost: the original skeleton (faint white) under the AnimXL skeleton, each bone
   // coloured by how far it moved from the original. Pointing at a card lights up its bones.
   const skeleton = useMemo(() => {

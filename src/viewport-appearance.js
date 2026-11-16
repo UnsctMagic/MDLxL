@@ -116,7 +116,7 @@ export const VIEWPORT_BACKGROUND_DISPLAYS = Object.freeze(['fit', 'fill', 'stret
 export const MAX_VIEWPORT_PRESETS = 24;
 export const MAX_VIEWPORT_BACKGROUND_DATA_LENGTH = 12_000_000;
 /** The helper colours within preferences.visuals; the rest of visuals belongs to the Grid page. */
-export const APPEARANCE_HELPER_KEYS = Object.freeze(['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection']);
+export const APPEARANCE_HELPER_KEYS = Object.freeze(['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection', 'motionPath']);
 /** The numbers in `visuals` that belong to the look, with the limits preferences.js holds them to. */
 const APPEARANCE_SIZES = Object.freeze({ occludedOpacity: [0, 1], keyframeSize: [4, 24], helperSize: [3, 18] });
 export const APPEARANCE_SIZE_KEYS = Object.freeze(Object.keys(APPEARANCE_SIZES));
