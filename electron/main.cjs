@@ -550,7 +550,7 @@ ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialM
 ipcMain.handle('settings:get',publicSettings);
 let reporter;
 ipcMain.handle('report:status',event=>{editorOnly(event,'Reports require the main editor.');return(reporter??=new Reporter({version:app.getVersion(),profile})).status();});
-ipcMain.handle('report:send',(event,text)=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string')throw Error('Report text must be text.');const message=text.trim();if(!message||message.length>2000)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message);});
+ipcMain.handle('report:send',(event,text,name='')=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string'||typeof name!=='string')throw Error('Report text must be text.');const message=text.trim();if(!message||message.length>2000||name.trim().length>40)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message,name);});
 ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{editorOnly(event,'Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a

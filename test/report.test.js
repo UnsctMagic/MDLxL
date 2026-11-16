@@ -35,17 +35,19 @@ test('send maps every server answer', async () => {
   assert.equal(await make(async () => { throw Error('offline'); }).send('hello'), 'error');
 });
 
-test('send posts exactly four fields with the hashed machine id', async () => {
+test('send posts exactly five fields with the hashed machine id and the optional name', async () => {
   let call;
   const reporter = make(async (url, init) => { call = { url, init }; return { status: 204, ok: true }; });
-  assert.equal(await reporter.send('  it crashed  '), 'sent');
+  assert.equal(await reporter.send('  it crashed  ', '  Herr   Dave '), 'sent');
   assert.equal(call.url, ENDPOINT);
   assert.equal(call.init.method, 'POST');
   assert.equal(call.init.headers['User-Agent'], 'MDLxL/9.9.9');
   assert.equal(call.init.headers['Content-Type'], 'application/json');
   const body = JSON.parse(call.init.body);
-  assert.deepEqual(Object.keys(body).sort(), ['message', 'os', 'pc', 'version']);
-  assert.deepEqual(body, { message: 'it crashed', pc: crypto.createHash('sha256').update('mdlxl-report:GUID-1').digest('hex'), version: '9.9.9', os: 'Windows 10.0.26200' });
+  assert.deepEqual(Object.keys(body).sort(), ['message', 'name', 'os', 'pc', 'version']);
+  assert.deepEqual(body, { message: 'it crashed', name: 'Herr Dave', pc: crypto.createHash('sha256').update('mdlxl-report:GUID-1').digest('hex'), version: '9.9.9', os: 'Windows 10.0.26200' });
+  assert.equal(await reporter.send('no name'), 'sent');
+  assert.equal(JSON.parse(call.init.body).name, '');
 });
 
 test('message length is checked before anything is sent', async () => {
@@ -55,9 +57,11 @@ test('message length is checked before anything is sent', async () => {
   assert.equal(await reporter.send(''), 'invalid');
   assert.equal(await reporter.send('a'.repeat(2001)), 'invalid');
   assert.equal(await reporter.send(undefined), 'invalid');
+  assert.equal(await reporter.send('fine', 'n'.repeat(41)), 'invalid');
   assert.equal(calls, 0);
+  assert.equal(await reporter.send('fine', 'n'.repeat(40)), 'sent');
   assert.equal(await reporter.send('a'.repeat(2000)), 'sent');
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test('without a machine id a random id is saved once and reused', async () => {

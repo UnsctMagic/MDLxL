@@ -8,6 +8,7 @@ const { execFile } = require('node:child_process');
 const LOCAL_TEST = /^http:\/\/127\.0\.0\.1:\d{2,5}\/api\/feedback$/.test(process.env.MDLXL_REPORT_ENDPOINT || '') ? process.env.MDLXL_REPORT_ENDPOINT : null;
 const ENDPOINT = LOCAL_TEST || 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/feedback';
 const MAX_LENGTH = 2000;
+const NAME_LENGTH = 40;
 const ID_FILE = 'report-id.txt';
 
 // The Windows machine id, read from the 64-bit registry view. Null when unreadable.
@@ -55,11 +56,12 @@ class Reporter {
     } catch { return 'error'; }
   }
   // 'sent', 'paused', 'limit-pc', 'limit-ip', 'limit-day', 'invalid' or 'error'.
-  async send(text) {
+  async send(text, givenName = '') {
     const message = typeof text === 'string' ? text.trim() : '';
-    if (!message || message.length > MAX_LENGTH) return 'invalid';
+    const name = typeof givenName === 'string' ? givenName.trim().replace(/\s+/g, ' ') : '';
+    if (!message || message.length > MAX_LENGTH || name.length > NAME_LENGTH) return 'invalid';
     try {
-      const body = JSON.stringify({ message, pc: await this.pc(), version: this.version, os: this.osName() });
+      const body = JSON.stringify({ message, name, pc: await this.pc(), version: this.version, os: this.osName() });
       const response = await this.fetcher(ENDPOINT, { method: 'POST', headers: this.headers({ 'Content-Type': 'application/json' }), body, signal: AbortSignal.timeout(10000) });
       if (response.status === 204) return 'sent';
       let reason = null;
@@ -72,4 +74,4 @@ class Reporter {
   }
 }
 
-module.exports = { Reporter, ENDPOINT, MAX_LENGTH, readMachineGuid };
+module.exports = { Reporter, ENDPOINT, MAX_LENGTH, NAME_LENGTH, readMachineGuid };
