@@ -8653,5 +8653,14 @@
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Расслабить оставляет внешний край выделения на месте. Выделите больше, чем только край.",
   "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Разъединение UV превысит лимит геосета в 65536 вершин. Сначала разделите геосет.",
   "Motion path": "Траектория",
-  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "Рисует кривую, по которой выбранная кость или ручка POSE проходит за анимацию. Кривая следует за перетаскиванием в реальном времени."
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "Рисует кривую, по которой выбранная кость или ручка POSE проходит за анимацию. Кривая следует за перетаскиванием в реальном времени.",
+  "Report a problem": "Сообщить о проблеме",
+  "Report a problem…": "Сообщить о проблеме…",
+  "Sends your name, text, MDLxL version and Windows version.": "Отправляет ваше имя, текст, версию MDLxL и версию Windows.",
+  "Name (optional)": "Имя (необязательно)",
+  "Reports are paused.": "Отправка сообщений приостановлена.",
+  "Sent.": "Отправлено.",
+  "Daily limit reached. Try again tomorrow.": "Дневной лимит достигнут. Попробуйте завтра.",
+  "Reports are full for today. Try again tomorrow.": "На сегодня сообщения больше не принимаются. Попробуйте завтра.",
+  "Could not send. Check your internet connection.": "Не удалось отправить. Проверьте подключение к интернету."
 }

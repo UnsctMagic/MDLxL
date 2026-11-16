@@ -8559,5 +8559,14 @@
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "松弛会保持选区的外边缘不动。请选择比边缘更多的点。",
   "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。",
   "Motion path": "运动轨迹",
-  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "绘制所选骨骼或所选 POSE 控柄在动画中经过的曲线。拖动调整时曲线会实时跟随。"
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "绘制所选骨骼或所选 POSE 控柄在动画中经过的曲线。拖动调整时曲线会实时跟随。",
+  "Report a problem": "报告问题",
+  "Report a problem…": "报告问题…",
+  "Sends your name, text, MDLxL version and Windows version.": "发送你的名字、文字、MDLxL 版本和 Windows 版本。",
+  "Name (optional)": "名字（可选）",
+  "Reports are paused.": "报告已暂停。",
+  "Sent.": "已发送。",
+  "Daily limit reached. Try again tomorrow.": "已达每日上限。请明天再试。",
+  "Reports are full for today. Try again tomorrow.": "今天的报告已满。请明天再试。",
+  "Could not send. Check your internet connection.": "无法发送。请检查网络连接。"
 }
