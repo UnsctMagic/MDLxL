@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { COMMANDS } from '../src/commands.js';
-const { Reporter, ENDPOINT } = createRequire(import.meta.url)('../electron/report.cjs');
+const { Reporter, ENDPOINT, readMachineGuid } = createRequire(import.meta.url)('../electron/report.cjs');
 
 const reply = (status, body) => async () => ({ status, ok: status >= 200 && status < 300, json: async () => { if (body === undefined) throw Error('no body'); return body; } });
 const make = (fetcher, extra = {}) => new Reporter({ version: '9.9.9', profile: extra.profile || tmpdir(), fetcher, readGuid: async () => 'GUID-1', release: '10.0.26200', ...extra });
@@ -71,4 +71,8 @@ test('without a machine id a random id is saved once and reused', async () => {
     assert.equal(ids[1], ids[0]);
     assert.equal((await readFile(path.join(dir, 'report-id.txt'), 'utf8')).trim(), ids[0]);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('the PC id is read from Windows itself, so deleting the profile does not reset the daily limit', { skip: process.platform !== 'win32' }, async () => {
+  assert.match(await readMachineGuid() || '', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 });

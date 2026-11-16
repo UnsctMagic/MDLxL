@@ -11,7 +11,7 @@ const ID_FILE = 'report-id.txt';
 // The Windows machine id, read from the 64-bit registry view. Null when unreadable.
 function readMachineGuid() {
   return new Promise(resolve => {
-    execFile('reg', ['query', 'HKLM\SOFTWARE\Microsoft\Cryptography', '/v', 'MachineGuid', '/reg:64'], { windowsHide: true, timeout: 10000 }, (error, stdout) => {
+    execFile('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid', '/reg:64'], { windowsHide: true, timeout: 10000 }, (error, stdout) => {
       const match = !error && /MachineGuid\s+REG_SZ\s+(\S+)/i.exec(String(stdout));
       resolve(match ? match[1] : null);
     });
@@ -70,4 +70,4 @@ class Reporter {
   }
 }
 
-module.exports = { Reporter, ENDPOINT, MAX_LENGTH };
+module.exports = { Reporter, ENDPOINT, MAX_LENGTH, readMachineGuid };
