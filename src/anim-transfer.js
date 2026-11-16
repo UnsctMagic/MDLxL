@@ -565,6 +565,7 @@ function ownMotion(model, rig) {
   const carries = id => [...partOf.keys()].some(joint => tree.isAncestor(joint, id));
   for (const id of loose) {
     const at = home(id), part = partOf.get(at);
+    if (part.kind === 'limb' && at === part.marker) continue; // held by the hand or foot: a weapon, not a feature
     // Its own largest turn against the joint it hangs from: under 2 degrees it is not animated.
     const ownTurn = Math.max(0, ...frames.map(frame => logQ(turn(frame, id, at)).length())) * 2 / DEG;
     if (ownTurn < 2 && part.kind === 'trunk') continue;
@@ -587,8 +588,12 @@ function ownMotion(model, rig) {
     else if (part.kind === 'trunk' && !carries(id)) chains.push({ id, part: part.key });
   }
   const byDepth = (a, b) => tree.depth(a.id) - tree.depth(b.id);
-  const own = { range, moveRange, followers: followers.sort(byDepth), chains: chains.sort(byDepth), keyedLoose: new Set(loose), considered };
-  Object.defineProperty(own, 'shapes', { get() { return this._shapes ||= bodyShapes(model, info, rig, ref, partOf, this.keyedLoose); }, enumerable: false });
+  // Features: a loose joint with the loose joints below it (a gut with its helper bones, a cape's
+  // chain, one shoulder guard), named by its top joint.
+  const looseIds = new Set([...followers, ...chains].map(item => item.id)), featureOf = new Map();
+  for (const id of looseIds) { let top = id; for (let parent = tree.parentOf(top); parent != null && looseIds.has(parent); parent = tree.parentOf(parent)) top = parent; featureOf.set(id, top); }
+  const own = { range, moveRange, followers: followers.sort(byDepth), chains: chains.sort(byDepth), keyedLoose: new Set(loose), considered, featureOf };
+  Object.defineProperty(own, 'shapes', { get() { return this._shapes ||= bodyShapes(model, info, rig, ref, partOf, this.keyedLoose, featureOf); }, enumerable: false });
   info.own.set(rig, own);
   return own;
 }
@@ -624,24 +629,57 @@ function clampMove(limit, move, strength, size) {
  * thickness. Vertices on keyed loose joints (cloaks, pads) are left out: an arm
  * may pass a cloak. Held weapons and shields are not obstacles: as rough
  * ellipsoids they pushed arms the wrong way in the trials. */
-function bodyShapes(model, info, rig, ref, partOf, keyedLoose) {
+function bodyShapes(model, info, rig, ref, partOf, keyedLoose, featureOf = new Map()) {
   const { tree } = info, clouds = new Map(), armClouds = new Map(), invRef = new Map();
   const local = (id, p) => { if (!invRef.has(id)) invRef.set(id, (ref.world.get(id) || new Matrix4()).clone().invert()); return p.clone().applyMatrix4(invRef.get(id)); };
   const homeOf = bone => { for (const id of tree.ancestors(bone, true)) { if (keyedLoose.has(id)) return null; if (partOf.has(id)) return id; } return null; };
+  // The feature a bone rides (its nearest feature joint above, before any body part), else null.
+  const featureTop = bone => { for (const id of tree.ancestors(bone, true)) { if (featureOf.has(id)) return featureOf.get(id); if (partOf.has(id)) return null; } return null; };
+  const partHome = bone => tree.ancestors(bone, true).find(id => partOf.has(id)) ?? null;
+  const skin = new Map(); // feature top -> { own: its vertices, shared: those also weighted to the body, points }
   for (const geoset of model.Geosets || []) {
-    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
     if (!count) continue;
-    const skinned = skinGeoset(geoset, ref.world);
+    const skinned = skinGeoset(geoset, ref.world), onFeature = new Map();
     for (let v = 0; v < count; v++) {
-      const hd = skin?.length >= (v + 1) * 8;
-      const bones = hd ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      const hd = weights?.length >= (v + 1) * 8;
+      const bones = hd ? [0, 1, 2, 3].filter(i => weights[v * 8 + 4 + i] > 0).map(i => weights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
       if (!bones.length) continue;
-      const homes = bones.map(homeOf);
-      if (homes.some(id => id == null)) continue;
-      const point = new Vector3(skinned[v * 3], skinned[v * 3 + 1], skinned[v * 3 + 2]), part = partOf.get(homes[0]);
+      const point = new Vector3(skinned[v * 3], skinned[v * 3 + 1], skinned[v * 3 + 2]), homes = bones.map(homeOf);
+      if (homes.some(id => id == null)) {
+        // On loose joints. A vertex weighted to a feature and to the body is shared skin.
+        const tops = [...new Set(bones.map(featureTop).filter(top => top != null))];
+        for (const top of tops) { if (!skin.has(top)) skin.set(top, { own: 0, shared: 0, open: 0, points: [] }); const entry = skin.get(top); entry.own++; if (homes.some(id => id != null)) entry.shared++; entry.points.push(point); }
+        if (tops.length) onFeature.set(v, tops);
+        continue;
+      }
+      const part = partOf.get(homes[0]);
       if (homes.every(id => partOf.get(id).kind === 'trunk')) { if (!clouds.has(homes[0])) clouds.set(homes[0], []); clouds.get(homes[0]).push(local(homes[0], point)); }
       else if (part.limbKind === 'arm' && homes.every(id => partOf.get(id) === part)) { if (!armClouds.has(part.key)) armClouds.set(part.key, []); armClouds.get(part.key).push({ point, held: bones.every(bone => tree.isAncestor(bone, part.marker)) }); }
     }
+    // Open edges: an edge with one face only, after welding vertices that share a place (a
+    // texture seam doubles them). A feature vertex on one is at a free border: a hem, a rim.
+    const faces = geoset.Faces || [], place = v => `${Math.round(skinned[v * 3] * 100)},${Math.round(skinned[v * 3 + 1] * 100)},${Math.round(skinned[v * 3 + 2] * 100)}`, edges = new Map();
+    if (onFeature.size) {
+      const edge = (a, b) => { const p = place(a), q = place(b); return p < q ? p + '|' + q : q + '|' + p; };
+      for (let f = 0; f + 2 < faces.length; f += 3) for (const [a, b] of [[faces[f], faces[f + 1]], [faces[f + 1], faces[f + 2]], [faces[f + 2], faces[f]]]) { const key = edge(a, b); edges.set(key, (edges.get(key) || 0) + 1); }
+      const free = new Set();
+      for (let f = 0; f + 2 < faces.length; f += 3) for (const [a, b] of [[faces[f], faces[f + 1]], [faces[f + 1], faces[f + 2]], [faces[f + 2], faces[f]]]) if (edges.get(edge(a, b)) === 1) { free.add(a); free.add(b); }
+      for (const [v, tops] of onFeature) if (free.has(v)) for (const top of tops) skin.get(top).open++;
+    }
+  }
+  // A feature is body when it is a patch of the body's own skin: at least 40% of its vertices are
+  // also weighted to body joints, or at least a quarter are and it is a closed patch (at most 30%
+  // of them on an open edge of the mesh). A gut, a belly, a breathing chest: its surface then
+  // counts toward the trunk joint it hangs from. A cape shares skin only at the shoulders and its
+  // hem is open; a pauldron or a pack is skinned to its own joints alone. Measured: Nurgle
+  // warrior's belly chain 0.59 shared, its cape 0.08; Slaanesh warrior's cape 0.33 shared with
+  // 0.78 open; the Ogre's belly pieces 0.76 to 1.00 shared, closed; pauldrons 0.
+  const features = new Map();
+  for (const [top, entry] of skin) {
+    const home = partHome(top), share = entry.shared / entry.own, body = entry.own >= 6 && (share >= 0.4 || share >= 0.25 && entry.open / entry.own <= 0.3) && home != null && partOf.get(home).kind === 'trunk';
+    features.set(top, { joint: top, body, home: body ? home : null, shared: entry.shared / entry.own, open: entry.open / entry.own });
+    if (body) { if (!clouds.has(home)) clouds.set(home, []); for (const point of entry.points) clouds.get(home).push(local(home, point)); }
   }
   const trunk = [];
   for (const [joint, points] of clouds) { const shape = ellipsoidOf(points); if (shape) trunk.push({ joint, ...shape }); }
@@ -653,7 +691,7 @@ function bodyShapes(model, info, rig, ref, partOf, keyedLoose) {
     const far = cloud.filter(item => !item.held).map(item => { let best = Infinity; for (let i = 1; i < line.length; i++) { const a = line[i - 1], ab = line[i].clone().sub(a), t = Math.max(0, Math.min(1, item.point.clone().sub(a).dot(ab) / Math.max(1e-9, ab.lengthSq()))); best = Math.min(best, item.point.distanceTo(a.clone().addScaledVector(ab, t))); } return best; }).filter(Number.isFinite);
     thickness.set(part.key, far.length ? percentile(far, 0.5) : 0.06 * part.length);
   }
-  return { trunk, thickness };
+  return { trunk, thickness, features };
 }
 /** How deep a point sits in an ellipsoid whose joint has world matrix `matrix`:
  * `level` is 1 on the surface and 0 at the centre (padded by `pad`). `out(to)`
@@ -733,7 +771,9 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const sameKey = entry => drivenOrder.filter(other => other.key === entry.key), firstOfKey = (entry, index, list) => list.findIndex(other => other.key === entry.key) === index;
   // The state of a part at one moment: of its clip that weighs most just then.
   const active = (entries, states) => { let best = null; for (const entry of entries) { const state = states.get(entry); if (state && (!best || state.w > best.w)) best = state; } return best; };
-  for (const entry of taken) { const kind = entry.follow > 0 ? sameKindSequence(recipient, entry.seq.Name) : null; entry.kind = kind != null && kind !== baseIndex ? kind : null; }
+  // Features kept by the recipe (`features[topJointId].keep`), whatever the part's own `follow` says.
+  const keeps = recipe.features || {}, anyKept = Object.values(keeps).some(feature => share(feature?.keep) > 0);
+  for (const entry of taken) { const kind = entry.follow > 0 || anyKept ? sameKindSequence(recipient, entry.seq.Name) : null; entry.kind = kind != null && kind !== baseIndex ? kind : null; }
   const drivenOrder = [...taken].sort((a, b) => (TRUNK_ORDER.indexOf(a.key) + 1 || 9) - (TRUNK_ORDER.indexOf(b.key) + 1 || 9) || infoB.tree.depth(a.own.joints[0]) - infoB.tree.depth(b.own.joints[0]));
 
   // Length and loops. A taken clip that plays once sets the length (its latest
@@ -801,11 +841,13 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   // Loose joints of taken parts that follow (recipe `follow`): pads and plates keep
   // their learned share of a limb joint's turn; cloaks, hair and belts take the
   // model's own animation of the same kind as the taken one, fitted to its time.
-  const followEntries = drivenOrder.filter(entry => entry.follow > 0), looseFollowers = [], looseChains = [];
-  if (followEntries.length) {
+  const looseFollowers = [], looseChains = [];
+  if (anyKept || drivenOrder.some(entry => entry.follow > 0)) {
     const free = id => !isGlobalTrack(byIdB.get(id)?.Rotation, recipient);
-    for (const item of ownOf().followers) { const entry = followEntries.find(e => e.key === item.part); if (entry && free(item.id)) looseFollowers.push({ ...item, entry, entries: sameKey(entry) }); }
-    for (const item of ownOf().chains) { const entries = followEntries.filter(e => e.key === item.part && e.kind != null); if (entries.length && free(item.id)) looseChains.push({ ...item, entry: entries[0], entries }); }
+    // A feature's own switch decides for its joints; without one, the part's `follow` does.
+    const keptOf = id => { const feature = keeps[ownOf().featureOf.get(id)]; return feature && feature.keep != null ? share(feature.keep) : null; };
+    for (const item of ownOf().followers) { const entries = drivenOrder.filter(e => e.key === item.part), keep = keptOf(item.id); if (entries.length && free(item.id) && (keep ?? entries[0].follow) > 0) looseFollowers.push({ ...item, entry: entries[0], entries, keep }); }
+    for (const item of ownOf().chains) { const entries = drivenOrder.filter(e => e.key === item.part && e.kind != null), keep = keptOf(item.id); if (entries.length && free(item.id) && (keep ?? entries[0].follow) > 0) looseChains.push({ ...item, entry: entries[0], entries, keep }); }
     for (const item of [...looseFollowers, ...looseChains]) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
   }
   const chainIds = new Set(looseChains.map(item => item.id));
@@ -813,10 +855,12 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   // Arms kept out of the body (recipe `avoid`): the trunk's hips, chest and head.
   const pointOf = (id, world) => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id));
   const armPoints = (part, world) => { const points = []; let previous = pointOf(part.joints[0], world); for (const id of part.joints.slice(1)) { const p = pointOf(id, world); points.push(previous.clone().lerp(p, 0.5), p); previous = p; } return points; };
-  const guards = drivenOrder.filter(entry => entry.avoid > 0 && entry.own.limbKind === 'arm' && entry.own.joints.length > 1 && !entry.skip.has(entry.own.joints[0])).filter(firstOfKey).map(entry => {
-    const shapes = ownOf().shapes, obstacles = shapes.trunk, pad = shapes.thickness.get(entry.key) || 0;
+  const keptHomes = anyKept ? new Set([...ownOf().shapes.features].filter(([top, feature]) => feature.body && share(keeps[top]?.keep) > 0).map(([, feature]) => feature.home)) : new Set();
+  const keptSolid = keptHomes.size ? ownOf().shapes.trunk.filter(shape => keptHomes.has(shape.joint)) : [];
+  const guards = drivenOrder.filter(entry => (entry.avoid > 0 || keptSolid.length) && entry.own.limbKind === 'arm' && entry.own.joints.length > 1 && !entry.skip.has(entry.own.joints[0])).filter(firstOfKey).map(entry => {
+    const shapes = ownOf().shapes, obstacles = entry.avoid > 0 ? shapes.trunk : keptSolid, pad = shapes.thickness.get(entry.key) || 0;
     const levels = world => armPoints(entry.own, world).map(p => obstacles.map(o => depthIn(o, world(o.joint), p, pad).level));
-    return { entry, obstacles, pad, levels, refLevels: levels(id => refB.world.get(id) || new Matrix4()), need: [], entries: sameKey(entry), gripped: weaponArms.some(arm => arm.grip?.part === entry.own) };
+    return { entry, obstacles, pad, levels, refLevels: levels(id => refB.world.get(id) || new Matrix4()), need: [], strength: Math.max(entry.avoid, keptSolid.length ? 1 : 0), entries: sameKey(entry), gripped: weaponArms.some(arm => arm.grip?.part === entry.own) };
   });
 
   // Limbs an IK solve places after the transfer (a planted leg, the arm that grips
@@ -967,7 +1011,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     const v = guard.turn[k], { entry } = guard;
     if (!state || v.lengthSq() < 1e-10) return;
     const root = entry.own.joints[0], out = entry.own.anchor == null ? v.clone() : v.clone().applyQuaternion(rotationOf(tools.world(entry.own.anchor)));
-    tools.setWorld(root, expQ(out.multiplyScalar(Math.min(1, state.w) * entry.avoid)).multiply(rotationOf(tools.world(root))));
+    tools.setWorld(root, expQ(out.multiplyScalar(Math.min(1, state.w) * guard.strength)).multiply(rotationOf(tools.world(root))));
   };
 
   // Pass 2, per sample: lift the weapon arm, put the other hand back on its grip,
@@ -991,14 +1035,14 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       let local = theirs.local.get(item.id).r.clone();
       // Hang: the chain's first joint keeps the world angle it has in that animation.
       if (state.entry.hang > 0 && !chainIds.has(infoB.tree.parentOf(item.id))) local = slerpW(local, inv(parentRot(item.id)).multiply(worldRot(theirs, item.id)).normalize(), state.entry.hang);
-      blendLocal(item.id, local, Math.min(1, state.w) * state.entry.follow);
+      blendLocal(item.id, local, Math.min(1, state.w) * (item.keep ?? state.entry.follow));
     }
     for (const item of looseFollowers) {
       const state = active(item.entries, states);
       if (!state || !(state.w > 0)) continue;
       const turnOf = id => rotationOf(world(id)).multiply(refInvOf(id)), anchor = item.anchor == null ? new Quaternion() : turnOf(item.anchor);
       const target = mul(anchor, qPow(inv(anchor).multiply(turnOf(item.driver)), item.share), worldRot(refB, item.id));
-      blendLocal(item.id, inv(parentRot(item.id)).multiply(target).normalize(), Math.min(1, state.w) * state.entry.follow);
+      blendLocal(item.id, inv(parentRot(item.id)).multiply(target).normalize(), Math.min(1, state.w) * (item.keep ?? state.entry.follow));
     }
     options.probe?.({ k, world, states, entries: drivenOrder, own: ownData });
     for (const id of driven) {
@@ -1091,6 +1135,23 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   };
 }
 
+/** The open model's own features: its loose joints grouped under their top joint,
+ * for the window's list. `id` is the top joint's ObjectId (the key of
+ * `recipe.features`), `name` its own name, `part` the body part it hangs from or
+ * turns with, `joints` the names of all its joints, `body` whether it shares skin with the body
+ * (a gut: arms are then kept out of the trunk there). */
+export function transferFeatures(model, { sequence, actor } = {}) {
+  const rig = transferRig(model, { sequence, actor });
+  if (!rig.ok) return [];
+  const own = ownMotion(model, rig), info = modelInfo(model), name = id => info.byId.get(id)?.Name || String(id), found = new Map();
+  for (const item of [...own.followers, ...own.chains]) {
+    const top = own.featureOf.get(item.id);
+    if (!found.has(top)) found.set(top, { id: top, name: name(top), part: item.part, joints: [], body: !!own.shapes.features.get(top)?.body, shared: own.shapes.features.get(top)?.shared ?? 0, open: own.shapes.features.get(top)?.open ?? 0 });
+    found.get(top).joints.push(name(item.id));
+    if (item.id === top) found.get(top).part = item.part;
+  }
+  return [...found.values()];
+}
 /** Which parts of the open model have loose joints that can follow (recipe
  * `follow`), with their names: `{ armL: ['Pauldron_L'], chest: ['Cape 1', 'Cape 2'] }`.
  * `sequence` is the body animation (it picks the skeleton, as transferRig does). */

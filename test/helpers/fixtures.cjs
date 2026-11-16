@@ -44,6 +44,7 @@ const FIXTURES = {
   'transfer-ghoul': ['MDLXL_TRANSFER_GHOUL', testModel('corpus-sd/undead__ghoul.mdx')], // long toes skinned to Foot1/Foot2 under the foot joints
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
+  'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones
   'transfer-nurgle': ['MDLXL_TRANSFER_NURGLE', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // shield and axe
   'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };

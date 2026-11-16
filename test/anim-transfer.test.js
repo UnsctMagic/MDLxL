@@ -747,3 +747,32 @@ test('R7 turn a unit into a rider: the Footman takes the knight\'s rider whole, 
   const stood = sampleNodeMatrices(footman, footman.Sequences[base].Interval[0], base), m = builtMatrices(footman, seated, base, 0);
   for (const id of thighs) assert.ok(angle(rotOf(m.get(id)), rotOf(stood.get(id))) > 15, 'a thigh is turned to sit');
 });
+
+test('R8 features: a model\'s own loose joints group into features; a patch of body skin counts as body', { skip: missing('transfer-nurgle-warrior', 'glow-dual-weapon', 'transfer-grunt', 'transfer-footman') }, () => {
+  const nurgle = XFER.transferFeatures(load('transfer-nurgle-warrior')), by = name => nurgle.find(feature => feature.name === name);
+  assert.ok(by('BellyBone1') && by('BellyBone1').body && by('BellyBone1').part === 'chest' && by('BellyBone1').joints.length === 3, 'the belly chain is one feature of the chest, and body');
+  assert.ok(by('Cape 1') && !by('Cape 1').body && by('Cape 1').joints.length === 2, 'the cape is a feature, not body');
+  assert.ok(by('Bone_Shoulder_L')?.part === 'armL' && by('Bone_Shoulder_R')?.part === 'armR' && !by('Bone_Shoulder_L').body, 'each shoulder bone is a feature of its arm');
+  const slaanesh = XFER.transferFeatures(load('glow-dual-weapon'));
+  assert.ok(slaanesh.some(feature => feature.name === 'Pauldron_L') && slaanesh.every(feature => !feature.body), 'pauldrons and a cape that only joins at the shoulders are not body');
+  assert.deepEqual(XFER.transferFeatures(load('transfer-grunt')), [], 'a weapon in the hand is not a feature');
+  assert.ok(XFER.transferFeatures(load('transfer-footman')).every(feature => !feature.body));
+});
+
+test('R8 keep a feature: the Nurgle warrior\'s belly plays its own attack and the arms stay out of it', { skip: missing('transfer-nurgle-warrior', 'transfer-grunt') }, () => {
+  const warrior = load('transfer-nurgle-warrior'), grunt = load('transfer-grunt'), sources = new Map([['g', grunt]]), rig = transferRig(warrior), attack = seq(grunt, 'Attack - 1'), base = sequenceLike(warrior, /^stand/i);
+  const belly = XFER.transferFeatures(warrior, { sequence: base }).find(feature => feature.name === 'BellyBone1'), cape = XFER.transferFeatures(warrior, { sequence: base }).find(feature => feature.name === 'Cape 1');
+  const recipe = features => ({ base: { sequence: base }, sources: {}, features, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(grunt, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'g', sequence: attack }])) });
+  const off = buildTransfer(warrior, sources, recipe(undefined)), kept = buildTransfer(warrior, sources, recipe({ [belly.id]: { keep: 1 } }));
+  sameArrays(off, buildTransfer(warrior, sources, recipe({})));
+  const bellyIds = belly.joints.map(name => nodeNamed(warrior, name)), capeIds = cape.joints.map(name => nodeNamed(warrior, name));
+  assert.ok(bellyIds.every(id => !off.tracks.has(id)) && bellyIds.every(id => kept.tracks.has(id)), 'only a kept feature is driven');
+  assert.ok(capeIds.every(id => !kept.tracks.has(id)), 'the cape, not kept, is left alone');
+  // The belly's own keys of the warrior's Attack, fitted to the taken clip.
+  const kind = sequenceLike(warrior, /^attack/i), interval = warrior.Sequences[kind].Interval, node = allNodes(warrior).find(n => n.ObjectId === bellyIds[0]), k = sampleNear(kept, kept.length / 2), frame = Math.round(interval[0] + kept.times[k] / kept.length * (interval[1] - interval[0]));
+  const own = new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { interval, globalSequences: warrior.GlobalSequences, globalTime: frame, fallback: [0, 0, 0, 1], quaternion: true }));
+  assert.ok(angle(rotationAt(kept, bellyIds[0], k), own) <= 2);
+  // A kept body feature keeps arms out of the trunk there: a shoulder turns, with no other switch on.
+  const turned = Math.max(...['armL', 'armR'].map(key => rig.parts[key].joints[0]).map(id => Math.max(...kept.times.map((_, i) => angle(rotationAt(kept, id, i), rotationAt(off, id, i))))));
+  assert.ok(turned > 2, `a shoulder turns ${turned.toFixed(1)} degrees to clear the belly`);
+});

@@ -1015,3 +1015,26 @@ Reading (director): none of the three automatic behaviours won. `follow` and `av
 picked; `range` once, trunk only. All three stay off by default (as built). Two "none looks right"
 answers say the plain transfer itself is not good enough on those two pairings; what he disliked
 there is not known yet. Build `transfer-xl-11` adds the Both / Rider / Mount buttons.
+
+## Round 8: a model's own features (owner, 16 Nov 2026)
+
+Owner on the Nurgle warrior ("none looks right" on the pick sheet): "first heavy clipping with the
+body. Second the guts - nurgle has a gut ... maybe it would be cool if the model could identify
+unique features and offer to preserve or merge them ... I wonder how easy of a control can you give
+me that doesnt overwhelm", then "But build it not as a nurgle-warrior specific system".
+
+Engine as built (director), no names, no model-specific rule:
+- **Feature** = a loose joint (round 7's followers and chains) with the loose joints below it,
+  named by its top joint. What a hand or foot holds is not a feature. `transferFeatures(model,
+  { sequence, actor })` -> `[{ id (top joint ObjectId), name, part, joints: [names], body, shared, open }]`.
+- **Body feature**: a patch of the body's own skin. At least 40% of its vertices are also weighted
+  to body joints, or at least 25% are and at most 30% sit on an open mesh edge (welded by place).
+  Its surface is added to the trunk joint's shape, so the arm guard sees a gut. Measured: Nurgle
+  warrior belly chain 0.59 shared (body), its cape 0.08; Slaanesh cape 0.33 shared but 0.78 open
+  (not body); Ogre belly pieces 0.76-1.00 shared, closed (body); pauldrons 0. Thresholds come from
+  these few models: statistics to widen, not a verdict.
+- **Recipe**: `recipe.features[topJointId] = { keep: 0|1 }`. A feature's own switch decides for its
+  joints; without one the part's `follow` does (old setups unchanged). Kept: followers keep their
+  learned share, chains play the model's own animation of the same kind, and a kept body feature
+  turns the arm guard on for the trunk joint it belongs to, even with `avoid` off.
+- 38 engine tests; 32 trial fingerprints identical.
