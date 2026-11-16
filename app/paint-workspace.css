@@ -89,7 +89,7 @@
 .paint-modal-shade label{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
 .paint-modal-shade select,.paint-modal-shade input{background:var(--ui-field);color:var(--ui-text);border:1px solid var(--ui-border)}
 .paint-modal-shade input[type=number]{width:52px}
-.paint-modal-shade input[type=range]{width:120px}
+.paint-modal-shade .range-steps{width:120px;flex:none}
 .paint-modal-shade p[role=alert]{color:#d44848;padding:0 8px}
 .paint-cutout-dialog{width:min(1100px,100%);height:calc(100vh - 30px);display:flex;flex-direction:column}
 .paint-cutout-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--ui-border)}

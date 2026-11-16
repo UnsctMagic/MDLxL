@@ -14,6 +14,7 @@ import { vertexForgeDraft, vertexForgeFaces, vertexForgeResult, vertexForgePickE
 import { FORGE_SHAPES, PRIMITIVE_DEFAULTS } from '../src/forge-primitives.js';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { isTypingTarget } from '../src/preferences.js';
+import { RangeInput } from './Fields.jsx';
 import './forge.css';
 
 /** An added toolset: selection, transforms, camera and history stay in App and
@@ -151,7 +152,7 @@ export default function ForgeVertexTools({ model, revision, selection, selectabl
     {palette&&<div className="forge-vertex-palette" role="group" aria-label="Add shape">
       <div className="forge-shape-gallery">{FORGE_SHAPES.map(shape=><button key={shape} aria-label={shape} title={'Add '+shape+' to Geoset '+(activeGeoset+1)} onClick={()=>add(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div>
       <div className="forge-dimensions">{['width','height','depth'].map(key=><label key={key}>{key[0].toUpperCase()+key.slice(1)}<input aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e=>setSettings({...settings,[key]:+e.target.value})}/></label>)}</div>
-      <label title="Set the number of faces in the new shape.">Detail<input aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e=>setSettings({...settings,complexity:+e.target.value})}/></label>
+      <label title="Set the number of faces in the new shape.">Detail<RangeInput aria-label="Shape complexity" min="1" max="4" value={settings.complexity} onChange={e=>setSettings({...settings,complexity:+e.target.value})}/></label>
     </div>}
     <ForgeMoldControls state={operation?.mold} error={result?.error} onChange={mold=>setOperation({...operation,mold})} onApply={apply} onCancel={cancel}/>
     {operation&&!operation.mold&&<div className="forge-vertex-operation" role="group" aria-label={operation.kind+' controls'}>

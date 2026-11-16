@@ -2,6 +2,7 @@ import { translate } from '../src/localization.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { changeGeosetDensity, maximumDensityAmount } from '../src/mesh-density.js';
 import './mesh-density.css';
+import { RangeInput } from './Fields.jsx';
 
 export default function MeshDensitySlider({ targets, value, onChange, onResult, disabled = false, compact = false }) {
   const [status, setStatus] = useState({ updating: false, error: '', result: null });
@@ -25,7 +26,7 @@ export default function MeshDensitySlider({ targets, value, onChange, onResult, 
   const result = status.result, direction = value > 0 ? 'More' : value < 0 ? 'Less' : 'Original';
   return <div className={`mesh-density-control${compact ? ' compact' : ''}`}>
     <div className="mesh-density-labels"><span>Less triangles</span><strong>{direction}</strong><span>More triangles</span></div>
-    <input className="range-input" aria-label="Triangle density" type="range" min="-100" max={maximum} step="1" value={Math.min(value, maximum)} disabled={disabled || !targets.length} onChange={event => onChange(Number(event.target.value))}/>
+    <RangeInput className="range-input" aria-label="Triangle density" min="-100" max={maximum} step="1" value={Math.min(value, maximum)} disabled={disabled || !targets.length} onChange={event => onChange(Number(event.target.value))}/>
     <div className="mesh-density-counts" aria-live="polite">{status.updating ? 'Updating wireframe…' : result ? <><strong>{result.trianglesAfter.toLocaleString()}</strong>{translate(" triangles · ")}{result.verticesAfter.toLocaleString()}{translate(" vertices")}{result.constrained ? translate(' · minimum safe density reached') : ''}</> : ''}</div>
     {status.error && <div className="mesh-density-error" role="alert">{status.error}</div>}
   </div>;

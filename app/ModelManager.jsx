@@ -3,6 +3,7 @@ import { Box, Circle, Move, Trash2 } from 'lucide-react';
 import { createNode, deleteNode } from '../src/editor-document.js';
 import { fittedCollision, resizeCollision } from '../src/model-collisions.js';
 import CollisionOverlay, { useCollisionGesture } from './CollisionOverlay.jsx';
+import { RangeInput } from './Fields.jsx';
 import './model-manager.css';
 import { MODEL_COMMENTS_KEY } from '../src/model-comments.js';
 
@@ -49,7 +50,7 @@ export default function ModelManager({ doc, edit, assets, teamColor }) {
         const value = shape.Shape === 2 ? shape.BoundsRadius : shape.Vertices[axis + 3] - shape.Vertices[axis];
         const original = selected.Shape === 2 ? selected.BoundsRadius : selected.Vertices[axis + 3] - selected.Vertices[axis];
         const label = shape.Shape === 2 ? 'Radius' : ['Width', 'Depth', 'Height'][axis];
-        return <label key={axis} title={`Resize ${label.toLowerCase()} around the shape's center`}><span>{shape.Shape === 2 ? <Circle size={14}/> : ['X', 'Y', 'Z'][axis]}</span><input aria-label={label} type="range" min="0.01" max={Math.max(128, original * 3)} step="0.1" value={value} onChange={event => { const next = structuredClone(shape); resizeCollision(next, axis, Number(event.target.value)); previewDraft(next); }} onPointerUp={commit} onPointerCancel={cancel} onBlur={commit} onKeyUp={commit}/><output>{Math.round(value * 10) / 10}</output></label>;
+        return <label key={axis} title={`Resize ${label.toLowerCase()} around the shape's center`}><span>{shape.Shape === 2 ? <Circle size={14}/> : ['X', 'Y', 'Z'][axis]}</span><RangeInput aria-label={label} min="0.01" max={Math.max(128, original * 3)} step="0.1" value={value} onChange={event => { const next = structuredClone(shape); resizeCollision(next, axis, Number(event.target.value)); previewDraft(next); }} onPointerUp={commit} onPointerCancel={cancel} onBlur={commit} onKeyUp={commit} onStepEnd={commit}/><output>{Math.round(value * 10) / 10}</output></label>;
       })}<div className="mm-selection-actions"><span title="Drag Move to move; drag the edge handles to resize"><Move size={16}/></span><button aria-label="Remove collision shape" title="Remove selected collision shape" onClick={() => edit('Remove collision shape', sections, m => deleteNode(m, selectedId))}><Trash2 size={16}/></button></div></fieldset>}
       <details className="mm-comments"><summary>Comments</summary>{doc.format === 'mdl' ? <textarea aria-label="Model comments" disabled={doc.readOnly} rows={6} value={comments} onChange={event => setComments(event.target.value)} onBlur={() => { if (comments !== (model[MODEL_COMMENTS_KEY] || '')) edit('Edit model comments', [MODEL_COMMENTS_KEY], m => { if (comments) m[MODEL_COMMENTS_KEY] = comments; else delete m[MODEL_COMMENTS_KEY]; }); }}/> : <p>Standard comments are stored in MDL files. MDX has no comment field.</p>}</details>
     </aside>
