@@ -377,11 +377,15 @@ ipcMain.handle('model:backup',(event,payload)=>{
 });
 async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
-  if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
-  const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The painter artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The painter artifact exceeds 512 MB.');
-  const destination=await chooseSavePath({title:extension==='.zip'?'Export Warcraft paint package':'Save editable paint project',defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
+  const textureBundle=payload?.kind==='textures';
+  if(textureBundle && extension!=='.zip')throw Error('Texture bundles must use .zip.');
+  if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip artifacts can be saved.');
+  const bytes=Buffer.from(payload?.bytes||[]);if(!bytes.length)throw Error('The artifact is empty.');if(bytes.length>512*1024*1024)throw Error('The artifact exceeds 512 MB.');
+  const title=textureBundle?'Bundle Textures':extension==='.zip'?'Export Warcraft paint package':'Save editable paint project';
+  const destination=await chooseSavePath({title,defaultPath:requested,extension:extension.slice(1),filterName:extension==='.zip'?'ZIP package':'MDLxL Paint Project'});
   if(!destination)return null;
-  if(!allowed.has(path.extname(destination).toLowerCase()))throw Error('The selected painter artifact extension is not allowed.');
+  const selectedExtension=path.extname(destination).toLowerCase();
+  if(textureBundle ? selectedExtension!=='.zip' : !allowed.has(selectedExtension))throw Error('The selected artifact extension is not allowed.');
   await writeFileAtomic(destination,bytes,{verify:true});
   return {name:path.basename(destination),path:destination,bytes:bytes.length};
 }

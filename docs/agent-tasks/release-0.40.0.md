@@ -1,6 +1,6 @@
 # MDLxL 0.40.0 release
 
-Status: QA done on the final build 2178f2d7 (15 Nov). Release PR, tag and an unpublished
+Status: completed — 0.40.0 released 15 Nov 2026 (release PR #650, bf55affa).
 draft come next; publishing, Garithos and the website wait for the owner (peer session
 local_a3a16fa6 publishes).
 Owner / consolidator: Claude Code (release handoff session local_2ef9913b-787a-4168-8396-bd0317361c61)

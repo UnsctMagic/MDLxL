@@ -1,7 +1,10 @@
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
-// Each native CLI keeps its sign-in, settings and session logs in its own home folder.
+// Codex keeps its sign-in, settings and session logs in MDLxL's own home folder.
+// Claude Code has no home variable: it uses the user's own Claude Code
+// installation and sign-in (`claude auth login` in their terminal), because
+// MDLxL does not offer a Claude sign-in of its own.
 const PROVIDERS = require('../src/ai-providers.json');
 const homeVariable = provider => PROVIDERS.find(p => p.id === provider).homeVariable;
 function providerEnvironment(directory, provider) {
@@ -18,14 +21,14 @@ function providerEnvironment(directory, provider) {
     'CLAUDE_CODE_USE_FOUNDRY',
   ])
     delete env[key];
-  env[homeVariable(provider)] = path.join(directory, provider);
+  if (homeVariable(provider)) env[homeVariable(provider)] = path.join(directory, provider);
   return env;
 }
 // The provider environment, with its temporary folder and provider home created.
 async function prepareEnvironment(directory, provider) {
   const env = providerEnvironment(directory, provider);
   await fs.promises.mkdir(env.TEMP, { recursive: true });
-  await fs.promises.mkdir(env[homeVariable(provider)], { recursive: true });
+  if (homeVariable(provider)) await fs.promises.mkdir(env[homeVariable(provider)], { recursive: true });
   return env;
 }
 // PATH can omit a CLI, for example one installed after Windows sign-in or one

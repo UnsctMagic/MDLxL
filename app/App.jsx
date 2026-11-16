@@ -30,7 +30,7 @@ import { openOptimizeXLWindow } from './detached-window.js';
 import UVWindow from './UVWindow.jsx';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
-import { hasDesktop, resolveGameFiles } from './desktop.js';
+import { hasDesktop, resolveGameFiles, saveArtifact as writePaintArtifact } from './desktop.js';
 import { useCaptureRegions } from './useCaptureRegions.js';
 import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
@@ -156,7 +156,7 @@ const sessionDirty = session => !!session?.doc && (session.doc.dirty || Object.k
 const defaultSessionView = model => {
   const selectable = initialGeosetSelection(model.Geosets.length);
   const citadel = model.Textures.some(texture => /^MDLxL_Citadel[\\/]/i.test(texture.Image || ''));
-  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
+  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: null, rgbSequence: attachematorStandSequence(model), renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
 };
 const newSession = (doc, path = null, assets = builtinTextureAssets()) => ({ doc, path, assets, uvPreviews: {}, animationDrafts: {}, paintProject: null, paintOriginalModelBytes: null, paintWorkingModel: null, paintWorkingRevision: 0, id: crypto.randomUUID(), checkpoint: 0, viewState: defaultSessionView(doc.model) });
 export async function readInputBytes(file){
@@ -316,7 +316,9 @@ export default function App() {
     session.uvWindow = value; setUVWindowState(value);
   };
   const closeUVWindow = () => { document.activeElement?.blur?.(); setUVWindow(null); setUVFocused(false); setLiveUV(null); if (dialog?.host === 'uv') setDialog(null); };
-  const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
+  // RGB null follows the look: on in MDLxL, like Animations (owner, 16 Nov 2026); off in VIS, which has no RGB switch.
+  const [rgbPreview, setRGBPreview] = useState(null), [rgbSequence, setRGBSequence] = useState(-1);
+  const rgbShown = rgbPreview ?? !visUI;
   const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
   const displayMode = mode === 'animation' ? animationPanel : mode;
   const poseViewActive = mode === 'animation' && animationPanel === 'movement' && poseConfig.enabled;
@@ -1093,10 +1095,6 @@ export default function App() {
     finally { savingRef.current = false; setSaving(false); }
   }
   const paintArtifactName = (extension, target = session) => `${target.doc.name.replace(/\.(?:mdl|mdx)$/i,'').replace(/[^a-z0-9_-]+/gi,'-') || 'model'}${extension}`;
-  async function writePaintArtifact(blob, name) {
-    if (window.desktop?.saveArtifact) return !!(await window.desktop.saveArtifact({name,bytes:new Uint8Array(await blob.arrayBuffer())}));
-    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return true;
-  }
   function paintDocument(target = session) {
     const staged=EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({includeHistory:false}));
     if(target.paintWorkingModel)staged.model=structuredClone(target.paintWorkingModel);
@@ -1337,7 +1335,8 @@ export default function App() {
       clipboard.current = { ...captured, sourceDocument: doc, assets: new Map(session.assets) };
       say(`Copied ${captured.nodeIds.length} node${captured.nodeIds.length === 1 ? '' : 's'}.`); refresh(); return;
     }
-    const captured = captureMeshSelection(model, validSelection, selectable, { rgbPreview, rgbSequence });
+    // Copy freezes RGB into the paste only when RGB was switched on by hand, as before RGB started on.
+    const captured = captureMeshSelection(model, validSelection, selectable, { rgbPreview: rgbPreview === true, rgbSequence });
     if (!captured.indices.length) { say('Select vertices, triangles or geosets to copy.', true); return; }
     clipboard.current = { ...captured, sourceDocument: doc, assets: new Map(session.assets) };
     say(`Copied ${captured.vertexCount} vertices and ${captured.triangleCount} triangles.`); refresh();
@@ -1559,7 +1558,7 @@ export default function App() {
     axes: () => changePreferences(previous=>{const visible=Object.values(previous.grid.axes).some(Boolean);return {...previous,grid:{...previous.grid,axes:{x:!visible,y:!visible,z:!visible}}};}),
     wireframe: () => setViewRenderMode('wireframe'),
     workplaneEnabled: () => setWorkplaneEnabled(value=>!value),
-    normals: () => changeOverlay('normals', value => !value), rgb: () => { if (!visUI && displayMode === 'animations') { changeOverlay('rgb', value => !value); return; } setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !value); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
+    normals: () => changeOverlay('normals', value => !value), rgb: () => { if (!visUI && displayMode === 'animations') { changeOverlay('rgb', value => !value); return; } setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !(value ?? !visUI)); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
     ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras','objects','lights',...OBJECT_TYPE_KEYS].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
     cleanView: () => setCleanViews(previous => ({...previous,[mode]:!previous[mode]})),
@@ -1797,7 +1796,7 @@ export default function App() {
   useEffect(() => {aiBridge.editorChanged();});
 
 
-  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'?rgbPreview:!visUI&&displayMode==='animations'&&!!overlays.rgb,'display:objects':overlays.objects,'display:lights':overlays.lights,...Object.fromEntries(OBJECT_TYPE_KEYS.map(key=>['display:'+key,overlays[key]!==false]))};
+  const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:boneTypesBones':overlays.boneTypesBones !== false,'display:boneTypesHelpers':overlays.boneTypesHelpers !== false,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,axes:axesEnabled,normals:overlays.normals,rgb:mode==='vertices'?rgbShown:!visUI&&displayMode==='animations'&&!!overlays.rgb,'display:objects':overlays.objects,'display:lights':overlays.lights,...Object.fromEntries(OBJECT_TYPE_KEYS.map(key=>['display:'+key,overlays[key]!==false]))};
   // The first time the toolbar goes away, by any route, say how to bring it back.
   useEffect(() => {
     if (!preferencesReady || !toolbarHidden || preferences.toolbarHiddenNoted) return;
@@ -2093,7 +2092,7 @@ export default function App() {
         workplane={workplane} transformMode={tool}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor({ ...next, kind: choosingZoomAnchor }); setChoosingZoomAnchor(false); say(choosingZoomAnchor === 'align' ? 'Align vertex selected.' : 'Anchor vertex selected.'); } }}
-        rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={forgePreview ? null : vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
+        rgbPreview={rgbShown} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={forgePreview ? null : vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}>
           {bitReplacement && <div className="bit-replacement-actions" role="group" aria-label="Replace Part">
             <ReplacementRgb model={model} geosetIds={bitRgbGeosets} disabled={!!dialog || !!settingsTab || saving}

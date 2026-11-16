@@ -1,4 +1,4 @@
-# MDLxL 0.40.0
+# MDLxL 0.40.1
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,9 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.40.0 adds an Animated pose preview to Vertices, Forge tools in the Vertex editor (Call Upon Forge), Bone Namer, right-click menus for EMTR and LIBR, Bitz library management, Preview RGB and Hide Extras in the UV Wrapper, hero glow review, a redesigned FX window with your own saved looks, one Objects switch with keyframe diamonds in Movement, elemental ribbon sweeps, several weapon glows in Glow Up, Spawn Object previews, and POSE handle symbol sets and handles that name their job on hover. See [the release notes](docs/RELEASE-0.40.0.md).
+Version 0.40.1 makes Vertices open with RGB on so its colours match Animations, fixes Additive fading, per-texture wrap and the Animations Shadows switch, and adds Bundle Textures, six UV Wrapper tools, an empty start workspace and button feedback. See [the hotfix notes](docs/RELEASE-0.40.1.md).
+
+From 0.40.0: this release adds an Animated pose preview to Vertices, Forge tools in the Vertex editor (Call Upon Forge), Bone Namer, right-click menus for EMTR and LIBR, Bitz library management, Preview RGB and Hide Extras in the UV Wrapper, hero glow review, a redesigned FX window with your own saved looks, one Objects switch with keyframe diamonds in Movement, elemental ribbon sweeps, several weapon glows in Glow Up, Spawn Object previews, and POSE handle symbol sets and handles that name their job on hover. See [the release notes](docs/RELEASE-0.40.0.md).
 
 From 0.39.0: this release adds a new Citadel Paint New base coat layout with Detail, one Calculate extents, Rotate handles and native weapon ribbons in EMTR, emitter preview in FX, OptimizeXL Remove exact redundancy, and Wiggle for checking bone binding. See [the release notes](docs/RELEASE-0.39.0.md).
 
@@ -59,6 +61,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.40.1](docs/RELEASE-0.40.1.md) ([ES](docs/RELEASE-0.40.1-ES.md), [RU](docs/RELEASE-0.40.1-RU.md), [ZH-CN](docs/RELEASE-0.40.1-ZH-CN.md), [FR](docs/RELEASE-0.40.1-FR.md), [DE](docs/RELEASE-0.40.1-DE.md))
 - [0.40.0](docs/RELEASE-0.40.0.md) ([ES](docs/RELEASE-0.40.0-ES.md), [RU](docs/RELEASE-0.40.0-RU.md), [ZH-CN](docs/RELEASE-0.40.0-ZH-CN.md), [FR](docs/RELEASE-0.40.0-FR.md), [DE](docs/RELEASE-0.40.0-DE.md))
 - [0.39.0](docs/RELEASE-0.39.0.md) ([ES](docs/RELEASE-0.39.0-ES.md), [RU](docs/RELEASE-0.39.0-RU.md), [ZH-CN](docs/RELEASE-0.39.0-ZH-CN.md), [FR](docs/RELEASE-0.39.0-FR.md), [DE](docs/RELEASE-0.39.0-DE.md))
 - [0.38.3](docs/RELEASE-0.38.3.md) ([ES](docs/RELEASE-0.38.3-ES.md), [RU](docs/RELEASE-0.38.3-RU.md), [ZH-CN](docs/RELEASE-0.38.3-ZH-CN.md), [FR](docs/RELEASE-0.38.3-FR.md), [DE](docs/RELEASE-0.38.3-DE.md))

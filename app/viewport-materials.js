@@ -65,11 +65,15 @@ export function layerMaterial(layer, shaded = true, { extendShader, cacheKey } =
   const shading = layer.Shading || 0, filter = layer.FilterMode || 0;
   const material = !shaded || shading & 1 ? new THREE.MeshBasicMaterial() : new THREE.MeshPhongMaterial({ shininess: 9, specular: 0x1c242d });
   material.userData.geosetTint = { value: new THREE.Vector3(1, 1, 1) };
+  // Additive draws ONE + ONE, so alpha cannot fade it; the viewport scales its
+  // colour by the layer and geoset alpha instead, like the game preview.
+  material.userData.additiveScale = { value: 1 };
   material.onBeforeCompile = shader => {
     shader.uniforms.uMdlxlGeosetTint = material.userData.geosetTint;
+    shader.uniforms.uMdlxlAdditiveScale = material.userData.additiveScale;
     // Warcraft GeosetRGB multiplies the encoded final color. Applying it to
     // Three's linear material color makes intermediate authored RGB too bright.
-    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', '#include <colorspace_fragment>\ngl_FragColor.rgb *= uMdlxlGeosetTint;');
+    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\nuniform float uMdlxlAdditiveScale;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', '#include <colorspace_fragment>\ngl_FragColor.rgb *= uMdlxlGeosetTint * uMdlxlAdditiveScale;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\nvec4 sampledDiffuseColor = sRGBTransferEOTF(texture2D(map, vMapUv));\ndiffuseColor *= sampledDiffuseColor;\n#endif');
     if (material.isMeshPhongMaterial) {
       // A zero authored normal must stay finite before interpolation. Fixing
