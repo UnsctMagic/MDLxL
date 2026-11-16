@@ -721,3 +721,6 @@ Contract (director):
   the recipe, timeline/slider return, Speed 50% on one view, unchanged cameras) and the sweep's
   Original step replaced by the result dropdown, donor Speed/Play/scrub. Pictures in
   `out/transfer-ui/round5/`.
+- Director's change after reviewing the pictures: the scrub track runs the full width of the view
+  above the strip's buttons (a 60 px track beside the dropdown was too short to use). Build
+  `TestBuilds\transfer-xl-04`: the full harness passed hidden on that exact copy (34 checks).

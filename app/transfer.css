@@ -112,11 +112,11 @@
 .resource-editor.transfer-xl .xf-window .xf-scope>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
 .transfer-xl .xf-holds{font-style:italic}
 /* Playback strip under each view (TransferViewStrip.jsx): one ~24 px row taken from the view's height. */
-.transfer-xl .xs-strip{display:flex;align-items:center;gap:4px;min-height:24px;flex:none;min-width:0}
+.transfer-xl .xs-strip{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-height:24px;flex:none;min-width:0}
 .transfer-xl .xs-strip .xs-play{flex:none;min-width:50px;padding:1px 6px}
-.transfer-xl .xs-strip .xs-scrub{flex:1 1 60px;min-width:40px;margin:0;height:16px}
+.transfer-xl .xs-strip .xs-scrub{order:-1;flex:1 0 100%;min-width:0;margin:0;height:14px}
 .transfer-xl .xs-strip .xs-speed{flex:none;width:58px;min-width:0;padding:1px 2px}
-.transfer-xl .xs-strip .xs-animation{flex:0 1 150px;min-width:70px;max-width:45%;padding:1px 2px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.transfer-xl .xs-strip .xs-animation{flex:1 1 120px;min-width:70px;padding:1px 2px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
 /* The timeline while the result view shows another animation: dimmed; using it brings the new animation back. */
 .transfer-xl .xt-timeline.xt-dimmed{opacity:.45}
 .transfer-xl .xt-head>.xt-readout{justify-self:start;padding-left:4px}
