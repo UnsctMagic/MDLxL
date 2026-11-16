@@ -8558,6 +8558,8 @@
   "No mirror points found among the UV Wrapper's points.": "在 UV 编辑器的点中没有找到镜像点。",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "松弛会保持选区的外边缘不动。请选择比边缘更多的点。",
   "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。",
+  "Motion path": "运动轨迹",
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "绘制所选骨骼或所选 POSE 控柄在动画中经过的曲线。拖动调整时曲线会实时跟随。",
   "Report a problem": "报告问题",
   "Report a problem…": "报告问题…",
   "Sends your name, text, MDLxL version and Windows version.": "发送你的名字、文字、MDLxL 版本和 Windows 版本。",

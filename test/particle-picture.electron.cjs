@@ -35,7 +35,8 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByRole('button',{name:'Standard',exact:true}).click();await page.getByLabel('Search textures',{exact:true}).fill('GenericGlow64');
   const tile=page.locator('.tl-tile').filter({hasText:/GenericGlow64/i}).first();await tile.waitFor({timeout:60000});await tile.click();
   const use=page.getByRole('button',{name:'Use picture',exact:true});await use.waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.tl-actions button')].some(b=>b.textContent==='Use picture'&&!b.disabled),null,{timeout:60000});
-  const nativePath=await library.locator('.tl-details > code').first().innerText();
+  // The Library may list a game picture by its stored .dds name; an emitter always names it by its .blp path (owner, 16 Nov).
+  const nativePath=(await library.locator('.tl-details > code').first().innerText()).replace(/\.dds$/i,'.blp');
   await page.screenshot({path:path.join(out,'library.png')});await use.click();await library.waitFor({state:'hidden'});
   const imported=await read(),picture=imported.model.Textures.at(-1);assert.equal(picture.Image,nativePath);assert.equal(imported.model.ParticleEmitters2[0].ReplaceableId,0);assert.equal(imported.model.ParticleEmitters2[0].TextureID,1);
   await page.waitForFunction(()=>!document.querySelector('.pe-window .re-status')?.textContent.includes('Updating effect'));

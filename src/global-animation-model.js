@@ -18,7 +18,7 @@ import {createResourceImporter} from './model-import.js';
 import {addParticles} from './visual-effect-composition.js';
 import {particleBurstTrack} from './particle-sweep.js';
 import {deleteGlobalSequence} from './sequence-editor.js';
-import {gamePathKey} from './game-path.js';
+import {gamePathKey,effectPicturePath} from './game-path.js';
 import {attackContact} from './fx-attack-contact.js';
 import {vertexBoneWeights} from './part-bones.js';
 import {nameRegion} from './rig-names.js';
@@ -1965,5 +1965,7 @@ export function compileAnimation(model,index,draft,{rune,attachments}={}){
   }
   results[l.id]={...(siteRateScales[l.id]!=null?{siteRateScale:siteRateScales[l.id]}:{}),siteIds:Object.fromEntries(emitters.map(n=>[n._FxTag.slice(prefix.length),n.ObjectId])),sites:sites[l.id]?.length?sites[l.id]:emitters.map(n=>({key:n._FxTag.slice(prefix.length),point:Array.from(n.PivotPoint,(v,i)=>v-l.offset[i]),region:l.nativeSpec&&(l.ground||l.nativeSpec.flat)?frame.regions.indexOf(frame.regions.reduce((a,b)=>b.frame.length>a.frame.length?b:a)):Number(n._FxTag.slice(prefix.length).match(/^source(\d+)/)?.[1]||0),ground:!!l.ground})),id:(emitters[Math.floor(emitters.length/2)]||nodes.find(n=>n._FxTag===prefix+'card0-0'||n._FxTag===prefix+'swarm')||nodes[0])?.ObjectId,ids:emitters.map(n=>n.ObjectId),geoset:model.Geosets.findIndex(g=>g._FxTag===prefix+'shape')};
  }
+ // Pictures the effect added are named by their .blp path, never .dds (also looks saved before this rule).
+ for(const t of model.Textures)if(t._FxTag&&!t.ReplaceableId&&t.Image)t.Image=effectPicturePath(t.Image);
  return {geoset:model.Geosets.indexOf(source),layers:results,frame};
 }

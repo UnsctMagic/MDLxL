@@ -8662,6 +8662,8 @@
   "No mirror points found among the UV Wrapper's points.": "No se encontraron puntos reflejados entre los puntos del Editor UV.",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Relajar mantiene en su sitio el borde exterior de la selección. Seleccione más que el borde.",
   "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Desconectar las UV superaría el límite de 65536 vértices por geoset. Divida primero el geoset.",
+  "Motion path": "Trayectoria",
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "Dibuja la curva que recorre el hueso seleccionado, o el control POSE elegido, durante la animación. La curva sigue tus arrastres mientras los ajustas.",
   "Report a problem": "Informar de un problema",
   "Report a problem…": "Informar de un problema…",
   "Sends your name, text, MDLxL version and Windows version.": "Envía tu nombre, tu texto, la versión de MDLxL y la versión de Windows.",
