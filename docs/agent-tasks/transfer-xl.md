@@ -934,3 +934,40 @@ identical. 31 engine tests.
 - Found while testing: on the Abomination with the Demon Hunter's attack, Keep arm out of the body
   changed nothing with only the left arm taken; with the whole body taken it changes both arms. The
   test uses the whole body.
+
+### Round 7b: one creature was the engine's blind spot (owner, 16 Nov 2026)
+
+Owner, on the Footman taking WH_WOC_KnightNurgle16's attack (only Head was offered, and it was the
+horse's): "It couldnt do this transfer", then "I dont want case specific improvements - you need to
+identify a weakness in your engine and improve it", then "what if I want to turn a unit into a rider?
+So give me the option to control - when it identifies a complex rig it should show me some easy
+controls to improve my selection ... this is for dummies like me ... Be thorough, lowpolyworks has a
+lot of complex rigs but also test WC3 natives - all of them".
+
+Weakness: the engine read a model as ONE creature, the subtree under one body joint. A model built
+as two creatures lost a half (a rider hanging from a second root), or mixed them (a rider nested
+under the horse counted as a third pair of legs).
+
+As built (director; no bone names anywhere in the rule, a test strips them):
+- `seatedAssemblies`: a separate assembly with arms that stands over the walker (inside its floor
+  plan grown 30%, not below its body joint by more than a quarter of its height) when the walker has
+  no arms. Its hierarchy root counts as the body's skeleton.
+- Nested: one subtree under the body with an arm and a pair of legs, one each side, that hang over
+  15% of the walker's height above its lowest foot. Arms on a walking body without such legs (a
+  centaur) and limbs that join the trunk separately (dragons, spider-bodied creatures) stay one
+  creature.
+- `transferRig(model, { sequence, actor })`: 'both' (the seated one's chest, head and arms on the
+  walker's hips and legs; default), 'seated' (the one on top whole, with its own body joint, hips
+  and legs), 'walker' (the one below whole). `rig.actors` lists what a model offers; one creature
+  offers 'both' only. Recipe: `sources[id].actor`, `base.actor`. Legs taken from a 'seated' reading
+  are not planted. To seat a unit, hips and legs take the rider with Pose at Theirs (match 1): the
+  seat is the rider's stance, not a movement away from it.
+- Sweep (`out/transfer-probe/survey-all.mjs`): every model as donor to the Footman (stand, attack,
+  walk, spell, death) and as receiver of its Attack - 1 and Walk (the attack also saved), in every
+  reading. WC3 unit models: 398 files, 388 with a skeleton, all rigged, 2,487 builds, 0 threw, 0
+  non-finite, 211 had nothing to give or take (ships, machines, mines). LowPolyWorks checkout: 134
+  models, all rigged, 1,106 builds, 0 threw, 0 non-finite, 61 nothing. Two creatures: natives 9
+  (Knight, Archmage and ghost, both wolf riders, Bandit Lord, Bandit Mage, Garithos; the Meat Wagon
+  is a false one), LowPolyWorks 16 (the 13 Chaos knights, Knight of the Blazing Sun; the two Bray
+  Shamans are false ones). Not separated: Cold One Riders and the Blood Dragon knight read as one
+  creature.
