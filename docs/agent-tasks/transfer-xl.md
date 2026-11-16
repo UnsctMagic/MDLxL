@@ -346,6 +346,40 @@ and their guard fixtures, `test/module-button-labels.test.js` / `.browser.cjs`,
   exact package with both stories, no crash notice.
 - Test build in `D:\Claude\MDLxL\TestBuilds\transfer-xl` opening `TEST TRANSFER 01.mdx`.
 
+### Window as built (16 Nov 2026, window coder; awaiting director review)
+
+- `app/Transfer.jsx` + `app/transfer.css`; pure helpers in `src/transfer-window.js` (chip order,
+  mirrored donor part, POSE handle to part and back) with `test/transfer-window.test.js`.
+- Engine addition: `transferRestoreTracks(recipient, start, built, ids)` gives a node back its
+  body-animation tracks inside the preview's new animation, so Give back / Original swap tracks
+  instead of rebuilding the preview (tested equal to a transfer that never took the part).
+- Preview: the result copy is rebuilt only when `doc.revision`, the body animation, the length,
+  looping or the body clock rate changes, never while a slider is held; otherwise
+  `liveNodeTracks` = `transferNodeTracks` for driven joints + `transferRestoreTracks` for joints
+  driven earlier. Builds run on the main thread at most once per display frame (no worker).
+- The selected part is drawn as a yellow joint path on both models (with **All**: every taken part, thinner):
+  `poseConfig.inspectPaths` / `inspectColor` / `inspectThin`, additive options in `GamePreview.jsx` beside
+  `inspectIds`. The filled chips say what is taken; `All` is never filled, only outlined when selected.
+- Both panes hide the grid and axes and frame the model large: `fitBox` (new opt-in `GamePreview` prop)
+  fits the camera to the visible mesh as posed in the first drawn frame, instead of the sphere around
+  the model. It frames only when a pane gets a new model (window opened, donor chosen); rebuilds keep
+  the camera (`preserveCameraView`), and a camera drag before the first frame cancels it.
+- Donors: `This model` (the document itself), other tabs (a `structuredClone` snapshot of the tab's
+  model, its textures shared), `Open file...` through the new bridge `transfer:openModel` /
+  `openTransferModel` (dialog title "Take animation from", no tab, no recent entry), `Library...`
+  through the existing game-file browser hosted in pick mode (`GameFileBrowser` prop `pickLabel`:
+  the geoset box is replaced by **Use this model**; Enter / double-click pick; `previewAssets`
+  exported for the donor's textures).
+- Deviations: with **All** selected the three offset sliders are hidden (their axes differ per part
+  kind); Start runs 0-2000 ms; the hotkey label for the Take button is "Take part" (the catalogs
+  already translate "Take" as a recording take); default key F11 (F10 is reserved). A donor without
+  parts still shows its preview, with the engine's sentence over it.
+- Not done here: the test build in `D:\Claude\MDLxL\TestBuilds\transfer-xl` (the coder was told not
+  to touch the main checkout); the packaged build is `out\pkg-transfer`.
+- Harness `test/transfer.electron.cjs` (registered as `transfer` in `scripts/run-packaged-tests.mjs`):
+  stories B and A, a click-through of every control (`MDLXL_TRANSFER_SWEEP=1`), Library pick, a
+  donor and an open model without parts (`corpus-sd/undead__plaguecloud.mdx`).
+
 ## Public text rule
 
 Commits, PR text and docs describe MDLxL's own behaviour only. Older tools (Retera's Model Studio,

@@ -1,0 +1,45 @@
+/* Transfer: a near full-size window in the MDLxL theme, built like AnimXL. Only the previews stay dark like the viewport. */
+.resource-editor .re-window.xf-window{width:calc(100vw - 24px);height:calc(100vh - 24px);min-width:680px;min-height:480px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden;gap:4px}
+/* Mirror and Original stay visibly pressed in every look. */
+.resource-editor .xf-window :is(.xf-pane-head,.xf-footer)>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.resource-editor .xf-panes{flex:1;min-height:0;display:flex;gap:6px;padding:0 2px}
+.resource-editor .xf-pane{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding:3px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.resource-editor .xf-pane-head,.resource-editor .xf-pane-foot{display:flex;align-items:center;gap:6px;min-height:24px;flex-wrap:wrap}
+.resource-editor .xf-pane-head>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resource-editor .xf-pane-head select{min-width:0;max-width:60%}
+.resource-editor .xf-pane-head>button{margin-left:auto}
+.resource-editor .xf-pane-foot label{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.resource-editor .xf-pane-foot select{min-width:0;max-width:220px}
+.resource-editor .xf-preview{flex:1;min-height:0;position:relative;border:1px solid var(--ui-border,#8b8b87);background:#000;overflow:hidden}
+.resource-editor .xf-preview>.game-preview,.resource-editor .xf-preview>div:not(.xf-choices):not(.xf-overlay-note){position:absolute;inset:0}
+.resource-editor .xf-choices{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;background:var(--ui-surface,var(--ui-panel,#f0f0f0));color:var(--ui-text,#16191e);overflow:auto}
+.resource-editor .xf-choices>span{font-weight:bold;margin-bottom:4px}
+.resource-editor .xf-window .xf-choices>button{min-width:220px;max-width:100%;min-height:30px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resource-editor .xf-overlay-note{position:absolute;left:6px;right:6px;bottom:6px;z-index:5;padding:4px 8px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.resource-editor .xf-overlay-note p{margin:0}
+.resource-editor .xf-message{top:6px;bottom:auto}
+.resource-editor .xf-note{color:var(--ui-muted,#444)}
+.resource-editor .xf-preview>.xf-note{position:absolute;left:6px;top:6px;color:#ccc}
+.resource-editor .xf-problems{flex:1;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.resource-editor .xf-parts{flex:none;display:flex;flex-direction:column;gap:4px;margin:0 2px;padding:4px 6px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.resource-editor .xf-chips{display:flex;flex-wrap:wrap;gap:3px}
+.resource-editor .xf-window .xf-chip{min-height:24px;padding:0 9px}
+/* A taken part is filled with the accent colour in every look; the chosen chip also gets an inner ring. */
+.resource-editor .xf-window .xf-chip.xf-taken{background:var(--ui-accent,#71b5f3)!important;color:#111!important;font-weight:bold}
+.resource-editor .xf-window .xf-chip[aria-pressed="true"]{outline:2px solid var(--ui-text,#16191e);outline-offset:-3px;font-weight:bold}
+.resource-editor .xf-part-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:24px}
+.resource-editor .xf-part-row>b{min-width:70px}
+.resource-editor .xf-source{color:var(--ui-muted,#444)}
+.resource-editor .xf-sliders{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px 14px;align-items:end}
+.resource-editor .xf-check{display:flex;gap:4px;align-items:center;min-height:24px}
+.resource-editor .xf-footer{display:flex;align-items:center;gap:4px;padding:2px 2px 2px;flex-wrap:wrap}
+.resource-editor .xf-scrub{flex:1 1 220px;min-width:120px;max-width:520px}
+.resource-editor .xf-time{min-width:52px;font-variant-numeric:tabular-nums;color:var(--ui-muted,#333)}
+.resource-editor .xf-spacer{flex:1}
+.resource-editor .xf-name{display:inline-flex;align-items:center;gap:4px}
+.resource-editor .xf-name input{width:170px;min-width:0}
+.resource-editor .xf-window .xf-add{font-weight:bold}
+.resource-editor .xf-added{color:var(--ui-muted,#333);white-space:nowrap}
+/* The Library picker opens over Transfer. */
+.xf-library .xf-library-header{justify-content:space-between}
+.xf-library .xf-library-header>span{color:var(--ui-text,#16191e);font-weight:bold;font-size:13px}

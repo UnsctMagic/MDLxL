@@ -230,6 +230,12 @@ ipcMain.handle('preview:openModel',async event=>{
   const result=await dialog.showOpenDialog(win,{title:'Load Showcase model',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
   return result.canceled?null:readModel(result.filePaths[0],false);
 });
+// Transfer's donor: read only, never a tab or a recent file.
+ipcMain.handle('transfer:openModel',async event=>{
+  captureOwner(event);
+  const result=await dialog.showOpenDialog(win,{title:'Take animation from',filters:[{name:'Warcraft model',extensions:WARCRAFT_MODEL_EXTENSIONS}],properties:['openFile']});
+  return result.canceled?null:readModel(result.filePaths[0],false);
+});
 ipcMain.handle('parts:list',(_,manage)=>getBitsAndPartsLibrary().list(manage === true));
 ipcMain.handle('parts:change',(_,data)=>getBitsAndPartsLibrary().change(data,file=>shell.trashItem(file)));
 ipcMain.handle('parts:read',(_,id)=>getBitsAndPartsLibrary().read(id));

@@ -34,7 +34,8 @@ async function loadGameModel(entry,signature){
   const resolved=names.length?await window.desktop.gameFilesResolve({id:entry.id,signature,names}):{found:[],missing:[]};
   return {entry,doc,bytes:file.bytes,textures:resolved.found,missing:resolved.missing};
 }
-function previewAssets(textures){
+/** Preview assets for game-file textures (`{name, bytes}` records), over the built-in ones. */
+export function previewAssets(textures){
   const assets=builtinTextureAssets(),urls=[];
   for(const record of textures){
     const asset={name:record.name,bytes:record.bytes,source:'gameFile'},mime=IMAGE[record.name.split('.').at(-1).toLowerCase()];
@@ -96,7 +97,9 @@ export default function GameFileBrowser({browser,...props}){
 }
 
 /** The Library's browser for every installed Warcraft III file: icon tree on the left, one central view. */
-function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
+// pickLabel: pick mode for another window (Transfer). The model is handed to onOpenGameModel
+// by that button, Enter or double-click; the geoset box is left out.
+function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTargetName,onClose,pickLabel}){
   const [summary,setSummary]=useState(null),[variant,setVariant]=useState(()=>remembered('mdlvis.game-files.variant','classic',VARIANTS.map(([value])=>value))),[chosenType,setChosenType]=useState('all');
   const styleKey='mdlvis.game-files.style'+(preset==='models'?'':'.'+preset);
   const [style,setStyle]=useState(()=>remembered(styleKey,preset==='all'?'standard':'worldeditor',['standard','worldeditor']));
@@ -316,9 +319,9 @@ function GameFiles({preset='all',onOpenGameModel,onImportGameGeosets,importTarge
           {interval&&<input data-hotkey="game-files:animation-time" data-hotkey-manual data-hotkey-label="Animation time" className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
           {shown.missing.length>0&&<details className="gf-missing"><summary>{shown.missing.length} texture{shown.missing.length===1?'':'s'} not found</summary>{shown.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
           {shown.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
-          <LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} message={message} messageRef={messageRef} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>
+          {pickLabel?<button data-hotkey="game-files:pick-model" data-hotkey-manual data-hotkey-label="Use this model" type="button" className="gf-pick" onClick={openInEditor}>{pickLabel}</button>:<LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} message={message} messageRef={messageRef} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>}
         </>}
         {message&&!current&&<p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}
-      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>} footer={<><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></>}/>;
+      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:pickLabel?'Choose a model to view it. Double-click uses it.':preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>} footer={<><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>{pickLabel?'Arrow keys move through the list · Right/Left open and close folders · Enter or double-click uses a model':'Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor'}</span></>}/>;
 }

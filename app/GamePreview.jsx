@@ -1036,7 +1036,21 @@ export default function GamePreview(inputProps) {
       if (!low || !high || low.length < 3 || high.length < 3) return null;
       const a = new THREE.Vector3(low[0], low[1], low[2]), b = new THREE.Vector3(high[0], high[1], high[2]), size = b.clone().sub(a);
       if (!(size.x > 0 && size.y > 0 && size.z > 0) || !Number.isFinite(size.lengthSq())) return null;
-      return { center: a.add(b).multiplyScalar(.5).toArray(), radius: size.length() / 2 * 1.3 };
+      return { center: a.clone().add(b).multiplyScalar(.5).toArray(), radius: size.length() / 2 * 1.3, box: [a, b] };
+    };
+    // fitBox (Transfer): the camera distance at which the framed box itself fills the view,
+    // instead of the sphere around it, so wide or tall units sit large in a small pane.
+    const boxFitDistance = (box, direction, width, height) => {
+      const [a, b] = box, middle = a.clone().add(b).multiplyScalar(.5), forward = direction.clone().negate();
+      const points = box.points || [a.x, b.x].flatMap(x => [a.y, b.y].flatMap(y => [a.z, b.z].map(z => new THREE.Vector3(x, y, z))));
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 0, 1)).normalize(), up = new THREE.Vector3().crossVectors(right, forward).normalize();
+      const tanV = Math.tan(perspective.fov * Math.PI / 360) * .8, tanH = tanV * width / height;
+      let distance = 1;
+      for (const at of points) {
+        const corner = at.clone().sub(middle), toward = corner.dot(direction);
+        distance = Math.max(distance, toward + Math.abs(corner.dot(right)) / tanH, toward + Math.abs(corner.dot(up)) / tanV);
+      }
+      return distance;
     };
     const fitRadius = () => {
       const p = latest.current, gridVisible = p.overlays?.grid ?? !!p.showGrid;
@@ -1104,6 +1118,21 @@ export default function GamePreview(inputProps) {
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
+    // fitBox: the box around the visible mesh as it is posed now (null before the first frame).
+    function posedBox() {
+      const nodes = native.rendererData?.nodes || [];
+      if (!nodes.some(node => node?.matrix)) return null;
+      const matrices = new Map(nodes.flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : [])), box = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []), points = [];
+      const step = Math.max(1, Math.ceil(ownedModel.Geosets.reduce((sum, geoset) => sum + geoset.Vertices.length / 3, 0) / 4000));
+      ownedModel.Geosets.forEach((geoset, index) => {
+        const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+        if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) return;
+        const vertices = skinGeoset(geoset, matrices);
+        for (let i = 0, n = 0; i < vertices.length; i += 3, n++) { box.expandByPoint(point.set(vertices[i], vertices[i + 1], vertices[i + 2])); if (n % step === 0) points.push(point.clone()); }
+      });
+      if (box.isEmpty()) return null;
+      const result = [box.min.clone(), box.max.clone()]; result.points = points; return result;
+    }
     // Where the selection is in the current pose: the selected vertices, or else
     // the selected bones and nodes. Model-space points [x,y,z,...].
     function selectionPoints() {
@@ -1147,8 +1176,10 @@ export default function GamePreview(inputProps) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
-      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit()),fitCenter=effect?new THREE.Vector3(...effect.center):center;
-      perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
+      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit());
+      const direction = new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
+      const fitCenter = fitBox ? fitBox[0].clone().add(fitBox[1]).multiplyScalar(.5) : effect ? new THREE.Vector3(...effect.center) : center;
+      perspective.position.copy(fitCenter).add(direction.multiplyScalar(fitBox ? boxFitDistance(fitBox, direction, width, height) : perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
       controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? (exact ? Math.max(1, radius) / focus.radius : Math.max(1, radius / focus.radius)) : 1; resize(); setView(latest.current.view || 'perspective');
     }
     function centerShowcaseModel(crop, fullOrbit = false, horizontal = 1, vertical = 1) {
@@ -1329,6 +1360,13 @@ export default function GamePreview(inputProps) {
       if (saved && saved.view === view) { camera = restorePreviewCamera(saved, perspective, ortho, controls); reportProjectionView(); }
       // The first browsed model is framed again once its animation choice has arrived.
       else if (latest.current.glideCamera) { glidedKey.current = latest.current.glideKey; glideFrame = requestPreviewFrame(() => { if (!disposed) fit(); }); }
+      // fitBox: frame the posed mesh once its first frame is drawn (a new model only; rebuilds keep the camera).
+      else if (latest.current.fitBox) {
+        let tries = 0;
+        const stopRefit = () => { cancelPreviewFrame(glideFrame); controls.removeEventListener('start', stopRefit); };
+        const refit = () => { if (disposed) return; if (posedBox() || ++tries > 120) { stopRefit(); fit(); return; } glideFrame = requestPreviewFrame(refit); };
+        controls.addEventListener('start', stopRefit); glideFrame = requestPreviewFrame(refit);
+      }
     }
     if (latest.current.portraitMode) enterPortrait(evaluateModelCamera(model, model?.Cameras?.[latest.current.portraitCameraIndex], latest.current.time, sequenceIndex, latest.current.time));
     const compareCamera = latest.current.compareCamera;
@@ -1732,11 +1770,16 @@ export default function GamePreview(inputProps) {
         nodeCanvas.dataset.rotationSign = shownRotation?.circle ? String(shownRotation.sign) : '';
         nodeCanvas.dataset.rotationDirection = shownRotation?.tangent ? `${shownRotation.tangent.x},${shownRotation.tangent.y}` : '';
         if (ping) invalidate();
-        if (poseVisible && p.poseConfig.inspectIds?.length) {
+        // inspectIds: one joint path; inspectPaths: several (Transfer marks taken parts), in inspectColor; inspectThin draws those thinner.
+        const inspected = poseVisible ? [[p.poseConfig.inspectIds, controllerAppearance.skeleton, false], ...(p.poseConfig.inspectPaths || []).map(path => [path, p.poseConfig.inspectColor || controllerAppearance.skeleton, !!p.poseConfig.inspectThin])].filter(([path]) => path?.length) : [];
+        if (inspected.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
-          const joints = p.poseConfig.inspectIds.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
-          context.strokeStyle = controllerAppearance.skeleton; context.lineWidth = 2; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
-          for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, 9, 0, Math.PI * 2); context.stroke(); } context.restore();
+          for (const [path, color, thin] of inspected) {
+            const joints = path.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
+            context.lineWidth = thin ? 1 : 2; context.strokeStyle = color; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
+            for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, thin ? 5 : 9, 0, Math.PI * 2); context.stroke(); }
+          }
+          context.restore();
         }
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);
       } else { if (pinButton) { pinButton.remove(); pinButton = null; } updateRevealStrip([], 0); nodePoints = []; nodeHandles = []; if (gizmoHoverAxis !== null) clearGizmoHover(); poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }

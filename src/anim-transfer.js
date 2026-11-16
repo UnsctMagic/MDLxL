@@ -607,6 +607,27 @@ export function transferNodeTracks(model, sequenceIndex, built) {
   return result;
 }
 
+/** The Rotation and Translation tracks of `ids` as applyTransfer leaves an undriven
+ * node: the recipient's own track with the body animation copied into the new
+ * animation at `start`. A preview that drove these nodes earlier puts them back with
+ * this, without rebuilding its model. The recipient is not changed. */
+export function transferRestoreTracks(recipient, start, built, ids) {
+  const byId = modelInfo(recipient).byId, holder = { Sequences: recipient.Sequences, GlobalSequences: recipient.GlobalSequences, Nodes: [] }, result = [];
+  for (const id of ids) {
+    const node = byId.get(id);
+    if (!node) continue;
+    for (const property of ['Rotation', 'Translation']) {
+      const own = node[property];
+      if (own?.Keys && isGlobalTrack(own, recipient)) continue;
+      const track = own?.Keys ? structuredClone(own) : own;
+      if (track?.Keys) holder.Nodes.push({ [property]: track });
+      result.push({ id, property, track });
+    }
+  }
+  if (holder.Nodes.length) copyBodyAnimation(holder, built.baseClock, start, built.length);
+  return result;
+}
+
 /** Result time t -> body animation frame, the build's own clock. */
 const baseFrame = (clock, t) => clockAt(clock, t).frame;
 const like = (template, value) => ArrayBuffer.isView(template) ? new template.constructor(value) : Array.from(value);

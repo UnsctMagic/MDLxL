@@ -1,7 +1,7 @@
 # Toolbar dock rules
 
 The module dock is the row of square WC3 icons at the top right (AI, LIBR, FRG,
-BITZ, OPXL, EMTR, ANIM, KEY, LER, VIS). The owner approved this look on
+BITZ, OPXL, EMTR, ANIM, XFER, KEY, LER, VIS). The owner approved this look on
 2026-10-26. Every icon added later follows the same rules, so the row always
 looks like one set.
 
@@ -42,6 +42,7 @@ the same labels are plain theme-coloured text, styled at the end of
 | EMTR | `#5fe0cf` teal |
 | FX | `#b6f2ff` ice blue |
 | ANIM | `#ff8574` coral |
+| XFER | `#8c9bff` periwinkle |
 | KEY | `#ffa257` orange |
 | LER | `#f2e35c` lemon |
 | VIS | `#ff8fd0` pink |

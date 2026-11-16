@@ -55,7 +55,7 @@ right-aligned and uses a muted color.
     Citadel Paint keeps its keycap renderer; its plain keys use the same catalog. V is Symmetry.
 
   - Patterns:
-    - F4–F9 open the workspaces and editors.
+    - F4–F9 open the workspaces and editors; F11 opens Transfer (F10 stays reserved).
     - Ctrl+number opens a Settings page (in tab order).
     - Alt+letter opens a manager. Alt+K opens Surface Effects.
     - Digits pick a view.

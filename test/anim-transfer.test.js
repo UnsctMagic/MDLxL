@@ -9,7 +9,7 @@ import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { allNodes, composeNodeMatrices, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack, visitTracks } from '../src/animation.js';
 import { nodeIndex } from '../src/node-hierarchy.js';
-import { applyTransfer, buildTransfer, defaultTransferPart, transferNodeTracks, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
+import { applyTransfer, buildTransfer, defaultTransferPart, transferNodeTracks, transferPreviewModel, transferRestoreTracks, transferRig } from '../src/anim-transfer.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -295,4 +295,18 @@ test('E8 mirror: Footman to Footman with Mirror gives the mirror image', { skip:
   assert.ok(moved > 1, 'the attack moves the feet, so the check has something to mirror');
   assert.ok(distance <= 0.5, `hip centre or foot travel off its mirror by ${distance.toFixed(3)}`);
   assert.ok(turn <= 2, `upper arm off its mirror by ${turn.toFixed(2)} degrees`);
+});
+
+// The window's preview gives a part back without rebuilding its model: the
+// given-back joints must get exactly what applyTransfer gives an undriven node.
+test('transferRestoreTracks: a given-back part gets the same tracks as a transfer that never took it', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const { foot, recipe, sources } = storyB(), before = JSON.stringify(foot.Bones.map(b => b.Rotation));
+  const built = buildTransfer(foot, sources, recipe), preview = transferPreviewModel(foot, built, recipe);
+  const untaken = transferPreviewModel(foot, { ...built, driven: [], tracks: new Map() }, recipe);
+  const start = preview.model.Sequences[preview.sequenceIndex].Interval[0];
+  const restored = transferRestoreTracks(foot, start, built, built.driven);
+  assert.deepEqual(restored.map(item => item.id).sort(), [...built.driven, ...built.driven].sort());
+  const node = (m, id) => allNodes(m).find(n => n.ObjectId === id);
+  for (const { id, property, track } of restored) assert.deepEqual(track, node(untaken.model, id)[property], `${node(foot, id).Name} ${property}`);
+  assert.equal(JSON.stringify(foot.Bones.map(b => b.Rotation)), before, 'the recipient is not changed');
 });
