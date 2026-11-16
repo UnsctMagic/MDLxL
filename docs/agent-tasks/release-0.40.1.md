@@ -1,6 +1,6 @@
 # Release 0.40.1 (hotfix)
 
-State: in progress on `claude/release-0.40.1` (worktree folder `.claude/worktrees/release-0.41.0`). Claude Code.
+State: **completed.** Merged in PR #662 (78ffd797), tagged v0.40.1 and published 16 Nov 2026. Claude Code.
 
 ## Owner's request (16 Nov 2026)
 
@@ -39,3 +39,10 @@ He also asked: "Confirm that the actual issue with RGB was fixed though - it was
 
 - Not hand-tested by the owner: Baron's horse skull now shows stripes in Animations too
   (the model's clamped duplicate texture entry; matches the file and the Hive viewer).
+
+## Published
+
+- Release https://github.com/UnsctMagic/MDLxL/releases/tag/v0.40.1; public ZIP SHA-256 b8a27d04…6dfb51 matched by hand.
+- CI ZIP: bundle-textures, vertex-rgb-preview, vertex-modulate2x, uv-wrapping, startup pass.
+- Website post: LowPolyWorks PR #95 (main) and gh-pages; six languages. Discord post sent (1928 characters).
+- Sessions whose PRs shipped were already archived; the owner's main chat (Skynet fork) and the stood-down duplicate hotfix session are left for the owner.
