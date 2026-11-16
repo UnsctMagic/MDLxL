@@ -46,6 +46,10 @@ const FIXTURES = {
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones
   'transfer-nurgle': ['MDLXL_TRANSFER_NURGLE', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // shield and axe
+  'transfer-dragon-rider': ['MDLXL_TRANSFER_DRAGON_RIDER', testModel('pose-heads/WH_VC_ZombieDragonVCarsteinHero01.mdx')], // rider under the dragon's chest, beside its wings, neck and head
+  'transfer-nightmare-rider': ['MDLXL_TRANSFER_NIGHTMARE_RIDER', testModel('transfer-riders/BloodDragonNightmare_Polished_2_1.mdx')], // rider on a four-footed mount whose forelimbs read as arms; cloth strips on the rider's chest read as legs
+  'transfer-cold-one-rider': ['MDLXL_TRANSFER_COLD_ONE_RIDER', testModel('transfer-riders/Cold_One_Rider_UNIT.mdx')], // rider on its own root over a two-legged mount that has arms
+  'transfer-magnataur': ['MDLXL_TRANSFER_MAGNATAUR', testModel('corpus-sd/creeps__magnataur.mdx')], // one creature: a torso on a four-legged body, hanging from a joint read as a neck
   'vertex-modulate2x':['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
 };
 

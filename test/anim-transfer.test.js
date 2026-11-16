@@ -776,3 +776,70 @@ test('R8 keep a feature: the Nurgle warrior\'s belly plays its own attack and th
   const turned = Math.max(...['armL', 'armR'].map(key => rig.parts[key].joints[0]).map(id => Math.max(...kept.times.map((_, i) => angle(rotationAt(kept, id, i), rotationAt(off, id, i))))));
   assert.ok(turned > 2, `a shoulder turns ${turned.toFixed(1)} degrees to clear the belly`);
 });
+
+// ---- Round 9: riders on other mounts (structure only; the names below are only for the messages)
+const jointsOf = rig => new Set(Object.values(rig.parts).flatMap(part => part.joints));
+const partsLike = (rig, pattern) => Object.keys(rig.parts).filter(key => pattern.test(key));
+const below = (model, rig, key, top) => { const tree = nodeIndex(model, allNodes(model)); return rig.parts[key].joints.every(id => tree.isAncestor(id, top)); };
+
+test('R9 a rider that hangs from its mount\'s chest is read apart from the mount\'s wings, neck and head', { skip: missing('transfer-dragon-rider') }, () => {
+  const named = load('transfer-dragon-rider'), plain = fresh('transfer-dragon-rider');
+  // No rider, dragon, saddle, seat or mount left in any name: only the hierarchy and the pivots say who sits on whom.
+  for (const node of allNodes(plain)) node.Name = String(node.Name).replace(/rider|dragon|saddle|seat|mount|lindorm|vc_/ig, 'q');
+  assert.ok(!allNodes(plain).some(node => /rider|dragon|saddle|seat|mount/i.test(node.Name)));
+  for (const model of [named, plain]) {
+    const both = transferRig(model), seated = transferRig(model, { actor: 'seated' }), walker = transferRig(model, { actor: 'walker' });
+    assert.deepEqual(both.actors, ['both', 'seated', 'walker']);
+    assert.equal(seated.actor, 'seated');
+    assert.deepEqual(partsLike(seated, /^(wing|tail)/), [], 'the rider alone has no wings and no tail');
+    assert.ok(['hips', 'chest', 'head', 'armL', 'armR', 'legL', 'legR'].every(key => seated.parts[key]) && partsLike(seated, /^leg/).length === 2, `the rider whole (${Object.keys(seated.parts)})`);
+    assert.equal(seated.parts.chest.joints.length, 1, 'one chest joint: the rider\'s, not the mount\'s as well');
+    assert.equal(seated.parts.head.joints.length, 1, 'one head joint: the rider\'s, not the mount\'s neck as well');
+    assert.equal(partsLike(walker, /^wing/).length, 2, `the mount alone keeps its wings (${Object.keys(walker.parts)})`);
+    assert.ok(walker.parts.chest && walker.parts.head && !walker.parts.armL, 'the mount alone has its own chest and head and no arms');
+    const rider = jointsOf(seated);
+    assert.ok(![...jointsOf(walker)].some(id => rider.has(id)), 'the two readings share no joint');
+    // Read together, the chest and head are the rider's alone and the wings stay with the mount.
+    assert.deepEqual(both.parts.chest.joints, seated.parts.chest.joints);
+    assert.deepEqual(both.parts.head.joints, seated.parts.head.joints);
+    assert.equal(partsLike(both, /^wing/).length, 2);
+  }
+});
+
+test('R9 a rider on a four-footed mount: forelimbs walk, and cloth on the rider\'s chest is not its legs', { skip: missing('transfer-nightmare-rider') }, () => {
+  const model = load('transfer-nightmare-rider'), both = transferRig(model), seated = transferRig(model, { actor: 'seated' }), walker = transferRig(model, { actor: 'walker' });
+  assert.deepEqual(both.actors, ['both', 'seated', 'walker']);
+  assert.ok(['hips', 'chest', 'head', 'armL', 'armR', 'legL', 'legR'].every(key => seated.parts[key]), `the rider whole (${Object.keys(seated.parts)})`);
+  assert.equal(partsLike(seated, /^arm/).length, 2, 'the rider has two arms: the mount\'s forelimbs and wings are not its own');
+  assert.equal(seated.parts.head.joints.length, 2, 'the rider\'s neck and head, not the mount\'s as well');
+  // Its legs hang from the hips, beside the chest, not from the chest the arms hang from.
+  const chest = seated.parts.chest.joints[0];
+  for (const key of ['legL', 'legR']) assert.ok(!below(model, seated, key, chest), `${key} does not hang from the chest`);
+  for (const key of ['armL', 'armR']) assert.ok(below(model, seated, key, chest), `${key} hangs from the chest`);
+  assert.ok(walker.parts.head && !walker.parts.chest, 'the mount alone has its own head');
+  const rider = jointsOf(seated);
+  assert.ok(![...jointsOf(walker)].some(id => rider.has(id)), 'the two readings share no joint');
+});
+
+test('R9 a rider on its own root over a mount that has arms of its own', { skip: missing('transfer-cold-one-rider') }, () => {
+  const model = load('transfer-cold-one-rider'), both = transferRig(model), seated = transferRig(model, { actor: 'seated' }), walker = transferRig(model, { actor: 'walker' });
+  assert.deepEqual(both.actors, ['both', 'seated', 'walker']);
+  assert.ok(['hips', 'chest', 'head', 'armL', 'armR', 'legL', 'legR'].every(key => seated.parts[key]) && partsLike(seated, /^leg/).length === 2, `the rider whole (${Object.keys(seated.parts)})`);
+  assert.ok(walker.parts.armL && walker.parts.armR && walker.parts.chest && walker.parts.head, 'the mount alone keeps its own arms, chest and head');
+  const rider = jointsOf(seated);
+  assert.ok(![...jointsOf(walker)].some(id => rider.has(id)), 'the two readings share no joint');
+  assert.deepEqual(both.parts.chest.joints, seated.parts.chest.joints, 'read together, the chest is the rider\'s');
+  // The rider's own tail piece stays put when the two are read together, like its legs.
+  assert.ok(partsLike(both, /^tail/).every(key => !both.parts[key].joints.some(id => rider.has(id))), 'no tail part moves a rider joint');
+});
+
+test('R9 one creature stays one: a torso on a four-legged body, a second form in the same place', { skip: missing('transfer-magnataur', 'transfer-dryad', 'transfer-demon-hunter', 'transfer-footman') }, () => {
+  for (const key of ['transfer-magnataur', 'transfer-dryad', 'transfer-demon-hunter', 'transfer-footman']) {
+    const model = load(key);
+    assert.deepEqual(transferRig(model).actors, ['both'], `${key} is one creature`);
+    assert.equal(transferRig(model, { actor: 'seated' }), transferRig(model), `${key}: asking for the rider gives the plain rig`);
+  }
+  // The Demon Hunter's plain reading is its night-elf body, never the hidden demon form with the elf "on" it.
+  const hunter = load('transfer-demon-hunter'), rig = transferRig(hunter), names = new Map(allNodes(hunter).map(node => [node.ObjectId, node.Name]));
+  assert.ok(Object.values(rig.parts).every(part => part.joints.every(id => !/alternate/i.test(names.get(id)))), 'no joint of the other form in the plain reading');
+});

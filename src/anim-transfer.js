@@ -140,9 +140,14 @@ const failedRig = sentence => ({ ok: false, reference: { sequence: -1, frame: 0 
  * wing) whose root stands over the walker (inside its floor plan grown by 30%,
  * not below its body joint by more than a quarter of its height), in the pose
  * `pos` gives. Each is `{ top, arms }`. */
-function seatedAssemblies(info, body, pos) {
-  const { tree, joints } = info, { pose } = info.pose, arm = chain => chain.kind === 'arm' && chain.label !== 'Wing';
-  if (body == null || pose.chains.some(chain => arm(chain) && tree.isAncestor(chain.root, body))) return [];
+function seatedAssemblies(model, info, body, pos, sequence) {
+  const { tree, joints } = info, { pose } = info.pose, arm = chain => chain.kind === 'arm' && chain.label !== 'Wing', leg = chain => chain.kind === 'leg' && chain.label !== 'Wing';
+  if (body == null) return [];
+  // A walker with arms of its own (a two-legged mount with forelimbs) is ridden only by an
+  // assembly that also has legs, a pair astride, every one clear of the ground, drawn in the
+  // same animation as the walker, and only when no rider is nested under the walker already.
+  // A second skeleton in the same place (another form, a hidden copy) is not a rider.
+  const armed = pose.chains.some(chain => arm(chain) && tree.isAncestor(chain.root, body));
   const outside = pose.chains.filter(chain => arm(chain) && !tree.isAncestor(chain.root, body));
   if (!outside.length) return [];
   const walker = [...joints].filter(id => tree.isAncestor(id, body)).map(pos);
@@ -155,7 +160,29 @@ function seatedAssemblies(info, body, pos) {
   const topOf = id => { let top = id; for (const ancestor of tree.ancestors(id, true)) { if (tree.isAncestor(body, ancestor)) break; top = ancestor; } return top; };
   const found = new Map();
   for (const chain of outside) { if (!over(pos(chain.root))) continue; const top = topOf(chain.root); if (!found.has(top)) found.set(top, { top, arms: [] }); found.get(top).arms.push(chain); }
-  return [...found.values()];
+  if (!armed) return [...found.values()];
+  const feet = pose.chains.filter(chain => leg(chain) && tree.isAncestor(chain.root, body)).map(chain => pos(chain.end).z);
+  if (!feet.length) return [];
+  const lowest = Math.min(...feet), clear = lowest + 0.15 * (hi.z - Math.min(lo.z, lowest)), middle = pos(body).y;
+  if (feet.some(z => z > clear) || !drawnIn(model, info, body, sequence)) return [];
+  return [...found.values()].filter(item => {
+    const ends = pose.chains.filter(chain => leg(chain) && tree.isAncestor(chain.root, item.top)).map(chain => pos(chain.end)), sides = ends.map(end => Math.sign(end.y - middle));
+    return ends.length && ends.every(end => end.z > clear) && sides.includes(1) && sides.includes(-1) && drawnIn(model, info, item.top, sequence);
+  });
+}
+/** Whether skin on the joints under `top` is drawn in an animation: some geoset with a vertex
+ * weighted to one of them shows in it. */
+function drawnIn(model, info, top, sequence) {
+  const item = model.Sequences?.[sequence];
+  if (!item?.Interval) return true;
+  const under = id => info.tree.isAncestor(id, top);
+  return (model.Geosets || []).some((geoset, index) => {
+    const alpha = geosetAlphaTrack(model, index);
+    if (!(isGlobalTrack(alpha) || geosetVisibleIn(model, alpha, item, item.Interval))) return false;
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    if (skin?.length >= count * 8 && count) { for (let v = 0; v < count; v++) for (let i = 0; i < 4; i++) if (skin[v * 8 + 4 + i] > 0 && under(skin[v * 8 + i])) return true; return false; }
+    return (geoset.Groups || []).some(group => Array.from(group).some(under));
+  });
 }
 /** The skeleton a joint belongs to: its hierarchy root, except that an assembly
  * seated on the body (see seatedAssemblies, read in the model's Stand) belongs to
@@ -165,7 +192,7 @@ function skeletonRoot(model, info, id) {
   if (!pose || pose.body == null) return root;
   if (!info.seatedRoots) {
     const sequence = defaultSequence(model), ref = sampleAt(model, sequence, sequence >= 0 ? model.Sequences[sequence].Interval[0] : 0);
-    info.seatedRoots = new Set(seatedAssemblies(info, pose.body, id => worldPos(model, ref, id)).map(item => info.tree.root(item.top)));
+    info.seatedRoots = new Set(seatedAssemblies(model, info, pose.body, id => worldPos(model, ref, id), sequence).map(item => info.tree.root(item.top)));
   }
   return info.seatedRoots.has(root) ? info.tree.root(pose.body) : root;
 }
@@ -224,13 +251,16 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // that join the walker's trunk separately (a dragon), are one creature.
   const armChain = chain => chain.kind === 'arm' && chain.label !== 'Wing', legChain = chain => chain.kind === 'leg' && chain.label !== 'Wing';
   const turning = top => { const interval = sequences[sequence]?.Interval; let count = 0; if (interval) for (const id of joints) { const track = byId.get(id).Rotation; if (track?.Keys && tree.isAncestor(id, top) && !isGlobalTrack(track, model)) count += keysInInterval(track, interval).length; } return count; };
-  const apart = seatedAssemblies(info, body, pos).filter(item => skeletonRoot(model, info, item.top) === skeleton).sort((a, b) => turning(b.top) - turning(a.top))[0];
+  const apart = seatedAssemblies(model, info, body, pos, sequence).filter(item => skeletonRoot(model, info, item.top) === skeleton).sort((a, b) => turning(b.top) - turning(a.top))[0];
   let seatTops = apart ? [apart.top] : [];
   if (!apart) {
     const legs = pose.chains.filter(chain => legChain(chain) && tree.isAncestor(chain.root, body)), below = [...joints].filter(id => tree.isAncestor(id, body)).map(id => pos(id).z);
     const lowest = Math.min(...legs.map(chain => pos(chain.end).z)), tall = Math.max(...below) - Math.min(...below, lowest);
-    const walking = legs.filter(chain => pos(chain.end).z <= lowest + 0.15 * tall), hanging = legs.filter(chain => !walking.includes(chain));
-    const carriesWalking = id => walking.some(chain => tree.isAncestor(chain.root, id));
+    const grounded = chain => pos(chain.end).z <= lowest + 0.15 * tall;
+    const walking = legs.filter(grounded), hanging = legs.filter(chain => !walking.includes(chain));
+    // A forelimb read as an arm that reaches the ground walks too (a four-footed mount).
+    const forelimbs = pose.chains.filter(chain => armChain(chain) && tree.isAncestor(chain.root, body) && grounded(chain));
+    const carriesWalking = id => walking.some(chain => tree.isAncestor(chain.root, id)) || forelimbs.some(chain => tree.isAncestor(chain.root, id));
     const topOf = id => { let top = id; for (const ancestor of tree.ancestors(id, true)) { if (ancestor === body || carriesWalking(ancestor)) break; top = ancestor; } return top; };
     const freeArms = pose.chains.filter(chain => armChain(chain) && tree.isAncestor(chain.root, body) && !carriesWalking(chain.root));
     // One creature of its own: a single subtree that holds a hanging leg and an arm (a rider's
@@ -240,24 +270,61 @@ function readRig(model, info, skeleton, wanted = 'both') {
     const middle = pos(body).y, astride = top => { const sides = hanging.filter(chain => tree.isAncestor(chain.root, top)).map(chain => Math.sign(pos(chain.end).y - middle)); return sides.includes(1) && sides.includes(-1); };
     const tops = [...new Set(hanging.map(chain => topOf(chain.root)))].filter(top => astride(top) && freeArms.some(chain => tree.isAncestor(chain.root, top)));
     const size = top => pose.chains.filter(chain => tree.isAncestor(chain.root, top)).length;
-    if (walking.length && tops.length) seatTops = [tops.sort((a, b) => size(b) - size(a))[0]];
+    // One creature's own subtree holds no wings and one line of neck and head joints. A rider
+    // that hangs from its mount's chest (a dragon's, with the wings, neck and head beside it)
+    // would take all of that along: the seat is then narrowed to the rider's own root, the
+    // highest joint above its legs and arms whose subtree is still one creature's.
+    const heads = (pose.nodes || []).filter(id => joints.has(id) && ['Neck', 'Head'].includes(roleOf(id)) && tree.isAncestor(id, body));
+    const oneCreature = top => !pose.chains.some(chain => chain.label === 'Wing' && tree.isAncestor(chain.root, top))
+      && heads.filter(id => tree.isAncestor(id, top)).every((a, _, list) => list.every(b => tree.isAncestor(a, b) || tree.isAncestor(b, a)));
+    // Upward from a creature's joint to its own root: through joints that add no limb, neck, head or tail of another.
+    const tails = [...joints].filter(id => roleOf(id) === 'Tail' && tree.isAncestor(id, body));
+    const adds = (id, seat) => [...pose.chains.map(chain => chain.root), ...heads, ...tails].some(other => tree.isAncestor(other, id) && !tree.isAncestor(other, seat));
+    const ownRoot = (from, stop) => { let seat = from; for (const id of tree.ancestors(from)) { if (stop(id) || adds(id, seat)) break; seat = id; } return seat; };
+    const narrowed = top => {
+      if (oneCreature(top)) return top;
+      const leg = hanging.find(chain => tree.isAncestor(chain.root, top));
+      const core = tree.ancestors(leg.root, true).find(id => tree.isAncestor(id, top) && astride(id) && freeArms.some(chain => tree.isAncestor(chain.root, id)));
+      return core != null && oneCreature(core) ? ownRoot(core, id => !tree.isAncestor(id, top)) : top;
+    };
+    if (walking.length && tops.length) seatTops = [narrowed(tops.sort((a, b) => size(b) - size(a))[0])];
     // Or two heads: the subtree that holds the arms has a head of its own, and the walker has
-    // another head outside it (a rider on a dragon). One head (a centaur) is one creature.
+    // another head outside it (a rider on a dragon). One head (a centaur) is one creature, and
+    // so is a neck the arms hang from (the front of a four-legged body with a torso on it).
     if (!seatTops.length && walking.length && freeArms.length) {
-      const heads = (pose.nodes || []).filter(id => joints.has(id) && ['Neck', 'Head'].includes(roleOf(id)) && tree.isAncestor(id, body));
       // The smallest subtree that holds every such arm and a head; another head must lie outside it.
       const holdsArms = id => freeArms.every(chain => tree.isAncestor(chain.root, id));
       const seat = tree.ancestors(freeArms[0].root, true).find(id => id !== body && !carriesWalking(id) && holdsArms(id) && heads.some(head => tree.isAncestor(head, id)));
-      if (seat != null && heads.some(head => !tree.isAncestor(head, seat))) seatTops = [seat];
+      if (seat != null && oneCreature(seat) && heads.some(head => !tree.isAncestor(head, seat) && !tree.isAncestor(seat, head))) {
+        seatTops = [ownRoot(seat, id => id === body || carriesWalking(id))];
+      }
     }
   }
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
+  // The seated creature's own chains. Legs hang from the hips: when every chain read as its leg
+  // hangs from the joint its arms hang from (strips of cloth on the chest), its legs are the
+  // pair of plain chains that hang, one each side, from the hip joint that chest hangs from.
+  let seatedChains = pose.chains.filter(chain => seatedId(chain.root));
+  if (seatTops.length) {
+    const arms = seatedChains.filter(armChain), read = seatedChains.filter(legChain);
+    const chestOf = arms.length ? tree.ancestors(arms[0].root).find(id => seatedId(id) && arms.every(chain => tree.isAncestor(chain.root, id))) : null;
+    if (chestOf != null && read.length && read.every(chain => tree.isAncestor(chain.root, chestOf))) {
+      const claimed = new Set(seatedChains.flatMap(poseChainIds)), children = id => [...joints].filter(other => tree.parentOf(other) === id).sort((a, b) => pos(a).z - pos(b).z);
+      for (const hip of tree.ancestors(chestOf).filter(seatedId)) {
+        const found = children(hip).filter(id => !tree.isAncestor(chestOf, id) && !claimed.has(id)).map(root => {
+          const middle = children(root)[0], end = middle == null ? null : children(middle)[0];
+          return end != null && pos(end).z < pos(root).z ? { root, middle, end, joints: [root, middle, end], kind: 'leg', key: `limb:${end}` } : null;
+        }).filter(Boolean);
+        if (found.length === 2 && Math.sign(pos(found[0].root).y - pos(hip).y) * Math.sign(pos(found[1].root).y - pos(hip).y) < 0) { seatedChains = [...seatedChains.filter(chain => !read.includes(chain)), ...found]; break; }
+      }
+    }
+  }
   let actor = seatTops.length ? wanted : 'both';
   if (actor === 'seated') {
     // The seated creature read alone: its own body joint drives its limbs.
     let own = null;
-    try { own = suggestPoseBody(model, pose.chains.filter(chain => seatedId(chain.root)), tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
+    try { own = suggestPoseBody(model, seatedChains, tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
     if (own != null && joints.has(own) && seatedId(own)) body = own; else actor = 'both';
   }
   const ridden = actor === 'both' ? seatedId : () => false;
@@ -266,8 +333,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // 'both': the walker's limbs and, of the seated creature, the arms (with the
   // chest and head below them); its legs stay put. 'seated' and 'walker': that
   // creature's own limbs only.
-  const chains = pose.chains.filter(chain => actor === 'seated' ? seatedId(chain.root)
-    : actor === 'walker' ? tree.isAncestor(chain.root, walkerBody) && !seatedId(chain.root)
+  const chains = actor === 'seated' ? seatedChains : pose.chains.filter(chain => actor === 'walker' ? tree.isAncestor(chain.root, walkerBody) && !seatedId(chain.root)
     : seatedId(chain.root) ? armChain(chain) : tree.isAncestor(chain.root, walkerBody));
   const limbIds = new Set(chains.flatMap(poseChainIds));
   const controls = (pose.nodes || []).filter(id => under(id) && joints.has(id) && !limbIds.has(id));
@@ -308,7 +374,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip });
   }
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
-  for (const id of [...joints].filter(id => under(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
+  for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
     const path = [];
     for (let at = id; at != null && joints.has(at) && !trunkIds.has(at); at = tree.parentOf(at)) path.unshift(at);
     if (path.length && !limbs.some(limb => limb.joints.some(j => path.includes(j)))) limbs.push({ kind: 'tail', joints: path, tip: null });
