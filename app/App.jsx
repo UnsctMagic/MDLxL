@@ -74,7 +74,7 @@ import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
 import { APPLICATION_THEMES, effectiveBindings, formatChord, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
-import { readStoredText, writeStoredText } from '../src/local-store.js';
+import { readStored, readStoredText, writeStored, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
@@ -318,6 +318,9 @@ export default function App() {
   const closeUVWindow = () => { document.activeElement?.blur?.(); setUVWindow(null); setUVFocused(false); setLiveUV(null); if (dialog?.host === 'uv') setDialog(null); };
   const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
   const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
+  // Movement's Motion path tick: one remembered choice for plain Movement and POSE.
+  const [motionPath, setMotionPathState] = useState(() => readStored('mdlxl-movement-motion-path', false, value => value === true));
+  const setMotionPath = next => { setMotionPathState(next); writeStored('mdlxl-movement-motion-path', next); };
   const displayMode = mode === 'animation' ? animationPanel : mode;
   const poseViewActive = mode === 'animation' && animationPanel === 'movement' && poseConfig.enabled;
   const changePoseView = patch => { session.poseView = { ...(session.poseView || poseView), ...patch }; setTick(tick => tick + 1); };
@@ -2013,8 +2016,19 @@ export default function App() {
   const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, revision]);
   // Props shared by both Movement controller render sites: Bones mode and the
   // Animation > Movement panel. Called while rendering each site, as before.
+  // Motion path: the selected bones; in POSE the picked handle's joint (hand or foot, the
+  // elbow or knee for a bend handle, the object for an object or body handle).
+  const poseTargetKey = poseConfig.enabled && poseConfig.target ? JSON.stringify(poseConfig.target) : '';
+  const motionPathIds = useMemo(() => {
+    if (!motionPath || visUI || restPose || mode !== 'animation' || animationPanel !== 'movement') return undefined;
+    const target = poseConfig.enabled ? poseConfig.target : null, chain = target && poseConfig.chains?.find(item => item.key === target.key);
+    if (target?.kind === 'node') return [target.id];
+    if (target?.kind === 'body') return poseConfig.body == null ? undefined : [poseConfig.body];
+    if (chain) return [target.kind === 'bend' ? chain.middle : chain.end];
+    return selectedNodeIds.length ? selectedNodeIds : undefined;
+  }, [motionPath, visUI, restPose, mode, animationPanel, poseTargetKey, poseConfig.body, poseConfig.chains, selectedNodeIds]);
   const movementControllerProps = () => ({
-    vanilla: visUI,
+    vanilla: visUI, motionPath, onMotionPath: setMotionPath,
     // MDLxL: the Bones sidebar's Refs tick shows attachments through Objects and its Attachments type.
     objectDisplay: visUI ? overlays : { ...overlays, attachments: !!overlays.objects && overlays.objectTypesAttachments !== false },
     onObjectDisplay: visUI ? changeOverlay : (key, value) => { if (key !== 'attachments') { changeOverlay(key, value); return; } changeOverlay('objectTypesAttachments', value); if (value) changeOverlay('objects', true); },
@@ -2124,7 +2138,7 @@ export default function App() {
         teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
         poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose} onPoseMenu={(id, x, y) => setContext({ pose: id, x, y })} onPoseReveal={revealPose}
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
-        liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
+        motionPathIds={motionPathIds} liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={(ids, { record = true } = {})=>{if (!record) poseSelectionOnly.current = true; if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
         onPartBones={selectPartBones}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}

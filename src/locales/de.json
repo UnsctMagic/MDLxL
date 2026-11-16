@@ -8657,6 +8657,8 @@
   "No mirror points found among the UV Wrapper's points.": "Unter den Punkten des UV Wrappers wurden keine Spiegelpunkte gefunden.",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Entspannen lässt den äußeren Rand der Auswahl an seinem Platz. Mehr als nur den Rand auswählen.",
   "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Das Trennen der UVs würde das Geoset-Limit von 65536 Scheitelpunkten überschreiten. Zuerst das Geoset teilen.",
+  "Motion path": "Bewegungspfad",
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "Zeichnet die Kurve, die der gewählte Knochen oder POSE-Griff während der Animation beschreibt. Die Kurve folgt beim Ziehen live.",
   "Paste special...": "Inhalte einfügen...",
   "Indo cache...": "Undo-Verlauf...",
   "Undo cache...": "Undo-Verlauf...",

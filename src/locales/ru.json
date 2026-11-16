@@ -8646,5 +8646,7 @@
   "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "Расслабить: выравнивает выбранные точки, чтобы их треугольники перестали перекрываться. Точки на внешнем крае выделения остаются на месте.",
   "No mirror points found among the UV Wrapper's points.": "Среди точек UV-развёртки не найдено зеркальных точек.",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Расслабить оставляет внешний край выделения на месте. Выделите больше, чем только край.",
-  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Разъединение UV превысит лимит геосета в 65536 вершин. Сначала разделите геосет."
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Разъединение UV превысит лимит геосета в 65536 вершин. Сначала разделите геосет.",
+  "Motion path": "Траектория",
+  "Draws the curve the selected bone, or the picked POSE handle, travels through the animation. The curve follows your drags while you adjust them.": "Рисует кривую, по которой выбранная кость или ручка POSE проходит за анимацию. Кривая следует за перетаскиванием в реальном времени."
 }
