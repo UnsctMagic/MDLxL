@@ -84,6 +84,8 @@ contextBridge.exposeInMainWorld('desktop', {
   getSettings: () => call('settings:get'),
   updateStatus: () => call('updates:status'),
   checkUpdates: () => call('updates:check'),
+  reportStatus: () => call('report:status'),
+  sendReport: text => call('report:send',text),
   installUpdate: () => call('updates:install'),
   revertUpdate: () => call('updates:revert'),
   openLink: url => call('app:openLink',url),

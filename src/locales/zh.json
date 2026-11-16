@@ -8557,5 +8557,13 @@
   "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "松弛：均匀调整所选点，直到它们的三角形不再重叠。选区外边缘上的点保持不动。",
   "No mirror points found among the UV Wrapper's points.": "在 UV 编辑器的点中没有找到镜像点。",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "松弛会保持选区的外边缘不动。请选择比边缘更多的点。",
-  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。"
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "UV 解耦会超出多边形组 65536 个顶点的上限。请先拆分该多边形组。",
+  "Report a problem": "报告问题",
+  "Report a problem…": "报告问题…",
+  "Sends your text, MDLxL version and Windows version.": "发送你的文字、MDLxL 版本和 Windows 版本。",
+  "Reports are paused.": "报告已暂停。",
+  "Sent.": "已发送。",
+  "Daily limit reached. Try again tomorrow.": "已达每日上限。请明天再试。",
+  "Reports are full for today. Try again tomorrow.": "今天的报告已满。请明天再试。",
+  "Could not send. Check your internet connection.": "无法发送。请检查网络连接。"
 }

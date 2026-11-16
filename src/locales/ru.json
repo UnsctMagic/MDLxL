@@ -8651,5 +8651,13 @@
   "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "Расслабить: выравнивает выбранные точки, чтобы их треугольники перестали перекрываться. Точки на внешнем крае выделения остаются на месте.",
   "No mirror points found among the UV Wrapper's points.": "Среди точек UV-развёртки не найдено зеркальных точек.",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Расслабить оставляет внешний край выделения на месте. Выделите больше, чем только край.",
-  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Разъединение UV превысит лимит геосета в 65536 вершин. Сначала разделите геосет."
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Разъединение UV превысит лимит геосета в 65536 вершин. Сначала разделите геосет.",
+  "Report a problem": "Сообщить о проблеме",
+  "Report a problem…": "Сообщить о проблеме…",
+  "Sends your text, MDLxL version and Windows version.": "Отправляет ваш текст, версию MDLxL и версию Windows.",
+  "Reports are paused.": "Отправка сообщений приостановлена.",
+  "Sent.": "Отправлено.",
+  "Daily limit reached. Try again tomorrow.": "Дневной лимит достигнут. Попробуйте завтра.",
+  "Reports are full for today. Try again tomorrow.": "На сегодня сообщения больше не принимаются. Попробуйте завтра.",
+  "Could not send. Check your internet connection.": "Не удалось отправить. Проверьте подключение к интернету."
 }

@@ -40,6 +40,7 @@ const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
+const {Reporter}=require('./report.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
 const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
 const {safeWindowsName}=require('./windows-name.cjs');
@@ -547,6 +548,9 @@ const publicSettings=()=>({...settings,gameData:settings.gameData||null,gameData
 // A normal launch must not wait on every saved draft before starting the viewport.
 ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialModel,models:initialModels,recoveryPrompt,recovery:recoveryPrompt?(await recoveryStore.list()).filter(r=>r.dirty!==false):[]}));
 ipcMain.handle('settings:get',publicSettings);
+let reporter;
+ipcMain.handle('report:status',event=>{editorOnly(event,'Reports require the main editor.');return(reporter??=new Reporter({version:app.getVersion(),profile})).status();});
+ipcMain.handle('report:send',(event,text)=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string')throw Error('Report text must be text.');const message=text.trim();if(!message||message.length>2000)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message);});
 ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{editorOnly(event,'Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a

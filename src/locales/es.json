@@ -8661,5 +8661,13 @@
   "Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place.": "Relajar: reparte los puntos seleccionados para que sus triángulos dejen de solaparse. Los puntos del borde exterior de la selección no se mueven.",
   "No mirror points found among the UV Wrapper's points.": "No se encontraron puntos reflejados entre los puntos del Editor UV.",
   "Relax keeps the selection's outer edge in place. Select more than the edge.": "Relajar mantiene en su sitio el borde exterior de la selección. Seleccione más que el borde.",
-  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Desconectar las UV superaría el límite de 65536 vértices por geoset. Divida primero el geoset."
+  "UV uncoupling would exceed the 65536-vertex geoset limit. Split the geoset first.": "Desconectar las UV superaría el límite de 65536 vértices por geoset. Divida primero el geoset.",
+  "Report a problem": "Informar de un problema",
+  "Report a problem…": "Informar de un problema…",
+  "Sends your text, MDLxL version and Windows version.": "Envía tu texto, la versión de MDLxL y la versión de Windows.",
+  "Reports are paused.": "Los informes están en pausa.",
+  "Sent.": "Enviado.",
+  "Daily limit reached. Try again tomorrow.": "Límite diario alcanzado. Inténtalo mañana.",
+  "Reports are full for today. Try again tomorrow.": "Hoy ya no se admiten más informes. Inténtalo mañana.",
+  "Could not send. Check your internet connection.": "No se pudo enviar. Comprueba tu conexión a internet."
 }
