@@ -996,3 +996,22 @@ As built (director; no bone names anywhere in the rule, a test strips them):
   source entry).
 - Tests: `test/transfer-window.test.js` 23 (3 new: readings on both knights, the seat rule, setups and
   Add all); harness story `riders` (7 checks); pictures in `out/transfer-ui/round7b/`.
+
+### Pick sheet result (owner, 16 Nov 2026, build 10, letters shuffled)
+
+| Case | Pick |
+| --- | --- |
+| Shoulder pads and cape, Slaanesh warrior with the Grunt's attack | as it is today (over `follow` and `follow` + `hang`) |
+| Shoulders, belly and cape, Nurgle warrior with the Tauren's attack | none looks right |
+| Bend and crouch, Nurgle warrior with the Tauren's attack | no difference |
+| Bend and swing, Abomination with the Demon Hunter's attack | `range` on the trunk only |
+| Bend and jump, Footman with the Blademaster's slam | as it is today |
+| Arms and the body, Abomination with the Demon Hunter's attack | as it is today (over `avoid`) |
+| Arms and the body, Nurgle warrior with the Tauren's attack | as it is today (over `avoid`) |
+| Everything together, Kurgan Warlord with the Grunt's attack | none looks right |
+| Everything together, Slaanesh warrior with the Footman's attack | no difference |
+
+Reading (director): none of the three automatic behaviours won. `follow` and `avoid` were never
+picked; `range` once, trunk only. All three stay off by default (as built). Two "none looks right"
+answers say the plain transfer itself is not good enough on those two pairings; what he disliked
+there is not known yet. Build `transfer-xl-11` adds the Both / Rider / Mount buttons.
