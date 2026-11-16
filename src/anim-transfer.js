@@ -105,13 +105,19 @@ function worldPos(model, sample, id) {
  * copy) uses the one the animation moves: `sequence` is the animation in use
  * (the taken one for a donor, the body animation for the open model); without
  * it the model's Stand decides. */
-export function transferRig(model, { sequence } = {}) {
+export function transferRig(model, { sequence, actor } = {}) {
   const info = modelInfo(model);
   if (info.pose === undefined) info.pose = readPose(model);
   if (!info.pose.pose) return info.rigs.get(null) || (info.rigs.set(null, failedRig(info.pose.error)), info.rigs.get(null));
   const skeleton = skeletonFor(model, info, Number.isInteger(sequence) && model.Sequences?.[sequence]?.Interval ? sequence : defaultSequence(model));
-  if (!info.rigs.has(skeleton)) info.rigs.set(skeleton, readRig(model, info, skeleton));
-  return info.rigs.get(skeleton);
+  // 'both' is the plain reading; 'seated' and 'walker' read one of two creatures alone and
+  // fall back to 'both' on a model that is a single creature.
+  const wanted = actor === 'seated' || actor === 'walker' ? actor : 'both', key = wanted === 'both' ? skeleton : `${skeleton}:${wanted}`;
+  if (!info.rigs.has(key)) {
+    const rig = readRig(model, info, skeleton, wanted);
+    info.rigs.set(key, rig.actor === wanted || wanted === 'both' ? rig : transferRig(model, { sequence }));
+  }
+  return info.rigs.get(key);
 }
 
 function defaultSequence(model) {
@@ -186,7 +192,7 @@ function skeletonFor(model, info, sequence) {
   return best;
 }
 
-function readRig(model, info, skeleton) {
+function readRig(model, info, skeleton, wanted = 'both') {
   const { tree, byId, joints } = info, problems = [], sequences = model.Sequences || [], { pose } = info.pose;
   const roleOf = id => pose.roles?.[id] || poseNodeRole(byId.get(id));
   // The body of this skeleton: POSE's body, else the joint that drives all its limbs.
@@ -208,19 +214,52 @@ function readRig(model, info, skeleton) {
   const fail = sentence => ({ ...failedRig(sentence), reference, problems: [...problems, sentence] });
   if (body == null || !joints.has(body)) return fail('No body bone was found, so this model has no parts to transfer.');
   const ref = sampleAt(model, sequence, frame), pos = id => worldPos(model, ref, id).clone();
-  // The assembly seated on this body, when the body has no arms of its own: of
-  // several (a rider and its death copy) the one that turns most in the reference
-  // animation.
+  // Two creatures in one model, by structure and place only. The walker is the
+  // body joint's subtree with the legs that reach the ground. The seated one is
+  // either a separate assembly that sits on it (seatedAssemblies; of several, a
+  // rider and its death copy, the one that turns most in the reference animation),
+  // or a creature nested under the body: one subtree with an arm and a leg of its
+  // own that hangs clear of the ground (over 15% of the walker's height above its
+  // lowest foot). Arms on a walking body without such legs (a centaur), or limbs
+  // that join the walker's trunk separately (a dragon), are one creature.
+  const armChain = chain => chain.kind === 'arm' && chain.label !== 'Wing', legChain = chain => chain.kind === 'leg' && chain.label !== 'Wing';
   const turning = top => { const interval = sequences[sequence]?.Interval; let count = 0; if (interval) for (const id of joints) { const track = byId.get(id).Rotation; if (track?.Keys && tree.isAncestor(id, top) && !isGlobalTrack(track, model)) count += keysInInterval(track, interval).length; } return count; };
-  const seated = seatedAssemblies(info, body, pos).filter(item => skeletonRoot(model, info, item.top) === skeleton).sort((a, b) => turning(b.top) - turning(a.top))[0];
-  const riders = seated ? [seated.top] : [];
-  const ridden = id => riders.some(rider => tree.isAncestor(id, rider));
-  const under = id => tree.isAncestor(id, body) || ridden(id);
+  const apart = seatedAssemblies(info, body, pos).filter(item => skeletonRoot(model, info, item.top) === skeleton).sort((a, b) => turning(b.top) - turning(a.top))[0];
+  let seatTops = apart ? [apart.top] : [];
+  if (!apart) {
+    const legs = pose.chains.filter(chain => legChain(chain) && tree.isAncestor(chain.root, body)), below = [...joints].filter(id => tree.isAncestor(id, body)).map(id => pos(id).z);
+    const lowest = Math.min(...legs.map(chain => pos(chain.end).z)), tall = Math.max(...below) - Math.min(...below, lowest);
+    const walking = legs.filter(chain => pos(chain.end).z <= lowest + 0.15 * tall), hanging = legs.filter(chain => !walking.includes(chain));
+    const carriesWalking = id => walking.some(chain => tree.isAncestor(chain.root, id));
+    const topOf = id => { let top = id; for (const ancestor of tree.ancestors(id, true)) { if (ancestor === body || carriesWalking(ancestor)) break; top = ancestor; } return top; };
+    const freeArms = pose.chains.filter(chain => armChain(chain) && tree.isAncestor(chain.root, body) && !carriesWalking(chain.root));
+    // One creature of its own: a single subtree that holds a hanging leg and an arm (a rider's
+    // own root). Forelimbs and raised or dangling legs that join the walker's trunk at
+    // different places (a dragon, a spider-bodied creature) are that walker's own limbs.
+    // Its hanging legs come as a pair, one each side of the walker's middle (a rider astride).
+    const middle = pos(body).y, astride = top => { const sides = hanging.filter(chain => tree.isAncestor(chain.root, top)).map(chain => Math.sign(pos(chain.end).y - middle)); return sides.includes(1) && sides.includes(-1); };
+    const tops = [...new Set(hanging.map(chain => topOf(chain.root)))].filter(top => astride(top) && freeArms.some(chain => tree.isAncestor(chain.root, top)));
+    const size = top => pose.chains.filter(chain => tree.isAncestor(chain.root, top)).length;
+    if (walking.length && tops.length) seatTops = [tops.sort((a, b) => size(b) - size(a))[0]];
+  }
+  const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
+  const walkerBody = body;
+  let actor = seatTops.length ? wanted : 'both';
+  if (actor === 'seated') {
+    // The seated creature read alone: its own body joint drives its limbs.
+    let own = null;
+    try { own = suggestPoseBody(model, pose.chains.filter(chain => seatedId(chain.root)), tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
+    if (own != null && joints.has(own) && seatedId(own)) body = own; else actor = 'both';
+  }
+  const ridden = actor === 'both' ? seatedId : () => false;
+  const under = actor === 'seated' ? seatedId : actor === 'walker' ? id => tree.isAncestor(id, walkerBody) && !seatedId(id) : id => tree.isAncestor(id, walkerBody) || seatedId(id);
   const byDepth = (a, b) => tree.depth(a) - tree.depth(b);
-  // The actor that owns the body, and of its rider the arms (with chest and head
-  // below): the upper body is the rider's, the mount walks. A rider's legs and a
-  // second creature stay put.
-  const chains = pose.chains.filter(chain => tree.isAncestor(chain.root, body) || ridden(chain.root) && chain.kind === 'arm' && chain.label !== 'Wing');
+  // 'both': the walker's limbs and, of the seated creature, the arms (with the
+  // chest and head below them); its legs stay put. 'seated' and 'walker': that
+  // creature's own limbs only.
+  const chains = pose.chains.filter(chain => actor === 'seated' ? seatedId(chain.root)
+    : actor === 'walker' ? tree.isAncestor(chain.root, walkerBody) && !seatedId(chain.root)
+    : seatedId(chain.root) ? armChain(chain) : tree.isAncestor(chain.root, walkerBody));
   const limbIds = new Set(chains.flatMap(poseChainIds));
   const controls = (pose.nodes || []).filter(id => under(id) && joints.has(id) && !limbIds.has(id));
   // Upper and lower body: a trunk joint that carries a leg walks with the hips
@@ -302,6 +341,9 @@ function readRig(model, info, skeleton) {
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
   const rig = { ok: true, reference, body, parts, hipHeight: Math.max(1e-3, hipCentre.z - ground), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
+  // Which reading this is, and which the model offers (one creature: 'both' only).
+  Object.defineProperty(rig, 'actor', { value: actor, enumerable: false });
+  Object.defineProperty(rig, 'actors', { value: seatTops.length ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
   // The floor a weapon must stay above: the lowest foot vertex, else the ground.
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
@@ -658,7 +700,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const step = options.step ?? 1000 / 30, problems = [];
   const baseIndex = recipe?.base?.sequence, baseSeq = recipient.Sequences?.[baseIndex];
   if (!baseSeq?.Interval) throw new Error('Choose a body animation first.');
-  const rigB = transferRig(recipient, { sequence: baseIndex }), infoB = modelInfo(recipient), byIdB = infoB.byId;
+  const rigB = transferRig(recipient, { sequence: baseIndex, actor: recipe?.base?.actor }), infoB = modelInfo(recipient), byIdB = infoB.byId;
   const modelOf = id => id === 'self' ? recipient : sources?.get?.(id);
   const refB = sampleAt(recipient, rigB.reference.sequence, rigB.reference.frame);
   // Read from the model's own animations, only when a taken part asks for it.
@@ -674,7 +716,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     if (!own) { problems.push(`This model has no ${transferPartLabel(key).toLowerCase()}.`); continue; }
     const donor = modelOf(part.source), seq = donor?.Sequences?.[part.sequence];
     if (!seq?.Interval) { problems.push(`${transferPartLabel(key)}: choose an animation to take it from.`); continue; }
-    const rigA = transferRig(donor, { sequence: part.sequence });
+    const rigA = transferRig(donor, { sequence: part.sequence, actor: recipe.sources?.[part.source]?.actor });
     const auto = donor !== recipient && !!rigA.weaponSide && !!rigB.weaponSide && rigA.weaponSide !== rigB.weaponSide;
     const whole = recipe.sources?.[part.source]?.mirror ?? auto;
     // Other side: the donor's opposite limb, mirrored so it bends the right way.
@@ -735,7 +777,8 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const moveBody = hips && !isGlobalTrack(byIdB.get(rigB.body)?.Translation, recipient);
   if (moveBody) tracks.get(rigB.body) ? tracks.get(rigB.body).Translation = new Float32Array(n * 3) : (tracks.set(rigB.body, { Translation: new Float32Array(n * 3) }), driven.push(rigB.body));
   const hipsOf = leg => taken.find(entry => entry.key === 'hips' && entry.donor === leg.donor && entry.sequence === leg.sequence && entry.clipIndex === leg.clipIndex) || taken.find(entry => entry.key === 'hips' && entry.donor === leg.donor && entry.sequence === leg.sequence);
-  const plantLegs = hips ? drivenOrder.filter(e => e.own.limbKind === 'leg' && e.part.plant !== false && hipsOf(e)) : [];
+  // A seated creature's feet stand on nothing: legs taken from a rider read alone are not planted.
+  const plantLegs = hips ? drivenOrder.filter(e => e.own.limbKind === 'leg' && e.part.plant !== false && e.rigA.actor !== 'seated' && hipsOf(e)) : [];
   for (const leg of plantLegs) leg.hips = hipsOf(leg);
 
   // Weapon arms: point like theirs (aim), stay above the floor (clear), both
@@ -1051,8 +1094,8 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
 /** Which parts of the open model have loose joints that can follow (recipe
  * `follow`), with their names: `{ armL: ['Pauldron_L'], chest: ['Cape 1', 'Cape 2'] }`.
  * `sequence` is the body animation (it picks the skeleton, as transferRig does). */
-export function transferLooseParts(model, { sequence } = {}) {
-  const rig = transferRig(model, { sequence });
+export function transferLooseParts(model, { sequence, actor } = {}) {
+  const rig = transferRig(model, { sequence, actor });
   if (!rig.ok) return {};
   const own = ownMotion(model, rig), info = modelInfo(model), out = {};
   for (const item of [...own.followers, ...own.chains]) (out[item.part] ||= []).push(info.byId.get(item.id)?.Name || String(item.id));
@@ -1066,7 +1109,7 @@ export function transferLooseParts(model, { sequence } = {}) {
  * deep each arm goes into the trunk or a held thing (`level` 1 = at the surface,
  * less = inside; `allowed` is what the body animation and reference pose show). */
 export function transferDiagnostics(recipient, sources, recipe) {
-  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), info = modelInfo(recipient), own = ownMotion(recipient, rig);
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence, actor: recipe?.base?.actor }), info = modelInfo(recipient), own = ownMotion(recipient, rig);
   const ref = sampleAt(recipient, rig.reference.sequence, rig.reference.frame), name = id => info.byId.get(id)?.Name;
   const pointOf = (id, world) => v3(nodePivot(recipient, info.byId.get(id), id)).applyMatrix4(world(id));
   const armPoints = (part, world) => { const points = []; let previous = pointOf(part.joints[0], world); for (const id of part.joints.slice(1)) { const p = pointOf(id, world); points.push(previous.clone().lerp(p, 0.5), p); previous = p; } return points; };
@@ -1108,7 +1151,7 @@ export function transferEndPoint(recipient, sources, recipe, partKey, time) {
   return { root: at.root.toArray(), end: at.end.toArray() };
 }
 function evaluateMoment(recipient, sources, recipe, partKey, time) {
-  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), part = rig.parts[partKey];
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence, actor: recipe?.base?.actor }), part = rig.parts[partKey];
   if (!part || part.kind !== 'limb') throw new Error('Aim works on arms, legs, wings and tails.');
   const byId = modelInfo(recipient).byId, at = id => v3(nodePivot(recipient, byId.get(id), id));
   let found = null;
@@ -1167,7 +1210,7 @@ function aimAngles(rig, part, ref, model, e, g, roll, near) {
  * existing fix within its width of `time` is returned updated, `index` says which;
  * -1 is a new fix). The recipe is not changed. */
 export function transferAim(recipient, sources, recipe, partKey, time, point, { scope = 'whole' } = {}) {
-  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence }), part = rig.parts[partKey], taken = recipe?.parts?.[partKey];
+  const rig = transferRig(recipient, { sequence: recipe?.base?.sequence, actor: recipe?.base?.actor }), part = rig.parts[partKey], taken = recipe?.parts?.[partKey];
   if (!part || part.kind !== 'limb' || !taken) throw new Error('Take an arm, leg, wing or tail before aiming it.');
   const ref = sampleAt(recipient, rig.reference.sequence, rig.reference.frame), target = v3(point);
   const base = (taken.offset || [0, 0, 0]).map(value => Number(value) || 0);

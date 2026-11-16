@@ -713,3 +713,37 @@ test('R7 assemblies: the seated upper body is found by structure and place, not 
   const tree = nodeIndex(named, allNodes(named));
   assert.ok(!tree.isAncestor(a.parts.chest.joints[0], a.body), 'the chest is outside the body joint\'s own subtree');
 });
+
+test('R7 two creatures: a mounted model reads as both, as the rider alone, or as the mount alone', { skip: missing('transfer-nurgle-knight', 'transfer-knight', 'transfer-footman') }, () => {
+  const footman = load('transfer-footman');
+  assert.deepEqual(transferRig(footman).actors, ['both'], 'one creature offers one reading');
+  assert.equal(transferRig(footman, { actor: 'seated' }), transferRig(footman), 'and asking for another gives the same rig');
+  for (const key of ['transfer-nurgle-knight', 'transfer-knight']) {
+    const model = load(key), both = transferRig(model), seated = transferRig(model, { actor: 'seated' }), walker = transferRig(model, { actor: 'walker' });
+    const legs = rig => Object.keys(rig.parts).filter(part => /^leg/.test(part)).length, has = (rig, ...keys) => keys.every(part => rig.parts[part]);
+    assert.deepEqual(both.actors, ['both', 'seated', 'walker'], `${key} is two creatures`);
+    assert.ok(has(both, 'hips', 'chest', 'head', 'armL', 'armR') && legs(both) === 4, `${key} both: the rider's upper body on the mount's four legs (${Object.keys(both.parts)})`);
+    assert.ok(has(seated, 'hips', 'chest', 'head', 'armL', 'armR', 'legL', 'legR') && legs(seated) === 2, `${key} seated: the rider whole, its own two legs (${Object.keys(seated.parts)})`);
+    assert.ok(has(walker, 'hips') && legs(walker) === 4 && !walker.parts.armL && !walker.parts.chest, `${key} walker: the mount alone (${Object.keys(walker.parts)})`);
+    // No joint is both the rider's and the mount's.
+    const riderJoints = new Set(Object.values(seated.parts).flatMap(part => part.joints));
+    assert.ok(!Object.values(walker.parts).flatMap(part => part.joints).some(id => riderJoints.has(id)), `${key}: the two readings share no joint`);
+    assert.notEqual(seated.body, walker.body);
+  }
+});
+
+test('R7 turn a unit into a rider: the Footman takes the knight\'s rider whole, legs included', { skip: missing('transfer-nurgle-knight', 'transfer-footman') }, () => {
+  const knight = load('transfer-nurgle-knight'), footman = load('transfer-footman'), rigB = transferRig(footman), stand = seq(knight, 'Stand - 1'), base = seq(footman, 'Stand - 1');
+  const recipe = actor => { const rigA = transferRig(knight, { sequence: stand, actor }), whole = XFER.transferWholeBody(rigB, rigA); return { whole, recipe: { base: { sequence: base }, sources: { k: { actor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'k', sequence: stand, match: actor === 'seated' ? 1 : 0 }])) } }; };
+  // Pose "Theirs" (match 1): the seat is the rider's stance itself, not a movement away from it.
+  const both = recipe('both'), rider = recipe('seated');
+  assert.ok(!both.whole.parts.includes('legL') && /different number of legs/.test(both.whole.reason), 'as both, the legs stay with the body animation');
+  assert.ok(['hips', 'legL', 'legR', 'chest', 'armL', 'armR'].every(key => rider.whole.parts.includes(key)) && !rider.whole.reason, `as the rider alone the whole body is taken (${rider.whole.parts})`);
+  const sources = new Map([['k', knight]]), seated = buildTransfer(footman, sources, rider.recipe), standing = buildTransfer(footman, sources, both.recipe);
+  assert.deepEqual(seated.problems, []);
+  // Astride: the Footman's thighs turn well away from where they are when only the upper body is taken.
+  const thighs = ['legL', 'legR'].map(key => rigB.parts[key].joints[0]);
+  for (const id of thighs) assert.ok(seated.tracks.has(id) && !standing.tracks.has(id));
+  const stood = sampleNodeMatrices(footman, footman.Sequences[base].Interval[0], base), m = builtMatrices(footman, seated, base, 0);
+  for (const id of thighs) assert.ok(angle(rotOf(m.get(id)), rotOf(stood.get(id))) > 15, 'a thigh is turned to sit');
+});
