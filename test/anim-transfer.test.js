@@ -843,3 +843,25 @@ test('R9 one creature stays one: a torso on a four-legged body, a second form in
   const hunter = load('transfer-demon-hunter'), rig = transferRig(hunter), names = new Map(allNodes(hunter).map(node => [node.ObjectId, node.Name]));
   assert.ok(Object.values(rig.parts).every(part => part.joints.every(id => !/alternate/i.test(names.get(id)))), 'no joint of the other form in the plain reading');
 });
+
+test('R9 a unit made into a rider from a dragon\'s rider stays upright and bobs as much as the rider, not three times more', { skip: missing('transfer-grunt', 'transfer-dragon-rider') }, () => {
+  // The Grunt's root and pelvis sit on the same spot; the dragon rider's hip height is small because its legs are folded.
+  const grunt = load('transfer-grunt'), donor = load('transfer-dragon-rider'), sequence = seq(donor, 'Stand - 1'), base = seq(grunt, 'Stand - 1');
+  const rigB = transferRig(grunt, { sequence: base }), rigA = transferRig(donor, { sequence, actor: 'seated' }), keys = XFER.transferWholeBody(rigB, rigA).parts;
+  assert.equal(rigA.actor, 'seated');
+  const recipe = { base: { sequence: base }, length: donor.Sequences[sequence].Interval[1] - donor.Sequences[sequence].Interval[0], sources: { d: { actor: 'seated' } },
+    parts: Object.fromEntries(keys.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence, match: /^(hips|leg)/.test(key) ? 1 : 0 }])) };
+  const byB = new Map(allNodes(grunt).map(node => [node.ObjectId, node])), byA = new Map(allNodes(donor).map(node => [node.ObjectId, node]));
+  const at = (model, by, matrix, id) => new Vector3().fromArray(nodePivot(model, by.get(id), id)).applyMatrix4(matrix);
+  const head = rigB.parts.head.joints.at(-1), chestB = rigB.parts.chest.joints[0], chestA = rigA.parts.chest.joints[0];
+  const ref = sampleNodeMatrices(grunt, grunt.Sequences[base].Interval[0], base), tall = at(grunt, byB, ref.get(head), head).z - at(grunt, byB, ref.get(rigB.body), rigB.body).z;
+  const heights = [], chest = [];
+  const built = buildTransfer(grunt, new Map([['d', donor]]), recipe, { probe: ({ world }) => { heights.push(at(grunt, byB, world(head), head).z - at(grunt, byB, world(rigB.body), rigB.body).z); chest.push(at(grunt, byB, world(chestB), chestB).z); } });
+  assert.deepEqual(built.problems, []);
+  assert.ok(Math.min(...heights) > 0.8 * tall, `the head stays above the hips (${Math.min(...heights).toFixed(1)} of ${tall.toFixed(1)}): he sits upright, not on his back`);
+  const [first, last] = donor.Sequences[sequence].Interval, theirs = [];
+  for (let i = 0; i <= 40; i++) { const m = sampleNodeMatrices(donor, Math.round(first + (last - first) * i / 40), sequence); theirs.push(at(donor, byA, m.get(chestA), chestA).z); }
+  const rise = Math.max(...chest) - Math.min(...chest), riseA = Math.max(...theirs) - Math.min(...theirs);
+  assert.ok(riseA > 3, `the dragon's rider rises and falls (${riseA.toFixed(1)})`);
+  assert.ok(rise > 0.6 * riseA && rise < 1.6 * riseA, `the Grunt rises and falls ${rise.toFixed(1)}, the rider ${riseA.toFixed(1)}`);
+});

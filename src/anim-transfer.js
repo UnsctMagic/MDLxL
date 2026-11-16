@@ -418,6 +418,9 @@ function readRig(model, info, skeleton, wanted = 'both') {
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
   const rig = { ok: true, reference, body, parts, hipHeight: Math.max(1e-3, hipCentre.z - ground), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
+  // Trunk length, hips to the middle of the shoulders: a size that does not depend on how the legs are folded.
+  const shoulders = ['armL', 'armR'].map(key => parts[key]).filter(Boolean).map(part => pos(part.joints[0]));
+  Object.defineProperty(rig, 'trunk', { value: shoulders.length === 2 ? shoulders[0].add(shoulders[1]).multiplyScalar(0.5).distanceTo(hipCentre) : 0, enumerable: false });
   // Which reading this is, and which the model offers (one creature: 'both' only).
   Object.defineProperty(rig, 'actor', { value: actor, enumerable: false });
   Object.defineProperty(rig, 'actors', { value: seatTops.length ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
@@ -1162,6 +1165,13 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
 }
 
 const share = value => Math.max(0, Math.min(1, Number(value) || 0));
+/** How much bigger the open model is than the donor. Hip height says it for two standing
+ * creatures; a seated one's hip height depends on how its legs are folded, so with a rider read
+ * alone on either side the trunks (hips to shoulders) are compared instead. */
+function sizeRatio(rigB, rigA) {
+  const seated = rigA.actor === 'seated' || rigB.actor === 'seated';
+  return seated && rigA.trunk > 1e-3 && rigB.trunk > 1e-3 ? rigB.trunk / rigA.trunk : rigB.hipHeight / rigA.hipHeight;
+}
 function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient }) {
   const refA = sampleAt(donor, rigA.reference.sequence, rigA.reference.frame);
   // Mirroring reflects the donor across the XZ plane; a facing difference over
@@ -1183,11 +1193,12 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const depths = own.joints.map(id => modelInfo(recipient).tree.depth(id)), top = Math.min(...depths), span = Math.max(...depths) - top + 1;
   const spread = own.kind === 'trunk' && own.joints.length !== theirs.joints.length ? depths.map(d => (d - top + 1) / span) : null;
   // Align: b's reference bone direction onto a's (in the converted donor space).
-  const dirs = (points, tip, convertDir) => points.map((p, i) => {
+  // Two joints at the same place (a root and a pelvis stacked on each other) have no direction between them.
+  const dirs = (points, tip, convertDir, size) => points.map((p, i) => {
     const next = points[i + 1] || tip;
-    return next ? convertDir(next.clone().sub(p)) : null;
+    return next && next.distanceTo(p) > 0.02 * size ? convertDir(next.clone().sub(p)) : null;
   });
-  const dirB = dirs(pointsB, own.tip, v => v), dirA = dirs(pointsA, theirs.tip, convertV);
+  const dirB = dirs(pointsB, own.tip, v => v, rigB.hipHeight), dirA = dirs(pointsA, theirs.tip, convertV, rigA.hipHeight);
   for (let j = dirA.length - 1; j > 0; j--) if (!dirA[j]) dirA[j] = dirA[j - 1];
   const match = Math.max(0, Math.min(1, part.match ?? defaultTransferPart(rigB, key).match));
   const align = [];
@@ -1222,7 +1233,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
     range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang),
-    scale: rigB.hipHeight / rigA.hipHeight, convert, convertV, map, spread, align,
+    scale: sizeRatio(rigB, rigA), convert, convertV, map, spread, align,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
     refAnchorB: own.anchor == null ? null : inv(worldRot(refB, own.anchor)),
