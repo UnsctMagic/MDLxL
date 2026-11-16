@@ -31,7 +31,7 @@ export default function TransferViewStrip({ name, donor = false, playing, onPlay
       : donor
       ? <button type="button" className="xs-play" data-hotkey="transfer:play-donor" data-hotkey-manual data-hotkey-label="Play donor" disabled={disabled} title={playTitle} onClick={onPlay}>{playing ? 'Pause' : 'Play'}</button>
       : <button type="button" className="xs-play" data-hotkey="transfer:play" data-hotkey-absolute disabled={disabled} title={playTitle} onClick={onPlay}>{playing ? 'Pause' : 'Play'}</button>}
-    <input className="range-input xs-scrub" type="range" aria-label="Time in this view" title="Time in this animation. Drag to look at a moment." min={from} max={Math.max(from + 1, to)} step={1} value={Math.max(from, Math.min(to, Math.round(time)))} disabled={disabled} onChange={scrubInput} onPointerUp={() => frame.current.flush()}/>
+    <input className="range-input xs-scrub" type="range" data-time-scrub aria-label="Time in this view" title="Time in this animation. Drag to look at a moment." min={from} max={Math.max(from + 1, to)} step={1} value={Math.max(from, Math.min(to, Math.round(time)))} disabled={disabled} onChange={scrubInput} onPointerUp={() => frame.current.flush()}/>
     {plain
       ? <button type="button" className="xs-reset" aria-label="Reset view" disabled={disabled} title="Fits the model in the views again." onClick={onReset}><span aria-hidden="true">↺</span></button>
       : donor

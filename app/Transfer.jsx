@@ -17,7 +17,7 @@ import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
 import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
-import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferLooseParts, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
+import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
@@ -37,8 +37,10 @@ const firstAnimation = model => { const stand = standSequenceIndex(model); retur
 
 const RANGE_TIP = 'Keeps this part inside what this model\'s own animations do: no deeper bend, lean or crouch than it has anywhere else.';
 const AVOID_TIP = 'Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.';
-const followTip = names => translate('{0} move with this part, the way they do in this model\'s own animations.').replace('{0}', () => names.join(', '));
 const HAND_OVER = 150;
+// Own features (round 8): the open model's loose joints, kept one by one.
+const FEATURE_TIP = 'Keeps this feature moving the way it does in this model\'s own animation of the same kind.';
+const FEATURE_BODY_TIP = 'It is part of the body: arms are kept out of it.';
 // A model that is two creatures (a rider on a mount) is read one of three ways (round 7b).
 const ACTORS = [
   ['both', 'Both', 'This model is two creatures. Both: the rider\'s upper body on the mount\'s legs.'],
@@ -318,7 +320,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!d) return null;
     return { kind: id.startsWith('lib:') ? 'library' : id.startsWith('file:') ? 'file' : 'tab', path: d.path || null, name: d.name, model: d.model };
   };
-  const currentSetup = name => setupFromRecipe(recipeRef.current, model, describeSource, name);
+  const currentSetup = name => setupFromRecipe(recipeRef.current, model, describeSource, name, features);
   const saveSetup = () => {
     const name = sanitizePresetName(setupName);
     if (!name) return;
@@ -359,11 +361,11 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     try {
       const opened = {}, asked = new Set();
       for (const [key, source] of Object.entries(setup.sources || {})) opened[key] = await reopen(source, asked);
-      const { recipe: next, left } = recipeFromSetup(setup, model, rigB, opened, recipeRef.current.base.sequence);
+      const { recipe: next, left } = recipeFromSetup(setup, model, rigB, opened, recipeRef.current.base.sequence, features);
       change(next); select(Object.keys(next.parts).length ? 'all' : null);
       const first = Object.values(next.parts)[0];
       if (first) { setDonorId(first.source); setDonorSeqs(old => ({ ...old, [first.source]: first.sequence })); if (first.source === 'self' && !donors.some(d => d.id === 'self')) setDonors(list => [...list.filter(d => d.id !== 'self'), { id: 'self', name: 'This model' }]); }
-      const words = left.map(code => { const [kind, value] = code.split(':'); return kind === 'part' ? transferPartLabel(value) : kind === 'source' ? setup.sources?.[value]?.name || value : value; });
+      const words = left.map(code => { const kind = code.slice(0, code.indexOf(':')), value = code.slice(code.indexOf(':') + 1); return kind === 'part' ? transferPartLabel(value) : kind === 'source' ? setup.sources?.[value]?.name || value : value; });
       setSetupStatus(left.length ? `${setup.name || 'Setup'} loaded. Left out: ${words.join(', ')}` : `${setup.name || 'Setup'} loaded.`);
     } catch (error) { setSetupStatus(error.message); }
   };
@@ -384,10 +386,21 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const selectedClip = selectedTaken ? clipOfPart(selectedTaken, at) : null;
   const afterKeys = !donor || donorSeq < 0 || !rigA?.ok ? [] : (selectedTaken ? [selected] : taken).filter(key => !donorLacks(key));
   const canAddAfter = !!built && taken.length > 0 && afterKeys.length > 0;
-  // Parts whose loose joints (pads, capes) can follow: `follow` does something only for these.
-  const loose = useMemo(() => { try { return transferLooseParts(model, { sequence: recipe.base.sequence, actor: recipe.base.actor }); } catch { return {}; } }, [model, doc.revision, recipe.base.sequence, recipe.base.actor]);
   // The result view has handles for taken parts only; the parts list selects the others.
-  const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(',')]);
+  // Own features of the open model (its body animation and reading), on parts it has. Hovering or
+  // focusing a row lights the feature's joints up on the result, like the selected part's joints.
+  const features = useMemo(() => { try { return transferFeatures(model, { sequence: recipe.base.sequence, actor: recipe.base.actor }).filter(feature => rigB.parts[feature.part]); } catch { return []; } }, [model, doc.revision, recipe.base.sequence, recipe.base.actor, rigB]);
+  const [hoverFeature, setHoverFeature] = useState(null);
+  const hoverJoints = useMemo(() => {
+    const feature = features.find(item => item.id === hoverFeature);
+    if (!feature) return null;
+    const nodes = [...(model.Bones || []), ...(model.Helpers || [])];
+    return feature.joints.map(name => nodes.find(node => node.Name === name)?.ObjectId).filter(id => id != null);
+  }, [features, hoverFeature, model]);
+  // Own features is a fold like Timing, closed at first; its header says how many there are and how many are kept.
+  const keptCount = features.filter(feature => recipe.features?.[feature.id]?.keep).length;
+  const keepFeature = (id, on) => { const kept = { ...(recipe.features || {}) }; if (on) kept[id] = { keep: 1 }; else delete kept[id]; change({ ...recipe, features: kept }); };
+  const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: hoverJoints?.length ? [hoverJoints] : selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(','), hoverJoints]);
   const donorPose = useMemo(() => {
     if (!poseA || !donor) return null;
     const shown = selectedPart && !donorLacks(selected) ? feedsFrom(selected) : null;
@@ -513,7 +526,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
       onDraft={value => value == null ? endDrag() : setField(field, value, true)} onCommit={value => setField(field, value, false)} onReset={() => resetField(field)}/>;
   });
   const legsTaken = targets.filter(key => /^leg/.test(key) && rigB.parts[key]?.kind === 'limb');
-  const followKeys = taken.filter(key => loose[key]?.length), armKeys = taken.filter(key => /^arm/.test(key) && rigB.parts[key]?.kind === 'limb');
+  const armKeys = taken.filter(key => /^arm/.test(key) && rigB.parts[key]?.kind === 'limb');
 
   // Add animation: one edit, one Undo step, built afresh from the document's own model.
   const [name, setName] = useState(null), [added, setAdded] = useState(''), addedRecipe = useRef(null);
@@ -691,12 +704,25 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               </div>;
             })}
           </div>
+          {features.length > 0 && <Section className="xf-features-box" hotkeyId="Own features" defaultOpen={false} title={translate('Own features ({0})').replace('{0}', () => String(features.length))} note={keptCount ? translate('{0} kept').replace('{0}', () => String(keptCount)) : null}>
+            <div className="gf-tree xf-list xf-features" role="group" aria-label="Own features">
+              {features.map(feature => {
+                const on = !!effective.parts[feature.part], label = translate(transferPartLabel(feature.part)), kept = !!recipe.features?.[feature.id]?.keep;
+                const tip = on ? translate(FEATURE_TIP) + (feature.body ? ' ' + translate(FEATURE_BODY_TIP) : '') : translate('Take {0} first.').replace('{0}', () => label);
+                const size = feature.joints.length === 1 ? translate('{0} · 1 bone').replace('{0}', () => label) : translate('{0} · {1} bones').replace('{0}', () => label).replace('{1}', () => String(feature.joints.length));
+                return <label key={feature.id} className={'gf-row xf-feature' + (on ? '' : ' xf-off')} title={tip} data-feature={feature.id} translate="no"
+                  onPointerEnter={() => setHoverFeature(feature.id)} onPointerLeave={() => setHoverFeature(null)} onFocus={() => setHoverFeature(feature.id)} onBlur={() => setHoverFeature(null)}>
+                  <input type="checkbox" aria-label={translate('Keep {0}\'s own movement').replace('{0}', () => feature.name)} checked={kept} disabled={!on} onChange={event => keepFeature(feature.id, event.target.checked)}/>
+                  <span className="xf-feature-name">{feature.name}</span><small>{size}</small>
+                </label>;
+              })}
+            </div>
+          </Section>}
           {allMode ? <div className="xf-part-controls" role="group" aria-label="All taken parts">
             <div className="xf-part-title"><b>All taken parts{at > 0 && targets.length > 0 && <small className="xf-clip-name" translate="no">{sequenceName(modelOf(clipOfPart(effective.parts[targets[0]], at).source), clipOfPart(effective.parts[targets[0]], at).sequence)}</small>}</b></div>
             {slidersFor(false)}
             {legsTaken.length > 0 && <label className="xf-check" title="Keeps each foot on the donor foot's path, scaled to the leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={legsTaken.every(key => effective.parts[key].plant !== false)} onChange={event => setParts(legsTaken, { plant: event.target.checked })}/> Keep foot on the ground</label>}
             <SharedCheck data-hotkey="transfer:own-range" data-hotkey-manual data-hotkey-label="Stay in own range" label="Stay in own range" title={RANGE_TIP} values={taken.map(key => effective.parts[key].range > 0)} onChange={on => setParts(taken, { range: on ? 1 : 0 })}/>
-            {followKeys.length > 0 && <SharedCheck data-hotkey="transfer:follow" data-hotkey-manual data-hotkey-label="Pads and cloth follow" label="Pads and cloth follow" title={followTip([...new Set(followKeys.flatMap(key => loose[key]))])} values={followKeys.map(key => effective.parts[key].follow > 0)} onChange={on => setParts(followKeys, { follow: on ? 1 : 0 })}/>}
             {armKeys.length > 0 && <SharedCheck data-hotkey="transfer:avoid-body" data-hotkey-manual data-hotkey-label="Keep arm out of the body" label="Keep arm out of the body" title={AVOID_TIP} values={armKeys.map(key => effective.parts[key].avoid > 0)} onChange={on => setParts(armKeys, { avoid: on ? 1 : 0 })}/>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : selectedTaken ? <div className="xf-part-controls" role="group" aria-label={transferPartLabel(selected)}>
@@ -717,7 +743,6 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </>}
             {/^leg/.test(selected) && kind === 'limb' && <label className="xf-check" title="Keeps the foot on the donor foot's path, scaled to this leg, so a planted foot stays on the ground. Works when Hips come from the same animation."><input data-hotkey="transfer:keep-foot" data-hotkey-manual data-hotkey-label="Keep foot on the ground" type="checkbox" checked={selectedTaken.plant !== false} onChange={event => setPart(selected, { plant: event.target.checked })}/> Keep foot on the ground</label>}
             <label className="xf-check" title={RANGE_TIP}><input data-hotkey="transfer:own-range" data-hotkey-manual data-hotkey-label="Stay in own range" type="checkbox" checked={selectedTaken.range > 0} onChange={event => setPart(selected, { range: event.target.checked ? 1 : 0 })}/> Stay in own range</label>
-            {loose[selected]?.length > 0 && <label className="xf-check" title={followTip(loose[selected])}><input data-hotkey="transfer:follow" data-hotkey-manual data-hotkey-label="Pads and cloth follow" type="checkbox" checked={selectedTaken.follow > 0} onChange={event => setPart(selected, { follow: event.target.checked ? 1 : 0 })}/> Pads and cloth follow</label>}
             {/^arm/.test(selected) && kind === 'limb' && <label className="xf-check" title={AVOID_TIP}><input data-hotkey="transfer:avoid-body" data-hotkey-manual data-hotkey-label="Keep arm out of the body" type="checkbox" checked={selectedTaken.avoid > 0} onChange={event => setPart(selected, { avoid: event.target.checked ? 1 : 0 })}/> Keep arm out of the body</label>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : <p className="xf-note">{!donor ? 'Choose where the animation comes from.' : selected && selected !== 'all' ? 'Switch the part on to take it.' : 'Click a part on the donor to take it, or Take whole body.'}</p>}

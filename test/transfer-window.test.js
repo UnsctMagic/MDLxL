@@ -303,3 +303,22 @@ test('setups and Add all carry the readings; an old setup gets none', { skip: mi
   assert.ok(plan.clips.length > 0);
   for (const clip of plan.clips) { assert.equal(clip.recipe.base.actor, 'both'); assert.deepEqual(clip.recipe.sources, { k: { actor: 'seated' } }); }
 });
+
+// ---------------------------------------------------------------- round 8: own features
+test('setups keep features by their top joint\'s name; a model without one leaves it out and names it; Add all carries them', () => {
+  const own = { Sequences: [{ Name: 'Stand', Interval: [0, 1000] }] }, donor = { Sequences: [{ Name: 'Attack', Interval: [0, 800] }] };
+  const recipe = { base: { sequence: 0 }, length: null, sources: {}, features: { 12: { keep: 1 }, 13: { keep: 0 }, 99: { keep: 1 } }, parts: { armL: { source: 'g', sequence: 0, amount: 1 } } };
+  const describe = id => id === 'g' ? { kind: 'file', path: 'D:/m/g.mdx', name: 'g.mdx', model: donor } : null;
+  const setup = parseSetup(JSON.stringify(setupFromRecipe(recipe, own, describe, 'Belly', [{ id: 12, name: 'BellyBone1' }, { id: 13, name: 'Cape 1' }])));
+  assert.deepEqual(setup.features, { BellyBone1: { keep: 1 } }, 'kept ones by name; switched-off and unknown ids stay out');
+  const rig = { parts: { armL: {} } }, donors = { g: { id: 'file:g', model: donor } };
+  const there = recipeFromSetup(setup, own, rig, donors, 0, [{ id: 40, name: 'BellyBone1' }]);
+  assert.deepEqual(there.recipe.features, { 40: { keep: 1 } }, 'mapped to this model\'s joint id');
+  assert.deepEqual(there.left, []);
+  const lacking = recipeFromSetup(setup, own, rig, donors, 0, []);
+  assert.deepEqual(lacking.left, ['feature:BellyBone1']); assert.equal(lacking.recipe.features, undefined);
+  const old = { ...setup }; delete old.features;
+  assert.equal(recipeFromSetup(old, own, rig, donors, 0, [{ id: 40, name: 'BellyBone1' }]).recipe.features, undefined, 'an old setup gets no features');
+  const plan = addAllPlan({ Sequences: [] }, { Sequences: [{ Name: 'Walk', Interval: [0, 500] }] }, 'g', recipe, 0);
+  assert.equal(plan.clips[0].recipe.features, recipe.features, 'Add all passes features untouched');
+});

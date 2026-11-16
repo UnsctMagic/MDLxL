@@ -8787,8 +8787,6 @@
   "Load from file…": "Cargar desde archivo…",
   "Stay in own range": "Dentro de su propio rango",
   "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.": "Mantiene esta parte dentro de lo que hacen las animaciones propias del modelo: no se dobla, inclina ni agacha más que en ninguna otra.",
-  "Pads and cloth follow": "Hombreras y tela siguen",
-  "{0} move with this part, the way they do in this model's own animations.": "{0} se mueven con esta parte, como lo hacen en las animaciones propias del modelo.",
   "Keep arm out of the body": "Mantener el brazo fuera del cuerpo",
   "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.": "Gira el hombro para que el brazo no atraviese el pecho, las caderas ni la cabeza. Un brazo que sostiene un arma a dos manos con el otro no se toca.",
   "Add after": "Añadir después",
@@ -8807,5 +8805,14 @@
   "Donor: Mount": "Donante: montura",
   "This model: Both": "Este modelo: ambos",
   "This model: Rider": "Este modelo: jinete",
-  "This model: Mount": "Este modelo: montura"
+  "This model: Mount": "Este modelo: montura",
+  "Own features": "Rasgos propios",
+  "Keeps this feature moving the way it does in this model's own animation of the same kind.": "Mantiene este rasgo moviéndose como en la animación propia del modelo del mismo tipo.",
+  "It is part of the body: arms are kept out of it.": "Es parte del cuerpo: los brazos se mantienen fuera.",
+  "Take {0} first.": "Toma primero {0}.",
+  "Keep {0}'s own movement": "Mantener el movimiento propio de {0}",
+  "{0} · 1 bone": "{0} · 1 hueso",
+  "{0} · {1} bones": "{0} · {1} huesos",
+  "Own features ({0})": "Rasgos propios ({0})",
+  "{0} kept": "{0} conservados"
 }

@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5'), shots7 = path.join(out, 'round7'), shots7b = path.join(out, 'round7b');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2'), shots3 = path.join(out, 'round3'), shots4 = path.join(out, 'round4'), shotsF = path.join(out, 'final'), shots5 = path.join(out, 'round5'), shots7 = path.join(out, 'round7'), shots7b = path.join(out, 'round7b'), shots8 = path.join(out, 'round8');
 const results = { checks: [], errors: [], screenshots: [] };
 const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
@@ -715,8 +715,9 @@ async function round7Story() {
     const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root).props;
     let sum = 0, n = 0;
     const add = track => { for (const key of track?.Keys || []) { const v = key.Vector || []; for (let i = 0; i < v.length; i++) sum += v[i] * (++n % 97 + 1); } };
-    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) { add(bone.Rotation); add(bone.Translation); }
-    for (const item of p.liveNodeTracks || []) add(item.track);
+    // Each joint's effective track: a swapped-in live track wins over the preview copy's own.
+    const live = new Map((p.liveNodeTracks || []).map(item => [item.id + ':' + item.property, item.track]));
+    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) for (const property of ['Rotation', 'Translation']) add(live.get(bone.ObjectId + ':' + property) || bone[property]);
     return Math.round(sum * 1000) / 1000;
   });
   const ruler = async dialog => Number(await dialog.getByLabel('Time', { exact: true }).getAttribute('aria-valuemax'));
@@ -755,7 +756,7 @@ async function round7Story() {
       await s.noCrash('round7 switches');
     } finally { await s.close(); }
   }
-  // (a) Pads and cloth follow: the Slaanesh warrior takes the Grunt's Attack - 1 whole body.
+  // (a) The two switches in All taken parts on a whole body (Pads and cloth follow became the Own features list in round 8).
   {
     const warrior = copyModel('glow-dual-weapon', 'TEST TRANSFER 16 follow.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor r7 follow.mdx');
     const s = await session(warrior, 'round7-follow'), { page, dialog } = s;
@@ -763,26 +764,10 @@ async function round7Story() {
       await openTransfer(s); await s.openDonor(grunt); await s.animation('Attack - 1');
       await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
       const all = s.parts().locator('[role="group"][aria-label="All taken parts"]');
-      for (const label of ['Stay in own range', 'Pads and cloth follow', 'Keep arm out of the body']) assert.equal(await all.getByText(label, { exact: true }).count(), 1, `round7: All taken parts shows ${label}`);
+      for (const label of ['Stay in own range', 'Keep arm out of the body']) assert.equal(await all.getByText(label, { exact: true }).count(), 1, `round7: All taken parts shows ${label}`);
+      assert.equal(await s.parts().getByText('Pads and cloth follow', { exact: true }).count(), 0, 'round8: Pads and cloth follow is gone from All taken parts');
       await s.shot('02-all-taken-parts-switches', shots7);
-      const shows = async key => { await dialog.locator(`button[data-part="${key}"]`).click(); await page.waitForTimeout(300); return s.parts().getByText('Pads and cloth follow', { exact: true }).count(); };
-      for (const key of ['armL', 'armR', 'chest']) assert.equal(await shows(key), 1, `round7: Pads and cloth follow shows for ${key}`);
-      for (const key of ['legL', 'legR']) if (await dialog.locator(`input[data-part-switch="${key}"]:checked`).count()) assert.equal(await shows(key), 0, `round7: and not for ${key}`);
-      await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
-      const tip = await s.parts().locator('label.xf-check', { hasText: 'Pads and cloth follow' }).getAttribute('title');
-      assert.match(tip, /move with this part, the way they do in this model's own animations\./, 'round7: the tooltip names the joints in one sentence');
-      const before = await motion(page);
-      await check(s.parts().locator('[role="group"][aria-label="Left arm"]'), page, 'Pads and cloth follow');
-      assert.equal((await recipeOf(page)).recipe.parts.armL.follow, 1, 'round7: Pads and cloth follow sets follow');
-      assert.notEqual(await motion(page), before, 'round7: the pads move differently');
-      // All taken parts shows the mixed state, then sets every listed part.
-      await dialog.locator('button[data-part="all"]').click(); await page.waitForTimeout(300);
-      const shared = all.locator('label.xf-check', { hasText: 'Pads and cloth follow' }).locator('input');
-      assert.equal(await shared.getAttribute('aria-checked'), 'mixed', 'round7: All taken parts shows a mixed switch');
-      await shared.click(); await page.waitForTimeout(1500);
-      const parts = (await recipeOf(page)).recipe.parts;
-      for (const key of ['armL', 'armR', 'chest']) assert.equal(parts[key].follow, 1, `round7: All sets follow on ${key}`);
-      results.checks.push(`round7: on the Slaanesh warrior Pads and cloth follow shows for the arms and the chest, not the legs (tooltip: ${tip}); it sets follow and moves the pads; All shows mixed, then sets them all`);
+      results.checks.push('round7: All taken parts on the Slaanesh warrior shows Stay in own range and Keep arm out of the body; Pads and cloth follow is gone (round 8)');
       await s.noCrash('round7 follow');
     } finally { await s.close(); }
   }
@@ -924,8 +909,9 @@ async function ridersStory() {
     const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root).props;
     let sum = 0, n = 0;
     const add = track => { for (const key of track?.Keys || []) { const v = key.Vector || []; for (let i = 0; i < v.length; i++) sum += v[i] * (++n % 97 + 1); } };
-    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) { add(bone.Rotation); add(bone.Translation); }
-    for (const item of p.liveNodeTracks || []) add(item.track);
+    // Each joint's effective track: a swapped-in live track wins over the preview copy's own.
+    const live = new Map((p.liveNodeTracks || []).map(item => [item.id + ':' + item.property, item.track]));
+    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) for (const property of ['Rotation', 'Translation']) add(live.get(bone.ObjectId + ':' + property) || bone[property]);
     return Math.round(sum * 1000) / 1000;
   });
   const { rigFor } = await import('../src/transfer-window.js');
@@ -1049,6 +1035,158 @@ async function ridersStory() {
     await d.parts().getByRole('button', { name: 'Take whole body' }).click(); await d.page.waitForTimeout(2000);
     await d.shot('05-dark', shots7b);
     await d.noCrash('riders dark');
+  } finally { await d.close(); }
+}
+
+// Round 8: the open model's own features, one switch each (transferFeatures). Real mouse input; the
+// recipe through the test hook; the highlight through the result view's poseConfig; motion by checksum.
+async function featuresStory() {
+  const state = page => page.evaluate(() => window.__mdlxl.transfer());
+  const motion = page => page.evaluate(() => {
+    const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), p = window.__mdlxl.preview(root).props;
+    let sum = 0, n = 0;
+    const add = track => { for (const key of track?.Keys || []) { const v = key.Vector || []; for (let i = 0; i < v.length; i++) sum += v[i] * (++n % 97 + 1); } };
+    // Each joint's effective track: a swapped-in live track wins over the preview copy's own.
+    const live = new Map((p.liveNodeTracks || []).map(item => [item.id + ':' + item.property, item.track]));
+    for (const bone of [...(p.model.Bones || []), ...(p.model.Helpers || [])]) for (const property of ['Rotation', 'Translation']) add(live.get(bone.ObjectId + ':' + property) || bone[property]);
+    return Math.round(sum * 1000) / 1000;
+  });
+  const { transferFeatures } = await import('../src/anim-transfer.js'), { rigFor } = await import('../src/transfer-window.js');
+  const featuresOf = (model, sequence) => { const rig = rigFor(model, sequence); return transferFeatures(model, { sequence }).filter(feature => rig.parts[feature.part]); };
+  const rows = dialog => dialog.locator('.xf-features .xf-feature');
+  const fold = dialog => dialog.locator('details.xf-features-box');
+  const header = dialog => fold(dialog).locator('summary');
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER 22 features.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor features.mdx'), nurgle = copyModel('transfer-nurgle-warrior', 'TEST TRANSFER 23 nurgle features.mdx');
+  const setupFile = path.join(out, 'nurgle belly kept.mdlxl-preset'); if (fs.existsSync(setupFile)) fs.unlinkSync(setupFile);
+  const footmanModel = await readModel(footman), nurgleModel = await readModel(nurgle);
+  // The Footman: its own features (or none), and a donor changes nothing.
+  let s = await session(footman, 'features-footman'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    const own = featuresOf(footmanModel, (await state(page)).recipe.base.sequence);
+    assert.equal(await rows(dialog).count(), own.length, `features: the Footman lists its ${own.length} own features`);
+    assert.equal(await fold(dialog).count(), own.length ? 1 : 0, 'features: no list without features');
+    if (own.length) {
+      assert.equal(await fold(dialog).getAttribute('open'), null, 'features: the fold is closed at first (no new row in the commonest case)');
+      assert.equal((await header(dialog).innerText()).trim(), `Own features (${own.length})`, 'features: its header counts the features');
+    }
+    await s.openDonor(grunt); await s.animation('Attack - 1');
+    assert.equal(await rows(dialog).count(), own.length, 'features: the donor does not change the list (it is the open model\'s)');
+    results.checks.push(`features: the Footman lists ${own.length} own features${own.length ? '' : ' (no list)'}; the Grunt as donor changes nothing`);
+    await s.noCrash('features footman');
+  } finally { await s.close(); }
+
+  // A model without features (the Grunt open): no list at all.
+  s = await session(copyModel('transfer-grunt', 'TEST TRANSFER 26 no features.mdx'), 'features-none'); ({ page, dialog } = s);
+  try {
+    await openTransfer(s);
+    assert.equal(featuresOf(await readModel(copyModel('transfer-grunt', 'grunt features probe.mdx')), (await state(page)).recipe.base.sequence).length, 0, 'features: the Grunt has no features');
+    assert.equal(await fold(dialog).count(), 0, 'features: and shows no list');
+    await s.shot('04-no-features-no-list', shots8);
+    results.checks.push('features: a model without features (the Grunt) shows no list');
+    await s.noCrash('features none');
+  } finally { await s.close(); }
+
+  // The Nurgle warrior: rows dimmed until their part is taken.
+  const nurgleSeq = nurgleModel.Sequences.findIndex(q => /^stand/i.test(q.Name));
+  s = await session(nurgle, 'features'); ({ page, dialog } = s);
+  try {
+    await openTransfer(s);
+    const own = featuresOf(nurgleModel, (await state(page)).recipe.base.sequence), belly = own.find(feature => feature.name === 'BellyBone1');
+    assert.ok(belly, `features: the Nurgle warrior has BellyBone1 (${own.map(feature => feature.name)})`);
+    assert.equal(await rows(dialog).count(), own.length, 'features: one row per feature');
+    assert.equal(await fold(dialog).getAttribute('open'), null, 'features: closed at first');
+    assert.equal((await header(dialog).innerText()).trim(), `Own features (${own.length})`, 'features: "Own features (N)"');
+    await s.shot('01-nurgle-fold-closed', shots8);
+    await header(dialog).click(); await page.waitForTimeout(300);
+    assert.equal(await fold(dialog).getAttribute('open'), '', 'features: a click opens it');
+    for (const name of ['BellyBone1', 'BellyGut', 'Cape 1']) if (own.some(feature => feature.name === name)) assert.equal(await rows(dialog).filter({ hasText: name }).count(), 1, `features: a row for ${name}`);
+    const bellyRow = rows(dialog).filter({ hasText: 'BellyBone1' });
+    assert.match(await bellyRow.innerText(), /Chest · 3 bones/, 'features: the row says its part and its bones');
+    assert.equal(await bellyRow.locator('input').isDisabled(), true, 'features: nothing taken: the row is off');
+    assert.equal(await bellyRow.getAttribute('title'), 'Take Chest first.', 'features: and says why');
+    assert.equal(await bellyRow.locator('input').getAttribute('aria-label'), "Keep BellyBone1's own movement");
+    await s.shot('01b-nurgle-fold-open-nothing-taken', shots8);
+    // Whole body from the Grunt: rows on; hovering lights the feature up, leaving restores, the camera stays.
+    await s.openDonor(grunt); await s.animation('Attack - 1');
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(2000);
+    assert.equal(await bellyRow.locator('input').isDisabled(), false, 'features: the chest taken: the row is on');
+    assert.match(await bellyRow.getAttribute('title'), /own animation of the same kind\. It is part of the body: arms are kept out of it\./, 'features: a body feature says so');
+    const before = await s.probe('Result'), box = await bellyRow.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2); await page.waitForTimeout(500);
+    const lit = await s.probe('Result'), nodes = [...(nurgleModel.Bones || []), ...(nurgleModel.Helpers || [])];
+    const bellyIds = belly.joints.map(name => nodes.find(node => node.Name === name)?.ObjectId);
+    assert.deepEqual(lit.config.inspectPaths, [bellyIds], 'features: hovering BellyBone1 lights its joints up on the result');
+    assert.deepEqual(lit.camera, before.camera, 'features: the camera does not move');
+    await s.shot('02-whole-body-bellybone1-hovered', shots8);
+    const top = await dialog.locator('header').boundingBox(); await page.mouse.move(top.x + 40, top.y + top.height / 2); await page.waitForTimeout(500);
+    assert.deepEqual((await s.probe('Result')).config.inspectPaths, before.config.inspectPaths, 'features: leaving the row restores the highlight');
+    results.checks.push(`features: the Nurgle warrior lists ${own.length} features, dimmed with "Take Chest first." until taken; hovering BellyBone1 lights its ${bellyIds.length} joints, leaving restores, the camera stays`);
+    // Keep BellyBone1: one Undo step, the motion changes.
+    const still = await motion(page);
+    await bellyRow.locator('input').click(); await page.waitForTimeout(1800);
+    assert.deepEqual((await state(page)).recipe.features?.[belly.id], { keep: 1 }, 'features: the switch keeps BellyBone1');
+    assert.notEqual(await motion(page), still, 'features: the belly moves differently');
+    await s.shot('03-bellybone1-kept', shots8);
+    // Closed, the header still says a feature is kept; the fold stays as the user leaves it.
+    await header(dialog).click(); await page.waitForTimeout(300);
+    assert.equal(await fold(dialog).getAttribute('open'), null, 'features: closed again');
+    assert.match((await header(dialog).innerText()).trim(), /^Own features \(\d+\)\s*·\s*1 kept$/, 'features: the closed header shows the kept feature');
+    await s.shot('03b-fold-closed-one-kept', shots8);
+    await dialog.locator('button[data-part="armL"]').click(); await page.waitForTimeout(300);
+    assert.equal(await fold(dialog).getAttribute('open'), null, 'features: the fold stays as the user left it');
+    await header(dialog).click(); await page.waitForTimeout(300);
+    // Pads and cloth follow is gone from the part controls.
+    await dialog.locator('button[data-part="chest"]').click(); await page.waitForTimeout(300);
+    assert.equal(await s.parts().getByText('Pads and cloth follow', { exact: true }).count(), 0, 'features: no Pads and cloth follow in the part controls');
+    await dialog.locator('button[data-part="all"]').click(); await page.waitForTimeout(300);
+    assert.equal(await s.parts().getByText('Pads and cloth follow', { exact: true }).count(), 0, 'features: nor in All taken parts');
+    // A setup to file with BellyBone1 kept (loaded on the Footman below).
+    await stubDialogs(s.app, { save: setupFile });
+    await dialog.getByRole('button', { name: 'Save as…' }).click();
+    await dialog.getByLabel('Preset name').fill('Nurgle belly');
+    await dialog.getByRole('button', { name: 'Save to file…' }).click();
+    for (let i = 0; i < 40 && !fs.existsSync(setupFile); i++) await page.waitForTimeout(250);
+    assert.deepEqual(JSON.parse(fs.readFileSync(setupFile, 'utf8')).features, { BellyBone1: { keep: 1 } }, 'features: the setup keeps the feature by name');
+    await dialog.locator('.xf-caption').first().click(); await page.keyboard.press('Control+z'); await page.waitForTimeout(1500);
+    assert.equal((await state(page)).recipe.features?.[belly.id], undefined, 'features: one Undo removes it');
+    assert.equal(await motion(page), still, 'features: and the motion is as before');
+    results.checks.push('features: keeping BellyBone1 sets recipe.features[id] = { keep: 1 } and changes the motion; the closed fold says "1 kept" and stays as left; one Undo removes it; Pads and cloth follow is gone');
+    // An old setup with follow: 1 still drives the loose joints.
+    const attackName = 'Attack - 1';
+    const oldSetup = follow => { const file = path.join(out, `old follow ${follow}.mdlxl-preset`); fs.writeFileSync(file, JSON.stringify({ kind: 'mdlxl-transfer-setup', version: 1, name: 'Old chest', body: nurgleModel.Sequences[(nurgleSeq >= 0 ? nurgleSeq : 0)].Name, length: null,
+      sources: { g: { kind: 'file', path: grunt, name: 'grunt donor features.mdx', mirror: null } }, parts: { chest: { amount: 1, offset: [0, 0, 0], start: 0, speed: 1, blend: 150, follow, source: 'g', animation: attackName } } })); return file; };
+    const load = async file => { await stubDialogs(s.app, { open: file }); await dialog.getByRole('button', { name: 'Load from…' }).click(); await dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }).click(); await page.waitForTimeout(2500); };
+    await load(oldSetup(0)); const without = await motion(page);
+    await load(oldSetup(1));
+    assert.equal((await state(page)).recipe.parts.chest.follow, 1, 'features: an old setup keeps follow');
+    assert.notEqual(await motion(page), without, 'features: and follow still drives the loose joints');
+    results.checks.push('features: an old setup with follow: 1 loads and still drives the loose joints');
+    await s.noCrash('features');
+  } finally { await s.close(); }
+
+  // The setup on the Footman: BellyBone1 is left out and named.
+  s = await session(copyModel('transfer-footman', 'TEST TRANSFER 24 features setup.mdx'), 'features-setup'); ({ page, dialog } = s);
+  try {
+    await openTransfer(s);
+    await stubDialogs(s.app, { open: setupFile });
+    await dialog.getByRole('button', { name: 'Load from…' }).click();
+    await dialog.locator('.xf-setups').getByRole('button', { name: 'Load from file…', exact: true }).click(); await page.waitForTimeout(3000);
+    assert.match(await dialog.locator('.preset-bar-status').innerText(), /Left out:.*BellyBone1/, 'features: the Footman leaves BellyBone1 out and names it');
+    assert.equal((await state(page)).recipe.features, undefined, 'features: and keeps no feature');
+    results.checks.push('features: the Nurgle setup on the Footman leaves BellyBone1 out and names it');
+    await s.noCrash('features setup');
+  } finally { await s.close(); }
+
+  // Dark theme.
+  const d = await session(copyModel('transfer-nurgle-warrior', 'TEST TRANSFER 25 features dark.mdx'), 'features-dark', { preferences: { theme: 'dark' } });
+  try {
+    await openTransfer(d); await d.openDonor(copyModel('transfer-grunt', 'grunt donor features dark.mdx')); await d.animation('Attack - 1');
+    await d.parts().getByRole('button', { name: 'Take whole body' }).click(); await d.page.waitForTimeout(2000);
+    await d.dialog.locator('details.xf-features-box summary').click(); await d.page.waitForTimeout(300);
+    await d.dialog.locator('.xf-features .xf-feature').filter({ hasText: 'BellyBone1' }).locator('input').click(); await d.page.waitForTimeout(1500);
+    await d.shot('05-dark', shots8);
+    await d.noCrash('features dark');
   } finally { await d.close(); }
 }
 
@@ -1198,11 +1336,11 @@ async function trials() {
 }
 
 (async () => {
-  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true }); fs.mkdirSync(shots8, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

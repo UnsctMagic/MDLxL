@@ -8683,8 +8683,6 @@
   "Load from file…": "从文件加载…",
   "Stay in own range": "保持在自身范围内",
   "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.": "让此部位保持在本模型自身动画的范围内：弯曲、倾斜或下蹲不会超过它在其他任何地方的程度。",
-  "Pads and cloth follow": "护肩和布料跟随",
-  "{0} move with this part, the way they do in this model's own animations.": "{0} 随此部位移动，方式与本模型自身动画中相同。",
   "Keep arm out of the body": "让手臂不穿入身体",
   "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.": "转动肩部，使手臂不穿过胸部、臀部或头部。与另一只手一起握持双手武器的手臂保持不变。",
   "Add after": "添加在后",
@@ -8703,5 +8701,14 @@
   "Donor: Mount": "来源：坐骑",
   "This model: Both": "此模型：两者",
   "This model: Rider": "此模型：骑手",
-  "This model: Mount": "此模型：坐骑"
+  "This model: Mount": "此模型：坐骑",
+  "Own features": "自身特征",
+  "Keeps this feature moving the way it does in this model's own animation of the same kind.": "让此特征按本模型自身同类动画中的方式移动。",
+  "It is part of the body: arms are kept out of it.": "它是身体的一部分：手臂不会穿入其中。",
+  "Take {0} first.": "请先获取{0}。",
+  "Keep {0}'s own movement": "保留{0}自身的运动",
+  "{0} · 1 bone": "{0} · 1 根骨骼",
+  "{0} · {1} bones": "{0} · {1} 根骨骼",
+  "Own features ({0})": "自身特征（{0}）",
+  "{0} kept": "已保留 {0}"
 }

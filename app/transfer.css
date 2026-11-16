@@ -149,3 +149,16 @@
 .transfer-picks .xp-message p{margin:0}
 .transfer-picks .xp-path{color:var(--ui-muted,#444);overflow-wrap:anywhere}
 .transfer-picks .xp-problem{margin:0;color:var(--ui-danger,#b00000)}
+
+/* Own features (round 8): one switch per feature of the open model, about six rows before it scrolls. */
+/* The same fold look as Timing. */
+.transfer-xl .xf-features-box{flex:none;border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
+.transfer-xl .xf-features-box>summary{cursor:pointer;font-weight:bold;padding:2px 0}
+.transfer-xl .xf-features-box>summary>:is(svg,.spacer){display:none}
+.transfer-xl .xf-features-box>.section-body{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+.transfer-xl .xf-features{flex:none;max-height:calc(6 * 21px + 2px);overflow-y:auto}
+.transfer-xl .xf-list .xf-feature{height:21px;min-height:21px;padding:0 4px;gap:5px;cursor:default}
+.transfer-xl .xf-feature>input{flex:none;margin:0}
+.transfer-xl .xf-feature-name{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.transfer-xl .xf-feature>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
+.transfer-xl .xf-list .xf-feature.xf-off{opacity:.5}

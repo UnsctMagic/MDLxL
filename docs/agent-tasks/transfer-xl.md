@@ -1038,3 +1038,27 @@ Engine as built (director), no names, no model-specific rule:
   learned share, chains play the model's own animation of the same kind, and a kept body feature
   turns the arm guard on for the trunk joint it belongs to, even with `avoid` off.
 - 38 engine tests; 32 trial fingerprints identical.
+
+### Round 8 window as built (window coder)
+
+- **Own features** under the parts list, a fold exactly like Timing (the shared `Section`, closed at first, stays as the user leaves it while the window is open; owner: "no regressions, only extra options that show up when needed", since even the Footman has one feature). Its header reads "Own features (N)" and, when any is kept, "· K kept", so a kept feature is never hidden. It shows only when `transferFeatures` (body
+  animation, `base.actor`) returns a feature on a part the open model has. One row per feature: its
+  name (`translate="no"`), "<Part> · N bones" ("1 bone"), one switch (aria-label "Keep <name>'s own
+  movement"). Rows of untaken parts are dimmed with "Take <Part> first."; the row tooltip is the
+  contract sentence, plus the body sentence for a body feature. The list scrolls inside itself after
+  about six rows. No hotkey ids (per-row switches).
+- Hovering or focusing a row sets the result's `inspectPaths` to the feature's joints (names mapped to
+  ids on the open model), same colour as the selected part's; leaving restores it. No camera change.
+- The switch writes `recipe.features[id] = { keep: 1 }` or removes the entry, one Undo step. Switching a
+  part off and Clear all leave the entries.
+- **Pads and cloth follow** is gone from the part controls and All taken parts (its two strings left
+  the catalogs, `transfer:follow` left the manifest); `follow` in old setups still works.
+- Setups save kept features by the top joint's name (`features: { name: { keep } }`) and map them back
+  by name; a name this model lacks is left out and named in the "Left out:" sentence. An old setup
+  gets no `features`. Add all and the pick sheet pass `recipe.features` untouched.
+- Slider rule: the strip's scrub (also the pick sheet's) is marked `data-time-scrub`; it is the only
+  bare range input in the Transfer files. `test/ui-primitives.test.js` passes.
+- Harness: the motion checksum now reads each joint's effective track (a swapped-in live track wins),
+  so a track swap alone no longer counts as a change; round 7's follow check became "the switch is
+  gone". Story `features` (6 checks); helper test 24.
+- Found: the Footman has one feature (Box04, Hips), so "a model with no features" uses the Grunt.

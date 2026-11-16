@@ -1877,8 +1877,6 @@
     "Load from file…",
     "Stay in own range",
     "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.",
-    "Pads and cloth follow",
-    "{0} move with this part, the way they do in this model's own animations.",
     "Keep arm out of the body",
     "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.",
     "Add after",
@@ -1899,7 +1897,16 @@
     "Donor: Mount",
     "This model: Both",
     "This model: Rider",
-    "This model: Mount"
+    "This model: Mount",
+    "Own features",
+    "Keeps this feature moving the way it does in this model's own animation of the same kind.",
+    "It is part of the body: arms are kept out of it.",
+    "Take {0} first.",
+    "Keep {0}'s own movement",
+    "{0} · 1 bone",
+    "{0} · {1} bones",
+    "Own features ({0})",
+    "{0} kept"
   ],
   "paint": [
     "Citadel Paint",

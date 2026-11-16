@@ -271,8 +271,10 @@ export const SETUP_KIND = 'mdlxl-transfer-setup';
 const nameIndex = (model, name) => (model?.Sequences || []).findIndex(sequence => String(sequence.Name || '').trim().toLowerCase() === String(name || '').trim().toLowerCase());
 
 /** A setup file: the recipe with sources by file or game path and animations by name.
- * `describe(sourceId)` gives { kind: 'self' | 'file' | 'library', path, name, model }. */
-export function setupFromRecipe(recipe, model, describe, name) {
+ * `describe(sourceId)` gives { kind: 'self' | 'file' | 'library', path, name, model }.
+ * `features` (transferFeatures of the open model): kept features are saved by their top joint's name,
+ * since joint ids differ between models. */
+export function setupFromRecipe(recipe, model, describe, name, features = []) {
   const sources = {}, parts = {};
   // Every part field travels (range, follow, avoid, clip, ...): only the source becomes a reference
   // and the animation a name, for the part and for each chained clip in `next`.
@@ -289,7 +291,9 @@ export function setupFromRecipe(recipe, model, describe, name) {
     const next = (Array.isArray(part.next) ? part.next : []).map(saved).filter(Boolean);
     parts[key] = next.length ? { ...first, next } : first;
   }
-  return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', ...(recipe?.base?.actor ? { bodyActor: recipe.base.actor } : {}), length: recipe?.length ?? null, sources, parts };
+  const kept = {};
+  for (const [id, value] of Object.entries(recipe?.features || {})) { const feature = features.find(item => String(item.id) === String(id)); if (feature && value?.keep) kept[feature.name] = { ...value }; }
+  return { kind: SETUP_KIND, version: 1, name: String(name || ''), body: model?.Sequences?.[recipe?.base?.sequence]?.Name || '', ...(recipe?.base?.actor ? { bodyActor: recipe.base.actor } : {}), length: recipe?.length ?? null, sources, parts, ...(Object.keys(kept).length ? { features: kept } : {}) };
 }
 
 /** Reads a setup's text; throws a short sentence when it is not one. */
@@ -302,8 +306,9 @@ export function parseSetup(text) {
 
 /** The recipe a setup makes on `model`: `donors` maps each setup source id to { id, model } (or null when
  * it could not be opened). Parts the model lacks, animations a donor lacks and missing donors are left
- * out and named in `left`. `fallbackBase` is used when the model has no animation of the setup's body name. */
-export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
+ * out and named in `left`. `fallbackBase` is used when the model has no animation of the setup's body name.
+ * `features` (transferFeatures of the open model) maps kept features by name; ones it lacks are named. */
+export function recipeFromSetup(setup, model, rig, donors, fallbackBase, features = []) {
   const left = [], parts = {}, sources = {};
   const body = nameIndex(model, setup.body);
   // A source's Mirror and reading (Both, Rider, Mount) when the setup has them; an old setup has neither.
@@ -332,5 +337,12 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase) {
     }
     parts[key] = next.length ? { ...values, source: donor.id, sequence, next } : { ...values, source: donor.id, sequence };
   }
-  return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase, ...(setup.bodyActor ? { actor: setup.bodyActor } : {}) }, length: setup.length ?? null, sources, parts }, left: [...new Set(left)] };
+  // Kept features by name: this model's feature of that name, else left out and named.
+  let kept = null;
+  for (const [featureName, value] of Object.entries(setup.features && typeof setup.features === 'object' ? setup.features : {})) {
+    const feature = features.find(item => item.name === featureName);
+    if (!feature) { left.push(`feature:${featureName}`); continue; }
+    (kept ||= {})[feature.id] = { ...value };
+  }
+  return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase, ...(setup.bodyActor ? { actor: setup.bodyActor } : {}) }, length: setup.length ?? null, sources, parts, ...(kept ? { features: kept } : {}) }, left: [...new Set(left)] };
 }

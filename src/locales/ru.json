@@ -8777,8 +8777,6 @@
   "Load from file…": "Загрузить из файла…",
   "Stay in own range": "В пределах своих движений",
   "Keeps this part inside what this model's own animations do: no deeper bend, lean or crouch than it has anywhere else.": "Держит эту часть в пределах того, что делают собственные анимации модели: не сгибается, не наклоняется и не приседает сильнее, чем где-либо ещё.",
-  "Pads and cloth follow": "Наплечники и ткань следуют",
-  "{0} move with this part, the way they do in this model's own animations.": "{0} двигаются вместе с этой частью так же, как в собственных анимациях модели.",
   "Keep arm out of the body": "Не пускать руку в тело",
   "Turns the shoulder so the arm does not pass through the chest, hips or head. An arm that holds a two-handed weapon with the other is left alone.": "Поворачивает плечо, чтобы рука не проходила сквозь грудь, бёдра или голову. Рука, держащая двуручное оружие вместе с другой, не меняется.",
   "Add after": "Добавить после",
@@ -8797,5 +8795,14 @@
   "Donor: Mount": "Донор: скакун",
   "This model: Both": "Эта модель: оба",
   "This model: Rider": "Эта модель: всадник",
-  "This model: Mount": "Эта модель: скакун"
+  "This model: Mount": "Эта модель: скакун",
+  "Own features": "Собственные особенности",
+  "Keeps this feature moving the way it does in this model's own animation of the same kind.": "Эта особенность двигается так же, как в собственной анимации модели того же вида.",
+  "It is part of the body: arms are kept out of it.": "Это часть тела: руки не проходят сквозь неё.",
+  "Take {0} first.": "Сначала возьмите: {0}.",
+  "Keep {0}'s own movement": "Сохранить собственное движение: {0}",
+  "{0} · 1 bone": "{0} · 1 кость",
+  "{0} · {1} bones": "{0} · костей: {1}",
+  "Own features ({0})": "Собственные особенности ({0})",
+  "{0} kept": "сохранено: {0}"
 }
