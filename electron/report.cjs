@@ -4,7 +4,9 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 
-const ENDPOINT = 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/feedback';
+// Test builds may point at an inbox on this PC only; any other override is ignored.
+const LOCAL_TEST = /^http:\/\/127\.0\.0\.1:\d{2,5}\/api\/feedback$/.test(process.env.MDLXL_REPORT_ENDPOINT || '') ? process.env.MDLXL_REPORT_ENDPOINT : null;
+const ENDPOINT = LOCAL_TEST || 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/feedback';
 const MAX_LENGTH = 2000;
 const ID_FILE = 'report-id.txt';
 
