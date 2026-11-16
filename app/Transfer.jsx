@@ -28,7 +28,7 @@ const GameFileBrowser = lazy(() => import('./GameFileBrowser.jsx'));
 // Everything applyTransfer can write: the new animation, and the body animation copied
 // into every track (geosets, materials, texture animations, every node kind, cameras).
 const SECTIONS = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Bones', 'Helpers', 'Attachments', 'Lights', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'EventObjects', 'CollisionShapes', 'Cameras'];
-const HIGHLIGHT = '#ffe14d', PATH = '#ff8a2a';
+const HIGHLIGHT = '#ffe14d';
 const noop = () => {};
 const sequenceName = (model, index) => model?.Sequences?.[index]?.Name || `Animation ${index + 1}`;
 // Model names are shown without their file extension ("grunt donor", not "grunt donor.mdx").
@@ -84,7 +84,7 @@ const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseC
   const interval = donor.model.Sequences?.[sequence]?.Interval;
   const [time, setTime] = useState(interval?.[0] ?? 0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   useEffect(() => { setTime(interval?.[0] ?? 0); }, [donor.model, sequence]);
-  const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
+  const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, motion: true, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
   const view = useRef(null), onViewReady = useCallback(api => { view.current = api; }, []);
   const options = useMemo(() => (donor.model.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(donor.model, i), own: true })), [donor.model]);
   return <>
@@ -412,7 +412,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!limb || !preview || viewSeq != null) return null;
     try { return jointPath(withNodeTracks(preview.model, liveTracks), preview.sequenceIndex, selectedPart.marker); } catch { return null; }
   }, [limb, preview, liveTracks, viewSeq, selectedPart]);
-  const resultOverlayPath = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, color: PATH, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : [], [resultPath, time]);
+  const resultOverlayPath = useMemo(() => resultPath?.points.length > 1 ? [{ points: resultPath.points, motion: true, width: 3, alpha: .95, marker: pathMarker(resultPath.frames, time) }] : [], [resultPath, time]);
   const donorPath = useMemo(() => {
     const rig = limb && donor && selectedFrom ? rigFor(donor.model, donorSeq, donorActor) : null;
     if (!rig?.parts?.[selectedFrom]) return null;
