@@ -678,7 +678,7 @@ function bodyShapes(model, info, rig, ref, partOf, keyedLoose, featureOf = new M
   const features = new Map();
   for (const [top, entry] of skin) {
     const home = partHome(top), share = entry.shared / entry.own, body = entry.own >= 6 && (share >= 0.4 || share >= 0.25 && entry.open / entry.own <= 0.3) && home != null && partOf.get(home).kind === 'trunk';
-    features.set(top, { joint: top, body, home: body ? home : null, shared: entry.shared / entry.own, open: entry.open / entry.own });
+    features.set(top, { joint: top, body, home: body ? home : null, shared: entry.shared / entry.own, open: entry.open / entry.own, size: entry.own });
     if (body) { if (!clouds.has(home)) clouds.set(home, []); for (const point of entry.points) clouds.get(home).push(local(home, point)); }
   }
   const trunk = [];
@@ -1146,7 +1146,7 @@ export function transferFeatures(model, { sequence, actor } = {}) {
   const own = ownMotion(model, rig), info = modelInfo(model), name = id => info.byId.get(id)?.Name || String(id), found = new Map();
   for (const item of [...own.followers, ...own.chains]) {
     const top = own.featureOf.get(item.id);
-    if (!found.has(top)) found.set(top, { id: top, name: name(top), part: item.part, joints: [], body: !!own.shapes.features.get(top)?.body, shared: own.shapes.features.get(top)?.shared ?? 0, open: own.shapes.features.get(top)?.open ?? 0 });
+    if (!found.has(top)) found.set(top, { id: top, name: name(top), part: item.part, joints: [], size: own.shapes.features.get(top)?.size ?? 0, body: !!own.shapes.features.get(top)?.body, shared: own.shapes.features.get(top)?.shared ?? 0, open: own.shapes.features.get(top)?.open ?? 0 });
     found.get(top).joints.push(name(item.id));
     if (item.id === top) found.get(top).part = item.part;
   }
