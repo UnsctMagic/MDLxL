@@ -548,3 +548,64 @@ exists after a short investigation, leave it out and say why.
 
 Driven by the director's look at whole animation sets (walks, deaths, victory, spells) once W1
 exists; listed here when found.
+
+## Round 4 (night of 16 Nov 2026)
+
+Owner, going to sleep: "you have no limits, you can make the BEST animation transferer. I kinda
+just wanna be wowed." Director's plan for the night. Each item is built, tested and committed on
+its own, so a shaky item can be left out of the morning build.
+
+### Engine (weapons and moment fixes)
+
+- **N1 weapon shape.** An arm part knows its weapon: every vertex skinned only to joints at or
+  below the limb's end joint; when their longest principal extent is more than 0.6 of the arm's
+  length there is a weapon. Keep, in the end joint's reference space, its axis ends (`butt`,
+  `tip`), its length and up to twelve outline points (the extremes along its three principal
+  axes). `part.weapon` becomes that object (or null); `rig.weaponSide` as before.
+- **N2 both hands on the weapon.** The open model holds its weapon with two hands when, in its
+  reference pose, the other arm's hand lies on the weapon (closer to the butt-tip line than a
+  fifth of its own forearm length; calibrate on the Kurgan Warlord's hammer, the Tauren's totem,
+  the Footman, the Grunt and the Nurgle warrior, and state the rule you end with). Then, whenever
+  the weapon arm is taken, the other hand stays on its grip point (where it was on the weapon in
+  the reference pose, kept in the weapon hand's space): solve the other arm with the existing
+  length-then-aim solver after the weapon arm, starting from that arm's own taken or body-animation
+  pose, weighted by the weapon arm's weight. Recipe: `grip` on the weapon arm, null = automatic,
+  true/false = user. The other arm's joints become driven.
+- **N3 weapon above the ground.** For a taken weapon arm (recipe `clear`, null = on): when an
+  outline point would go below the model's ground level, raise the arm about its root by the
+  least angle that lifts it, searched per sample, then made smooth in time (the largest need
+  within 80 ms either side, then a 60 ms blur) so the lift eases in and out. Runs before N2.
+- **N4 point the weapon like theirs.** Recipe `aim` 0..1 on a weapon arm, default 0, used when the
+  donor arm also has a weapon: turn the end joint so the weapon's axis points where the donor's
+  weapon points relative to its chest (after mirroring and facing), by that amount.
+- **N5 fix one moment.** Recipe `fixes: [{ time, raise, turn, roll, width }]` per part (ms in the
+  result, degrees, width default 250 ms): extra aim on top of the part's offset that is full at
+  `time` and fades smoothly to nothing `width` either side (wrapping in a looping result). A
+  planted foot's target moves with it, like the offset.
+- Tests on real models, fail first: Kurgan Warlord taking the Footman's `Attack - 1` on the weapon
+  arm only keeps the other hand within 1.5 units of its grip point at every sample (and it is
+  more than 10 away without N2); Kurgan taking the Grunt's `Attack - 1` whole body keeps every
+  outline point at or above ground minus 0.5 (it goes well below without N3) and the lift never
+  changes by more than 6 degrees between neighbouring samples; N4 at 1 puts the weapon axis within
+  5 degrees of the donor's; N5 moves the hand at `time`, leaves it untouched beyond `width`, and
+  equals the plain result when `fixes` is empty. Look at the Kurgan sheets.
+
+### Window
+
+- **N6 clip timeline.** The strip under the stage becomes a small timeline: Play/Pause, a ruler to
+  scrub, then lanes: the body animation (its loops drawn as repeats), then one lane per taken
+  source animation with the parts that share it (label `Grunt - Attack - 1: Left arm`). A clip is
+  dragged sideways to change Delay and by its right edge to change Speed; the Ease ramps are drawn
+  at its ends; moment fixes show as diamonds on their lane (click = jump there and select the
+  part, Delete removes). Compact lanes, scroll past four. Timing sliders stay in the fold and stay
+  in step. Drags follow the live-drag rule.
+- **N7 this moment.** The drag from W2 gets a scope switch beside the part's aim sliders,
+  `Whole movement | This moment`. This moment writes a fix (N5) at the paused time instead of the
+  constant aim; dragging again near an existing fix edits that one. `Clear fixes` on the part.
+- **N8 weapon switches** on a weapon arm: `Both hands on the weapon` (when the model holds it so),
+  `Keep weapon above the ground`, `Point weapon like theirs`. One short tooltip each.
+- **N9 save and load a setup.** `Save as` / `Load from` like FX's look bar (`app/FxLookBar.jsx`,
+  `app/PresetBar.jsx`): a saved setup holds the recipe with sources by file or game path and
+  animations by name. Loading on another model reopens the donors (a missing one is asked for
+  once), maps parts and animations by name and leaves out what the model lacks. With Add all this
+  turns a whole warband into one setup. Time box: last, only if N6-N8 are solid.
