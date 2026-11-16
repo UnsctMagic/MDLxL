@@ -1,45 +1,73 @@
-/* Transfer: a near full-size window in the MDLxL theme, built like AnimXL. Only the previews stay dark like the viewport. */
-.resource-editor .re-window.xf-window{width:calc(100vw - 24px);height:calc(100vh - 24px);min-width:680px;min-height:480px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden;gap:4px}
-/* Mirror and Original stay visibly pressed in every look. */
-.resource-editor .xf-window :is(.xf-pane-head,.xf-footer)>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
-.resource-editor .xf-panes{flex:1;min-height:0;display:flex;gap:6px;padding:0 2px}
-.resource-editor .xf-pane{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding:3px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
-.resource-editor .xf-pane-head,.resource-editor .xf-pane-foot{display:flex;align-items:center;gap:6px;min-height:24px;flex-wrap:wrap}
-.resource-editor .xf-pane-head>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.resource-editor .xf-pane-head select{min-width:0;max-width:60%}
-.resource-editor .xf-pane-head>button{margin-left:auto}
-.resource-editor .xf-pane-foot label{display:inline-flex;align-items:center;gap:4px;min-width:0}
-.resource-editor .xf-pane-foot select{min-width:0;max-width:220px}
-.resource-editor .xf-preview{flex:1;min-height:0;position:relative;border:1px solid var(--ui-border,#8b8b87);background:#000;overflow:hidden}
-.resource-editor .xf-preview>.game-preview,.resource-editor .xf-preview>div:not(.xf-choices):not(.xf-overlay-note){position:absolute;inset:0}
-.resource-editor .xf-choices{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;background:var(--ui-surface,var(--ui-panel,#f0f0f0));color:var(--ui-text,#16191e);overflow:auto}
-.resource-editor .xf-choices>span{font-weight:bold;margin-bottom:4px}
-.resource-editor .xf-window .xf-choices>button{min-width:220px;max-width:100%;min-height:30px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.resource-editor .xf-overlay-note{position:absolute;left:6px;right:6px;bottom:6px;z-index:5;padding:4px 8px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
-.resource-editor .xf-overlay-note p{margin:0}
-.resource-editor .xf-message{top:6px;bottom:auto}
-.resource-editor .xf-note{color:var(--ui-muted,#444)}
-.resource-editor .xf-preview>.xf-note{position:absolute;left:6px;top:6px;color:#ccc}
-.resource-editor .xf-problems{flex:1;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
-.resource-editor .xf-parts{flex:none;display:flex;flex-direction:column;gap:4px;margin:0 2px;padding:4px 6px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
-.resource-editor .xf-chips{display:flex;flex-wrap:wrap;gap:3px}
-.resource-editor .xf-window .xf-chip{min-height:24px;padding:0 9px}
-/* A taken part is filled with the accent colour in every look; the chosen chip also gets an inner ring. */
-.resource-editor .xf-window .xf-chip.xf-taken{background:var(--ui-accent,#71b5f3)!important;color:#111!important;font-weight:bold}
-.resource-editor .xf-window .xf-chip[aria-pressed="true"]{outline:2px solid var(--ui-text,#16191e);outline-offset:-3px;font-weight:bold}
-.resource-editor .xf-part-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:24px}
-.resource-editor .xf-part-row>b{min-width:70px}
-.resource-editor .xf-source{color:var(--ui-muted,#444)}
-.resource-editor .xf-sliders{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px 14px;align-items:end}
-.resource-editor .xf-check{display:flex;gap:4px;align-items:center;min-height:24px}
-.resource-editor .xf-footer{display:flex;align-items:center;gap:4px;padding:2px 2px 2px;flex-wrap:wrap}
-.resource-editor .xf-scrub{flex:1 1 220px;min-width:120px;max-width:520px}
-.resource-editor .xf-time{min-width:52px;font-variant-numeric:tabular-nums;color:var(--ui-muted,#333)}
-.resource-editor .xf-spacer{flex:1}
-.resource-editor .xf-name{display:inline-flex;align-items:center;gap:4px}
-.resource-editor .xf-name input{width:170px;min-width:0}
-.resource-editor .xf-window .xf-add{font-weight:bold}
-.resource-editor .xf-added{color:var(--ui-muted,#333);white-space:nowrap}
+/* Transfer: the FX window's size and three columns (surface-effects.css), in the MDLxL theme.
+   From list left, donor and result with the transport under them in the middle, parts right. */
+.resource-editor.transfer-xl .xf-window{width:1140px;height:740px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);resize:both;overflow:hidden}
+.transfer-xl .xf-body{display:grid;grid-template-columns:190px minmax(300px,1fr) 250px;flex:1;min-height:0;padding:8px;gap:8px}
+.transfer-xl .xf-from,.transfer-xl .xf-controls{display:flex;flex-direction:column;min-height:0;gap:6px}
+.transfer-xl .xf-heading{font-size:12px}
+.transfer-xl .xf-list{display:flex;flex-direction:column;gap:0;overflow:auto;min-height:0;background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-from>.xf-list:first-of-type{flex:none;max-height:40%}
+.transfer-xl .xf-animations{flex:1}
+.transfer-xl .xf-list .gf-row{position:relative;width:100%;min-height:24px;height:24px;padding:0 6px;border:0;border-radius:0;box-shadow:none;background:transparent;text-align:left;font-weight:normal;font-size:12px;gap:5px;display:flex;align-items:center;justify-content:flex-start;color:var(--ui-text,#16191e)}
+.transfer-xl .xf-list .gf-row:hover{background:var(--ui-hover,#e7e3db)}
+.transfer-xl .xf-list .gf-row.selected{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-list .gf-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-xl .xf-list .gf-twist{display:none}
+.transfer-xl .xf-list .xf-action{color:var(--ui-muted,#444)}
+.transfer-xl .xf-empty{padding:6px}
+/* Stage: two views side by side, each with a one-line caption; the transport directly under them. */
+.transfer-xl .xf-center{min-width:0;display:flex;flex-direction:column;gap:7px}
+.transfer-xl .xf-stage{flex:1;min-height:150px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.transfer-xl .xf-view{min-width:0;min-height:0;display:flex;flex-direction:column;gap:3px}
+.transfer-xl .xf-caption{display:flex;align-items:center;gap:6px;min-height:24px;color:var(--ui-text,#16191e)}
+.transfer-xl .xf-caption>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:bold}
+.transfer-xl .xf-caption>button{flex:none}
+.transfer-xl .xf-preview{flex:1;min-height:0;position:relative;overflow:hidden;border:1px solid var(--ui-border,#888);background:#222}
+.transfer-xl .xf-preview>div:not(.xf-overlay-note):not(.xf-placeholder){position:absolute;inset:0}
+.transfer-xl .xf-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;background:var(--ui-surface,var(--ui-panel,#f0f0f0));color:var(--ui-muted,#444)}
+.transfer-xl .xf-overlay-note{position:absolute;left:6px;right:6px;bottom:6px;z-index:5;padding:4px 8px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-overlay-note p{margin:0}
+.transfer-xl .xf-message{top:6px;bottom:auto}
+.transfer-xl .xf-note{color:var(--ui-muted,#444);margin:0}
+.transfer-xl .xf-preview>.xf-note{position:absolute;left:6px;top:6px;color:#ccc}
+.transfer-xl .xf-transport{display:flex;gap:5px;align-items:center}
+.transfer-xl .xf-scrub{flex:1;min-width:80px}
+.transfer-xl .xf-time{min-width:48px;font-variant-numeric:tabular-nums;color:var(--ui-muted,#333)}
+/* Parts column. */
+.transfer-xl .xf-controls{overflow:auto;padding:0 4px 0 2px}
+.transfer-xl .xf-field{display:flex;align-items:center;gap:5px}
+.transfer-xl .xf-field select{flex:1;min-width:0}
+.transfer-xl .xf-row-buttons{display:flex;gap:4px}
+.transfer-xl .xf-row-buttons>button{flex:1;min-width:0;padding:3px 4px}
+.transfer-xl .xf-reason{font-size:11px}
+.transfer-xl .xf-parts{flex:none}
+.transfer-xl .xf-list .xf-part{height:auto;min-height:24px;padding:0 4px;gap:4px}
+.transfer-xl .xf-part>input{flex:none;margin:0}
+.transfer-xl .xf-list .xf-all{border-bottom:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-list .xf-all>.xf-part-name{font-weight:bold;padding-left:20px}
+.transfer-xl .xf-list .xf-all>.xf-part-name:disabled{color:var(--ui-muted,#777)!important;font-weight:normal}
+.transfer-xl .xf-list .xf-part-name{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:flex-start;gap:6px;padding:3px 2px;border:0;border-radius:0;background:transparent!important;box-shadow:none!important;color:inherit!important;text-align:left;font-size:12px}
+.transfer-xl .xf-part-name>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
+.transfer-xl .xf-part.selected .xf-part-name>small{color:inherit}
+.transfer-xl .xf-part-controls{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--ui-border,#8b8b87);padding-top:5px}
+.transfer-xl .xf-part-title{display:flex;align-items:center;gap:6px;min-height:24px}
+.transfer-xl .xf-part-title>b{flex:1}
+.transfer-xl .xf-part-controls>button{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-xl .xf-slider .range-field{width:100%}
+.transfer-xl .xf-check{display:flex;gap:4px;align-items:center}
+.transfer-xl .xf-timing{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
+.transfer-xl .xf-timing>summary{cursor:pointer;font-weight:bold;padding:2px 0}
+.transfer-xl .xf-timing>summary>:is(svg,.spacer){display:none}
+.transfer-xl .xf-timing>.section-body{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+/* Mirror, Other side and Original stay visibly pressed in every look. */
+.resource-editor.transfer-xl .xf-window :is(.xf-caption,.xf-transport,.xf-part-title)>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-problems{flex:1;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e)}
+.transfer-xl .xf-footer{display:flex;gap:7px;align-items:center;padding:8px 10px;border-top:1px solid var(--ui-border,#999)}
+.transfer-xl .xf-name{display:inline-flex;align-items:center;gap:5px}
+.transfer-xl .xf-name input{width:200px;min-width:0}
+.transfer-xl .xf-spacer{flex:1}
+.transfer-xl .xf-added{color:var(--ui-muted,#333);white-space:nowrap}
+.resource-editor.transfer-xl .xf-window .xf-add{font-weight:bold;padding:5px 18px}
+@media(max-width:1000px){.transfer-xl .xf-body{grid-template-columns:160px minmax(260px,1fr) 215px}}
 /* The Library picker opens over Transfer. */
 .xf-library .xf-library-header{justify-content:space-between}
 .xf-library .xf-library-header>span{color:var(--ui-text,#16191e);font-weight:bold;font-size:13px}

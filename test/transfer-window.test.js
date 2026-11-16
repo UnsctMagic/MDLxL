@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { chipOrder, donorPartKey, handlePart, partHandle, takenSummary } from '../src/transfer-window.js';
+import { chipOrder, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -51,4 +51,46 @@ test('takenSummary changes with a part\'s source or animation, not with its slid
   const recipe = { sources: {}, parts: { armL: { source: 'a', sequence: 1, amount: 1 } } };
   assert.equal(takenSummary(recipe), takenSummary({ ...recipe, parts: { armL: { ...recipe.parts.armL, amount: 0.5 } } }));
   assert.notEqual(takenSummary(recipe), takenSummary({ ...recipe, parts: { armL: { ...recipe.parts.armL, sequence: 2 } } }));
+});
+
+test('Other side and the donor Mirror combine: each flips the side once', () => {
+  assert.equal(sourcePartKey('armL', false, false), 'armL');
+  assert.equal(sourcePartKey('armL', false, true), 'armR');
+  assert.equal(sourcePartKey('armL', true, false), 'armR');
+  assert.equal(sourcePartKey('armL', true, true), 'armL');
+  assert.equal(sourcePartKey('head', true, true), 'head');
+});
+
+test('Take whole body on the Knight from the Grunt leaves hips and legs out, with the sentence', { skip: missing('transfer-knight', 'transfer-grunt') }, () => {
+  const knight = load('transfer-knight'), grunt = load('transfer-grunt'), attack = grunt.Sequences.findIndex(s => s.Name === 'Attack - 1');
+  const { parts, reason } = wholeBodyParts(rigFor(knight, 0), rigFor(grunt, attack));
+  assert.ok(parts.length > 0 && !parts.includes('hips') && !parts.some(key => /^leg/.test(key)), parts.join(','));
+  assert.match(reason, /different number of legs/);
+  const foot = load('transfer-footman'), same = wholeBodyParts(rigFor(foot, 0), rigFor(grunt, attack));
+  assert.equal(same.reason, '');
+  assert.ok(same.parts.includes('hips'));
+});
+
+test('the drawn hand path follows the animation and its dot follows the time', { skip: missing('transfer-grunt') }, () => {
+  const grunt = load('transfer-grunt'), attack = grunt.Sequences.findIndex(s => s.Name === 'Attack - 1'), rig = rigFor(grunt, attack);
+  const path = jointPath(grunt, attack, rig.parts.armL.marker);
+  assert.equal(path.frames.length, path.points.length);
+  assert.ok(path.points.length > 10);
+  const span = Math.max(...[0, 1, 2].map(a => Math.max(...path.points.map(p => p[a])) - Math.min(...path.points.map(p => p[a]))));
+  assert.ok(span > 20, `the swinging hand travels ${span.toFixed(1)} units`);
+  assert.equal(pathMarker(path.frames, path.frames[5] + 1), 5);
+});
+
+test('the result view gets handles for taken parts only, and none when nothing is taken', { skip: missing('transfer-footman') }, () => {
+  const { rig, pose } = rigAndPose(load('transfer-footman'));
+  assert.equal(takenPoseConfig(pose, rig, []), null);
+  const arm = takenPoseConfig(pose, rig, ['armL']);
+  assert.equal(arm.chains.length, 1);
+  assert.equal(handlePart(rig, pose, { kind: 'endpoint', key: arm.chains[0].key }), 'armL');
+  assert.equal(arm.body, -1);
+  assert.deepEqual(arm.nodes, []);
+  const body = takenPoseConfig(pose, rig, ['hips', 'head']);
+  assert.equal(body.body, pose.body);
+  assert.equal(body.chains.length, 0);
+  assert.ok(body.nodes.every(id => rig.parts.head.joints.includes(id) || rig.parts.hips.joints.includes(id)));
 });

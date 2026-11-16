@@ -351,7 +351,7 @@ and their guard fixtures, `test/module-button-labels.test.js` / `.browser.cjs`,
 - `app/Transfer.jsx` + `app/transfer.css`; pure helpers in `src/transfer-window.js` (chip order,
   mirrored donor part, POSE handle to part and back) with `test/transfer-window.test.js`.
 - Engine addition: `transferRestoreTracks(recipient, start, built, ids)` gives a node back its
-  body-animation tracks inside the preview's new animation, so Give back / Original swap tracks
+  body-animation tracks inside the preview's new animation, so removing a part and Original swap tracks
   instead of rebuilding the preview (tested equal to a transfer that never took the part).
 - Preview: the result copy is rebuilt only when `doc.revision`, the body animation, the length,
   looping or the body clock rate changes, never while a slider is held; otherwise
@@ -379,6 +379,26 @@ and their guard fixtures, `test/module-button-labels.test.js` / `.browser.cjs`,
 - Harness `test/transfer.electron.cjs` (registered as `transfer` in `scripts/run-packaged-tests.mjs`):
   stories B and A, a click-through of every control (`MDLXL_TRANSFER_SWEEP=1`), Library pick, a
   donor and an open model without parts (`corpus-sd/undead__plaguecloud.mdx`).
+
+### Window as built, round 2 (16 Nov 2026, window coder; awaiting director review)
+
+- FX shell: 1140 x 740, columns 190 / stage / 250. From list (sources, `Open file...`, `Library...`, the
+  chosen source's animations as rows), donor and result views side by side with captions and `Mirror`
+  on the donor caption, transport under them, Parts column (Body animation, Take whole body / Clear all,
+  the reason sentence, the parts list with a switch per row, the selected part's controls with a closed
+  `Timing` fold), footer Name / Added / Cancel / Add animation. The first list row, `All taken parts`
+  (no switch, disabled while nothing is taken, selected by Take whole body), edits every taken part:
+  Strength, Pose, Timing, Travel when Hips is taken, Keep foot on the ground when a leg is taken; shared
+  value or '–'. The result view has POSE handles for taken parts only (`takenPoseConfig`), none when
+  nothing is taken; the donor view keeps one for every part.
+- Path overlay: `jointPath` in `src/transfer-window.js` samples the selected limb's last joint through
+  the result copy with the live tracks swapped in (`withNodeTracks`) and through the donor animation;
+  both drawn with `overlayPaths` (orange, a dot at the current time). Recomputed per slider frame.
+- Engine hooks: `rigFor` = `transferRig(model, { sequence })` (body animation / donor animation),
+  `wholeBodyParts` = `transferWholeBody`, `sourcePartKey(key, mirror, flip)` matches the engine's
+  Other side mapping. Double-click on a slider resets it to `defaultTransferPart`'s value.
+- Strings: the round-1 strings no longer used ("give back" and the old slider names) are removed from
+  the five catalogs and the `current` fixture; the new ones are added.
 
 ## Public text rule
 

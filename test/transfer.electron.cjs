@@ -1,18 +1,23 @@
-// Transfer (XFER) acceptance with real mouse input on the app: docs/agent-tasks/transfer-xl.md "Window acceptance".
-// Disposable profile and model copies under out/; never opens or replaces a user profile. Run it hidden:
+// Transfer (XFER) acceptance with real mouse input on the app: docs/agent-tasks/transfer-xl.md "Window acceptance"
+// and "Round 2". Disposable profile and model copies under out/; never opens or replaces a user profile. Run it hidden:
 // MDLXL_PLAYWRIGHT_MODULE=<playwright-core> MDLXL_TEST_EXE=<MDLxL.exe> node test/transfer.electron.cjs
-// MDLXL_TRANSFER_SWEEP=1 adds a click-through of every control in the window.
+// MDLXL_TRANSFER_SWEEP=1 adds a click-through of every control; MDLXL_TRANSFER_ONLY=B,A,fx,sweep,unreadable,trials picks parts.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
 
-const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui');
+const out = path.resolve(process.env.MDLXL_TRANSFER_OUT || 'out/transfer-ui'), shots = path.join(out, 'round2');
 const results = { checks: [], errors: [], screenshots: [] };
-const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 900000));
+const watchdog = setTimeout(() => { console.error('Transfer harness timed out'); fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ ...results, timedOut: true }, null, 2)); process.exit(3); }, Number(process.env.MDLXL_TRANSFER_TIMEOUT || 1200000));
 
 function copyModel(key, name) {
   const source = fixturePath(key);
   if (!source || !fs.existsSync(source)) throw Error(`Test model ${key} is not on this machine`);
+  const target = path.join(out, name); fs.copyFileSync(source, target); return target;
+}
+function copyTestModel(relative, name) {
+  const source = testModel(relative);
+  if (!fs.existsSync(source)) return null;
   const target = path.join(out, name); fs.copyFileSync(source, target); return target;
 }
 const readModel = async file => { const { parseCompatibleMdx } = await import('../src/mdx-compatibility.js'); const b = fs.readFileSync(file); return parseCompatibleMdx(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); };
@@ -23,106 +28,112 @@ async function session(fixture, label) {
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.waitForFunction(() => !!window.__mdlxl?.model?.(), null, { timeout: 60000 });
   const dialog = page.getByRole('dialog', { name: 'Transfer' });
-  const shot = async name => { const file = path.join(out, name + '.png'); await page.screenshot({ path: file }); results.screenshots.push(file); };
-  const pane = name => dialog.locator(`section[aria-label="${name}"]`);
+  const shot = async name => { const file = path.join(shots, name + '.png'); await page.screenshot({ path: file }); results.screenshots.push(file); };
+  const from = () => dialog.locator('aside[aria-label="From"]'), parts = () => dialog.locator('aside[aria-label="Parts"]');
+  const view = name => dialog.locator(`section[aria-label="${name}"]`);
   const count = () => page.evaluate(() => window.__mdlxl.model().Sequences.length);
   const noCrash = async where => {
     assert.equal(await page.locator('[data-error-boundary],.error-boundary').count(), 0, `${label}: error screen at ${where}`);
     assert.deepEqual(errors, [], `${label}: page errors at ${where}`);
   };
-  // The preview of one pane: camera, frame and handles as its renderer has them.
-  const preview = name => page.evaluate(name => {
-    const root = document.querySelector(`[role="dialog"][aria-label="Transfer"] section[aria-label="${name}"] .game-preview-root`), probe = window.__mdlxl.preview(root), canvas = root.querySelector('canvas'), box = canvas.getBoundingClientRect();
-    return { frame: probe.runtime.native.getFrame(), sequence: probe.props.sequenceIndex, camera: probe.runtime.controls.object.toJSON(), config: probe.props.poseConfig, mode: probe.props.transformMode, box: { x: box.x, y: box.y, width: canvas.clientWidth, height: canvas.clientHeight } };
+  // One view's renderer: camera, frame, handles and the drawn path.
+  const probe = name => page.evaluate(name => {
+    const root = document.querySelector(`[role="dialog"][aria-label="Transfer"] section[aria-label="${name}"] .game-preview-root`), p = window.__mdlxl.preview(root), canvas = root.querySelector('canvas'), box = canvas.getBoundingClientRect();
+    return { frame: p.runtime.native.getFrame(), sequence: p.props.sequenceIndex, camera: p.runtime.controls.object.toJSON(), config: p.props.poseConfig, mode: p.props.transformMode, path: p.props.overlayPaths?.[0]?.points || null, box: { x: box.x, y: box.y, width: canvas.clientWidth, height: canvas.clientHeight } };
   }, name);
   const handles = async (name, model) => {
     const { ObjectLoader } = await import('three'), { projectPoseHandles } = await import('../app/pose-overlay.js');
-    const data = await preview(name), camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    const data = await probe(name), camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     return { box: data.box, list: projectPoseHandles(model, data.config, data.frame, data.sequence, camera, data.box.width, data.box.height, undefined, undefined, undefined, data.mode) };
   };
-  // Pixels of a pane's preview, to prove a camera drag moved the view.
-  const pixels = async name => { const box = await pane(name).locator('.xf-preview').boundingBox(); return page.screenshot({ clip: box }); };
+  const pixels = async name => page.screenshot({ clip: await view(name).locator('.xf-preview').boundingBox() });
   const dragCamera = async name => {
-    const box = await pane(name).locator('.xf-preview').boundingBox(), before = await pixels(name);
+    const box = await view(name).locator('.xf-preview').boundingBox(), before = await pixels(name);
     const x = box.x + box.width * 0.85, y = box.y + box.height * 0.2;
     await page.mouse.move(x, y); await page.mouse.down();
     for (let i = 1; i <= 12; i++) { await page.mouse.move(x - i * 12, y + i * 3); await page.waitForTimeout(16); }
     await page.mouse.up(); await page.waitForTimeout(400);
-    assert.ok(!before.equals(await pixels(name)), `${label}: dragging in the ${name} preview turns its camera`);
+    assert.ok(!before.equals(await pixels(name)), `${label}: dragging in the ${name} view turns its camera`);
   };
-  const dragSlider = async (field, fraction) => {
+  const dragSlider = async (field, fraction, hold) => {
     const input = dialog.locator(`input[data-field="${field}"]`), box = await input.boundingBox();
-    const y = box.y + box.height / 2, from = box.x + box.width * 0.5, to = box.x + box.width * fraction;
-    await page.mouse.move(from, y); await page.mouse.down();
-    for (let i = 1; i <= 10; i++) { await page.mouse.move(from + (to - from) * i / 10, y); await page.waitForTimeout(16); }
+    const y = box.y + box.height / 2, start = box.x + box.width * 0.5, to = box.x + box.width * fraction;
+    await page.mouse.move(start, y); await page.mouse.down();
+    for (let i = 1; i <= 10; i++) { await page.mouse.move(start + (to - start) * i / 10, y); await page.waitForTimeout(25); }
+    if (hold) await hold();
     await page.mouse.up(); await page.waitForTimeout(300);
   };
+  const openDonor = async file => { await stubDialogs(app, { open: file }); await from().getByRole('button', { name: 'Open file...' }).click(); await view('Donor').locator('.xf-caption button', { hasText: 'Mirror' }).waitFor({ timeout: 30000 }); await page.waitForTimeout(500); };
+  const animation = async name => { await from().locator('.xf-animations button', { hasText: new RegExp(`^${name.replace(/[-]/g, '\\-')}$`) }).first().click(); await page.waitForTimeout(400); };
   const close = async () => { if (consoleErrors.length) results.consoleErrors = [...(results.consoleErrors || []), ...consoleErrors.map(text => `${label}: ${text}`)]; if (!closed) { closed = true; try { await page.screenshot({ path: path.join(out, `last-${label}.png`) }); } catch {} } try { await closeApp(app); } catch (error) { console.error('close:', error.message); } };
   let closed = false;
-  return { app, page, dialog, shot, pane, count, noCrash, handles, dragCamera, dragSlider, close, errors, consoleErrors };
+  return { app, page, dialog, shot, from, parts, view, count, noCrash, probe, handles, dragCamera, dragSlider, openDonor, animation, close, errors, consoleErrors };
 }
+const openTransfer = async s => { await s.page.locator('button.transfer-tool').click(); await s.dialog.waitFor(); await s.page.waitForTimeout(800); };
+const pathMoved = (a, b) => !!a && !!b && a.length === b.length && a.some((p, i) => Math.hypot(p[0] - b[i][0], p[1] - b[i][1], p[2] - b[i][2]) > 1);
 
 async function storyB() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER 01.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor.mdx');
   const s = await session(footman, 'B'), { page, dialog } = s;
   try {
     await s.shot('dock');
-    await page.locator('button.transfer-tool').click();
-    await dialog.waitFor();
-    await page.waitForTimeout(800);
-    await s.shot('empty-window');
-    results.checks.push('B: XFER opens Transfer with the donor choices');
+    await openTransfer(s);
+    await s.shot('01-empty-window');
+    assert.equal((await s.probe('Result')).config, null, 'B: with nothing taken the result view has no handles');
+    results.checks.push('B: XFER opens Transfer with the source choices');
     const before = await s.count();
-    await stubDialogs(s.app, { open: grunt });
-    await s.pane('From').getByRole('button', { name: 'Open file...' }).click();
-    await s.pane('From').getByLabel('From', { exact: true }).waitFor();
-    await s.pane('From').getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
-    await s.pane('To').getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
-    await dialog.getByRole('button', { name: 'Pause' }).click();
+    await s.openDonor(grunt);
+    await s.animation('Attack - 1');
+    await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
+    await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click();
     await page.waitForTimeout(600);
     // The Grunt's weapon hand: its armL chain (limb:36).
-    const gruntModel = await readModel(grunt), { box, list } = await s.handles('From', gruntModel);
+    const gruntModel = await readModel(grunt), { box, list } = await s.handles('Donor', gruntModel);
     const hand = list.find(h => h.kind === 'endpoint' && h.chain?.end === 36 && h.visible);
     assert.ok(hand, 'B: the Grunt weapon-hand handle is visible');
-    await page.mouse.click(box.x + hand.x, box.y + hand.y); await page.waitForTimeout(500);
-    const chip = dialog.locator('button[data-part="armL"]');
-    assert.equal(await chip.getAttribute('aria-pressed'), 'true', 'B: clicking the hand handle selects Left arm');
-    assert.match(await chip.getAttribute('class'), /xf-taken/, 'B: clicking the hand handle takes Left arm');
+    await page.mouse.click(box.x + hand.x, box.y + hand.y); await page.waitForTimeout(600);
+    assert.equal(await dialog.locator('button[data-part="armL"]').getAttribute('aria-pressed'), 'true', 'B: clicking the hand handle selects Left arm');
+    assert.equal(await dialog.locator('input[data-part-switch="armL"]').isChecked(), true, 'B: clicking the hand handle takes Left arm');
     results.checks.push('B: clicking the Grunt weapon-hand handle takes and selects Left arm');
+    const own = (await s.probe('Result')).config;
+    assert.equal(own.chains.length, 1, 'B: the result view has a handle for the taken arm only');
+    assert.equal(own.body, -1, 'B: no body handle while Hips is not taken');
+    assert.ok((await s.probe('Donor')).config.chains.length >= 4, 'B: the donor keeps a handle for every limb');
+    results.checks.push('B: the result view shows handles for taken parts only; the donor for every part');
+    await page.waitForTimeout(500);
+    const first = await s.probe('Result'), donorPath = (await s.probe('Donor')).path;
+    assert.ok(first.path?.length > 5, 'B: the hand path is drawn on the result');
+    assert.ok(donorPath?.length > 5, 'B: the Grunt hand path is drawn on the donor');
+    await s.shot('02-story-b-arm-path');
     await s.dragSlider('amount', 0.9);
     const amount = await dialog.locator('input[data-field="amount"]').inputValue();
-    assert.ok(Number(amount) > 110, `B: Amount dragged up (${amount})`);
-    results.checks.push(`B: Amount slider dragged to ${amount}%`);
-    await dialog.getByRole('button', { name: 'Play' }).click(); await page.waitForTimeout(300);
-    await dialog.getByRole('button', { name: 'Pause' }).click(); await page.waitForTimeout(300);
-    // A slider drag moves the result live, on the same renderer (no rebuild while the mouse is down).
-    {
-      const resultRuntime = () => page.evaluate(() => { const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="To"] .game-preview-root'), runtime = window.__mdlxl.preview(root).runtime; const same = window.__xfRuntime === runtime; window.__xfRuntime = runtime; return same; });
-      await resultRuntime();
-      const input = dialog.locator('input[data-field="offset0"]'), ib = await input.boundingBox(), y = ib.y + ib.height / 2, area = await s.pane('To').locator('.xf-preview').boundingBox();
-      const still = await page.screenshot({ clip: area });
-      await page.mouse.move(ib.x + ib.width / 2, y); await page.mouse.down();
-      for (let i = 1; i <= 10; i++) { await page.mouse.move(ib.x + ib.width * (0.5 + 0.04 * i), y); await page.waitForTimeout(30); }
-      await page.waitForTimeout(700);
-      const moved = await page.screenshot({ clip: area }), sameRenderer = await resultRuntime();
-      await page.mouse.up(); await page.waitForTimeout(500);
-      assert.ok(!still.equals(moved), 'B: dragging Raise moves the arm in the result while the mouse is down');
-      assert.ok(sameRenderer, 'B: the result preview is not rebuilt during the drag');
-      assert.ok(await resultRuntime(), 'B: nor after a release that keeps the length');
-      results.checks.push('B: dragging Raise moves the arm live; the result renderer is not rebuilt');
-    }
-    await s.shot('story-b-arm');
-    await s.dragCamera('From'); await s.dragCamera('To');
-    results.checks.push('B: mouse drags turn the camera in both panes');
+    assert.ok(Number(amount) > 110, `B: Strength dragged up (${amount})`);
+    assert.ok(pathMoved(first.path, (await s.probe('Result')).path), 'B: dragging Strength moves the hand path');
+    // Raise moves the result live, on the same renderer, and moves the drawn path while the mouse is down.
+    const runtime = () => page.evaluate(() => { const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'), r = window.__mdlxl.preview(root).runtime; const same = window.__xfRuntime === r; window.__xfRuntime = r; return same; });
+    await runtime();
+    const area = await s.view('Result').locator('.xf-preview').boundingBox(), still = await page.screenshot({ clip: area }), beforeRaise = (await s.probe('Result')).path;
+    let moved, sameRenderer, raisedPath;
+    await s.dragSlider('offset0', 0.95, async () => { await page.waitForTimeout(800); moved = await page.screenshot({ clip: area }); sameRenderer = await runtime(); raisedPath = (await s.probe('Result')).path; });
+    assert.ok(!still.equals(moved), 'B: dragging Raise moves the arm in the result while the mouse is down');
+    assert.ok(sameRenderer, 'B: the result view is not rebuilt during the drag');
+    assert.ok(pathMoved(beforeRaise, raisedPath), 'B: dragging Raise moves the hand path while the mouse is down');
+    assert.ok(await runtime(), 'B: nor after a release that keeps the length');
+    await page.waitForTimeout(400);
+    await s.shot('03-story-b-raise-dragged');
+    results.checks.push('B: Strength and Raise drags move the drawn hand path and the arm live, without a renderer rebuild');
+    await s.dragCamera('Donor'); await s.dragCamera('Result');
+    results.checks.push('B: mouse drags turn the camera in both views');
     await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(800);
     assert.equal(await s.count(), before + 1, 'B: Add animation adds one animation');
     const name = await page.evaluate(() => window.__mdlxl.model().Sequences.at(-1).Name);
     await dialog.getByText('Added').waitFor();
     results.checks.push(`B: Add animation added "${name}"; the window stays open and says so`);
-    await dialog.getByRole('button', { name: 'Close Transfer' }).click(); await page.waitForTimeout(300);
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.count(), 0, 'B: Cancel closes the window');
     await page.keyboard.press('Control+Z'); await page.waitForTimeout(800);
     assert.equal(await s.count(), before, 'B: one Undo in the editor removes the added animation');
-    results.checks.push('B: one Undo in the editor removes it');
+    results.checks.push('B: Cancel closes; one Undo in the editor removes the animation');
     await s.noCrash('story B');
   } finally { await s.close(); }
 }
@@ -131,28 +142,40 @@ async function storyA() {
   const lord = copyModel('transfer-lord-of-change', 'TEST TRANSFER 02.mdx'), footman = copyModel('transfer-footman', 'footman donor.mdx');
   const s = await session(lord, 'A'), { page, dialog } = s;
   try {
-    await page.locator('button.transfer-tool').click();
-    await dialog.waitFor();
+    await openTransfer(s);
     const before = await s.count();
-    await stubDialogs(s.app, { open: footman });
-    await s.pane('From').getByRole('button', { name: 'Open file...' }).click();
-    await s.pane('From').getByLabel('Animation', { exact: true }).selectOption({ label: 'Stand Defend' });
-    await s.pane('From').getByRole('button', { name: 'Take whole body' }).click();
+    await s.openDonor(footman);
+    await s.animation('Stand Defend');
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click();
     await page.waitForTimeout(1500);
-    assert.equal(await dialog.locator('button[aria-pressed="true"]', { hasText: 'All' }).count(), 1, 'A: Take whole body selects All');
-    const taken = await dialog.locator('button.xf-chip.xf-taken[data-part]').count();
+    const taken = await dialog.locator('input[data-part-switch]:checked').count();
     assert.ok(taken >= 7, `A: ${taken} parts taken`);
-    assert.equal(await dialog.locator('button[data-part="wingL"]').getAttribute('class'), 'xf-chip', 'A: the wings stay on the body animation');
-    assert.equal(await s.pane('From').getByRole('button', { name: 'Mirror' }).getAttribute('aria-pressed'), 'true', 'A: weapon hands on opposite sides mirror by themselves');
-    await s.shot('story-a-whole-body');
+    assert.equal(await dialog.locator('input[data-part-switch="wingL"]').isChecked(), false, 'A: the wings stay on the body animation');
+    assert.equal(await s.view('Donor').getByRole('button', { name: 'Mirror' }).getAttribute('aria-pressed'), 'true', 'A: weapon hands on opposite sides mirror by themselves');
+    assert.equal(await dialog.locator('button[data-part="all"]').getAttribute('aria-pressed'), 'true', 'A: All taken parts is selected after Take whole body');
+    await dialog.locator('.xf-timing > summary').click(); await page.waitForTimeout(300);
+    await s.shot('04-story-a-whole-body');
+    // One drag slows every taken part down.
+    await s.dragSlider('speed', 0.05);
+    const speeds = [];
+    for (const key of await dialog.locator('input[data-part-switch]:checked').evaluateAll(list => list.map(i => i.dataset.partSwitch))) {
+      await dialog.locator(`button[data-part="${key}"]`).click(); await page.waitForTimeout(150);
+      if (!(await dialog.locator('.xf-timing[open]').count())) await dialog.locator('.xf-timing > summary').click();
+      speeds.push(Number(await dialog.locator('input[data-field="speed"]').inputValue()));
+    }
+    assert.ok(speeds.length >= 7 && speeds.every(v => v === speeds[0] && v < 50), `A: one Speed drag with All taken parts sets every part (${speeds.join(', ')})`);
+    await dialog.locator('button[data-part="all"]').click(); await page.waitForTimeout(200);
+    assert.equal(await dialog.locator('input[data-field="speed"]').inputValue(), String(speeds[0]), 'A: All shows the shared Speed');
+    assert.equal(await dialog.locator('input[data-field="offset0"]').count(), 0, 'A: no Raise/Turn/Roll with All');
+    results.checks.push(`A: Take whole body selects All taken parts; one Speed drag sets all ${speeds.length} parts to ${speeds[0]}%`);
     results.checks.push(`A: Take whole body takes ${taken} parts and leaves the wings; Mirror is on by itself`);
     await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(1000);
     assert.equal(await s.count(), before + 1, 'A: Add animation adds one animation');
     const name = await page.evaluate(() => window.__mdlxl.model().Sequences.at(-1).Name);
     await dialog.getByRole('button', { name: 'Close Transfer' }).click(); await page.waitForTimeout(300);
     const saved = path.join(out, 'TEST TRANSFER 02 saved.mdx');
+    if (fs.existsSync(saved)) fs.unlinkSync(saved);
     await stubDialogs(s.app, { save: saved, message: 0 });
-    await page.evaluate(() => window.__mdlxl && document.activeElement?.blur?.());
     await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'saveAs'));
     await page.waitForTimeout(1000);
     const format = page.getByRole('button', { name: 'Save MDX…' });
@@ -168,82 +191,99 @@ async function storyA() {
   } finally { await s.close(); }
 }
 
-// Every control of the window, on both stories' models, watching for crashes and page errors.
+// The FX window on the same Footman, for comparing density.
+async function fx() {
+  const footman = copyModel('transfer-footman', 'TEST TRANSFER FX.mdx');
+  const s = await session(footman, 'fx'), { page } = s;
+  try {
+    await page.locator('button.surface-effects-tool').click();
+    const window = page.getByRole('dialog', { name: 'Surface Effects' });
+    await window.waitFor(); await page.waitForTimeout(3000);
+    await s.shot('05-fx-window-footman');
+    results.checks.push('fx: the Surface Effects window on the Footman, for density');
+  } finally { await s.close(); }
+}
+
+// Every control of the window, watching for crashes and page errors.
 async function sweep() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER 03.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor 2.mdx');
   const s = await session(footman, 'sweep'), { page, dialog } = s, clicked = [];
   const click = async (locator, what) => { await locator.click(); await page.waitForTimeout(250); clicked.push(what); await s.noCrash(what); };
   try {
-    await page.locator('button.transfer-tool').click(); await dialog.waitFor();
-    await click(s.pane('From').getByRole('button', { name: 'This model' }), 'From: This model');
-    await s.pane('From').getByLabel('Animation', { exact: true }).selectOption({ label: 'Walk' }); clicked.push('donor Animation');
-    await click(s.pane('From').getByRole('button', { name: 'Take whole body' }), 'Take whole body');
-    await s.pane('To').getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' }); clicked.push('Body animation');
-    await stubDialogs(s.app, { open: grunt });
-    await s.pane('From').getByLabel('From', { exact: true }).selectOption({ label: 'Open file...' }); await page.waitForTimeout(1200); clicked.push('From: Open file...');
-    await s.pane('From').getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
-    for (const key of await dialog.locator('button[data-part]').evaluateAll(list => list.map(b => b.dataset.part))) {
-      const chip = dialog.locator(`button[data-part="${key}"]`);
-      await click(chip, 'chip ' + key);
-      const take = dialog.locator('.xf-part-row button', { hasText: 'Take from' });
-      if (await take.isEnabled()) await click(take, 'Take ' + key);
-      for (const field of await dialog.locator('input[data-field]').evaluateAll(list => list.map(i => i.dataset.field))) { await s.dragSlider(field, 0.75); clicked.push(`slider ${field} (${key})`); await s.noCrash('slider ' + field); }
-      if (await dialog.getByLabel('Plant foot').count()) await click(dialog.getByLabel('Plant foot'), 'Plant foot ' + key);
-      await click(dialog.getByRole('button', { name: 'Reset', exact: true }), 'Reset ' + key);
-      await chip.dblclick(); await page.waitForTimeout(300); clicked.push('double-click chip ' + key); await s.noCrash('double-click ' + key);
+    await openTransfer(s);
+    await click(s.from().getByRole('button', { name: 'This model' }), 'From: This model');
+    for (const name of ['Walk', 'Attack - 1', 'Stand - 1']) { await s.animation(name); clicked.push('animation ' + name); }
+    assert.equal(await s.probe('Donor').then(p => p.sequence), (await readModel(footman)).Sequences.findIndex(q => q.Name === 'Stand - 1'), 'clicking an animation plays it in the donor view');
+    await s.animation('Walk');
+    await click(s.parts().getByRole('button', { name: 'Take whole body' }), 'Take whole body');
+    await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' }); clicked.push('Body animation');
+    await s.openDonor(grunt); clicked.push('Open file...');
+    await s.animation('Attack - 1');
+    for (const key of await dialog.locator('button[data-part]').evaluateAll(list => list.map(b => b.dataset.part).filter(key => key !== 'all'))) {
+      const row = dialog.locator(`button[data-part="${key}"]`), toggle = dialog.locator(`input[data-part-switch="${key}"]`);
+      await click(row, 'part ' + key);
+      if (!(await toggle.isDisabled())) {
+        if (await toggle.isChecked()) { await click(toggle, 'switch off ' + key); assert.equal(await toggle.isChecked(), false, 'switching a part off removes it'); }
+        await click(toggle, 'switch on ' + key); assert.equal(await toggle.isChecked(), true, 'switching a part on takes it');
+        const takeFrom = dialog.locator('.xf-part-controls button', { hasText: 'Take from' });
+        if (await takeFrom.count() && await takeFrom.isEnabled()) await click(takeFrom, 'Take from ' + key);
+        const other = dialog.locator('.xf-part-title button', { hasText: 'Other side' });
+        if (await other.count() && await other.isEnabled()) { await click(other, 'Other side on ' + key); assert.equal(await other.getAttribute('aria-pressed'), 'true'); await click(other, 'Other side off ' + key); }
+        const timing = dialog.locator('.xf-timing > summary');
+        if (await timing.count() && !(await dialog.locator('.xf-timing[open]').count())) await click(timing, 'Timing fold ' + key);
+        for (const field of await dialog.locator('input[data-field]').evaluateAll(list => list.map(i => i.dataset.field))) { await s.dragSlider(field, 0.75); clicked.push(`slider ${field} (${key})`); await s.noCrash('slider ' + field); }
+        const input = dialog.locator('input[data-field="amount"]');
+        await input.dblclick(); await page.waitForTimeout(300); clicked.push('double-click Strength ' + key);
+        assert.equal(await input.inputValue(), '100', 'double-clicking Strength puts 100% back');
+        const keep = dialog.getByLabel('Keep foot on the ground');
+        if (await keep.count()) { await click(keep, 'Keep foot off ' + key); await click(keep, 'Keep foot on ' + key); }
+      }
     }
-    await click(s.pane('From').getByRole('button', { name: 'Take whole body' }), 'Take whole body (Grunt)');
-    await click(dialog.getByRole('button', { name: 'All', exact: true }), 'chip All');
-    for (const field of await dialog.locator('input[data-field]').evaluateAll(list => list.map(i => i.dataset.field))) { await s.dragSlider(field, 0.3); clicked.push('slider All ' + field); await s.noCrash('All ' + field); }
-    await click(s.pane('From').getByRole('button', { name: 'Mirror' }), 'Mirror on');
-    await click(s.pane('From').getByRole('button', { name: 'Mirror' }), 'Mirror off');
+    await click(dialog.locator('button[data-part="all"]'), 'All taken parts');
+    for (const field of await dialog.locator('input[data-field]').evaluateAll(list => list.map(i => i.dataset.field))) { await s.dragSlider(field, 0.3); clicked.push('All ' + field); await s.noCrash('All ' + field); }
+    await click(s.view('Donor').getByRole('button', { name: 'Mirror' }), 'Mirror on');
+    await click(s.view('Donor').getByRole('button', { name: 'Mirror' }), 'Mirror off');
     await click(dialog.getByRole('button', { name: 'Original' }), 'Original on');
     await click(dialog.getByRole('button', { name: 'Original' }), 'Original off');
-    await click(dialog.getByRole('button', { name: 'Pause' }), 'Pause');
+    await click(dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }), 'Pause');
     const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
     await page.mouse.move(sb.x + 4, sb.y + sb.height / 2); await page.mouse.down();
     for (let i = 1; i <= 10; i++) { await page.mouse.move(sb.x + sb.width * i / 11, sb.y + sb.height / 2); await page.waitForTimeout(16); }
     await page.mouse.up(); clicked.push('scrub'); await s.noCrash('scrub');
-    await click(dialog.getByRole('button', { name: 'Play' }), 'Play');
+    await click(dialog.locator('.xf-transport').getByRole('button', { name: 'Play' }), 'Play');
     await dialog.getByLabel('Name', { exact: true }).fill('Swing Defend'); clicked.push('Name');
-    await click(dialog.getByRole('button', { name: 'Give back' }), 'Give back (All)');
-    await click(dialog.locator('button[data-part="armL"]'), 'chip armL again');
-    await click(dialog.locator('.xf-part-row button', { hasText: 'Take from' }), 'Take armL again');
     await click(dialog.getByRole('button', { name: 'Add animation' }), 'Add animation');
     assert.equal(await page.evaluate(() => window.__mdlxl.model().Sequences.at(-1).Name), 'Swing Defend', 'the typed name is used');
-    await click(dialog.getByRole('button', { name: 'Clear' }), 'Clear');
+    await click(dialog.getByRole('button', { name: 'Clear all' }), 'Clear all');
+    assert.equal(await dialog.locator('input[data-part-switch]:checked').count(), 0, 'Clear all removes every part');
     await page.keyboard.press('Control+z'); await page.waitForTimeout(300); clicked.push('window Ctrl+Z');
-    assert.ok(await dialog.locator('button.xf-chip.xf-taken[data-part]').count() > 0, 'Ctrl+Z in the window brings the cleared parts back');
+    assert.ok(await dialog.locator('input[data-part-switch]:checked').count() > 0, 'Ctrl+Z in the window brings the cleared parts back');
     await page.keyboard.press('Control+y'); await page.waitForTimeout(300); clicked.push('window Ctrl+Y');
-    await s.shot('sweep-end');
-    await click(dialog.getByRole('button', { name: 'Close Transfer' }), 'close');
     const tabs = await page.locator('.model-tab').count();
-    await page.locator('button.transfer-tool').click(); await dialog.waitFor(); clicked.push('reopen');
-    await click(s.pane('From').getByRole('button', { name: 'Library...' }), 'Library...');
+    await click(dialog.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel');
+    await openTransfer(s); clicked.push('reopen');
+    await click(s.from().getByRole('button', { name: 'Library...' }), 'Library...');
     const library = page.getByRole('dialog', { name: 'Library' });
-    await library.waitFor(); await page.waitForTimeout(1500); await s.shot('library-picker');
+    await library.waitFor(); await page.waitForTimeout(1500);
     await library.locator('input[type=search], input:not([type])').first().fill('footman'); clicked.push('Library search');
     const row = library.getByRole('treeitem').filter({ hasText: /footman/i }).first();
     await row.waitFor({ timeout: 30000 });
     await row.dblclick(); clicked.push('Library: double-click a model');
     await library.waitFor({ state: 'detached', timeout: 30000 });
-    await s.pane('From').getByLabel('From', { exact: true }).waitFor({ timeout: 30000 });
-    const picked = await s.pane('From').getByLabel('From', { exact: true }).evaluate(select => select.selectedOptions[0]?.textContent || '');
+    await s.view('Donor').getByRole('button', { name: 'Mirror' }).waitFor({ timeout: 30000 });
+    const picked = await s.view('Donor').locator('.xf-caption > span').innerText();
     assert.match(picked, /footman/i, 'the Library model becomes the donor');
-    await page.waitForTimeout(1500); await s.shot('library-donor');
-    results.checks.push(`sweep: Library... picks ${picked.trim()} as the donor without opening a tab`);
     assert.equal(await page.locator('.model-tab').count(), tabs, 'the Library donor opens no tab');
-    // A donor without parts says so in its pane.
-    const cloud = testModel('corpus-sd/undead__plaguecloud.mdx');
-    if (fs.existsSync(cloud)) {
-      const copy = path.join(out, 'no parts donor.mdx'); fs.copyFileSync(cloud, copy);
-      await stubDialogs(s.app, { open: copy });
-      await s.pane('From').getByLabel('From', { exact: true }).selectOption({ label: 'Open file...' }); clicked.push('From: Open file... (no parts)');
-      await s.pane('From').locator('.xf-overlay-note').waitFor();
-      assert.match(await s.pane('From').locator('.xf-overlay-note').innerText(), /no parts|No body/i, 'a donor without parts shows the reason');
-      await s.shot('donor-without-parts');
+    results.checks.push(`sweep: Library... picks ${picked.split(' - ')[0]} as the donor without opening a tab`);
+    // A donor without parts says so in its view.
+    const cloud = copyTestModel('corpus-sd/undead__plaguecloud.mdx', 'no parts donor.mdx');
+    if (cloud) {
+      await stubDialogs(s.app, { open: cloud });
+      await click(s.from().getByRole('button', { name: 'Open file...' }), 'Open file... (no parts)');
+      await s.view('Donor').locator('.xf-overlay-note').waitFor();
+      assert.match(await s.view('Donor').locator('.xf-overlay-note').innerText(), /no parts|No body/i, 'a donor without parts shows the reason');
     }
-    await click(dialog.getByRole('button', { name: 'Close Transfer' }), 'close again');
+    await click(dialog.getByRole('button', { name: 'Close Transfer' }), 'close');
     results.checks.push(`sweep: ${clicked.length} controls clicked or dragged, no crash or page error`);
     await s.noCrash('sweep');
   } finally { await s.close(); }
@@ -251,28 +291,52 @@ async function sweep() {
 
 // A model with no recognisable parts shows the engine's sentences and nothing else.
 async function unreadable() {
-  const plain = path.join(out, 'TEST TRANSFER 04 no rig.mdx');
-  // The plague cloud has no bones a body can be read from.
-  const picked = testModel('corpus-sd/undead__plaguecloud.mdx');
-  if (!picked || !fs.existsSync(picked)) { results.checks.push('unreadable rig: corpus-sd/undead__plaguecloud.mdx is not on this machine, skipped'); return; }
-  fs.copyFileSync(picked, plain);
+  const plain = copyTestModel('corpus-sd/undead__plaguecloud.mdx', 'TEST TRANSFER 04 no rig.mdx');
+  if (!plain) { results.checks.push('unreadable rig: corpus-sd/undead__plaguecloud.mdx is not on this machine, skipped'); return; }
   const s = await session(plain, 'unreadable'), { page, dialog } = s;
   try {
-    await page.locator('button.transfer-tool').click(); await dialog.waitFor(); await page.waitForTimeout(500);
+    await openTransfer(s);
     assert.equal(await dialog.locator('.xf-problems').count(), 1, 'unreadable rig: the problem sentences show');
-    assert.equal(await dialog.locator('.xf-panes').count(), 0, 'unreadable rig: nothing else shows');
-    await s.shot('unreadable-rig');
-    results.checks.push(`unreadable rig (${path.basename(picked)}): only the problem sentences show`);
+    assert.equal(await dialog.locator('.xf-body').count(), 0, 'unreadable rig: nothing else shows');
+    results.checks.push('unreadable rig (undead__plaguecloud.mdx): only the problem sentences show');
     await s.noCrash('unreadable');
   } finally { await s.close(); }
 }
 
+// Director trials: whole body onto very different rigs, caught mid-movement.
+async function trials() {
+  const footman = copyModel('transfer-footman', 'footman donor 3.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor 3.mdx');
+  for (const [model, donor, animation, file, at] of [
+    ['corpus-sd/creeps__ogre.mdx', footman, 'Attack - 1', '06-ogre-footman-attack', 0.45],
+    ['corpus-sd/human__knight.mdx', grunt, 'Attack - 1', '07-knight-grunt-attack', 0.45],
+    ['corpus-sd/undead__ghoul.mdx', footman, 'Walk', '08-ghoul-footman-walk', 0.3],
+  ]) {
+    const copy = copyTestModel(model, `TEST TRANSFER ${file}.mdx`);
+    if (!copy) { results.checks.push(`trials: ${model} is not on this machine, skipped`); continue; }
+    const s = await session(copy, file), { page, dialog } = s;
+    try {
+      await openTransfer(s);
+      await s.openDonor(donor);
+      await s.animation(animation);
+      await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+      await dialog.locator('.xf-transport').getByRole('button', { name: 'Pause' }).click();
+      const scrub = dialog.getByLabel('Time', { exact: true }), sb = await scrub.boundingBox();
+      await page.mouse.click(sb.x + sb.width * at, sb.y + sb.height / 2); await page.waitForTimeout(1200);
+      await s.shot(file);
+      const reason = await dialog.locator('.xf-reason').count() ? await dialog.locator('.xf-reason').innerText() : '';
+      results.checks.push(`trials: ${path.basename(model)} takes ${await dialog.locator('input[data-part-switch]:checked').count()} parts${reason ? ` ("${reason}")` : ''}`);
+      await s.noCrash(file);
+    } finally { await s.close(); }
+  }
+}
+
 (async () => {
-  fs.mkdirSync(out, { recursive: true });
+  fs.mkdirSync(shots, { recursive: true });
   let failed = null;
-  const only = (process.env.MDLXL_TRANSFER_ONLY || 'B,A,sweep,unreadable').split(',');
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['sweep', sweep], ['unreadable', unreadable]]) {
-    if (!only.includes(name) || (name === 'sweep' && !process.env.MDLXL_TRANSFER_SWEEP && !process.env.MDLXL_TRANSFER_ONLY)) continue;
+  const all = ['B', 'A', 'fx', 'sweep', 'unreadable', 'trials'];
+  const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+    if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }
   fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
