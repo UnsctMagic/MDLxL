@@ -241,6 +241,15 @@ function readRig(model, info, skeleton, wanted = 'both') {
     const tops = [...new Set(hanging.map(chain => topOf(chain.root)))].filter(top => astride(top) && freeArms.some(chain => tree.isAncestor(chain.root, top)));
     const size = top => pose.chains.filter(chain => tree.isAncestor(chain.root, top)).length;
     if (walking.length && tops.length) seatTops = [tops.sort((a, b) => size(b) - size(a))[0]];
+    // Or two heads: the subtree that holds the arms has a head of its own, and the walker has
+    // another head outside it (a rider on a dragon). One head (a centaur) is one creature.
+    if (!seatTops.length && walking.length && freeArms.length) {
+      const heads = (pose.nodes || []).filter(id => joints.has(id) && ['Neck', 'Head'].includes(roleOf(id)) && tree.isAncestor(id, body));
+      // The smallest subtree that holds every such arm and a head; another head must lie outside it.
+      const holdsArms = id => freeArms.every(chain => tree.isAncestor(chain.root, id));
+      const seat = tree.ancestors(freeArms[0].root, true).find(id => id !== body && !carriesWalking(id) && holdsArms(id) && heads.some(head => tree.isAncestor(head, id)));
+      if (seat != null && heads.some(head => !tree.isAncestor(head, seat))) seatTops = [seat];
+    }
   }
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
@@ -269,8 +278,10 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const carriesLeg = id => chains.some(chain => chain.kind === 'leg' && chain.label !== 'Wing' && tree.isAncestor(chain.root, id));
   const arms = chains.filter(chain => chain.kind === 'arm' && chain.label !== 'Wing');
   const hips = [body, ...controls.filter(id => !ridden(id) && (roleOf(id) === 'Pelvis' || ['Spine', 'Chest', 'Neck', 'Head'].includes(roleOf(id)) && carriesLeg(id)))];
-  const chest = controls.filter(id => ['Spine', 'Chest'].includes(roleOf(id)) && !carriesLeg(id) && (!arms.length || arms.some(chain => tree.isAncestor(chain.root, id))));
-  const head = controls.filter(id => ['Neck', 'Head'].includes(roleOf(id)) && !carriesLeg(id) && (!chest.length || chest.some(c => tree.isAncestor(id, c))));
+  // With a seated creature read together with its walker, the chest and head are the seated one's.
+  const upper = id => actor !== 'both' || !seatTops.length || seatedId(id);
+  const chest = controls.filter(id => ['Spine', 'Chest'].includes(roleOf(id)) && !carriesLeg(id) && upper(id) && (!arms.length || arms.some(chain => tree.isAncestor(chain.root, id))));
+  const head = controls.filter(id => ['Neck', 'Head'].includes(roleOf(id)) && !carriesLeg(id) && upper(id) && (!chest.length || chest.some(c => tree.isAncestor(id, c))));
   const trunk = { hips: [...new Set(hips)].sort(byDepth), chest: chest.sort(byDepth), head: head.sort(byDepth) };
   const trunkIds = new Set(Object.values(trunk).flat());
   const nearestTrunk = (id, exclude = []) => tree.ancestors(id).find(a => trunkIds.has(a) && !exclude.includes(a)) ?? null;
