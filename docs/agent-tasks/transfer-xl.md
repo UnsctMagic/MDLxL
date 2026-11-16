@@ -1159,10 +1159,14 @@ engine does not say so yet; the gate detects it). Looked at contact sheets for n
 Not general for all donors: the chest and head rise is still carried only for a donor read
 'seated' (15 of 32 recorded transfers change otherwise; the owner's call).
 
-Pick sheet for the owner: `TestBuilds	ransfer-riderscases.json` (8 cases, written by
+Pick sheet for the owner: `cases.json` in the TestBuilds folder `transfer-riders` (8 cases, written by
 `out/transfer-probe/make-riders-picks.mjs`): arms Mine or Theirs (3), belly rides or keeps its own
 movement, one or both hands on the axe, full or half rise on a dragon, cape hangs or not, weapon
 points like theirs or keeps its own swing. Chest/head "Theirs" is not offered: one-joint parts
 have no direction to match, so it changes nothing.
 
 Models added to the test collection: `transfer-riders/` (Blood Dragon nightmare, Cold One Rider).
+
+### Build 13 (from f5426c5d, built in the clean checkout `transfer-xl-build`)
+
+On that exact copy, hidden: `test/transfer.electron.cjs` stories B, A, riders, features, round7, views, sweep (41 checks), `test/transfer-picks.electron.cjs` (11) and `test/reset-view.electron.cjs` passed; the eight rider cases were gone through once with `out/transfer-probe/picks-check.cjs` (two live views each, no errors) and the pictures looked at. Opened for the owner with `TEST TRANSFER RIDERS 01.mdx` and the riders pick sheet. Awaiting his picks; nothing is online.
