@@ -359,6 +359,17 @@ Not done, on purpose: no packaged suite, no full source suite, no test build, no
 (the brief). So nothing here was seen on screen: the Chain handles on the strips in POSE, Bone
 Namer's new plan for the nightmare rider, and a transfer onto a Bray Shaman are `ready to test`.
 
+Test build, made later the same day at the owner's request ("open the latest build"):
+`D:\Claude\MDLxL\TestBuilds\transfer-xl-15`, packaged from 8d468885. Launcher
+`TestBuilds\_START HERE\3 TRANSFER - cloth strips.cmd` opens `TEST TRANSFER CLOTH 01.mdx` (Bray
+Shaman, with its texture), `TEST TRANSFER CLOTH 02.mdx` (nightmare rider, no custom textures on
+this machine) and `TEST TRANSFER 03.mdx`. On that exact copy, hidden
+(`out/transfer-probe/cloth-smoke.cjs`, pictures in `out/cloth-smoke`): both cloth models opened,
+POSE on and off in Movement, Bone Namer opened and closed, Transfer opened with the whole body
+taken from the model itself; no page errors. In the pictures the shaman's scrolls carry Chain
+handles in POSE and in Transfer's donor view, and its taken parts are head, chest, hips, two arms,
+two legs. Opened for the owner; his verdict is still open.
+
 Could not explain: nothing. Left as it is and worth the director's eye:
 
 - Bone Namer on the nightmare rider is one creature now (above). It follows from Bone Namer's own
