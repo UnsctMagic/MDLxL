@@ -649,7 +649,7 @@ class AiService {
     const id = conversation.id;
     context = structuredClone(context);
     const previousTask = conversation.task;
-    let task;
+    let task, resumedOnChange = false;
     if (resume) {
       task = conversation.task;
       if (task?.workerId || task?.regionJobs)
@@ -658,24 +658,21 @@ class AiService {
         throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
       if (task.checkpoint) {
         const current = await this.call('mdlxl_checkpoint', { target: context.target });
-        if (
-          current.fingerprint !== task.checkpoint.fingerprint ||
-          (current.path || current.name) !== (task.checkpoint.path || task.checkpoint.name)
-        )
-          throw Object.assign(
-            Error(
-              'The model differs from this task checkpoint. Restore its model through MDLxL recovery, or send a new prompt for the current model.',
-            ),
-            { precondition: true },
-          );
+        // Resume never refuses. A model that changed since the stop (the unfinished result
+        // was put on it, or the user edited it) is where the task carries on, with the
+        // user's own selection and view.
+        const same =
+          current.fingerprint === task.checkpoint.fingerprint &&
+          (current.path || current.name) === (task.checkpoint.path || task.checkpoint.name);
         context = (
           await this.call('mdlxl_checkpoint', {
             target: context.target,
-            restore: task.checkpoint.context,
+            ...(same ? { restore: task.checkpoint.context } : {}),
             baseline: task.baseline,
             restoreReview: task.checkpoint.review,
           })
         ).context;
+        if (!same) resumedOnChange = true;
       }
       text = task.prompt;
       images = task.images || [];
@@ -730,7 +727,10 @@ class AiService {
       (resume ? 'Resume task\n\nOriginal request:\n' + text : text) +
       (resume
         ? '\n\nResume the interrupted task. Inspect the current model and these completed steps before continuing; do not repeat an applied edit. A pending step may have been interrupted before its result was recorded.\n' +
-          checkpointNote(task)
+          checkpointNote(task) +
+          (resumedOnChange
+            ? '\nThe model changed after the task stopped: the unfinished result was put on the model, or the user edited it. Continue from the model as it is now and keep the user\'s edits.'
+            : '')
         : '');
     // SD Brain: the request first becomes an art brief, once per task.
     if (sd.enabled && !conversation.toolsOff && !task.artBrief) {
@@ -1121,6 +1121,7 @@ class AiService {
     } catch (error) {
       task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
+      if (context.embeddedJob) await this.handOver(context, recorder);
       throw error;
     } finally {
       this.runningIds.delete(id);
@@ -1140,6 +1141,19 @@ class AiService {
         } catch {
           // A diary that cannot be written never fails the job itself.
         }
+    }
+  }
+  // A stopped, blocked or unverified task never keeps its result private: what the AI
+  // made goes onto the model as one Undo step, or opens as its own tab when the user
+  // changed the same parts meanwhile.
+  async handOver(context, recorder) {
+    try {
+      let result = await this.call('mdlxl_delivery', { target: context.target, action: 'finish' });
+      if (result.conflict || result.correction) result = await this.call('mdlxl_delivery', { target: context.target, action: 'open' });
+      if (result.opened) recorder.event({ type: 'notice', text: `The unchecked result opened as ${result.opened}.` });
+      else if (result.applied) recorder.event({ type: 'notice', text: 'The unchecked result is on the model. Undo removes it.' });
+    } catch (error) {
+      recorder.event({ type: 'notice', text: 'The unchecked result could not be put on the model: ' + error.message });
     }
   }
   // SD Brain's art director: one tool-free turn in a throwaway chat that turns the

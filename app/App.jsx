@@ -1669,7 +1669,8 @@ export default function App() {
   const runCommand = id => { if(commandEnabled(id)) (uiCommands[id] || commands.current[id])?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
-  const afterPaint = frames => new Promise(resolve => { const step = n => n ? requestAnimationFrame(() => step(n - 1)) : resolve(); step(frames); });
+  // A minimized or covered window gets no screen refreshes, so each wait also ends after 100 ms.
+  const afterPaint = frames => new Promise(resolve => { const step = n => { if (!n) return resolve(); let done = false; const go = () => { if (!done) { done = true; step(n - 1); } }; requestAnimationFrame(go); setTimeout(go, 100); }; step(frames); });
   const aiHost = useRef();
   const [aiOffscreen, setAiOffscreen] = useState(null);
   aiHost.current = {

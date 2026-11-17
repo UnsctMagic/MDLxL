@@ -127,5 +127,5 @@ export function deliverJob(bridge, target, action) {
     // Existing assets win name collisions. Source textures added during the job stay available.
     source.assets = new Map([...draft.assets, ...source.assets]);
   }
-  return { delivered: true, merged: !!job.merge || !!combined, revision: source.doc.revision };
+  return { delivered: true, applied: plan.edits.length > 0, merged: !!job.merge || !!combined, revision: source.doc.revision };
 }

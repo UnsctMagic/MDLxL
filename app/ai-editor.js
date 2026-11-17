@@ -747,8 +747,9 @@ export class AiEditorBridge {
         return { images };
       }
       // On screen, the viewport as the user sees it, marks included; otherwise off-screen.
+      // A minimized or covered window draws nothing, so its picture is drawn off-screen too.
       if (name === 'mdlxl_capture')
-        return { image: env.live ? await host.capture() : (await this.picture(args.target)).image };
+        return { image: env.live && !globalThis.document?.hidden ? await host.capture() : (await this.picture(args.target)).image };
       // Mask the assistant only in the returned UI image. Never alter the live panel.
       const panel = document.querySelector('section.ai-assistant'), rect = panel?.getBoundingClientRect();
       const image = await window.desktop.aiCapture();
