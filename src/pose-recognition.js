@@ -323,12 +323,15 @@ function limbOrClothPose(model, evidence, sequence) {
  * - name: a cloth word: +2; a leg, foot or hoof name: -3.
  * `cloth` needs a score of 3 or more from at least two clues that agree; 0 or less is
  * `limb`; between is `unsure`, which every caller treats as `limb` (today's reading).
+ * `suggestPoseRig` asks this for every leg and carries a `cloth` answer on the chain.
  * `sequence` is the Stand to read the floor in (default: the model's Stand). */
 export function poseLimbOrCloth(model, rig, chain, { evidence, sequence } = {}) {
   evidence ||= poseRecognitionEvidence(model);
   const { tree } = evidence, { byId, bind, reference, steps, at } = limbOrClothPose(model, evidence, sequence);
   const idsOf = item => item?.joints || [item?.root, item?.middle, item?.end];
-  const leg = item => item.kind === 'leg' && item.label !== 'Wing', arm = item => item.kind === 'arm' && item.label !== 'Wing';
+  // A chain the rig already carries as cloth (`suggestPoseRig`) is measured with the legs and is
+  // none of the arms, so the answer is the same on a rig read before or after it was marked.
+  const leg = item => item.kind === 'leg' && item.label !== 'Wing' || item.cloth === true, arm = item => item.kind === 'arm' && item.label !== 'Wing' && !item.cloth;
   const skeleton = tree.root(chain.root), legs = (rig.chains || []).filter(item => leg(item) && tree.root(item.root) === skeleton);
   if (!legs.includes(chain)) legs.push(chain);
   const lengthOf = item => { const ids = idsOf(item); let sum = 0; for (let i = 1; i < ids.length; i++) sum += bind(ids[i]).distanceTo(bind(ids[i - 1])); return sum; };

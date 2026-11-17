@@ -904,7 +904,8 @@ test('R9 frame: a turn carried in the limb\'s own frame keeps a hanging arm hang
 // R11 (docs/agent-tasks/recognition-limb-or-cloth.md): the shared recogniser tells a limb from hanging cloth.
 const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const poseRigOf = model => { let stand = standSequenceIndex(model); if (stand < 0 || !model.Sequences[stand]?.Interval) stand = model.Sequences.findIndex(s => s.Interval); return suggestPoseRig(model, model.Sequences[stand].Interval[0], stand); };
-const legChains = rig => rig.chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Wing');
+// The chains the recogniser is asked about: those read as legs, and those the rig already carries as cloth.
+const legChains = rig => rig.chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Wing' || chain.cloth);
 const rootNamed = (model, pattern) => { const names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name])); return chain => pattern.test(names.get(chain.root)); };
 const STRIPS = [['transfer-bray-shaman', /scroll/i], ['transfer-bray-shaman-hero', /scroll/i], ['transfer-nightmare-rider', /fur_panel/i]];
 
@@ -919,7 +920,7 @@ test('R11 one creature: the Bray Shaman\'s chest scrolls are not a rider\'s legs
 test('R11 poseLimbOrCloth: the scrolls and the fur strips are cloth; every native unit\'s named legs are limbs', { skip: missing('transfer-bray-shaman', 'transfer-bray-shaman-hero', 'transfer-nightmare-rider') || (!fs.existsSync(testModel('corpus-sd')) && 'private test models not on this machine: corpus-sd') }, () => {
   for (const [key, pattern] of STRIPS) {
     const model = load(key), rig = poseRigOf(model), strips = legChains(rig).filter(rootNamed(model, pattern));
-    assert.equal(strips.length, 2, `${key}: two strips are read as legs`);
+    assert.equal(strips.length, 2, `${key}: two strips to ask about`);
     for (const chain of strips) { const answer = poseLimbOrCloth(model, rig, chain); assert.equal(answer.kind, 'cloth', `${key}: ${JSON.stringify(answer)}`); }
     for (const chain of legChains(rig).filter(chain => !strips.includes(chain))) assert.equal(poseLimbOrCloth(model, rig, chain).kind, 'limb', `${key}: its own legs are limbs`);
   }
@@ -964,5 +965,35 @@ test('R11 a name alone does not make cloth, and cloth without its name is still 
       assert.equal(answer.clues.name, null);
       assert.equal(answer.kind, 'cloth', `${key} without its cloth names: ${JSON.stringify(answer)}`);
     }
+  }
+});
+
+test('R11 hanging cloth is a plain bone chain in the rig and no limb in Transfer', { skip: missing('transfer-bray-shaman', 'transfer-bray-shaman-hero', 'transfer-nightmare-rider') }, () => {
+  const readings = model => ['both', 'seated', 'walker'].map(actor => transferRig(model, { actor }));
+  for (const [key, pattern] of STRIPS) {
+    const model = load(key), rig = poseRigOf(model), strips = rig.chains.filter(rootNamed(model, pattern)), stripJoints = new Set(strips.flatMap(poseChainIds));
+    // The rig: the two strips are bone chains marked cloth, and nothing else is.
+    assert.equal(strips.length, 2, `${key}: both strips keep their handle`);
+    for (const chain of strips) assert.deepEqual([chain.kind, chain.label, chain.cloth], ['arm', 'Chain', true], `${key}: a strip is a bone chain marked cloth`);
+    assert.deepEqual(rig.chains.filter(chain => chain.cloth), strips, `${key}: only the strips are cloth`);
+    // Without the clues (ANIM, Attachemator, Auto Corpse) nothing is marked.
+    let stand = standSequenceIndex(model); if (stand < 0) stand = model.Sequences.findIndex(s => s.Interval);
+    assert.ok(!suggestPoseRig(model, model.Sequences[stand].Interval[0], stand, { clues: false }).chains.some(chain => chain.cloth || chain.label === 'Chain' && stripJoints.has(chain.end)), `${key}: unchanged without clues`);
+    // Transfer: no reading makes a part of a strip.
+    for (const reading of readings(model)) assert.ok(![...jointsOf(reading)].some(id => stripJoints.has(id)), `${key} (${reading.actor}): no part holds a strip joint (${Object.keys(reading.parts)})`);
+  }
+  // The rider is still found through its strips, whole, with the legs that hang from its hips.
+  const rider = load('transfer-nightmare-rider'), seated = transferRig(rider, { actor: 'seated' });
+  assert.deepEqual(transferRig(rider).actors, ['both', 'seated', 'walker'], 'the nightmare rider stays two creatures');
+  assert.equal(seated.actor, 'seated');
+  assert.ok(['hips', 'chest', 'head', 'armL', 'armR', 'legL', 'legR'].every(part => seated.parts[part]) && partsLike(seated, /^arm/).length === 2 && partsLike(seated, /^leg/).length === 2, `the rider whole (${Object.keys(seated.parts)})`);
+  // The shaman is one creature with its own two arms and two legs, and its chest is a chest again.
+  for (const key of ['transfer-bray-shaman', 'transfer-bray-shaman-hero']) {
+    const model = load(key), rig = transferRig(model), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name]));
+    assert.deepEqual(rig.actors, ['both'], `${key} is one creature`);
+    assert.deepEqual([partsLike(rig, /^arm/).sort(), partsLike(rig, /^leg/).sort()], [['armL', 'armR'], ['legL', 'legR']], `${key}: two arms and two legs (${Object.keys(rig.parts)})`);
+    for (const part of ['armL', 'armR']) assert.match(names.get(rig.parts[part].joints.at(-1)), /hand/i, `${key}: ${part} is the real arm, down to its hand`);
+    assert.ok(rig.parts.chest && below(model, rig, 'armL', rig.parts.chest.joints[0]) && below(model, rig, 'armR', rig.parts.chest.joints[0]), `${key}: the arms hang from the chest part`);
+    assert.ok(!rig.parts.hips.joints.some(id => rig.parts.chest.joints.includes(id)), `${key}: the chest does not ride with the hips`);
   }
 });

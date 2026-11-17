@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches, poseNameConflicts, posePartGaps, poseExcludedBranchName } from './pose-recognition.js';
+import { poseRecognitionEvidence, inferPoseBranches, poseLimbOrCloth, poseNameConflicts, posePartGaps, poseExcludedBranchName } from './pose-recognition.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -149,11 +149,24 @@ export function poseNodeRole(node) {
 export const poseRole = (model, config, id, nodes) => config.roles?.[id] || poseNodeRole((nodes || allNodes(model)).find(node => node.ObjectId === id));
 
 /** Anatomy names locate candidates; hierarchy and skinned geometry resolve the
- * control, including mounted rigs and feet below unnamed mesh children. */
+ * control, including mounted rigs and feet below unnamed mesh children.
+ * With clues, a chain read as a leg that the recogniser calls hanging cloth
+ * (`poseLimbOrCloth`, asked on the rig as read) is no leg: the rig is read again
+ * with it as a plain bone chain (kind `arm`, label `Chain`) marked `cloth: true`. */
 export function suggestPoseRig(model, frame, sequence, options = {}) {
+  const clues = options.clues !== false, evidence = poseRecognitionEvidence(model, { clues });
+  const rig = readPoseRig(model, clues, evidence);
+  if (!clues) return rig;
+  // A model whose Stand or Walk cannot be sampled keeps the rig as read (unsure reads as a limb).
+  const isCloth = chain => { try { return poseLimbOrCloth(model, rig, chain, { evidence }).kind === 'cloth'; } catch { return false; } };
+  const cloth = new Set(rig.chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Wing' && isCloth(chain)).map(chain => chain.key));
+  return cloth.size ? readPoseRig(model, clues, evidence, cloth) : rig;
+}
+
+function readPoseRig(model, clues, evidence, cloth = null) {
   const nodes = allNodes(model), transforms = transformNodes(model), tree = nodeIndex(model, nodes), { byId } = tree;
   const descendantOf = tree.isAncestor, joints = new Set(transforms.map(node => node.ObjectId)), chains = [], unavailable = [];
-  const roles = {}, children = new Map(), clues = options.clues !== false, evidence = poseRecognitionEvidence(model, { clues });
+  const roles = {}, children = new Map();
   for (const node of transforms) { const siblings = children.get(node.Parent) || []; siblings.push(node); children.set(node.Parent, siblings); }
   const rootOf = node => tree.root(node?.ObjectId);
   const trunkAnchor = id => tree.ancestors(id).find(a => ['Chest', 'Spine', 'Pelvis', 'Body', 'Neck'].includes(poseNodeRole(byId.get(a)))) ?? null;
@@ -225,6 +238,8 @@ export function suggestPoseRig(model, frame, sequence, options = {}) {
     const chain = { root: branch.ids[0], middle: branch.ids[1], end: branch.ids.at(-1), joints: branch.ids, kind: branch.kind, key: `limb:${branch.ids.at(-1)}`, ...(branch.label || horseLimb ? { label: branch.label || 'Hoof' } : {}) };
     try { validatePoseChain(model, chain, tree); chains.push(chain); branch.ids.forEach(id => occupied.add(id)); } catch { /* Unsupported native inheritance remains available through bone editing. */ }
   }
+  // Hanging cloth is read as a plain bone chain from here on: no leg, and no arm that marks a chest.
+  for (const chain of chains) if (cloth?.has(chain.key)) Object.assign(chain, { kind: 'arm', label: 'Chain', cloth: true });
   const bodies = transforms.filter(node => roleOf(node) === 'Body' && !/death|portrait/i.test(node.Name));
   const groups = new Map();
   for (const chain of chains) { const key = rootOf(byId.get(chain.root)), group = groups.get(key) || []; group.push(chain); groups.set(key, group); }

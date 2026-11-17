@@ -1,9 +1,8 @@
 # Recognition: limb or hanging cloth (step 1 of the shared recogniser work)
 
-Status: contract written 17 Nov 2026 (director: Fable). A, B and C built the same day (see Result).
-D not built: its handle list has no real leg, but a dry run breaks Transfer's nightmare rider and
-puts the shaman's arms on its scrolls; what each reader does with a cloth chain awaits the director.
-Local only, branch `claude/transfer-xl`.
+Status: contract written 17 Nov 2026 (director: Fable). A, B, C and D built the same day (see
+Result; D follows "D, the decision"). Not seen by the owner in the app yet: no test build was
+made. Local only, branch `claude/transfer-xl`.
 
 ## Owner intent (17 Nov 2026, quoted)
 
@@ -105,6 +104,49 @@ chain as a leg: it keeps the chain, as kind `arm` with label `Chain` is today fo
 branches, under a new label `Cloth`, so nothing that iterates chains loses a joint. With `clues:
 false` (ANIM, Attachemator, Auto Corpse) nothing changes, ever. Before building D, list every model
 whose handle set would change and put the list in this note; if a real leg is on it, stop.
+
+#### D, the decision (director: Fable, 17 Nov 2026, after the dry run in Result)
+
+The dry run failed because a new label is a new thing every reader has to learn, and each one that
+had not learned it read the strip as an ordinary arm. So D adds no label.
+
+- **The handle is a plain bone chain.** A leg chain `poseLimbOrCloth` calls `cloth` becomes kind
+  `arm`, label `Chain` (the label repeated branches already carry), with one extra field
+  `cloth: true` that records why. This replaces "a new label `Cloth`" above.
+- **Which chains.** `suggestPoseRig` with `clues` on reads the rig as before, asks
+  `poseLimbOrCloth` about every leg on that complete rig (exactly what parts A and B measured and
+  C uses), and only when one is `cloth` reads the rig a second time with those chains as cloth
+  chains from the start, so the chest, pelvis and body are found without them. The floor is read
+  in the model's own Stand, never the animation POSE happens to be in. `unsure` stays a leg.
+- **`poseLimbOrCloth` gives the same answer on a rig that already carries it**: a `cloth` chain is
+  measured with the legs and is not one of the arms the `attach` clue reads.
+- **One rule per reader:**
+
+  | Reader | Rule for a cloth chain | Code change |
+  | --- | --- | --- |
+  | POSE handles (`app/PoseControls.jsx`, `app/pose-overlay.js`) | What `Chain` does: part "Chain", bends as "Bend", editable as a bone chain. No new word on screen. | none |
+  | POSE body pull (`limbBodyTarget`, `src/pose-ik.js`) | What `Chain` does: dragging it never pulls the body. | none |
+  | The rig itself (`suggestPoseRig` chest, `posePartGaps`) | What `Chain` does: not one of the arms that mark the chest, not a leg that marks a pelvis. | none |
+  | Bone Namer (`src/bone-namer.js`) | What `Chain` does: its joints keep their names. (Before D the strips were renamed as legs.) | none |
+  | ANIM, Attachemator, Auto Corpse (`clues: false`) | Never see one. | none |
+  | Transfer (`src/anim-transfer.js`) | Its own rule, below. | yes |
+
+- **Transfer.** Today Transfer reads a `Chain` as an arm (a Mind Flayer's tentacles), so here
+  cloth needs its own rule, in two halves:
+  1. *Cloth is no limb.* No reading (both, seated, walker) makes a part of a cloth chain, and it
+     is not one of the arms that find the chest or a creature's free arms. Its joints are then
+     ordinary joints outside the parts, as a cape's are: they keep the open model's own motion and
+     can follow as loose joints.
+  2. *Cloth can still point at a rider.* For the search for a seated creature only, a cloth chain
+     counts as a leg that hangs (never as one that walks). This is the reading after C, kept:
+     strips hanging astride a walker from a subtree with arms of its own have the shape of a
+     rider, cloth alone proves nothing, and C's rule already demands a real pair of legs under a
+     hip before such a seat counts. Transfer reads `chain.cloth` from the rig and no longer asks
+     the recogniser itself.
+- Not chosen: label `Cloth` with a rule in every reader (five places to keep in step, a new
+  untranslated word on POSE's handles, and POSE setup would open a `Cloth` handle as a single
+  joint because it only knows its own part names); dropping the strips from the rig (the
+  contract keeps every chain so no joint is lost).
 
 ## Proof, all of it, before hand-back
 
@@ -240,3 +282,90 @@ Status: A, B and C built 17 Nov 2026 (builder: Claude Opus), local commits on `c
   Transfer: leave the strips out of the limbs, or keep them as the seated creature's "read legs"
   for the hip search) is a design choice, not a measurement, so it is left to the director.
 - Could not explain: nothing. Every difference above is traced to its rule.
+
+### D, built (17 Nov 2026, builder and director: Claude Fable)
+
+Built as "D, the decision" says. What changed in code:
+
+- `src/pose-ik.js`: `suggestPoseRig` is now a small wrapper round the unchanged reader
+  (`readPoseRig`). With clues it asks `poseLimbOrCloth` about every leg of the rig as read, and
+  when one is cloth reads the rig again with those chains as `{ kind: 'arm', label: 'Chain',
+  cloth: true }` from just after the inferred branches. A model whose Stand or Walk cannot be
+  sampled keeps the rig as read. With `clues: false` the wrapper returns the first reading.
+- `src/pose-recognition.js`: `poseLimbOrCloth` measures a chain already marked `cloth` with the
+  legs and leaves it out of the arms, so it answers the same before and after the mark.
+- `src/anim-transfer.js`: three shared predicates (`armChain` without cloth, `legChain`,
+  `hangingChain` = leg or cloth). Cloth is filtered out of every reading's limbs; the rider search
+  (`seatedAssemblies`' astride test, `seatLegs`, the hanging legs under the body) reads
+  `hangingChain`; cloth never counts as walking. Transfer no longer calls `poseLimbOrCloth`.
+- No change in `app/`, `src/bone-namer.js`, `src/attachemator.js` or any `clues: false` caller.
+
+What changed for models (all three, nothing else in 1,236):
+
+- **POSE handles**: the two scroll chains of each Bray Shaman and the two fur strips of the
+  nightmare rider show as Chain handles (bend handle "Bend", no body pull) where they were Foot
+  handles with a knee. No other chain, role, body or node moves.
+- **Transfer**: the Bray Shamans (both files, both places) read `hips: Root, Bone_Pelvis,
+  bone_hip2 | chest: Bone_Chest | head | armR, armL (clavicle to hand) | legR, legL`; the scrolls
+  are in no part (after C they were `legR2`/`legL2` and the chest rode with the hips). The
+  nightmare rider reads exactly as after C in all three readings.
+- **Bone Namer** (`out/transfer-probe/namer-diff.mjs`, committed source against working):
+  - Bray Shamans: the six scroll joints keep their names (before: `Bone_Leg1_Front_L` ..
+    `Bone_Foot_Front_R`), and the real legs lose the `Rear` they only had because the scrolls
+    were the "front legs" (`Bone_Leg1_Rear_L` -> `Bone_Leg1_L`, their meshes the same). 62 and 65
+    other rows the same.
+  - Nightmare rider: the six fur joints keep their names (before: `Bone_Leg1_L` .. `Bone_Foot_R`).
+    The model is now named as one creature: `Bone_Body` is `Bone_Root`, the mount's hind legs and
+    tail lose `Extra` (`Bone_Extra_Leg1_L` -> `Bone_Leg1_L`), `BK_Ground_BodyWeight` keeps its
+    name (before: `Bone_Root`), `R_RiderHip` becomes `Bone_Pelvis_2`. Traced
+    (`namer-trace.mjs`): Bone Namer makes a nested body a creature of its own only when two leg
+    chains hang from it ("A named internal body is not a second actor unless two leg chains use
+    it"). `BK_Ground_BodyWeight` holds the mount's forelimbs and the rider; its only "legs" were
+    the two fur strips, so before D the strips made it the main creature and the mount's own
+    hind legs the extra one. 92 other rows the same. Bone Namer still does not name the rider's
+    real legs: POSE does not see them (keyed but still), as "The weakness" says. Not changed here.
+
+Proofs (all run 17 Nov 2026 on the final code; outputs in `out/transfer-probe/`):
+
+- `pose-dump.mjs d`, `diff abc d`: 1,236 models; clues off 0 differ; clues on 5 differ, the 5
+  files of the list above. `pose-dump-detail.mjs abc d`: in each, only the two strip chains
+  change (`leg` -> `arm/Chain/cloth`), nothing else.
+- `cloth-fixpoint.mjs` (new): on the rig as now read, a chain is marked cloth exactly when
+  `poseLimbOrCloth` calls it cloth. 2,614 chains asked (copies not merged): 2,589 limb, 15
+  unsure, 10 cloth, 10 marked, 0 mismatches, 0 marked without clues.
+- `rig-dump.mjs d`, `diff abc d` (`rigdiff-d.txt`): 1,196 same, 4 differ, the four Bray Shaman
+  files, as described above. The nightmare rider, the dragon rider, the Cold One Riders and every
+  knight are identical to `rigdump-abc`. Two creatures: 98, as after C.
+- `baseline.mjs d`, `baseline-compare.mjs before2 d` and `after d`: 32 trials, 0 differ.
+- `riders-gate.mjs`: 95 built, 5 skipped, 1 flagged (the same Kurgan Walk row); `riders-gate.json`
+  is byte-identical to the one from before D (`riders-gate.abc.json`).
+- `node --test test/anim-transfer.test.js`: 49 pass (48 + 1 new, "R11 hanging cloth is a plain
+  bone chain in the rig and no limb in Transfer"). Fail first, on D without the Transfer rule
+  (the rig change alone): the new test fails with `transfer-bray-shaman (both): no part holds a
+  strip joint (hips,chest,head,armR,armR2,armL,armL2,legR,legL)`, and "R9 a rider on a
+  four-footed mount" fails with actors `['both']`. The three earlier R11 tests now ask about the
+  strips whether the rig reads them as legs or already marks them cloth.
+- `node --test test/bone-namer*.test.js test/pose*.test.js`: 202 tests, 199 pass, 0 fail, 3
+  skipped (the same three as before). `test/transfer-window`, `rig-names`, `attachemator`: 39 pass.
+  The other source tests that read the changed modules (`ai-capabilities`, `auto-corpse`,
+  `localization-release-labels`) with `ui-primitives`: 72 pass.
+- `node scripts/bone-namer-corpus.mjs` (the gate `docs/POSE_IK.md` asks of every recognition
+  change): 941 models, 0 failing; review items GAINED 245, RETYPED 10, CASE-DUPLICATE 4,
+  RE-ROOTED 13 (no earlier run was kept to compare the review counts with).
+- Cost: `pose-dump.mjs` over 1,236 models, both modes, 28 s where it was 21.5 s: about 5 ms more
+  per model with clues on (one Stand and sixteen Walk samples, and the skin of each leg).
+
+Not done, on purpose: no packaged suite, no full source suite, no test build, no window opened
+(the brief). So nothing here was seen on screen: the Chain handles on the strips in POSE, Bone
+Namer's new plan for the nightmare rider, and a transfer onto a Bray Shaman are `ready to test`.
+
+Could not explain: nothing. Left as it is and worth the director's eye:
+
+- Bone Namer on the nightmare rider is one creature now (above). It follows from Bone Namer's own
+  rule once the strips stop being legs; whether a rider whose legs POSE cannot see should still
+  be named as a second creature is a Bone Namer question, not decided here.
+- The rider search still starts from cloth for the nightmare rider. A rider with still legs and
+  no strips would not be found by the hanging-legs rule at all; that gap is older than this work.
+- A chain marked cloth can later be relabelled `Wing` by the existing coincident-end rule (as any
+  arm can). No model in the corpus does; Transfer checks `cloth` first, so it would stay out of
+  the limbs.
