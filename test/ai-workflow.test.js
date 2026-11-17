@@ -145,7 +145,11 @@ const plan = (extra = {}) =>
     ...extra,
   });
 test('an unverified edit cannot produce a success message and is checkpointed for Resume', async t => {
-  const f = await setup(t, ({ requests }) => (requests === 1 ? edit() : done()));
+  let lastPrompt = '';
+  const f = await setup(t, ({ data, requests }) => {
+    lastPrompt = JSON.stringify(data.messages);
+    return requests === 1 ? edit() : done();
+  });
   const result = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
   assert.equal(result.ok, false);
   assert.match(result.error, /verification is incomplete/);
@@ -157,11 +161,12 @@ test('an unverified edit cannot produce a success message and is checkpointed fo
   const restarted = f.make(),
     task = await restarted.taskInfo('test');
   assert.equal(task.canResume, true);
+  // Resume never refuses: a model that changed since the stop is where the task carries on.
   f.changeFingerprint();
-  await assert.rejects(
-    () => restarted.send({ id: 'test', context, resume: true }),
-    /differs from this task checkpoint/,
-  );
+  const resumed = await restarted.send({ id: 'test', context, resume: true });
+  assert.equal(resumed.ok, false);
+  assert.match(resumed.error, /verification is incomplete/);
+  assert.match(lastPrompt, /The model changed after the task stopped/);
   assert.equal(f.counts().edits, 1);
 });
 test('a failed edit cannot be reported as success when the model is unchanged', async t => {
