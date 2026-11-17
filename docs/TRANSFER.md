@@ -31,7 +31,7 @@ with the playback controls under them, the parts on the right, the buttons at th
 | Path | While a taken arm, leg, wing or tail is selected, the path its hand or foot travels is drawn in orange on both views, with a dot at the current moment. Moving a slider moves the path, so you can see what the slider does. |
 | Other side | Take the part from the donor's other side: this left arm does what their right arm does. |
 | Strength | How much of the taken movement plays (0–150%). |
-| Pose | **Mine** keeps this model's own stance and adds the movement; **Theirs** points the part the way the donor's does. Starts at Mine. |
+| Pose | **Mine** keeps this model's own stance and adds the movement; **Theirs** points the part the way the donor's does. On Head, Chest and Hips, Theirs takes the donor's stance: the part stands as the donor's does. Starts at Mine. |
 | Raise / Turn / Roll | Turn an arm, leg, wing or tail up or down, forward or back, or around its length. Hips, Chest and Head have Lean / Tilt / Turn instead. |
 | Keep foot on the ground | Legs: a planted foot of the donor stays planted here. Needs Hips from the same animation. |
 | Travel | Hips: how far the body moves with the donor's hips, scaled to this model's size. |
@@ -41,7 +41,7 @@ with the playback controls under them, the parts on the right, the buttons at th
 | Take from … | Shown when the donor view plays something else than the part's source: takes the part from that instead. |
 | Timing | Closed at first. **Delay** (when the movement starts), **Speed** (only here: the clip's edges trim it), and **Ease** (soft start and end, for animations that play once, such as attacks). |
 | Name / Add animation / Cancel | The new animation's name (a suggestion until you type), the button that adds it (the window stays open, so you can add another), and Cancel, which closes. |
-| Add all (N) | Gives this model the donor's whole animation set: every donor animation it does not have yet by name (Decay and Portrait ones are left out), each with the parts, slider values and switches you took from that donor (first clips only: clips added with Add after and trims stay with the animation they were made on). Each plays over this model's own animation of the same kind (a Walk under Walk Defend), else the chosen Body animation. One Undo removes the whole set. The tooltip lists the names. |
+| Add all (N) | Gives this model the donor's whole animation set: every donor animation (Decay and Portrait ones are left out); one this model already has by name is replaced, built over its own animation of that name. With **Keep own animations** (beside it, off at first) only the animations it does not have yet are added. Each comes with the parts, slider values and switches you took from that donor (first clips only: clips added with Add after and trims stay with the animation they were made on). Each plays over this model's own animation of the same kind (a Walk under Walk Defend), else the chosen Body animation. One Undo removes the whole set. The tooltip lists the names. |
 | Ctrl+Z / Ctrl+Y | Step through your changes inside the window. |
 
 Double-click a slider to put its default back.

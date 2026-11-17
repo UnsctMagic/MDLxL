@@ -1906,7 +1906,10 @@
     "{0} · 1 bone",
     "{0} · {1} bones",
     "Own features ({0})",
-    "{0} kept"
+    "{0} kept",
+    "Mine keeps this model's own stance and adds the movement. Theirs takes the donor's stance: the part stands as the donor's does.",
+    "Keep own animations",
+    "On: Add all adds only the animations this model does not have. Off: an animation of the same name is replaced."
   ],
   "paint": [
     "Citadel Paint",

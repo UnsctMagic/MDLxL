@@ -16,9 +16,9 @@ import { readStored, writeStored } from '../src/local-store.js';
 import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
 import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
-import { standSequenceIndex } from '../src/sequence-editor.js';
+import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
-import { PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
+import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
 import './transfer.css';
@@ -66,7 +66,8 @@ const offsetField = (index, limb, trunk) => ({
 });
 const FIELDS = [
   { id: 'amount', label: () => 'Strength', min: 0, max: 150, step: 1, unit: '%', tip: () => 'How much of the taken movement plays. 100% is the donor\'s movement, 0% is this model\'s own.', get: part => part.amount * 100, set: (part, value) => ({ ...part, amount: value / 100 }), reset: d => d.amount * 100 },
-  { id: 'match', label: () => 'Pose', ends: ['Mine', 'Theirs'], min: 0, max: 100, step: 1, unit: '%', tip: () => 'Mine keeps this model\'s own stance and adds the movement. Theirs points the part the way the donor\'s does.', get: part => part.match * 100, set: (part, value) => ({ ...part, match: value / 100 }), reset: d => d.match * 100 },
+  // Pose: `stance` on Head, Chest and Hips, `match` on limbs (poseKey); `kind` is the part's.
+  { id: 'match', label: () => 'Pose', ends: ['Mine', 'Theirs'], min: 0, max: 100, step: 1, unit: '%', tip: kind => kind === 'trunk' ? 'Mine keeps this model\'s own stance and adds the movement. Theirs takes the donor\'s stance: the part stands as the donor\'s does.' : 'Mine keeps this model\'s own stance and adds the movement. Theirs points the part the way the donor\'s does.', get: (part, kind) => poseOf(part, kind) * 100, set: (part, value, kind) => withPose(part, kind, value / 100), reset: (d, kind) => poseOf(d, kind) * 100 },
   offsetField(0, ['Raise', 'Turns the part up or down.'], ['Lean', 'Leans the part forward or back.']),
   offsetField(1, ['Turn', 'Turns the part forward or back around the vertical.'], ['Tilt', 'Tilts the part to the side.']),
   offsetField(2, ['Roll', 'Turns the part around its own length.'], ['Turn', 'Turns the part left or right.']),
@@ -450,7 +451,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const applies = (field, key) => field.only === 'hips' ? key === 'hips' : field.only === 'nonLooping' ? clipNonLooping(clipOfPart(effective.parts[key], at)) : !(allMode && /^offset/.test(field.id));
   const setField = (field, value, live) => {
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), value));
+    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), value, rigB.parts[key]?.kind));
     const next = { ...base, parts };
     if (live) { sliderValue.current = next; slider.current.schedule(); return; }
     slider.current.cancel(); sliderValue.current = null; setDraft(null); change(next);
@@ -514,12 +515,12 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Double-click: every target back to its own default.
   const resetField = field => {
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), field.reset(defaultTransferPart(rigB, key, shareClip(base.parts, parts[key])))));
+    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), field.reset(defaultTransferPart(rigB, key, shareClip(base.parts, parts[key])), rigB.parts[key]?.kind), rigB.parts[key]?.kind));
     endDrag(); change({ ...base, parts });
   };
   // With All, a slider shows the shared value, or stays empty ('–') when the parts differ.
   const slidersFor = timing => FIELDS.filter(field => !!field.timing === timing && targets.some(key => applies(field, key))).map(field => {
-    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get(clipOfPart((laneLive ? effective.parts[key] : recipe.parts[key]) || effective.parts[key], at) || clipOfPart(effective.parts[key], at)) * 100) / 100);
+    const values = targets.filter(key => applies(field, key)).map(key => Math.round(field.get(clipOfPart((laneLive ? effective.parts[key] : recipe.parts[key]) || effective.parts[key], at) || clipOfPart(effective.parts[key], at), rigB.parts[key]?.kind) * 100) / 100);
     // A chained clip starts late: Delay's slider reaches past it.
     const shown = field.id === 'start' ? { ...field, max: Math.max(field.max, Math.ceil((Math.max(0, ...values) + 500) / 1000) * 1000) } : field;
     return <PartSlider key={field.id} field={shown} kind={kind} value={values[0]} mixed={values.some(v => v !== values[0])}
@@ -540,24 +541,39 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     addedRecipe.current = JSON.stringify(current); setAdded({ name: finalName }); setName(null);
   };
   // Add all: the donor's whole set with the parts taken from it, one Undo for all (src/transfer-window.js addAllPlan).
-  const plan = useMemo(() => donor ? addAllPlan(model, donor.model, donor.id, recipe, recipe.base.sequence) : { clips: [] }, [donor, model, doc.revision, recipe]);
+  // An animation this model already has by name is replaced (built over its own of that name, which
+  // is removed after the set is added), unless Keep own animations is on.
+  const [keepOwn, setKeepOwn] = useState(false);
+  const plan = useMemo(() => donor ? addAllPlan(model, donor.model, donor.id, recipe, recipe.base.sequence, { replace: !keepOwn }) : { clips: [] }, [donor, model, doc.revision, recipe, keepOwn]);
   // The set takes a few seconds on big models: the button says Adding... and the footer waits,
   // painted before the work starts.
   const [adding, setAdding] = useState(false);
   const addAll = () => {
     if (!plan.clips.length || doc.readOnly || adding) return;
-    const clips = plan.clips;
+    const clips = plan.clips, count = sequences.length, gone = [...new Set(clips.flatMap(clip => clip.replaces))].sort((a, b) => b - a);
     setAdding(true);
     requestAnimationFrame(() => setTimeout(() => {
       try {
-        const result = edit(`Transfer: add ${clips.length} animations`, SECTIONS, m => { for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); } });
+        const result = edit(`Transfer: add ${clips.length} animations`, gone.length ? [...SECTIONS, 'Info'] : SECTIONS, m => {
+          for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); }
+          for (const index of gone) deleteSequence(m, index);
+        });
         clearTransferCache(model);
-        if (result !== false) { addedRecipe.current = JSON.stringify(recipeRef.current); setAdded({ count: clips.length }); setName(null); }
+        if (result !== false) {
+          // The open model's animations moved: the Body animation and parts from this model follow them.
+          if (gone.length) {
+            const moved = clip => clip.source === 'self' ? { ...clip, sequence: sequenceIndexAfter(clip.sequence, count, clips) } : clip, base = recipeRef.current;
+            const next = { ...base, base: { ...base.base, sequence: sequenceIndexAfter(base.base.sequence, count, clips) }, parts: Object.fromEntries(Object.entries(base.parts).map(([key, part]) => [key, part.next ? { ...moved(part), next: part.next.map(moved) } : moved(part)])) };
+            recipeRef.current = next; setRecipe(next);
+          }
+          addedRecipe.current = JSON.stringify(recipeRef.current); setAdded({ count: clips.length }); setName(null);
+        }
       } finally { setAdding(false); }
     }, 0));
   };
   const fromDonor = donor && taken.some(key => effective.parts[key].source === donor.id);
-  const addAllTip = !donor || !fromDonor ? 'Take a part from the donor first: Add all repeats those parts for each of its animations.' : !plan.clips.length ? 'This model already has every animation of the donor, or only Decay and Portrait animations are left.' : `Adds: ${plan.clips.map(clip => clip.name).join(', ')}`;
+  const replaced = plan.clips.filter(clip => clip.replaces.length).map(clip => clip.name);
+  const addAllTip = !donor || !fromDonor ? 'Take a part from the donor first: Add all repeats those parts for each of its animations.' : !plan.clips.length ? 'This model already has every animation of the donor, or only Decay and Portrait animations are left.' : `Adds: ${plan.clips.map(clip => clip.name).join(', ')}` + (replaced.length ? `. Replaces: ${replaced.join(', ')}` : '');
   useEffect(() => { if (added && addedRecipe.current !== JSON.stringify(recipe)) setAdded(''); }, [recipe]);
   const unapplied = taken.length > 0 && !doc.readOnly && addedRecipe.current !== JSON.stringify(recipe);
 
@@ -753,6 +769,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
         {added && <span className="xf-added" role="status">{added.count ? `Added ${added.count} animations` : <>Added <span translate="no">{added.name}</span></>}</span>}
         <span className="xf-spacer"/>
         <button disabled={adding} onClick={onClose} title="Close. Parts not added are lost.">Cancel</button>
+        <label className="xf-check xf-keep-own" title="On: Add all adds only the animations this model does not have. Off: an animation of the same name is replaced."><input data-hotkey="transfer:keep-own" data-hotkey-manual data-hotkey-label="Keep own animations" type="checkbox" checked={keepOwn} disabled={adding} onChange={event => setKeepOwn(event.target.checked)}/> Keep own animations</label>
         <button data-hotkey="transfer:add-all" data-hotkey-manual data-hotkey-label="Add all" className="xf-add-all" disabled={adding || !plan.clips.length || doc.readOnly || !built} title={addAllTip} onClick={addAll}>{adding ? 'Adding…' : <>Add all <span translate="no">({plan.clips.length})</span></>}</button>
         <button data-hotkey="transfer:add-animation" data-hotkey-manual data-hotkey-label="Add animation" className="xf-add" disabled={adding || !built || !taken.length || doc.readOnly} title="Add the result to this model as a new animation. One Undo removes it." onClick={add}>Add animation</button>
       </footer>

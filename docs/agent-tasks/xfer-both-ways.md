@@ -253,3 +253,71 @@ Goal: the trial result by clicks alone. In the Transfer window, no new panel, ex
    on the weapon arm, Add all: every resulting animation's keys equal what `buildTransfer` gives
    for the same recipe, and the model ends with the Tauren's names and none of its own of the
    same name twice. Engine untouched: `baseline-compare` against `l` stays `0 differ`.
+
+### Stage 2, second part: result (builder: Claude Opus)
+
+Built 17 Nov 2026 to the contract above, points 1 to 3; the engine (`src/anim-transfer.js`) is untouched.
+
+What changed:
+
+- `src/transfer-window.js`: `poseKey`, `poseOf`, `withPose` (Pose reads and writes `stance` on a trunk
+  part, `match` on a limb; a part without the field reads 0); `addAllPlan(..., { replace })` (with
+  `replace` every donor name but Decay and Portrait ones, each clip listing in `replaces` the open
+  model's animations of that name, its body animation the first of them); `sequenceIndexAfter` (where
+  an animation of the open model is after the set is appended and the replaced ones removed).
+- `app/Transfer.jsx`: the Pose field passes the part's kind to `get`/`set`/`reset`, so one drag on
+  All taken parts writes `stance` to Head, Chest and Hips and `match` to limbs and shows the shared
+  value; a trunk part's Pose tooltip says Theirs takes the donor's stance. `seatedMatch` and `take`,
+  `takeWhole`, `addAfter` are unchanged (they write `match`). Footer: "Keep own animations" checkbox
+  beside Add all, off at first; the plan and the count follow it. Add all appends every clip, then
+  removes the replaced animations with the editor's own `deleteSequence` (`src/sequence-editor.js`,
+  the Animation Controller's delete), all inside the one `edit` call (one Undo step; `Info` added to
+  its sections when something is removed, as the Animation Controller does). After it, the window's
+  Body animation and parts taken from This model are moved to the same animations' new places
+  (`sequenceIndexAfter`), without a window history step. The Add all tooltip adds "Replaces: ..." when
+  something is replaced. Setups needed no change: every part field already travels, so `stance` saves
+  and loads; an old setup has none and its trunk Pose reads 0.
+- Strings: three new ones (trunk Pose tooltip, "Keep own animations", its tooltip) in all five
+  catalogs, `test/fixtures/locale-feature-sources.json`, catalog sizes in
+  `test/localization-catalogs.test.js` (+3 each); `src/hotkey-manifest.json` regenerated
+  (`transfer:keep-own`); `docs/TRANSFER.md` rows for Pose and Add all.
+- Tests: `test/transfer-window.test.js` three tests (Pose field mapping; setup round trip of `stance`
+  and an old setup; Add all on the Kurgan from the Tauren in both modes plus `sequenceIndexAfter`).
+  `test/transfer.electron.cjs` story `set`; story `all` now ticks "Keep own animations" first (it
+  covers the only-new-names case, which is no longer the default).
+
+Proofs (run on this worktree, 17 Nov):
+
+- `node --test test/transfer-window.test.js test/anim-transfer.test.js`: 81 pass, 0 fail (27 + 54).
+  Fail first on the committed `src/transfer-window.js`: the file fails to load (`does not provide an
+  export named 'poseKey'`); with only the new helpers added to the old file, the Add all test fails
+  (`clip.replaces` undefined: the old plan neither replaces nor lists anything).
+- `baseline.mjs m`, `baseline-compare.mjs l m`: `32 trials compared, 0 differ` (nurglespell has the
+  same "no sequence /^spell/i" in `l` and `m`).
+- `node --test test/ui-primitives.test.js test/localization*.test.js`: 61 pass, 0 fail;
+  `test/hotkey-default-overlaps.test.js`: 11 pass.
+- Packaged (`out/pkg-transfer`, built from this source), hidden through `scripts\hidden-run.ps1`:
+  story `set` 6 checks, 0 errors. One Pose drag on All taken parts: stance 1 on hips, chest, head;
+  match 1 on legL, legR, armL, armR (trunk match unchanged, limbs no stance); Hips Pose reads 100 with
+  the stance tooltip; armR (the Kurgan's weapon arm) Both hands on the weapon off; Add all reads (8)
+  with Keep own animations off, (3) on; Add all leaves 18 animations (15 - 5 replaced + 8), each
+  Tauren name once, the Kurgan's other 10 once each, Body animation still Stand - 1. Every one of the
+  8 added animations has the keys `buildTransfer` + `applyTransfer` give for the same recipe on the
+  Kurgan as opened (one clip at a time on a fresh copy): Stand -1 129 tracks 370 keys, Stand - 3 129 /
+  1181, Walk 36 / 366, Stand Ready 30 / 170, Attack - 1 33 / 547, Stand Victory 129 / 348, Death 35 /
+  1077, Attack Slam 39 / 675; same tracks, same key frames, largest value difference 1.1e-13 (Death),
+  0 elsewhere. One Undo after closing the window puts the Kurgan's own 15 back.
+  Fail first: the same story on a package built from the committed `Transfer.jsx` and
+  `transfer-window.js` stops at "Pose at Theirs writes stance 1 on the trunk and match 1 on the limbs"
+  (hips got `match: 1`, no stance).
+- Story `B` on the new package: 11 checks, 0 errors. Story `all` (edited): 2 checks, 0 errors (Add all
+  (7) on the Lord of Change from the Footman with Keep own animations on; Undo, Redo, Save as keep them).
+
+Not done or not run:
+
+- Story `sweep34` was not run; it asserts only that Add all adds animations (the Footman from the
+  Grunt), which replacing may or may not still satisfy. The full source and packaged suites were not run.
+- The window's own Undo stack keeps recipes from before Add all with the old animation numbers; after a
+  replacing Add all, a window Undo back past it can point the Body animation at another animation.
+  Same class as an editor Undo under the window today; not changed (read from the code, not run).
+- Nothing seen that could not be explained.

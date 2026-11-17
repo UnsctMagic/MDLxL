@@ -280,6 +280,8 @@ async function storyAll() {
     const button = dialog.locator('button[data-hotkey="transfer:add-all"]');
     assert.equal(await button.isDisabled(), true, 'all: Add all waits for a taken part');
     await s.parts().getByRole('button', { name: 'Take whole body' }).click(); await page.waitForTimeout(1500);
+    // This story covers Keep own animations on (only new names); story set covers replacing (the default since stage 2).
+    await dialog.getByLabel('Keep own animations').click(); await page.waitForTimeout(300);
     const label = await button.innerText(), n = Number(label.match(/\((\d+)\)/)[1]), tip = await button.getAttribute('title');
     assert.ok(n > 5, `all: ${label}`);
     assert.ok(!/decay|portrait/i.test(tip) && !tip.split(/: |, /).includes('Death'), `all: the tooltip lists only new names (${tip})`);
@@ -1308,6 +1310,127 @@ async function unreadable() {
   } finally { await s.close(); }
 }
 
+// XFER stage 2, second part (docs/agent-tasks/xfer-both-ways.md): the trial result by clicks alone. The Kurgan
+// takes the Tauren's whole body, All taken parts Pose to Theirs (stance on Head, Chest and Hips, match on limbs),
+// Both hands on the weapon off on the weapon arm, Add all: every added animation's keys are what buildTransfer
+// makes of the same recipe, the model has each Tauren name once, and one Undo puts its own set back.
+async function setStory() {
+  const kurganFile = fixturePath('transfer-kurgan'), taurenFile = fixturePath('transfer-tauren');
+  if (![kurganFile, taurenFile].every(file => file && fs.existsSync(file))) { results.checks.push('set: the Kurgan or the Tauren is not on this machine, skipped'); return; }
+  const kurgan = copyModel('transfer-kurgan', 'TEST TRANSFER SET 01 kurgan.mdx'), tauren = copyModel('transfer-tauren', 'tauren donor set.mdx');
+  const { buildTransfer, applyTransfer, clearTransferCache } = await import('../src/anim-transfer.js'), { addAllPlan, rigFor } = await import('../src/transfer-window.js');
+  const own = await readModel(kurgan), donorModel = await readModel(tauren);
+  const state = page => page.evaluate(() => window.__mdlxl.transfer());
+  // Wait for a result (rule 8): poll with a time limit and say what was last seen.
+  const until = async (read, ok, what, ms = 90000) => { let last; for (const end = Date.now() + ms; Date.now() < end;) { last = await read(); if (ok(last)) return last; await new Promise(r => setTimeout(r, 150)); } throw new Error(`set: ${what} (last: ${JSON.stringify(last)?.slice(0, 300)})`); };
+  // Every node key inside one animation, by node name and track, frames from the animation's start.
+  const KINDS = ['Bones', 'Helpers', 'Attachments', 'Lights', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'EventObjects', 'CollisionShapes'];
+  const tracksIn = (model, [start, end], kinds) => {
+    const tracks = {};
+    for (const kind of kinds) for (const node of model[kind] || []) for (const property of ['Translation', 'Rotation', 'Scaling']) {
+      const track = node[property];
+      if (!track?.Keys || (track.GlobalSeqId != null && track.GlobalSeqId >= 0)) continue;
+      const keys = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => [key.Frame - start, ...Array.from(key.Vector)]);
+      if (keys.length) tracks[`${kind}:${node.Name}:${property}`] = keys;
+    }
+    return tracks;
+  };
+  const s = await session(kurgan, 'set'), { page, dialog } = s;
+  try {
+    await openTransfer(s);
+    await s.openDonor(tauren);
+    await s.parts().getByRole('button', { name: 'Take whole body' }).click();
+    const taken = await until(() => state(page), v => Object.keys(v.recipe.parts).length > 5, 'Take whole body takes the parts');
+    const rig = rigFor(own, taken.recipe.base.sequence), trunk = Object.keys(taken.recipe.parts).filter(key => rig.parts[key]?.kind === 'trunk'), limbs = Object.keys(taken.recipe.parts).filter(key => rig.parts[key]?.kind === 'limb');
+    assert.ok(trunk.includes('hips') && trunk.includes('chest') && limbs.length >= 4, `set: whole body takes the trunk and the limbs (${trunk} | ${limbs})`);
+    assert.equal(await dialog.locator('button[data-part="all"]').getAttribute('aria-pressed'), 'true', 'set: Take whole body selects All taken parts');
+    // All taken parts: Pose to Theirs in one drag writes stance on the trunk and match on the limbs.
+    await s.dragSlider('match', 1.3);
+    const posed = await until(() => state(page), v => trunk.every(key => v.recipe.parts[key].stance === 1) && limbs.every(key => v.recipe.parts[key].match === 1), 'Pose at Theirs writes stance 1 on the trunk and match 1 on the limbs');
+    assert.ok(trunk.every(key => posed.recipe.parts[key].match === taken.recipe.parts[key].match), 'set: the trunk parts keep their match');
+    assert.ok(limbs.every(key => !(posed.recipe.parts[key].stance > 0)), 'set: the limbs get no stance');
+    assert.equal(await dialog.locator('input[data-field="match"]').inputValue(), '100', 'set: the All taken parts Pose shows the shared 100');
+    results.checks.push(`set: one Pose drag on All taken parts: stance 1 on ${trunk.join(', ')}, match 1 on ${limbs.join(', ')}`);
+    // A trunk part's Pose shows its stance and says so.
+    await dialog.locator('button[data-part="hips"]').click();
+    const hipsPose = dialog.locator('input[data-field="match"]');
+    await until(async () => [await hipsPose.inputValue(), await hipsPose.getAttribute('title')], ([value, title]) => value === '100' && /takes the donor's stance/.test(title || ''), 'Hips Pose shows 100 and the stance tooltip');
+    // The weapon arm: Both hands on the weapon off.
+    const weaponArm = Object.keys(rig.parts).find(key => rig.parts[key].kind === 'limb' && rig.parts[key].weapon && typeof rig.parts[key].weapon === 'object' && rig.parts[key].weapon.grip);
+    assert.ok(weaponArm && taken.recipe.parts[weaponArm], `set: the Kurgan has a two-handed weapon arm (${weaponArm})`);
+    await dialog.locator(`button[data-part="${weaponArm}"]`).click();
+    const both = dialog.getByLabel('Both hands on the weapon');
+    assert.equal(await both.isChecked(), true, 'set: Both hands on the weapon starts on');
+    await both.click();
+    const recipe = (await until(() => state(page), v => v.recipe.parts[weaponArm].grip === false, 'Both hands on the weapon off writes grip false')).recipe;
+    results.checks.push(`set: Hips Pose reads 100 with the stance tooltip; ${weaponArm} Both hands on the weapon off`);
+    // Add all and its count follow Keep own animations (off at first).
+    const donorId = recipe.parts.hips.source, sources = new Map([[donorId, donorModel]]);
+    const replacing = addAllPlan(own, donorModel, donorId, recipe, recipe.base.sequence, { replace: true }).clips, keeping = addAllPlan(own, donorModel, donorId, recipe, recipe.base.sequence).clips;
+    const button = dialog.locator('button[data-hotkey="transfer:add-all"]'), keep = dialog.getByLabel('Keep own animations'), count = async () => Number((await button.innerText()).match(/\((\d+)\)/)?.[1]);
+    assert.equal(await keep.isChecked(), false, 'set: Keep own animations is off at first');
+    assert.equal(await count(), replacing.length, `set: Add all counts every Tauren animation (${replacing.length})`);
+    await keep.click(); await until(count, n => n === keeping.length, `Keep own animations on: Add all (${keeping.length})`);
+    await keep.click(); await until(count, n => n === replacing.length, `Keep own animations off again: Add all (${replacing.length})`);
+    results.checks.push(`set: Add all (${replacing.length}) with Keep own animations off, (${keeping.length}) with it on`);
+    const before = own.Sequences.map(q => q.Name), baseName = before[recipe.base.sequence], gone = new Set(replacing.flatMap(clip => clip.replaces));
+    await button.click();
+    await dialog.getByText(`Added ${replacing.length} animations`).waitFor({ timeout: 120000 });
+    const names = await until(() => page.evaluate(() => window.__mdlxl.model().Sequences.map(q => q.Name)), list => list.length === before.length - gone.size + replacing.length, 'Add all leaves the model with its kept animations and the Tauren set');
+    // (b) Each Tauren name once, the Kurgan's other animations still there once each.
+    for (const clip of replacing) assert.equal(names.filter(n => n.toLowerCase() === clip.name.toLowerCase()).length, 1, `set: ${clip.name} once (${names.join(', ')})`);
+    for (const [i, n] of before.entries()) if (!gone.has(i)) assert.equal(names.filter(x => x === n).length, before.filter(x => x === n).length, `set: the Kurgan's own ${n} stays`);
+    const after = await state(page);
+    assert.equal(names[after.recipe.base.sequence], baseName, `set: the Body animation stays ${baseName}`);
+    results.checks.push(`set: Add all leaves ${names.length} animations (${before.length} - ${gone.size} replaced + ${replacing.length}); each Tauren name once; Body animation still ${baseName}`);
+    // (a) Every added animation's keys equal buildTransfer's for the same recipe on the Kurgan as opened.
+    const kinds = KINDS.filter(kind => (own[kind] || []).length);
+    const actual = await page.evaluate(({ wanted, kinds }) => {
+      const model = window.__mdlxl.model(), out = {};
+      for (const name of wanted) {
+        const matches = model.Sequences.filter(q => q.Name === name);
+        if (matches.length !== 1) { out[name] = { count: matches.length }; continue; }
+        const [start, end] = matches[0].Interval, tracks = {};
+        for (const kind of kinds) for (const node of model[kind] || []) for (const property of ['Translation', 'Rotation', 'Scaling']) {
+          const track = node[property];
+          if (!track?.Keys || (track.GlobalSeqId != null && track.GlobalSeqId >= 0)) continue;
+          const keys = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => [key.Frame - start, ...Array.from(key.Vector)]);
+          if (keys.length) tracks[`${kind}:${node.Name}:${property}`] = keys;
+        }
+        out[name] = { count: 1, length: end - start, tracks };
+      }
+      return out;
+    }, { wanted: replacing.map(clip => clip.name), kinds });
+    const report = [];
+    for (const clip of replacing) {
+      const m = structuredClone(own);
+      clearTransferCache(m);
+      applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name });
+      // m still has the Kurgan's own animation of that name: read the new one, the last.
+      const got = actual[clip.name], [start, end] = m.Sequences.at(-1).Interval, wantTracks = tracksIn(m, [start, end], kinds);
+      assert.equal(got.count, 1, `set: ${clip.name} is in the model once`);
+      assert.equal(got.length, end - start, `set: ${clip.name} lasts ${end - start} ms`);
+      const names = Object.keys(wantTracks).sort();
+      assert.deepEqual(Object.keys(got.tracks).sort(), names, `set: ${clip.name} has keys on the same tracks`);
+      let diff = 0, keys = 0;
+      for (const name of names) {
+        const a = got.tracks[name], b = wantTracks[name];
+        assert.equal(a.length, b.length, `set: ${clip.name} ${name}: ${a.length} keys, buildTransfer makes ${b.length}`);
+        for (let i = 0; i < a.length; i++) { keys++; assert.equal(a[i][0], b[i][0], `set: ${clip.name} ${name} key ${i} frame`); for (let j = 1; j < b[i].length; j++) diff = Math.max(diff, Math.abs(a[i][j] - b[i][j])); }
+      }
+      assert.ok(diff < 1e-4, `set: ${clip.name} keys differ from buildTransfer by ${diff}`);
+      report.push(`${clip.name} ${names.length} tracks ${keys} keys max diff ${diff.toExponential(1)}`);
+    }
+    results.checks.push(`set: every added animation's keys equal buildTransfer's for the same recipe: ${report.join('; ')}`);
+    // One Undo puts the Kurgan's own set back.
+    await dialog.getByRole('button', { name: 'Close Transfer' }).click(); await page.waitForTimeout(300);
+    await page.keyboard.press('Control+Z');
+    await until(() => page.evaluate(() => window.__mdlxl.model().Sequences.map(q => q.Name)), list => JSON.stringify(list) === JSON.stringify(before), 'one Undo puts the Kurgan\'s own animations back');
+    results.checks.push(`set: one Undo puts the Kurgan's own ${before.length} animations back`);
+    await s.noCrash('set');
+  } finally { await s.close(); }
+}
+
 // Director trials: whole body onto very different rigs, caught mid-movement.
 async function trials() {
   const footman = copyModel('transfer-footman', 'footman donor 3.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor 3.mdx');
@@ -1338,9 +1461,9 @@ async function trials() {
 (async () => {
   fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true }); fs.mkdirSync(shots8, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'set', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['set', setStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

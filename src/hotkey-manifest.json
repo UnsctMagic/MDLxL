@@ -294,6 +294,7 @@
   {"id":"transfer:donor-mount","label":"Donor: Mount","group":"transfer","category":"Transfer"},
   {"id":"transfer:donor-rider","label":"Donor: Rider","group":"transfer","category":"Transfer"},
   {"id":"transfer:keep-foot","label":"Keep foot on the ground","group":"transfer","category":"Transfer"},
+  {"id":"transfer:keep-own","label":"Keep own animations","group":"transfer","category":"Transfer"},
   {"id":"transfer:library","label":"Library...","group":"transfer","category":"Transfer"},
   {"id":"transfer:mirror","label":"Mirror","group":"transfer","category":"Transfer"},
   {"id":"transfer:model-both","label":"This model: Both","group":"transfer","category":"Transfer"},

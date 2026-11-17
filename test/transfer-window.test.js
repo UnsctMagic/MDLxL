@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
+import { poseKey, poseOf, withPose, sequenceIndexAfter } from '../src/transfer-window.js';
 import { PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, restoredClip, trimmedClip, withClip, withPartWide, withoutClip, addAllPlan, bodyAnimationFor, chipOrder, clipBlocks, clipLanes, dropPoint, parseSetup, recipeFromSetup, setupFromRecipe, donorPartKey, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts } from '../src/transfer-window.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
@@ -321,4 +322,63 @@ test('setups keep features by their top joint\'s name; a model without one leave
   assert.equal(recipeFromSetup(old, own, rig, donors, 0, [{ id: 40, name: 'BellyBone1' }]).recipe.features, undefined, 'an old setup gets no features');
   const plan = addAllPlan({ Sequences: [] }, { Sequences: [{ Name: 'Walk', Interval: [0, 500] }] }, 'g', recipe, 0);
   assert.equal(plan.clips[0].recipe.features, recipe.features, 'Add all passes features untouched');
+});
+
+// ---------------------------------------------------------------- stage 2, second part: Pose carries the stance, Add all replaces
+test('Pose: Head, Chest and Hips read and write stance, limbs match; a part without stance reads 0', () => {
+  assert.equal(poseKey('trunk'), 'stance');
+  assert.equal(poseKey('limb'), 'match');
+  const hips = { match: 0.3, stance: 0 }, arm = { match: 0, stance: 0 };
+  assert.deepEqual(withPose(hips, 'trunk', 1), { match: 0.3, stance: 1 }, 'a trunk part: stance changes, match stays');
+  assert.deepEqual(withPose(arm, 'limb', 1), { match: 1, stance: 0 }, 'a limb: match changes, stance stays');
+  assert.equal(poseOf({ match: 1 }, 'trunk'), 0, 'an old trunk part without stance reads 0 (its match is not shown)');
+  assert.equal(poseOf({ match: 0.4, stance: 0.7 }, 'limb'), 0.4);
+  assert.equal(poseOf({ match: 0.4, stance: 0.7 }, 'trunk'), 0.7);
+});
+
+test('setups save and load stance; an old setup without it reads Pose 0 on the trunk', () => {
+  const own = { Sequences: [{ Name: 'Stand', Interval: [0, 1000] }] }, donor = { Sequences: [{ Name: 'Walk', Interval: [0, 800] }] };
+  const recipe = { base: { sequence: 0 }, length: null, sources: {}, parts: { hips: { source: 'g', sequence: 0, match: 0, stance: 1 }, chest: { source: 'g', sequence: 0, match: 0, stance: 0.5 }, armL: { source: 'g', sequence: 0, match: 1, stance: 0 } } };
+  const describe = id => id === 'g' ? { kind: 'file', path: 'D:/m/g.mdx', name: 'g.mdx', model: donor } : null;
+  const setup = parseSetup(JSON.stringify(setupFromRecipe(recipe, own, describe, 'Stance')));
+  assert.equal(setup.parts.hips.stance, 1); assert.equal(setup.parts.chest.stance, 0.5);
+  const rig = { parts: { hips: { kind: 'trunk' }, chest: { kind: 'trunk' }, armL: { kind: 'limb' } } }, donors = { g: { id: 'file:g', model: donor } };
+  const back = recipeFromSetup(setup, own, rig, donors, 0).recipe.parts;
+  assert.deepEqual(Object.fromEntries(Object.entries(back).map(([key, part]) => [key, poseOf(part, rig.parts[key].kind)])), { hips: 1, chest: 0.5, armL: 1 });
+  const old = JSON.parse(JSON.stringify(setup)); for (const part of Object.values(old.parts)) delete part.stance;
+  const plain = recipeFromSetup(old, own, rig, donors, 0).recipe.parts;
+  assert.equal(poseOf(plain.hips, 'trunk'), 0); assert.equal(poseOf(plain.chest, 'trunk'), 0); assert.equal(poseOf(plain.armL, 'limb'), 1);
+});
+
+test('Add all on the Kurgan from the Tauren: replaces the names it has by default, Keep own animations adds only new ones', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren'), lower = s => s.Name.trim().toLowerCase();
+  const stand = kurgan.Sequences.findIndex(s => s.Name === 'Stand - 1');
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: { hips: { source: 't', sequence: 0, match: 0, stance: 1 }, armR: { source: 't', sequence: 0, match: 1, grip: false } } };
+  const wanted = tauren.Sequences.filter(s => !/decay|portrait/i.test(s.Name)).map(s => s.Name);
+  // Keep own animations: the names the Kurgan lacks, nothing removed.
+  const keep = addAllPlan(kurgan, tauren, 't', recipe, stand).clips;
+  assert.deepEqual(keep.map(clip => clip.name), wanted.filter(n => !kurgan.Sequences.some(s => lower(s) === n.toLowerCase())));
+  assert.ok(keep.every(clip => clip.replaces.length === 0));
+  // Replace: every Tauren name; a shared name plays over the Kurgan's own animation of that name and replaces it.
+  const all = addAllPlan(kurgan, tauren, 't', recipe, stand, { replace: true }).clips;
+  assert.deepEqual(all.map(clip => clip.name), wanted, 'every Tauren animation but Decay ones');
+  for (const clip of all) {
+    const own = kurgan.Sequences.flatMap((s, i) => lower(s) === clip.name.toLowerCase() ? [i] : []);
+    assert.deepEqual(clip.replaces, own, `${clip.name} replaces the Kurgan's own of that name`);
+    if (own.length) assert.equal(clip.recipe.base.sequence, own[0], `${clip.name} is built over the Kurgan's ${clip.name}`);
+    assert.equal(clip.recipe.parts.hips.stance, 1); assert.equal(clip.recipe.parts.armR.grip, false);
+  }
+  assert.deepEqual(all.filter(clip => clip.replaces.length).map(clip => clip.name).sort(), ['Attack - 1', 'Attack Slam', 'Death', 'Stand Ready', 'Walk']);
+  // The names the model ends with: each Tauren name once, the rest of its own untouched.
+  const gone = new Set(all.flatMap(clip => clip.replaces)), names = [...kurgan.Sequences.filter((_, i) => !gone.has(i)).map(s => s.Name), ...all.map(clip => clip.name)];
+  for (const n of wanted) assert.equal(names.filter(x => x.toLowerCase() === n.toLowerCase()).length, 1, `${n} once`);
+  assert.equal(names.length, kurgan.Sequences.length - gone.size + all.length);
+  // The Body animation moves with the removal: Stand - 1 stays Stand - 1, a replaced one becomes its replacement.
+  const count = kurgan.Sequences.length;
+  assert.equal(names[sequenceIndexAfter(stand, count, all)], 'Stand - 1');
+  const walk = kurgan.Sequences.findIndex(s => s.Name === 'Walk');
+  assert.equal(names[sequenceIndexAfter(walk, count, all)], 'Walk');
+  assert.equal(sequenceIndexAfter(walk, count, all), count - gone.size + all.findIndex(clip => clip.name === 'Walk'));
+  const dissipate = kurgan.Sequences.findIndex(s => s.Name === 'Dissipate');
+  assert.equal(names[sequenceIndexAfter(dissipate, count, all)], 'Dissipate');
 });

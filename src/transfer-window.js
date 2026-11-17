@@ -137,24 +137,46 @@ export function bodyAnimationFor(recipient, donorName, fallback) {
 
 const firstClipOnly = part => { const { next: _drop, ...first } = part; return first; };
 
-/** Add all: every animation of `donor` (source `sourceId`) the open model does not have yet by
- * name (case-insensitive), without Decay and Portrait ones, each with the parts taken from that
- * source pointed at it and its own body animation. Parts from other sources stay as they are.
- * Only first clips: chained clips (`next`) stay out, and a retargeted part loses its trim (`clip`).
- * Returns { clips: [{ sequence, name, recipe }] }. */
-export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase) {
+/** Add all: every animation of `donor` (source `sourceId`) without Decay and Portrait ones, each with
+ * the parts taken from that source pointed at it and its own body animation. Parts from other sources
+ * stay as they are. Only first clips: chained clips (`next`) stay out, and a retargeted part loses its
+ * trim (`clip`). By default only names the open model does not have yet (case-insensitive) are added;
+ * with `replace` a name it has is added too, over its own animation of that name, and `replaces` lists
+ * the open model's animations of that name (to remove once the set is added).
+ * Returns { clips: [{ sequence, name, recipe, replaces }] }. */
+export function addAllPlan(recipient, donor, sourceId, recipe, fallbackBase, { replace = false } = {}) {
   const taken = Object.entries(recipe?.parts || {}).filter(([, part]) => part.source === sourceId);
   if (!taken.length) return { clips: [] };
-  const have = new Set((recipient?.Sequences || []).map(sequence => String(sequence.Name || '').trim().toLowerCase())), clips = [];
+  const own = (recipient?.Sequences || []).map(sequence => String(sequence.Name || '').trim().toLowerCase());
+  const have = new Set(replace ? [] : own), clips = [];
   (donor?.Sequences || []).forEach((sequence, index) => {
     const name = String(sequence.Name || '').trim(), key = name.toLowerCase();
     if (!name || !sequence.Interval || leftOut(name) || have.has(key)) return;
     have.add(key);
     const parts = Object.fromEntries(Object.entries(recipe.parts).map(([part, value]) => [part, firstClipOnly(value.source === sourceId ? { ...value, sequence: index, clip: null } : value)]));
-    clips.push({ sequence: index, name, recipe: { ...recipe, base: { ...recipe.base, sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts } });
+    const replaces = replace ? own.flatMap((item, at) => item === key ? [at] : []) : [];
+    clips.push({ sequence: index, name, recipe: { ...recipe, base: { ...recipe.base, sequence: bodyAnimationFor(recipient, name, fallbackBase) }, parts }, replaces });
   });
   return { clips };
 }
+
+/** Where the open model's animation `index` is once Add all has appended `clips` (to a model of
+ * `count` animations) and removed the ones they replace: a replaced animation becomes its replacement. */
+export function sequenceIndexAfter(index, count, clips) {
+  const gone = [...new Set(clips.flatMap(clip => clip.replaces || []))];
+  const by = clips.findIndex(clip => (clip.replaces || []).includes(index));
+  if (by >= 0) return count + by - gone.length;
+  return index - gone.filter(at => at < index).length;
+}
+
+// ---------------------------------------------------------------- Pose
+/** The recipe field Pose writes on a part: Head, Chest and Hips (trunk) take the donor's stance
+ * (`stance`); arms, legs and other limbs point the way the donor's do (`match`). */
+export const poseKey = kind => kind === 'trunk' ? 'stance' : 'match';
+/** Pose of a part (0 Mine to 1 Theirs); a part without the field (an old setup) reads 0. */
+export const poseOf = (part, kind) => Number(part?.[poseKey(kind)]) || 0;
+/** The part with its Pose set. */
+export const withPose = (part, kind, value) => ({ ...part, [poseKey(kind)]: value });
 
 // ---------------------------------------------------------------- clip timeline
 /** Timeline lanes of the taken parts, one per clip group: parts whose n-th clip comes from the same
