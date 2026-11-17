@@ -421,3 +421,151 @@ Proof, all before hand-back:
   `baseline-compare` against `l` still `0 differ` (exports only, no engine behaviour change).
 - These are prototypes for the owner's eye, labelled as such: the window does not offer the
   transplant yet (stage 5 is designed with him first).
+
+### Stage 3, engine prototype: result (builder: Claude Opus)
+
+Built 17 Nov 2026 to the engine contract above. A prototype for the owner's eye: no window, no UI
+strings. Commits: e870df17 (module and the easy pair), dce7ebd5 (owner's pair, options), and this note.
+
+What was built:
+
+- `src/skeleton-transplant.js` (new, pure): `transplantSkeleton(model, donor, { keep = [], events = true,
+  emitters = false, mirror = null, extents = true })` -> `{ model, report }`, and `mirrorModel(model)` (a
+  donor reflected left to right, for `mirror: true`). The result is a new model; neither input changes.
+  `report` = `{ fit, reasons, converted, extras: [{ id, name, vertices, kept }], mirrorOffer, counts,
+  ownNodes, donorNodes }`; the last two map the open model's and the donor's ObjectIds to the result's.
+- `src/anim-transfer.js`: exports only (`sameKindSequence`, `copyBodyAnimation`, `newSequenceExtents`);
+  nothing it computes changed. The pairing itself is read from `buildTransfer`'s `probe` (one sample), as
+  the study's probes did, so no pairing code is copied.
+- How it works (the study's section 3 with the owner's answers):
+  1. Pairing is the engine's own (stage 1). Trunk joints pair by what hangs from them: the joint the legs
+     hang from takes the hips (Kurgan `Hip` -> `Bone_Pelvis`), the one the arms hang from the chest, the
+     deepest head joint the head (`Head` -> `Bone_Head`).
+  2. A limb is converted when its donor limb has a joint inside the limb, between two joints the pairing
+     uses, that no joint here takes (the Tauren's hock; the Grunt's forearm, where the Footman's shield arm
+     ends at an attachment). Its own joints stay and the retargeting engine drives them in every donor
+     animation on the result itself (Pose = Theirs; feet kept down for legs; hands free and not aimed).
+     First the Stand, then the body joint is moved up or down by one constant so the feet stand at the
+     model's own standing height in that reference pose, then every animation. Everything else paired is
+     transplanted.
+  3. Donor joints sit on this model's joints (paired; several own joints on one donor joint: the first);
+     on this model's line between the placed joint above and the one paired joint below at the donor's
+     share of that path (a collar or neck this model lacks); else at the donor's offset from the nearest
+     placed joint, scaled by the size ratio (hip heights; tail, weapon root); top nodes about the ground
+     point under the hip centre.
+  4. Skin: every own bone goes to the donor joint its part joint pairs with. An extra (a bone outside the
+     parts that moves by itself: some key with a second value) goes with its bone and rides that joint,
+     held where the model's own reference pose holds it (its vertices are re-placed in the joint's rest
+     frame by that pose). With its id in `keep` its bone stays, still at that pose, on the same donor joint.
+     A still skin carrier (the SD habit) is body skin and is not listed. Donor helpers that get skin become
+     bones; donor bones left with no skin and nothing below go; keyed donor helpers stay (tail, totem root).
+  5. Keys: the donor's, with its animation list and intervals. In a transplanted limb each joint's rotation
+     keys (and tangents) become C(parent)^-1 q C(self), C turning this model's stretch onto the donor's, so
+     every stretch points as the donor's (twist: shortest arc); position keys inside such a limb are scaled
+     by that stretch's own length ratio, elsewhere by the size ratio; `MoveSpeed` times the size ratio.
+  6. Attachments are the donor's. `events` on: the donor's sounds and footprints; off: the model's own,
+     refitted. `emitters` on: the donor's particle emitters, ribbons and lights with their textures. The
+     model's own camera, collision shapes and effects stay; geoset animations, material and texture keys
+     and own effects' keys are refitted into each donor animation from the own animation of the same kind
+     (`sameKindSequence`, else the own Stand) with `copyBodyAnimation`. Donor global sequences that kept
+     nodes use are appended; one of no length becomes a constant (the Knight has one).
+  7. Poor fit (named, still made): either body not recognised, a different number of legs, or an own arm,
+     leg or wing with no donor counterpart (it rides still). A tail with no counterpart rides still without
+     making it poor (`counts.ridesStill`). Bind poses (Reforged) are left out and named.
+
+Proofs (run on this worktree, 17 Nov):
+
+- `node --test test/skeleton-transplant.test.js`: 9 pass, 0 fail (T1, T2 Footman on the Grunt; T4 to T6 the
+  Kurgan on the Tauren; T7 keep; T8 sounds and effects; T9 mirror on the Kurgan and the Grunt; T10 poor fit,
+  the Kurgan on the Magnataur). Each checks: validates, survives `generateCompatibleMdx` and
+  `parseCompatibleMdx` with exactly the donor's names and intervals, none of its own animations, every
+  vertex on a node that exists, no own body joint left unless its part is converted or kept. Measures:
+  transplanted arm and leg parts against the donor's part of the same role through every animation but
+  decay and portrait: 0.0 degrees on both pairs (largest); the Kurgan's lower foot in Walk 2.4 above its
+  standing height (hip height 42, limit 4.2); the hammer's vertices against the hand within 0.05 of the
+  Kurgan's own grip through every animation, kept or not.
+- Fail first (`out/transfer-probe/transplant-fail-first.mjs`, one behaviour broken at a time, file restored):
+  correction off -> T2 `legL: the lower part is up to 11.6 degrees from the Grunt's`; no conversion -> T4
+  (`converted` empty) and T5 (`the Kurgan's own feet are in the result`); feet not kept down -> T5 `lower
+  foot gets 16.3 above its standing height`; extras not held -> T6 `the hammer drifts up to 25.55`; keep
+  ignored -> T7 `the hammer's bone is in the result`; events or emitters ignored -> T8; mirror ignored -> T9
+  `armL: the upper part is up to 132.7 degrees`; poor fit not named -> T10.
+- `node --test test/anim-transfer.test.js test/transfer-window.test.js`: 81 pass. `baseline.mjs p`,
+  `baseline-compare.mjs l p`: `32 trials compared, 0 differ` (nurglespell has no Spell, as in `l`).
+- The owner's pair (`out/transfer-probe/transplant-run.mjs`): 10 animations, 46 nodes, 0 validation errors;
+  arms 0.0 degrees from the Tauren's; converted legs at feet kept down: thigh up to 46 degrees (mean 10 and
+  15), lower leg up to 37 and 40 (mean 8 and 12) from the Tauren's thigh and knee-to-hoof line (the placing
+  moves them, as at Pose = Theirs in retargeting); lower foot above standing height: Stands 0.1 to 0.3,
+  Walk 2.4, attacks 1.5 and 1.6. Build time 10 to 12 s (extents included), most of it the converted legs.
+- Other pairs (`transplant-options.mjs`, all 0 validation errors, round trip ok, transplanted parts 0
+  degrees): Kurgan on Ghoul, Sorceress, Lord of Change (legs converted); Footman on the Grunt mirrored;
+  Footman on the Kurgan; Tauren on the Footman; Kurgan on the Knight and the Magnataur named poor.
+
+Collection sweep (`out/transfer-probe/transplant-sweep.mjs`, sharded, merged by `transplant-sweep-merge.mjs`
+into `transplant-sweep.json`; `extents` off): every two-arm two-leg body of `D:\Claude\MDLxL-TestModels` and
+`D:\Claude\lpw-main\dist\models` (561, read as `pairing-sweep.mjs` reads them) taking each donor's skeleton.
+Limb parts = upper and lower part of each arm and leg against the donor's part of the same role, 6 moments
+of every animation but decay and portrait; "worst within 10" = the part's largest angle is 10 or less.
+
+| Donor | Built | Threw | Not valid | Not finite | Poor fit | Converted limbs | Transplanted parts: worst within 10 (samples) | Converted parts: worst within 10 (samples; median, 9 in 10) | s per body (median) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tauren | 561 | 0 | 32 | 0 | 5 (1%) | legL 500, legR 499, armR 35, armL 18 | 98% of 2,376 (99%) | 2% of 2,049 (52%; 9.8, 26.3) | 22 |
+| Grunt | 561 | 0 | 32 | 0 | 3 (1%) | armR 35, armL 18, legL 2 | 100% of 4,378 (100%) | 93% of 55 (93%; 0.1, 0.7) | 0.15 |
+| Footman | 561 | 0 | 32 | 0 | 3 (1%) | armL 18, legL 2 | 100% of 4,448 (100%) | 90% of 20 (91%; 0, 4.4) | 0.17 |
+
+- Not valid: all 32 per donor (21 file names) are open models that already fail `validateModel` the same
+  way (their own global sequences of no length, one missing texture animation;
+  `transplant-invalid-check.mjs`: 21 of 21 invalid before the transplant). Not repaired here.
+- Poor fit reasons: a winged body (2, wings ride still), one Reforged model with bind poses, and with the
+  Tauren 2 bodies whose converted legs were not recognised on the result (they keep their rest pose).
+- Mirror offered: 223 bodies with the Grunt and the Footman; 0 with the Tauren (its weapon side is not read).
+- Feet in Walk (the R13 measure, lower foot's joint against the model's own standing height): with the
+  Tauren a foot stays within a tenth of hip height in 91% (median 0.1 hip heights). With the Grunt and the
+  Footman 0% (median 0.3 and 0.4): those are transplanted legs, and this measure reads the ankle joint, which
+  lifts 25 to 47% of hip height in those donors' own walks while the toes are down (stage 2 lesson); it
+  says nothing there. A sole-based measure is still owed.
+- Converted parts with the Tauren: half within 10 degrees; the placing (feet kept down) moves them, as in
+  retargeting at Pose = Theirs with the switches on.
+
+Trial models (`out/transfer-probe/make-transplant-trial.mjs`, prototypes, in `TestBuilds\test-models`):
+`TEST TRANSPLANT 01.mdx` (the Kurgan on the Tauren, nothing kept) and `TEST TRANSPLANT 02.mdx` (the hammer's
+bone kept); each 10 animations, 189 KB. Each opened hidden in `TestBuilds\transfer-xl-18\MDLxL.exe` with
+`all-trial-look2.cjs` (ONLY `.`): every one of the 10 animations played in the Transfer window's "This
+model" view, `page errors: []`, `DONE`. What the pictures show (`out/all-trial-look/transplant01-*`,
+`transplant02-*`; I looked at 8 of the 60): the Kurgan whole, arms and legs attached, the hammer in the
+weapon hand in each of those (raised over the head in Attack - 1, swung low in Attack Slam), a wide crouch in Stand Ready, the body lying
+down in Death with the Tauren's blood splats, footprints on the ground in Walk. Nothing torn or detached
+was seen. The view's camera looks from behind and close, so the head and face are hard to judge; stills
+cannot judge the motion.
+
+Not done or not run:
+
+- No window (by contract). The internal option `extents` (default true) is extra: the sweep turns it off.
+- Own trunk skin is not split between donor joints (own head over neck and head, own hip over root and
+  pelvis: the study's nearest-segment split); each own joint goes whole to one donor joint.
+- Followers (a shoulder pad that turns with a limb) are not carried: every extra rides its joint rigidly.
+- Corrections are shortest-arc: a hand and its weapon can roll; no bend-plane match.
+- `MoveSpeed` scaling and the result in Warcraft III itself are not verified. Full source and packaged
+  suites not run (as instructed).
+- With `events: false` the model's own sounds are refitted by kind (my reading of "checkbox select"); the
+  director's reading did not say what happens to own events.
+- A converted arm whose own end is an attachment (the Footman's shield arm) cannot be measured on its lower
+  part: the model's own attachments are replaced by the donor's.
+
+- Commits: (b) and (c) share one test commit; the module was complete at (a).
+- Two Tauren-sweep bodies whose converted legs the result's reading did not find: not looked into.
+
+Could not explain: nothing seen.
+
+Most likely to look wrong to the owner:
+
+1. The weapon. The hammer is held rigidly as in the Kurgan's own Stand: its own swing is gone, and where the
+   Tauren throws or swings its totem away from the hand the hammer stays in the hand. The donor's
+   `Weapon Ref` stays on the Tauren's totem root (attachments are the donor's), so weapon effects appear
+   where the totem would be, not on the hammer.
+2. The converted legs. The Kurgan's straight legs follow the hoofed legs' thigh and knee-to-hoof line with
+   the feet kept down: up to about 46 degrees off the Tauren's at the worst moments; knees can look bent
+   differently from the hooves they replace.
+3. Proportions. The arms point exactly as the Tauren's, but the Kurgan's upper arm is about a quarter of the
+   Tauren's, so hands land elsewhere (the other hand off the shaft, arms close to the body); the Tauren's
+   hunch is in its shape and is not carried; the shoulder piece and belt no longer move by themselves.
