@@ -150,3 +150,13 @@ figure from a hoofed donor is read against the donor's hock chain, so it underst
 (the fair measure exists only for the owner's pair); no window change.
 
 Could not explain: nothing so far.
+
+Test build: `D:\Claude\MDLxL\TestBuilds\transfer-xl-16`, packaged from f66fcefc. Launcher
+`TestBuilds\_START HERE\4 TRANSFER - Tauren stance.cmd` opens `TEST TRANSFER 03.mdx` with
+`transfer-donors\Tauren.mdx` in a second tab. On that exact copy, hidden
+(`out/transfer-probe/tauren-smoke.cjs`, pictures in `out/tauren-smoke`): Transfer opened, the
+Tauren's `Stand -1` taken whole, Pose dragged to Theirs, "Keep foot on the ground" unticked; no
+page errors. In the pictures the warrior's weapon arm is raised as the Tauren's totem arm and,
+with the feet free, its legs take the Tauren's wide stance; the other hand stays on the hammer
+("Both hands on the weapon") and the trunk stays upright (stage 2). Opened for the owner; his
+verdict is open.
