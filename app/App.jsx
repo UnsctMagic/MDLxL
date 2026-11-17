@@ -319,6 +319,8 @@ export default function App() {
   // RGB null follows the look: on in MDLxL, like Animations (owner, 16 Nov 2026); off in VIS, which has no RGB switch.
   const [rgbPreview, setRGBPreview] = useState(null), [rgbSequence, setRGBSequence] = useState(-1);
   const rgbShown = rgbPreview ?? !visUI;
+  // The RGB switch and the UV Wrapper's Preview RGB are one switch.
+  const toggleRGBPreview = () => { setRGBSequence(attachematorStandSequence(latest.current.model)); setRGBPreview(value => !(value ?? !visUI)); };
   const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
   // Movement's Motion path tick: one remembered choice for plain Movement and POSE.
   const [motionPath, setMotionPathState] = useState(() => readStored('mdlxl-movement-motion-path', false, value => value === true));
@@ -1561,7 +1563,7 @@ export default function App() {
     axes: () => changePreferences(previous=>{const visible=Object.values(previous.grid.axes).some(Boolean);return {...previous,grid:{...previous.grid,axes:{x:!visible,y:!visible,z:!visible}}};}),
     wireframe: () => setViewRenderMode('wireframe'),
     workplaneEnabled: () => setWorkplaneEnabled(value=>!value),
-    normals: () => changeOverlay('normals', value => !value), rgb: () => { if (!visUI && displayMode === 'animations') { changeOverlay('rgb', value => !value); return; } setRGBSequence(attachematorStandSequence(model)); setRGBPreview(value => !(value ?? !visUI)); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
+    normals: () => changeOverlay('normals', value => !value), rgb: () => { if (!visUI && displayMode === 'animations') { changeOverlay('rgb', value => !value); return; } toggleRGBPreview(); }, shaded: () => setShaded(v => !v), showVertices: () => setShowVertices(v => !v), showAllGeosets: () => setShowAllGeosets(v => !v), clearDisplay,
     ...Object.fromEntries(['bones','boneTypesBones','boneTypesHelpers','skeleton','focusedSkeleton','wires','nodes','attachments','particles','sounds','events','cameras','objects','lights',...OBJECT_TYPE_KEYS].map(key=>[`display:${key}`,()=>changeOverlay(key,value=>!value)])),
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
     cleanView: () => setCleanViews(previous => ({...previous,[mode]:!previous[mode]})),
@@ -1997,7 +1999,7 @@ export default function App() {
     changeSensitivity, commitUVChanges, commitUVCorners, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
     previewSuspended: previewSuspended || !!uvWindow?.minimized, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
     setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
-    validSelection, view, uvMinimized: !!uvWindow?.minimized
+    validSelection, view, uvMinimized: !!uvWindow?.minimized, rgbShown, rgbSequence: rgbSequence >= 0 ? rgbSequence : attachematorStandSequence(model), toggleRGBPreview
   }}/>;
   const textureLibraryDialog = dialog?.type === 'library' && <AppTextureLibrary {...{
     addTexture, dialog, doc, importPart, model, openGameModel, preferences, previewSelection, previewTexture, session, setDialog

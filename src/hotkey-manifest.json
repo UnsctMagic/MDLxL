@@ -294,6 +294,7 @@
   {"id":"uv-wrapper:lines","label":"Lines","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:live-select","label":"Live Select","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:live-selection-thickness","label":"Live selection thickness","group":"UV Wrapper","category":"UV Wrapper"},
+  {"id":"uv-wrapper:preview-rgb","label":"Preview RGB","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:preview-rgb-blue","label":"Preview RGB B","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:preview-rgb-green","label":"Preview RGB G","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:preview-rgb-red","label":"Preview RGB R","group":"UV Wrapper","category":"UV Wrapper"},
