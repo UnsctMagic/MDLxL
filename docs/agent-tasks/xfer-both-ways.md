@@ -569,3 +569,33 @@ Most likely to look wrong to the owner:
 3. Proportions. The arms point exactly as the Tauren's, but the Kurgan's upper arm is about a quarter of the
    Tauren's, so hands land elsewhere (the other hand off the shaft, arms close to the body); the Tauren's
    hunch is in its shape and is not carried; the shoulder piece and belt no longer move by themselves.
+
+### Stage 3, engine prototype: director's review (Fable, after the owner's "restart all paused work")
+
+Checked again on ad9693a7, not through the builder's own tests where it mattered:
+
+- Reruns: `test/skeleton-transplant.test.js` 9 pass; `test/anim-transfer.test.js` with
+  `test/transfer-window.test.js` 81 pass; `baseline.mjs q`, `baseline-compare l q`: 0 differ.
+- The saved trial models against the Tauren (`out/transfer-probe/transplant-review.mjs`,
+  `transplant-review2.mjs`, from the files only): the animation list is the Tauren's exactly, none of
+  the Kurgan's own left; all 1,445 vertices sit on a bone that exists, none on a helper; attachments
+  are the Tauren's. The result has 25 bones: 18 of the Tauren's by name, the six leg joints of the
+  Kurgan (converted) and its portrait background; 32 of the Tauren's 50 are not in it (its leg
+  bones, and bones left with no skin and nothing below). Trunk bones turn exactly as the Tauren's
+  through every animation (0 degrees: root, pelvis, chest, neck, head, tail, totem root). Arm bones
+  differ from the Tauren's turn by a constant 21 to 22 degrees, which is the rest-pose correction:
+  the arm stretches themselves point within 1 degree of the Tauren's. Three stretches point
+  elsewhere by 44 to 139 degrees (neck to head, root to chest, chest to left collar): that is where
+  the donor's joints were placed inside the Kurgan's body, not a turn. Lower foot above standing
+  height: Walk 2.4, attacks 1.5 and 1.6, Stands 0.2, Death 12.2 (the Tauren's own Death lifts too).
+- Pictures looked at (`out/all-trial-look/transplant01-view-*`: Stand -1, Attack - 1, Walk): the
+  Kurgan whole, the hammer in the weapon hand and carried over the shoulder as the Tauren carries
+  its totem, swung in the attack, footprints in Walk. Nothing torn.
+- Not reviewed: the module line by line (692 lines); the sweep's numbers were not rerun.
+- Verdict: the prototype does what the contract asked on the owner's pair and the builder's
+  account of it holds where checked. Open, in the order they matter to the eye: the hammer is
+  rigid (its own swing is gone with the model's animations); the legs are converted, so they are
+  the retargeting result with feet kept down, not the Tauren's bones; "the donor's skeleton" is 18
+  of 50 bones here; trunk skin is not split and followers (shoulder pads) are not carried.
+- Launcher for the owner: `TestBuilds\_START HERE\7 TRANSPLANT - warrior on Tauren skeleton.cmd`
+  (build 18, the Tauren and both prototypes). Not opened by the director.
