@@ -339,6 +339,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
               <div className="uv-preview-rgb" role="group" aria-label="Preview RGB" title="The active geoset’s RGB (0–255). Change a value to preview a different RGB; the model is not changed.">
                 <button type="button" data-hotkey="uv-wrapper:preview-rgb" data-hotkey-manual data-hotkey-label="Preview RGB" aria-pressed={rgbPreview}
                   title="Shows the whole model’s RGB in the preview, like the RGB switch in Vertices." onClick={onRgbPreview}>Preview RGB</button>
+                <span>Test RGB</span>
                 <PreviewRgbField channel="R" icon="rgbRed" value={shownRgb[0]} disabled={rgbTarget < 0}
                   data-hotkey="uv-wrapper:preview-rgb-red" data-hotkey-manual data-hotkey-label="Preview RGB R" onCommit={value => commitPreviewRgb(0, value)}/>
                 <PreviewRgbField channel="G" icon="rgbGreen" value={shownRgb[1]} disabled={rgbTarget < 0}

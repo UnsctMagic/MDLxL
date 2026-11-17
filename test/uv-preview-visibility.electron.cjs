@@ -108,7 +108,7 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     const blue = wrapper.getByRole('spinbutton', { name: 'Preview RGB B', exact: true });
     const reset = wrapper.getByRole('button', { name: 'Reset preview RGB', exact: true });
     await red.waitFor({ timeout: 5000 }).catch(() => assert.fail('Preview RGB offers a red number input beside Hide RGB'));
-    assert.equal((await wrapper.getByRole('group', { name: 'Preview RGB', exact: true }).innerText()).replace(/\s+/g, ' ').trim(), 'Preview RGB Reset');
+    assert.equal((await wrapper.getByRole('group', { name: 'Preview RGB', exact: true }).innerText()).replace(/\s+/g, ' ').trim(), 'Preview RGB Test RGB Reset');
     const previewRGB = wrapper.getByRole('button', { name: 'Preview RGB', exact: true });
     assert.equal(await previewRGB.getAttribute('aria-pressed'), 'true', 'Preview RGB starts on, like RGB in Vertices');
     assert.equal(await previewRGB.getAttribute('data-hotkey'), 'uv-wrapper:preview-rgb');

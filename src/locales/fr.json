@@ -8508,6 +8508,7 @@
   "Reset preview RGB": "Réinitialiser l’aperçu RVB",
   "The active geoset’s RGB (0–255). Change a value to preview a different RGB; the model is not changed.": "RVB du géoset actif (0–255). Modifiez une valeur pour prévisualiser un autre RVB ; le modèle n’est pas modifié.",
   "Shows the whole model’s RGB in the preview, like the RGB switch in Vertices.": "Affiche le RVB de tout le modèle dans l’aperçu, comme le bouton RVB dans Sommets.",
+  "Test RGB": "RVB de test",
   "Pan model": "Déplacer le modèle",
   "Zoom model": "Zoomer sur le modèle",
   "Zoom texture views": "Zoomer dans les vues de texture",
