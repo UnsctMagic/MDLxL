@@ -346,3 +346,78 @@ Not done or not run:
 - Next, in this order: the owner's verdict on build 18 (clicks) and on the trial look; his answers
   to the open questions in section 7 of the study; then a transplant contract and a first
   prototype on the owner's pair, with the gates of stage 4 (a sole-based contact measure first).
+
+## Stage 3: transplant. Owner's answers (17 Nov 2026, quoted) and the engine contract
+
+Answers to the study's eight questions (section 7 of [the study](xfer-transplant-research.md)):
+
+1. Where the result goes: "same model no new tabs."
+2. Portrait animations and camera: "keep camera"
+3. Attachment points: "take donors"
+4. Donor's effects and sounds: "checkbox select"
+5. The model's own extras: "No, you give checkboxes!!! A transplant is always FULL first and foremost."
+6. Weapon: "offer to switch the weapons hands if the donor has a mirrored setup"
+7. A limb with a joint only the donor has: "CONVERTED"
+8. Poor fit: "Say its a poor fit, still do it."
+
+The director's reading, to be confirmed by the owner where marked:
+
+- In place: the open model itself becomes the transplanted model, as one undo step. No new tab.
+- Full by default: every animation of the model is replaced by the donor's (Portrait ones too),
+  every bone of the body is the donor's, and the donor's attachment points replace the model's.
+  The model's own camera stays.
+- Extras (reading of answer 5, to confirm): by default an extra's own bone goes too, and its mesh
+  rides the donor bone its own bone hung from (a hammer rides the hand, rigid). One checkbox per
+  extra keeps that extra's own bone (still: its own animation is gone either way).
+- Effects and sounds: one checkbox each for the donor's sounds/events and the donor's particle
+  effects. Defaults until the owner says otherwise: events on, particle effects off.
+- Weapon hand: when the donor holds its weapon in the other hand, the tool offers to mirror (the
+  offer Transfer already makes for retargeting). Whether a weapon should follow a donor weapon
+  that leaves the hand (the Tauren's totem) was not answered: it rides the hand.
+- A limb with a joint only the donor has is converted: the model's own limb joints stay and are
+  driven by the retargeting engine (Pose = Theirs, feet kept down) in every donor animation.
+- A poor fit is named as one, with the reason, and the transplant is still made.
+
+### Engine contract (builder: Opus; no window yet)
+
+A new pure module `src/skeleton-transplant.js` (no DOM, no React), reusing the helpers the study's
+section 2 lists and the pairing of `src/anim-transfer.js` (export what is needed from there
+rather than copying it). One entry:
+
+```js
+/** The open model's mesh on the donor's skeleton with the donor's animations.
+ * -> { model, report } where model is a new model object (the caller swaps it in as one undo
+ * step) and report = { fit: 'good' | 'poor', reasons: [...], converted: [part keys],
+ * extras: [{ id, name, vertices, kept }], mirrorOffer: boolean, counts: {...} } */
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null } = {})
+```
+
+Follow the study's recommended algorithm (its section 3 and the summary in "Checkpoint" above)
+with the owner's answers above taking precedence where they differ: attachments are the donor's;
+extras are not kept unless listed in `keep`; nothing goes to a new tab. Trunk pairing is by what
+hangs from each joint, as the study found the retargeting trunk pairing wrong for this.
+
+Proof, all before hand-back:
+
+- Unit tests `test/skeleton-transplant.test.js` on the owner's pair (`transfer-kurgan`,
+  `transfer-tauren`) and one easy pair (`transfer-footman`, `transfer-grunt`): the result
+  validates and survives `generateCompatibleMdx` then `parseCompatibleMdx`; it has exactly the
+  donor's animation names and intervals and none of its own; every vertex is bound to a node that
+  exists; no own body bone is left unless its part is in `report.converted` or its id in `keep`;
+  through each donor animation each paired limb part points within 10 degrees of the donor's
+  part of the same role (the fair measure of `out/transfer-probe/pose-fair.mjs`); the Kurgan's
+  legs are in `converted` and a foot stays down in Walk (the R13 test's measure); with `keep`
+  holding the hammer's bone that bone survives; a pair that is a poor fit reports `fit: 'poor'`
+  with a reason and still returns a model.
+- A sweep over the collection (pattern: `out/transfer-probe/pairing-sweep.mjs`): every two-arm
+  two-leg body taking the Tauren, the Grunt and the Footman: built, threw, validates, not finite,
+  share of limb parts within 10 degrees, and share reported as a poor fit. Numbers into the note.
+- Trial models in `D:\Claude\MDLxL\TestBuilds\test-models`: `TEST TRANSPLANT 01.mdx` (the Kurgan on
+  the Tauren, nothing kept) and `TEST TRANSPLANT 02.mdx` (the same with the hammer's bone kept),
+  made by a script in `out/transfer-probe/`, each opened hidden in the packaged build
+  (`D:\Claude\MDLxL\TestBuilds\transfer-xl-18\MDLxL.exe`, pattern
+  `out/transfer-probe/all-trial-look2.cjs`) to show it loads and plays with no page error.
+- `node --test test/anim-transfer.test.js test/transfer-window.test.js` still 81 pass;
+  `baseline-compare` against `l` still `0 differ` (exports only, no engine behaviour change).
+- These are prototypes for the owner's eye, labelled as such: the window does not offer the
+  transplant yet (stage 5 is designed with him first).
