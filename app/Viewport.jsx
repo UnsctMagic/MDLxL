@@ -26,7 +26,7 @@ import { configureGeosetHighlightMaterial } from './geoset-highlight.js';
 import { configureEditorTexture, cameraLeftLight, viewportPixelRatio } from './viewport-quality.js';
 import { createRigMarkersGL } from './rig-markers-gl.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
-import { cutTargets } from '../src/edge-cut.js';
+import { cutTargets, sameSpot } from '../src/edge-cut.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -428,7 +428,9 @@ export default function Viewport({ children, ...inputProps }) {
       if (vertex) {
         if (vertex.geosetIndex !== start.geosetIndex) return { kind: 'start', ...vertex };
         if (targets.start.has(vertex.vertex)) return { kind: 'cancel' };
-        if (targets.corners.has(vertex.vertex)) return { kind: 'corner', geosetIndex: start.geosetIndex, start: start.vertex, vertex: vertex.vertex };
+        // Copies on one spot (texture seams) all count: any of them may be the far corner.
+        const corner = [...sameSpot(entry.geoset.Vertices, vertex.vertex)].find(index => targets.corners.has(index));
+        if (corner !== undefined) return { kind: 'corner', geosetIndex: start.geosetIndex, start: start.vertex, vertex: corner };
         return { kind: 'start', ...vertex };
       }
       const hidden = new Set(p.hiddenVertices?.[start.geosetIndex] || []), position = entry.geometry.attributes.position;
