@@ -434,21 +434,29 @@ export class ParticleAuthoringPreview {
   constructor(native) {
     this.native=native;this.sequence=-1;this.target=0;this.timeline=[];this.simulation=null;this.pending=null;this.revision=0;this.linked=true;this.status={busy:false};
   }
+  // The replay runs every effect and hidden ones are only left out of the drawn copy, so
+  // switching the solo emitter is instant. Only when the whole effect is over the live-particle
+  // budget does the replay drop to the visible effects (visibleOnly) and rebuild on each switch.
   makeSimulation(){
     this.limit=null;
-    const source=this.native.model;
-    const model=this.hiddenIds?.size?{...source}:source;
-    if(model!==source)for(const family of EFFECT_FAMILIES)model[family]=(source[family]||[]).filter(node=>!this.hiddenIds.has(node.ObjectId));
+    const source=this.native.model,filter=this.visibleOnly&&this.hiddenIds?.size;
+    const model=filter?{...source}:source;
+    if(filter)for(const family of EFFECT_FAMILIES)model[family]=(source[family]||[]).filter(node=>!this.hiddenIds.has(node.ObjectId));
     try{return new NativeParticleSimulation(model,this.sequence,{timeline:this.timeline});}
-    catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return null;}
+    catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;return this.overBudget(error);}
+  }
+  overBudget(error){
+    if(!this.visibleOnly&&this.hiddenIds?.size){this.visibleOnly=true;return this.makeSimulation();}
+    this.limit=error;return null;
   }
   setHiddenIds(hiddenIds){
     if(this.hiddenIds===hiddenIds)return;
     this.hiddenIds=hiddenIds;
-    // Drop hidden samples immediately and replay only the visible effects.
+    // Drop hidden samples immediately; the next drawn copy shows the newly visible ones.
     for(const emitter of this.native.particlesController.emitters)if(hiddenIds?.has(emitter.props.ObjectId))emitter.particles.length=0;
     for(const emitter of this.native.ribbonsController.emitters)if(hiddenIds?.has(emitter.props.ObjectId))emitter.creationTimes.length=0;
-    if(this.sequence>=0)this.pending=this.makeSimulation();
+    if(!hiddenIds?.size)this.visibleOnly=false;
+    if(this.sequence>=0&&(this.visibleOnly||this.limit))this.pending=this.makeSimulation();
   }
   phase(){return particleTimelineAt(this.timeline,this.target);}
   reset(sequence,frame){
@@ -501,15 +509,23 @@ export class ParticleAuthoringPreview {
       }
       phase=this.phase();
     }
-    if(this.limit)return this.status={busy:false,frame:this.native.getFrame(),global:this.phase().global,fx:this.phase().fx,ended:true,error:this.limit.message,limit:this.limit.limit};
+    const limited=()=>this.status={busy:false,frame:this.native.getFrame(),global:this.phase().global,fx:this.phase().fx,ended:true,error:this.limit.message,limit:this.limit.limit};
+    // Over budget with every effect replayed: retry with only the visible ones before stopping.
+    const overLimit=error=>{
+      if(!(error instanceof ParticlePreviewBudgetError))throw error;
+      if(this.visibleOnly||!this.hiddenIds?.size){this.limit=error;return limited();}
+      this.visibleOnly=true;this.simulation=null;this.pending=this.makeSimulation();
+      return this.limit?limited():this.status={...this.status,busy:true};
+    };
+    if(this.limit)return limited();
     const candidate=this.pending||this.simulation;
     if(cameraPosition&&cameraQuaternion)candidate.setCamera(cameraPosition,cameraQuaternion);
-    let result;try{result=candidate.advance(this.target,{budgetMs});}catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return this.status={busy:false,frame:this.native.getFrame(),global:this.phase().global,fx:this.phase().fx,ended:true,error:error.message,limit:error.limit};}
+    let result;try{result=candidate.advance(this.target,{budgetMs});}catch(error){return overLimit(error);}
     if(result.complete&&this.pending){this.simulation=this.pending;this.pending=null;}
     const visible=this.simulation;
     if(visible){
       if(cameraPosition&&cameraQuaternion)visible.setCamera(cameraPosition,cameraQuaternion);
-      if(visible!==candidate&&this.target>=visible.time)try{visible.advance(this.target,{budgetMs:Math.min(2,budgetMs)});}catch(error){if(!(error instanceof ParticlePreviewBudgetError))throw error;this.limit=error;return this.status={busy:false,frame:this.native.getFrame(),global:phase.global,fx:phase.fx,ended:true,error:error.message,limit:error.limit};}
+      if(visible!==candidate&&this.target>=visible.time)try{visible.advance(this.target,{budgetMs:Math.min(2,budgetMs)});}catch(error){return overLimit(error);}
       visible.refresh();copyParticleSimulationToPreview(visible,this.native,phase,this.hiddenIds);
     }
     this.status={busy:!!this.pending||!result.complete,frame:phase.frame,global:phase.global,fx:phase.fx,ended,liveRibbons:this.native.ribbonsController.emitters.reduce((sum,e)=>sum+e.creationTimes.length,0),liveParticles:this.native.particlesController.emitters.reduce((sum,e)=>sum+e.particles.length,0)};
