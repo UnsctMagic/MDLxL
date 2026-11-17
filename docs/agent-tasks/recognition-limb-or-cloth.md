@@ -1,7 +1,9 @@
 # Recognition: limb or hanging cloth (step 1 of the shared recogniser work)
 
-Status: contract written 17 Nov 2026 (director: Fable). A, B and C built the same day (see Result);
-D not built yet. Local only, branch `claude/transfer-xl`.
+Status: contract written 17 Nov 2026 (director: Fable). A, B and C built the same day (see Result).
+D not built: its handle list has no real leg, but a dry run breaks Transfer's nightmare rider and
+puts the shaman's arms on its scrolls; what each reader does with a cloth chain awaits the director.
+Local only, branch `claude/transfer-xl`.
 
 ## Owner intent (17 Nov 2026, quoted)
 
@@ -198,8 +200,43 @@ Status: A, B and C built 17 Nov 2026 (builder: Claude Opus), local commits on `c
     one creature`, actual ['both','seated','walker'].
   - `node --test test/bone-namer*.test.js test/pose*.test.js`: 202 tests, 199 pass, 0 fail, 3
     skipped (corpus archives and the dense twin-head rider are not on this machine; unrelated).
+  - Source suite the CI way (`node --test --test-timeout=300000 "test/*.test.js"`, then
+    `check-test-baseline.mjs`), once, on a0078f90: 3,859 passing, 5 failing, 0 in the baseline.
+    The 5 are whole files that hit the 300 s per-file limit under the full parallel load:
+    `fx-emitter-depth` and `fx-emitter-persistence` 1 to 4. Rerun alone, the same 5 files: 279
+    tests, 279 pass (3 min 37 s). They touch the changed code only through `nameRegion` and
+    `isWeaponName` in `src/rig-names.js`, which did not change (that file only gained exports).
+    Not proven against the previous commit under the same load (that would be a second full run).
   - Test collection: `bray_shaman_unit.mdx` and `bray_shaman_hero.mdx` copied into
     `D:\Claude\MDLxL-TestModels\transfer-riders\` (README line added), fixtures
     `transfer-bray-shaman`, `transfer-bray-shaman-hero`.
-- D, the list of models whose handles change:
-- Could not explain:
+- D, the list of models whose handles change (measured with a dry run of D: in `suggestPoseRig`
+  with `clues` on, after the inferred branches, every leg chain `poseLimbOrCloth` calls `cloth`
+  became kind `arm`, label `Cloth`, and `Cloth` was left out of the chest's arms as `Chain` is;
+  `pose-dump.mjs ddry`, then reverted, not committed). `clues: false`: 0 models differ. `clues`
+  on: 5 files, 3 models, and in each only the strips themselves change (no role, body, node or
+  other chain moves; `out/transfer-probe/pose-dump-detail.mjs abc ddry`):
+  - `bray_shaman_unit.mdx` (test collection and LowPolyWorks `gluma/357293`): bone_scroll_L_1..3
+    and bone_scroll_R_1..3, leg -> arm/Cloth.
+  - `bray_shaman_hero.mdx` (both places): the same two scroll chains.
+  - `BloodDragonNightmare_Polished_2_1.mdx`: Fur_Panel_04..10 and Fur_Panel_06..12, leg -> arm/Cloth.
+  No real leg is on the list. **D was not built anyway**, because the same dry run breaks
+  Transfer (the contract's own proof: "the nightmare rider ... unchanged"), see below.
+- Why D stopped (the director's decision): every reader that knows `Chain` would meet `Cloth` as
+  an ordinary arm. Transfer's dry-run reading (`rig-dump.mjs ddry`, diff in
+  `out/transfer-probe/rigdiff-ddry.txt`, 5 files differ):
+  - Nightmare rider: no longer two creatures (actors ['both']). With the fur strips no longer
+    legs, the hanging-legs rule has no hanging legs to find the rider by, and the strips become
+    the rider's first arms (`armL: Fur_Panel_03,06,09,12`, the real arm moves to `armL2`).
+  - Bray Shamans: still one creature, the chest part is back (`chest: Bone_Chest`), but the
+    scrolls become `armL`/`armR` and the real arms `armL2`/`armR2` (arms are ordered top to
+    bottom and the scrolls start higher than the clavicles). A transfer onto the shaman would put
+    the donor's arms on its scrolls.
+  Other readers that special-case `Chain` and would need a rule for `Cloth`: `app/PoseControls.jsx`
+  (`limbParts`, the part name shown is the label), `src/pose-ik.js` line 942 (IK settings skip
+  Wing, Tail, Chain), `src/bone-namer.js` (Chain joints keep their names; a `Cloth` arm would get
+  no name at all), `app/pose-overlay.js` (labelled chains bend as "Bend"); Attachemator reads
+  `clues: false` and is unaffected. Deciding what each reader does with a cloth chain (for
+  Transfer: leave the strips out of the limbs, or keep them as the seated creature's "read legs"
+  for the hip search) is a design choice, not a measurement, so it is left to the director.
+- Could not explain: nothing. Every difference above is traced to its rule.
