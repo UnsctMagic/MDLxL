@@ -4,6 +4,7 @@ const rotation = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
 export const ROTATION_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(rotation)}") 8 8, crosshair`;
 export function viewportCursor(cameraMode = 'work', transformMode = 'select', rotating = false) {
   if (rotating || cameraMode === 'rotate' || cameraMode === 'work' && ['rotate', 'rotateNormals', 'rotate-normals'].includes(transformMode)) return ROTATION_CURSOR;
+  if (cameraMode === 'work' && transformMode === 'cut') return 'crosshair';
   return cameraMode === 'zoom' ? 'ns-resize' : cameraMode === 'move' ? 'grab' : 'default';
 }
 

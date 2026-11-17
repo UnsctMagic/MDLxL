@@ -91,6 +91,7 @@ import './geoset-merge.css';
 import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
 import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
+import { cutTriangles } from '../src/edge-cut.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
 import { captureNodeSelection } from '../src/node-clipboard.js';
 import { prepareClipboardPaste } from '../src/clipboard-paste.js';
@@ -1335,6 +1336,13 @@ export default function App() {
       setSelection({}); setSelectable(next); setVisibleOnly(previous => new Set([...previous].filter(index => !removedGeosets.includes(index)).map(remap))); setHiddenByUser(previous => new Set([...previous].filter(index => !removedGeosets.includes(index)).map(remap))); setActiveGeoset(removedGeosets.includes(activeGeoset) ? next.values().next().value ?? -1 : remap(activeGeoset));
     } else if (Object.keys(updated).length) { setSelection(updated); setSelectable(previous => new Set([...previous, ...Object.keys(updated).map(Number)])); setActiveGeoset(Number(Object.keys(updated)[0])); } if (name === 'Extrude') setWorkTool('translate'); }
   }
+  // Cut tool: the viewport sends the clicked vertex and line (or corner); the new point stays selected.
+  function cutAt(request) {
+    if (!editable || uvEditing) return;
+    let outcome;
+    const result = edit('Cut', ['Geosets'], m => { outcome = cutTriangles(m, request); });
+    if (result !== false && outcome?.selection?.length) { setSelection({ [request.geosetIndex]: outcome.selection }); setActiveGeoset(request.geosetIndex); }
+  }
   function copy() {
     if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'copy'}));
     if (mode === 'animation') return poseViewActive && globalSeqId === null ? timelineCommands.current.copyPose?.() : timelineCommands.current.copy?.();
@@ -2110,7 +2118,7 @@ export default function App() {
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
-        workplane={workplane} transformMode={tool}
+        workplane={workplane} transformMode={tool} onCut={editable && !forgePreview && !normalizer ? cutAt : undefined}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor({ ...next, kind: choosingZoomAnchor }); setChoosingZoomAnchor(false); say(choosingZoomAnchor === 'align' ? 'Align vertex selected.' : 'Anchor vertex selected.'); } }}
         rgbPreview={rgbShown} rgbPreviewSequenceIndex={rgbSequence} vertexPreviewSequence={forgePreview ? null : vertexPreviewSequence} vertexPreviewFrame={vertexAnimationFrame} sequenceIndex={-1} time={0} playing={false}

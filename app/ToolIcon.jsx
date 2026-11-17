@@ -34,6 +34,7 @@ const ICONS = Object.freeze({
   extrude: [['f', 'M5 20l2-9q5-8 10 0l2 9Z', 'ink'], ['s', 'M4 20.5h16', 'ink', 2], ['s', 'M12 4v16', 'red', 2.2], ['f', 'M12 10l2 3-2 3-2-3Z', 'red']],
   detach: [['f', circle(12, 12, 9.5), 'green'], ['s', 'M15.5 8C13 6 8.5 7.5 10.5 11s.5 6.5-2.5 5', 'white', 2.4]],
   triangle: [['s', 'M12 3.5 3.5 19.5h17Z', 'red', 2.2], ['f', triangleCorners, 'blue']],
+  triangleCut: [['s', 'M12 3.5 3.5 19.5h17Z', 'ink', 1.5], ['s', 'M12 5.5V18', 'red', 2.2], ['f', triangleCorners, 'blue'], ['f', circle(12, 19.5, 2.8), 'red']],
   deleteTriangles: [['s', 'M12 3.5 3.5 19.5h17Z', 'dash', 1.5], ['f', triangleCorners, 'blue'], ['s', 'M9.5 10.5l5 5M14.5 10.5l-5 5', 'red', 2.4]],
   collapse: [['s', 'M4 4l5.5 5.5M20 4l-5.5 5.5M4 20l5.5-5.5M20 20l-5.5-5.5', 'ink', 2], ['f', corners, 'blue'], ['f', circle(12, 12, 3), 'red']],
   weld: [['s', 'M5 8q7 0 7 4t7 4', 'red', 2], ['f', square(2, 5.5, 5) + square(17, 13.5, 5), 'blue'], ['f', circle(12, 12, 3.2), 'yellow']],
