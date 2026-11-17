@@ -73,6 +73,7 @@ import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
+import { usePlaybackHold, PlaybackHoldContext } from './playback-hold.js';
 import { APPLICATION_THEMES, effectiveBindings, formatChord, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
 import { readStored, readStoredText, writeStored, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
@@ -253,8 +254,12 @@ export default function App() {
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
   useEffect(() => { setViewHoveredGeoset(null); setSelectionHoveredGeoset(null); }, [mode, preferences.highlightSelection, preferences.viewportAppearance.geosetHighlight.viaView, preferences.viewportAppearance.geosetHighlight.viaSelection]);
   const [globalSeqId, setGlobalSeqId] = useState(null), [highlightByPanel, setHighlightByPanel] = useState({ movement: false, animations: false }), [highlightChain, setHighlightChain] = useState(false);
-  const [sequence, setSequence] = useState(-1), [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [playbackSpeed, setPlaybackSpeed] = useState(100), [dialog, setDialog] = useState(null), [context, setContext] = useState(null);
+  const [sequence, setSequence] = useState(-1), [time, setTime] = useState(0), [playing, setPlayingState] = useState(false), [playbackSpeed, setPlaybackSpeed] = useState(100), [dialog, setDialog] = useState(null), [context, setContext] = useState(null);
   useEffect(()=>setAdjustingInput(null),[mode,settingsTab,dialog?.type]);
+  // Editing pauses playback and resumes it when done (playback-hold.js); Play, Stop and seeks stay the user's.
+  const { playback, setPlaying, stopPlayback, holdForEdit } = usePlaybackHold(playing, setPlayingState, () => document);
+  // Open windows that edit (the Nodes manager and other tools) hold playback until closed.
+  useEffect(() => dialog ? playback.hold() : undefined, [!!dialog, playback]);
   const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('world'), [showNodes, setShowNodes] = useState(true);
   // Leaving Movement or Animations ends a camera drag the preview never finished.
   useEffect(()=>setCameraGesture(false),[animationPanel]);
@@ -397,7 +402,7 @@ export default function App() {
     return selectedNodeIds.includes(node?.ObjectId) && Number.isInteger(global) && global >= 0;
   });
   const seekMotionTime = value => {
-    setPlaying(false); setTime(value);
+    stopPlayback(); setTime(value);
     if (motion.focus && (value < motion.focus[0] || value > motion.focus[1])) motion.setFocus(null);
   };
   const selectMotion = finding => {
@@ -601,7 +606,7 @@ export default function App() {
     try { changed = changedPortraitFields(model, portraitCameraIndex, patch, time, sequence); } catch (error) { say(error.message, true); return false; }
     // Unchanged values are not edits: no undo step and no Modified state.
     if (!Object.keys(changed).length) return true;
-    setPlaying(false);
+    holdForEdit();
     const result = edit('Edit portrait camera', ['Cameras'], current => editPortraitCamera(current, portraitCameraIndex, changed, time, sequence));
     if (result !== false) { setPortraitView('perspective'); setPortraitPreviewChanged(false); }
     return result;
@@ -609,7 +614,7 @@ export default function App() {
   const composePortraitShot = kind => {
     const view = (portraitModeActive && currentCameraView()) || evaluateModelCamera(model, model.Cameras?.[portraitCameraIndex], time, sequence);
     const index = edit(kind === 'frame' ? 'Frame portrait subject' : kind === 'front' ? 'Front portrait shot' : 'Level portrait shot', ['Cameras','BindPoses'], current => setCameraFromCurrentView(current, portraitCameraIndex, kind === 'frame' ? framePortraitSubject(current, view, time, sequence) : portraitShot(view, kind), time, sequence));
-    if (index !== false) { setPlaying(false); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
+    if (index !== false) { holdForEdit(); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
   };
   const hasPortraitBackground = useMemo(() => findPortraitBackground(model) >= 0, [model, revision]);
   const portraitBackdropLook = () => (hasPortraitBackground && currentBackdropLook(model, portraitCameraIndex, time, sequence)) || lastBackdropLook();
@@ -624,7 +629,7 @@ export default function App() {
     try {
       const ids = group === 'all' ? modelControlRoots(model).map(root => root.id) : modelControlGroups(model)[Number(group)]?.ids;
       if (!ids?.length) throw new Error('Control Model group is unavailable.');
-      setControlModelGroup(group); setControlModelIds(ids); setSelectedNodeIds(ids); setMovementMode('move'); setMovementSpace('world'); setTool('translate'); setCameraMode('work'); setPlaying(false);
+      setControlModelGroup(group); setControlModelIds(ids); setSelectedNodeIds(ids); setMovementMode('move'); setMovementSpace('world'); setTool('translate'); setCameraMode('work'); holdForEdit();
     } catch (cause) { say(cause.message, true); }
   };
   const setMissingPortraitCamera = () => {
@@ -643,7 +648,7 @@ export default function App() {
     if (dialog?.type === 'optimizeModel' && dialog.child && !dialog.child.closed) { dialog.child.focus(); return; }
     const child = openOptimizeXLWindow(window);
     if (!child) { say('The OptimizeXL window could not be opened.', true); return; }
-    setPlaying(false); setDialog({ type:'optimizeModel', child, initialStage });
+    setDialog({ type:'optimizeModel', child, initialStage });
   };
   // Animations does not show the bones picked in Movement or Bones, yet any
   // node selection takes Visibility & Color away from the checked geosets.
@@ -737,7 +742,6 @@ export default function App() {
   // full: the Library button shows every game file; texture pickers (UV, managers) stay texture-only.
   const openLibrary = (preview = uvEditing, full = false, tab) => setDialog({ type: 'library', preview, full, tab, host: preview && uvWindow ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
   const openParticles = (id, initialView) => {
-    setPlaying(false);
     // Like Forge, the Emitter Editor started with no model works in a new one.
     if (!doc) { install(newSession(createEmptyDocument(preferences.newModelVersion))); setDialog({ type: 'particles', initialView, selection: {} }); return; }
     const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
@@ -752,7 +756,7 @@ export default function App() {
     const pose=payload.restPose??restPose;
     const change = {...payload, restPose:pose, workplaneEnabled: payload.workplaneEnabled ?? workplaneEnabled, workplane:payload.workplane??workplane, restrictions, globalSeqId: pose ? null : globalSeqId};
     if (movementRestricted(payload.mode || movementMode, restrictions)) return false;
-    setPlaying(false); if (!pose) setTime(payload.time ?? time);
+    holdForEdit(); if (!pose) setTime(payload.time ?? time);
     const ids = payload.nodeIds || selectedNodeIds, controlModel = controlsWholeModel(ids) && ['move', 'rotate'].includes(change.mode);
     const result = edit(controlModel ? 'Control Model' : pose ? 'Move rest-pose nodes' : 'Transform bones and nodes', pose ? ['Nodes','PivotPoints'] : ['Nodes'], m => controlModel ? applyPortraitModelTransform(m, ids, Math.round(payload.time ?? time), payload.sequenceIndex ?? sequence, change) : applyMovementTransform(m, ids, Math.round(payload.time ?? time), payload.sequenceIndex ?? sequence, change));
     if (result !== false) liveMovementRevision.current = doc.revision;
@@ -760,7 +764,7 @@ export default function App() {
   };
   const commitPose = payload => {
     if (restPose || !rigWorkspace || doc.readOnly || saving || globalSeqId !== null || payload.model !== model || payload.revision !== doc.revision || payload.frame !== Math.round(time) || payload.inputSequence !== sequence) return false;
-    setPlaying(false);
+    holdForEdit();
     const result = edit(payload.label, ['Nodes'], current => applyMovementPose(current, payload.changes, payload.frame, payload.sequence, restrictions), { rethrow: true });
     if (result !== false) {
       liveMovementRevision.current = doc.revision;
@@ -1546,7 +1550,7 @@ export default function App() {
   Object.assign(commands.current, {
     vertexAnimated: () => changeVertexAnimation(),
     launcher: () => setLauncherQuery(''), toolbarCycle: () => changePreferences(previous => ({ ...previous, toolbarMode: nextToolbarMode(previous.toolbarMode) })),
-    showcase: () => selectMode('showcase'), autoCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); }, visToggle: () => setVisUI(value => !value),
+    showcase: () => selectMode('showcase'), autoCorpse: () => setAutoCorpseOpen(true), visToggle: () => setVisUI(value => !value),
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), surfaceEffects:()=>setDialog({type:'surfaceEffects'}), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
@@ -1578,8 +1582,8 @@ export default function App() {
     play: () => setPlaying(v => !v),
     nextSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + 1) % ids.length]); },
     previousSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + ids.length - 1) % ids.length]); },
-    firstFrame: () => {setPlaying(false);setTime(animationDomain.start);}, lastFrame: () => {setPlaying(false);setTime(animationDomain.end);},
-    nextFrame: () => {setPlaying(false);setTime(v=>Math.min(animationDomain.end,Math.round(v)+1));}, previousFrame: () => {setPlaying(false);setTime(v=>Math.max(animationDomain.start,Math.round(v)-1));},
+    firstFrame: () => {stopPlayback();setTime(animationDomain.start);}, lastFrame: () => {stopPlayback();setTime(animationDomain.end);},
+    nextFrame: () => {stopPlayback();setTime(v=>Math.min(animationDomain.end,Math.round(v)+1));}, previousFrame: () => {stopPlayback();setTime(v=>Math.max(animationDomain.start,Math.round(v)-1));},
     sensitivityUp: () => changeSensitivity(preferencesRef.current.scrollSensitivity*1.15), sensitivityDown: () => changeSensitivity(preferencesRef.current.scrollSensitivity/1.15),
     ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>chooseCameraMode(v)])),
     ...Object.fromEntries(['select','translate','rotate','scale'].map(v=>[v,()=>mode === 'bones' && v === 'rotate' ? bindSelectedVertices('hard') : setWorkTool(v)])),
@@ -2046,7 +2050,7 @@ export default function App() {
   });
   // changePreferences only touches refs and state setters, so an earlier render's copy stays valid.
   const preferencesContext = useMemo(() => ({ preferences, openHotkeySettings, changePreferences }), [preferences, openHotkeySettings]);
-  return <PreferencesContext.Provider value={preferencesContext}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-toolbar={preferences.toolbarMode === 'graphic' ? undefined : preferences.toolbarMode} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
+  return <PreferencesContext.Provider value={preferencesContext}><PlaybackHoldContext.Provider value={playback}><HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':mode==='showcase'?['editor','showcase']:'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-toolbar={preferences.toolbarMode === 'graphic' ? undefined : preferences.toolbarMode} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
@@ -2055,7 +2059,7 @@ export default function App() {
       runCommand, runLatest, saving, selectAnimationPanel, selectMode,
       setDialog, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
-      placeCorpse: () => { setPlaying(false); setAutoCorpseOpen(true); },
+      placeCorpse: () => setAutoCorpseOpen(true),
       onHiddenTeamColor: () => setLauncherQuery(translate('Team color')),
       onCallForge: async () => { await selectMode('vertices'); setNormalizer(null); setForgeToolsOpen(true); }
     }} aiControl={doc && <AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
@@ -2067,7 +2071,7 @@ export default function App() {
     }} onClose={() => setAutoCorpseOpen(false)}/></Suspense>}
     {boneNamerOpen && <Suspense fallback={null}><BoneNamer key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitBoneNamer} onClose={() => setBoneNamerOpen(false)}/></Suspense>}
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
-    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
+    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={holdForEdit} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}>
       {doc&&mode==='vertices'&&forgeToolsOpen&&<Suspense fallback={null}><ForgeVertexTools key={session.id} model={model} revision={doc.revision} selection={validSelection} selectable={selectable} activeGeoset={activeGeoset} readOnly={doc.readOnly||saving} onPreview={setForgePreview} onPick={setForgePicking} onSelection={setSelection} onWorkTool={setWorkTool} onClose={()=>setForgeToolsOpen(false)} onCommit={(label,result,revision)=>{
         if(doc.revision!==revision)return false;
@@ -2136,7 +2140,7 @@ export default function App() {
         overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
-        sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying}
+        sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying} onEditPause={holdForEdit}
         teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
         poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose} onPoseMenu={(id, x, y) => setContext({ pose: id, x, y })} onPoseReveal={revealPose}
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
@@ -2189,5 +2193,5 @@ export default function App() {
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Learn settings={preferences.learn}/>
     <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
-  </div>{launcherQuery !== null && <CommandLauncher initialQuery={launcherQuery} extras={launcherExtraRows({ toolbarMode: preferences.toolbarMode, visUI, language: preferences.language, antialias: preferences.graphics.antialias, showHotkeys: preferences.showHotkeys, teamColor, modelVersion: model.Version, displayMode, checks: menuChecks, translate })} isEnabled={commandEnabled} onRun={id => runLatest.current(id)} onClose={() => setLauncherQuery(null)}/>}</HotkeysProvider><ShiftLockBadge/></PreferencesContext.Provider>;
+  </div>{launcherQuery !== null && <CommandLauncher initialQuery={launcherQuery} extras={launcherExtraRows({ toolbarMode: preferences.toolbarMode, visUI, language: preferences.language, antialias: preferences.graphics.antialias, showHotkeys: preferences.showHotkeys, teamColor, modelVersion: model.Version, displayMode, checks: menuChecks, translate })} isEnabled={commandEnabled} onRun={id => runLatest.current(id)} onClose={() => setLauncherQuery(null)}/>}</HotkeysProvider><ShiftLockBadge/></PlaybackHoldContext.Provider></PreferencesContext.Provider>;
 }
