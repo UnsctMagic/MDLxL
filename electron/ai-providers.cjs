@@ -158,16 +158,25 @@ function toolSummary(text) {
 }
 // One prompt may take at most this many tool rounds unless the user sets a step limit.
 const API_STEP_LIMIT = 64;
-// Anthropic API list prices in US$ per million tokens (checked 2026-10). Cache
+// A price list entry for a model id, also when the id ends in a dated snapshot.
+function listedPrice(prices, model) {
+  return prices[model] || prices[String(model || '').replace(/-\d{4}-?\d{2}-?\d{2}$/, '')] || null;
+}
+// Anthropic API list prices in US$ per million tokens (checked 2026-11-17). Cache
 // writes cost 1.25x input. Unlisted models show tokens only and have no limit.
 const ANTHROPIC_PRICES = {
+  'claude-fable-5-2': { input: 8, output: 40, cacheRead: 0.2 },
+  'claude-mythos-5-2': { input: 8, output: 40, cacheRead: 0.2 },
   'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25 },
+  'claude-fable-5': { input: 10, output: 50, cacheRead: 1 },
   'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2 },
-  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2 },
+  'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1 },
+  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
   'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01 },
 };
 function anthropicCost(model, spent) {
-  const price = ANTHROPIC_PRICES[model];
+  const price = listedPrice(ANTHROPIC_PRICES, model);
   if (!price) return null;
   return (
     (spent.input * price.input +
@@ -176,6 +185,31 @@ function anthropicCost(model, spent) {
       spent.output * price.output) /
     1e6
   );
+}
+
+// OpenAI API list prices in US$ per million tokens (checked 2026-11-17):
+// [input, cached input, output], then the same above 272K input tokens.
+const OPENAI_LONG_CONTEXT = 272000;
+const OPENAI_PRICES = {
+  'gpt-6.2-astra': [8, 0.4, 40, 16, 0.8, 60],
+  'gpt-6.2-sol': [2, 0.1, 10, 4, 0.2, 15],
+  'gpt-6.1-sol': [2, 0.1, 10, 4, 0.2, 15],
+  'gpt-6.1-terra': [1, 0.05, 5, 2, 0.1, 7.5],
+  'gpt-6-astra': [10, 1, 50, 20, 2, 75],
+  'gpt-6-sol': [2, 0.2, 10, 4, 0.4, 15],
+  'gpt-6-luna': [0.1, 0.01, 0.5, 0.2, 0.02, 0.75],
+  'gpt-5.6-sol': [4, 0.4, 20, 8, 0.8, 30],
+  'gpt-5.6-terra': [2, 0.2, 12, 4, 0.4, 18],
+  'gpt-5.6-luna': [0.2, 0.02, 1.2, 0.4, 0.04, 1.8],
+};
+// Cost of one OpenAI response; its input count includes the cached part.
+function openaiCost(model, usage) {
+  const price = listedPrice(OPENAI_PRICES, model);
+  if (!price) return null;
+  const input = usage.input_tokens || 0,
+    cached = Math.min(usage.input_tokens_details?.cached_tokens || 0, input);
+  const [rate, cachedRate, outputRate] = input > OPENAI_LONG_CONTEXT ? price.slice(3) : price;
+  return ((input - cached) * rate + cached * cachedRate + (usage.output_tokens || 0) * outputRate) / 1e6;
 }
 
 // Claude 4.6+ thinks adaptively; summarized display lets the console show it.
@@ -272,6 +306,8 @@ async function runApi({
   // What this prompt has spent so far, shown under the reply and checked against the limit.
   const spent = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
   const limit = settings.spendLimit > 0 ? settings.spendLimit : 0;
+  // OpenAI bills each response on its own, so its cost is added up per response.
+  let openaiUsd = 0;
   const charge = usd => {
     event({ type: 'cost', usd, tokens: spent.input + spent.cacheWrite + spent.cacheRead + spent.output });
     if (limit && usd !== null && usd >= limit)
@@ -512,7 +548,9 @@ async function runApi({
             event({ type: 'usage', used: usage.input_tokens, window: 400000 });
             spent.input += usage.input_tokens;
             spent.output += usage.output_tokens || 0;
-            charge(null);
+            const usd = openaiCost(settings.model, usage);
+            openaiUsd = usd === null || openaiUsd === null ? null : openaiUsd + usd;
+            charge(openaiUsd);
           }
           incomplete = data.type === 'response.incomplete' ? data.response?.incomplete_details?.reason || 'incomplete' : '';
         }
@@ -1342,6 +1380,7 @@ module.exports = {
   PROVIDERS,
   providerInfo,
   anthropicCost,
+  openaiCost,
   anthropicThinking,
   claudeCompaction,
   endpoint,
