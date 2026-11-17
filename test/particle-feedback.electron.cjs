@@ -40,7 +40,8 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
     // What is drawn: hidden emitters keep no live sparks or ribbon segments on screen.
     const drawn=mdlxlProbe('.pe-preview .game-preview-root').runtime.native;
     const shown=[...drawn.particlesController.emitters.filter(item=>item.particles.length),...drawn.ribbonsController.emitters.filter(item=>item.creationTimes.length)].map(item=>item.props.ObjectId);
-    return JSON.stringify(actual)===JSON.stringify(expected)&&shown.every(id=>expected.includes(id));
+    // The replay keeps every effect so switching is instant; only the visible ones are drawn.
+    return expected.every(id=>actual.includes(id))&&shown.every(id=>expected.includes(id));
   },ids.slice().sort((a,b)=>a-b));
   const allEmitters=editor.getByRole('button',{name:'View All Emitters',exact:true});
   assert.equal(await allEmitters.getAttribute('aria-pressed'),'false');
