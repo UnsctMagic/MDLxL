@@ -7,7 +7,7 @@ import ToolIcon from './ToolIcon.jsx';
 const ICONS = Object.freeze({
   select: 'select', translate: 'move', rotate: 'rotate', scale: 'scale',
   normalRotate: 'normalRotate', 'Delete vertices': 'delete', Uncouple: 'uncouple', Mirror: 'mirror',
-  Extrude: 'extrude', Detach: 'detach', 'Create triangle': 'triangle', 'Delete triangles': 'deleteTriangles',
+  Extrude: 'extrude', Detach: 'detach', 'Create triangle': 'triangle', cut: 'triangleCut', 'Delete triangles': 'deleteTriangles',
   Collapse: 'collapse', Weld: 'weld', 'Reverse normals': 'reverseNormals', 'Smooth normals': 'smoothNormals',
   'Restore normals': 'restoreNormals', uv: 'uv',
   new: 'new', open: 'open', save: 'save', undo: 'undo', redo: 'redo', copy: 'copy', paste: 'paste',
