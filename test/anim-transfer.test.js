@@ -1057,3 +1057,43 @@ test('R12 hips keep their stance at Pose = Theirs: a root and a pelvis stacked o
     assert.ok(turned < 10, `${key}: ${allNodes(warlock).find(n => n.ObjectId === id).Name} is turned ${turned.toFixed(0)} degrees from the warlock's own stance`);
   }
 });
+
+// R13 (docs/agent-tasks/xfer-both-ways.md, stage 2): the donor's stance, carried over from the rest pose.
+test('R13 stance: the trunk takes the donor\'s turn from its rest pose; off, nothing changes', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren'), stand = seqMatch(kurgan, /^stand - 1/i), theirs = seqMatch(tauren, /^stand\s*-\s*1$/i);
+  const rig = transferRig(kurgan, { sequence: stand }), rigT = transferRig(tauren, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  assert.equal(defaultTransferPart(rig, 'chest', true).stance, 0, 'stance is off unless the recipe asks');
+  const build = extra => buildTransfer(kurgan, new Map([['tauren', tauren]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'tauren', theirs, { match: 1, plant: false, grip: false, clear: false, ...extra }) });
+  const plain = build({}), zero = build({ stance: 0 }), stanced = build({ stance: 1 });
+  assert.deepEqual(stanced.problems, []);
+  for (const [id, track] of plain.tracks) assert.deepEqual(Array.from(zero.tracks.get(id).Rotation || []), Array.from(track.Rotation || []), 'stance 0 writes the same keys as no stance');
+  // How far a trunk joint's turn from the rest pose is from the Tauren's, through the animation.
+  const off = (built, key, k) => angle(rotOf(builtMatrices(kurgan, built, stand, k).get(rig.parts[key].joints.at(-1))), rotOf(sampleNodeMatrices(tauren, Math.round(tauren.Sequences[theirs].Interval[0] + built.times[k]), theirs).get(rigT.parts[key].joints.at(-1))));
+  const samples = [0, Math.floor(stanced.times.length / 3), Math.floor(2 * stanced.times.length / 3)];
+  for (const key of ['hips', 'chest', 'head']) {
+    for (const k of samples) assert.ok(off(stanced, key, k) < 3, `${key}: with stance, ${off(stanced, key, k).toFixed(1)} degrees from the Tauren's turn at sample ${k}`);
+    assert.ok(off(plain, key, 0) > 8, `${key}: without stance it keeps the Kurgan's own (${off(plain, key, 0).toFixed(1)} degrees from the Tauren's)`);
+  }
+  // The limbs still point as the Tauren's do.
+  const point = (model, matrices) => { const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])); return id => new Vector3(...nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); };
+  const mine = point(kurgan, builtMatrices(kurgan, stanced, stand, 0)), their = point(tauren, sampleNodeMatrices(tauren, tauren.Sequences[theirs].Interval[0], theirs));
+  for (const key of ['armL', 'armR']) { const own = rig.parts[key].line, donor = rigT.parts[key].line, apart = mine(own[1]).sub(mine(own[0])).angleTo(their(donor[1]).sub(their(donor[0]))) * 180 / Math.PI; assert.ok(apart < 10, `${key}: with stance the upper arm is ${apart.toFixed(0)} degrees from the Tauren's`); }
+});
+
+test('R13 feet stay down: a stride and a hip lift the legs cannot follow are brought within their reach', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren'), walk = seqMatch(kurgan, /^walk$/i), theirs = seqMatch(tauren, /^walk$/i);
+  const rig = transferRig(kurgan, { sequence: walk }), rigT = transferRig(tauren, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  // As the window starts: "Keep foot on the ground" on.
+  const built = buildTransfer(kurgan, new Map([['tauren', tauren]]), { base: { sequence: walk }, length: null, sources: {}, parts: take(rig, parts, 'tauren', theirs, {}) });
+  assert.deepEqual(built.problems, []);
+  const height = (model, matrices, id) => new Vector3(...nodePivot(model, allNodes(model).find(node => node.ObjectId === id), id)).applyMatrix4(matrices.get(id)).z;
+  const feet = ['legL', 'legR'].map(key => rig.parts[key].marker), theirFeet = ['legL', 'legR'].map(key => rigT.parts[key].marker);
+  let worst = 0, donorWorst = 0;
+  built.times.forEach((time, k) => {
+    const mine = builtMatrices(kurgan, built, walk, k), their = sampleNodeMatrices(tauren, Math.round(tauren.Sequences[theirs].Interval[0] + time), theirs);
+    worst = Math.max(worst, Math.min(...feet.map(id => height(kurgan, mine, id))) - rig.ground);
+    donorWorst = Math.max(donorWorst, Math.min(...theirFeet.map(id => height(tauren, their, id))) - rigT.ground);
+  });
+  assert.ok(donorWorst < 0.1 * rigT.hipHeight, `the Tauren always has a foot down in its Walk (${donorWorst.toFixed(1)})`);
+  assert.ok(worst < 0.1 * rig.hipHeight, `the Kurgan's lower foot gets ${worst.toFixed(1)} above its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
+});

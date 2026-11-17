@@ -160,3 +160,55 @@ page errors. In the pictures the warrior's weapon arm is raised as the Tauren's 
 with the feet free, its legs take the Tauren's wide stance; the other hand stays on the hammer
 ("Both hands on the weapon") and the trunk stays upright (stage 2). Opened for the owner; his
 verdict is open.
+
+## Stage 2, first part (built 17 Nov 2026): stance from the rest pose, and feet that stay down
+
+The owner on build 16: "I honestly didnt notice that much change, but it doesnt mean it wasnt
+improved. keep going". So the next step was chosen to be visible: the open model given every
+animation of a donor in one go, which is the outcome a transplant promises, made with the
+retargeting engine. It showed what a whole set needs beyond the pairing.
+
+What changed in code (`src/anim-transfer.js`):
+
+- New recipe field `stance` on a trunk part (0 to 1, off by default, not in the window yet): the
+  turn the donor's joint has from its rest pose is carried over, so the trunk stands as the donor's
+  does and not only moves as it does. A part with stance, and a limb with Pose toward Theirs on
+  such a part, ride on the donor's anchor movement instead of this model's own (`onStance`).
+- With "Keep foot on the ground": a foot that stands on the ground in the donor (its end within an
+  eighth of the donor's hip height of its ground) stays down here. When the leg cannot reach its
+  place, the place is first brought within the stride native walks use (0.70 of the leg's length
+  from under the hip: `stride-census.mjs`, 178 native two-leg walks, 9 in 10 stay under 0.70, half
+  under 0.59), then the hips come down as far as the leg needs. A foot the leg already reaches is
+  left alone, so a model taking its own animation is unchanged (test E1).
+
+Proofs (probes and outputs in `out/transfer-probe/`):
+
+- `stance-check.mjs`, the owner's pair: each trunk joint's turn from the rest pose is 0 degrees
+  from the Tauren's with stance (12 to 17 without); the limbs keep pointing as the Tauren's.
+  On this pair the stance itself is small: the Tauren's hunch is mostly in its shape, not its pose.
+- `foot-float.mjs` on the trial model (lower foot above its standing height, hip height 42):
+  Walk 24.1 -> 0.8, Attack Slam 12.1 -> 0.0, Attack - 1 4.8 -> 0.2, the Stands 4.4 -> 0.1; Death
+  15.6 unchanged (the Tauren's own feet leave the ground there, 8.4).
+- `contact-sweep.mjs`, 530 bodies with a Walk taking the Tauren's Walk as the window starts: a foot
+  stays down (lower foot never over a tenth of hip height up) in 9% before and 95% after; 0 threw,
+  0 non-finite. From the Grunt, Ghoul and Footman the figure reads 0% before and after and says
+  nothing: this probe measures the ankle joint, which lifts 25 to 47% of hip height in those
+  donors' own walks while the toes are down. A sole-based measure is owed (stage 4).
+- `node --test test/anim-transfer.test.js`: 54 pass (52 + 2 new, R13). Fail first on the committed
+  source: "stance" has no such field; "feet stay down" fails with `the Kurgan's lower foot gets
+  24.5 above its standing height (hip height 42)`.
+- `baseline.mjs l`, `baseline-compare.mjs i l`: 32 trials, 24 identical; 8 differ (`ogre`, `ogre0`,
+  `ogreLegs1`, `tauren`, `kurgan`, `kurganwalk`, `kurganNoClear`, `nurgle`), all whole-body takes
+  where a leg ran out of length before. The stance field alone changed none.
+- `riders-gate.mjs`: 95 built, 5 skipped, 1 flagged, as before.
+
+Trial models for the owner (`make-all-trial.mjs`, in `TestBuilds\test-models`): `TEST TRANSFER ALL
+01.mdx` is `TEST TRANSFER 03` (the Kurgan) with its own 15 animations plus all 8 of the Tauren's,
+named "<name> (Tauren)": limbs at Pose = Theirs, trunk with stance, feet kept down, hands free.
+`TEST TRANSFER ALL 02.mdx` is the same with both hands kept on the hammer. Looked at hidden in the
+Transfer window's "This model" view; numbers say the Walk is a forward-leaning walk with the feet
+down (chest lean 5 to 22 degrees, as the Tauren's), stills from that camera cannot judge it.
+
+Still open in stage 2: stance and "take every animation" in the window (owner decides how it
+shows); hands that meet (two-handed weapons when the donor's arms are apart); a sole-based contact
+measure; the weapon's own direction; scaling of the stride for the game's move speed.

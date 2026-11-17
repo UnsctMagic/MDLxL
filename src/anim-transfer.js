@@ -571,7 +571,7 @@ export function defaultTransferPart(recipientRig, partKey, wholeBody = false) {
     source: null, sequence: null, from: null, flip: false, amount: 1, match: 0,
     offset: [0, 0, 0], start: 0, speed: 1, loop: null, blend: wholeBody ? 0 : 150, plant: true, travel: 1,
     fixes: [], grip: null, clear: null, aim: null,
-    range: 0, follow: 0, avoid: 0, hang: 0, clip: null, frame: 0,
+    range: 0, follow: 0, avoid: 0, hang: 0, clip: null, frame: 0, stance: 0,
   };
 }
 
@@ -871,6 +871,9 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   const keeps = recipe.features || {}, anyKept = Object.values(keeps).some(feature => share(feature?.keep) > 0);
   for (const entry of taken) { const kind = entry.follow > 0 || anyKept ? sameKindSequence(recipient, entry.seq.Name) : null; entry.kind = kind != null && kind !== baseIndex ? kind : null; }
   const drivenOrder = [...taken].sort((a, b) => (TRUNK_ORDER.indexOf(a.key) + 1 || 9) - (TRUNK_ORDER.indexOf(b.key) + 1 || 9) || infoB.tree.depth(a.own.joints[0]) - infoB.tree.depth(b.own.joints[0]));
+  // A part that takes the donor's stance, and a limb on such a part with Pose toward Theirs, ride on the donor's
+  // anchor movement instead of this model's (which now also holds the stance), so they turn and point as the donor's do.
+  for (const entry of taken) { const anchor = entry.own.kind === 'limb' && entry.own.anchor != null ? taken.find(other => other.stance > 0 && other.own.joints.includes(entry.own.anchor)) : null; entry.onStance = entry.stance > 0 ? entry.stance : anchor ? entry.match * anchor.stance : 0; }
 
   // Length and loops. A taken clip that plays once sets the length (its latest
   // end) and the result plays once; looping clips then run at their own speed
@@ -1016,13 +1019,14 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         return mul(arc(entry.chordRef[i].clone().applyQuaternion(turn), now), turn);
       };
       const spread = entry.spread ? deltaOf(entry.theirs.joints.length - 1) : null;
+      const frameB = entry.onStance > 0 ? dB.clone().slerp(entry.convert(dA), entry.onStance) : dB;
       entry.own.joints.forEach((id, i) => {
         if (entry.skip.has(id)) return;
         const turned = spread ? qPow(spread, entry.spread[i]) : entry.map[i] < 0 ? new Quaternion() : entry.chordRef[i] ? lineOf(i) : deltaOf(entry.map[i]);
         // In the limb's own frame: the donor's turn is carried over as a turn of this limb from its own
         // rest direction, so a twist along the donor's bone stays a twist along this one.
         const delta = entry.frame && entry.own.kind === 'limb' ? mul(inv(entry.toTheirs[i]), turned, entry.toTheirs[i]) : turned;
-        setRotation(id, mul(dB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
+        setRotation(id, mul(frameB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
       // Shift: how far the donor part's first joint sits from where riding its anchor would put
       // it, compared with the reference pose, scaled to this model and added to its own joint.
@@ -1051,6 +1055,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       }
     }
     // Planted feet: aim each leg's end on the donor foot's scaled path.
+    const plants = [];
     for (const entry of plantLegs) {
       const state = states.get(entry), hipState = states.get(entry.hips);
       if (!state || !hipState) continue;
@@ -1060,7 +1065,33 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const own = worldPos(recipient, base, entry.own.marker);
       const target = own.clone().lerp(planted, Math.min(1, state.w));
       target.sub(entry.refRootB).applyQuaternion(state.offset).add(entry.refRootB);
-      solveLimb(recipient, entry.own.joints.filter(id => !entry.skip.has(id)), target, { world, over, base, parentRot });
+      // The donor's foot stands on its ground just now (within an eighth of its hip height).
+      plants.push({ entry, target, joints: entry.own.joints.filter(id => !entry.skip.has(id)), grounded: donorEnd.z <= entry.rigA.ground + 0.125 * entry.rigA.hipHeight, w: Math.min(1, state.w) });
+    }
+    // A foot that stands on the ground in the donor stays on the ground here. A donor with long bent legs (a
+    // hoofed walker) strides further and lifts its hips higher than straighter legs can follow, and the leg
+    // would run out of length. Such a foot is first brought within the stride native walks use (0.70 of the
+    // leg's length from under the hip: 9 in 10 of 178 native two-leg walks stay under it), then the hips come
+    // down as far as the leg needs. A foot the leg already reaches is left as it is.
+    if (moveBody && plants.some(plant => plant.grounded)) {
+      let drop = 0;
+      for (const plant of plants) {
+        const { target, joints, grounded, w } = plant;
+        if (!grounded || joints.length < 2) continue;
+        const points = joints.map(id => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id))), reach = 0.999 * chainLength(points); // the length solveLimb can give the leg
+        if (target.distanceTo(points[0]) <= reach) continue;
+        const flat = Math.hypot(target.x - points[0].x, target.y - points[0].y), stride = Math.min(flat, 0.7 * reach);
+        if (flat > stride) { const pull = 1 - w * (1 - stride / flat); target.x = points[0].x + (target.x - points[0].x) * pull; target.y = points[0].y + (target.y - points[0].y) * pull; }
+        drop = Math.max(drop, w * (points[0].z - target.z - Math.sqrt(reach * reach - stride * stride)));
+      }
+      if (drop > 1e-4) {
+        const body = rigB.body, parent = infoB.tree.parentOf(body), linear = new Matrix3().setFromMatrix4(parent == null ? new Matrix4() : world(parent)).invert();
+        const own = over.get(body) || base.local.get(body);
+        over.set(body, { ...own, t: own.t.clone().add(new Vector3(0, 0, -drop).applyMatrix3(linear)) });
+      }
+    }
+    for (const { entry, target, joints } of plants) {
+      solveLimb(recipient, joints, target, { world, over, base, parentRot });
       if (entry.own.sole && !entry.skip.has(entry.own.marker)) liftSole(recipient, entry.own.marker, entry.own.sole, { world, over, base, parentRot });
     }
     for (const arm of weaponArms) {
@@ -1261,6 +1292,15 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   own.joints.forEach((id, i) => { align.push(map[i] < 0 ? new Quaternion() : dirB[i] ? qPow(arc(dirB[i], theirDir(i)), match) : (align[i - 1] || new Quaternion()).clone()); });
   // The turn from this limb's rest direction to the donor's, joint by joint (for `frame`).
   own.joints.forEach((id, i) => { toTheirs.push(map[i] < 0 ? new Quaternion() : dirB[i] ? arc(dirB[i], theirDir(i)) : (toTheirs[i - 1] || new Quaternion()).clone()); });
+  // Stance (recipe `stance`, trunk parts; off unless the recipe asks): the turn the donor's joint has from its
+  // rest pose, in its reference pose, carried over to this joint, so the trunk stands as the donor's does (a
+  // hunch, a lean) and not only moves as it does. Such a part rides on the donor's anchor movement, not on
+  // this model's (see `onStance`), so its turn from the rest pose is the donor's whatever it hangs on here.
+  const stance = own.kind === 'trunk' ? Math.max(0, Math.min(1, Number(part.stance) || 0)) : 0;
+  if (stance > 0) {
+    const restTurn = j => convert(worldRot(refA, theirs.joints[j])), deepest = theirs.joints.length - 1;
+    own.joints.forEach((id, i) => { const target = spread ? qPow(restTurn(deepest), spread[i]) : restTurn(Math.max(0, map[i])); align[i] = align[i].clone().slerp(mul(target, inv(worldRot(refB, id))), stance); });
+  }
   const looping = part.loop ?? !seq.NonLooping;
   // Trim: only the part of the donor animation between clip[0] and clip[1] (ms from its start).
   const whole = Math.max(0, seq.Interval[1] - seq.Interval[0]), cut = Array.isArray(part.clip) ? part.clip.map(Number) : [];
@@ -1291,7 +1331,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
     range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang), frame: share(part.frame) > 0, toTheirs,
-    scale: sizeRatio(rigB, rigA), convert, convertV, map, chordEnds, chordRef, spread, align,
+    scale: sizeRatio(rigB, rigA), convert, convertV, map, chordEnds, chordRef, spread, align, match, stance,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
     refAnchorB: own.anchor == null ? null : inv(worldRot(refB, own.anchor)),
