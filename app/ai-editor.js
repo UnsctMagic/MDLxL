@@ -222,7 +222,7 @@ export class AiEditorBridge {
         // Drawings are part of the prompt: later notes elsewhere never change them.
         annotations: sketchContext(sketchStore.strokes(state.session.id), state.model),
         // The strokes themselves, to draw them over the task's off-screen pictures.
-        strokes: sketchStore.strokes(state.session.id).map(s => ({ tool: s.tool, color: s.colorValue, points: Array.from(s.points) })),
+        strokes: sketchStore.strokes(state.session.id, 'model').map(s => ({ tool: s.tool, color: s.colorValue, points: Array.from(s.points) })),
         restore: viewSnapshot(state),
       });
     }

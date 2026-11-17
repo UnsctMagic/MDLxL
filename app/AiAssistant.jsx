@@ -15,20 +15,23 @@ import {
   Highlighter,
   LogIn,
   Paperclip,
+  MoveUpRight,
   PenLine,
   Pause,
+  Pin,
   Settings2,
   Square,
   SquarePen,
   Trash2,
   Undo2,
   X,
+  Zap,
 } from 'lucide-react';
 import AiConnectionSettings from './AiConnectionSettings.jsx';
 import { AssistantMessage, activity, toolName } from './AiParts.jsx';
 import './ai-assistant.css';
 import { getLanguage, translate } from '../src/localization.js';
-import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
+import { sketchStore, SKETCH_COLORS, SKETCH_SPACES, COLORED_TOOLS } from '../src/ai-sketch.js';
 import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
 import { acceptsDelivery, applyAiEvent } from '../src/ai-transcript.js';
@@ -44,26 +47,69 @@ const phases = {
   verified: 'Result verified',
   complete: 'Task complete',
 };
+// The tools each drawing place offers (SKETCH_SPACES): the vertex editor's model,
+// the UV Wrapper's map, and the animation in Movement.
 const tools = [
   {
     id: 'marker',
     label: 'Marker',
     Icon: Highlighter,
-    tip: 'Marker: highlight an area on the model for the AI.',
+    tip: {
+      model: 'Marker: highlight an area on the model for the AI.',
+      uv: 'Marker: highlight an area of the UV map for the AI.',
+      motion: 'Marker: highlight the parts that should move.',
+    },
   },
   {
     id: 'pen',
     label: 'Pen',
     Icon: PenLine,
-    tip: 'Pen: draw lines or shapes on or around the model for the AI.',
+    tip: {
+      model: 'Pen: draw lines or shapes on or around the model for the AI.',
+      uv: 'Pen: draw lines or outlines on the UV map for the AI.',
+      motion: 'Pen: draw the pose or line of action wanted at this frame.',
+    },
+  },
+  {
+    id: 'arrow',
+    label: 'Arrow',
+    Icon: MoveUpRight,
+    tip: {
+      uv: 'Arrow: drag from a piece to where it should go or stretch.',
+      motion: 'Arrow: act out a motion. Start on a part and drag; the animation plays while you hold, so the AI gets both the path and its timing. Circling a joint means turn.',
+    },
+  },
+  {
+    id: 'hold',
+    label: 'Hold',
+    Icon: Pin,
+    tip: { motion: 'Hold: click a part that must stay still at this frame, like a planted foot.' },
+  },
+  {
+    id: 'hit',
+    label: 'Hit',
+    Icon: Zap,
+    tip: { motion: 'Hit: click where a contact or impact happens at this frame.' },
   },
   {
     id: 'eraser',
     label: 'Eraser',
     Icon: Eraser,
-    tip: 'Eraser: drag over notes to remove them.',
+    tip: {
+      model: 'Eraser: drag over notes to remove them.',
+      uv: 'Eraser: drag over notes to remove them.',
+      motion: 'Eraser: drag over notes to remove them.',
+    },
   },
 ];
+const toolHint = (tool, space) => {
+  if (tool === 'eraser') return 'Drag over drawings to erase them.';
+  if (tool === 'hold') return 'Click a part that must stay still.';
+  if (tool === 'hit') return 'Click where the hit lands.';
+  if (tool === 'arrow') return space === 'motion' ? 'Drag from a part; the animation plays while you hold.' : 'Drag from a piece toward where it should go.';
+  const place = space === 'uv' ? 'the UV map' : space === 'motion' ? 'the animation' : 'the model';
+  return `Drag on ${place} to ${tool === 'pen' ? 'draw' : 'highlight'}.`;
+};
 const DOCK_WIDTH = 'mdlxl-ai-width';
 // Each model file (or unsaved tab) has its own organiser chat.
 const modelKeyOf = (path, documentId) =>
@@ -333,8 +379,15 @@ function AiAssistant({ bridge, visUI }) {
     native = !!provider.native;
   const providerName = provider.label || 'AI';
   const strokes = summary ? sketch.strokes.filter(s => s.documentId === summary.documentId) : [];
-  const activeTool = tools.find(t => t.id === sketch.tool);
-  const colorTool = sketch.tool === 'pen' || sketch.tool === 'marker' ? sketch.tool : null;
+  // Where a drawing lands: the open UV Wrapper, Movement's animation, or the model.
+  const sketchSpace = SKETCH_SPACES[summary?.sketchSpace] ? summary.sketchSpace : 'model';
+  const spaceTools = tools.filter(t => SKETCH_SPACES[sketchSpace].includes(t.id));
+  const activeTool = spaceTools.find(t => t.id === sketch.tool);
+  const colorTool = activeTool && COLORED_TOOLS.includes(sketch.tool) ? sketch.tool : null;
+  // A tool the new place does not offer (Hold after leaving Movement) stops.
+  useEffect(() => {
+    if (open && sketch.tool && !SKETCH_SPACES[sketchSpace].includes(sketch.tool)) sketchStore.clearTool();
+  }, [open, sketch.tool, sketchSpace]);
   async function saveSettings() {
     const value = await window.desktop.aiConfigure({ ...settings, apiKey });
     setSettings(value);
@@ -558,7 +611,7 @@ function AiAssistant({ bridge, visUI }) {
   // Drawing happens in the modeling view, where the model holds still.
   async function chooseTool(tool) {
     setPalette(false);
-    if (sketch.tool !== tool && summary?.mode !== 'vertices') await action(() => bridge.host().view({ mode: 'vertices' }));
+    if (sketch.tool !== tool && sketchSpace === 'model' && summary?.mode !== 'vertices') await action(() => bridge.host().view({ mode: 'vertices' }));
     sketchStore.setTool(tool);
   }
   function resizeStart(event) {
@@ -1052,14 +1105,14 @@ function AiAssistant({ bridge, visUI }) {
                     </button>
                     <span className="ai-divider" aria-hidden="true" />
                     <div className="ai-tools" role="group" aria-label="Drawing tools">
-                      {tools.map(({ id: toolId, label, Icon, tip }) => (
+                      {spaceTools.map(({ id: toolId, label, Icon, tip }) => (
                         <button
                           key={toolId}
                           type="button"
                           className="ai-tool"
                           aria-label={label} data-hotkey={`tool:${toolId}`}
                           aria-pressed={sketch.tool === toolId}
-                          title={tip}
+                          title={tip[sketchSpace]}
                           disabled={toolId === 'eraser' && !strokes.length && sketch.tool !== 'eraser'}
                           onClick={() => chooseTool(toolId)}
                         >
@@ -1165,9 +1218,7 @@ function AiAssistant({ bridge, visUI }) {
                   </footer>
                   {activeTool && (
                     <div className="ai-tool-hint" role="status">
-                      {activeTool.id === 'eraser'
-                        ? 'Drag over drawings to erase them.'
-                        : `Drag on the model to ${activeTool.id === 'pen' ? 'draw' : 'highlight'}.`}{' '}
+                      {toolHint(activeTool.id, sketchSpace)}{' '}
                       {modifierSentence('{0}+drag rotates the camera · Esc or click the tool again to stop.', 'view.orbit', preferences) || 'Esc or click the tool again to stop.'}
                     </div>
                   )}

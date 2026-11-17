@@ -55,6 +55,7 @@ import { previewBillboarding, previewPresentationProps, previewOverlaySettings }
 import { watchContextLoss, bindScrollSensitivity, createFrameCoalescer, createRenderScheduler, graphicsOptions, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
+import { createPreviewSketch, SKETCH_CURSORS } from './preview-sketch.js';
 import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, screenPlaneTranslation } from './viewport-math.js';
 import { shiftDragLatch } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings, layoutKey } from '../src/preferences.js';
@@ -291,6 +292,8 @@ export default function GamePreview(inputProps) {
     const portraitFraming=new THREE.Vector2();
     const colorLuminance=color=>{const c=new THREE.Color(color);return c.r*.2126+c.g*.7152+c.b*.0722;};
     const cursorFor = (p, active = rotating) => {
+      const sketching = !active && (p.cameraMode ?? 'work') === 'work' && previewSketch.toolFor(p);
+      if (sketching) return SKETCH_CURSORS[sketching];
       if(!p.showcase)return p.previewSelectionMode&&!active?'default':viewportCursor(p.cameraMode,p.transformMode,active);
       let light=colorLuminance(p.portraitMode?'#000000':viewportAppearanceOptions(p.preferences).background.color);
       if(cursorPixels&&!p.portraitMode){
@@ -310,6 +313,16 @@ export default function GamePreview(inputProps) {
       rotating=false;latest.current.onCameraGestureChange?.(false);canvas.style.cursor=cursorFor(latest.current);
     };
     const invalidate = () => scheduler?.invalidate();
+    // AI console notes in Movement (Arrow, Hold, Hit, Pen, Marker).
+    const previewSketch = createPreviewSketch({ host: hostElement, ownerDocument: hostElement.ownerDocument, invalidate });
+    // The click that ends a note never also picks an emitter or a part.
+    let sketchClicks = 0;
+    const swallowSketchClick = event => {
+      if (event.type === 'dblclick' ? !previewSketch.toolFor(latest.current) : !sketchClicks) return;
+      if (event.type === 'click') sketchClicks = 0;
+      event.stopImmediatePropagation(); event.preventDefault();
+    };
+    canvas.addEventListener('click', swallowSketchClick, true); canvas.addEventListener('dblclick', swallowSketchClick, true);
     const ownedModel = structuredClone(rendererModel);
     if (uvRestPose) applyUVRestAppearance(ownedModel);
     // New Forge items have no material yet; the private clone shows them as clay.
@@ -652,6 +665,13 @@ export default function GamePreview(inputProps) {
       const work = (p.cameraMode ?? 'work') === 'work' && !modifierHeld(event, 'view.orbit', p.preferences), select = selectionKeys(event, p.preferences);
       const portraitCameraDrag = portraitBlankDragRotatesCamera(p, event);
       const pickable = nodePoints;
+      if (event.button === 0 && work && previewSketch.toolFor(p)) {
+        const rect = canvas.getBoundingClientRect(), frame = native.getFrame(), sequence = movementSequence(p, Math.round(frame)), item = p.model.Sequences?.[sequence];
+        if (p.playing) editPause(p);
+        previewSketch.begin(event, { p, x: event.clientX - rect.left, y: event.clientY - rect.top, camera, width: rect.width, height: rect.height, frame, sequence, sequenceName: item?.Name ?? null, end: item?.Interval?.[1], nodes: projectedNodePoints, center });
+        controls.enabled = false; canvas.setPointerCapture(event.pointerId); invalidate();
+        event.preventDefault(); event.stopImmediatePropagation(); return;
+      }
       if (event.button === 2) {
         poseRight = null;
         const hit = poseMenuHit(p, event);
@@ -961,6 +981,15 @@ export default function GamePreview(inputProps) {
       event.preventDefault();event.stopImmediatePropagation();p.onPartBones({geosetIndex:hit.index,vertexIndex:hit.ids.reduce((best,id)=>distance(id)<distance(best)?id:best)});};
     canvas.addEventListener('dblclick',pickPartBones,true);
     canvas.addEventListener('pointerleave', clearGizmoHover);
+    // Notes come first so no other gesture sees their pointer.
+    const sketchMove = event => { if (!previewSketch.drawing) return; previewSketch.move(event.getCoalescedEvents?.() || [event], canvas.getBoundingClientRect()); event.stopImmediatePropagation(); };
+    const sketchEnd = event => {
+      if (!previewSketch.drawing) return;
+      if (event.type === 'pointerup') { previewSketch.end(projectedNodePoints); sketchClicks = 1; ownerWindow.setTimeout(() => { sketchClicks = 0; }, 400); } else previewSketch.cancel();
+      controls.enabled = true; if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      event.stopImmediatePropagation();
+    };
+    canvas.addEventListener('pointermove', sketchMove, true); canvas.addEventListener('pointerup', sketchEnd, true); canvas.addEventListener('pointercancel', sketchEnd, true); canvas.addEventListener('lostpointercapture', sketchEnd, true);
     canvas.addEventListener('pointermove', nodePointerMove, true); canvas.addEventListener('pointerup', finishNodeGesture, true); canvas.addEventListener('pointercancel', finishNodeGesture, true); canvas.addEventListener('keydown', cancelNodeGesture, true);
     canvas.addEventListener('lostpointercapture', endShowcaseCursor);
     canvas.addEventListener('lostpointercapture', cancelGestureCapture);
@@ -1773,6 +1802,7 @@ export default function GamePreview(inputProps) {
         }
         context.globalAlpha = 1;
       } else if (pathCanvas) { pathCanvas.remove(); pathCanvas = null; }
+      { const shown = Math.round(native.getFrame()); previewSketch.draw(p, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), shown, movementSequence(p, shown)); }
       if (!captureOnly && playback.finished) { reportAt = now; reportedFrame = start; p.onTimeChange?.(start); p.onPlayingChange?.(false); }
       else if (!captureOnly && p.playing && !playbackStopped && now - reportAt > 32) { reportAt = now; reportedFrame = native.getFrame(); p.onTimeChange?.(reportedFrame); }
       layerAPI.current?.draw(showcaseSample?.globalTime || 0, {time:showcaseSample?.presentationTime || 0,enabled:!!p.showcase?.recording || !!p.showcasePlaying});
@@ -1951,6 +1981,7 @@ export default function GamePreview(inputProps) {
     render(performance.now(), 0);
     scheduler.invalidate();
     return () => {
+      previewSketch.dispose();
       cameraMemory.current = portraitBackup
         ? { ...snapshotPreviewCamera(portraitBackup.camera === 'ortho' ? portraitBackup.ortho : portraitBackup.perspective, portraitBackup.perspective, portraitBackup.ortho, { target: portraitBackup.target }), view: portraitBackup.appliedView }
         : { ...snapshotPreviewCamera(camera, perspective, ortho, controls), view: state.appliedView };

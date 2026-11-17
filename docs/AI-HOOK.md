@@ -189,8 +189,9 @@ Sign-in and connection settings are never touched.
 
 ### Marker and Pen
 
-The prompt box has **Marker**, **Pen** and **Eraser**. They draw notes on the
-model for the AI and never change the model, its Undo history or saved files.
+The prompt box has **Marker**, **Pen** and **Eraser** (plus **Arrow**, **Hold**
+and **Hit** where they apply, below). They draw notes for the AI and never change
+the model, its Undo history or saved files.
 
 - **Marker**: drag over the model to highlight an area, e.g. "cut this area into
   its own geoset". The AI gets the vertices under the marker on the side you drew.
@@ -203,11 +204,32 @@ The colored dot picks a color per tool (red, yellow, green, blue); the AI gets t
 color name, so colors can mean different things. Drawing uses the left button in
 Work mode; Alt+drag, the camera toggle and the other mouse buttons keep their
 normal camera actions, so you can turn the model and keep drawing. Esc or a second
-click on the tool stops drawing. Choosing a tool outside the Vertices editor
-switches to it. Notes belong to their model tab, hide while the console is closed
-and come back when it reopens. Each prompt sends them as `context.annotations`
-(model-space points, colors and covered vertices); a message sent while the AI
-works includes the current notes, and viewport captures show them.
+click on the tool stops drawing. Notes belong to their model tab, hide while the
+console is closed and come back when it reopens. Each prompt sends them as
+`context.annotations` (points, colors and what they cover, with an `about` line
+for each place drawn on); a message sent while the AI works includes the current
+notes, and viewport captures show the model notes.
+
+The tools draw where you are working (`sketchSpace` in the editor summary,
+`SKETCH_SPACES` in [ai-sketch.js](../src/ai-sketch.js)):
+
+- **Vertices** (model): Marker, Pen, Eraser. Choosing a tool from any view
+  without its own drawing place switches to the Vertices editor.
+- **UV Wrapper** (while it is open, not minimized): Marker, Pen, **Arrow**,
+  Eraser on the UV map, in texture coordinates. The AI gets the UV points each
+  note covers by geoset and vertex; an Arrow names the piece under its tail,
+  e.g. "move this island here".
+- **Movement**: Marker, Pen, **Arrow**, **Hold**, **Hit**, Eraser over the
+  animation. Each note keeps its animation and frame and shows faint away from
+  that frame. Marker and Pen name the bones they cross. **Arrow acts a motion
+  out**: start on a part and drag; the animation plays in real time while the
+  button is held, every point keeps the frame it was drawn at, and dots along
+  the arrow mark equal steps of time (close = slow, far apart = fast). The AI
+  gets the path, its frames, its pace (`speedProfile`) and, when the arrow
+  circles the joint, the turn in degrees. **Hold** marks a part that must stay
+  still (a planted foot); **Hit** marks a contact or impact at that frame.
+  Drawing in Movement: [preview-sketch.js](../app/preview-sketch.js); on the UV
+  map: `UVEditor`; both draw with [sketch-draw-2d.js](../app/sketch-draw-2d.js).
 
 ### SD Brain
 
