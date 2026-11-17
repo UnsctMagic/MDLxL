@@ -13,6 +13,7 @@ import './particle-editor.css';
 import './auto-corpse.css';
 import { RangeField } from './Fields.jsx';
 import ToolWindow from './ToolWindow.jsx';
+import { usePlaybackHold } from './playback-hold.js';
 import { useWindowHotkeys, useWindowKeyClaim } from './Hotkeys.jsx';
 import { windowCommandActions } from '../src/commands.js';
 
@@ -78,11 +79,13 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   const deathIndex = useMemo(() => current.Sequences.findIndex(seq => /(?:^|\s)death(?:\s|$)/i.test(seq.Name)), [current]);
   const ownBlood = useMemo(() => deathIndex >= 0 ? deathBlood(current, deathIndex) : [], [current, deathIndex]);
   const [tab, setTab] = useState('corpse'), [blood, setBlood] = useState(null), [bloodSelected, setBloodSelected] = useState(null), [sprays, setSprays] = useState([]);
-  const [race, setRace] = useState(() => parseSplat(ownBlood.find(row => row.type === 'SPL')?.id)?.race || 'H'), [bloodTime, setBloodTime] = useState(0), [playing, setPlaying] = useState(false);
+  const [race, setRace] = useState(() => parseSplat(ownBlood.find(row => row.type === 'SPL')?.id)?.race || 'H'), [bloodTime, setBloodTime] = useState(0), [playing, setPlayingState] = useState(false);
   const rows = blood || ownBlood;
   const color = rgb.map(value => Math.min(255, Math.max(0, Number(value) || 0)) / 255);
   const options = useDeferredValue(useMemo(() => ({ size: size / 100, height: height / 100, color, pieces, ...(blood ? { blood } : {}) }), [size, height, rgb.join(), pieces, blood]));
   const root = useRef(null), camera = useRef({ saved: null, listeners: new Set() }), drafts = useRef(0), api = useRef(null), framed = useRef(false);
+  // Dragging or picking a piece pauses Death and plays on afterwards; Play, the scrubber and a row's time stay the user's.
+  const { setPlaying, holdForEdit } = usePlaybackHold(playing, setPlayingState, () => root.current);
   const draft = useMemo(() => {
     const model = structuredClone(current);
     try {
@@ -111,7 +114,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
   const remember = () => { past.current.push(latest.current); if (past.current.length > 200) past.current.shift(); future.current = []; };
   const restore = state => { setSize(state.size); setHeight(state.height); setRgb(state.rgb); setPieces(state.pieces); setBlood(state.blood); };
   const step = (from, to) => { if (!from.current.length) return; to.current.push(latest.current); restore(from.current.pop()); };
-  const drag = active => { if (active) { remember(); setPlaying(false); } dragging.current = active; };
+  const drag = active => { if (active) { remember(); holdForEdit(); } dragging.current = active; };
   // Frame the corpse itself once, close enough to grab its handles.
   const frame = () => {
     const g = corpse && draft.model.Geosets[corpse.corpseGeoset], preview = api.current;
@@ -192,7 +195,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
     const gap = k => { const a = marks[k + 's'], b = marks[k + 'e']; if (!a || !b) return Infinity; const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t); };
     let best = null, near = 28;
     for (let k = 0; k < count; k++) { const d = gap(k); if (d < near) { near = d; best = k; } }
-    if (bloodTab) { setBloodSelected(best); setPlaying(false); } else setSelected(best);
+    if (bloodTab) { setBloodSelected(best); holdForEdit(); } else setSelected(best);
   };
   const changed = size !== 100 || height !== 100 || rgb.join() !== '255,255,255' || pieces || blood;
 
@@ -225,7 +228,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           <div className="acp-add" role="group" aria-label="Add blood" title="Adds blood at the time shown in the preview; drag it into place.">
             <button data-hotkey="auto-corpse:splat" data-hotkey-manual data-hotkey-label="+ Splat" onClick={() => addBlood('SPL')}>+ Splat</button><button data-hotkey="auto-corpse:spray" data-hotkey-manual data-hotkey-label="+ Spray" onClick={() => addBlood('SPN')}>+ Spray</button>
           </div>
-          <div className="acp-transport" title="Play or scrub the Death animation to see the blood">
+          <div data-playback-control className="acp-transport" title="Play or scrub the Death animation to see the blood">
             <button data-hotkey="auto-corpse:play" data-hotkey-manual data-hotkey-label="Play / pause" aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
             <input data-time-scrub data-hotkey="auto-corpse:death-time" data-hotkey-manual data-hotkey-label="Death time" type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
             <output>{seconds(bloodTime)}</output>
@@ -252,7 +255,7 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, teamColor, o
           <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={previewAssets} modelPath={modelPath} teamColor={teamColor}
             sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
-          {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>
+          {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); holdForEdit(); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={drag}/>
             : <CorpseStageTools snapshot={snapshot} pieces={shown} selected={selected} onSelect={setSelected} onChange={edit} onDrag={drag}/>}
         </section>
       </div>

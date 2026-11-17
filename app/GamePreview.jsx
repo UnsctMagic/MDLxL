@@ -67,6 +67,8 @@ import { exposePreviewForTests } from './test-hook.js';
 import { gamePathKey as pathKey } from '../src/game-path.js';
 import { addClayPreviewMaterials } from '../src/forge-clay.js';
 let humanFramePromise;
+// An edit in the preview pauses playback; with onEditPause (the main window) it resumes once the edit ends.
+const editPause = props => props.onEditPause ? props.onEditPause() : props.onPlayingChange?.(false);
 const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
 const portraitHasFrame = props => props.portraitMode && props.showcasePortraitFrame !== false;
 
@@ -514,7 +516,7 @@ export default function GamePreview(inputProps) {
         gesture.latch = shiftDragLatch({ x: 0, y: 0 }, dragKeys(event, 'move', p.preferences).shiftKey);
         beginRotationDrag(gesture, handle.rotation, event, !axis && !picked && !p.workplaneEnabled, () => scope.map(item => item.id));
         nodeGesture = gesture; controls.enabled = false; posedGeometryCache = null;
-        p.onPlayingChange?.(false); p.onTimeChange?.(frame); canvas.setPointerCapture(event.pointerId);
+        editPause(p); p.onTimeChange?.(frame); canvas.setPointerCapture(event.pointerId);
         canvas.style.cursor = viewportCursor('work', gesture.mode);
       } catch (cause) { setGestureLabel(cause.message); controls.enabled = true; }
       event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
@@ -722,7 +724,7 @@ export default function GamePreview(inputProps) {
           if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
           nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},dragKeys(event,'move',p.preferences).shiftKey);
           beginRotationDrag(nodeGesture, active.rotation, event, !!directRotate, () => downstreamBoneIds(ownedModel, ids));
-          controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
+          controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); editPause(p); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
         if (picked && p.onSelectNodes) {
@@ -1100,7 +1102,7 @@ export default function GamePreview(inputProps) {
       controls.object = camera; controls.enableRotate = true;
       if (state.portraitActive) { controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI; }
       controls.update(); reportProjectionView(); invalidate();
-      if (state.portraitActive) { state.cameraDetached = true; latest.current.onPlayingChange?.(false); latest.current.onPortraitPreviewChange?.(true); }
+      if (state.portraitActive) { state.cameraDetached = true; editPause(latest.current); latest.current.onPortraitPreviewChange?.(true); }
       updatePortraitProjection();
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
@@ -1270,7 +1272,7 @@ export default function GamePreview(inputProps) {
       const p = latest.current;
       if (!p.portraitMode || !state.portraitActive) return;
       cameraGestureStart = { position: camera.position.clone(), target: controls.target.clone(), snapshot: cameraView() };
-      state.cameraEditing = true; state.cameraDetached = true; p.onPlayingChange?.(false);
+      state.cameraEditing = true; state.cameraDetached = true; editPause(p);
     };
     const cameraEnded = () => {
       endShowcaseCursor();
@@ -1669,7 +1671,7 @@ export default function GamePreview(inputProps) {
               event.stopPropagation(); const current = latest.current, key = pinButton?.dataset.key;
               if (!key || nodeGesture) return;
               const frame = Math.round(native.getFrame());
-              current.onPlayingChange?.(false); current.onTimeChange?.(frame);
+              editPause(current); current.onTimeChange?.(frame);
               current.onPosePin?.(key, frame, movementSequence(current, frame));
             });
             hostElement.appendChild(pinButton);

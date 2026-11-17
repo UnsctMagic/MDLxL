@@ -37,7 +37,7 @@ export default function useReelDiamonds({ model, selectedNodeIds, domain, frame,
     } catch (error) { onStatus?.(error.message, true); }
   };
   // The reel scrubs on pointer down and steps on arrow keys; a diamond keeps both to itself.
-  const track = <div ref={box} className="classic-reel-diamonds" data-object-id={id} onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') event.stopPropagation(); }} onContextMenu={event => { if (event.target !== event.currentTarget) event.stopPropagation(); }}>
+  const track = <div ref={box} data-hold-playback className="classic-reel-diamonds" data-object-id={id} onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') event.stopPropagation(); }} onContextMenu={event => { if (event.target !== event.currentTarget) event.stopPropagation(); }}>
     <KeyDiamonds key={id} box={box} groups={groups} start={start} end={end} inset={0} disabled={disabled} limits={events ? pointLimits : undefined} describe={describe} onChange={change} onScrub={onSeek} onContext={context}/>
     {menu && <div ref={menuBox} className="pe-key-menu" role="menu" style={{ left: menu.x, top: menu.y }}>
       <button role="menuitem" autoFocus onClick={() => { setMenu(null); write(events ? 'Remove event frame' : 'Remove a part where it shows', groups.filter((_, index) => index !== menu.part)); }}>{events ? 'Remove' : 'Remove this pair'}</button>
