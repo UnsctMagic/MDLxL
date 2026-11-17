@@ -74,9 +74,10 @@ function patchBoneInfluenceVertexShader(source) {
     .replace(/}\s*$/, `    ${influence}\n}\n`);
 }
 
-export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false, uvWorkingGeoset = false, rgbOverride = null) {
+// baseRgb: a geoset colour sampled elsewhere (the UV preview's RGB Preview, from the real model's animation).
+export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false, uvWorkingGeoset = false, rgbOverride = null, baseRgb = null) {
   const options = { interval: model.Sequences?.[sequenceIndex]?.Interval, globalSequences: model.GlobalSequences, globalTime };
-  const evaluated = sampleGeosetAnimation(model, geosetIndex, frame, sequenceIndex, globalTime), rgb = hideRgb ? [1, 1, 1] : evaluated.color;
+  const evaluated = sampleGeosetAnimation(model, geosetIndex, frame, sequenceIndex, globalTime), rgb = hideRgb ? [1, 1, 1] : baseRgb || evaluated.color;
   const layerAlpha = sequenceIndex < 0 ? unanimatedTrackValue(layer, 'Alpha', 1)
     : sampleTrack(layer?.Alpha, frame, { ...options, fallback: 1 });
   const visibleLayerAlpha = uvWorkingGeoset && layer?.Alpha?.Keys?.length ? 1 : layerAlpha;
@@ -339,10 +340,10 @@ export function installWarcraftPreviewAdapter(gl, model, getClock, isUVWorkingGe
           if (surface && activeLayer !== model.Materials?.[model.Geosets[geosetIndex].MaterialID]?.Layers?.[0]) return;
           if (influence && (activeLayer?.FilterMode ?? 0) >= 3) return;
           if (surfaceLocation) this.uniform1f(surfaceLocation, surface ? 1 : 0);
-          const { frame, sequenceIndex, globalTime, hideRgbGeoset, hideAllRgb, rgbOverride } = getClock();
+          const { frame, sequenceIndex, globalTime, hideRgbGeoset, hideAllRgb, rgbOverride, geosetRgb } = getClock();
           const override = rgbOverride?.geosetIndex === geosetIndex ? rgbOverride.channels : null;
           const tint = previewGeosetTint(model, geosetIndex, activeLayer, frame, sequenceIndex, globalTime,
-            hideRgbGeoset === geosetIndex || !!hideAllRgb, isUVWorkingGeoset?.(geosetIndex), override);
+            hideRgbGeoset === geosetIndex || !!hideAllRgb, isUVWorkingGeoset?.(geosetIndex), override, geosetRgb?.[geosetIndex]);
           if (tint[3] <= 1e-6) return;
           const blended = !!influence || (activeLayer?.FilterMode ?? 0) >= 2 || tint[3] < .999999;
           if (meshPass && !influence && blended !== (meshPass === 'blended')) return;

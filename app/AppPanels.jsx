@@ -19,7 +19,7 @@ export function AppUVWorkspace({
   assignUVMaterial, changeSensitivity, commitUVChanges, commitUVCorners, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
   previewSuspended, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
   setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
-  validSelection, view, uvMinimized
+  validSelection, view, uvMinimized, rgbShown, rgbSequence, toggleRGBPreview
 }) {
   return (<Suspense fallback={null}><UVWorkspace key={session.id+':'+uvEntryId} model={model} materialModel={texturedModel} previewModel={previewModel} revision={doc.revision} activeGeoset={activeGeoset} eligibleSelection={uvEntrySelection} selectionByGeoset={validSelection}
         onSelectionChange={next => setSelection(filterVertexSelection(next, new Set(Object.keys(uvEntrySelection).map(Number)), doc.model))}
@@ -41,7 +41,7 @@ export function AppUVWorkspace({
         onDensityApply={applyGeosetDensity}
         onGeosetChange={(index, coordId = 0) => { if (index < 0) return; setActiveGeoset(index); setUvSet(coordId); setLiveUV(null); }}
         textureAssets={session.assets} teamColor={teamColor} preferences={preferences} onPreferences={changePreferences} readOnly={doc.readOnly || saving} suspended={uvMinimized}
-        draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={closeUVWindow}
+        draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={closeUVWindow} rgbPreview={rgbShown} rgbSequence={rgbSequence} onRgbPreview={toggleRGBPreview}
         previewProps={{ ...cameraProps, previewMode:'textured', modelPath:session.path, key: session.id, preferences, onSensitivityChange: changeSensitivity, onPointerSensitivityChange: changePointerSensitivity, onCameraModeToggle: toggleMiddleCamera, suspended: previewSuspended,
           revision: doc.revision, teamColor, textureAssets: session.assets, view, cameraMode }} /></Suspense>);
 }

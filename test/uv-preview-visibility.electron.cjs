@@ -82,9 +82,10 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     await page.waitForFunction(selector => uvMeshDraws(selector).some(draw => draw.index === 0), preview);
     const full = await draws();
     await canvas.screenshot({ path: path.join(out, 'full.png') });
-    const workingDraw = { index: target, rgb: [.25, .5, .75], alpha: 1 };
+    // RGB is on by default, as in Vertices: the working geoset shows its Stand RGB, not only its static RGB.
+    const workingDraw = { index: target, rgb: [.75, .25, .5], alpha: 1 };
     assert.deepEqual(full.find(draw => draw.index === target), workingDraw,
-      'UV Live Preview uses the authored static RGB and keeps the working geoset visible: ' + JSON.stringify(full));
+      'UV Live Preview shows the model RGB as Vertices does and keeps the working geoset visible: ' + JSON.stringify(full));
     assert.equal(full.find(draw => draw.index === 4)?.alpha, .5, 'context uses static geoset and layer alpha');
     assert.equal(full.some(draw => draw.index === 5), false, 'context with static alpha zero stays hidden');
     const wrapper = page.locator('.uv-tab-window');
@@ -107,7 +108,10 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     const blue = wrapper.getByRole('spinbutton', { name: 'Preview RGB B', exact: true });
     const reset = wrapper.getByRole('button', { name: 'Reset preview RGB', exact: true });
     await red.waitFor({ timeout: 5000 }).catch(() => assert.fail('Preview RGB offers a red number input beside Hide RGB'));
-    assert.equal((await wrapper.getByRole('group', { name: 'Preview RGB', exact: true }).innerText()).replace(/\s+/g, ' ').trim(), 'Preview RGB Reset');
+    assert.equal((await wrapper.getByRole('group', { name: 'Preview RGB', exact: true }).innerText()).replace(/\s+/g, ' ').trim(), 'Preview RGB Test RGB Reset');
+    const previewRGB = wrapper.getByRole('button', { name: 'Preview RGB', exact: true });
+    assert.equal(await previewRGB.getAttribute('aria-pressed'), 'true', 'Preview RGB starts on, like RGB in Vertices');
+    assert.equal(await previewRGB.getAttribute('data-hotkey'), 'uv-wrapper:preview-rgb');
     for (const [field, id] of [[red, 'preview-rgb-red'], [green, 'preview-rgb-green'], [blue, 'preview-rgb-blue'], [hideExtras, 'hide-extras']]) {
       assert.equal(await field.getAttribute('data-hotkey'), 'uv-wrapper:' + id);
       assert.notEqual(await field.getAttribute('data-hotkey-manual'), null);
@@ -135,18 +139,21 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
       uvMeshDraws(selector).find(draw => draw.index === target)?.rgb.every((value, index) => value === rgb[index]),
     { selector: preview, target, rgb }, { timeout: 5000 });
     const beforeRGB = await camera();
+    const authoredRGB = ['191', '64', '128'];
+    assert.deepEqual([await red.inputValue(), await green.inputValue(), await blue.inputValue()], authoredRGB, 'the boxes show the working geoset RGB');
     await page.keyboard.press('Control+Alt+R');
     await page.waitForFunction(() => document.activeElement?.getAttribute('data-hotkey') === 'uv-wrapper:preview-rgb-red');
+    await page.keyboard.press('Control+a');
     await page.keyboard.type('255');
     assert.equal(await red.inputValue(), '255');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true }));
     assert.deepEqual((await draws()).find(draw => draw.index === target).rgb, workingDraw.rgb, 'typing does not tint the preview until Enter');
     await page.keyboard.press('Enter');
-    await expectRGB([1, .5, .75]);
+    await expectRGB([1, .25, .5]);
     await enter(green, '0');
-    await enter(blue, '128');
+    await enter(blue, '100');
     await page.keyboard.press('Enter');
-    const override = [1, 0, Math.fround(128 / 255)];
+    const override = [1, 0, Math.fround(100 / 255)];
     await expectRGB(override);
     assert.deepEqual(await draws(), full.map(draw => draw.index === target ? { ...draw, rgb: override } : draw),
       'Preview RGB replaces only the working geoset tint and preserves opacity');
@@ -155,11 +162,11 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     assert.equal(await page.evaluate(() => window.__mdlxl.session().doc.revision), beforeRevision, 'typing RGB creates no model revision');
     await enter(blue, '256');
     await page.keyboard.press('Enter');
-    await expectRGB([1, 0, .75]);
+    await expectRGB([1, 0, .5]);
     await click(reset);
     await expectRGB(workingDraw.rgb);
     assert.deepEqual(await draws(), full, 'Reset restores the authored appearance of the full preview');
-    for (const field of [red, green, blue]) assert.equal(await field.inputValue(), '');
+    assert.deepEqual([await red.inputValue(), await green.inputValue(), await blue.inputValue()], authoredRGB, 'Reset shows the model RGB again');
 
     const selectedOnly = wrapper.getByRole('button', { name: 'Selected Only', exact: true });
     await click(selectedOnly);
@@ -178,13 +185,22 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     await expectRGB([1, 1, 1]);
     await enter(green, '255');
     await page.keyboard.press('Enter');
-    await expectRGB([.25, 1, .75]);
+    await expectRGB([.75, 1, .5]);
     assert.equal(await hideRGB.getAttribute('aria-pressed'), 'false', 'typing a tint turns Hide RGB off');
     await click(hideRGB);
     await expectRGB([1, 1, 1]);
     await click(reset);
     await expectRGB(workingDraw.rgb);
     assert.equal(await hideRGB.getAttribute('aria-pressed'), 'false', 'Reset returns to the authored RGB');
+    await click(selectedOnly);
+    await page.waitForFunction(selector => uvMeshDraws(selector).some(draw => draw.index === 0), preview);
+    await click(previewRGB);
+    await page.waitForFunction(selector => uvMeshDraws(selector).every(draw => draw.rgb.every(value => value === 1)), preview, { timeout: 5000 })
+      .catch(() => assert.fail('Preview RGB off shows the whole model without RGB'));
+    await click(previewRGB);
+    await expectRGB(workingDraw.rgb);
+    assert.deepEqual(await draws(), full, 'Preview RGB on shows the whole model RGB again');
+    await click(selectedOnly);
 
     const beforeRotation = await camera();
     const box = await canvas.boundingBox(), x = box.x + box.width / 2, y = box.y + box.height / 2;
