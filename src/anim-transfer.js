@@ -602,7 +602,7 @@ const GUARD_LEVEL = 0.8, GUARD_MOST = 30 * DEG;
 const firstWord = name => String(name || '').trim().split(/[\s\-_]+/)[0].toLowerCase();
 /** The model's own animation of the same kind as `name` (exact name, else the
  * same first word, a plain "Attack" or "Attack - 2" before "Attack Slam"). */
-function sameKindSequence(model, name) {
+export function sameKindSequence(model, name) {
   const list = (model.Sequences || []).map((sequence, index) => ({ index, sequence, name: String(sequence.Name || '').trim() })).filter(item => item.sequence.Interval);
   const wanted = String(name || '').trim().toLowerCase(), word = firstWord(name);
   const exact = list.find(item => item.name.toLowerCase() === wanted);
@@ -1926,7 +1926,7 @@ const like = (template, value) => ArrayBuffer.isView(template) ? new template.co
 
 /** Copy the body animation into [start, start + length]: every non-global track's
  * keys time-mapped by the base clock, plus sampled keys at loop seams and ends. */
-function copyBodyAnimation(model, clock, start, length) {
+export function copyBodyAnimation(model, clock, start, length) {
   const base = model.Sequences[clock.sequence], [bs, be] = base.Interval;
   const period = clock.looping ? clock.length / clock.rate : Infinity;
   const loops = clock.looping && clock.length > 0 ? Math.ceil(length / period - 1e-9) : 1;
@@ -1985,7 +1985,7 @@ function copyBodyAnimation(model, clock, start, length) {
 }
 
 /** The new animation's extents from its sampled motion, as Calculate extents does. */
-function newSequenceExtents(model, index) {
+export function newSequenceExtents(model, index) {
   const sequence = model.Sequences[index], excluded = extentsExclusions(model), boxes = sequenceSampler(model, { includeGlobalKeys: true })(index), total = box();
   (model.Geosets || []).forEach((geoset, i) => {
     if (geoset.Anims?.length > index) geoset.Anims[index] = finish(boxes[i]);
