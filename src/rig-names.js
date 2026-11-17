@@ -22,6 +22,18 @@ export function isWeaponName(name, extraWords = []) {
   return nameTokens(name).some(token => weapons.has(token) || extraWords.includes(token));
 }
 
+// Words for things that hang and swing rather than walk. One clue among several
+// for POSE recognition (`poseLimbOrCloth`); never a rule on its own.
+export const CLOTH_WORDS = Object.freeze([
+  'cloth', 'cape', 'cloak', 'banner', 'scroll', 'ribbon', 'strap', 'tassel', 'skirt',
+  'tabard', 'loin', 'fur', 'panel', 'flap', 'sash', 'hair', 'beard', 'braid',
+]);
+const cloths = new Set(CLOTH_WORDS);
+
+export function isClothName(name) {
+  return nameTokens(name).some(token => cloths.has(token));
+}
+
 /** Explicit side words win over initials, then the compact handr/rhand forms. */
 export function nameSide(name) {
   const tokens = nameTokens(name), compact = tokens.join('');

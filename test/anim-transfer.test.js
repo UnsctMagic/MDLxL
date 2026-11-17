@@ -11,6 +11,9 @@ import { allNodes, composeNodeMatrices, isGlobalTrack, nodePivot, sampleNodeMatr
 import { nodeIndex } from '../src/node-hierarchy.js';
 import { applyTransfer, buildTransfer, defaultTransferPart, transferNodeTracks, transferPreviewModel, transferRestoreTracks, transferRig } from '../src/anim-transfer.js';
 import * as XFER from '../src/anim-transfer.js';
+import { poseChainIds, suggestPoseRig } from '../src/pose-ik.js';
+import { poseLimbOrCloth, poseRecognitionEvidence } from '../src/pose-recognition.js';
+import { standSequenceIndex } from '../src/sequence-editor.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -896,4 +899,70 @@ test('R9 frame: a turn carried in the limb\'s own frame keeps a hanging arm hang
   assert.ok(above(plain) > 0, `as today the elbow rises over the shoulder (${above(plain).toFixed(1)})`);
   assert.ok(above(own) < -5, `in the limb's own frame it stays below (${above(own).toFixed(1)})`);
   assert.deepEqual(own.built.problems, []);
+});
+
+// R11 (docs/agent-tasks/recognition-limb-or-cloth.md): the shared recogniser tells a limb from hanging cloth.
+const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const poseRigOf = model => { let stand = standSequenceIndex(model); if (stand < 0 || !model.Sequences[stand]?.Interval) stand = model.Sequences.findIndex(s => s.Interval); return suggestPoseRig(model, model.Sequences[stand].Interval[0], stand); };
+const legChains = rig => rig.chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Wing');
+const rootNamed = (model, pattern) => { const names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name])); return chain => pattern.test(names.get(chain.root)); };
+const STRIPS = [['transfer-bray-shaman', /scroll/i], ['transfer-bray-shaman-hero', /scroll/i], ['transfer-nightmare-rider', /fur_panel/i]];
+
+test('R11 one creature: the Bray Shaman\'s chest scrolls are not a rider\'s legs', { skip: missing('transfer-bray-shaman', 'transfer-bray-shaman-hero') }, () => {
+  for (const key of ['transfer-bray-shaman', 'transfer-bray-shaman-hero']) {
+    const model = load(key);
+    assert.deepEqual(transferRig(model).actors, ['both'], `${key} is one creature`);
+    assert.equal(transferRig(model, { actor: 'seated' }), transferRig(model), `${key}: asking for the rider gives the plain rig`);
+  }
+});
+
+test('R11 poseLimbOrCloth: the scrolls and the fur strips are cloth; every native unit\'s named legs are limbs', { skip: missing('transfer-bray-shaman', 'transfer-bray-shaman-hero', 'transfer-nightmare-rider') || (!fs.existsSync(testModel('corpus-sd')) && 'private test models not on this machine: corpus-sd') }, () => {
+  for (const [key, pattern] of STRIPS) {
+    const model = load(key), rig = poseRigOf(model), strips = legChains(rig).filter(rootNamed(model, pattern));
+    assert.equal(strips.length, 2, `${key}: two strips are read as legs`);
+    for (const chain of strips) { const answer = poseLimbOrCloth(model, rig, chain); assert.equal(answer.kind, 'cloth', `${key}: ${JSON.stringify(answer)}`); }
+    for (const chain of legChains(rig).filter(chain => !strips.includes(chain))) assert.equal(poseLimbOrCloth(model, rig, chain).kind, 'limb', `${key}: its own legs are limbs`);
+  }
+  let named = 0;
+  for (const file of fs.readdirSync(testModel('corpus-sd')).filter(name => /\.mdx$/i.test(name))) {
+    const b = fs.readFileSync(testModel('corpus-sd', file)), model = parseCompatibleMdx(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+    if (!model.Sequences?.some(sequence => sequence.Interval)) continue;
+    const rig = poseRigOf(model), evidence = poseRecognitionEvidence(model);
+    for (const chain of legChains(rig)) {
+      const answer = poseLimbOrCloth(model, rig, chain, { evidence });
+      if (answer.clues.name !== 'limb') continue;
+      named++;
+      assert.equal(answer.kind, 'limb', `${file}: ${JSON.stringify(answer)}`);
+    }
+  }
+  assert.ok(named > 500, `named native legs read: ${named}`);
+});
+
+test('R11 a name alone does not make cloth, and cloth without its name is still cloth', { skip: missing('transfer-footman', 'transfer-bray-shaman', 'transfer-bray-shaman-hero', 'transfer-nightmare-rider') }, () => {
+  const rename = (model, rig, chains, name) => {
+    const copy = fresh(model), byId = new Map(allNodes(copy).map(node => [node.ObjectId, node]));
+    let i = 0;
+    for (const chain of chains) for (const id of poseChainIds(chain)) byId.get(id).Name = `${name}_${++i}`;
+    // The rig as it was read; the renamed joints carry no role of their own any more.
+    const roles = Object.fromEntries(Object.entries(rig.roles || {}).filter(([id]) => !chains.some(chain => poseChainIds(chain).includes(Number(id)))));
+    return { copy, rig: { ...rig, roles } };
+  };
+  // The Footman's legs under cloth names: still limbs.
+  const footman = load('transfer-footman'), footmanRig = poseRigOf(footman), legs = legChains(footmanRig);
+  assert.equal(legs.length, 2);
+  const asCloth = rename('transfer-footman', footmanRig, legs, 'Cloth_Strip');
+  for (const chain of legs) {
+    const answer = poseLimbOrCloth(asCloth.copy, asCloth.rig, chain);
+    assert.equal(answer.clues.name, 'cloth', 'the cloth name is read');
+    assert.equal(answer.kind, 'limb', `a cloth name alone does not make cloth: ${JSON.stringify(answer)}`);
+  }
+  // The strips under plain names: still cloth, from where they hang, how they reach and move.
+  for (const [key, pattern] of STRIPS) {
+    const model = load(key), rig = poseRigOf(model), strips = legChains(rig).filter(rootNamed(model, pattern)), plain = rename(key, rig, strips, 'Bone');
+    for (const chain of strips) {
+      const answer = poseLimbOrCloth(plain.copy, plain.rig, chain);
+      assert.equal(answer.clues.name, null);
+      assert.equal(answer.kind, 'cloth', `${key} without its cloth names: ${JSON.stringify(answer)}`);
+    }
+  }
 });

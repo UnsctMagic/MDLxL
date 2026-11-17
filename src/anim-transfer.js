@@ -6,6 +6,7 @@ import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, isGlobalTrack, keysInInterval, nodePivot, sampleTrack, skinGeoset, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { poseChainIds, poseNodeRole, suggestPoseBody, suggestPoseRig } from './pose-ik.js';
+import { poseLimbOrCloth, poseRecognitionEvidence } from './pose-recognition.js';
 import { createSequence, standSequenceIndex } from './sequence-editor.js';
 import { makeKey } from './animation-tracks.js';
 import { trackValueError } from './optimizexl-animation.js';
@@ -251,6 +252,30 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // that join the walker's trunk separately (a dragon), are one creature.
   const armChain = chain => chain.kind === 'arm' && chain.label !== 'Wing', legChain = chain => chain.kind === 'leg' && chain.label !== 'Wing';
   const turning = top => { const interval = sequences[sequence]?.Interval; let count = 0; if (interval) for (const id of joints) { const track = byId.get(id).Rotation; if (track?.Keys && tree.isAncestor(id, top) && !isGlobalTrack(track, model)) count += keysInInterval(track, interval).length; } return count; };
+  // Whether the shared recogniser reads a leg chain as hanging cloth (unsure reads as a limb).
+  const cloth = chain => {
+    const known = info.cloth ||= new Map();
+    if (!known.has(chain)) known.set(chain, poseLimbOrCloth(model, pose, chain, { evidence: info.evidence ||= poseRecognitionEvidence(model) }).kind === 'cloth');
+    return known.get(chain);
+  };
+  // A seated creature's own chains. Legs hang from the hips: when every chain read as its leg is
+  // hanging cloth (strips on the chest), its legs are the pair of plain chains that hang, one each
+  // side, from a hip joint the joint its arms hang from hangs from. `found` is that pair.
+  const seatLegs = tops => {
+    const seated = id => tops.some(top => tree.isAncestor(id, top)), chains = pose.chains.filter(chain => seated(chain.root));
+    const arms = chains.filter(armChain), read = chains.filter(legChain), allCloth = read.length > 0 && read.every(cloth);
+    const chestOf = arms.length ? tree.ancestors(arms[0].root).find(id => seated(id) && arms.every(chain => tree.isAncestor(chain.root, id))) : null;
+    if (chestOf == null || !allCloth) return { chains, cloth: allCloth, found: null };
+    const claimed = new Set(chains.flatMap(poseChainIds)), children = id => [...joints].filter(other => tree.parentOf(other) === id).sort((a, b) => pos(a).z - pos(b).z);
+    for (const hip of tree.ancestors(chestOf).filter(seated)) {
+      const found = children(hip).filter(id => !tree.isAncestor(chestOf, id) && !claimed.has(id)).map(root => {
+        const middle = children(root)[0], end = middle == null ? null : children(middle)[0];
+        return end != null && pos(end).z < pos(root).z ? { root, middle, end, joints: [root, middle, end], kind: 'leg', key: `limb:${end}` } : null;
+      }).filter(Boolean);
+      if (found.length === 2 && Math.sign(pos(found[0].root).y - pos(hip).y) * Math.sign(pos(found[1].root).y - pos(hip).y) < 0) return { chains: [...chains.filter(chain => !read.includes(chain)), ...found], cloth: true, found };
+    }
+    return { chains, cloth: true, found: null };
+  };
   const apart = seatedAssemblies(model, info, body, pos, sequence).filter(item => skeletonRoot(model, info, item.top) === skeleton).sort((a, b) => turning(b.top) - turning(a.top))[0];
   let seatTops = apart ? [apart.top] : [];
   if (!apart) {
@@ -288,6 +313,9 @@ function readRig(model, info, skeleton, wanted = 'both') {
       return core != null && oneCreature(core) ? ownRoot(core, id => !tree.isAncestor(id, top)) : top;
     };
     if (walking.length && tops.length) seatTops = [narrowed(tops.sort((a, b) => size(b) - size(a))[0])];
+    // Hanging legs that are all hanging cloth, with no real pair of legs under a hip, make no rider:
+    // one creature with strips on its chest. The two-heads rule still reads it.
+    if (seatTops.length) { const legs = seatLegs(seatTops); if (legs.cloth && !legs.found) seatTops = []; }
     // Or two heads: the subtree that holds the arms has a head of its own, and the walker has
     // another head outside it (a rider on a dragon). One head (a centaur) is one creature, and
     // so is a neck the arms hang from (the front of a four-legged body with a torso on it).
@@ -302,24 +330,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   }
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
-  // The seated creature's own chains. Legs hang from the hips: when every chain read as its leg
-  // hangs from the joint its arms hang from (strips of cloth on the chest), its legs are the
-  // pair of plain chains that hang, one each side, from the hip joint that chest hangs from.
-  let seatedChains = pose.chains.filter(chain => seatedId(chain.root));
-  if (seatTops.length) {
-    const arms = seatedChains.filter(armChain), read = seatedChains.filter(legChain);
-    const chestOf = arms.length ? tree.ancestors(arms[0].root).find(id => seatedId(id) && arms.every(chain => tree.isAncestor(chain.root, id))) : null;
-    if (chestOf != null && read.length && read.every(chain => tree.isAncestor(chain.root, chestOf))) {
-      const claimed = new Set(seatedChains.flatMap(poseChainIds)), children = id => [...joints].filter(other => tree.parentOf(other) === id).sort((a, b) => pos(a).z - pos(b).z);
-      for (const hip of tree.ancestors(chestOf).filter(seatedId)) {
-        const found = children(hip).filter(id => !tree.isAncestor(chestOf, id) && !claimed.has(id)).map(root => {
-          const middle = children(root)[0], end = middle == null ? null : children(middle)[0];
-          return end != null && pos(end).z < pos(root).z ? { root, middle, end, joints: [root, middle, end], kind: 'leg', key: `limb:${end}` } : null;
-        }).filter(Boolean);
-        if (found.length === 2 && Math.sign(pos(found[0].root).y - pos(hip).y) * Math.sign(pos(found[1].root).y - pos(hip).y) < 0) { seatedChains = [...seatedChains.filter(chain => !read.includes(chain)), ...found]; break; }
-      }
-    }
-  }
+  const seatedChains = seatTops.length ? seatLegs(seatTops).chains : [];
   let actor = seatTops.length ? wanted : 'both';
   if (actor === 'seated') {
     // The seated creature read alone: its own body joint drives its limbs.

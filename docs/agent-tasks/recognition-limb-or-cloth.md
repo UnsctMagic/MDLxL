@@ -1,6 +1,7 @@
 # Recognition: limb or hanging cloth (step 1 of the shared recogniser work)
 
-Status: contract written 17 Nov 2026 (director: Fable). Not built. Local only, branch `claude/transfer-xl`.
+Status: contract written 17 Nov 2026 (director: Fable). A, B and C built the same day (see Result);
+D not built yet. Local only, branch `claude/transfer-xl`.
 
 ## Owner intent (17 Nov 2026, quoted)
 
@@ -137,7 +138,68 @@ whose handle set would change and put the list in this note; if a real leg is on
 
 ## Result (builder fills this in)
 
-- A, the table:
-- B and C, proofs:
+Status: A, B and C built 17 Nov 2026 (builder: Claude Opus), local commits on `claude/transfer-xl`.
+
+- A, the table (`out/transfer-probe/cloth-measure.mjs`, rows in `cloth-rows.json`, full text with
+  every cloth and unnamed row in `cloth-summary.txt`). 1,164 models (36 byte-identical copies
+  measured once, 36 without animation or skeleton, 0 failed), 2,507 chains read as legs. Phase
+  over 16 frames of the first Walk, forward = +X; "swing ratio" = top joint's largest turn in Walk
+  over the root's most-turning leg's.
+
+  | Clue | Named limbs (2,423 chains, 875 models) | Named cloth (6 chains, 3 models) | Unnamed (78 chains, 32 models) |
+  | --- | --- | --- | --- |
+  | attach 1 / 0 / null | 34 / 1,731 / 658 | 6 / 0 / 0 | 10 / 46 / 22 |
+  | flat median (p10 to p90); under .3; over .5 | .69 (.42 to .88); 38 of 2,411; 1,997 | .25 and .41 (4 null: 6 vertices); 1 of 2; 0 | .60 (.14 to .91); 23 of 77; 47 |
+  | reach median (p90); under .05; over .15 | .001 (.066); 2,150; 99 | .17 (.57); 0; 6 | 0 (.16); 49; 15 |
+  | phase median (p10 to p90); under -.5; over .5 | -.82 (-.97 to .86); 1,418 of 2,113; 313 | .44 and 1; 0 of 6; 2 | .07 (-.95 to .80); 28 of 60; 14 |
+  | swing ratio median; under .6 | .95; 361 of 2,219 | .5; 4 of 6 | .66; 26 of 60 |
+  | vertices median (p10 to p90) | 46 (29 to 81) | 6 (6 to 18) | 70 (21 to 196) |
+
+  Named cloth is only the two Bray Shamans' scrolls (attach 1, flat null, reach .16 to .17,
+  phase .44) and the nightmare rider's two fur strips (attach 1, flat .25/.41, reach .56, phase 1):
+  every other cloth-named joint is already kept out of the rig by `poseExcludedBranchName`.
+  The 34 named limbs with attach 1 are real: the front legs of the archnathid family (scorpions,
+  crabs, nerubians: they hang from the claws' joint) and the centaur archer's front legs; all
+  reach the floor and swing in antiphase or are tubes. Scored with the starting weights
+  (`out/transfer-probe/cloth-score.mjs`): named limbs 2,423 limb, 0 cloth; named cloth 6 cloth;
+  unnamed 63 limb, 15 unsure, 0 cloth. **Without the name clue** the same: named limbs 2,405 limb,
+  18 unsure, 0 cloth (highest: Baron Rivendare's rider legs, 2: in phase, short); named cloth 6
+  cloth (scrolls exactly 3: attach + short; fur strips 4 and 6). So the table supports the
+  starting weights unchanged; no weight was tuned. The scrolls sit on the threshold without their
+  name: margin is thin there, and it is the two agreeing structural clues that carry them.
+  The 15 unsure unnamed chains (today's behaviour): the Blood Elf Spell Thief's and Undead Fire
+  Mage's four skirt-like chains (sheet, short, antiphase: 1), the Warden's and Spirit of
+  Vengeance's Mesh05 chain (attach, sheet, floor: 2), the Tidebringer's bone_12 (1).
+- B: `poseLimbOrCloth` in `src/pose-recognition.js`, `CLOTH_WORDS` and `isClothName` in
+  `src/rig-names.js` beside `WEAPON_WORDS`; nothing existing changed. The clues are computed
+  exactly as the probe measures them (`out/transfer-probe/cloth-check.mjs`: all 2,507 chains, 0
+  values differing from the probe; engine 2,486 limb, 15 unsure, 6 cloth). The Stand and Walk
+  poses it samples are kept per evidence object (`WeakMap`), so one evidence is one snapshot.
+- C: `readRig` asks `poseLimbOrCloth` (cached per chain on the model's info): the "cloth strips"
+  block (now `seatLegs`) runs when every chain read as the seated creature's leg is `cloth`; a seat
+  found by the hanging-legs rule whose legs are all cloth and under which no real pair of legs
+  hangs from a hip is cleared before the two-heads rule.
+- B and C, proofs (all run 17 Nov 2026 on the worktree after C):
+  - `pose-dump.mjs` (new): 1,236 models, `diff pre abc`: clues on 0 differ, clues off 0 differ.
+    (Determinism checked first: two runs of the old code, 0 differ.)
+  - `rig-dump.mjs diff pre abc`: 1,196 same, 4 differ, all four the two Bray Shamans (the copies
+    in the test collection and in LowPolyWorks): `actors` ['both','seated','walker'] -> ['both'].
+    Nightmare rider, dragon rider, Cold One Riders and every knight unchanged. Two creatures 102 -> 98.
+    Their 'both' reading changed too, which follows from one creature while POSE still reads the
+    scrolls as legs (part D is what changes that): the scrolls become legR2/legL2, and Bone_Chest,
+    which now carries a leg, rides with the hips (`hips: Root, Bone_Chest, Bone_Pelvis, bone_hip2`,
+    no `chest` part). Before, 'both' left the "rider's" legs out and had `chest: Bone_Chest`.
+  - `baseline.mjs after`, `baseline-compare.mjs before2 after`: 32 trials compared, 0 differ.
+  - `riders-gate.mjs`: 95 riders built, 5 skipped, 1 flagged (Kurgan on the dragon rider's Walk,
+    rise x0.58), as before.
+  - `node --test test/anim-transfer.test.js`: 48 pass (45 + 3 new R11). Fail first, run on the
+    previous source: with the old engine the file does not load (`poseLimbOrCloth` is not
+    exported); with B but the old Transfer, "R11 one creature" fails: `transfer-bray-shaman is
+    one creature`, actual ['both','seated','walker'].
+  - `node --test test/bone-namer*.test.js test/pose*.test.js`: 202 tests, 199 pass, 0 fail, 3
+    skipped (corpus archives and the dense twin-head rider are not on this machine; unrelated).
+  - Test collection: `bray_shaman_unit.mdx` and `bray_shaman_hero.mdx` copied into
+    `D:\Claude\MDLxL-TestModels\transfer-riders\` (README line added), fixtures
+    `transfer-bray-shaman`, `transfer-bray-shaman-hero`.
 - D, the list of models whose handles change:
 - Could not explain:
