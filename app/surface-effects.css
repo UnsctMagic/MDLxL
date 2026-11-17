@@ -63,3 +63,6 @@
 .fx-picker-list{max-height:320px;overflow:auto;min-height:0}.fx-picker-head{position:sticky;top:0;padding:3px 6px 2px;font-size:10px;font-weight:bold;color:var(--ui-muted,#666);background:var(--ui-field,#fff);border-bottom:1px solid var(--ui-border,#58636b)}
 .fx-picker-row{display:flex;flex-direction:column;padding:3px 6px;cursor:pointer;overflow-wrap:anywhere}.fx-picker-row[aria-selected=true]{background:var(--ui-hover,#2d3b43);color:var(--ui-text,inherit)}.fx-picker-row small{color:var(--ui-muted,#666);font-size:10px}.fx-picker-empty{padding:6px;color:var(--ui-muted,#666)}
 .sfx-controls .fx-change-emitter select{min-width:0;max-width:100%}
+
+/* Quick views: Save + numbered slots, left of Cancel. */
+.sfx-quick{display:flex;gap:4px;align-items:center;margin-right:auto;min-width:0;flex-wrap:wrap}.surface-effects .sfx-quick-slot{min-width:28px;padding:4px 0;text-align:center}

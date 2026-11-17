@@ -266,6 +266,7 @@
   {"id":"surface-effects:original","label":"Original","group":"Surface Effects","category":"Surface Effects"},
   {"id":"surface-effects:play","label":"Play / pause","group":"Surface Effects","category":"Surface Effects"},
   {"id":"surface-effects:preview-animation","label":"Preview animation","group":"Surface Effects","category":"Surface Effects"},
+  {"id":"surface-effects:save-quick-view","label":"Save quick view","group":"Surface Effects","category":"Surface Effects"},
   {"id":"surface-effects:solo","label":"Solo","group":"Surface Effects","category":"Surface Effects"},
   {"id":"texture-library:all-folders","label":"All folders","group":"texture-library","category":"Texture Library"},
   {"id":"texture-library:blp-only","label":"BLP textures only","group":"texture-library","category":"Texture Library"},
