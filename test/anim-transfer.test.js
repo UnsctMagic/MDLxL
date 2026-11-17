@@ -12,7 +12,7 @@ import { nodeIndex } from '../src/node-hierarchy.js';
 import { applyTransfer, buildTransfer, defaultTransferPart, transferNodeTracks, transferPreviewModel, transferRestoreTracks, transferRig } from '../src/anim-transfer.js';
 import * as XFER from '../src/anim-transfer.js';
 import { poseChainIds, suggestPoseRig } from '../src/pose-ik.js';
-import { poseLimbOrCloth, poseRecognitionEvidence } from '../src/pose-recognition.js';
+import { poseLimbOrCloth, poseLimbStart, poseRecognitionEvidence } from '../src/pose-recognition.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
@@ -995,5 +995,65 @@ test('R11 hanging cloth is a plain bone chain in the rig and no limb in Transfer
     for (const part of ['armL', 'armR']) assert.match(names.get(rig.parts[part].joints.at(-1)), /hand/i, `${key}: ${part} is the real arm, down to its hand`);
     assert.ok(rig.parts.chest && below(model, rig, 'armL', rig.parts.chest.joints[0]) && below(model, rig, 'armR', rig.parts.chest.joints[0]), `${key}: the arms hang from the chest part`);
     assert.ok(!rig.parts.hips.joints.some(id => rig.parts.chest.joints.includes(id)), `${key}: the chest does not ride with the hips`);
+  }
+});
+
+// R12 (docs/agent-tasks/xfer-both-ways.md): arms and legs pair by role, read in the rest pose.
+const limbRead = (model, part) => {
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), top = part.joints.indexOf(part.line[0]);
+  return [top, poseLimbStart(part.joints.map(id => new Vector3(...nodePivot(model, byId.get(id), id))), part.joints.map(id => byId.get(id).Name), top, part.joints.length - 1, part.limbKind)];
+};
+
+test('R12 where a limb starts: a collar stays above the arm; a thigh above a hoofed leg\'s handles is the leg\'s first joint', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren'), rigK = transferRig(kurgan), rigT = transferRig(tauren);
+  for (const key of ['armL', 'armR']) {
+    assert.deepEqual(limbRead(kurgan, rigK.parts[key]), [2, 2], `the Kurgan's ${key}: collar and shoulder piece are no part of the arm`);
+    assert.deepEqual(limbRead(tauren, rigT.parts[key]), [1, 1], `the Tauren's ${key}: its collar is no part of the arm`);
+  }
+  for (const key of ['legL', 'legR']) {
+    assert.deepEqual(limbRead(tauren, rigT.parts[key]), [1, 0], `the Tauren's ${key}: the thigh above its hock handles belongs to the leg`);
+    assert.deepEqual(limbRead(kurgan, rigK.parts[key]), [0, 0], `the Kurgan's ${key} starts at its thigh`);
+  }
+  // No single clue decides, a name least of all (three joints hanging down, one joint above them).
+  const P = (...xyz) => new Vector3(...xyz), limb = [P(0, 0, 10), P(0, 0, 5), P(0, 0, 0)], names = top => [top, 'a', 'b', 'c'];
+  assert.equal(poseLimbStart([P(0, -3, 10), ...limb], names('UpperArm'), 1, 3, 'arm'), 1, 'a short sideways piece is no part of the limb, whatever its name');
+  assert.equal(poseLimbStart([P(0, -8, 10), ...limb], names('x'), 1, 3, 'arm'), 1, 'length alone does not make it part of the limb');
+  assert.equal(poseLimbStart([P(0, 0, 16), ...limb], names('Clavicle'), 1, 3, 'arm'), 0, 'long and in line with the limb: part of it, against its name');
+});
+
+test('R12 bones pair by role: at Pose = Theirs the Kurgan\'s arms and legs point as the Tauren\'s do', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren'), stand = seqMatch(kurgan, /^stand - 1/i), theirs = seqMatch(tauren, /^stand\s*-\s*1$/i);
+  const rig = transferRig(kurgan, { sequence: stand }), rigT = transferRig(tauren, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  // The switches that place a limb afterwards are off: only the transfer itself is measured.
+  const built = buildTransfer(kurgan, new Map([['tauren', tauren]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'tauren', theirs, { match: 1, plant: false, grip: false, clear: false }) });
+  assert.deepEqual(built.problems, []);
+  const point = (model, matrices) => { const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])); return id => new Vector3(...nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); };
+  const mine = point(kurgan, builtMatrices(kurgan, built, stand, 0)), their = point(tauren, sampleNodeMatrices(tauren, tauren.Sequences[theirs].Interval[0], theirs));
+  const apart = (a, b, c, d) => mine(b).sub(mine(a)).angleTo(their(d).sub(their(c))) * 180 / Math.PI;
+  for (const key of ['armL', 'armR']) {
+    const own = rig.parts[key].line, donor = rigT.parts[key].line;
+    assert.ok(apart(own[0], own[1], donor[0], donor[1]) < 10, `${key}: the upper arm is ${apart(own[0], own[1], donor[0], donor[1]).toFixed(0)} degrees from the Tauren's upper arm`);
+    assert.ok(apart(own[1], own[2], donor[1], donor[2]) < 10, `${key}: the forearm is ${apart(own[1], own[2], donor[1], donor[2]).toFixed(0)} degrees from the Tauren's forearm`);
+  }
+  for (const key of ['legL', 'legR']) {
+    // The Tauren's leg has a joint more: the Kurgan's thigh follows its thigh, the shin its line from knee to hoof.
+    const own = rig.parts[key].joints, donor = rigT.parts[key].joints;
+    assert.deepEqual([own.length, donor.length], [3, 4]);
+    assert.ok(apart(own[0], own[1], donor[0], donor[1]) < 10, `${key}: the thigh is ${apart(own[0], own[1], donor[0], donor[1]).toFixed(0)} degrees from the Tauren's thigh`);
+    assert.ok(apart(own[1], own[2], donor[1], donor[3]) < 10, `${key}: the lower leg is ${apart(own[1], own[2], donor[1], donor[3]).toFixed(0)} degrees from the Tauren's knee-to-hoof line`);
+  }
+});
+
+test('R12 hips keep their stance at Pose = Theirs: a root and a pelvis stacked on each other give no direction to line up', { skip: missing('transfer-orc-warlock', 'transfer-tauren') }, () => {
+  const warlock = load('transfer-orc-warlock'), tauren = load('transfer-tauren'), stand = seqMatch(warlock, /^stand/i), theirs = seqMatch(tauren, /^stand\s*-\s*1$/i);
+  const rig = transferRig(warlock, { sequence: stand }), rigT = transferRig(tauren, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  assert.ok(rig.parts.hips.joints.length > 1, 'the warlock\'s hips are more than one joint');
+  const built = buildTransfer(warlock, new Map([['tauren', tauren]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'tauren', theirs, { match: 1, plant: false, grip: false, clear: false }) });
+  assert.deepEqual(built.problems, []);
+  // The Tauren's Stand starts in its reference pose: at the first sample the trunk has no reason to turn.
+  const own = sampleNodeMatrices(warlock, rig.reference.frame, rig.reference.sequence), now = builtMatrices(warlock, built, stand, 0);
+  for (const key of ['hips', 'chest']) for (const id of rig.parts[key].joints) {
+    const turned = angle(rotOf(own.get(id)), rotOf(now.get(id)));
+    assert.ok(turned < 10, `${key}: ${allNodes(warlock).find(n => n.ObjectId === id).Name} is turned ${turned.toFixed(0)} degrees from the warlock's own stance`);
   }
 });

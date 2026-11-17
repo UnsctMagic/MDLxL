@@ -6,6 +6,7 @@ import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, isGlobalTrack, keysInInterval, nodePivot, sampleTrack, skinGeoset, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { poseChainIds, poseNodeRole, suggestPoseBody, suggestPoseRig } from './pose-ik.js';
+import { poseLimbStart } from './pose-recognition.js';
 import { createSequence, standSequenceIndex } from './sequence-editor.js';
 import { makeKey } from './animation-tracks.js';
 import { trackValueError } from './optimizexl-animation.js';
@@ -1007,10 +1008,17 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const dB = entry.own.anchor == null ? new Quaternion() : rotationOf(world(entry.own.anchor)).multiply(entry.refAnchorB);
       states.set(entry, { donorSample, w, offset, dA, dB, frame, entry });
       const deltaOf = j => entry.convert(inv(dA).multiply(worldRot(donorSample, entry.theirs.joints[j])).multiply(entry.refInvA[j]));
+      // A joint paired with the donor's line across several joints: the first of those joints' turn,
+      // then the swing that brings that line to where the donor's joints now put it.
+      const lineOf = i => {
+        const turn = deltaOf(entry.map[i]), [a, b] = entry.chordEnds[i];
+        const now = entry.convertV(worldPos(entry.donor, donorSample, b).clone().sub(worldPos(entry.donor, donorSample, a)).applyQuaternion(inv(dA)));
+        return mul(arc(entry.chordRef[i].clone().applyQuaternion(turn), now), turn);
+      };
       const spread = entry.spread ? deltaOf(entry.theirs.joints.length - 1) : null;
       entry.own.joints.forEach((id, i) => {
         if (entry.skip.has(id)) return;
-        const turned = spread ? qPow(spread, entry.spread[i]) : deltaOf(entry.map[i]);
+        const turned = spread ? qPow(spread, entry.spread[i]) : entry.map[i] < 0 ? new Quaternion() : entry.chordRef[i] ? lineOf(i) : deltaOf(entry.map[i]);
         // In the limb's own frame: the donor's turn is carried over as a turn of this limb from its own
         // rest direction, so a twist along the donor's bone stays a twist along this one.
         const delta = entry.frame && entry.own.kind === 'limb' ? mul(inv(entry.toTheirs[i]), turned, entry.toTheirs[i]) : turned;
@@ -1221,7 +1229,13 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const pointsA = onLine(theirs, theirs.joints.map(posA)), pointsB = onLine(own, own.joints.map(posB));
   // The tip (an end attachment such as Hand Right Ref) counts toward arc length,
   // so a two-joint forearm still maps to the recipient's forearm.
-  const map = jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
+  // Arms and legs pair by role, read in the rest pose (see limbPairing); other parts by distance.
+  const infoA = modelInfo(donor), infoB = modelInfo(recipient);
+  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine);
+  const map = pairing ? pairing.map : jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
+  // A joint that follows the donor's line across several donor joints: the two ends of that line, and the line in the reference pose.
+  const chordEnds = map.map((j, i) => pairing && j >= 0 && pairing.until[i] > j + 1 && pairing.until[i] < pairing.ids.length ? [theirs.joints[j], pairing.ids[pairing.until[i]]] : null);
+  const chordRef = chordEnds.map(ends => ends && convertV(posA(ends[1]).clone().sub(posA(ends[0]))));
   // Trunk parts with unequal counts share the donor part's whole turn by depth:
   // the deepest joint ends with all of it.
   const depths = own.joints.map(id => modelInfo(recipient).tree.depth(id)), top = Math.min(...depths), span = Math.max(...depths) - top + 1;
@@ -1232,15 +1246,21 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     const next = points[i + 1] || tip;
     return next && next.distanceTo(p) > 0.02 * size ? convertDir(next.clone().sub(p)) : null;
   });
-  const dirB = dirs(pointsB, own.tip, v => v, rigB.hipHeight), dirA = dirs(pointsA, theirs.tip, convertV, rigA.hipHeight);
+  // The hips are not lined up by the direction between their own joints: a root and a pelvis sit
+  // where the rigger put them (measured over 699 bodies: that piece points up, sideways and down about
+  // equally often), so lining it up with the donor's turns whole bodies over. Hips keep their own
+  // stance at any Pose, as a one-joint hips part always did.
+  const dirB = own.key === 'hips' ? pointsB.map(() => null) : dirs(pointsB, own.tip, v => v, rigB.hipHeight), dirA = dirs(pointsA, theirs.tip, convertV, rigA.hipHeight);
   // A joint with no direction of its own takes the one that follows it, the last one the one before.
   for (let j = dirA.length - 2; j >= 0; j--) if (!dirA[j] && dirA[j + 1]) dirA[j] = dirA[j + 1];
   for (let j = dirA.length - 1; j > 0; j--) if (!dirA[j]) dirA[j] = dirA[j - 1];
   const match = Math.max(0, Math.min(1, part.match ?? defaultTransferPart(rigB, key).match));
   const align = [], toTheirs = [];
-  own.joints.forEach((id, i) => { align.push(dirB[i] ? qPow(arc(dirB[i], dirA[map[i]]), match) : (align[i - 1] || new Quaternion()).clone()); });
+  // What joint i lines up with: the donor's line across several joints, else its paired bone; nothing for an unpaired girdle piece.
+  const theirDir = i => map[i] < 0 ? null : chordRef[i] || dirA[map[i]];
+  own.joints.forEach((id, i) => { align.push(map[i] < 0 ? new Quaternion() : dirB[i] ? qPow(arc(dirB[i], theirDir(i)), match) : (align[i - 1] || new Quaternion()).clone()); });
   // The turn from this limb's rest direction to the donor's, joint by joint (for `frame`).
-  own.joints.forEach((id, i) => { toTheirs.push(dirB[i] ? arc(dirB[i], dirA[map[i]]) : (toTheirs[i - 1] || new Quaternion()).clone()); });
+  own.joints.forEach((id, i) => { toTheirs.push(map[i] < 0 ? new Quaternion() : dirB[i] ? arc(dirB[i], theirDir(i)) : (toTheirs[i - 1] || new Quaternion()).clone()); });
   const looping = part.loop ?? !seq.NonLooping;
   // Trim: only the part of the donor animation between clip[0] and clip[1] (ms from its start).
   const whole = Math.max(0, seq.Interval[1] - seq.Interval[0]), cut = Array.isArray(part.clip) ? part.clip.map(Number) : [];
@@ -1271,7 +1291,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
     range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang), frame: share(part.frame) > 0, toTheirs,
-    scale: sizeRatio(rigB, rigA), convert, convertV, map, spread, align,
+    scale: sizeRatio(rigB, rigA), convert, convertV, map, chordEnds, chordRef, spread, align,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
     refAnchorB: own.anchor == null ? null : inv(worldRot(refB, own.anchor)),
@@ -1486,6 +1506,77 @@ function jointMap(ownPath, theirPath, ownCount, theirCount) {
   });
 }
 
+/** Which donor joint each joint of an arm or leg takes its turn from, by role instead of by
+ * distance. Both limbs are read in their rest pose (`rest.own(id)`, `rest.theirs(id)`: positions,
+ * the donor's already mirrored and turned to this model's facing; a joint off its limb's line is
+ * read as lying on it, see onLine). A limb that ends in an attachment (a hand reference) counts
+ * that point as its end.
+ * - Each limb is split where it really starts (`poseLimbStart`): joints above are girdle pieces
+ *   (collar, shoulder), the rest is the limb itself (upper part, bends, end).
+ * - Girdle pairs with girdle, by place along it. A girdle piece the donor has no counterpart for
+ *   takes no turn (-1): it stays as it is on its anchor.
+ * - The limb's first joint pairs with the donor limb's first, its end with the donor's end. Where
+ *   POSE's handle chain is the whole limb on both models (top, bend, end), bend pairs with bend.
+ *   With the same number of joints the rest pair in order. Otherwise every way of pairing the
+ *   joints in order is tried, and the one whose stretches point most alike in the rest pose wins
+ *   (the place along the limb settles limbs that hang straight).
+ * `until[i]` indexes `ids` (the donor's joints, then its end point if that is an attachment): the
+ * donor joint or point where the stretch joint i takes ends. More than one on from `map[i]` means
+ * joint i follows the donor's line across those joints, not one donor bone.
+ * Returns null when either limb's top and end are not known: the caller pairs by distance. */
+function limbPairing(own, theirs, rest, onLine) {
+  if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
+  const read = (part, at, name) => {
+    const line = part.line || [];
+    if (line.length < 3 || !part.joints.includes(line[0])) return null;
+    const end = part.joints.includes(line.at(-1)) ? null : part.tip ? line.at(-1) : undefined;
+    if (end === undefined || end === null && line.at(-1) !== part.joints.at(-1)) return null;
+    const ids = end == null ? part.joints : [...part.joints, end], points = [...onLine(part, part.joints.map(at)), ...(end == null ? [] : [at(end)])];
+    const top = ids.indexOf(line[0]), start = poseLimbStart(points, ids.map(name), top, ids.length - 1, part.limbKind);
+    // The handle chain is the whole limb (top, bend, end) when the limb starts at its top.
+    return { ids, points, start, bend: line.length === 3 && start === top ? ids.indexOf(line[1]) - start : -1 };
+  };
+  const b = read(own, rest.own, rest.ownName), a = read(theirs, rest.theirs, rest.theirName);
+  if (!b || !a) return null;
+  const n = b.ids.length, m = a.ids.length, sB = b.start, sA = a.start, map = new Array(n).fill(0), until = new Array(n).fill(1);
+  if (sB > 0 && sA > 0) { const girdle = jointMap(b.points.slice(0, sB + 1), a.points.slice(0, sA + 1), sB + 1, sA + 1); for (let i = 0; i < sB; i++) map[i] = Math.min(girdle[i], sA - 1); }
+  else for (let i = 0; i < sB; i++) map[i] = -1;
+  for (let i = 0; i < sB; i++) until[i] = map[i] < 0 ? 0 : i + 1 < sB ? Math.max(map[i] + 1, map[i + 1]) : sA;
+  // The limb itself: p joints here, q on the donor, counted from each limb's own first joint.
+  const p = n - sB, q = m - sA, B = b.points.slice(sB), A = a.points.slice(sA);
+  const pinned = b.bend > 0 && a.bend > 0 && b.bend < p - 1 && a.bend < q - 1;
+  let pick = Array.from({ length: p }, (_, t) => Math.min(t, q - 1));
+  if (p > 1 && q > 1 && (p !== q || pinned && pick[b.bend] !== a.bend)) {
+    const lengths = points => points.slice(1).map((point, i) => point.distanceTo(points[i])), total = list => list.reduce((sum, value) => sum + value, 0) || 1;
+    const lenB = lengths(B), sumB = total(lenB), placeB = lenB.reduce((list, value) => [...list, list.at(-1) + value / sumB], [0]);
+    const lenA = lengths(A), sumA = total(lenA), placeA = lenA.reduce((list, value) => [...list, list.at(-1) + value / sumA], [0]);
+    const cost = f => {
+      let sum = 0;
+      for (let t = 0; t < p - 1; t++) {
+        let next = q - 1; for (let u = t + 1; u < p - 1; u++) if (f[u] > f[t]) { next = f[u]; break; }
+        sum += lenB[t] / sumB * B[t + 1].clone().sub(B[t]).angleTo(A[next].clone().sub(A[f[t]])) / DEG;
+        if (t) sum += 60 * Math.abs(placeB[t] - placeA[f[t]]);
+      }
+      return sum;
+    };
+    let best = Infinity;
+    const walk = f => {
+      if (f.length === p - 1) { const value = cost(f); if (value < best - 1e-9) { best = value; pick = [...f, q - 1]; } return; }
+      // Bend with bend; what lies above this limb's bend stays above the donor's.
+      for (let j = f.at(-1); j <= q - 2; j++) if (!pinned || (f.length < b.bend ? j < a.bend : f.length > b.bend || j === a.bend)) walk([...f, j]);
+    };
+    walk([0]);
+  }
+  for (let t = 0; t < p; t++) map[sB + t] = sA + pick[t];
+  for (let t = 0; t < p; t++) { let next = m - 1; for (let u = t + 1; u < p; u++) if (pick[u] > pick[t]) { next = sA + pick[u]; break; } until[sB + t] = t === p - 1 ? m : Math.max(next, map[sB + t] + 1); }
+  // Turns come from the donor's joints only: its end point (an attachment) gives none. A limb
+  // here that ends in an attachment has no hand joint of its own: its last joint takes the
+  // donor's last joint's turn (what holds the weapon keeps the hand's turn), as before.
+  const joints = theirs.joints.length, last = own.joints.length - 1;
+  if (n > own.joints.length) { map[last] = joints - 1; until[last] = joints; }
+  return { map: map.slice(0, own.joints.length).map(j => Math.min(j, joints - 1)), until: until.slice(0, own.joints.length), ids: a.ids };
+}
+
 /** The constant user offset (degrees) as one world rotation from the reference pose. */
 function partOffset(rig, part, ref, model, degrees = [0, 0, 0]) {
   const [a, b, c] = (degrees || [0, 0, 0]).map(value => (Number(value) || 0) * DEG);
@@ -1525,11 +1616,12 @@ function weaponLift(model, part, floor, world) {
  * stance: the lift is the bare need at the first and last sample, and rises (and
  * falls) at most 400 degrees a second, so a weapon that dips right after the
  * start may briefly stay under the floor. Inside, the largest need within 80 ms
- * either side holds it up, and a 60 ms blur (narrowing toward the ends) takes
- * off the corners. A looping result smooths across its seam instead, at most
+ * either side holds it up, a deeper dip later on starts the lift as early as the
+ * limit needs to meet it (and is not blurred back below it there), and a 60 ms blur
+ * (narrowing toward the ends) takes off the corners. A looping result smooths across its seam instead, at most
  * 170 degrees a second, never below the need. */
 function smoothLift(need, times, looping) {
-  const n = need.length, held = new Float64Array(n), first = times[0], last = times[n - 1], span = last - first;
+  const n = need.length, held = new Float64Array(n), deep = new Uint8Array(n), first = times[0], last = times[n - 1], span = last - first;
   const gap = (a, b) => { const d = Math.abs(times[a] - times[b]); return looping && span > 0 ? Math.min(d, span - d) : d; };
   const room = k => looping ? Infinity : Math.min(times[k] - first, last - times[k]);
   for (let k = 0; k < n; k++) for (let j = 0; j < n; j++) if (gap(j, k) <= Math.min(80, room(k))) held[k] = Math.max(held[k], need[j]);
@@ -1540,6 +1632,8 @@ function smoothLift(need, times, looping) {
       for (let k = n - 1; k >= 0; k--) { const q = (k + 1) % n; held[k] = Math.max(held[k], held[q] - rate * gap(k, q)); }
     }
   } else {
+    // A deep dip is met in time: the lift starts as early as its rise at the limit needs.
+    for (let k = 0; k < n; k++) for (let j = 0; j < n; j++) { const early = need[j] - rate * gap(j, k); if (early > held[k] + 1e-9) { held[k] = early; deep[j] = 1; } }
     held[0] = need[0]; held[n - 1] = need[n - 1];
     // Rise and fall no faster than the limit from the two ends inward.
     for (let k = 1; k < n; k++) held[k] = Math.min(held[k], held[k - 1] + rate * (times[k] - times[k - 1]));
@@ -1549,7 +1643,8 @@ function smoothLift(need, times, looping) {
     const radius = Math.min(60, room(k));
     let sum = 0, count = 0;
     for (let j = 0; j < n; j++) if (gap(j, k) <= radius) { sum += held[j]; count++; }
-    return looping ? Math.max(sum / count, need[k]) : sum / count;
+    // At such a dip the blur does not take the lift back below the need the limits reach.
+    return looping ? Math.max(sum / count, need[k]) : deep[k] ? Math.max(sum / count, Math.min(need[k], held[k])) : sum / count;
   });
 }
 

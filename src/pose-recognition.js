@@ -1,4 +1,4 @@
-import { isClothName, isWeaponName, nameRegion } from './rig-names.js';
+import { isClothName, isWeaponName, nameLimbTop, nameRegion } from './rig-names.js';
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices } from './animation.js';
 import { poseNodeRole } from './pose-ik.js';
@@ -385,4 +385,31 @@ export function poseLimbOrCloth(model, rig, chain, { evidence, sequence } = {}) 
   if (name) parts.push(name === 'cloth' ? 2 : -3);
   const score = parts.reduce((sum, value) => sum + value, 0), agree = parts.filter(value => value > 0).length;
   return { kind: score >= 3 && agree >= 2 ? 'cloth' : score <= 0 ? 'limb' : 'unsure', score, clues: { attach, flat, reach, phase, name } };
+}
+
+/** Where a limb itself starts among the joints that lead to it. A handle chain is the last three
+ * joints (top, bend, end); a joint above its top is either a piece of the girdle (collar,
+ * shoulder, hip) or the limb's own upper part (a thigh above a hock chain, an upper arm above a
+ * split forearm). `points` are the joints' rest positions from the trunk outward, `names` their
+ * names, `top` and `end` the indices of the chain's top and end, `kind` 'arm' or 'leg'.
+ * Returns the index of the limb's first joint (`top` or less).
+ * Clues per joint above, measured over 1,200 models (docs/agent-tasks/xfer-both-ways.md):
+ * - length: its length against the limb below it; .45 or more: +2, else -2.
+ * - line: it lies along the limb (within 35 degrees of the line to the end): +1; over 60: -1.
+ * - name: an upper-arm or thigh word: +1; a collar or shoulder word: -1.
+ * Part of the limb needs a score of 2 or more from at least two clues that agree; anything
+ * else stays above the limb (the reading before this rule). No single clue decides. */
+export function poseLimbStart(points, names, top, end, kind) {
+  let start = top;
+  while (start > 0) {
+    const from = points[start], segment = from.clone().sub(points[start - 1]);
+    let reach = 0;
+    for (let j = start; j < end; j++) reach += points[j + 1].distanceTo(points[j]);
+    if (!(reach > 1e-6) || segment.length() < 1e-6) break;
+    const angle = segment.angleTo(points[end].clone().sub(from)) * 180 / Math.PI, says = nameLimbTop(names[start - 1], kind);
+    const clues = [segment.length() / reach >= .45 ? 2 : -2, angle < 35 ? 1 : angle > 60 ? -1 : 0, says === 'limb' ? 1 : says === 'girdle' ? -1 : 0];
+    if (clues.reduce((sum, value) => sum + value, 0) < 2 || clues.filter(value => value > 0).length < 2) break;
+    start--;
+  }
+  return start;
 }

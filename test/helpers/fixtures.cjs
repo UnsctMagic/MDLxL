@@ -53,6 +53,8 @@ const FIXTURES = {
   'transfer-khorne-knight': ['MDLXL_TRANSFER_KHORNE_KNIGHT', testModel('transfer-riders/WH_WOC_KnightKhorneAxe03.mdx')], // the rider's leg has a joint whose pivot sits at the body's middle, off the leg
   'transfer-bray-shaman': ['MDLXL_TRANSFER_BRAY_SHAMAN', testModel('transfer-riders/bray_shaman_unit.mdx')], // one creature: mirrored strips of scroll hang from the chest the arms hang from
   'transfer-bray-shaman-hero': ['MDLXL_TRANSFER_BRAY_SHAMAN_HERO', testModel('transfer-riders/bray_shaman_hero.mdx')], // the hero version of the same rig
+  'transfer-tauren': ['MDLXL_TRANSFER_TAUREN', testModel('corpus-sd/orc__tauren.mdx')], // four-joint limbs: a collar above each arm, a thigh above each hoofed leg's handle chain
+  'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
