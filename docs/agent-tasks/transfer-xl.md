@@ -1216,3 +1216,54 @@ Cannot be judged without the owner's eyes: which of the three arm versions reads
 of animation. Numbers cannot say it (all three are "correct" by a different rule).
 
 Build 14 (from 7ee61bcc, clean checkout `transfer-xl-build`), on that exact copy, hidden: Transfer stories B, A, riders, features, round7, views, sweep (41 checks), pick sheet (11), reset view: passed; the four new cases gone through once (three live views each, no errors), pictures looked at. Source suite on the merged branch: 4,135 tests, 0 failing, 0 outside the known-failures list. Not opened: the owner is away.
+
+## Owner direction, 17 Nov 2026: XFER offers both ways (nothing built yet)
+
+On build 15 (`TestBuilds\transfer-xl-15`), Tauren `Stand -1` onto `TEST TRANSFER 03.mdx` (the
+Kurgan), whole body. Quoted:
+
+- "Why cant I get the tauren animation on this model?" (Pose at Mine), then with Pose at Theirs:
+  "Look - he is not taking the right skeleton - how can he pose?"
+- "Wait so animation transfer doesnt implant bones?"
+- "We have the pillars of identifiying. We cannot use this to re-rig? as in, transplant bones and
+  animations? ... poses can be pretty much standarized, across of all native WC3 plus the entire
+  catalogue of lowpolyworks - can we not, with the pillars of identification - pose, names, shapes,
+  animations etc - tailor a new skeleton with a HIGH possiblity of success?"
+- "XFER, has done only HALF of the job I thought it was doing.... it was meant to transplant a new
+  skeleton"
+- "XFER needs to offer both. Actually, what you built so far is nice - But it cannot tackle
+  everything."
+
+Both = retargeting (what exists: the open model keeps its bones) and a skeleton transplant (the
+open model's mesh on the donor's skeleton, with the donor's animations). No design, contract or
+"go" yet: confirm the intent with the owner before writing one.
+
+What was measured that day (probes in `out/transfer-probe/`, nothing in `src/` changed):
+
+- `pose-slider.mjs`: the Tauren's `Stand -1` moves its limbs 9 to 11 degrees. At Pose = Mine the
+  result stays within 4 to 6 degrees of the open model's own Stand (legs, weapon arm): own stance
+  plus the donor's movement, by design, so a calm animation looks like nothing was taken. With
+  "Keep foot on the ground" on, Pose has no effect on the legs (same numbers at Mine and Theirs).
+- `pose-map.mjs`: the fault at Pose = Theirs. `jointMap` pairs joints by their place along the
+  limb's length. The Kurgan's arm has 5 joints (collar, shoulder, upper arm, forearm, hand; places
+  0, .17, .39, .62, 1), the Tauren's 4 (0, .16, .55, 1), so the Kurgan's upper arm (`LA1`, `RA1`)
+  is paired with the Tauren's forearm and its shoulder piece with the Tauren's upper arm. In the
+  result both the upper arm and the forearm point exactly as the Tauren's forearm (0 degrees), and
+  the upper arm is about 120 degrees from the Tauren's upper arm. POSE's own line for both models
+  (top, bend, end: `LA1 > LA2 > LAH`, `Bone_UpperArm > Bone_LowerArm > Bone_Hand`) has the right
+  pairing; the engine carries it as `part.line` and does not use it for the pairing. Legs: the
+  Tauren's hoofed leg has 4 joints, the Kurgan's 3; thigh pairs with thigh, the shin with the
+  second leg part, nothing with the third.
+- `pose-theirs.mjs`: "Both hands on the weapon" (on by default, the Kurgan's hammer is two-handed)
+  puts the other hand on the shaft, so the Tauren's free arm is never copied; with it off that
+  arm's forearm is 4 degrees from the Tauren's, its upper arm 79 (the pairing fault).
+- Rest (bind) poses of the two, with the right pairing: upper arms 21 degrees apart, forearms 22,
+  thighs 19 and 25, lower legs (knee to foot) 3 and 5. Shoulder height above the foot 66 against
+  92. One pair only; no catalogue-wide number exists.
+
+Told to the owner, as the director's reading: the standard recipe for retargeting is bones paired
+by role and both models compared in one rest pose; Transfer pairs by distance and compares in the
+Stand animation, which are the two faults he met. Offered and not yet answered: fix the pairing
+(top, bend, end first; distance only for the joints in between), which changes every pair with
+unequal joint counts and so needs the baseline, the riders gate and his eyes; and a trial of the
+Kurgan on the Tauren's skeleton for him to judge.
