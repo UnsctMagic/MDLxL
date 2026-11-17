@@ -212,3 +212,9 @@ down (chest lean 5 to 22 degrees, as the Tauren's), stills from that camera cann
 Still open in stage 2: stance and "take every animation" in the window (owner decides how it
 shows); hands that meet (two-handed weapons when the donor's arms are apart); a sole-based contact
 measure; the weapon's own direction; scaling of the stride for the game's move speed.
+
+Test build: `D:\Claude\MDLxL\TestBuilds\transfer-xl-17`, packaged from aeaf801c. Launcher
+`TestBuilds\_START HERE\5 TRANSFER - all Tauren animations.cmd` opens the two trial models with the
+Tauren in a third tab. On that exact copy, hidden: `tauren-smoke.cjs` (Transfer on the owner's pair)
+and `all-trial-look2.cjs` (each of the 8 added animations played in the Transfer window's "This
+model" view); no page errors. Opened for the owner; his verdict is open.
