@@ -218,3 +218,38 @@ Test build: `D:\Claude\MDLxL\TestBuilds\transfer-xl-17`, packaged from aeaf801c.
 Tauren in a third tab. On that exact copy, hidden: `tauren-smoke.cjs` (Transfer on the owner's pair)
 and `all-trial-look2.cjs` (each of the 8 added animations played in the Transfer window's "This
 model" view); no page errors. Opened for the owner; his verdict is open.
+
+## Owner decisions, 17 Nov 2026 (after build 17, quoted)
+
+- On the trial models: "the results are as good as it gets for a retarget I THINK, probably still
+  can improve slightly", and: "Can they be made exacty the same by using the program and clicking?"
+  Rule from now on: a result shown to the owner must be reachable by clicks in the window.
+- Add all, when the donor has an animation the open model already has: "Replace existing, unless
+  user wants to keep animations."
+- "Transplant = replace all, no keeping of old animations and adapting."
+- "Retarget = more control, let them modular it"
+- Then he went away: "run the last 3% of fable until a checkpoint. If you have research to do, run
+  opus agents - use my credits as best as possible."
+
+### Stage 2, second part (contract for the builder, director: Fable)
+
+Goal: the trial result by clicks alone. In the Transfer window, no new panel, existing controls.
+
+1. **Pose on Head, Chest and Hips carries the stance.** For a trunk part the Pose slider reads and
+   writes the recipe field `stance` (0 to 1) instead of `match`; for limbs it stays `match`. The
+   "All taken parts" row writes `stance` to the trunk parts and `match` to the limbs in one drag,
+   and shows the shared value as it does now. Same label, same Mine and Theirs ends; the tooltip
+   says for a trunk part that Theirs takes the donor's stance. What the window writes by itself
+   for a rider (`seatedMatch`) stays `match` only, so riders and saved setups do not change.
+   Setups save and load `stance` (an old setup without it reads as 0).
+2. **Add all replaces.** Add all takes every animation of the donor except Decay and Portrait
+   ones. Where the open model already has an animation of that name, the new one replaces it:
+   built over the model's own animation of that name as body animation, added under that name,
+   and the old one removed, in one undo step with the rest. A checkbox beside Add all, "Keep own
+   animations" (off by default, with a short tooltip), gives today's behaviour: only the
+   animations the model does not have are added. The count on the button follows the checkbox.
+3. **Proof.** Unit tests for both (failing first). On the packaged build, hidden: Take whole body
+   from the Tauren on the Kurgan, All taken parts Pose to Theirs, "Both hands on the weapon" off
+   on the weapon arm, Add all: every resulting animation's keys equal what `buildTransfer` gives
+   for the same recipe, and the model ends with the Tauren's names and none of its own of the
+   same name twice. Engine untouched: `baseline-compare` against `l` stays `0 differ`.
