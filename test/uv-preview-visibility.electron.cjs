@@ -135,8 +135,11 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
       uvMeshDraws(selector).find(draw => draw.index === target)?.rgb.every((value, index) => value === rgb[index]),
     { selector: preview, target, rgb }, { timeout: 5000 });
     const beforeRGB = await camera();
+    const authoredRGB = ['64', '128', '191'];
+    assert.deepEqual([await red.inputValue(), await green.inputValue(), await blue.inputValue()], authoredRGB, 'the boxes show the working geoset RGB');
     await page.keyboard.press('Control+Alt+R');
     await page.waitForFunction(() => document.activeElement?.getAttribute('data-hotkey') === 'uv-wrapper:preview-rgb-red');
+    await page.keyboard.press('Control+a');
     await page.keyboard.type('255');
     assert.equal(await red.inputValue(), '255');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true, stayAwake: true }));
@@ -159,7 +162,7 @@ const out = path.join(root, 'out', 'uv-preview-visibility');
     await click(reset);
     await expectRGB(workingDraw.rgb);
     assert.deepEqual(await draws(), full, 'Reset restores the authored appearance of the full preview');
-    for (const field of [red, green, blue]) assert.equal(await field.inputValue(), '');
+    assert.deepEqual([await red.inputValue(), await green.inputValue(), await blue.inputValue()], authoredRGB, 'Reset shows the model RGB again');
 
     const selectedOnly = wrapper.getByRole('button', { name: 'Selected Only', exact: true });
     await click(selectedOnly);

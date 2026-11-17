@@ -119,7 +119,7 @@ test('Sanity Check labels, statuses and displayed Hive diagnostic templates are 
 
 test('the UV preview and emitter visibility controls have translated labels', () => {
   const controls = ['Preview RGB', 'Preview RGB R', 'Reset preview RGB',
-    'Preview RGB on the active geoset (0–255). Blank channels use the model’s RGB.', 'View All Emitters'];
+    'The active geoset’s RGB (0–255). Change a value to preview a different RGB; the model is not changed.', 'View All Emitters'];
   for (const locale of ['ru', 'es', 'zh', 'fr', 'de']) {
     for (const label of controls) assert.notEqual(translate(label, locale), label, `${locale}: ${label}`);
   }
