@@ -321,3 +321,28 @@ Not done or not run:
   replacing Add all, a window Undo back past it can point the Body animation at another animation.
   Same class as an editor Undo under the window today; not changed (read from the code, not run).
 - Nothing seen that could not be explained.
+
+## Checkpoint, 17 Nov 2026 (director: Fable; the owner was away)
+
+- Stage 2, second part is built by the Opus builder (0ebf4c94) and checked again by the director:
+  `test/transfer-window.test.js` and `test/anim-transfer.test.js` 81 pass; `ui-primitives` and the
+  localisation tests 61 pass; `baseline-compare l n` 0 differ; story `set` rerun hidden on the
+  package: 6 checks, 0 errors (one Pose drag on All taken parts, Add all (8), every added
+  animation's keys equal `buildTransfer`'s, one Undo restores the model's own 15).
+- Test build `D:\Claude\MDLxL\TestBuilds\transfer-xl-18` is a copy of that tested package. Launcher
+  `TestBuilds\_START HERE\6 TRANSFER - whole set by clicks.cmd` opens `TEST TRANSFER 03.mdx` with
+  the Tauren in a second tab. Not opened: the owner was asleep.
+- Stage 3 study, by the Opus researcher: [xfer-transplant-research.md](xfer-transplant-research.md)
+  (its probes are `out/transfer-probe/transplant-*`). A study, not a contract: the director has read
+  its summary and structure, not checked every number. Its headline findings: the owner's pair is
+  feasible (only the hock, 38 of 1,445 vertices, has no counterpart on the body); 63% of the
+  Kurgan's skin is extras (hammer 47%, a collar piece 15%; collection median 26%), which lose
+  their own motion when the own animations go; the Tauren animates its totem on its own root, so
+  a weapon hung on the donor's hand does not follow its attacks; with the Tauren as donor 502 of
+  561 bodies have a shin across its hock; copied rotation keys leave each limb part off by the
+  rest-pose difference unless corrected per key. Its recommendation is a mixed result: the donor's
+  skeleton and keys where the two bodies agree, the retargeting engine for a limb with a donor
+  joint the model lacks.
+- Next, in this order: the owner's verdict on build 18 (clicks) and on the trial look; his answers
+  to the open questions in section 7 of the study; then a transplant contract and a first
+  prototype on the owner's pair, with the gates of stage 4 (a sole-based contact measure first).
