@@ -271,6 +271,12 @@ export const AI_TOOLS = [
             zoom: { type: 'number', minimum: 1, maximum: 8, description: 'Zoom in on what is framed (model, geosets, vertices or selection). 1 to 8; default 1.' },
             uv: { type: 'boolean', description: 'A flat UV layout picture instead of the 3D view: the geoset texture with its UV triangles over it, marked vertices red. Uses geosets, else geosets with marked vertices, else all.' },
             uvSet: { type: 'integer', minimum: 0, description: 'UV set for uv; default 0.' },
+            overlays: {
+              ...object(Object.fromEntries(['bones', 'attachments', 'labels', 'normals', 'collision', 'cameras', 'wires'].map(key => [key, { type: 'boolean' }]))),
+              description: 'Editor overlays drawn over the model: bones (skeleton with helpers), attachments (points), labels (names on those markers), normals, collision (shapes), cameras (model camera frames), wires (mesh lines over the surface).',
+            },
+            teamColor: { type: 'string', description: 'Team colour for this picture, like #0042ff; default the editor\'s.' },
+            camera: { type: 'integer', minimum: 0, description: 'Look through this model camera as the game shows a portrait (its view, portrait light and shape) instead of a view preset.' },
             particles: { type: 'boolean', description: 'Particles and ribbons, replayed from the animation start to the frame. Default on; false hides them.' },
             trails: { type: 'array', minItems: 1, maxItems: 8, items: { type: ['integer', 'string'] }, description: 'Node ids or names: draw each node\'s path through the animation over the picture (key frames as big dots, every ~33 ms as small dots); the label gives keys, path length and peak speed.' },
             filmstrip: { type: 'integer', minimum: 2, maximum: 12, description: 'One picture of this many frames spread over the animation (sequence or globalSequence), both ends included, one shared framing, each frame captioned.' },

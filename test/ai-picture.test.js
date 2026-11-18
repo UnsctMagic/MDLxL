@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { previewPresentationProps } from '../app/preview-presentation.js';
 import { VIEW_PRESETS, orthographicHalfHeight, perspectiveFitDistance } from '../app/viewport-math.js';
-import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, motionTrails, trailNodeIds, picturePose, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
+import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, motionTrails, trailNodeIds, picturePose, PICTURE_OVERLAYS, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
 import { AI_TOOLS } from '../src/ai-tools.js';
 const { validateArguments } = createRequire(import.meta.url)('../electron/ai-mcp.cjs');
 const captureSchema = AI_TOOLS.find(t => t.name === 'mdlxl_capture').inputSchema;
@@ -232,4 +232,40 @@ test('pictures replay particles and ribbons from the animation start, whatever t
   // The workspace candidate preview turns them off as before.
   assert.equal(drawn({ model: effects, sequence: 2, showParticles: false }).showParticles, false);
   validateArguments(captureSchema, { target: 't', samples: [{ particles: false }] });
+});
+
+test('sample overlays, team colour and a model camera reach the preview', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman');
+  model.Cameras = [{ Name: 'Portrait', Position: new Float32Array([100, 0, 80]), TargetPosition: new Float32Array([0, 0, 60]), FieldOfView: 0.7, NearClip: 1, FarClip: 1000 }];
+  const plain = drawn({ model, sequence: 2 });
+  for (const key of ['bones', 'attachments', 'normals', 'cameras', 'wires']) assert.equal(plain.overlays[key], false, key);
+  assert.equal(plain.showCollisionSpheres, false);
+  assert.equal(plain.portraitMode, undefined);
+  const all = drawn({ model, sequence: 2, overlays: { bones: true, attachments: true, labels: true, normals: true, collision: true, cameras: true, wires: true } });
+  assert.equal(all.showSkeleton, true, 'bones draw the skeleton');
+  assert.equal(all.overlays.skeleton, true, 'with its lines');
+  assert.equal(all.overlays.attachments, true);
+  assert.equal(all.showNormals, true);
+  assert.equal(all.showCameras, true);
+  assert.equal(all.overlays.wires, true);
+  assert.equal(all.mode, 'textured', 'wires over the surface, not a wireframe');
+  assert.equal(all.showCollisionSpheres, true);
+  assert.equal(all.markersOnTop, true, 'joints inside the body still show');
+  assert.ok(all.nodeLabels.has(42), 'Hand Right Ref gets its name');
+  assert.equal(drawn({ model, teamColor: '#0042ff' }).teamColor, '#0042ff');
+  assert.equal(drawn({ model }, { teamColor: '#ff0303' }).teamColor, '#ff0303', 'otherwise the editor\'s colour');
+  const portrait = drawn({ model, sequence: 2, camera: 0 });
+  assert.equal(portrait.portraitMode, true);
+  assert.equal(portrait.portraitCameraIndex, 0);
+  assert.equal(portrait.showcasePortraitFrame, false, 'no Human UI frame needed');
+  assert.equal(drawn({ model, sequence: 2, camera: 0, view: 'front' }).view, 'perspective', 'a preset view would detach the portrait from its camera');
+  // The tool and the checks agree on what a sample may ask for.
+  const sample = captureSchema.properties.samples.items.properties;
+  assert.deepEqual(Object.keys(sample.overlays.properties).sort(), [...PICTURE_OVERLAYS].sort());
+  validateArguments(captureSchema, { target: 't', samples: [{ overlays: { bones: true, labels: true }, teamColor: '#0042ff', camera: 0 }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ overlays: { skeleton: true } }] }), /Unknown argument/);
+  assert.throws(() => checkPictureOptions({ overlays: { bones: 'yes' } }, model), /true or false/);
+  assert.throws(() => checkPictureOptions({ teamColor: 'blue' }, model), /#0042ff/);
+  assert.throws(() => checkPictureOptions({ camera: 1 }, model), /one of this model's 1 cameras/);
+  checkPictureOptions({ camera: 0, overlays: { bones: true }, teamColor: '#00ff00' }, model);
 });

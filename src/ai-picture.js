@@ -18,7 +18,10 @@ export const PICTURE_FILL = 0.88;
 export function aiPictureProps(job, { preferences, teamColor } = {}) {
   // Particles and ribbons are the history of the animation so far: the editor's particle replay
   // runs them from the animation start to the drawn frame (it waits in whenReady).
-  const particles = (job.particles ?? job.showParticles) !== false;
+  const particles = (job.particles ?? job.showParticles) !== false,
+    shown = job.overlays || {},
+    markers = !!(shown.bones || shown.attachments),
+    camera = Number.isInteger(job.camera) ? job.camera : null;
   return {
     presentation: 'preview',
     model: job.model,
@@ -26,7 +29,7 @@ export function aiPictureProps(job, { preferences, teamColor } = {}) {
     textureAssets: job.assets,
     modelPath: job.path,
     preferences,
-    teamColor,
+    teamColor: job.teamColor || teamColor,
     sequenceIndex: job.sequence ?? -1,
     globalSeqId: job.globalSequence ?? null,
     time: job.frame || 0,
@@ -37,12 +40,26 @@ export function aiPictureProps(job, { preferences, teamColor } = {}) {
     particleAuthoring: particles && job.restPose !== true && hasEffects(job.model),
     mode: job.renderMode || 'textured',
     previewMode: PICTURE_MODES.includes(job.renderMode) ? job.renderMode : 'textured',
-    view: job.view || 'perspective',
+    // A portrait is a perspective view; any other preset would detach it from the model camera.
+    view: camera === null ? job.view || 'perspective' : 'perspective',
     hiddenGeosets: job.hiddenGeosets,
     keepHiddenGeosets: true,
-    overlays: { bones: false, nodes: false, particles: false, attachments: false },
+    // The editor's own overlays, as the sample asks: skeleton (bones with their lines, helpers
+    // included), attachment points, normals and model cameras; markers drawn over the mesh.
+    overlays: {
+      bones: !!shown.bones, skeleton: !!shown.bones, nodes: false, particles: false, attachments: !!shown.attachments,
+      normals: !!shown.normals, cameras: !!shown.cameras, wires: !!shown.wires,
+    },
+    showCollisionSpheres: !!shown.collision,
+    markersOnTop: markers,
+    nodeLabels: markers && shown.labels ? new Set(allNodes(job.model).map(node => node.ObjectId)) : undefined,
+    // A model camera is seen the way the game shows a portrait: its own view and light.
+    ...(camera === null ? {} : { portraitMode: true, portraitCameraIndex: camera, showcasePortraitFrame: false }),
   };
 }
+
+/** Overlay switches a capture sample can turn on. */
+export const PICTURE_OVERLAYS = ['bones', 'attachments', 'labels', 'normals', 'collision', 'cameras', 'wires'];
 
 export const MAX_TRAILS = 8;
 /** Trail colours, in order: easy to tell apart on light and dark pictures. */
@@ -108,6 +125,19 @@ export function motionTrails(pose, ids) {
 
 /** Checks a capture sample's picture options against the model; throws a plain message. */
 export function checkPictureOptions(sample, model) {
+  if (sample.overlays !== undefined) {
+    if (!sample.overlays || typeof sample.overlays !== 'object' || Array.isArray(sample.overlays)) throw Error('overlays is an object of switches.');
+    for (const [key, value] of Object.entries(sample.overlays)) {
+      if (!PICTURE_OVERLAYS.includes(key)) throw Error(`Unknown overlay ${key}: use ${PICTURE_OVERLAYS.join(', ')}.`);
+      if (typeof value !== 'boolean') throw Error(`Overlay ${key} is true or false.`);
+    }
+    if (sample.uv) throw Error('Overlays are drawn over the 3D picture: drop uv.');
+  }
+  if (sample.teamColor !== undefined && !/^#[0-9a-f]{6}$/i.test(String(sample.teamColor))) throw Error('teamColor is a colour like #0042ff.');
+  if (sample.camera !== undefined) {
+    if (!Number.isInteger(sample.camera) || !model?.Cameras?.[sample.camera]) throw Error(`camera is the index of one of this model's ${model?.Cameras?.length || 0} cameras.`);
+    if (sample.uv) throw Error('A camera picture is 3D: drop uv.');
+  }
   if (sample.trails !== undefined) {
     if (!Array.isArray(sample.trails) || !sample.trails.length || sample.trails.length > MAX_TRAILS) throw Error(`trails takes 1 to ${MAX_TRAILS} node ids or names.`);
     if (sample.uv) throw Error('Trails are drawn over the 3D picture: drop uv.');

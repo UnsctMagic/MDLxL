@@ -127,8 +127,13 @@ async function composeFilmstrip(urls, captions) {
   context.font = 'bold 15px Tahoma, sans-serif';
   context.textBaseline = 'top';
   for (const [i, url] of urls.entries()) {
-    const { x, y } = layout.cells[i];
-    context.drawImage(await loadPicture(url), x, y, layout.cellWidth, layout.cellHeight);
+    const { x, y } = layout.cells[i],
+      picture = await loadPicture(url),
+      // Whole picture in its cell, shape kept (a portrait-shaped camera picture is narrower).
+      fit = Math.min(layout.cellWidth / picture.naturalWidth, layout.cellHeight / picture.naturalHeight),
+      w = picture.naturalWidth * fit,
+      h = picture.naturalHeight * fit;
+    context.drawImage(picture, x + (layout.cellWidth - w) / 2, y + (layout.cellHeight - h) / 2, w, h);
     context.strokeStyle = '#202020';
     context.lineWidth = 2;
     context.strokeRect(x + 1, y + 1, layout.cellWidth - 2, layout.cellHeight - 2);
@@ -1161,6 +1166,9 @@ export class AiEditorBridge {
               })),
             },
         particles: !source.candidate && sample.particles !== false,
+        ...(sample.overlays ? { overlays: sample.overlays } : {}),
+        ...(sample.teamColor ? { teamColor: sample.teamColor } : {}),
+        ...(Number.isInteger(sample.camera) ? { camera: sample.camera } : {}),
         focus: focus?.length ? focus : null,
         zoom: source.focus ? 1 : zoom,
       });
@@ -1190,13 +1198,18 @@ export class AiEditorBridge {
             ? `${animation}; filmstrip of ${strip.length} frames ${strip.join(', ')}, left to right, top to bottom, one shared framing`
             : `${animation}; frame ${first.frame}${Number.isFinite(asked) && asked !== first.frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
     const image = strip ? await composeFilmstrip(pictures, strip.map(at => frameCaption(at, pose.interval))) : pictures[0];
+    const shownOverlays = Object.entries(sample.overlays || {}).filter(([, on]) => on).map(([key]) => key),
+      cameraText = Number.isInteger(sample.camera)
+        ? `; through model camera ${sample.camera} "${model.Cameras[sample.camera].Name || ''}" as the game shows a portrait (portrait light, black background, portrait shape; framing and zoom do not apply)`
+        : '',
+      extras = `${cameraText}${shownOverlays.length ? '; overlays: ' + shownOverlays.join(', ') : ''}${sample.teamColor ? '; team colour ' + sample.teamColor : ''}`;
     const round = value => Math.round(value * 10) / 10,
       trailText = trails.length
         ? '; trails (line = path, small dots every ~33 ms so wide gaps are fast, big dots = key frames of the node or a parent, ring = this frame): ' +
           trails.map((trail, i) => `${i + 1} ${TRAIL_NAMES[i]} "${trail.name}" (node ${trail.id}): ${trail.keys.length} keys at ${trail.keys.map(key => key.frame).join(', ') || 'none'}; path ${round(trail.length)} units; peak speed ${round(trail.peakSpeed)} units/s near frame ${trail.peakFrame}; start to end ${round(trail.travel)} units`).join('; ')
         : '';
     return {
-      label: `${view}; ${when}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}${effects}${[...notes].map(note => '; ' + note).join('')}; ${triangles} triangles drawn`,
+      label: `${Number.isInteger(sample.camera) ? 'camera ' + sample.camera : view}; ${when}${extras}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}${effects}${[...notes].map(note => '; ' + note).join('')}; ${triangles} triangles drawn`,
       image,
     };
   }

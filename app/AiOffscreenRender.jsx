@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { aiPictureProps, frameExactly } from '../src/ai-picture.js';
+import { PORTRAIT_ASPECT } from '../src/portrait-view.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 
 // AI pictures of a model, drawn in a hidden preview of their own. The view, camera
@@ -77,6 +78,15 @@ function drawMarks(canvas, api, marks) {
   }
   context.restore();
 }
+// The middle of a camera picture in the in-game portrait's shape: same height, portrait width.
+function portraitCrop(source) {
+  const width = Math.round(source.height * PORTRAIT_ASPECT),
+    canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = source.height;
+  canvas.getContext('2d').drawImage(source, (source.width - width) / 2, 0, width, source.height, 0, 0, width, source.height);
+  return canvas;
+}
 export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
   const [job, setJob] = useState(null),
     queue = useRef([]),
@@ -124,9 +134,12 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
       // Frame the posed points exactly (centred, the same share of every view), then
       // zoom about their centre. captureView draws right away: waiting for the next
       // screen refresh would stall while the window is covered or minimized.
-      frameExactly(api, entry.focus, { zoom: entry.zoom });
-      const image = api.captureView();
+      // A model camera picture keeps the camera's own view.
+      const camera = Number.isInteger(entry.camera);
+      if (!camera) frameExactly(api, entry.focus, { zoom: entry.zoom });
+      let image = api.captureView();
       drawMarks(image, api, entry.marks);
+      if (camera) image = portraitCrop(image);
       const url = image.toDataURL('image/png');
       finish(entry, null, entry.notes?.length ? { image: url, notes: entry.notes } : url);
     } catch (error) {
