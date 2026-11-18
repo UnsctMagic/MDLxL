@@ -7,11 +7,12 @@ import { createRequire } from 'node:module';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { previewPresentationProps } from '../app/preview-presentation.js';
 import { VIEW_PRESETS, orthographicHalfHeight, perspectiveFitDistance } from '../app/viewport-math.js';
-import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, picturePose, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
+import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, motionTrails, trailNodeIds, picturePose, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
 import { AI_TOOLS } from '../src/ai-tools.js';
 const { validateArguments } = createRequire(import.meta.url)('../electron/ai-mcp.cjs');
 const captureSchema = AI_TOOLS.find(t => t.name === 'mdlxl_capture').inputSchema;
 import { sampleAiModel } from '../src/ai-sampling.js';
+import { allNodes, sampleNodeMatrices, worldPivot } from '../src/animation.js';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
@@ -182,4 +183,37 @@ test('the capture tool takes a filmstrip of 2 to 12 frames and refuses one witho
   assert.throws(() => checkPictureOptions({ filmstrip: 1.5 }, {}), /2 to 12/);
   assert.throws(() => checkPictureOptions({ filmstrip: 4, frame: 10 }, {}), /drop frame/);
   assert.throws(() => checkPictureOptions({ filmstrip: 4, uv: true }, {}), /drop uv/);
+});
+
+test('a trail follows the node through the animation and marks the keys of the node and its parents', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), attack = model.Sequences.findIndex(s => s.Name === 'Attack - 1'),
+    pose = picturePose(model, { sequence: attack }), [start, end] = model.Sequences[attack].Interval;
+  // The sword grip sits under the arm: names match without case.
+  const ids = trailNodeIds(model, ['weapon ref', 38]);
+  assert.deepEqual(ids, [43, 38]);
+  const [weapon, hand] = motionTrails(pose, ids);
+  assert.equal(weapon.name, 'Weapon Ref');
+  assert.deepEqual([weapon.frames[0], weapon.frames.at(-1)], [start, end]);
+  // Every point is where the preview would put the node at that frame.
+  weapon.frames.forEach((frame, i) => assert.deepEqual(weapon.points[i], worldPivot(model, 43, sampleNodeMatrices(model, frame, attack), allNodes(model).find(n => n.ObjectId === 43)).toArray()));
+  // Keys: frames inside the attack where the node or one of its parents is keyed, with the node's position there.
+  const keyed = new Set();
+  for (let id = 43; id != null && id >= 0; id = allNodes(model).find(n => n.ObjectId === id)?.Parent)
+    for (const p of ['Translation', 'Rotation', 'Scaling']) for (const key of allNodes(model).find(n => n.ObjectId === id)[p]?.Keys || []) if (key.Frame >= start && key.Frame <= end) keyed.add(key.Frame);
+  assert.deepEqual(weapon.keys.map(k => k.frame), [...keyed].sort((a, b) => a - b));
+  assert.ok(weapon.keys.length >= 3, 'an attack has keys');
+  const k = weapon.keys[1];
+  assert.deepEqual(k.point, worldPivot(model, 43, sampleNodeMatrices(model, k.frame, attack), allNodes(model).find(n => n.ObjectId === 43)).toArray());
+  // The sword tip swings: a long path and a high peak inside the attack; the numbers agree with the points.
+  let length = 0;
+  for (let i = 1; i < weapon.points.length; i++) length += Math.hypot(...weapon.points[i].map((v, j) => v - weapon.points[i - 1][j]));
+  assert.ok(Math.abs(weapon.length - length) < 1e-6 && weapon.length > 20);
+  assert.ok(weapon.peakSpeed > 0 && weapon.peakFrame >= start && weapon.peakFrame <= end);
+  assert.ok(hand.points.length === weapon.points.length);
+  assert.deepEqual(motionTrails(picturePose(model, { sequence: -1 }), ids), [], 'the bind pose has no path');
+  assert.throws(() => trailNodeIds(model, ['No Such Bone']), /No node "No Such Bone"/);
+  assert.deepEqual(trailNodeIds(model, ['foot left ref']), [40], 'the stored name ends with a space');
+  assert.throws(() => checkPictureOptions({ trails: ['Weapon Ref'], uv: true }, model), /drop uv/);
+  validateArguments(captureSchema, { target: 't', samples: [{ sequence: 4, trails: [43, 'Bone_Hand_R'] }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ trails: [1, 2, 3, 4, 5, 6, 7, 8, 9] }] }), /number of items/);
 });

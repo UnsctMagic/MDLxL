@@ -25,6 +25,48 @@ function drawMarks(canvas, api, marks) {
     if (screen.length === 3) context.lineTo(screen[0] + 0.1, screen[1]);
     context.stroke();
   }
+  // Motion trails: the path, a small dot per sampled frame (spacing shows speed), big dots on
+  // key frames, a ring where the node is in this frame and the trail's number at its start.
+  for (const trail of marks.trails || []) {
+    const path = api.project(trail.points),
+      keys = api.project(trail.keys),
+      dot = (x, y, r) => (context.beginPath(), context.arc(x, y, r, 0, Math.PI * 2));
+    context.globalAlpha = 1;
+    for (const [style, width] of [['rgba(0,0,0,0.55)', 4], [trail.color, 2]]) {
+      context.strokeStyle = style;
+      context.lineWidth = width * scale;
+      context.beginPath();
+      let open = false;
+      for (let i = 0; i < path.length; i += 3) {
+        if (!path[i + 2]) { open = false; continue; }
+        context[open ? 'lineTo' : 'moveTo'](path[i], path[i + 1]);
+        open = true;
+      }
+      context.stroke();
+    }
+    context.fillStyle = trail.color;
+    for (let i = 0; i < path.length; i += 3) if (path[i + 2]) (dot(path[i], path[i + 1], 1.8 * scale), context.fill());
+    context.lineWidth = 1.5 * scale;
+    context.strokeStyle = '#000000';
+    for (let i = 0; i < keys.length; i += 3) if (keys[i + 2]) (dot(keys[i], keys[i + 1], 4.5 * scale), context.fill(), context.stroke());
+    if (trail.now) {
+      const [x, y, front] = api.project(trail.now);
+      if (front) {
+        context.lineWidth = 2.5 * scale;
+        context.strokeStyle = trail.color;
+        dot(x, y, 8 * scale);
+        context.stroke();
+      }
+    }
+    if (path[2]) {
+      context.font = `bold ${16 * scale}px Tahoma, sans-serif`;
+      context.lineWidth = 3 * scale;
+      context.strokeStyle = '#000000';
+      context.strokeText(String(trail.number), path[0] + 7 * scale, path[1] - 7 * scale);
+      context.fillStyle = trail.color;
+      context.fillText(String(trail.number), path[0] + 7 * scale, path[1] - 7 * scale);
+    }
+  }
   if (marks.vertices?.length) {
     const screen = api.project(marks.vertices),
       size = 4 * scale;

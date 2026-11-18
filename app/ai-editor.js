@@ -28,7 +28,22 @@ import {
   uvPictureSize,
   uvRange,
 } from '../src/ai-uv-picture.js';
-import { checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, picturePose, posedPoints, poseMatrices } from '../src/ai-picture.js';
+import {
+  TRAIL_COLORS,
+  TRAIL_NAMES,
+  checkPictureOptions,
+  concatPoints,
+  drawnGeosets,
+  filmstripFrames,
+  filmstripLayout,
+  frameCaption,
+  motionTrails,
+  picturePose,
+  posedPoints,
+  poseMatrices,
+  trailNodeIds,
+} from '../src/ai-picture.js';
+import { motionPathMarker } from '../src/motion-path.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
@@ -1112,8 +1127,12 @@ export class AiEditorBridge {
     const shots = (strip || [asked]).map(shot),
       first = shots[0];
     if (sample.fit === 'selection' && !first.marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+    // Trails: each chosen node's path through the animation, drawn over the picture and framed with it.
+    if (sample.trails?.length && first.pose.bind) throw Error('Trails need an animation: give sequence or globalSequence.');
+    const trails = sample.trails?.length ? motionTrails(first.pose, trailNodeIds(model, sample.trails)) : [];
+    const trailPoints = trails.flatMap(trail => trail.points.flat());
     // A filmstrip frames every frame alike, so the motion is the model's, not the camera's.
-    const focus = source.focus || (shots.length > 1 ? concatPoints(shots.map(one => one.focus)) : first.focus);
+    const focus = source.focus || concatPoints([...(shots.length > 1 ? shots.map(one => one.focus) : [first.focus]), trailPoints]);
     const zoom = clampZoom(sample.zoom);
     const draw = one =>
       this.host().render({
@@ -1126,7 +1145,20 @@ export class AiEditorBridge {
         restPose: !!one.pose.bind,
         renderMode,
         hiddenGeosets: hidden,
-        marks: source.candidate ? null : { strokes: target.strokes || [], vertices: one.marked },
+        marks: source.candidate
+          ? null
+          : {
+              strokes: target.strokes || [],
+              vertices: one.marked,
+              trails: trails.map((trail, i) => ({
+                color: TRAIL_COLORS[i],
+                number: i + 1,
+                points: trail.points.flat(),
+                keys: trail.keys.flatMap(key => key.point),
+                // Where the node is in this frame.
+                now: trail.points[motionPathMarker(trail.frames, one.frame)] || null,
+              })),
+            },
         ...(source.candidate ? { showParticles: false } : {}),
         focus: focus?.length ? focus : null,
         zoom: source.focus ? 1 : zoom,
@@ -1145,8 +1177,13 @@ export class AiEditorBridge {
             ? `${animation}; filmstrip of ${strip.length} frames ${strip.join(', ')}, left to right, top to bottom, one shared framing`
             : `${animation}; frame ${first.frame}${Number.isFinite(asked) && asked !== first.frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
     const image = strip ? await composeFilmstrip(pictures, strip.map(at => frameCaption(at, pose.interval))) : pictures[0];
+    const round = value => Math.round(value * 10) / 10,
+      trailText = trails.length
+        ? '; trails (line = path, small dots every ~33 ms so wide gaps are fast, big dots = key frames of the node or a parent, ring = this frame): ' +
+          trails.map((trail, i) => `${i + 1} ${TRAIL_NAMES[i]} "${trail.name}" (node ${trail.id}): ${trail.keys.length} keys at ${trail.keys.map(key => key.frame).join(', ') || 'none'}; path ${round(trail.length)} units; peak speed ${round(trail.peakSpeed)} units/s near frame ${trail.peakFrame}; start to end ${round(trail.travel)} units`).join('; ')
+        : '';
     return {
-      label: `${view}; ${when}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
+      label: `${view}; ${when}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
       image,
     };
   }

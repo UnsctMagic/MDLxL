@@ -1,8 +1,10 @@
 // The AI's off-screen pictures: the props its hidden preview gets for one picture, the pose it
 // draws and exact framing. Drawing happens in app/AiOffscreenRender.jsx; everything here is plain
 // data so it can be tested.
-import { sampleGeosetAnimation, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, skinGeoset, worldPivot } from './animation.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
+import { motionPaths } from './motion-path.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // Render modes a picture can ask for: the surface with its textures, mesh lines only, or plain
 // shading (the editor's Surface View: one untextured grey, lit, cut-outs kept).
@@ -38,8 +40,75 @@ export function aiPictureProps(job, { preferences, teamColor } = {}) {
   };
 }
 
+export const MAX_TRAILS = 8;
+/** Trail colours, in order: easy to tell apart on light and dark pictures. */
+export const TRAIL_COLORS = ['#ff3b30', '#1e90ff', '#ffcc00', '#34c759', '#ff2dd4', '#00e5e5', '#ff8c00', '#ffffff'];
+export const TRAIL_NAMES = ['red', 'blue', 'yellow', 'green', 'pink', 'cyan', 'orange', 'white'];
+
+/** Node ids for trails given as ids or names (case and outer spaces do not matter); throws on names that match no node. */
+export function trailNodeIds(model, wanted = []) {
+  const nodes = allNodes(model), ids = [], plain = value => String(value ?? '').trim().toLowerCase();
+  for (const item of wanted) {
+    const node = Number.isInteger(item) ? nodes.find(n => n.ObjectId === item) : nodes.find(n => plain(n.Name) === plain(item));
+    if (!node) throw Error(`No node ${JSON.stringify(item)} for a trail: use node ids or exact names from context.nodes.`);
+    if (!ids.includes(node.ObjectId)) ids.push(node.ObjectId);
+  }
+  return ids;
+}
+
+/**
+ * Motion trails: where each node's pivot travels through the pose's animation (the same curve
+ * Movement's Motion path draws), the frames where the node or a parent has a key, and numbers:
+ * path length, peak speed (units per second) and its frame, and start-to-end distance.
+ */
+export function motionTrails(pose, ids) {
+  if (pose.bind || !pose.interval) return [];
+  const model = pose.model, [start, end] = pose.interval, index = nodeIndex(model),
+    { frames, paths } = motionPaths(model, pose.sequence, ids);
+  const keyFrames = id => {
+    const found = new Set();
+    for (const at of index.ancestors(id, true)) {
+      const node = index.byId.get(at);
+      for (const property of ['Translation', 'Rotation', 'Scaling']) {
+        const track = node?.[property];
+        if (!track?.Keys) continue;
+        // Keys on another global clock do not belong to this animation's timeline.
+        const own = pose.kind === 'global' ? track.GlobalSeqId === pose.globalSequence : track.GlobalSeqId == null || !(model.GlobalSequences?.[track.GlobalSeqId] > 0);
+        if (own) for (const key of track.Keys) if (key.Frame >= start && key.Frame <= end) found.add(key.Frame);
+      }
+    }
+    return [...found].sort((a, b) => a - b);
+  };
+  const atKeys = new Map();
+  const pivotAt = (id, frame) => {
+    if (!atKeys.has(frame)) atKeys.set(frame, sampleNodeMatrices(model, frame, pose.sequence, frame));
+    return worldPivot(model, id, atKeys.get(frame), index.byId.get(id)).toArray();
+  };
+  return paths.map(({ id, points }) => {
+    let length = 0, peak = 0, peakFrame = frames[0];
+    for (let i = 1; i < points.length; i++) {
+      const step = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1], points[i][2] - points[i - 1][2]),
+        speed = frames[i] > frames[i - 1] ? (step * 1000) / (frames[i] - frames[i - 1]) : 0;
+      length += step;
+      if (speed > peak) (peak = speed), (peakFrame = Math.round((frames[i] + frames[i - 1]) / 2));
+    }
+    const keys = keyFrames(id), first = points[0], last = points.at(-1);
+    return {
+      id, name: index.byId.get(id)?.Name || `Node ${id}`, frames, points,
+      keys: keys.map(frame => ({ frame, point: pivotAt(id, frame) })),
+      length, peakSpeed: peak, peakFrame,
+      travel: first && last ? Math.hypot(last[0] - first[0], last[1] - first[1], last[2] - first[2]) : 0,
+    };
+  });
+}
+
 /** Checks a capture sample's picture options against the model; throws a plain message. */
 export function checkPictureOptions(sample, model) {
+  if (sample.trails !== undefined) {
+    if (!Array.isArray(sample.trails) || !sample.trails.length || sample.trails.length > MAX_TRAILS) throw Error(`trails takes 1 to ${MAX_TRAILS} node ids or names.`);
+    if (sample.uv) throw Error('Trails are drawn over the 3D picture: drop uv.');
+    trailNodeIds(model, sample.trails);
+  }
   if (sample.filmstrip !== undefined) {
     if (!Number.isInteger(sample.filmstrip) || sample.filmstrip < 2 || sample.filmstrip > 12) throw Error('A filmstrip has 2 to 12 frames.');
     if (sample.uv) throw Error('A filmstrip is a 3D picture: drop uv.');
