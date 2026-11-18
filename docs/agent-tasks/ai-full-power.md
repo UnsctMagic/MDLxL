@@ -173,3 +173,14 @@ consolidator). IDs are referenced in commits.
   was not opened (no tab), and a mid-drag camera move is not detected in GamePreview.
 - W3 DONE: `part.changed.geosets` from the edit change list; `ChangedParts` chips call `bridge.flashGeoset` ->
   App `aiFlash` drives `hoveredGeoset` for 1.6 s. Proof: `test/ai-watch.test.js` (11), `test/ai-watch.electron.cjs` (23 checks).
+
+**K: animation kit** (`src/ai-anim-kit.js`, owner request 18 Nov after the Baron chat spent about $26 writing its own maths)
+- K1 DONE: `kitRig` (POSE chains, held weapon tips, mount/rider, `pose(seq, ms)`), `Pose` world moves (`turn`, `move`, `aim`,
+  `reach` = `solveTwoBone` with a pole direction, `hold`, `plant`, `feet`), `animate` (shape-preserving cubic through key poses,
+  `each` constraints, `smooth` with sharp holds, `follow` springs with `share`, `easeBack`, `timing` map), `check` (wobble meter,
+  clipping minus the stand pose via `poseCrossings` in `mesh-intersect.js`, foot slide, seam, bends, bytes), `write` (key insertion
+  until no skinned vertex or pivot is more than `tolerance` off, measured with `sampleTrack`; one-sided Hermite/squad tangents;
+  replaces a same-named clip in place, else appends; new clips copy the template's visibility keys), `retime`. Method list: `kitHelp()`.
+  Port of the method of the owner's Lord of Change workspace (kit.py, common.finish, jit, fscan, kfit/shrinkC, timing/retime) only.
+- K2 DONE: `AI_ANIMATION_CRAFT` card (use the kit, one animation at a time, never delete first); `mdlxl_capture` samples take
+  `documentId` to draw an open reference model (view, sequence, frame, plain, wireframe). Proof: `test/ai-anim-kit.test.js` (9).

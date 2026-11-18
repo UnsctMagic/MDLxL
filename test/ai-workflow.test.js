@@ -375,6 +375,8 @@ test('animation requests carry the animation craft without the handbook; a UV re
   assert.match(prompt, /shoulder sockets/);
   assert.match(prompt, /snap comes from timing, not from the curve type: native clips use about 6 to 7 keys per track/);
   assert.match(prompt, /AnimXL output is dense smooth Bezier/);
+  assert.match(prompt, /api\.module\('ai-anim-kit'\)/, 'animation work uses the kit');
+  assert.match(prompt, /Never delete or clear an existing animation before its replacement is written/);
   await f.service.send({ id: 'anim', text: 'now the walk too', context });
   assert.doesNotMatch(lastPrompt(), /Animation craft/, 'sent once per provider history');
 });

@@ -308,6 +308,7 @@ export const AI_TOOLS = [
             particles: { type: 'boolean', description: 'Particles and ribbons, replayed from the animation start to the frame. Default on; false hides them.' },
             trails: { type: 'array', minItems: 1, maxItems: 8, items: { type: ['integer', 'string'] }, description: 'Node ids or names: draw each node\'s path through the animation over the picture (key frames as big dots, every ~33 ms as small dots); the label gives keys, path length and peak speed.' },
             filmstrip: { type: 'integer', minimum: 2, maximum: 12, description: 'One picture of this many frames spread over the animation (sequence or globalSequence), both ends included, one shared framing, each frame captioned.' },
+            documentId: string('Draw this open reference model (an id from mdlxl_document list) instead, at its own sequence and frame, to compare with a donor. View, sequence, frame, plain and wireframe only.'),
           }),
         },
       },
@@ -438,6 +439,8 @@ export function guidesForRequest(text) {
 // Animation craft: how good Warcraft III motion is made and judged. Sent with
 // requests that involve animation, whether or not the handbook is on.
 export const AI_ANIMATION_CRAFT = `Animation craft for this job:
+- Animate with the kit, never your own engine: kit = await api.module('ai-anim-kit'); kit.kitHelp() lists its methods. Do not write quaternion, IK, pose-solver, spring, clipping or key-reduction code in scripts. rig = kit.kitRig(model) (chains, held weapons, mount); key poses = rig.pose(name, ms).copy() changed with turn, move, aim, reach, hold, plant; clip = kit.animate(rig, { sequence, length, keys: [{ ms, pose }], each, follow, timing }); clip.check({ clipping: true }); clip.write(model) writes only that clip with few keys and replaces a same-named sequence in place.
+- One animation at a time: key poses, animate, check, write, then a mdlxl_capture filmstrip, then the next. Never delete or clear an existing animation before its replacement is written.
 - Judge motion in the animated model, never by numbers alone, and make the change visible when the clip plays. Your senses: mdlxl_sample at chosen frames or as a whole-clip sweep (worst clip and frame), motion compared with the original or a donor (mdlxl_versions, or ai-motion-compare in a script on references["version:NAME"].model), and mdlxl_capture of the changed part at several frames of the clip.
 - Nothing clips at any moment, also between keys: check fast parts densely (about every 5 ms). No jitter, snaps or abnormal bends of arms, hands or knees; watch rotations that wrap the long way round, above all at a clip's ends and loop seam.
 - Joints hold: arms stay inside their shoulder sockets. Armour on a limb follows that limb about its joint with most of its swing (a pauldron about 70% of the upper arm's swing); a nearly frozen piece looks wrong.

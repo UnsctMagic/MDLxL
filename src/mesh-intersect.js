@@ -258,6 +258,19 @@ function poseParts(model, geosets, matrices, clip, frame, buffers) {
   return { posed, visible };
 }
 
+/** Crossings between two parts (partTriangles results) in one pose given as node matrices (a Map of
+ * ObjectId to Matrix4, as sampleNodeMatrices returns). visible(geoset) says which geosets are drawn
+ * (default all). Used by the animation kit to check poses that are not yet keys in the model. */
+export function poseCrossings(model, a, b, matrices, visible = () => true, buffers = new Map()) {
+  const geosets = [...new Set([...a, ...b].map(x => x.geoset))], posed = new Map(), shown = new Map();
+  for (const gi of geosets) {
+    const geoset = model.Geosets[gi];
+    shown.set(gi, !!visible(gi));
+    posed.set(gi, skinGeoset(geoset, matrices, buffers.get(gi) || buffers.set(gi, new Float32Array(geoset.Vertices.length)).get(gi)));
+  }
+  return countCrossings(posedPart(model, a, posed, shown), posedPart(model, b, posed, shown));
+}
+
 // ---- The sweep ---------------------------------------------------------------------------------
 
 function clipList(model, { sequences, globalSequence }) {

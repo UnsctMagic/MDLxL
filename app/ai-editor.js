@@ -1063,16 +1063,27 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_capture' || (name === 'mdlxl_ui' && args.action === 'capture')) {
       if (name === 'mdlxl_capture' && args.samples) {
-        // Each sample is drawn off-screen, so the view on screen never moves.
+        // Each sample is drawn off-screen, so the view on screen never moves. A sample with documentId
+        // draws an open reference model (a donor) at its own animation and frame instead.
+        const referenceOf = sample => {
+          if (sample.documentId == null || sample.documentId === target.documentId) return null;
+          const reference = this.referenceSessions(target).find(x => x.id === sample.documentId);
+          if (!reference) throw Error('Reference model is not open. Load it with mdlxl_assets reference or mdlxl_document open.');
+          if (sample.uv || sample.filmstrip || sample.vertices || sample.fit === 'selection') throw Error('A reference picture takes view, sequence, globalSequence, frame, plain and wireframe only.');
+          return reference;
+        };
         for (const sample of args.samples) {
-          checkView(sample, env.model);
-          checkSample(sample, env.model);
+          const reference = referenceOf(sample);
+          checkView(sample, reference ? reference.doc.model : env.model);
+          if (!reference) checkSample(sample, env.model);
         }
         const images = [];
         for (const sample of args.samples) {
           active();
           this.requireTarget(args.target);
-          if (sample.uv) images.push(...(await this.uvPictures(args.target, sample)));
+          const reference = referenceOf(sample);
+          if (reference) images.push(await this.picture(args.target, sample, { documentId: reference.id }));
+          else if (sample.uv) images.push(...(await this.uvPictures(args.target, sample)));
           else images.push(await this.picture(args.target, sample));
         }
         return { images };
