@@ -8690,5 +8690,9 @@
   "AI private copy": "Copia privada de la IA",
   "You changed the model, so the AI works on a private copy.": "Cambiaste el modelo, así que la IA trabaja en una copia privada.",
   "Open the AI's copy as its own model tab and watch the work there.": "Abre la copia de la IA en su propia pestaña de modelo y sigue el trabajo allí.",
-  "Flash this part on the model.": "Hacer destellar esta parte en el modelo."
+  "Flash this part on the model.": "Hacer destellar esta parte en el modelo.",
+  "Hide panel": "Ocultar panel",
+  "Show panel": "Mostrar panel",
+  "Hide the editing panel to see more of the model.": "Oculta el panel de edición para ver más del modelo.",
+  "Show the editing panel.": "Muestra el panel de edición."
 }
