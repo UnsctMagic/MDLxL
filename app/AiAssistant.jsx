@@ -905,6 +905,7 @@ function AiAssistant({ bridge, visUI }) {
                         <article key={index} className={'ai-message ai-role-' + message.role}>
                           {message.role === 'assistant' ? (
                             <AssistantMessage
+                              onFlash={geoset => bridge.flashGeoset(geoset)}
                               message={message}
                               live={live && index === messages.length - 1}
                             />

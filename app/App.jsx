@@ -1668,6 +1668,9 @@ export default function App() {
   // A minimized or covered window gets no screen refreshes, so each wait also ends after 100 ms.
   const afterPaint = frames => new Promise(resolve => { const step = n => { if (!n) return resolve(); let done = false; const go = () => { if (!done) { done = true; step(n - 1); } }; requestAnimationFrame(go); setTimeout(go, 100); }; step(frames); });
   const aiHost = useRef();
+  // The part an AI edit step changed, flashed for a moment when its chip in the chat is clicked.
+  const [aiFlash, setAiFlash] = useState(null), aiFlashTimer = useRef(0);
+  useEffect(() => () => clearTimeout(aiFlashTimer.current), []);
   const [aiOffscreen, setAiOffscreen] = useState(null);
   aiHost.current = {
     capture: async () => {
@@ -1731,6 +1734,7 @@ export default function App() {
     showTab: id => { const next = latest.current.sessions.find(item => item.id === id); if (next && next !== latest.current.session) flushSync(() => activateSession(next)); },
     afterPaint,
     followFit: points => window.dispatchEvent(new CustomEvent('mdlxl-ai-follow', { detail: points })),
+    flashGeoset: index => { if (!doc.model.Geosets[index]) return false; clearTimeout(aiFlashTimer.current); setAiFlash(index); aiFlashTimer.current = setTimeout(() => setAiFlash(null), 1600); return true; },
     assets: () => retainedForgeAssets(session.assets,doc.model),
     addAssets: records => loadTextures(records,session,{source:'forge'}),
     // A model tab the AI works on while another tab is showing: its own document,
@@ -2076,7 +2080,7 @@ export default function App() {
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={bitReplacement?.original.id || session.id}
         onSelectParts={forgePicking?.select} forgeGeometryPreview={!!forgePreview} editHandles={forgePreview?.editHandles} onStartPartDrag={forgePreview?.onStartPartDrag} onCancelPartDrag={forgePreview?.cancel}
-        hoveredGeoset={highlightedFromSelection} aiFollow model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
+        hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
         selectedVertices={forgePreview?.model?.forgeSelection?.[activeGeoset] || validSelection[activeGeoset] || []}
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={forgePreview ? {...validSelection,...forgePreview.model.forgeSelection} : validSelection}
         onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, model));}}
@@ -2112,7 +2116,7 @@ export default function App() {
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
         mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={showAxes} workplane={workplane}
         onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
-        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection} aiFollow
+        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying} onEditPause={holdForEdit}

@@ -237,6 +237,10 @@ export class AiEditorBridge {
       rest: markedPositions(model, spread, -1, null, 0),
     });
   }
+  // An edit step's changed part, flashed on the model on screen with the geoset highlight.
+  flashGeoset(index) {
+    return this.host().flashGeoset(index);
+  }
   // While watching, a job that had to move to a private copy (the user edited the model)
   // offers the existing "Open as new model" at once instead of at the end of the job.
   forkedDraft(documentId) {

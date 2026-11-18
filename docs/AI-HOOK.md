@@ -75,6 +75,20 @@ and only while their request remains live. Privileged additional-tool approvals
 are declined. Terminal and arbitrary filesystem access stay disabled for both
 native providers; model changes still use the registered MDLxL tools and Undo.
 
+Steps that gave the AI pictures show them as small thumbnails; click one to see it
+larger, click again or press Escape to close. The chat keeps small copies (the
+newest 120 per chat), so they are still there after a restart. An edit step shows
+the geosets it changed; click one to flash it on the model. The **View AI work**
+switch in the console header (off by default) lets you watch the job live: while
+it is on and the console is open, MDLxL shows the AI's model tab (once per model the
+AI moves to, so switching away yourself is respected) and follows the animation,
+frame and view each of its pictures and samples use, and brings the part it edits
+or looks at back into view when most of it is off screen, at most once per display
+frame. Your render mode, hidden geosets and grid stay as they are. While watching,
+your own selection or animation changes do not send the job to a private copy; if
+you edit the model and it does, the chat offers **Open as new model** right away so
+you can watch it there. Off, nothing on screen follows the AI.
+
 Provider warnings/errors, connection failures, usage-limit updates, model
 switches and plans stay in chat after later activity. Click a notice to read its
 details or use its dismiss button.

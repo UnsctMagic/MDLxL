@@ -120,7 +120,7 @@ function readablePlan(detail, line) {
     return line || translate('plan too long to show');
   }
 }
-function ToolPart({ part }) {
+function ToolPart({ part, onFlash }) {
   const [open, setOpen] = useState(false),
     name = toolName(part.name),
     line = detailLine(part.detail, part.line);
@@ -150,6 +150,7 @@ function ToolPart({ part }) {
         )}
       </button>
       {part.thumbs?.length > 0 && <StepPictures thumbs={part.thumbs} />}
+      {onFlash && part.changed?.geosets?.length > 0 && <ChangedParts geosets={part.changed.geosets} onFlash={onFlash} />}
       {open && (
         <pre className="ai-step-body" translate="no">
           {name === 'mdlxl_plan' ? readablePlan(part.detail, line) : name}
@@ -157,6 +158,20 @@ function ToolPart({ part }) {
           {part.summary ? '\n\n→ ' + part.summary : ''}
         </pre>
       )}
+    </div>
+  );
+}
+// The parts an edit step changed; a click flashes one on the model with the geoset highlight.
+function ChangedParts({ geosets, onFlash }) {
+  const shown = geosets.slice(0, 8);
+  return (
+    <div className="ai-step-parts">
+      {shown.map(index => (
+        <button key={index} type="button" className="ai-chip ai-step-part" title="Flash this part on the model." onClick={() => onFlash(index)}>
+          {'Geoset ' + (index + 1)}
+        </button>
+      ))}
+      {geosets.length > shown.length && <span className="ai-step-more">{'+' + (geosets.length - shown.length) + ' more'}</span>}
     </div>
   );
 }
@@ -286,7 +301,7 @@ function ProviderNotice({ part }) {
     {part.detail && <pre translate="no">{part.detail}</pre>}
   </details>;
 }
-export function AssistantMessage({ message, live }) {
+export function AssistantMessage({ message, live, onFlash }) {
   // Legacy saved reports remain readable; suppress their duplicate delegation tool row.
   const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
     part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
@@ -304,7 +319,7 @@ export function AssistantMessage({ message, live }) {
     ) : part.type === 'thinking' ? (
       <ThinkingPart key={index} part={part} live={live && index === parts.length - 1} />
     ) : part.type === 'tool' ? (
-      <ToolPart key={index} part={part} />
+      <ToolPart key={index} part={part} onFlash={onFlash} />
     ) : part.type === 'compaction' ? (
       <CompactionPart key={index} part={part} />
     ) : part.type === 'art' ? (

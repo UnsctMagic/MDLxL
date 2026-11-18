@@ -249,3 +249,30 @@ test('W2 off: nothing changes: no tab switch, no follow, a selection change fork
   assert.equal(app.drafts, 1, 'the job moved to a private copy, as it always has');
   assert.equal(bridge.forkedDraft('A.mdx'), null, 'no early offer without the switch');
 });
+
+test('W3: an applied edit step keeps the parts it changed; failed or unapplied steps keep none', () => {
+  const chat = conversation(), emitted = [], r = recorder(chat, fakeShrink, emitted);
+  const result = (callId, value, error = false) => {
+    r.event({ type: 'tool', name: 'mdlxl_script', callId });
+    r.event({ type: 'tool-result', name: 'mdlxl_script', callId, error, content: [{ type: 'text', text: JSON.stringify(value) }] });
+    return chat.transcript.at(-1).parts.find(p => p.id === callId);
+  };
+  const applied = result('e1', { applied: true, changes: [{ path: '/Geosets/2/Vertices', kind: 'bytes' }, { path: '/Geosets/0/Faces', kind: 'bytes' }, { path: '/Geosets', kind: 'splice', index: 4, removed: 0, added: 1 }, { path: '/Bones/1/Translation' }] });
+  assert.deepEqual(applied.changed, { geosets: [0, 2, 4] });
+  assert.deepEqual(emitted.find(e => e.callId === 'e1' && e.type === 'tool-result').changed, { geosets: [0, 2, 4] });
+  assert.equal(result('e2', { applied: false, changes: [] }).changed, undefined);
+  assert.equal(result('e3', { applied: true, changes: [{ path: '/Bones/0/Rotation' }] }).changed, undefined);
+  assert.equal(result('e4', 'Edit exceeds its scope: /Geosets/1', true).changed, undefined);
+  // The console's copy of the chat gets the same parts.
+  const shown = applyAiEvent([{ role: 'assistant', text: '', parts: [{ type: 'tool', id: 'x', name: 'mdlxl_patch', status: 'running' }] }],
+    { type: 'tool-result', name: 'mdlxl_patch', callId: 'x', changed: { geosets: [1] } });
+  assert.deepEqual(shown[0].parts[0].changed, { geosets: [1] });
+  assert.deepEqual(chatState.changedGeosets([{ path: '/Geosets/10' }, { path: '/GeosetAnims/0/Alpha' }]), [10]);
+});
+
+test('W3: a changed part chip flashes that geoset on the model on screen', () => {
+  const flashed = [];
+  const bridge = new AiEditorBridge(() => ({ flashGeoset: index => (flashed.push(index), true) }));
+  assert.equal(bridge.flashGeoset(2), true);
+  assert.deepEqual(flashed, [2]);
+});
