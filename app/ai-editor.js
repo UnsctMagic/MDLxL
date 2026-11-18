@@ -33,6 +33,7 @@ import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
+import { MESH_ACTIONS, applyMeshAction, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -56,9 +57,41 @@ const viewSnapshot = state => ({
 });
 const LEFT_TAB = "The user left this model's tab before this step could run. Try it again; it waits until they return.";
 // Steps that need MDLxL's own buttons, windows or timeline on screen.
+// Editor commands that also run on a model tab that is not showing, or on the job's
+// private copy: Undo/Redo, the mesh tools, selection commands and view commands (the
+// task's own view). Commands that open a window or need the screen wait for the tab.
+const VIEW_COMMANDS = {
+  ...Object.fromEntries(['perspective', 'orthographic', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(view => [view, { view }])),
+  frame: { renderMode: 'textured' },
+  frameSelection: { renderMode: 'solid' },
+  wireframe: { renderMode: 'wireframe' },
+  fit: {},
+  fitSelection: {},
+  ...Object.fromEntries(['vertices', 'uv', 'bones'].map(mode => [mode, { mode }])),
+  animation: { mode: 'animation' },
+};
+const SELECTION_COMMANDS = ['selectAll', 'clear', 'invertSelection'];
+const runsOffScreen = id => ['undo', 'redo'].includes(id) || MESH_ACTIONS.includes(id) || SELECTION_COMMANDS.includes(id) || Object.hasOwn(VIEW_COMMANDS, id);
+// The engines behind tool windows, for scripts on a model that is not on screen.
+const WINDOW_ENGINES = {
+  optimizeModel: 'optimizexl modules (search capabilities for "optimize")',
+  uv: 'the UV modules (search capabilities for "uv")',
+  animXL: 'the animation modules (search capabilities for "animation")',
+  surfaceEffects: 'the FX modules (search capabilities for "fx")',
+  autoCorpse: 'the corpse modules (search capabilities for "corpse")',
+  forge: 'the forge modules (search capabilities for "forge")',
+  bitsAndParts: 'bits-and-parts (mdlxl_assets source parts)',
+  paint: 'the painting modules (search capabilities for "paint")',
+};
+// What to use instead when a screen-only step meets the job's private copy.
+const screenOnly = (name, args) => {
+  const engine = name === 'mdlxl_command' && WINDOW_ENGINES[args.id];
+  return 'This step needs the model on screen, and this job now works on a private copy because the user changed the model. ' +
+    (engine ? 'Use ' + engine + ' in mdlxl_script instead.' : 'Use mdlxl_script with the editor modules instead; mesh tools, selection and view commands run here too.');
+};
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
-  (name === 'mdlxl_command' && !['undo', 'redo'].includes(args.id)) ||
+  (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
 // Model-space positions of the marked vertices, posed at the picture's frame.
 function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
@@ -431,9 +464,9 @@ export class AiEditorBridge {
         throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
       if (needsScreen(name, args)) {
         const target = args.target && this.requireTarget(args.target);
-        if (target?.job?.draft) throw Error('Use the modeling tools on the private AI copy. This command requires the live screen.');
+        if (target?.job?.draft) throw Error(screenOnly(name, args));
         await this.waitForTarget(args.target, options);
-        if (target?.job?.draft) throw Error('This command requires the live screen. Continue on the private copy with the modeling tools.');
+        if (target?.job?.draft) throw Error(screenOnly(name, args));
       }
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
@@ -714,9 +747,46 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_command') {
       if (!env.live) {
-        // Undo and Redo work on the task's own model; other commands need its tab.
-        if (!['undo', 'redo'].includes(args.id)) throw Error(LEFT_TAB);
-        host.undoIn(env.session.id, args.id === 'redo');
+        // A model tab that is not showing, or the job's private copy: Undo/Redo, mesh tools,
+        // selection and view commands run on the task's own model, selection and view, as on
+        // screen. Commands that open a window still need the tab.
+        if (['undo', 'redo'].includes(args.id)) {
+          host.undoIn(env.session.id, args.id === 'redo');
+          this.adoptTab(target);
+          this.advance(args.target);
+          return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
+        }
+        if (Object.hasOwn(VIEW_COMMANDS, args.id))
+          return { invoked: args.id, dialog: null, context: await this.dispatch('mdlxl_view', { target: args.target, ...VIEW_COMMANDS[args.id] }, { signal, requestId }) };
+        if (!MESH_ACTIONS.includes(args.id) && !SELECTION_COMMANDS.includes(args.id)) throw Error(LEFT_TAB);
+        const model = env.model,
+          checked = [...(env.session.viewState?.selectable || model.Geosets.map((_, gi) => gi))].filter(gi => model.Geosets[gi]),
+          marked = Object.fromEntries(
+            Object.entries(target.selection || {})
+              .map(([gi, ids]) => [gi, (ids || []).filter(i => model.Geosets[gi] && i * 3 < model.Geosets[gi].Vertices.length)])
+              .filter(([, ids]) => ids.length),
+          ),
+          count = Object.values(marked).reduce((sum, ids) => sum + ids.length, 0);
+        let vertices;
+        if (SELECTION_COMMANDS.includes(args.id)) {
+          const all = gi => Array.from({ length: model.Geosets[gi].Vertices.length / 3 }, (_, i) => i);
+          vertices = args.id === 'clear' ? {} : Object.fromEntries(checked.map(gi => {
+            const picked = new Set(marked[gi] || []);
+            return [gi, args.id === 'selectAll' ? all(gi) : all(gi).filter(i => !picked.has(i))];
+          }).filter(([, ids]) => ids.length));
+          host.selectIn(env.session.id, { vertices });
+        } else {
+          if (!count) throw Error('Mark the vertices first with mdlxl_select: ' + args.id + ' acts on the marked vertices.');
+          if (['Collapse', 'Weld'].includes(args.id) && count < 2) throw Error(args.id + ' needs at least two marked vertices.');
+          const after = {};
+          host.editIn(env.session.id, args.id, ['Geosets', 'GeosetAnims', 'Nodes'], edited => {
+            const { updated, removedGeosets } = applyMeshAction(edited, args.id, marked, { axis: workplaneAxis(target.workplane), ...host.meshOptions?.() });
+            // As on screen: a removed geoset clears the selection, a tool's new vertices become it.
+            after.vertices = removedGeosets.length ? {} : Object.keys(updated).length ? updated : marked;
+          }, { selection: after });
+          vertices = after.vertices;
+        }
+        if (target.job?.draft) target.job.resultSelection = { ...target.job.resultSelection, vertices };
         this.adoptTab(target);
         this.advance(args.target);
         return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };

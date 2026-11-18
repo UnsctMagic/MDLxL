@@ -82,21 +82,20 @@ import { SelectionHistory } from '../src/selection-history.js';
 import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
-import { EditorDocument, emptyModel, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
+import { EditorDocument, emptyModel, openDocument, recalculateExtents } from '../src/editor-document.js';
 import { applyChanges, createChanges } from '../src/history-store.js';
 import { calculateExtents } from '../src/model-extents.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
 import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
-import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
-import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
+import { transformVertices, setVertexPositions } from '../src/editor-commands.js';
+import { applyMeshAction, workplaneAxis } from '../src/mesh-actions.js';
 import { cutTriangles } from '../src/edge-cut.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
 import { captureNodeSelection } from '../src/node-clipboard.js';
 import { prepareClipboardPaste } from '../src/clipboard-paste.js';
 import { captureUVSelection } from '../src/uv-selection.js';
-import { collapseVertices, weldSelectedVertices, uncoupleVertices, deleteSelectedFaces, averageSelectedNormals } from '../src/classic-mesh.js';
 import { allGeosets, chooseGeosets, initialGeosetSelection, filterVertexSelection } from '../src/classic-selection.js';
 import { createEmptyDocument } from '../src/starter-model.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
@@ -1310,25 +1309,10 @@ export default function App() {
       if (name === 'Uncouple') uvAction('uncouple');
       return;
     }
-    const updated = {}, removedGeosets = [], axis = (lockedVertexPlane || workplane) === 'xy' ? 2 : (lockedVertexPlane || workplane) === 'yz' ? 0 : 1;
+    // The same mesh tools run on AI jobs' hidden models (src/mesh-actions.js).
+    let updated = {}, removedGeosets = [];
     const result = edit(name, ['Geosets', 'GeosetAnims', 'Nodes'], m => {
-      for (const [key, ids] of Object.entries(validSelection).sort((a, b) => Number(b[0]) - Number(a[0]))) {
-        if (!ids.length) continue; const gi = Number(key), g = m.Geosets[gi]; let outcome;
-        if (name === 'Delete vertices') { if (ids.length === g.Vertices.length / 3) { deleteGeoset(m, gi); removedGeosets.push(gi); } else deleteVertices(g, ids); }
-        else if (name === 'Create triangle') addTriangle(g, ids);
-        else if (name === 'Delete triangles') outcome = deleteSelectedFaces(g, ids);
-        else if (name === 'Uncouple') outcome = uncoupleVertices(g, ids, { nuke: preferences.uncoupleNuke });
-        else if (name === 'Collapse') outcome = collapseVertices(g, ids, centroid);
-        else if (name === 'Weld') outcome = weldSelectedVertices(g, ids, centroid);
-        else if (name === 'Smooth normals') outcome = averageSelectedNormals(g, ids);
-        else if (name === 'Restore normals') recalculateNormals(g);
-        else if (name === 'Mirror') { const scale = [1, 1, 1]; scale[axis] = -1; transformVertices(g, ids, [0, 0, 0], scale, [0, 0, 0], centroid); }
-        else if (name === 'Extrude') { const delta = [0, 0, 0]; delta[axis] = 10; outcome = { selection: extrudeFaces(g, ids, delta) }; }
-        else if (name === 'Detach') { const added = detachFaces(m, gi, ids); updated[added] = Array.from({ length: m.Geosets[added].Vertices.length / 3 }, (_, i) => i); }
-        else if (name === 'Reverse normals') { const picked = new Set(ids); for (const id of ids) { for (let a = 0; a < 3; a++) g.Normals[id * 3 + a] *= -1; if (g.Tangents) g.Tangents[id * 4 + 3] *= -1; } for (let i = 0; i < g.Faces.length; i += 3) if ([0, 1, 2].every(a => picked.has(g.Faces[i + a]))) [g.Faces[i + 1], g.Faces[i + 2]] = [g.Faces[i + 2], g.Faces[i + 1]]; }
-        else if (name === 'Rotate normals') { const a = (axis + 1) % 3, b = (axis + 2) % 3, angle = normalAngle * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle); for (const id of ids) for (const [array, stride] of [[g.Normals, 3], [g.Tangents, 4]]) if (array?.length) { const x = array[id * stride + a], y = array[id * stride + b]; array[id * stride + a] = x * c - y * s; array[id * stride + b] = x * s + y * c; } }
-        if (outcome?.selection) updated[gi] = outcome.selection;
-      }
+      ({ updated, removedGeosets } = applyMeshAction(m, name, validSelection, { axis: workplaneAxis(lockedVertexPlane || workplane), centroid, uncoupleNuke: preferences.uncoupleNuke, normalAngle }));
     });
     if (result !== false) { if (name === 'Delete vertices') {
       const remap = index => index - removedGeosets.filter(removed => removed < index).length;
@@ -1772,6 +1756,8 @@ export default function App() {
       }
     },
     selectIn: (id, value) => selectTab(aiHost.current.sessionOf(id), value),
+    // The user's mesh-tool settings, so AI jobs on hidden models run the tools as on screen.
+    meshOptions: () => ({ uncoupleNuke: preferences.uncoupleNuke, normalAngle }),
     assetsIn: id => { const target = aiHost.current.sessionOf(id); return retainedForgeAssets(target.assets, target.doc.model); },
     addAssetsIn: (id, records) => loadTextures(records, aiHost.current.sessionOf(id), { source: 'forge' }),
     render: async spec => {

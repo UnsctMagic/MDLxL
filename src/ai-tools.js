@@ -209,7 +209,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'command',
-    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
+    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. On a model tab that is not showing, or the job\'s private copy, Undo/Redo, the mesh tools (Delete vertices, Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the rest), selectAll/clear/invertSelection and view commands run on the task\'s own model, selection and view; commands that open a window wait for the tab. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
     { target, id: string('Exact command ID.') },
     ['target', 'id'],
     false,

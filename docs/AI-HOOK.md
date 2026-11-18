@@ -46,8 +46,19 @@ keeping readable plan lines. Older cut-off plans show their saved short line or
 You can keep typing while it works: **Enter** sends the message into the running
 task (the button becomes **Steer**) and it appears in the chat where you sent it,
 marked "Sent while the AI was working". The AI picks it up at its next step; if it
-had just finished, the message starts a follow-up turn on the same task. **Stop**
-(the square) cancels; applied edits stay in Undo.
+had just finished, the message starts a follow-up turn on the same task. A steering
+message adds to what the job was asked; it never replaces the request. **Stop**
+(the square) cancels the moment you press it; applied edits stay in Undo. Typing a
+short "stop" (also "STOP!", "stop it now" or a typo such as "stgop") works like the
+square. A longer message that only mentions stopping ("stop making the eyes green")
+still steers. With nothing running, "stop" starts no job.
+
+The AI edits straight away; Undo is the safety net. It plans first only when you ask
+for a plan or options, and runs a formal check (before/after pictures and measured
+checks) only when you ask it to check or verify. Otherwise it looks at its result
+once and reports, and the chat shows **Task complete**; **Result verified** appears
+after a formal check passes or after you accept the result ("deliver it"). A
+question or complaint gets an answer, not a new round of edits.
 
 When Codex or Claude Code asks a clarification, the question and its choices
 appear directly in chat. Choose an option (or several when requested) or type
@@ -125,7 +136,16 @@ messages carry the target and changed sections; omitted fields retain their last
 values. A reset, compaction or replacement model starts with the full snapshot
 again. `mdlxl_context` returns the current full lists and commands. The cost row
 shows calls and tokens by role (direct, art direction when available, outside
-check); Codex counts provider turns and unavailable usage is labelled.
+check); Codex counts provider turns and unavailable usage is labelled. The Claude
+API shows dollars for the current Claude models, so its spending limit works for them.
+
+Every step re-sends the conversation so far, so old material is trimmed. On the
+Claude API, Anthropic clears old tool results (pictures, data) and the reasoning of
+earlier requests itself once a conversation passes about 60,000 tokens, keeping the
+latest steps. When a new request starts on a chat whose history has grown past
+80,000 tokens, any provider starts a fresh history for it; the decision diary, the
+model's memory note and your last exchange carry over, and the visible chat stays
+as it was.
 
 ### Working in the background
 
@@ -155,9 +175,13 @@ the first one. The AI has its own environment for its model tab:
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
   them. When you switch to the AI's tab you see the selection it left there.
-- **Screen-only steps wait.** Editor commands other than Undo/Redo, program
-  controls (`mdlxl_ui`) and choosing timeline keys need the AI's tab on screen.
-  Such a step waits until you return to that tab.
+- **Editor commands run there too.** Undo/Redo, the mesh tools (Delete vertices,
+  Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the
+  rest), Select all/Clear/Invert selection and view commands work on the AI's own
+  model, selection and view, also on its private copy. Commands that open a window,
+  program controls (`mdlxl_ui`) and choosing timeline keys need the AI's tab on
+  screen and wait until you return to it; on the private copy the AI uses the same
+  tool's engine in a script instead.
 - **Changes are checked.** On the tab being shown, if you change that model or its
   selection while the AI prepares an edit, the edit is refused and the AI asks,
   as before. Closing the AI's tab stops its task.
@@ -519,19 +543,19 @@ Embedded chat works without enabling this external listener.
 | Tool | Capability |
 | --- | --- |
 | `mdlxl_capabilities` | Search installed editing libraries by task; a search returns the matching functions with their arguments and descriptions, and a module request returns all of its functions the same way. |
-| `mdlxl_plan` | Embedded chat only: record the job's cause, reach, keep list, alternative fixes and choice before the first edit. |
+| `mdlxl_plan` | Embedded chat only, when you ask for a plan: record the job's cause, reach, keep list, fixes and choice. Edits never wait for it. |
 | `mdlxl_versions` | Keep versions of the model side by side: list, save, compare, and use one again as one Undo step. Scripts read them as `references["version:NAME"]`. |
-| `mdlxl_review` | Run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
+| `mdlxl_review` | When you ask for a check: run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
 | `mdlxl_context` | Live document, exact selection, animation context, references, diagnostics and enabled commands. |
 | `mdlxl_read` | Read any model field, with typed arrays and explicit pagination. |
 | `mdlxl_script` | General JavaScript using the complete model, references, captured selection and MDLxL's own modeling libraries. |
 | `mdlxl_patch` | Precise JSON Pointer edits with typed values, validation and Undo. |
 | `mdlxl_select` | Change real vertex, bone, geoset and exact transform-key selections. |
-| `mdlxl_command` | Invoke existing editor commands using their normal behavior. |
+| `mdlxl_command` | Invoke existing editor commands using their normal behavior; mesh tools, selection and view commands also run on a model tab that is not showing. |
 | `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit; for a tab that is not showing, the task's own view. |
 | `mdlxl_sample` | Measure node world transforms and skinned vertex positions/bounds across up to 32 frames without moving the playhead. |
-| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame. |
-| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview model textures, load donor references without switching the working model. |
+| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame; `vertices` frames given vertices without changing the selection, `zoom` (1–8) zooms in, `wireframe` shows the mesh lines and `uv` draws the texture flat with the UV triangles over it. |
+| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview any texture (the model's own, by game path or from a search), load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
 | `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |
 | `mdlxl_help` | Read the installed documentation and discover the scripting API. |

@@ -436,3 +436,33 @@ test('AI validation reports actual save-verification loss in the other format', 
     assert.match(results[1].error, /Save verification failed: .*Info\.AnimationFile/);
   } finally { globalThis.Worker = previous; }
 });
+// Owner, 18 Nov 2026: "every tool works on the hidden copy too". Mesh tools, selection
+// and view commands run on the task's own model while the user is on another tab,
+// without waiting for that tab and without touching the tab on screen.
+test('mesh tools, selection and view commands run on a model tab that is not showing', async () => {
+  const { a, b, app, bridge, show } = editor();
+  const { target } = bridge.context();
+  show(b);
+  const before = a.doc.model.Geosets[0].Vertices.length / 3,
+    owner = structuredClone(b.doc.model.Geosets[0].Vertices);
+  let settled = false;
+  const welded = bridge.call('mdlxl_command', { target, id: 'Weld' }).then(value => ((settled = true), value));
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(settled, true, 'the mesh tool did not wait for the user to come back');
+  assert.equal((await welded).invoked, 'Weld');
+  assert.equal(a.doc.model.Geosets[0].Vertices.length / 3, before - 1, 'two marked vertices became one');
+  assert.equal(a.doc._historyStore.undoEntries.at(-1).label, 'Weld', 'one Undo step on the task model');
+  assert.deepEqual(b.doc.model.Geosets[0].Vertices, owner, "the user's tab is untouched");
+  assert.equal(app.commands.length, 0, 'no command ran on the tab on screen');
+  // Selection and view commands act on the task's own selection and view.
+  await bridge.call('mdlxl_command', { target, id: 'selectAll' });
+  assert.equal((await bridge.call('mdlxl_context', { target })).selection[0].length, before - 1);
+  await bridge.call('mdlxl_command', { target, id: 'clear' });
+  assert.deepEqual((await bridge.call('mdlxl_context', { target })).selection, {});
+  await bridge.call('mdlxl_command', { target, id: 'front' });
+  assert.equal((await bridge.call('mdlxl_context', { target })).view, 'front');
+  assert.equal(app.liveViews.length, 0, 'the view on screen was not changed');
+  // A mesh tool with nothing marked says what to do instead of guessing.
+  await assert.rejects(bridge.call('mdlxl_command', { target, id: 'Extrude' }), /Mark the vertices first/);
+  assert.equal(app.active, b, 'the tab on screen never changed');
+});
