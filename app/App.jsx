@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
 import { appendVertexForgeShape } from '../src/forge-vertex.js';
@@ -310,6 +311,8 @@ export default function App() {
   const captureAPI = useRef(null);
   const setCaptureAPI = useCallback(api => { captureAPI.current = api; }, []);
   const captureViewport = useRef(null), captureToolbox = useRef(null);
+  // Hides the editing panel on the right; it stays mounted so its folds and scroll survive.
+  const [panelHidden, setPanelHidden] = useState(false);
   const viewportCaptureAPI = useRef(null);
   const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
@@ -2158,7 +2161,8 @@ export default function App() {
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
-    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className="classic-sidebar" ref={captureToolbox}>
+      {panelHidden && mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <button type="button" className="panel-show-tab" data-hotkey="editingPanel" data-hotkey-label="Show panel" aria-label="Show panel" title="Show the editing panel." onClick={() => setPanelHidden(false)}><ChevronsLeft size={14} aria-hidden="true"/></button>}
+    </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className={'classic-sidebar' + (panelHidden ? ' panel-hidden' : '')} ref={captureToolbox}>
       <SidebarResizer/>
       {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
@@ -2179,6 +2183,7 @@ export default function App() {
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
       {rigWorkspace && boundBoneIds.length > 0 && bindingPanel}
+      {!panelHidden && <button type="button" className="panel-hide-button" data-hotkey="editingPanel" data-hotkey-label="Hide panel" aria-label="Hide panel" title="Hide the editing panel to see more of the model." onClick={() => setPanelHidden(true)}><ChevronsRight size={14} aria-hidden="true"/></button>}
     </aside>}</main>
     {mode==='animation' && timeline}
     <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? activeSession} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>
