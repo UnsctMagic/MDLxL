@@ -13,6 +13,8 @@ export const AI_AREAS = [
       'mesh-density',
       'geoset-operations',
       'editor-commands',
+      'edge-cut',
+      'mesh-clipboard',
     ],
   },
   {
@@ -27,13 +29,15 @@ export const AI_AREAS = [
       'forge-detail-editing',
       'forge-shape-editing',
       'forge-molding',
+      'forge-vertex',
+      'model-import',
       'bits-and-parts',
     ],
   },
   {
     id: 'rig',
     description: 'Bones, helpers, hierarchy, pivots, skin weights, hard/soft binding and IK posing.',
-    modules: ['bone-tools', 'rig-node-order', 'movement', 'movement-selection', 'pose-ik'],
+    modules: ['bone-tools', 'rig-node-order', 'movement', 'movement-selection', 'pose-ik', 'bone-namer', 'rig-names', 'attachemator'],
   },
   {
     id: 'animation',
@@ -47,18 +51,20 @@ export const AI_AREAS = [
       'sequence-editor',
       'animation-speed',
       'anim-xl',
+      'plain-track-values',
+      'motion-path',
     ],
   },
   {
     id: 'uv',
     description: 'UV coordinates, island selection, projection, folding, seams and texture wrapping.',
-    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec'],
+    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec', 'uv-unwrap', 'uv-grid', 'uv-material-compositor'],
   },
   {
     id: 'materials',
     description:
       'Textures, layers, filters, team color, alpha, visibility, animated materials and texture coordinates.',
-    modules: ['material-presets', 'texture-references', 'animation-tracks', 'geoset-animation-defaults'],
+    modules: ['material-presets', 'texture-references', 'animation-tracks', 'geoset-animation-defaults', 'team-colors'],
   },
   {
     id: 'paint',
@@ -84,13 +90,55 @@ export const AI_AREAS = [
       'particle-ribbon-fit',
       'glow-up',
       'editor-commands',
+      'particle-world-effects',
+      'ribbon-sweeps',
+      'emitter-timing',
+      'event-object-codec',
+      'preview-lighting',
     ],
+  },
+  {
+    id: 'fx',
+    description: 'FX looks, surface emitters, tattoos, attack contact and Global Animation clocks.',
+    modules: [
+      'fx-cards',
+      'fx-own-looks',
+      'fx-sort-looks',
+      'fx-technique-looks',
+      'fx-ingredient-picker',
+      'fx-emitter-placement',
+      'fx-emitter-surface',
+      'fx-surface-fit',
+      'fx-layer-basis',
+      'fx-tattoo',
+      'fx-attack-contact',
+      'global-animation-data',
+      'global-animation-flies',
+      'global-animation-looks',
+      'global-animation-model',
+    ],
+  },
+  {
+    id: 'lifecycle',
+    description: 'Corpse, bone and decay pieces, death and decay animations.',
+    modules: ['auto-corpse', 'corpse-geometry'],
   },
   {
     id: 'inspection',
     description:
       'Geometry measurements, normals, motion inspection, repair proposals and structural validation; inspect captures as well as numeric results.',
-    modules: ['animation', 'ai-motion-compare', 'normals-rebuild', 'motion-inspector', 'optimizexl', 'optimizexl-checker-repairs'],
+    modules: [
+      'animation',
+      'ai-motion-compare',
+      'normals-rebuild',
+      'motion-inspector',
+      'optimizexl',
+      'optimizexl-checker-repairs',
+      'optimizexl-geometry',
+      'sanity-check',
+      'model-extents',
+      'model-collisions',
+    ],
   },
 ];
 
@@ -177,15 +225,17 @@ export function aiCommonFunctionsText(sources) {
 // The areas a request's words point to, most mentioned first (at most two), for
 // direct jobs inferred from their request.
 const AREA_WORDS = [
-  ['mesh', /\b(vertex|vertices|mesh|geoset|weld|extrude|mirror|split|detach|separate|merge|triangle|face|poly|subdivid|densit|hole|gap)/gi],
-  ['creation', /\b(forge|primitive|procedural|lathe|sculpt|prop|bits?\b)/gi],
-  ['rig', /\b(bind|binding|bound|weight|skin\b|skinn|rig|bone|pivot|hierarchy|parent|ik\b|helper)/gi],
+  ['mesh', /\b(vertex|vertices|mesh|geoset|weld|extrude|mirror|split|detach|separate|merge|triangle|face|poly|subdivid|densit|hole|gap|clipboard|copy.?paste|import|cut\b)/gi],
+  ['creation', /\b(forge|primitive|procedural|lathe|sculpt|prop|bits?\b|import)/gi],
+  ['rig', /\b(bind|binding|bound|weight|skin\b|skinn|rig|bone|pivot|hierarchy|parent|ik\b|helper|rename|attachemator)/gi],
   ['animation', /\b(animat|walk|attack|stand|death|spell|keyframe|key|retime|pose|sequence|motion|swing|loop|frame)/gi],
   ['uv', /\b(uv|unwrap|wrap|reskin|island|projection|stretch)/gi],
   ['materials', /\b(texture|material|reskin|colou?r|alpha|team|layer|transparen|visibility|filter|shading|tint)/gi],
   ['paint', /\b(paint|brush|decal|palette)/gi],
   ['effects', /\b(particle|emitter|ribbon|glow|light|event|sound|trail|effect|attachment|camera|collision)/gi],
-  ['inspection', /\b(normal|measure|inspect|validat|optimi|reduce|smaller)/gi],
+  ['fx', /\b(fx\b|tattoo|global animation|surface effect|clock)/gi],
+  ['lifecycle', /\b(corpse|decay|gut|gore|blood|dead|death)/gi],
+  ['inspection', /\b(normal|measure|inspect|validat|optimi|reduce|smaller|sanity|extent|bounds|file size|kb\b|bytes|size\b)/gi],
 ];
 export function areasForRequest(text) {
   return AREA_WORDS.map(([area, words]) => [area, (String(text).match(words) || []).length])

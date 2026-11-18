@@ -209,8 +209,16 @@ export const AI_TOOLS = [
   ),
   tool(
     'command',
-    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. On a model tab that is not showing, or the job\'s private copy, Undo/Redo, the mesh tools (Delete vertices, Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the rest), selectAll/clear/invertSelection and view commands run on the task\'s own model, selection and view; commands that open a window wait for the tab. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
-    { target, id: string('Exact command ID.') },
+    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. On a model tab that is not showing, or the job\'s private copy, Undo/Redo, the mesh tools (Delete vertices, Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the rest), selectAll/clear/invertSelection, view commands and the sidebar geoset operations (\'Separate by loose parts\', \'Nuclear separation\', \'Merge geosets\', \'Nuclear Weld\', \'Delete free vertices\', and \'Cut\' with cut) run on the task\'s own model, selection and view; commands that open a window wait for the tab. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
+    {
+      target,
+      id: string('Exact command ID.'),
+      distance: { type: 'number', description: 'Extrude distance in model units along the workplane axis (default 10).' },
+      pivot: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3, description: 'Mirror, Collapse and Weld pivot [x, y, z] (default: the marked vertices\' centre).' },
+      angle: { type: 'number', description: 'Rotate normals angle in degrees (default: the editor\'s setting).' },
+      cut: { type: 'object', description: 'Cut: { geosetIndex, start, a, b, t } splits line a-b at t from vertex start; { geosetIndex, start, vertex } turns a quad\'s middle line.' },
+      resolutions: { type: 'object', description: 'Merge geosets: the choices for the conflicts the editor would ask about.' },
+    },
     ['target', 'id'],
     false,
   ),
@@ -373,13 +381,13 @@ Verify the requested result and protected data separately. Compare the same pose
 // The handbook guides a request touches, most relevant first (at most two), so
 // the job carries them instead of a pointer the AI rarely follows.
 const GUIDE_WORDS = [
-  ['WC3-EDITING-OPTIMIZATION.md', /\b(optimi|file\s*size|size\b|smaller|over.key|key.*reduc|reduc.*key)/gi],
+  ['WC3-EDITING-OPTIMIZATION.md', /\b(optimi|file\s*size|size\b|smaller|kb\b|bytes|over.key|key.*reduc|reduc.*key)/gi],
   ['WC3-EDITING-NODES-BINDING.md', /\b(bind|binding|bound|weight|skin|rig|bone|bones|pivot|clip|clipping|deform|warp|tear|seam|joint|hierarchy|attach)/gi],
   ['WC3-EDITING-ANIMATION.md', /\b(animat|walk|attack|stand|death|spell|keyframe|key|retime|pose|sequence|motion|move|swing|lunge|sway|loop|frame)/gi],
-  ['WC3-EDITING-GEOMETRY.md', /\b(vertex|vertices|mesh|geoset|weld|normal|shape|extrude|mirror|split|merge|triangle|poly|smooth|gap|hole)/gi],
+  ['WC3-EDITING-GEOMETRY.md', /\b(vertex|vertices|mesh|geoset|weld|normal|shape|extrude|mirror|split|merge|triangle|polygon|poly|smooth|gap|hole|sanity|cut\b|clipboard)/gi],
   ['WC3-EDITING-UV-MATERIALS.md', /\b(uv|texture|material|colou?r|alpha|team|layer|transparen|visibility|paint|shading)/gi],
   ['WC3-EDITING-EMITTERS.md', /\b(particle|emitter|ribbon|glow|light|event|sound|trail|effect)/gi],
-  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay)/gi],
+  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay|death|sanity|import)/gi],
 ];
 export function guidesForRequest(text) {
   return GUIDE_WORDS.map(([guide, words]) => [guide, (String(text).match(words) || []).length])
