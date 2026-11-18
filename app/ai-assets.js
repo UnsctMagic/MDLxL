@@ -3,6 +3,8 @@ import { decodeTextureThumbnail, thumbnailPixels } from '../src/texture-thumbnai
 import { isForgeAssetPath } from '../src/forge-assets.js';
 import { gamePathKey } from '../src/game-path.js';
 import { prepareTextureLibrary, searchTextureLibrary } from '../src/texture-library-search.js';
+import { textureInfo, texturePixels } from '../src/texture-pixels.js';
+import { textureUses } from '../src/ai-model-size.js';
 
 const page = (items, { offset = 0, limit = 30 } = {}) => ({
   total: items.length,
@@ -55,12 +57,81 @@ export async function loadTextureAsset(path, session, desktop = window.desktop) 
   );
 }
 
+// Decoded RGBA of a texture: the editor's own BLP/DDS/TGA codecs, else the browser for PNG/JPEG.
+async function decodePixels(asset) {
+  const pixels = thumbnailPixels(asset);
+  if (pixels) return pixels;
+  if (typeof createImageBitmap === 'undefined' || typeof OffscreenCanvas === 'undefined') throw Error('This texture format cannot be read here.');
+  const bitmap = await createImageBitmap(new Blob([asset.bytes]));
+  try {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height), context = canvas.getContext('2d');
+    context.drawImage(bitmap, 0, 0);
+    return context.getImageData(0, 0, bitmap.width, bitmap.height);
+  } finally { bitmap.close(); }
+}
+
+// Each listed model texture's file (format, size, mipmaps, bytes) and what uses it, and the total of
+// every image texture the model uses. Files come from the model's own assets, else the editor's
+// resolver (model folder, game data); textures it cannot find are listed as missing.
+async function textureWeights(state, result, desktop, active) {
+  const model = state.model, uses = textureUses(model), files = new Map(), names = [];
+  for (const texture of model.Textures) {
+    if (!texture.Image || files.has(texture.Image)) continue;
+    const own = state.session?.assets?.get(gamePathKey(texture.Image));
+    if (own) files.set(texture.Image, own); else names.push(texture.Image);
+  }
+  if (names.length && desktop?.resolveTextures) {
+    const found = await desktop.resolveTextures({ path: state.session?.path, names });
+    active();
+    for (const asset of found || []) files.set(asset.name, asset);
+  }
+  const fileOf = texture => {
+    if (!texture.Image) return { replaceable: texture.ReplaceableId };
+    const asset = files.get(texture.Image);
+    return asset ? textureInfo(asset.bytes, texture.Image) : { missing: true };
+  };
+  result.items = result.items.map(item => ({ ...item, file: fileOf(item), usedBy: uses[item.id] }));
+  const counted = [...new Set(model.Textures.map(t => t.Image).filter(name => files.has(name)))];
+  return { textureBytes: { total: counted.reduce((sum, name) => sum + files.get(name).bytes.byteLength, 0), files: counted.length,
+    missing: [...new Set(model.Textures.map(t => t.Image).filter(name => name && !files.has(name)))].length,
+    note: 'Bytes of the texture files as found; native game textures do not add to a map, imported ones do.' } };
+}
+
 /** Reuse the installed library and codecs. No downloads, external services or shell. */
 export async function aiAssets(args, host, active, desktop = window.desktop) {
   const state = host.state(),
     { source, action = 'search', query = '', offset = 0, limit = 30 } = args;
   if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100)
     throw Error('Choose an asset page of 1–100.');
+  // Pixels as data: a model texture by textureId, or any texture by path or game search hit.
+  if (action === 'pixels' && ['model', 'textures', 'game'].includes(source)) {
+    let path = args.path;
+    if (source === 'model' && !path) {
+      const texture = state.model.Textures[args.textureId];
+      if (!texture?.Image) throw Error('Choose an image texture in this model (textureId) or a path.');
+      path = texture.Image;
+    }
+    let asset;
+    if (source === 'game' && args.id) {
+      if (!args.signature) throw Error('Use the signature returned by the game library search.');
+      const record = await desktop.gameFilesRead({ id: Number(args.id), signature: args.signature });
+      active();
+      if (record.type !== 'textures') throw Error('Choose a texture.');
+      asset = { name: record.name, bytes: record.bytes };
+      path = record.path || record.name;
+    } else {
+      asset = await loadTextureAsset(path, state.session, desktop);
+      active();
+      if (!asset && source === 'game' && desktop.gameFilesReadPath) {
+        const record = await desktop.gameFilesReadPath({ path });
+        active();
+        if (record?.bytes) asset = { name: record.name, bytes: record.bytes };
+      }
+    }
+    if (!asset) throw Error('No texture was found at ' + path + '. Search with source textures or game (type textures) for its path.');
+    const image = await decodePixels(asset);
+    return { path, file: textureInfo(asset.bytes, asset.name || path), ...texturePixels(image, { region: args.region, units: args.units, grid: args.grid, find: args.find }) };
+  }
   // A texture by path (model, texture library or game data) or by a game search hit.
   if (action === 'preview' && ['model', 'textures', 'game'].includes(source) && (args.path || (source === 'game' && args.id))) {
     let asset = null,
@@ -85,13 +156,16 @@ export async function aiAssets(args, host, active, desktop = window.desktop) {
     return { image: await decodeTextureThumbnail(asset, 1024), path };
   }
   if (source === 'model') {
-    if (action === 'search')
-      return page(
+    if (action === 'search') {
+      const result = page(
         state.model.Textures.map((texture, id) => ({ id, ...texture })).filter(t =>
           matches(t.Image || 'Replaceable ' + t.ReplaceableId, query),
         ),
         args,
       );
+      const weights = await textureWeights(state, result, desktop, active);
+      return { ...result, ...weights };
+    }
     if (action === 'preview') {
       const texture = state.model.Textures[args.textureId];
       if (!texture?.Image) throw Error('Choose an image texture in this model.');

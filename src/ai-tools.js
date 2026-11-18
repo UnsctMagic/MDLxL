@@ -299,11 +299,17 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a texture as an image: a model texture (textureId or path), or any texture by path (source textures or game, for example Textures\Eyes.blp) or by a game search hit (id and signature, type textures). Returns the image and its path. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a texture as an image: a model texture (textureId or path), or any texture by path (source textures or game, for example Textures\Eyes.blp) or by a game search hit (id and signature, type textures). Returns the image and its path. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.\n' +
+    'source model search also gives each texture\'s file (format, width, height, mipmaps, bytes) and what uses it (materials, geosets, triangles, emitters), and the total texture bytes.\n' +
+    'pixels reads a texture as data (same texture choice as preview): a colour grid over a region (up to 64 cells), colour statistics, and with find the regions of a colour, in pixels and UV, to locate an eye or a gem on an atlas.',
     {
       target,
       source: { enum: ['model', 'textures', 'parts', 'game'] },
-      action: { enum: ['search', 'preview', 'reference'] },
+      action: { enum: ['search', 'preview', 'reference', 'pixels'] },
+      region: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number' }, description: 'pixels: [left, top, right, bottom]; default the whole texture.' },
+      units: { enum: ['uv', 'pixels'], description: 'Region units; UV (0..1, as TVertices) by default.' },
+      grid: { type: 'integer', minimum: 1, maximum: 64, description: 'pixels: cells on the longer side; default 16.' },
+      find: { ...object({ color: string('#rrggbb'), tolerance: { type: 'number', minimum: 0, maximum: 442 } }), required: ['color'] },
       query: string('Asset search words.'),
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
@@ -340,10 +346,13 @@ export const AI_TOOLS = [
   ),
   tool(
     'document',
-    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
+    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.\n' +
+    'validate also gives size: where the MDX bytes go (geosets, animation tracks, nodes, materials, texture paths, emitters), the biggest geosets and tracks.\n' +
+    'health: per geoset holes (open borders), non-manifold edges, degenerate and duplicate triangles, T-junctions, islands, loose vertices and the vertex limit.\n' +
+    'sanity: the Help menu\'s Sanity Check (Hive checker) findings for this model, unsaved edits included.',
     {
       target,
-      action: { enum: ['list', 'open', 'export', 'validate'] },
+      action: { enum: ['list', 'open', 'export', 'validate', 'health', 'sanity'] },
       path: string('Absolute local file path for open/export.'),
       format: { enum: ['mdx', 'mdl'] },
       overwrite: { type: 'boolean' },

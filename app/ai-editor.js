@@ -16,6 +16,7 @@ import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { animationEditReport } from '../src/ai-motion-style.js';
+import { mdxSizeBreakdown } from '../src/ai-model-size.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
 import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
 import {
@@ -96,6 +97,14 @@ function animationNotes(before, after) {
   try {
     const animation = animationEditReport(before, after);
     return animation ? { animation } : {};
+  } catch {
+    return {};
+  }
+}
+// Where the saved MDX bytes go (validate), for size limits such as "under 250 KB".
+function sizeOf(bytes, model) {
+  try {
+    return { size: mdxSizeBreakdown(bytes, model) };
   } catch {
     return {};
   }
@@ -961,6 +970,7 @@ export class AiEditorBridge {
               bytes: saved.bytes.byteLength,
               diagnostics: reopened.diagnostics,
               readOnly: reopened.readOnly,
+              ...(format === 'mdx' ? sizeOf(saved.bytes, env.doc.model) : {}),
             });
           } catch (error) {
             results.push({ format, error: error.message });
