@@ -9,6 +9,7 @@ import {
   prepareAiEdit,
   applyAiEdit,
   encodeAiValue,
+  limitAiOutput,
 } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
@@ -661,7 +662,9 @@ export class AiEditorBridge {
         });
       active();
       this.requireTarget(args.target);
-      const value = encodeAiValue(result.value);
+      // Large typed arrays and long lists come back summarised; workspace programs that write an output file keep their full data.
+      const encoded = encodeAiValue(result.value),
+        value = args.workspaceFiles && args.capOutput === false ? encoded : limitAiOutput(encoded);
       if (name === 'mdlxl_script' && !args.edit) return { value, logs: result.logs || [], applied: false };
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');

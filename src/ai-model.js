@@ -288,3 +288,119 @@ export function checkAiTarget(target, state) {
       'The model or selection changed since this prompt. Nothing was applied. Ask the user to send the request again for the current selection.',
     );
 }
+
+// ---- Script harness helpers (used by the sandboxed renderer; testable in Node) ----
+const AsyncFunctionType = Object.getPrototypeOf(async function () {}).constructor;
+export const AI_SCRIPT_NAMES = ['model', 'selection', 'context', 'references', 'api', 'assets', 'before', 'files', 'log', 'parameters'];
+// The harness names are parameters of an OUTER function; the AI's code runs in an inner
+// function, so `const before = ...` or `const log = ...` only shadows them.
+export function buildAiScript(code) {
+  return new AsyncFunctionType(...AI_SCRIPT_NAMES, '"use strict";\nreturn (async () => {\n' + code + '\n})();');
+}
+const isViewDetached = view => {
+  try {
+    structuredClone(view);
+    return false;
+  } catch {
+    return true;
+  }
+};
+// Anything a script returns must survive structured clone; otherwise describe the
+// offending parts as text instead of failing with "An object could not be cloned".
+export function cloneSafeAiValue(value) {
+  try {
+    structuredClone(value);
+    return { value, replaced: [] };
+  } catch {}
+  const replaced = [],
+    ancestors = new Set();
+  const note = (path, what) => {
+    if (replaced.length < 20) replaced.push(path + ': ' + what);
+    return '[' + what + ']';
+  };
+  const walk = (item, path) => {
+    if (item === null || ['string', 'number', 'boolean', 'undefined'].includes(typeof item)) return item;
+    if (typeof item === 'bigint') return String(item);
+    if (typeof item === 'symbol') return note(path, 'symbol');
+    if (typeof item === 'function') return note(path, 'function ' + (item.name || 'anonymous') + ' cannot be returned');
+    if (ArrayBuffer.isView(item) || item instanceof ArrayBuffer) {
+      if (isViewDetached(item)) return note(path, 'typed array over a detached buffer');
+      return item;
+    }
+    if (ancestors.has(item)) return note(path, 'circular reference');
+    ancestors.add(item);
+    try {
+      if (item instanceof Date) return item;
+      if (item instanceof Map) return Object.fromEntries([...item].map(([k, v]) => [String(k), walk(v, path + '.' + String(k))]));
+      if (item instanceof Set) return [...item].map((v, i) => walk(v, path + '[' + i + ']'));
+      if (Array.isArray(item)) return item.map((v, i) => walk(v, path + '[' + i + ']'));
+      return Object.fromEntries(Object.entries(item).map(([k, v]) => [k, walk(v, path + '.' + k)]));
+    } catch (error) {
+      return note(path, 'unreadable object: ' + (error?.message || error));
+    } finally {
+      ancestors.delete(item);
+    }
+  };
+  let safe = walk(value, 'value');
+  try {
+    structuredClone(safe);
+  } catch (error) {
+    safe = '[The returned value could not be copied: ' + (error?.message || error) + '. Return plain numbers, strings, arrays and objects.]';
+    replaced.push('value: not clonable');
+  }
+  return { value: safe, replaced };
+}
+
+// ---- Tool output size (H5) ----
+const TYPED_KEEP = 24, ARRAY_KEEP = 40, TEXT_KEEP = 4000, OUTPUT_BUDGET = 60000;
+function typedSummary(type, data) {
+  let min = Infinity, max = -Infinity;
+  for (const x of data) {
+    if (x < min) min = x;
+    if (x > max) max = x;
+  }
+  return {
+    $type: type,
+    length: data.length,
+    first: data.slice(0, 6),
+    last: data.slice(-3),
+    min: data.length ? min : null,
+    max: data.length ? max : null,
+    note: 'Typed array summarised; mdlxl_read pages the full data (path, offset, limit).',
+  };
+}
+function compact(value, arrayKeep, textKeep) {
+  if (Array.isArray(value)) {
+    if (value.length > arrayKeep)
+      return {
+        length: value.length,
+        first: value.slice(0, 5).map(v => compact(v, arrayKeep, textKeep)),
+        last: value.slice(-2).map(v => compact(v, arrayKeep, textKeep)),
+        note: 'Long list summarised; mdlxl_read pages the full data.',
+      };
+    return value.map(v => compact(v, arrayKeep, textKeep));
+  }
+  if (typeof value === 'string') return value.length > textKeep ? value.slice(0, textKeep) + '... [' + (value.length - textKeep) + ' more characters]' : value;
+  if (value && typeof value === 'object') {
+    if (value.$type && Array.isArray(value.$data)) return value.$data.length > TYPED_KEEP ? typedSummary(value.$type, value.$data) : value;
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, compact(v, arrayKeep, textKeep)]));
+  }
+  return value;
+}
+// Encoded script values keep small typed arrays whole and summarise large ones; if the
+// whole result is still big, long lists and strings are summarised too.
+export function limitAiOutput(value, budget = OUTPUT_BUDGET) {
+  const size = v => JSON.stringify(v)?.length ?? 0;
+  let result = compact(value, Infinity, Infinity);
+  if (size(result) <= budget) return result;
+  result = compact(value, ARRAY_KEEP, TEXT_KEEP);
+  if (size(result) <= budget) return result;
+  result = compact(value, 8, 500);
+  if (size(result) <= budget) return result;
+  const top = value && typeof value === 'object' ? Object.entries(value) : [];
+  return {
+    truncated: true,
+    note: 'Result too large (' + size(value) + ' characters). Return less, or aggregate in the script; mdlxl_read pages model data.',
+    keys: top.slice(0, 50).map(([k, v]) => ({ key: k, characters: size(v) })),
+  };
+}
