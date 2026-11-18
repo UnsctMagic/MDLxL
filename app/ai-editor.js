@@ -1149,7 +1149,7 @@ export class AiEditorBridge {
           ? null
           : {
               strokes: target.strokes || [],
-              vertices: one.marked,
+              vertices: Array.from(one.marked),
               trails: trails.map((trail, i) => ({
                 color: TRAIL_COLORS[i],
                 number: i + 1,

@@ -152,7 +152,7 @@ export function drawnGeosets(pose, hidden = []) {
 }
 
 /** The vertices the geoset's triangles use. */
-export const usedVertices = geoset => [...new Set(geoset?.Faces || [])];
+export const usedVertices = geoset => [...new Set(geoset?.Faces || [])].sort((a, b) => a - b);
 
 /**
  * Model-space positions, posed, of vertices given per geoset (geoset index -> vertex ids, or true for
