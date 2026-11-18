@@ -50,6 +50,7 @@ import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 import { gamePathKey as normalizedPath } from '../src/game-path.js';
 import { clayColors } from '../src/forge-clay.js';
+import { needsFit } from './ai-watch.js';
 const selectionArray = selection => Array.from(selection || []);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
@@ -216,9 +217,11 @@ export default function Viewport({ children, ...inputProps }) {
     }
     state.resize = resize;
     const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(host.current); resize();
-    state.fit = (selectionOnly = false) => {
+    state.fit = (selectionOnly = false, points = null) => {
       const bounds = new THREE.Box3();
       const p = latest.current;
+      // View AI work: frame these model-space points (the part the AI works on).
+      for (let i = 0; points && i + 2 < points.length; i += 3) bounds.expandByPoint(new THREE.Vector3(points[i], points[i + 1], points[i + 2]));
       if (selectionOnly) {
         const active = editableGeosets(p);
         for (const [key, indices] of Object.entries(selections(p))) {
@@ -905,6 +908,13 @@ export default function Viewport({ children, ...inputProps }) {
     }
     state.cancelNormalizer = () => { if (down?.action === 'normalizer') cancelGesture(); };
     const frameModel = event => { cancelGesture(); state.fit(event.detail?.selection === true); };
+    // View AI work: bring the part the AI works on back into view when most of it is off screen;
+    // never during the user's own drag. Only the editor's own viewport (aiFollow) listens.
+    const aiFollow = event => {
+      const points = event.detail?.rest, view = state.camera || camera;
+      if (!latest.current.aiFollow || down || !needsFit(points, p => new THREE.Vector3(p[0], p[1], p[2]).project(view).toArray())) return;
+      state.fit(false, points); invalidate();
+    };
     const viewCamera = event => { cancelGesture(); if (quad) activatePane(panes.find(pane => pane.id === 'perspective')); if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.camera = camera; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
@@ -949,7 +959,7 @@ export default function Viewport({ children, ...inputProps }) {
     const contextMenu = event => event.preventDefault();
     const pointerLeave = event => { if (!down) { const pane = quad ? panes.find(pane => pane.surface === event.currentTarget) : singlePane; if (pane?.hoverAxis) { pane.hoverAxis = null; invalidate(); } hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; if (state.cut.hover) { state.cut.hover = null; invalidate(); } latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
-    window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
+    window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('mdlxl-ai-follow', aiFollow); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
     window.addEventListener('mdlxl-window-key',claimWindowKey);
     const stopPressLost = onMousePressLost(() => { if (down) cancelGesture(); });
@@ -1281,7 +1291,7 @@ export default function Viewport({ children, ...inputProps }) {
       }
       state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();
-      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
+      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-ai-follow', aiFollow); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       stopPressLost(); window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };

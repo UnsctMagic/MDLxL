@@ -8680,5 +8680,15 @@
   "Cut tool": "Herramienta Cortar",
   "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Cortar: haz clic en un vértice y luego en un punto de una línea enfrente. El triángulo se divide ahí; el triángulo detrás de esa línea también, para que nada se rasgue. Haz clic en una esquina en lugar de una línea para llevar la línea hasta esa esquina.",
   "Stopping…": "Deteniendo…",
-  "Nothing is running.": "No hay nada en marcha."
+  "Nothing is running.": "No hay nada en marcha.",
+  "A picture the AI received. Click to enlarge.": "Una imagen que recibió la IA. Haz clic para ampliarla.",
+  "AI picture {0}": "Imagen de la IA {0}",
+  "AI picture": "Imagen de la IA",
+  "Click or press Escape to close.": "Haz clic o pulsa Escape para cerrar.",
+  "View AI work": "Ver el trabajo de la IA",
+  "View AI work: while the AI works, shows its model tab and follows the animation, frame, view and part it works on. Off keeps your own view.": "Ver el trabajo de la IA: mientras la IA trabaja, muestra la pestaña de su modelo y sigue la animación, el fotograma, la vista y la parte en la que trabaja. Desactivado conserva tu propia vista.",
+  "AI private copy": "Copia privada de la IA",
+  "You changed the model, so the AI works on a private copy.": "Cambiaste el modelo, así que la IA trabaja en una copia privada.",
+  "Open the AI's copy as its own model tab and watch the work there.": "Abre la copia de la IA en su propia pestaña de modelo y sigue el trabajo allí.",
+  "Flash this part on the model.": "Hacer destellar esta parte en el modelo."
 }

@@ -405,6 +405,7 @@ async function runApi({
         callId: toolCall.id,
         error: !!result.isError,
         summary: toolSummary(textContent),
+        content: result.content,
       });
     }
     if (imageMessages.length)
@@ -579,6 +580,7 @@ async function runApi({
           callId: block.id,
           error: !!result.isError,
           summary: toolSummary(result.content.find(c => c.type === 'text')?.text),
+          content: result.content,
         });
       }
       history.push({ role: 'user', content: results });
@@ -920,6 +922,7 @@ class CodexProcess {
         callId: p.item.id,
         error: p.item.status === 'failed',
         summary: toolSummary(p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text),
+        content: p.item.result?.content,
       });
     // Web research runs inside Codex; its searches show as steps.
     if (message.method === 'item/started' && p.item?.type === 'webSearch')
@@ -1316,6 +1319,7 @@ async function runClaude({
                     callId: block.tool_use_id,
                     error: !!block.is_error,
                     summary: toolSummary(text),
+                    content: Array.isArray(block.content) ? block.content : [],
                   });
                 }
             if (data.type === 'result') {

@@ -61,6 +61,7 @@ import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatu
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
 import { screenEngineHint } from '../src/ai-screen-names.js';
+import { createWatchFollower, spreadVertices, tabToShow, watchLook, watchTargetRule } from './ai-watch.js';
 import { MESH_ACTIONS, GEOSET_ACTIONS, CUT_ACTION, applyMeshAction, applyGeosetAction, applyCut, remapGeosetSet, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -242,6 +243,82 @@ export class AiEditorBridge {
       this.listeners.add(listener);
       return () => this.listeners.delete(listener);
     };
+    // View AI work: off unless the console's switch is on and the console is open.
+    this.watch = false;
+    this.watchState = { shown: null };
+    this.follower = createWatchFollower(request => this.applyFollow(request));
+  }
+  // The console turns View AI work on or off; it applies from the next tool call.
+  setWatching(on) {
+    if (this.watch === !!on) return;
+    this.watch = !!on;
+    this.watchState.shown = null;
+    if (!on) this.follower.cancel();
+    this.editorChanged();
+  }
+  watching() {
+    return this.watch;
+  }
+  // After a tool call while watching: show the AI's model tab (once per target change) and
+  // queue what the call looked at for the live editor, applied once per display frame.
+  follow(name, args, result, liveBefore) {
+    try {
+      const target = args.target && this.targets.get(args.target);
+      if (!target) return;
+      const s = this.state(),
+        session = this.env(target).session,
+        isTab = s.sessions.includes(session);
+      const show = tabToShow(this.watchState, session.id, s.session.id, isTab);
+      if (show) this.host().showTab(show);
+      // A view change on the tab being shown already moved the live viewport.
+      const look = name === 'mdlxl_view' && liveBefore ? null : watchLook(name, args, result);
+      if (look && isTab) this.follower.push({ documentId: session.id, target: args.target, look });
+    } catch {}
+  }
+  async applyFollow({ documentId, target: id, look }) {
+    const host = this.host();
+    if (!this.watch || this.state().session.id !== documentId) return;
+    const { focus, ...timing } = look;
+    if (Object.keys(timing).length) {
+      await host.view(timing);
+      // The new view and frame are drawn before the part is checked against them.
+      await host.afterPaint(1);
+    }
+    const target = this.targets.get(id), s = this.state();
+    if (!focus || !target || !this.watch || s.session.id !== documentId) return;
+    const model = s.model;
+    const marks = focus.vertices
+      ? focus.vertices
+      : focus.geosets
+        ? Object.fromEntries(focus.geosets.filter(g => model.Geosets[g]).map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)]))
+        : s.selection;
+    const spread = spreadVertices(marks);
+    if (!Object.keys(spread).length) return;
+    const sequence = s.globalSeqId == null ? s.sequence : -1;
+    host.followFit({
+      posed: markedPositions(model, spread, sequence, s.globalSeqId, s.time),
+      rest: markedPositions(model, spread, -1, null, 0),
+    });
+  }
+  // An edit step's changed part, flashed on the model on screen with the geoset highlight.
+  flashGeoset(index) {
+    return this.host().flashGeoset(index);
+  }
+  // While watching, a job that had to move to a private copy (the user edited the model)
+  // offers the existing "Open as new model" at once instead of at the end of the job.
+  forkedDraft(documentId) {
+    if (!this.watch) return null;
+    for (const target of this.targets.values())
+      if (target.documentId === documentId && target.job?.draft && !target.job.opened && !target.job.delivered) return target;
+    return null;
+  }
+  openForkedDraft(documentId) {
+    const target = this.forkedDraft(documentId);
+    if (!target) return false;
+    target.job.opened = true;
+    this.host().openAiDraft(target.job.draft);
+    this.editorChanged();
+    return true;
   }
   state() {
     return this.host().state();
@@ -470,8 +547,14 @@ export class AiEditorBridge {
       session = target && s.sessions.find(x => x.id === target.documentId);
     if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
     if (target?.job && session) {
-      if (!target.job.draft && (changedSource(target.job, session) ||
-          (session === s.session && target.selectionSignature !== aiSelectionSignature(s)))) forkJob(this, target);
+      if (!target.job.draft) {
+        // While the user watches, their own selection or animation change is not an edit:
+        // the job adopts it and stays on the live model. Off, any change forks as before.
+        const rule = watchTargetRule({ watching: this.watch, sourceChanged: changedSource(target.job, session), onScreen: session === s.session,
+          selectionChanged: target.selectionSignature !== aiSelectionSignature(s) });
+        if (rule === 'fork') forkJob(this, target);
+        else if (rule === 'adopt') target.selectionSignature = aiSelectionSignature(s);
+      }
       if (target.job.draft) return target;
     }
     if (session && session !== s.session) {
@@ -487,6 +570,8 @@ export class AiEditorBridge {
       target.selectionSignature = aiSelectionSignature(s);
       target.offscreen = false;
     }
+    // Following the AI moves the live animation and frame; while watching that is not a change of the task's selection.
+    if (this.watch && target && session === s.session && session.doc.revision === target.revision) target.selectionSignature = aiSelectionSignature(s);
     checkAiTarget(target, s);
     return target;
   }
@@ -580,8 +665,10 @@ export class AiEditorBridge {
           options.signal.addEventListener('abort', cancel, { once: true });
           if (options.signal.aborted) cancel();
         }) : null;
+        const liveBefore = this.watch ? current()?.live : undefined;
         const operation = this.dispatch(name, args, options);
         result = await (cancelled ? Promise.race([operation, cancelled]) : operation);
+        if (this.watch) this.follow(name, args, result, liveBefore);
         return result;
       } finally {
         if (cancel) options.signal.removeEventListener('abort', cancel);

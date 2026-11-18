@@ -8576,5 +8576,15 @@
   "Cut tool": "切割工具",
   "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "切割：先点击一个顶点，再点击对面一条线上的一点。三角形在该处分开；这条线另一侧的三角形也会分开，因此不会撕裂。点击一个角而不是线，可将线连到那个角。",
   "Stopping…": "正在停止…",
-  "Nothing is running.": "当前没有正在运行的任务。"
+  "Nothing is running.": "当前没有正在运行的任务。",
+  "A picture the AI received. Click to enlarge.": "AI 收到的图片。单击放大。",
+  "AI picture {0}": "AI 图片 {0}",
+  "AI picture": "AI 图片",
+  "Click or press Escape to close.": "单击或按 Escape 关闭。",
+  "View AI work": "查看 AI 工作",
+  "View AI work: while the AI works, shows its model tab and follows the animation, frame, view and part it works on. Off keeps your own view.": "查看 AI 工作：AI 工作时，显示其模型标签页，并跟随它正在处理的动画、帧、视图和部件。关闭时保持你自己的视图。",
+  "AI private copy": "AI 私有副本",
+  "You changed the model, so the AI works on a private copy.": "你修改了模型，因此 AI 在私有副本上工作。",
+  "Open the AI's copy as its own model tab and watch the work there.": "将 AI 的副本作为单独的模型标签页打开，并在那里查看工作。",
+  "Flash this part on the model.": "在模型上闪烁显示此部件。"
 }

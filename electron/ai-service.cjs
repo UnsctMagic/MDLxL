@@ -25,6 +25,7 @@ const { questionCancelled } = require('./ai-user-input.cjs');
 const {
   AiSteering,
   AiRecorder,
+  thumbnailSize,
   OrganiserRegistry,
   writeJsonAtomic,
   settleConversation,
@@ -167,7 +168,15 @@ class AiService {
   }
   // A recorder for a chat; init() has loaded the transcript rules by then.
   recorder(conversation, emit) {
-    return new AiRecorder(conversation, emit, this.recordAiEvent);
+    return new AiRecorder(conversation, emit, this.recordAiEvent, picture => this.shrinkPicture(picture));
+  }
+  // A small JPEG copy of a picture the AI received, kept with the chat (see ai-chat-state.cjs).
+  shrinkPicture({ data }) {
+    const image = this.electron?.nativeImage?.createFromBuffer(Buffer.from(data, 'base64'));
+    if (!image || image.isEmpty()) return null;
+    const size = image.getSize(), small = thumbnailSize(size.width, size.height);
+    const shrunk = small.width < size.width ? image.resize({ ...small, quality: 'good' }) : image;
+    return 'data:image/jpeg;base64,' + shrunk.toJPEG(70).toString('base64');
   }
   async configuration() {
     if (this.config) return this.config;
@@ -231,6 +240,7 @@ class AiService {
       localWorkspace: config.localWorkspace === true,
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
+      watchAi: config.watchAi === true,
     };
   }
   // An on/off setting: saved, applied by `after`, then announced to the console.
@@ -1645,6 +1655,8 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));
+  // View AI work: off until the user turns it on; the console applies it at once.
+  handle('ai:watchAi', enabled => service.setSwitch('watchAi', 'watch-ai', enabled));
   handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());

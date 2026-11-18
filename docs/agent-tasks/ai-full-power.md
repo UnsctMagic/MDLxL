@@ -162,8 +162,14 @@ consolidator). IDs are referenced in commits.
   independent of the handbook. POSE/AnimXL recipes beyond the AnimXL Bezier caution not added.
 
 **W: View AI work** (`app/AiAssistant.jsx`, `app/AiParts.jsx`, `app/ai-editor.js`, `app/App.jsx`, `app/ai-job-copy.js`)
-- W1 the chat shows the AI's pictures as small thumbnails in its steps.
-- W2 a "View AI work" switch in the console header (off by default): shows the AI's model tab and follows the
-  animation, frame, view and part it works on, at most once per display frame; edits land live; selection-only
-  changes do not fork a private copy while watching; a forked job offers "Open as new model" early.
-- W3 each edit step can show the parts it changed.
+- W1 DONE (branch `claude/ai-fp-watch`): tool results hand their content to `AiRecorder` (`electron/ai-chat-state.cjs`
+  `toolResultMedia`), which keeps JPEG copies (`shrinkPicture` in `ai-service.cjs`, 384 px, 6 per step, newest 120 per
+  chat) as `part.thumbs`; full pictures never reach the saved chat or the console. `StepPictures` in `AiParts.jsx`.
+- W2 DONE: switch `watchAi` (main `setSwitch`, `ai:watchAi`, `aiWatchAi`), `bridge.setWatching(open && on)`.
+  `app/ai-watch.js` (`watchLook`, `createWatchFollower`, `needsFit`, `tabToShow`, `watchTargetRule`); `AiEditorBridge.follow`
+  / `applyFollow` after each call; App `showTab`, `afterPaint`, `followFit` (event `mdlxl-ai-follow`, handled only by
+  the main GamePreview/Viewport with `aiFollow`). Fork rule while watching adopts selection/animation changes;
+  `forkedDraft` / `openForkedDraft` + `job.opened` guard in `deliverJob`. Not done: no follow for a forked job that
+  was not opened (no tab), and a mid-drag camera move is not detected in GamePreview.
+- W3 DONE: `part.changed.geosets` from the edit change list; `ChangedParts` chips call `bridge.flashGeoset` ->
+  App `aiFlash` drives `hoveredGeoset` for 1.6 s. Proof: `test/ai-watch.test.js` (11), `test/ai-watch.electron.cjs` (23 checks).
