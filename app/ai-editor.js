@@ -248,6 +248,16 @@ export class AiEditorBridge {
     if (retained) {
       const [id, target] = retained;
       if (resume) { target.job.retained = false; return { ...this.context(id), retainedCandidate: true }; }
+      // A result the last job could not put on the model is never discarded silently.
+      if (target.job.draft && !target.job.delivered)
+        try {
+          const result = deliverJob(this, target, 'finish');
+          if (result.conflict || result.correction) deliverJob(this, target, 'open');
+        } catch {
+          try {
+            deliverJob(this, target, 'open');
+          } catch {}
+        }
       this.host().dropAiDraft(target.job.draft);
       this.targets.delete(id);
     }
@@ -1332,7 +1342,19 @@ export class AiEditorBridge {
     notify(true);
     try {
       await new Promise((resolve, reject) => {
+        // A step that needs the screen waits briefly, then says so plainly: an indefinite
+        // wait looked like a stalled editor and made the AI ask the user to switch tabs.
+        const timer = setTimeout(
+          () =>
+            finish(
+              Error(
+                'This step needs the model "' + document + '" on screen, and the user is looking at another tab. Nothing was changed. Do not ask the user to switch tabs: use mdlxl_script, mdlxl_capture or the other tools that run on a tab in the background, or retry this step later.',
+              ),
+            ),
+          this.screenWaitMs ?? 8000,
+        );
         const finish = error => {
+          clearTimeout(timer);
           this.waiters.delete(check);
           signal?.removeEventListener('abort', check);
           error ? reject(error) : resolve();
