@@ -5,11 +5,12 @@ import { sweepAiRelation } from '../src/ai-relation-sweep.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { motionTable } from '../src/ai-motion-compare.js';
+import { modelDigest, describeDigestChanges } from '../src/ai-model-digest.js';
 
 export async function aiCheckpoint(
   bridge,
   id,
-  { includeBaseline = false, baseline, restore, restoreReview } = {},
+  { includeBaseline = false, baseline, restore, restoreReview, digest: wantDigest = false, since } = {},
 ) {
   const target = bridge.requireTarget(id);
   if (restore) {
@@ -54,6 +55,8 @@ export async function aiCheckpoint(
       globalSequences: restoreReview?.globalSequences || [],
     };
   const { doc, session } = bridge.env(target);
+  // A per-part digest lets the service name the owner's hand edits between jobs.
+  const parts = wantDigest ? modelDigest(doc.model) : null;
   const bytes = (await prepareModelSaveAsync(doc, 'mdx')).bytes;
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   bridge.requireTarget(id);
@@ -64,6 +67,7 @@ export async function aiCheckpoint(
     context: bridge.context(id),
     review: reviewStatus(target.review),
     ...(includeBaseline && target.review ? { baseline: encodeAiValue(target.review.before) } : {}),
+    ...(parts ? { digest: parts, ...(since ? { handEdits: describeDigestChanges(since, parts) } : {}) } : {}),
   };
 }
 export const reviewStatus = review => ({

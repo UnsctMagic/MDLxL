@@ -61,24 +61,51 @@ const FULL_POWER_RULES = [
     "The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked. A message asking you to stop means stop: end your turn at once with one short sentence. When the user asks a question or complains (for example \"why did you…\", \"did you change anything?\"), answer it in words first, using read-only tools only for facts you need; do not start or resume edits until they ask for a change. A request phrased as a question (\"can you make the eyes red?\") is a request."
   ]
 ];
+// Owner, 18 Nov 2026, stream B (behaviour): "improve" keeps the user's object and the
+// asked scope, a re-make is done fully and boldly, one look after each edit (B1); act on
+// clear requests, ask only for missing information, explore less and scale checks (B2).
+// Undone newest first, before FULL_POWER_RULES. Each pair is [before, after].
+const BEHAVIOUR_RULES = [
+  [
+    "After an edit, check the result once (a picture of the changed part; for animation a sample of a few frames)",
+    "After each edit, look at the changed part once (one picture; for animation a few frames sampled or captured)"
+  ],
+  [
+    "Do not stop at advice when an edit was requested.",
+    "Do not stop at advice when an edit was requested. When the user asks to improve, fix, reshape or retexture something, keep their object and change it: the same part, shape and part list, never a different one in its place. Change only what the request names: a request about one kind of data (for example UVs) changes only that kind, and existing work the request did not name is never wiped or redone. When the user says to re-make, re-animate, redo or start over, do that fully and boldly instead of patching the old version."
+  ],
+  [
+    "Look only at what the change needs (usually one picture or one read), then edit.",
+    "Look only at what the change needs (usually one picture or one read), then edit; do not survey the whole model or read library source you do not need before the first edit."
+  ],
+  [
+    "If clarification is needed, keep it short and specific.",
+    "Scale checking to the request: a simple edit (move, replace, bind, recolour, square a layout) needs that one look and no more; measure further only where the edit can break something the user cares about, such as motion, binding, clipping or size. When the request is clear, act without asking for confirmation. Ask only when missing information would change the result, meaning two readings change the model differently and neither is the obvious one; otherwise take the obvious reading and say which one you took. Keep any question short and specific."
+  ],
+  [
+    "inspect actual captures, recalculate affected bounds, validate save/reopen, then finish through mdlxl_review.",
+    "inspect actual captures, recalculate affected bounds, validate save/reopen, and finish through mdlxl_review when the user asked for a check; scale all of this to the request."
+  ]
+];
+const undoBehaviour = text => [...BEHAVIOUR_RULES].reverse().reduce((s, [before, after]) => { assert.ok(s.includes(after) || (!s.includes('Editing handbook (on)') && contract.AI_EDITING_HANDBOOK.includes(after)), 'documented change present: ' + after.slice(0, 60)); return s.replace(after, before); }, text);
 const undoFullPower = text => FULL_POWER_RULES.reduce((s, [before, after]) => s.replace(after, before), text);
 const stripMotionRules = text => [SWEEP_RULE, ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text).replace(NUMBER_AFTER, NUMBER_BEFORE);
 const EXPECTED = {
   "editing plain": [
-    "c82ee8a3d07503482ade2c184dd2fe992511475c1842e6a89cd59bc63deaa918",
-    9118
+    "8708e58d2dee1221064b37212e341e0ccae00476193e851ecfea3222fdda0ac9",
+    10186
   ],
   "editing plain+web": [
-    "ab5333157f421e4f6e584ff0d8f957308d0bd2687efecc7d9701c6aa7114501b",
-    9620
+    "4eaaef859676ee9011ecd05c27aaf73feb0713518a67651e9d49ff8e377d7c32",
+    10688
   ],
   "editing handbook": [
-    "0baa0a6174928512b54333fbbdf3f970a5d6878ae154acea5dfe66eee8d715e0",
-    12125
+    "f07b01ee5f4bae4a6fd07f87c33cbc16ae008fc6db3a27e7f9f297078f62f7e8",
+    13258
   ],
   "editing handbook+web": [
-    "05e9b3df249a2da66a48f1687eacc882a583f1f876b510538fa5ce8c8ab75317",
-    12627
+    "faabc3a38c7da7534eccc97f588dfddafdd88df1e22aff1c71cada2b8a98fac4",
+    13760
   ],
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -96,7 +123,7 @@ test('direct editing prompt hashes retain every existing instruction', () => {
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(stripMotionRules(undoFullPower(editingPrompt(contract, { handbook, web }))).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(undoFullPower(undoBehaviour(editingPrompt(contract, { handbook, web })))).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));
@@ -133,4 +160,20 @@ test('accepted references, tolerance ladders and rejection questions reach direc
   for (const rule of [ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE])
     assert.ok(editingPrompt(contract, {}).includes(rule));
   assert.equal(TOLERANCE_RULE.split('. ').length, 2); assert.equal(REJECTION_RULE.split('. ').length, 2);
+});
+
+test('improve keeps the user object and scope, a re-make is done boldly, one look after each edit', () => {
+  const prompt = editingPrompt(contract, {});
+  assert.match(prompt, /improve, fix, reshape or retexture something, keep their object and change it.*never a different one in its place/);
+  assert.match(prompt, /about one kind of data \(for example UVs\) changes only that kind/);
+  assert.match(prompt, /re-make, re-animate, redo or start over, do that fully and boldly/);
+  assert.match(prompt, /After each edit, look at the changed part once/);
+});
+
+test('clear requests are acted on, questions only for result-changing gaps, checks scaled to the request', () => {
+  const prompt = editingPrompt(contract, {});
+  assert.match(prompt, /When the request is clear, act without asking for confirmation/);
+  assert.match(prompt, /Ask only when missing information would change the result.*otherwise take the obvious reading and say which one you took/);
+  assert.match(prompt, /Scale checking to the request: a simple edit .* needs that one look and no more/);
+  assert.match(prompt, /do not survey the whole model or read library source you do not need before the first edit/);
 });

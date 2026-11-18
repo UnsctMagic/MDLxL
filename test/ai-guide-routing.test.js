@@ -23,3 +23,11 @@ test('existing binding, animation, geometry, texture, effect and game routes ret
   ];
   for (const [text, guides] of examples) assert.deepEqual(guidesForRequest(text), guides.map(g => `WC3-EDITING-${g}.md`), text);
 });
+
+test('animation craft goes with animation requests, independent of the handbook guides', async () => {
+  const { animationRequest } = await import('../src/ai-tools.js');
+  for (const text of ['make the attack swing snappier', 'Re-animate the walk', 'the pauldron is frozen during Stand Ready', 'Retime the death', 'the rider sits like a barrel on the horse', 'pose the arm for the spell', 'it looks floaty'])
+    assert.ok(animationRequest(text), text);
+  for (const text of ['unwrap the shield UVs and fit them into one square', 'weld these vertices', 'make the cape red', 'run the optimizer to reduce file size', 'standardise the texture paths'])
+    assert.ok(!animationRequest(text), text);
+});

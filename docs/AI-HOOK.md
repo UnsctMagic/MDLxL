@@ -438,6 +438,16 @@ model. The diary lives in MDLxL's own profile, so it survives switching between
 Codex and Claude, and **Keep a summary** after
 saving. **Wipe it all** deletes it with the chats.
 
+**Standing requirements and hand edits.** Rules you state for a model, in a request
+or while the AI works ("keep it under 250 KB", "respect the geoset pose", "never
+touch my rig"), are kept with the model in your words, at most eight, and every
+later job on it gets them until you replace one (a new size limit replaces the old)
+or drop it ("you can now change the pose"); the current request wins where it says
+otherwise. At the end of every job MDLxL remembers a small per-part fingerprint of
+the model, so the next job is told what you changed by hand in between (for example
+"geoset 3: vertex positions", "node Arm_L: rotation keys") and keeps it. **Wipe it
+all** deletes the requirements with the chats.
+
 After model edits, **Result verified** appears only after the AI runs measured,
 read-only checks against the original model, validates MDX/MDL reopening, receives
 actual before/after images, and finishes its visual review. Animation edits also

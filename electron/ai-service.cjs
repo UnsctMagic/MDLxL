@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { planChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
-const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
+const { recordJob, noteOwnerReply, diaryText, noteRequirements, requirementsText, handEditsText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
 const crypto = require('node:crypto');
@@ -516,7 +516,9 @@ class AiService {
     // The owner's next message is their reaction to the last job on this model.
     if (!resume && conversation.modelKey) {
       const entry = await this.registry.model(conversation.modelKey);
-      if (noteOwnerReply(entry, text)) await this.registry.save();
+      const replied = noteOwnerReply(entry, text);
+      // Rules the owner states for this model stay for later jobs (standing requirements).
+      if (noteRequirements(entry, text) || replied) await this.registry.save();
     }
     const recorder = this.recorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
@@ -679,6 +681,8 @@ class AiService {
       AI_JOB_CHECKPOINT,
       AI_PLAN_TOOL,
       guidesForRequest,
+      animationRequest,
+      AI_ANIMATION_CRAFT,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -718,6 +722,7 @@ class AiService {
       conversation.messages = [];
       delete conversation.threadId;
       delete conversation.sentToolAreas;
+      delete conversation.sentCraft;
     } else
       task = conversation.task = {
         prompt: text,
@@ -743,7 +748,7 @@ class AiService {
     if (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length)) {
       restarted = lastExchange(conversation);
       conversation.messages = [];
-      for (const key of ['threadId', 'sentToolAreas', 'sentContext', 'usage']) delete conversation[key];
+      for (const key of ['threadId', 'sentToolAreas', 'sentCraft', 'sentContext', 'usage']) delete conversation[key];
     }
     recorder.start({
       role: 'user',
@@ -805,6 +810,12 @@ class AiService {
           // A guide that cannot be read leaves the job as it was.
         }
       }
+    // Animation requests carry the animation craft once per provider history,
+    // whether or not the handbook is on.
+    if (!conversation.toolsOff && animationRequest?.(text) && !(conversation.sentContext && conversation.sentCraft)) {
+      prompt += '\n\n' + AI_ANIMATION_CRAFT;
+      conversation.sentCraft = true;
+    }
     // Function pages inferred from the request go once per conversation; capabilities finds the rest.
     const cards = await this.functionCards();
     if (!conversation.toolsOff) {
@@ -830,8 +841,20 @@ class AiService {
     }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!conversation.toolsOff && conversation.modelKey) {
-      const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
+      const model = await this.registry.model(conversation.modelKey);
+      const diary = diaryText(model, { request: task.request, context, previous: previousTask?.diaryId });
       if (diary) prompt += '\n\n' + diary;
+      const requirements = requirementsText(model, task.request);
+      if (requirements) prompt += '\n\n' + requirements;
+      // The owner's hand edits since the AI's last delivery on this model.
+      if (!resume && model.delivered?.digest)
+        try {
+          const now = await this.call('mdlxl_checkpoint', { target: context.target, digest: true, since: model.delivered.digest }, signal);
+          const edits = handEditsText(now?.handEdits);
+          if (edits) prompt += '\n\n' + edits;
+        } catch {
+          // Without the comparison the job runs as before.
+        }
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (!conversation.toolsOff && !workspaceEnabled()) prompt += task.workspaceDecision
@@ -1170,6 +1193,17 @@ class AiService {
         } catch {
           // A diary that cannot be written never fails the job itself.
         }
+      // What the model looks like at delivery, so the next job can name the owner's hand edits.
+      if (conversation.modelKey && !conversation.toolsOff)
+        try {
+          const now = await this.call('mdlxl_checkpoint', { target: context.target, digest: true });
+          if (now?.digest) {
+            (await this.registry.model(conversation.modelKey)).delivered = { at: new Date().toISOString(), digest: now.digest };
+            await this.registry.save();
+          }
+        } catch {
+          // A model that cannot be read now leaves the last delivery as it was.
+        }
     }
   }
   // A stopped, blocked or unverified task never keeps its result private: what the AI
@@ -1490,6 +1524,14 @@ class AiService {
       };
     };
     if (this.acceptsDelivery(text)) { const task = this.conversations.get(id)?.task; if (task) task.acceptedByUser = true; }
+    // A rule given while the AI works stays for later jobs as well.
+    const modelKey = this.conversations.get(id)?.modelKey;
+    if (modelKey)
+      try {
+        if (noteRequirements(await this.registry.model(modelKey), text)) await this.registry.save();
+      } catch {
+        // Steering still reaches the job.
+      }
     active.steering.push(text, messageFor(id));
     this.emit({ id, type: 'steer', text });
     return { queued: true };

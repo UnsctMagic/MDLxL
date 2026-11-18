@@ -151,10 +151,15 @@ consolidator). IDs are referenced in commits.
 - H9 OpenAI reasoning items kept between steps; non-thinking Claude max output.
 
 **B: behaviour** (`src/ai-tools.js` instructions, handbook, decision diary)
-- B1 "improve this" keeps the user's object (never replaces it); edits stay inside the asked scope; a picture after each edit.
-- B2 ask less; verification scaled to the request; less exploring before the first edit.
-- B3 standing owner requirements carry across jobs (size limits, "respect the geoset pose"); the owner's hand edits between jobs are noted.
-- B4 Warcraft III style knowledge (sparse linear keys, timing) and POSE/AnimXL recipes; AnimXL re-keys to smooth Bezier.
+- B1 DONE (branch `claude/ai-fp-behaviour`): `AI_EDITING_BODY` says improve/fix/reshape/retexture keeps the user's part, shape and part list,
+  changes only the named kind of data, never wipes unnamed work; re-make/re-animate/start over is done fully and boldly; one look after each edit.
+- B2 DONE: act on clear requests, ask only when two readings change the result and neither is obvious, no whole-model survey before
+  the first edit, checks scaled to the request (handbook's review line too). All sentence changes are `BEHAVIOUR_RULES` pairs in `test/ai-prompts.test.js`.
+- B3 DONE: `electron/ai-diary.cjs` `noteRequirements`/`requirementsText` (owner-worded, max 8, replaced by same subject or a new size limit,
+  released by "you can now"/"forget", from requests and steering, wiped with chats); `src/ai-model-digest.js` + `mdlxl_checkpoint {digest, since}`:
+  each job end stores `entry.delivered`, the next job gets "Hand edits since the AI's last delivery". Extraction is keyword-based (may miss or over-catch).
+- B4 DONE: `AI_ANIMATION_CRAFT` + `animationRequest` in `src/ai-tools.js`, sent once per provider history with animation requests,
+  independent of the handbook. POSE/AnimXL recipes beyond the AnimXL Bezier caution not added.
 
 **W: View AI work** (`app/AiAssistant.jsx`, `app/AiParts.jsx`, `app/ai-editor.js`, `app/App.jsx`, `app/ai-job-copy.js`)
 - W1 the chat shows the AI's pictures as small thumbnails in its steps.
