@@ -63,6 +63,15 @@ Updated: 2026-11-18
   forced looking were the cost.
 - Decision: client-side trimming of old turns would break Fable 5.2's preserved
   thinking (every account is checked); the API's own context editing does not.
+- Verified (18 Nov, real Fable 5.2 requests, probe in `D:\Claude\ai-compaction-probe`):
+  one job is one API turn, so `clear_thinking` never touched the job's own reasoning
+  (chat-1096e5c5: 137 calls, 43.9M tokens, ~320K per call). Threshold compaction
+  (`compact_20260112`, trigger 100K, own `instructions`) now runs alongside clearing;
+  with ~66K-token tool results, requests went 133.5K input -> compaction -> 1.2K for
+  the reply and ~67.6K for the next step, every request 200 with the strict thinking
+  check on, history saved from the compaction block. Edit order accepted:
+  clear_thinking, clear_tool_uses, compact. Per-request tokens are in the chat's
+  `requestUsage`; a refused piece is a chat warning and only that piece goes off.
 - Decision: pictures follow the task view's wireframe only when a sample asks
   (`wireframe: true`); following the user's live wireframe view would change every
   picture's look.

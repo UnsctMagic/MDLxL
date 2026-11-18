@@ -454,7 +454,7 @@ test('provider executes the complete plan while emitting only a shortened displa
 // Owner, 18 Nov 2026: the Shield chat re-read every earlier picture and data dump on
 // each of its 64 steps. The API itself now clears old tool results and earlier jobs'
 // reasoning once the conversation is large, which keeps caching and reasoning valid.
-test('Claude API asks the API to clear old tool results and reasoning, and works on without it if refused', async t => {
+test('Claude API asks the API to clear old tool results and reasoning, and works on without only the refused part', async t => {
   const reply = res => {
     event(res, { type: 'message_start', message: { usage: { input_tokens: 10 } } });
     event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } });
@@ -462,6 +462,7 @@ test('Claude API asks the API to clear old tool results and reasoning, and works
     res.end();
   };
   const server = await fixture(t, (data, res) => reply(res));
+  const notices = [];
   const options = (url, model) => ({
     settings: { provider: 'anthropic', baseUrl: url, model },
     key: 'k',
@@ -471,19 +472,24 @@ test('Claude API asks the API to clear old tool results and reasoning, and works
     system: 'editor',
     conversation: { messages: [] },
     signal: new AbortController().signal,
-    event: () => {},
+    event: value => value.type === 'provider-notice' && notices.push(value),
   });
   await runApi(options(server.url, 'claude-fable-5-2'));
   const { data, headers } = server.requests[0];
-  assert.equal(headers['anthropic-beta'], 'context-management-2025-06-27');
-  const [thinking, tools] = data.context_management.edits;
+  assert.equal(headers['anthropic-beta'], 'context-management-2025-06-27,compact-2026-01-12');
+  const [thinking, tools, compact] = data.context_management.edits;
   assert.deepEqual(thinking, { type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 1 } });
   assert.equal(tools.type, 'clear_tool_uses_20250919');
   assert.equal(tools.trigger.type, 'input_tokens');
   assert.ok(tools.clear_at_least.value >= 20000, 'each clear removes enough to pay for the cache rewrite');
+  // Long jobs are summarised by the API past 100K input tokens, keeping what the job needs.
+  assert.equal(compact.type, 'compact_20260112');
+  assert.deepEqual(compact.trigger, { type: 'input_tokens', value: 100000 });
+  assert.match(compact.instructions, /request.*plan.*verified.*work folder.*remaining work.*Do not call any tools/s);
   // A model without adaptive reasoning gets only the tool-result clearing.
   await runApi(options(server.url, 'claude-3-haiku-20240307'));
   assert.deepEqual(server.requests[1].data.context_management.edits.map(edit => edit.type), ['clear_tool_uses_20250919']);
+  assert.equal(server.requests[1].headers['anthropic-beta'], 'context-management-2025-06-27');
   // A refusal of the feature is retried once without it; the prompt still runs.
   const seen = [];
   const refusing = http.createServer(async (req, res) => {
@@ -501,7 +507,12 @@ test('Claude API asks the API to clear old tool results and reasoning, and works
   await new Promise(resolve => refusing.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => { refusing.closeAllConnections(); refusing.close(resolve); }));
   await runApi(options(`http://127.0.0.1:${refusing.address().port}/v1`, 'claude-fable-5-2'));
+  // Context editing refused: the clearing goes, compaction stays, and the chat says so.
   assert.equal(seen.length, 2);
-  assert.equal(seen[1].data.context_management, undefined);
-  assert.equal(seen[1].beta, undefined);
+  assert.deepEqual(seen[1].data.context_management.edits.map(edit => edit.type), ['compact_20260112']);
+  assert.equal(seen[1].beta, 'compact-2026-01-12');
+  assert.equal(notices.length, 2);
+  assert.match(notices[0].text, /clearing of earlier reasoning/);
+  assert.match(notices[1].text, /clearing of old tool results/);
+  assert.match(notices[0].detail, /does not support context editing/);
 });

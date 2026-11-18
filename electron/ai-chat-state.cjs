@@ -48,6 +48,8 @@ class AiSteering {
 // 768 px keeps a filmstrip frame sharp when the hover view enlarges it (384 px was blurry);
 // fewer are kept per chat so the saved chat stays about the same size.
 const THUMB_SIZE = 768, THUMBS_PER_STEP = 6, THUMBS_PER_CHAT = 60;
+// Provider requests whose token counts a chat keeps (about 200 bytes each).
+const REQUEST_USAGE_KEPT = 500;
 // The size of a thumbnail of a width x height picture; never larger than the picture.
 function thumbnailSize(width, height, max = THUMB_SIZE) {
   const scale = Math.min(1, max / Math.max(1, width, height));
@@ -136,6 +138,15 @@ class AiRecorder {
     if (value.type === 'tool-result' && 'content' in value) value = toolResultMedia(value, this.shrink);
     if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
+      return;
+    }
+    // One provider request's tokens (and any clearing, compaction or refusal), kept with
+    // the chat so a long job shows what each step re-read. Only the newest are kept.
+    if (value.type === 'request-usage') {
+      const { type, ...entry } = value;
+      const log = (this.conversation.requestUsage ||= []);
+      log.push({ at: new Date().toISOString(), ...entry });
+      if (log.length > REQUEST_USAGE_KEPT) log.splice(0, log.length - REQUEST_USAGE_KEPT);
       return;
     }
     // A reply not started yet (a one-off call metered on this chat) stays out of the saved chat.

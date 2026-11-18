@@ -162,7 +162,13 @@ API shows dollars for the current Claude models, so its spending limit works for
 Every step re-sends the conversation so far, so old material is trimmed. On the
 Claude API, Anthropic clears old tool results (pictures, data) and the reasoning of
 earlier requests itself once a conversation passes about 60,000 tokens, keeping the
-latest steps. When a new request starts on a chat whose history has grown past
+latest steps. A whole job is one Claude turn, so its own reasoning is never cleared;
+past 100,000 tokens Anthropic summarises the job so far (the request, plan, changes
+and checks, work-folder paths, remaining work) and the job continues from that
+summary, which shows in the chat as a compaction step. The saved history then starts
+at the summary. If Claude refuses compaction or clearing, the chat shows a warning
+and only that piece is switched off. Each chat keeps every request's tokens (input,
+cache read and write, output, clearing and compaction) in `requestUsage`. When a new request starts on a chat whose history has grown past
 80,000 tokens, any provider starts a fresh history for it; the decision diary, the
 model's memory note and your last exchange carry over, and the visible chat stays
 as it was.

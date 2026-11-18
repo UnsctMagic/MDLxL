@@ -300,24 +300,83 @@ function claudeCompaction(data) {
 // clearing keeps prompt caching and preserved reasoning valid (a client-side edit of
 // earlier turns would not). Each clear removes at least 20K tokens, so the cache
 // rewrite it causes pays for itself.
+//
+// A whole job is one API turn (tool results continue it), so clearing reasoning never
+// reaches the job's own thinking, which piles up and is re-read on every step. Past
+// COMPACT_ABOVE input tokens the API also summarises everything so far into a
+// compaction block; the request carries on from that summary, and the saved history
+// drops what came before it, so later requests stay small.
 const CONTEXT_EDITING_BETA = 'context-management-2025-06-27';
-function anthropicContextEditing(thinking) {
-  return {
-    edits: [
-      // Keep the reasoning of the job in progress; earlier jobs' reasoning is cleared.
-      ...(thinking ? [{ type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 1 } }] : []),
-      {
-        type: 'clear_tool_uses_20250919',
-        // Old tool inputs (whole scripts) go too, not only their results.
-        clear_tool_inputs: true,
-        trigger: { type: 'input_tokens', value: 60000 },
-        keep: { type: 'tool_uses', value: 4 },
-        clear_at_least: { type: 'input_tokens', value: 20000 },
-      },
-    ],
-  };
+const COMPACTION_BETA = 'compact-2026-01-12';
+const COMPACT_ABOVE = 100000;
+const COMPACTION_INSTRUCTIONS =
+  'Summarize this MDLxL model-editing conversation inside <summary></summary> tags so the work can continue from the summary alone. Keep: ' +
+  "the user's request in their own words and every later instruction or correction they gave; the plan and which step is current; " +
+  'each change made to the model (what, where, with which tool) and whether it was verified, with the result of each check; ' +
+  "every file path in the chat's work folder and any names, ids, indices or numbers that later steps need; open problems; and the remaining work, in order. " +
+  'Leave out picture descriptions and data a tool can read again. Do not call any tools while writing this summary; respond with text only.';
+const EDIT_TYPES = { thinking: 'clear_thinking_20251015', tools: 'clear_tool_uses_20250919', compact: 'compact_20260112' };
+// What each piece is called in the chat when Claude refuses it.
+const EDIT_LABELS = {
+  [EDIT_TYPES.thinking]: 'clearing of earlier reasoning',
+  [EDIT_TYPES.tools]: 'clearing of old tool results',
+  [EDIT_TYPES.compact]: 'context compaction',
+};
+// `off` holds the edit types Claude refused earlier in this run. Returns null when nothing is left.
+function anthropicContextEditing(thinking, off = new Set()) {
+  const edits = [
+    // Keep the reasoning of the job in progress; earlier jobs' reasoning is cleared.
+    // Claude requires this one first.
+    ...(thinking ? [{ type: EDIT_TYPES.thinking, keep: { type: 'thinking_turns', value: 1 } }] : []),
+    {
+      type: EDIT_TYPES.tools,
+      // Old tool inputs (whole scripts) go too, not only their results.
+      clear_tool_inputs: true,
+      trigger: { type: 'input_tokens', value: 60000 },
+      keep: { type: 'tool_uses', value: 4 },
+      clear_at_least: { type: 'input_tokens', value: 20000 },
+    },
+    // Compaction needs the same models as adaptive thinking (Claude 4.6 and later).
+    ...(thinking ? [{ type: EDIT_TYPES.compact, trigger: { type: 'input_tokens', value: COMPACT_ABOVE }, instructions: COMPACTION_INSTRUCTIONS }] : []),
+  ].filter(edit => !off.has(edit.type));
+  return edits.length ? { edits } : null;
 }
-const CONTEXT_EDITING_REFUSED = /HTTP 400.*(context[_ ]management|clear_tool_uses|clear_thinking|anthropic-beta)/is;
+// The beta header the edits need.
+function anthropicBetas(edits) {
+  const betas = [];
+  if (edits.some(edit => edit.type !== EDIT_TYPES.compact)) betas.push(CONTEXT_EDITING_BETA);
+  if (edits.some(edit => edit.type === EDIT_TYPES.compact)) betas.push(COMPACTION_BETA);
+  return betas.join(',');
+}
+// The edit types a 400 refuses, out of those sent: the ones it names, or the ones whose
+// beta it names; a refusal of context management in general takes the newest piece
+// first. Any other 400 refuses none, and the error stands.
+function refusedEdits(message, edits) {
+  if (!edits?.length || !/HTTP 400/.test(message)) return [];
+  const types = edits.map(edit => edit.type);
+  const named = new Set();
+  if (/compact/i.test(message)) named.add(EDIT_TYPES.compact);
+  if (/clear_thinking/i.test(message)) named.add(EDIT_TYPES.thinking);
+  if (/clear_tool_uses/i.test(message)) named.add(EDIT_TYPES.tools);
+  const index = /edits(?:\.|\[)(\d+)/.exec(message);
+  if (index && types[index[1]]) named.add(types[index[1]]);
+  let hit = types.filter(type => named.has(type));
+  if (!hit.length && /context-management-2025-06-27|context[ _-]editing/i.test(message))
+    hit = types.filter(type => type !== EDIT_TYPES.compact);
+  if (!hit.length && /context[ _]management/i.test(message)) hit = types.slice(-1);
+  return hit;
+}
+// Token counts of one response: the top level counts only the reply itself; with
+// compaction, `iterations` lists the summary and the reply, and the bill is their sum.
+function usageParts(usage) {
+  const count = u => ({
+    input: u?.input_tokens || 0,
+    cacheWrite: u?.cache_creation_input_tokens || 0,
+    cacheRead: u?.cache_read_input_tokens || 0,
+    output: u?.output_tokens || 0,
+  });
+  return Array.isArray(usage?.iterations) && usage.iterations.length ? usage.iterations.map(i => ({ type: i.type, ...count(i) })) : null;
+}
 const CANCELLED = 'AI request cancelled.';
 // Said when a provider asks for anything beyond MDLxL's own editor tools.
 const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
@@ -415,8 +474,9 @@ async function runApi({
       });
   }
   let awarenessVersion = awareness?.version;
-  // Cleared by the API once the conversation is large; off again if a model refuses it.
-  let contextEditing = anthropic;
+  // Cleared and compacted by the API once the conversation is large; a piece Claude
+  // refuses stays off for the rest of this prompt, and the chat says so.
+  const refused = new Set();
   // Providers without server-side clearing: trim the history here once it is large.
   const TRIM_ABOVE = 60000;
   let lastUsed = 0;
@@ -453,6 +513,7 @@ async function runApi({
         blocks[blocks.length - 1] = { ...blocks.at(-1), cache_control: cache };
         messages[messages.length - 1] = { ...lastMessage, content: blocks };
       }
+      const contextManagement = anthropicContextEditing(thinking, refused);
       let response;
       try {
         event({ type: 'request', model: settings.model });
@@ -467,17 +528,27 @@ async function runApi({
             ...(apiTools.length ? { tools: apiTools } : {}),
             ...(thinking ? { thinking } : {}),
             ...(thinking && effortFor(settings) ? { output_config: { effort: effortFor(settings) } } : {}),
-            ...(contextEditing ? { context_management: anthropicContextEditing(thinking) } : {}),
+            ...(contextManagement ? { context_management: contextManagement } : {}),
             stream: true,
           },
           key,
           signal,
-          contextEditing ? { ...ANTHROPIC_HEADERS, 'anthropic-beta': CONTEXT_EDITING_BETA } : ANTHROPIC_HEADERS,
+          contextManagement ? { ...ANTHROPIC_HEADERS, 'anthropic-beta': anthropicBetas(contextManagement.edits) } : ANTHROPIC_HEADERS,
         );
       } catch (error) {
-        // A model or account without context editing works as before, only without the clearing.
-        if (contextEditing && CONTEXT_EDITING_REFUSED.test(error.message)) {
-          contextEditing = false;
+        // A model or account without one of the pieces works on without that piece only.
+        const pieces = refusedEdits(error.message, contextManagement?.edits);
+        if (pieces.length) {
+          for (const piece of pieces) {
+            refused.add(piece);
+            event({
+              type: 'provider-notice',
+              text: `Claude did not accept ${EDIT_LABELS[piece]}; this prompt continues without it, and long jobs re-read more each step.`,
+              detail: error.message,
+              severity: 'warning',
+            });
+          }
+          event({ type: 'request-usage', model: settings.model, refused: pieces, error: error.message.slice(0, 500) });
           step--;
           continue;
         }
@@ -488,24 +559,20 @@ async function runApi({
       }
       const content = [];
       const request = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
-      let stopReason = null;
+      const window = thinking ? 1000000 : 200000;
+      let stopReason = null,
+        iterations = null,
+        appliedEdits = null;
       for await (const data of sseEvents(response)) {
         if (data.type === 'error') throw Error(data.error?.message || 'Claude stream failed.');
         if (data.type === 'content_block_start') content[data.index] = { ...data.content_block, _json: '' };
         // Actual provider context usage for the chat.
         if (data.type === 'message_start' && data.message?.usage) {
           const u = data.message.usage;
-          spent.input += u.input_tokens || 0;
-          spent.cacheWrite += u.cache_creation_input_tokens || 0;
-          spent.cacheRead += u.cache_read_input_tokens || 0;
           request.input = u.input_tokens || 0;
           request.cacheWrite = u.cache_creation_input_tokens || 0;
           request.cacheRead = u.cache_read_input_tokens || 0;
-          event({
-            type: 'usage',
-            used: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
-            window: anthropicThinking(settings.model) ? 1000000 : 200000,
-          });
+          event({ type: 'usage', used: request.input + request.cacheRead + request.cacheWrite, window });
         }
         if (data.type === 'content_block_delta') {
           const block = content[data.index];
@@ -522,17 +589,45 @@ async function runApi({
           if (data.delta.type === 'signature_delta')
             block.signature = (block.signature || '') + data.delta.signature;
           if (data.delta.type === 'citations_delta') (block.citations ||= []).push(data.delta.citation);
+          // The summary arrives whole in one delta; the block is kept exactly as sent.
+          if (data.delta.type === 'compaction_delta') {
+            const { type, ...fields } = data.delta;
+            for (const [name, value] of Object.entries(fields))
+              block[name] = typeof value === 'string' && typeof block[name] === 'string' ? block[name] + value : value;
+          }
         }
         if (data.type === 'message_delta') {
           stopReason = data.delta?.stop_reason;
-          // output_tokens here is the reply's final total.
-          if (data.usage?.output_tokens) (spent.output += data.usage.output_tokens, (request.output = data.usage.output_tokens));
+          // The usage here is the reply's final total.
+          const u = data.usage || {};
+          if (u.input_tokens != null) request.input = u.input_tokens;
+          if (u.cache_creation_input_tokens != null) request.cacheWrite = u.cache_creation_input_tokens;
+          if (u.cache_read_input_tokens != null) request.cacheRead = u.cache_read_input_tokens;
+          if (u.output_tokens) request.output = u.output_tokens;
+          iterations = usageParts(u) || iterations;
+          appliedEdits = (data.context_management || data.delta?.context_management)?.applied_edits || appliedEdits;
         }
       }
       if (!stopReason) throw Error('The provider stream ended before completion.');
       {
-        const usd = anthropicCost(settings.model, request);
+        // A compaction is billed on top of the reply; each part at its own size.
+        const parts = iterations?.some(part => part.type === 'compaction') ? iterations : [request];
+        for (const part of parts) for (const name of Object.keys(spent)) spent[name] += part[name];
+        const costs = parts.map(part => anthropicCost(settings.model, part));
+        const usd = costs.includes(null) ? null : costs.reduce((sum, value) => sum + value, 0);
         anthropicUsd = usd === null || anthropicUsd === null ? null : anthropicUsd + usd;
+        const compacted = iterations?.find(part => part.type === 'compaction');
+        // Each request's tokens, clearing and compaction, kept with the chat as proof of what a step costs.
+        event({
+          type: 'request-usage',
+          model: settings.model,
+          ...request,
+          stop: stopReason,
+          ...(appliedEdits?.length ? { edits: appliedEdits } : {}),
+          ...(compacted ? { compaction: { input: compacted.input + compacted.cacheRead + compacted.cacheWrite, output: compacted.output } } : {}),
+          ...(usd !== null ? { usd } : {}),
+        });
+        event({ type: 'usage', used: request.input + request.cacheRead + request.cacheWrite, window });
         charge(anthropicUsd);
       }
       for (const block of content) {
@@ -551,9 +646,24 @@ async function runApi({
           });
       }
       history.push({ role: 'assistant', content });
+      const compaction = content.find(b => b.type === 'compaction');
+      if (compaction) {
+        event({ type: 'compaction', active: true });
+        // Claude ignores everything before a summary, so the saved history (and every
+        // later upload) starts at it. Without a summary the full history stays.
+        if (typeof compaction.content === 'string' && compaction.content) history.splice(0, history.length - 1);
+        else
+          event({
+            type: 'provider-notice',
+            text: 'Context compaction wrote no summary; the full history is kept.',
+            detail: stopReason === 'refusal' ? 'The summary was declined.' : '',
+            severity: 'warning',
+          });
+        event({ type: 'compaction', active: false });
+      }
       const calls = content.filter(b => b.type === 'tool_use');
-      // A long web search can pause the turn; sending it back lets it continue.
-      if (!calls.length && stopReason === 'pause_turn') continue;
+      // A long web search (or a compaction) can pause the turn; sending it back lets it continue.
+      if (!calls.length && (stopReason === 'pause_turn' || stopReason === 'compaction')) continue;
       if (!calls.length) {
         if (stopReason === 'max_tokens')
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
