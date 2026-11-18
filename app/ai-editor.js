@@ -947,6 +947,7 @@ export class AiEditorBridge {
         const format = args.format || args.path?.split('.').at(-1)?.toLowerCase();
         if (!['mdl', 'mdx'].includes(format)) throw Error('Choose MDL or MDX.');
         const bytes = await prepareModelSaveAsync(env.doc, format);
+        if (bytes.verificationWarnings.length) throw Error(bytes.verificationWarnings.join(' '));
         active();
         this.requireTarget(args.target);
         const result = await window.desktop.aiWriteModel({
@@ -956,20 +957,20 @@ export class AiEditorBridge {
           forgeAssets: host.assetsIn(env.session.id),
           overwrite: args.overwrite === true,
         });
-        return { ...result, revision: target.revision, format, ...(bytes.verificationWarnings.length ? { saveCheckNotes: bytes.verificationWarnings } : {}) };
+        return { ...result, revision: target.revision, format };
       }
       if (args.action === 'validate') {
         const results = [];
         for (const format of ['mdx', 'mdl'])
           try {
             const saved = await prepareModelSaveAsync(env.doc, format);
+            if (saved.verificationWarnings.length) throw Error(saved.verificationWarnings.join(' '));
             const reopened = openDocument(saved.bytes, 'AI round-trip.' + format);
             results.push({
               format,
               bytes: saved.bytes.byteLength,
               diagnostics: reopened.diagnostics,
               readOnly: reopened.readOnly,
-              ...(saved.verificationWarnings.length ? { saveCheckNotes: saved.verificationWarnings } : {}),
             });
           } catch (error) {
             results.push({ format, error: error.message });
