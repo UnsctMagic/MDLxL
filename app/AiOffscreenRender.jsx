@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { aiPictureProps } from '../src/ai-picture.js';
+import { aiPictureProps, frameExactly } from '../src/ai-picture.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 
 // AI pictures of a model, drawn in a hidden preview of their own. The view, camera
@@ -79,10 +79,10 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
       entry.stage = 'loading textures and effects';
       await api.whenReady();
       entry.stage = 'drawing';
-      // Fit the model, or the close-up points, then look from the requested side
-      // (fit keeps the preset view). captureView draws right away: waiting for the
-      // next screen refresh would stall while the window is covered or minimized.
-      api.fit(entry.focus);
+      // Frame the posed points exactly (centred, the same share of every view), then
+      // zoom about their centre. captureView draws right away: waiting for the next
+      // screen refresh would stall while the window is covered or minimized.
+      frameExactly(api, entry.focus, { zoom: entry.zoom });
       const image = api.captureView();
       drawMarks(image, api, entry.marks);
       finish(entry, null, image.toDataURL('image/png'));

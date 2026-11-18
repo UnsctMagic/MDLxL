@@ -27,8 +27,8 @@ import {
   uvPictureGeosets,
   uvPictureSize,
   uvRange,
-  zoomedFocus,
 } from '../src/ai-uv-picture.js';
+import { drawnGeosets, picturePose, posedPoints, poseMatrices } from '../src/ai-picture.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
@@ -93,26 +93,6 @@ const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
-// Model-space positions of the marked vertices, posed at the picture's frame.
-function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
-  // The kept original of an edited model can have fewer vertices than the selection names.
-  const valid = Object.entries(selection)
-    .map(([gi, ids]) => [gi, model.Geosets[gi] ? ids.filter(i => i * 3 < model.Geosets[gi].Vertices.length) : []])
-    .filter(([, ids]) => ids.length);
-  if (!valid.length) return [];
-  if (sequence < 0 && globalSequence == null)
-    return valid.flatMap(([gi, ids]) => ids.flatMap(id => Array.from(model.Geosets[gi].Vertices.subarray(id * 3, id * 3 + 3))));
-  try {
-    const sampled = sampleAiModel(
-      model,
-      { frame, sequence, globalSequence, selectedNodeIds: [] },
-      { frames: [frame], vertices: Object.fromEntries(valid), limit: 1000 },
-    );
-    return sampled.samples[0].geosets.flatMap(g => g.selected.positions.flatMap(p => p.position));
-  } catch {
-    return [];
-  }
-}
 function checkView(args, model) {
   if (
     args.sequence !== undefined &&
@@ -1028,25 +1008,30 @@ export class AiEditorBridge {
   // chooses another view, animation or frame for this picture only. source.model
   // draws another state of the task's model (the original kept for review),
   // source.documentId an attached reference model (a donor), and source.focus frames
-  // these model-space points so pictures meant to be compared match.
+  // these model-space points so pictures meant to be compared match. The framed points
+  // are posed exactly as the preview draws them (no animation is the bind pose) and end
+  // up centred in the picture, in every view.
   async picture(id, sample = {}, source = {}) {
     const target = this.targets.get(id),
       env = this.env(target),
       s = env.state;
+    const renderMode = sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
     if (source.documentId) {
       const donor = this.referenceSessions(target).find(x => x.id === source.documentId);
       if (!donor) throw Error('Reference model is no longer open.');
-      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1);
+      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1),
+        pose = picturePose(donor.doc.model, { sequence, globalSequence: sample.globalSequence ?? null, frame: sample.frame ?? 0 });
       const image = await this.host().render({
         documentId: donor.id,
         view: sample.view || s.view,
         sequence,
         globalSequence: sample.globalSequence ?? null,
-        frame: sample.frame ?? 0,
-        renderMode: sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
+        frame: pose.frame,
+        restPose: !!pose.bind,
+        renderMode,
         hiddenGeosets: [],
         marks: null,
-        focus: source.focus || null,
+        focus: source.focus || posedPoints(pose, new Map(drawnGeosets(pose).map(g => [g, true]))),
       });
       return { label: donor.doc.name, image };
     }
@@ -1054,44 +1039,42 @@ export class AiEditorBridge {
     const globalSequence =
       sample.globalSequence !== undefined ? sample.globalSequence : sample.sequence !== undefined ? null : s.globalSeqId;
     const sequence = globalSequence == null ? (sample.sequence ?? s.sequence) : -1;
-    const frame =
+    const asked =
       sample.frame ??
       (sample.globalSequence != null
         ? 0
         : sample.sequence !== undefined && sample.sequence !== s.sequence
           ? (model.Sequences[sample.sequence]?.Interval?.[0] ?? 0)
           : s.time);
+    // The pose the preview draws: the frame kept inside the animation, or the bind pose.
+    const pose = picturePose(model, { sequence, globalSequence, frame: asked }),
+      frame = pose.frame,
+      matrices = poseMatrices(pose);
     const view = sample.view || s.view,
       // Pictures show the surface; mesh lines only when the sample asks for them (wireframe: true).
-      wireframe = sample.wireframe === true,
-      renderMode = wireframe ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
+      wireframe = renderMode === 'wireframe';
     // sample.vertices marks and frames exactly those vertices without touching the selection.
     const own = sample.vertices && !source.candidate ? sample.vertices : null;
-    const marked = markedPositions(model, own || source.candidate || target.selection, sequence, globalSequence, frame);
+    const marked = posedPoints(pose, own || source.candidate || target.selection || {}, matrices);
     if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
     if (sample.geosets?.length && !only.length) throw Error('None of those geosets exist in this model.');
-    const parts = only
-      ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
-      : null;
-    let focus = source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts);
+    const hidden = source.candidate
+      ? []
+      : only
+        ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g))
+        : source.model && source.model.Geosets.length !== env.model.Geosets.length
+          ? []
+          : [...(s.hiddenGeosets || [])];
+    // What the preview draws: shown geosets that their geoset animation does not fade out here.
+    const shown = drawnGeosets(pose, hidden),
+      faded = (only || model.Geosets.map((_, g) => g)).filter(g => !hidden.includes(g) && !shown.includes(g)),
+      whole = posedPoints(pose, new Map(shown.map(g => [g, true])), matrices);
+    let focus = source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? whole : only ? posedPoints(pose, new Map(only.map(g => [g, true])), matrices) : whole);
     if (own && !source.focus && sample.fit !== 'model') focus = marked;
+    if (!focus?.length) focus = whole.length ? whole : null;
     const zoom = clampZoom(sample.zoom);
-    if (zoom > 1 && !source.focus) {
-      // Shrink the framed box around its centre; with nothing framed yet, that is the whole visible model.
-      const hiddenNow = new Set(s.hiddenGeosets || []);
-      const whole = focus?.length
-        ? focus
-        : markedPositions(
-            model,
-            Object.fromEntries(model.Geosets.flatMap((g, gi) => (hiddenNow.has(gi) ? [] : [[gi, Array.from({ length: g.Vertices.length / 3 }, (_, i) => i)]]))),
-            sequence,
-            globalSequence,
-            frame,
-          );
-      focus = zoomedFocus(whole, zoom);
-    }
     const image = await this.host().render({
       documentId: env.session.id,
       ...(source.model ? { model: structuredClone(source.model) } : {}),
@@ -1099,18 +1082,22 @@ export class AiEditorBridge {
       sequence,
       globalSequence,
       frame,
+      restPose: !!pose.bind,
       renderMode,
-      hiddenGeosets: only
-        ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g))
-        : source.model && source.model.Geosets.length !== env.model.Geosets.length
-          ? []
-          : s.hiddenGeosets,
+      hiddenGeosets: hidden,
       marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
-      ...(source.candidate ? { hiddenGeosets: [], showParticles: false } : {}),
+      ...(source.candidate ? { showParticles: false } : {}),
       focus,
+      zoom: source.focus ? 1 : zoom,
     });
+    const name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
+      triangles = shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
+      when =
+        pose.kind === 'bind'
+          ? 'bind pose (no animation)'
+          : `${pose.kind === 'global' ? 'global sequence ' + globalSequence : 'sequence ' + sequence + (name ? ' "' + name + '"' : '')}; frame ${frame}${Number.isFinite(asked) && asked !== frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 ? '; zoom ' + zoom + 'x' : ''}`,
+      label: `${view}; ${when}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? '; not drawn at this frame (geoset alpha 0): ' + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
       image,
     };
   }
