@@ -90,7 +90,9 @@ function portraitCrop(source) {
 export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
   const [job, setJob] = useState(null),
     queue = useRef([]),
-    current = useRef(null);
+    current = useRef(null),
+    teamColorNow = useRef(teamColor);
+  teamColorNow.current = teamColor;
   const next = useCallback(() => {
     current.current = queue.current.shift() || null;
     setJob(current.current);
@@ -98,7 +100,8 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
   useEffect(() => {
     onReady({
       render: spec =>
-        new Promise((resolve, reject) => {
+        // UV pictures draw team colour the way these pictures do: ask without drawing.
+        spec.query === 'teamColor' ? Promise.resolve(teamColorNow.current) : new Promise((resolve, reject) => {
           const entry = { ...spec, id: crypto.randomUUID(), resolve, reject, stage: 'loading the model' };
           // A preview that never gets ready must not hold up the AI forever. Say
           // where it stopped, and any error the hidden preview shows.

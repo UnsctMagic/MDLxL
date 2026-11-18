@@ -250,7 +250,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'capture',
-    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. A sample with fit selection is a close-up of the marked vertices as they sit in that frame (mark them with select first); otherwise the whole drawn model is framed, centred. Sequence -1 is the bind pose. A filmstrip shows a whole animation in one picture. A sample can also frame and mark given vertices without changing the selection (vertices), zoom in (zoom), show the mesh lines (wireframe), or be a flat UV layout picture (uv): the geoset texture with its UV triangles drawn over it and the marked vertices as red dots, one picture per texture. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
+    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. A sample with fit selection is a close-up of the marked vertices as they sit in that frame (mark them with select first); otherwise the whole drawn model is framed, centred. Sequence -1 is the bind pose. A filmstrip shows a whole animation in one picture. A sample can also frame and mark given vertices without changing the selection (vertices), zoom in (zoom), show the mesh lines (wireframe), or be a flat UV layout picture (uv): the material with its UV triangles drawn over it, the marked vertices as red dots and the islands numbered, one picture per material look. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
     {
       target,
       samples: {
@@ -269,7 +269,7 @@ export const AI_TOOLS = [
             wireframe: { type: 'boolean', description: 'Show the mesh lines.' },
             vertices: { type: 'object', additionalProperties: indices, description: 'Geoset index to vertex ids: frame and mark exactly these vertices in red. The selection does not change.' },
             zoom: { type: 'number', minimum: 1, maximum: 8, description: 'Zoom in on what is framed (model, geosets, vertices or selection). 1 to 8; default 1.' },
-            uv: { type: 'boolean', description: 'A flat UV layout picture instead of the 3D view: the geoset texture with its UV triangles over it, marked vertices red. Uses geosets, else geosets with marked vertices, else all.' },
+            uv: { type: 'boolean', description: 'A flat UV layout picture instead of the 3D view: the material (all layers, team colour) with the UV triangles over it, marked vertices red, islands numbered. Uses geosets, else geosets with marked vertices, else all.' },
             uvSet: { type: 'integer', minimum: 0, description: 'UV set for uv; default 0.' },
             overlays: {
               ...object(Object.fromEntries(['bones', 'attachments', 'labels', 'normals', 'collision', 'cameras', 'wires'].map(key => [key, { type: 'boolean' }]))),

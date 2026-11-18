@@ -16,7 +16,7 @@ import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
-import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
+import { gamePathKey } from '../src/game-path.js';
 import {
   clampZoom,
   groupGeosetsByTexture,
@@ -27,6 +27,9 @@ import {
   uvPictureGeosets,
   uvPictureSize,
   uvRange,
+  uvTiles,
+  uvIslands,
+  layerText,
 } from '../src/ai-uv-picture.js';
 import {
   TRAIL_COLORS,
@@ -109,6 +112,8 @@ const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
+// At most this many UV islands get a number in a UV picture.
+const MAX_ISLAND_NUMBERS = 40;
 const loadPicture = async url => {
   const image = new Image();
   image.src = url;
@@ -1215,6 +1220,16 @@ export class AiEditorBridge {
   }
   // Flat pictures of the geosets' UV layout: the texture with the UV triangles drawn over it, one
   // picture per texture. Marked vertices (sample.vertices, else the task's marks) are red dots.
+  // The editor's team colour, as its 3D pictures use it (the hidden picture preview knows it).
+  async pictureTeamColor(documentId) {
+    try {
+      const color = await this.host().render({ documentId, model: {}, query: 'teamColor' });
+      if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+    } catch {
+      /* the default below */
+    }
+    return '#ff0303';
+  }
   async uvPictures(id, sample) {
     const target = this.targets.get(id),
       env = this.env(target),
@@ -1223,10 +1238,12 @@ export class AiEditorBridge {
       marks = sample.vertices || target.selection || {};
     const geosets = uvPictureGeosets(model, sample.geosets, marks).filter(g => uvArray(model.Geosets[g], uvSet));
     if (!geosets.length) throw Error('These geosets have no UV set ' + uvSet + '.');
-    const pictures = [];
+    const pictures = [],
+      teamColor = sample.teamColor || (await this.pictureTeamColor(env.session.id));
     for (const group of groupGeosetsByTexture(model, geosets)) {
       const list = group.geosets.map(g => model.Geosets[g]),
         range = uvRange(uvBounds(list, uvSet)),
+        tiles = uvTiles(range),
         { width, height } = uvPictureSize(range),
         canvas = document.createElement('canvas');
       canvas.width = width;
@@ -1236,38 +1253,40 @@ export class AiEditorBridge {
         spanV = range.maxV - range.minV,
         px = u => ((u - range.minU) / spanU) * width,
         py = v => ((v - range.minV) / spanV) * height;
-      // Background: the texture tiled across the range (Warcraft III wraps), else plain grey.
+      // Background: the material as the UV Wrapper shows it (every layer composited, team colour
+      // and glow included), tiled across the range (Warcraft III wraps), else plain grey.
       context.fillStyle = '#808080';
       context.fillRect(0, 0, width, height);
       let note = '';
-      const path = group.texture?.path;
-      if (!group.texture) note = 'no texture: plain grey background';
-      else if (!path) note = 'replaceable texture ' + group.texture.replaceableId + ': plain grey background';
+      if (!group.layers.length) note = 'no material layers: plain grey background';
       else {
         let picture = null;
         try {
-          const asset = await loadTextureAsset(path, env.session);
-          if (asset) {
-            picture = new Image();
-            picture.src = await decodeTextureThumbnail(asset, 1024);
-            await picture.decode();
-          }
-        } catch {
-          picture = null;
+          const assets = new Map();
+          for (const layer of group.layers)
+            if (layer.path) {
+              const asset = await loadTextureAsset(layer.path, env.session);
+              if (asset) assets.set(gamePathKey(layer.path), asset);
+            }
+          const { renderUVMaterialTexture } = await import('./uv-material-preview.js');
+          const backdrop = await renderUVMaterialTexture(model, group.material, assets, { teamColor, time: sample.frame ?? 0, sequenceIndex: sample.sequence ?? -1 });
+          picture = await loadPicture(backdrop.url);
+          if (backdrop.warnings.length) note = 'not shown: ' + backdrop.warnings.join(', ');
+        } catch (error) {
+          note = 'texture could not be loaded (' + error.message + '): plain grey background';
         }
         if (picture)
-          for (let tu = range.minU; tu < range.maxU; tu++)
-            for (let tv = range.minV; tv < range.maxV; tv++)
+          for (let tu = tiles.u[0]; tu < tiles.u[1]; tu++)
+            for (let tv = tiles.v[0]; tv < tiles.v[1]; tv++)
               context.drawImage(picture, px(tu), py(tv), px(tu + 1) - px(tu), py(tv + 1) - py(tv));
-        else note = 'texture could not be loaded: plain grey background';
       }
       // Tile borders where the UVs go outside 0..1.
       if (spanU > 1 || spanV > 1) {
         context.strokeStyle = 'rgba(255,255,0,0.7)';
         context.lineWidth = 1;
         context.beginPath();
-        for (let tu = range.minU; tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
-        for (let tv = range.minV; tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
+        for (let tu = Math.ceil(range.minU); tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
+        for (let tv = Math.ceil(range.minV); tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
         context.stroke();
       }
       // White under cyan keeps the thin edges readable on both light and dark textures.
@@ -1291,8 +1310,25 @@ export class AiEditorBridge {
           context.fill();
           dots++;
         }
+      // Islands (the UV Wrapper's pieces), numbered at their centres, largest first.
+      const islands = group.geosets.flatMap(g => uvIslands(model.Geosets[g], uvSet).map(island => ({ ...island, geoset: g }))).sort((a, b) => b.area - a.area),
+        numbered = islands.slice(0, MAX_ISLAND_NUMBERS);
+      context.font = 'bold 14px Tahoma, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.lineWidth = 3;
+      numbered.forEach((island, i) => {
+        context.strokeStyle = '#000000';
+        context.strokeText(String(i + 1), px(island.u), py(island.v));
+        context.fillStyle = '#ffff00';
+        context.fillText(String(i + 1), px(island.u), py(island.v));
+      });
+      const round = value => Math.round(value * 1000) / 1000,
+        islandText = numbered
+          .map((island, i) => `${i + 1} geoset ${island.geoset} (${island.triangles} triangles, u ${round(island.minU)}..${round(island.maxU)}, v ${round(island.minV)}..${round(island.maxV)})`)
+          .join('; ');
       pictures.push({
-        label: `UV layout, set ${uvSet}; ${group.geosets.map(g => 'geoset ' + (g + 1)).join(', ')}; texture ${path || (group.texture ? 'replaceable ' + group.texture.replaceableId : 'none')}; UV range u ${range.minU}..${range.maxU}, v ${range.minV}..${range.maxV}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}`,
+        label: `UV layout, set ${uvSet}; geosets ${group.geosets.join(', ')}; material ${group.material} layers ${group.layers.map(layerText).join(' + ') || 'none'}${group.layers.some(layer => layer.replaceableId === 1 || layer.replaceableId === 2) ? '; team colour ' + teamColor : ''}; UV range u ${round(range.minU)}..${round(range.maxU)}, v ${round(range.minV)}..${round(range.maxV)}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}; islands numbered in yellow, largest first: ${islandText}${islands.length > numbered.length ? `; ${islands.length - numbered.length} smaller islands not numbered` : ''}`,
         image: canvas.toDataURL('image/png'),
       });
     }
