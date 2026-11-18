@@ -64,6 +64,34 @@ in - his eyes are different colors."
 - He ties into the replay: while View AI work is on, the marker/glow on the model uses his eye colour.
 - No text bubbles or flavour text.
 
+## Part 3: more AI providers (owner, 18 Nov 2026)
+
+"Add all known accessible AI providers as logins/apis - what is currently ACCEPTABLE worldwide and
+known - just like codex and claude are pretty popular, there are a few more. API keys and logins.
+Order should always be Claude first, codex after."
+
+- Order everywhere a provider list shows: Claude (Claude Code login, then Claude API), then Codex
+  (Codex login, then OpenAI API), then the new ones, Compatible (custom endpoint) last.
+  Today `src/ai-providers.json` lists codex first: fix that.
+- Which providers: research the current ones (web) and pick mainstream, official, generally
+  available worldwide, with tool/function calling good enough for MDLxL's `mdlxl_*` tools.
+  Starting list to verify: API keys: Google Gemini, xAI Grok, Mistral, DeepSeek, Alibaba Qwen
+  (international), OpenRouter, Groq; Amazon Bedrock and Azure OpenAI if their setup fits the
+  existing connection form. Logins (official CLIs with MCP support, same pattern as Codex and
+  Claude Code in `electron/ai-process.cjs` / `ai-providers.json`): Gemini CLI (Google account),
+  GitHub Copilot CLI (GitHub account), and any other official CLI that qualifies.
+  Local: Ollama and LM Studio if they fit the Compatible path as presets. Leave out anything that
+  cannot call tools. Record the final list and every exclusion with its reason here.
+- Reuse what exists: API providers that officially offer an OpenAI-compatible endpoint go through
+  the existing OpenAI/compatible path in `electron/ai-providers.cjs` (`runApi`) so trimming,
+  prices, reasoning, stop/steer keep working; add a native path only where tools need it.
+  Each provider: model list, prices per model, key/login fields in the existing connection
+  settings (no new panel), keys stored the same way as today's keys.
+- Each new provider gets Thumper eye colour from its brand colour.
+- Never enter, invent or copy real keys or logins; never copy auth between installs; never create
+  accounts. Test the request/response format against a local mock server; the owner tests real
+  logins and keys by hand.
+
 ## Where the code is
 
 - `app/ai-watch.js`: what a finished call looked at (`watchLook`), tab to show, frame-coalesced follower.
