@@ -24,7 +24,7 @@ import { checkSanity } from '../src/sanity-check.js';
 import { sanityForAi } from '../src/ai-sanity.js';
 import { hiveSanity } from './optimizexl-hive.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
-import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
+import { gamePathKey } from '../src/game-path.js';
 import {
   clampZoom,
   groupGeosetsByTexture,
@@ -35,8 +35,27 @@ import {
   uvPictureGeosets,
   uvPictureSize,
   uvRange,
-  zoomedFocus,
+  uvTiles,
+  uvIslands,
+  layerText,
 } from '../src/ai-uv-picture.js';
+import {
+  TRAIL_COLORS,
+  TRAIL_NAMES,
+  checkPictureOptions,
+  concatPoints,
+  drawnGeosets,
+  filmstripFrames,
+  filmstripLayout,
+  frameCaption,
+  hasEffects,
+  motionTrails,
+  picturePose,
+  posedPoints,
+  poseMatrices,
+  trailNodeIds,
+} from '../src/ai-picture.js';
+import { motionPathMarker } from '../src/motion-path.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
@@ -131,25 +150,44 @@ const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
-// Model-space positions of the marked vertices, posed at the picture's frame.
-function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
-  // The kept original of an edited model can have fewer vertices than the selection names.
-  const valid = Object.entries(selection)
-    .map(([gi, ids]) => [gi, model.Geosets[gi] ? ids.filter(i => i * 3 < model.Geosets[gi].Vertices.length) : []])
-    .filter(([, ids]) => ids.length);
-  if (!valid.length) return [];
-  if (sequence < 0 && globalSequence == null)
-    return valid.flatMap(([gi, ids]) => ids.flatMap(id => Array.from(model.Geosets[gi].Vertices.subarray(id * 3, id * 3 + 3))));
-  try {
-    const sampled = sampleAiModel(
-      model,
-      { frame, sequence, globalSequence, selectedNodeIds: [] },
-      { frames: [frame], vertices: Object.fromEntries(valid), limit: 1000 },
-    );
-    return sampled.samples[0].geosets.flatMap(g => g.selected.positions.flatMap(p => p.position));
-  } catch {
-    return [];
+// At most this many UV islands get a number in a UV picture.
+const MAX_ISLAND_NUMBERS = 40;
+const loadPicture = async url => {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  return image;
+};
+// One picture of several frames: each cell shrunk into a grid, its caption in the top-left corner.
+async function composeFilmstrip(urls, captions) {
+  const layout = filmstripLayout(urls.length),
+    canvas = document.createElement('canvas');
+  canvas.width = layout.width;
+  canvas.height = layout.height;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#202020';
+  context.fillRect(0, 0, layout.width, layout.height);
+  context.font = 'bold 15px Tahoma, sans-serif';
+  context.textBaseline = 'top';
+  for (const [i, url] of urls.entries()) {
+    const { x, y } = layout.cells[i],
+      picture = await loadPicture(url),
+      // Whole picture in its cell, shape kept (a portrait-shaped camera picture is narrower).
+      fit = Math.min(layout.cellWidth / picture.naturalWidth, layout.cellHeight / picture.naturalHeight),
+      w = picture.naturalWidth * fit,
+      h = picture.naturalHeight * fit;
+    context.drawImage(picture, x + (layout.cellWidth - w) / 2, y + (layout.cellHeight - h) / 2, w, h);
+    context.strokeStyle = '#202020';
+    context.lineWidth = 2;
+    context.strokeRect(x + 1, y + 1, layout.cellWidth - 2, layout.cellHeight - 2);
+    const text = `${i + 1}: ${captions[i]}`,
+      width = context.measureText(text).width;
+    context.fillStyle = 'rgba(0,0,0,0.7)';
+    context.fillRect(x + 4, y + 4, width + 10, 21);
+    context.fillStyle = '#ffffff';
+    context.fillText(text, x + 9, y + 7);
   }
+  return canvas.toDataURL('image/png');
 }
 function checkView(args, model) {
   if (
@@ -183,6 +221,7 @@ function checkSample(sample, model) {
       ids.some(i => !Number.isInteger(i) || i < 0 || i >= model.Geosets[gi].Vertices.length / 3)
     )
       throw Error('Invalid vertices: use geoset index -> vertex ids that exist in this model.');
+  checkPictureOptions(sample, model);
 }
 export class AiEditorBridge {
   constructor(host) {
@@ -1147,33 +1186,38 @@ export class AiEditorBridge {
   // chooses another view, animation or frame for this picture only. source.model
   // draws another state of the task's model (the original kept for review),
   // source.documentId an attached reference model (a donor), and source.focus frames
-  // these model-space points so pictures meant to be compared match.
+  // these model-space points so pictures meant to be compared match. The framed points
+  // are posed exactly as the preview draws them (no animation is the bind pose) and end
+  // up centred in the picture, in every view.
   async picture(id, sample = {}, source = {}) {
     const target = this.targets.get(id),
       env = this.env(target),
       s = env.state;
+    const renderMode = sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
     if (source.documentId) {
       const donor = this.referenceSessions(target).find(x => x.id === source.documentId);
       if (!donor) throw Error('Reference model is no longer open.');
-      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1);
+      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1),
+        pose = picturePose(donor.doc.model, { sequence, globalSequence: sample.globalSequence ?? null, frame: sample.frame ?? 0 });
       const image = await this.host().render({
         documentId: donor.id,
         view: sample.view || s.view,
         sequence,
         globalSequence: sample.globalSequence ?? null,
-        frame: sample.frame ?? 0,
-        renderMode: sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
+        frame: pose.frame,
+        restPose: !!pose.bind,
+        renderMode,
         hiddenGeosets: [],
         marks: null,
-        focus: source.focus || null,
+        focus: source.focus || posedPoints(pose, new Map(drawnGeosets(pose).map(g => [g, true]))),
       });
-      return { label: donor.doc.name, image };
+      return { label: donor.doc.name, image: typeof image === 'string' ? image : image.image };
     }
     const model = source.model || env.model;
     const globalSequence =
       sample.globalSequence !== undefined ? sample.globalSequence : sample.sequence !== undefined ? null : s.globalSeqId;
     const sequence = globalSequence == null ? (sample.sequence ?? s.sequence) : -1;
-    const frame =
+    const asked =
       sample.frame ??
       (sample.globalSequence != null
         ? 0
@@ -1182,59 +1226,129 @@ export class AiEditorBridge {
           : s.time);
     const view = sample.view || s.view,
       // Pictures show the surface; mesh lines only when the sample asks for them (wireframe: true).
-      wireframe = sample.wireframe === true,
-      renderMode = wireframe ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
+      wireframe = renderMode === 'wireframe';
     // sample.vertices marks and frames exactly those vertices without touching the selection.
     const own = sample.vertices && !source.candidate ? sample.vertices : null;
-    const marked = markedPositions(model, own || source.candidate || target.selection, sequence, globalSequence, frame);
-    if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
     if (sample.geosets?.length && !only.length) throw Error('None of those geosets exist in this model.');
-    const parts = only
-      ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
-      : null;
-    let focus = source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts);
-    if (own && !source.focus && sample.fit !== 'model') focus = marked;
-    const zoom = clampZoom(sample.zoom);
-    if (zoom > 1 && !source.focus) {
-      // Shrink the framed box around its centre; with nothing framed yet, that is the whole visible model.
-      const hiddenNow = new Set(s.hiddenGeosets || []);
-      const whole = focus?.length
-        ? focus
-        : markedPositions(
-            model,
-            Object.fromEntries(model.Geosets.flatMap((g, gi) => (hiddenNow.has(gi) ? [] : [[gi, Array.from({ length: g.Vertices.length / 3 }, (_, i) => i)]]))),
-            sequence,
-            globalSequence,
-            frame,
-          );
-      focus = zoomedFocus(whole, zoom);
-    }
-    const image = await this.host().render({
-      documentId: env.session.id,
-      ...(source.model ? { model: structuredClone(source.model) } : {}),
-      view,
-      sequence,
-      globalSequence,
-      frame,
-      renderMode,
-      hiddenGeosets: only
+    const hidden = source.candidate
+      ? []
+      : only
         ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g))
         : source.model && source.model.Geosets.length !== env.model.Geosets.length
           ? []
-          : s.hiddenGeosets,
-      marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
-      ...(source.candidate ? { hiddenGeosets: [], showParticles: false } : {}),
-      focus,
-    });
+          : [...(s.hiddenGeosets || [])];
+    // One frame as the preview draws it: the frame kept inside the animation (or the bind pose),
+    // the marked points, the geosets drawn (not hidden, not faded out) and the points to frame.
+    const shot = at => {
+      const pose = picturePose(model, { sequence, globalSequence, frame: at }),
+        matrices = poseMatrices(pose),
+        marked = posedPoints(pose, own || source.candidate || target.selection || {}, matrices),
+        shown = drawnGeosets(pose, hidden),
+        whole = posedPoints(pose, new Map(shown.map(g => [g, true])), matrices);
+      let focus = sample.fit === 'selection' ? marked : sample.fit === 'model' ? whole : only ? posedPoints(pose, new Map(only.map(g => [g, true])), matrices) : whole;
+      if (own && sample.fit !== 'model') focus = marked;
+      if (!focus.length) focus = whole;
+      return { pose, frame: pose.frame, marked, shown, focus };
+    };
+    const strip = sample.filmstrip > 1 ? filmstripFrames(picturePose(model, { sequence, globalSequence }).interval || [], sample.filmstrip) : null;
+    if (sample.filmstrip > 1 && !strip) throw Error('A filmstrip needs an animation: give sequence or globalSequence.');
+    const shots = (strip || [asked]).map(shot),
+      first = shots[0];
+    if (sample.fit === 'selection' && !first.marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+    // Trails: each chosen node's path through the animation, drawn over the picture and framed with it.
+    if (sample.trails?.length && first.pose.bind) throw Error('Trails need an animation: give sequence or globalSequence.');
+    const trails = sample.trails?.length ? motionTrails(first.pose, trailNodeIds(model, sample.trails)) : [];
+    const trailPoints = trails.flatMap(trail => trail.points.flat());
+    // A filmstrip frames every frame alike, so the motion is the model's, not the camera's.
+    const focus = source.focus || concatPoints([...(shots.length > 1 ? shots.map(one => one.focus) : [first.focus]), trailPoints]);
+    const zoom = clampZoom(sample.zoom);
+    const draw = one =>
+      this.host().render({
+        documentId: env.session.id,
+        ...(source.model ? { model: structuredClone(source.model) } : {}),
+        view,
+        sequence,
+        globalSequence,
+        frame: one.frame,
+        restPose: !!one.pose.bind,
+        renderMode,
+        hiddenGeosets: hidden,
+        marks: source.candidate
+          ? null
+          : {
+              strokes: target.strokes || [],
+              vertices: Array.from(one.marked),
+              trails: trails.map((trail, i) => ({
+                color: TRAIL_COLORS[i],
+                number: i + 1,
+                points: trail.points.flat(),
+                keys: trail.keys.flatMap(key => key.point),
+                // Where the node is in this frame.
+                now: trail.points[motionPathMarker(trail.frames, one.frame)] || null,
+              })),
+            },
+        particles: !source.candidate && sample.particles !== false,
+        ...(sample.overlays ? { overlays: sample.overlays } : {}),
+        ...(sample.teamColor ? { teamColor: sample.teamColor } : {}),
+        ...(Number.isInteger(sample.camera) ? { camera: sample.camera } : {}),
+        focus: focus?.length ? focus : null,
+        zoom: source.focus ? 1 : zoom,
+      });
+    const pictures = [],
+      notes = new Set();
+    for (const one of shots) {
+      const drawn = await draw(one);
+      pictures.push(typeof drawn === 'string' ? drawn : drawn.image);
+      for (const note of drawn?.notes || []) notes.add(note);
+    }
+    const effects = hasEffects(model) && !source.candidate
+      ? sample.particles === false
+        ? '; particles and ribbons off'
+        : first.pose.bind
+          ? '; particles and ribbons need an animation (none in the bind pose)'
+          : '; particles and ribbons replayed from the animation start'
+      : '';
+    const pose = first.pose,
+      name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
+      triangles = first.shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
+      faded = [...new Set(shots.flatMap(one => (only || model.Geosets.map((_, g) => g)).filter(g => !hidden.includes(g) && !one.shown.includes(g))))],
+      animation = pose.kind === 'global' ? 'global sequence ' + globalSequence : 'sequence ' + sequence + (name ? ' "' + name + '"' : ''),
+      when =
+        pose.kind === 'bind'
+          ? 'bind pose (no animation)'
+          : strip
+            ? `${animation}; filmstrip of ${strip.length} frames ${strip.join(', ')}, left to right, top to bottom, one shared framing`
+            : `${animation}; frame ${first.frame}${Number.isFinite(asked) && asked !== first.frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
+    const image = strip ? await composeFilmstrip(pictures, strip.map(at => frameCaption(at, pose.interval))) : pictures[0];
+    const shownOverlays = Object.entries(sample.overlays || {}).filter(([, on]) => on).map(([key]) => key),
+      cameraText = Number.isInteger(sample.camera)
+        ? `; through model camera ${sample.camera} "${model.Cameras[sample.camera].Name || ''}" as the game shows a portrait (portrait light, black background, portrait shape; framing and zoom do not apply)`
+        : '',
+      extras = `${cameraText}${shownOverlays.length ? '; overlays: ' + shownOverlays.join(', ') : ''}${sample.teamColor ? '; team colour ' + sample.teamColor : ''}`;
+    const round = value => Math.round(value * 10) / 10,
+      trailText = trails.length
+        ? '; trails (line = path, small dots every ~33 ms so wide gaps are fast, big dots = key frames of the node or a parent, ring = this frame): ' +
+          trails.map((trail, i) => `${i + 1} ${TRAIL_NAMES[i]} "${trail.name}" (node ${trail.id}): ${trail.keys.length} keys at ${trail.keys.map(key => key.frame).join(', ') || 'none'}; path ${round(trail.length)} units; peak speed ${round(trail.peakSpeed)} units/s near frame ${trail.peakFrame}; start to end ${round(trail.travel)} units`).join('; ')
+        : '';
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 ? '; zoom ' + zoom + 'x' : ''}`,
+      label: `${Number.isInteger(sample.camera) ? 'camera ' + sample.camera : view}; ${when}${extras}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}${effects}${[...notes].map(note => '; ' + note).join('')}; ${triangles} triangles drawn`,
       image,
     };
   }
   // Flat pictures of the geosets' UV layout: the texture with the UV triangles drawn over it, one
   // picture per texture. Marked vertices (sample.vertices, else the task's marks) are red dots.
+  // The editor's team colour, as its 3D pictures use it (the hidden picture preview knows it).
+  async pictureTeamColor(documentId) {
+    try {
+      const color = await this.host().render({ documentId, model: {}, query: 'teamColor' });
+      if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+    } catch {
+      /* the default below */
+    }
+    return '#ff0303';
+  }
   async uvPictures(id, sample) {
     const target = this.targets.get(id),
       env = this.env(target),
@@ -1243,10 +1357,12 @@ export class AiEditorBridge {
       marks = sample.vertices || target.selection || {};
     const geosets = uvPictureGeosets(model, sample.geosets, marks).filter(g => uvArray(model.Geosets[g], uvSet));
     if (!geosets.length) throw Error('These geosets have no UV set ' + uvSet + '.');
-    const pictures = [];
+    const pictures = [],
+      teamColor = sample.teamColor || (await this.pictureTeamColor(env.session.id));
     for (const group of groupGeosetsByTexture(model, geosets)) {
       const list = group.geosets.map(g => model.Geosets[g]),
         range = uvRange(uvBounds(list, uvSet)),
+        tiles = uvTiles(range),
         { width, height } = uvPictureSize(range),
         canvas = document.createElement('canvas');
       canvas.width = width;
@@ -1256,38 +1372,40 @@ export class AiEditorBridge {
         spanV = range.maxV - range.minV,
         px = u => ((u - range.minU) / spanU) * width,
         py = v => ((v - range.minV) / spanV) * height;
-      // Background: the texture tiled across the range (Warcraft III wraps), else plain grey.
+      // Background: the material as the UV Wrapper shows it (every layer composited, team colour
+      // and glow included), tiled across the range (Warcraft III wraps), else plain grey.
       context.fillStyle = '#808080';
       context.fillRect(0, 0, width, height);
       let note = '';
-      const path = group.texture?.path;
-      if (!group.texture) note = 'no texture: plain grey background';
-      else if (!path) note = 'replaceable texture ' + group.texture.replaceableId + ': plain grey background';
+      if (!group.layers.length) note = 'no material layers: plain grey background';
       else {
         let picture = null;
         try {
-          const asset = await loadTextureAsset(path, env.session);
-          if (asset) {
-            picture = new Image();
-            picture.src = await decodeTextureThumbnail(asset, 1024);
-            await picture.decode();
-          }
-        } catch {
-          picture = null;
+          const assets = new Map();
+          for (const layer of group.layers)
+            if (layer.path) {
+              const asset = await loadTextureAsset(layer.path, env.session);
+              if (asset) assets.set(gamePathKey(layer.path), asset);
+            }
+          const { renderUVMaterialTexture } = await import('./uv-material-preview.js');
+          const backdrop = await renderUVMaterialTexture(model, group.material, assets, { teamColor, time: sample.frame ?? 0, sequenceIndex: sample.sequence ?? -1 });
+          picture = await loadPicture(backdrop.url);
+          if (backdrop.warnings.length) note = 'not shown: ' + backdrop.warnings.join(', ');
+        } catch (error) {
+          note = 'texture could not be loaded (' + error.message + '): plain grey background';
         }
         if (picture)
-          for (let tu = range.minU; tu < range.maxU; tu++)
-            for (let tv = range.minV; tv < range.maxV; tv++)
+          for (let tu = tiles.u[0]; tu < tiles.u[1]; tu++)
+            for (let tv = tiles.v[0]; tv < tiles.v[1]; tv++)
               context.drawImage(picture, px(tu), py(tv), px(tu + 1) - px(tu), py(tv + 1) - py(tv));
-        else note = 'texture could not be loaded: plain grey background';
       }
       // Tile borders where the UVs go outside 0..1.
       if (spanU > 1 || spanV > 1) {
         context.strokeStyle = 'rgba(255,255,0,0.7)';
         context.lineWidth = 1;
         context.beginPath();
-        for (let tu = range.minU; tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
-        for (let tv = range.minV; tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
+        for (let tu = Math.ceil(range.minU); tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
+        for (let tv = Math.ceil(range.minV); tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
         context.stroke();
       }
       // White under cyan keeps the thin edges readable on both light and dark textures.
@@ -1311,8 +1429,25 @@ export class AiEditorBridge {
           context.fill();
           dots++;
         }
+      // Islands (the UV Wrapper's pieces), numbered at their centres, largest first.
+      const islands = group.geosets.flatMap(g => uvIslands(model.Geosets[g], uvSet).map(island => ({ ...island, geoset: g }))).sort((a, b) => b.area - a.area),
+        numbered = islands.slice(0, MAX_ISLAND_NUMBERS);
+      context.font = 'bold 14px Tahoma, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.lineWidth = 3;
+      numbered.forEach((island, i) => {
+        context.strokeStyle = '#000000';
+        context.strokeText(String(i + 1), px(island.u), py(island.v));
+        context.fillStyle = '#ffff00';
+        context.fillText(String(i + 1), px(island.u), py(island.v));
+      });
+      const round = value => Math.round(value * 1000) / 1000,
+        islandText = numbered
+          .map((island, i) => `${i + 1} geoset ${island.geoset} (${island.triangles} triangles, u ${round(island.minU)}..${round(island.maxU)}, v ${round(island.minV)}..${round(island.maxV)})`)
+          .join('; ');
       pictures.push({
-        label: `UV layout, set ${uvSet}; ${group.geosets.map(g => 'geoset ' + (g + 1)).join(', ')}; texture ${path || (group.texture ? 'replaceable ' + group.texture.replaceableId : 'none')}; UV range u ${range.minU}..${range.maxU}, v ${range.minV}..${range.maxV}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}`,
+        label: `UV layout, set ${uvSet}; geosets ${group.geosets.join(', ')}; material ${group.material} layers ${group.layers.map(layerText).join(' + ') || 'none'}${group.layers.some(layer => layer.replaceableId === 1 || layer.replaceableId === 2) ? '; team colour ' + teamColor : ''}; UV range u ${round(range.minU)}..${round(range.maxU)}, v ${round(range.minV)}..${round(range.maxV)}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}; islands numbered in yellow, largest first: ${islandText}${islands.length > numbered.length ? `; ${islands.length - numbered.length} smaller islands not numbered` : ''}`,
         image: canvas.toDataURL('image/png'),
       });
     }

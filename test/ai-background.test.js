@@ -177,10 +177,12 @@ test('pictures of a model that is not showing are drawn off-screen and the scree
   assert.equal(one.image, 'data:image/png;base64,offscreen');
   await bridge.call('mdlxl_view', { target, view: 'front', frame: 250 });
   const many = await bridge.call('mdlxl_capture', { target, samples: [{ view: 'left' }, { frame: 500 }] });
+  // No animation is drawn and labelled as the bind pose (the preview used to play sequence 0 instead).
   assert.deepEqual(
     many.images.map(i => i.label),
-    ['left; sequence -1; frame 250', 'front; sequence -1; frame 500'],
+    ['left; bind pose (no animation); 12 triangles drawn', 'front; bind pose (no animation); 12 triangles drawn'],
   );
+  assert.ok(app.renders.slice(1).every(spec => spec.restPose === true));
   assert.ok(app.renders.every(spec => spec.documentId === 'A.mdx'));
   assert.equal(app.liveCaptures, 0);
   assert.equal(app.liveViews.length, 0, 'the view on screen was not changed');
@@ -206,7 +208,8 @@ test('a close-up sample frames the marked vertices; other samples frame the whol
   assert.match(shots.images[0].label, /close-up of the marked vertices/);
   const vertices = a.doc.model.Geosets[0].Vertices;
   assert.deepEqual(Array.from(app.renders[0].focus), Array.from(vertices.subarray(0, 6)), 'the two marked vertices');
-  assert.equal(app.renders[1].focus, null);
+  // The whole model is framed on the posed points the preview draws (it used to pass null and fit the rest-pose bounds).
+  assert.deepEqual(Array.from(app.renders[1].focus), Array.from(vertices));
   await bridge.call('mdlxl_select', { target, vertices: {} });
   await assert.rejects(bridge.call('mdlxl_capture', { target, samples: [{ fit: 'selection' }] }), /mark them with select/);
 });

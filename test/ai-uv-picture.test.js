@@ -11,10 +11,16 @@ import {
   uvPictureGeosets,
   uvPictureSize,
   uvRange,
+  uvTiles,
+  uvIslands,
+  layerText,
   zoomedFocus,
 } from '../src/ai-uv-picture.js';
 import { AI_TOOLS } from '../src/ai-tools.js';
 import { aiAssets } from '../app/ai-assets.js';
+import fs from 'node:fs';
+import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
+const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const { validateArguments } = createRequire(import.meta.url)('../electron/ai-mcp.cjs');
 
 // A quad of two triangles sharing one edge: 5 unique edges.
@@ -118,4 +124,33 @@ test('texture preview by path looks in the model, then the editor, and says when
     () => aiAssets({ source: 'model', action: 'preview', path: 'Eyes.blp' }, host, () => {}, found),
     /Background texture previews are unavailable/,
   );
+});
+
+test('a tiny overshoot past the tile stretches the UV picture to it instead of adding whole tiles', () => {
+  // Footman geoset 0 reached a hair past 0..1 and its picture became three tiles wide (u -1..2).
+  const range = uvRange({ minU: -0.004, maxU: 1.01, minV: 0, maxV: 1.0000004 });
+  assert.deepEqual(range, { minU: -0.004, maxU: 1.01, minV: 0, maxV: 1 });
+  assert.deepEqual(uvTiles(range), { u: [-1, 2], v: [0, 1] }, 'the wrapped neighbours still draw in the sliver');
+  const size = uvPictureSize(range);
+  assert.ok(size.width <= 1024 && size.width > 1000 && size.height > 1000 * (1 / 1.014) - 1, JSON.stringify(size));
+  // A real overshoot still shows whole tiles.
+  assert.deepEqual(uvRange({ minU: -0.2, maxU: 2.3, minV: 0, maxV: 1.5 }), { minU: -1, maxU: 3, minV: 0, maxV: 2 });
+});
+
+test('UV islands are the UV Wrapper pieces: every used vertex in one island, triangles counted, largest first', { skip: !fs.existsSync(fixturePath('footman') || '') && 'footman missing' }, () => {
+  const b = fs.readFileSync(fixturePath('footman')), model = parseCompatibleMdx(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+  for (const geoset of model.Geosets) {
+    const islands = uvIslands(geoset), used = new Set(geoset.Faces), seen = new Set();
+    for (const island of islands) for (const vertex of island.vertices) (assert.ok(!seen.has(vertex)), seen.add(vertex));
+    assert.equal(seen.size, used.size);
+    assert.equal(islands.reduce((sum, island) => sum + island.triangles, 0), geoset.Faces.length / 3);
+    assert.ok(islands.every((island, i) => !i || island.area <= islands[i - 1].area));
+    assert.ok(islands.every(island => island.u >= island.minU && island.u <= island.maxU));
+  }
+  assert.ok(uvIslands(model.Geosets[0]).length > 1, 'the Footman body has several islands');
+  // Material looks: every layer counts, so a team-coloured body is not grouped with the plain texture.
+  const groups = groupGeosetsByTexture(model, model.Geosets.map((_, i) => i));
+  assert.ok(groups.every(group => group.layers.length && group.material === model.Geosets[group.geosets[0]].MaterialID));
+  assert.match(layerText({ path: '', replaceableId: 1, filterMode: 0 }), /team colour \(None\)/);
+  assert.match(layerText({ path: 'Textures\Footman.blp', replaceableId: 0, filterMode: 2 }), /Footman\.blp \(Blend\)/);
 });
