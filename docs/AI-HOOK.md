@@ -96,11 +96,17 @@ Codex-managed sign-in remains the account mechanism. A request for externally
 managed auth tokens or client attestation receives a visible connection error;
 MDLxL does not fabricate credentials or attestation tokens.
 
-### Local JavaScript workspace
+### The AI's own computer
 
-The folder-and-code switch in the chat header enables the workspace for new requests with any embedded tool-capable provider. It starts off. If repeated measurements or candidate comparisons would benefit from a script, the AI can offer it once during a job. The green card explains the specific benefit. **Yes** enables it immediately for that job and keeps its selection and progress. **No** continues with the ordinary tools. Neither answer changes the header preference.
+Every chat has its own work folder (`<profile>/ai/work/<chat>`). Its files stay for every later prompt of that chat and are deleted with the chat. There is no switch and no question: the AI works there as it would on its own computer.
 
-The built-in JavaScript runner can keep named scripts and JSON results in private scratch files for the current job. A candidate preview draws only complete triangles from the proposed vertices. Applying a candidate uses the original marked selection and model revision as its boundary and reports the vertex count read back from the editor. Programs run in the existing protected renderer. Scratch files close with the request and start empty on resume.
+- **Claude Code** uses its own Bash, Read, Write, Edit, Glob and Grep tools there without asking.
+- **Codex** uses its own shell, limited to writing in the work folder, with local network access.
+- **Claude API** gets Anthropic's bash and text editor tools; **OpenAI API** and compatible servers get shell, read, write and edit tools. MDLxL runs them in the work folder (PowerShell on Windows), with a time limit, a cap on long output, and Stop ends the command.
+- Every command sees the job's MDLxL connection. `mdlxl.py` and `mdlxl.mjs` in the folder call any editor tool from a script: `call`, `context`, `script`, `capture` (saves PNG files in `pictures/` instead of sending them to the AI), `export_model` and `apply_file`. The AI opens only the pictures it needs.
+- `mdlxl_document` export writes the model into the folder as MDL text or MDX; `mdlxl_document` apply puts such a file back onto the model as one Undo step and reports what changed.
+
+The built-in JavaScript runner (`mdlxl_workspace`) keeps its scripts and JSON results in the same folder. A candidate preview draws only complete triangles from the proposed vertices. Applying a candidate uses the original marked selection and model revision as its boundary and reports the vertex count read back from the editor. Programs run in the existing protected renderer.
 
 ### Editing while the AI is working
 
@@ -581,7 +587,7 @@ Embedded chat works without enabling this external listener.
 | `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame; `vertices` frames given vertices without changing the selection, `zoom` (1–8) zooms in, `wireframe` shows the mesh lines and `uv` draws the texture flat with the UV triangles over it. |
 | `mdlxl_assets` | Search installed game/texture and personal part libraries, preview any texture (the model's own, by game path or from a search), load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
-| `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |
+| `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, validate MDX/MDL reopening, or apply an MDL/MDX file as one Undo step. |
 | `mdlxl_help` | Read the installed documentation and discover the scripting API. |
 
 Model scripts can edit geometry, UVs, skinning, bones, animation tracks, materials,

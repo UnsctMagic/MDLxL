@@ -184,3 +184,26 @@ consolidator). IDs are referenced in commits.
   Port of the method of the owner's Lord of Change workspace (kit.py, common.finish, jit, fscan, kfit/shrinkC, timing/retime) only.
 - K2 DONE: `AI_ANIMATION_CRAFT` card (use the kit, one animation at a time, never delete first); `mdlxl_capture` samples take
   `documentId` to draw an open reference model (view, sequence, frame, plain, wireframe). Proof: `test/ai-anim-kit.test.js` (9).
+
+**C: the AI's own computer** (owner, 18 Nov: "I want FULL power - that means I want the SAME capacity it has in
+claude/chatgpt/codex + the powers of having a modeling program"; a Baron knight job took 137 steps and $50)
+- C1 DONE: `electron/ai-computer.cjs`: work folder per chat `<profile>/ai/work/<chat id>` (`workFolderOf`), kept across
+  prompts, removed by `removeChats` and by `cleanupUnused` for chats that no longer exist. The workspace switch, its
+  offer question and per-request clearing are gone; `mdlxl_workspace` files live in the work folder (`createWorkspace` `folder`).
+- C2 DONE: `runTask` starts one MCP server per job (`bridge`), shared by Claude Code/Codex (`options.mcp`) and scripts.
+  Claude Code: `--tools`/`--allowedTools` Bash, Read, Write, Edit, Glob, Grep, cwd = work folder (older threads from the
+  profile folder restart with the last exchange: `threadFolder`). Codex: `features.shell_tool=true`,
+  `sandbox_workspace_write.network_access=true`, thread `sandbox: 'workspace-write'`, cwd = work folder, approval never.
+  Claude API: `bash_20250124` and `text_editor_20250728` by type plus `view_image`; OpenAI/compatible: `shell`,
+  `read_file`, `write_file`, `edit_file`, `view_image` (`AI_COMPUTER_TOOLS_*` in `src/ai-tools.js`), run by
+  `createComputer` (PowerShell `-File` on Windows, 120 s default / 600 s max, 30,000-character cap, Stop kills the tree).
+- C3 DONE: every command gets `MDLXL_URL`, `MDLXL_AUTH`, `MDLXL_TARGET`, `MDLXL_WORK`, `PYTHONPATH`; the folder holds
+  `mdlxl.py`/`mdlxl.mjs` (`call`, `context`, `script`, `capture` saving PNGs in `pictures/`, `export_model`, `apply_file`)
+  and `.mdlxl-connection.json` (Codex filters `*TOKEN*` variables). `mdlxl_document apply` (`app/ai-editor.js`
+  `modelFromFile`, `mergeFileModel`/`matchArrayTypes` in `src/ai-model.js`) applies an MDL/MDX file as one Undo step,
+  compared with the model as that format reads it back, so MDL text noise is not a change. Export into a work folder
+  replaces its own file without the dialog (`workFolder` in `ai:writeModel` / `writeAiModel`).
+- C4 DONE: `AI_COMPUTER` in the system prompt when tools are on; `Work folder of this chat: …` in each prompt.
+- Proof: `test/ai-computer.test.js` (8). Removed `test/ai-local-workspace.electron.cjs` (switch and offer no longer exist).
+- Not verified: a real Claude Code/Codex/API run in the packaged app; Codex's Windows sandbox with `workspace-write`
+  (pip `--user` writes outside the work folder and may be refused there); Claude Code's Bash needs Git Bash on Windows.
