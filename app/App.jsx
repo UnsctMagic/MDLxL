@@ -90,7 +90,7 @@ import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets
 import './geoset-merge.css';
 import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
 import { transformVertices, setVertexPositions } from '../src/editor-commands.js';
-import { applyMeshAction, workplaneAxis } from '../src/mesh-actions.js';
+import { applyMeshAction, workplaneAxis, remapGeosetSet, remapMergedSelection, remapDeletedSelection, remapWeldedSelection, remapSeparatedSelection } from '../src/mesh-actions.js';
 import { cutTriangles } from '../src/edge-cut.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
 import { captureNodeSelection } from '../src/node-clipboard.js';
@@ -1873,18 +1873,9 @@ export default function App() {
     try { result = edit(label, sections, operation, { rethrow: true }); }
     catch { return; }
     if (result === false) { say('No geosets share compatible materials and RGB.', true); return false; }
-    const remapVertices = previous => {
-      const next = {};
-      for (const [oldIndex, vertices] of Object.entries(previous)) {
-        const newIndex = result.oldToNew[oldIndex];
-        if (newIndex === undefined) continue;
-        (next[newIndex] ||= []).push(...vertices.map(vertex => vertex + result.vertexOffsets[oldIndex]));
-      }
-      return next;
-    };
-    setSelection(remapVertices);
-    setSelectable(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
-    setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined))); setHiddenByUser(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
+    setSelection(previous => remapMergedSelection(previous, result));
+    setSelectable(previous => remapGeosetSet(previous, result));
+    setVisibleOnly(previous => remapGeosetSet(previous, result)); setHiddenByUser(previous => remapGeosetSet(previous, result));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
     say(`Merged ${result.merged} geosets.`);
     return result;
@@ -1912,7 +1903,7 @@ export default function App() {
     try { result = edit(label, ['Geosets', 'GeosetAnims', 'Gliders', 'Info'], current => (nuclear ? nuclearSeparateGeosets : separateGeosetsByLoosePart)(current, validSelection), { rethrow: true }); }
     catch { return; }
     if (result === false) { say('The selected vertices contain no parts to separate.', true); return; }
-    setSelection(previous => { const next = { ...previous }; for (const index of result.touched) delete next[index]; return { ...next, ...result.selection }; });
+    setSelection(previous => remapSeparatedSelection(previous, result));
     setSelectable(previous => new Set([...previous, ...result.geosetIndices]));
     setActiveGeoset(result.geosetIndices[0] ?? activeGeoset); setUvSet(0); clearZoomAnchor();
     say(`Separated selected geometry into ${result.parts} new geoset${result.parts === 1 ? '' : 's'}.`);
@@ -1922,20 +1913,9 @@ export default function App() {
     try { result = edit('Delete free vertices', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => deleteFreeVertices(current, selectable), { rethrow: true }); }
     catch { return; }
     if (result === false) { say('No free vertices found in selected geosets.'); return; }
-    const remapVertexState = previous => {
-      const next = {};
-      for (const [oldIndex, vertices] of Object.entries(previous)) {
-        const newIndex = result.oldToNew[oldIndex];
-        if (newIndex === undefined) continue;
-        const vertexMap = result.vertexMaps[oldIndex];
-        const remapped = vertices.map(vertex => vertexMap ? vertexMap[vertex] : vertex).filter(Number.isInteger);
-        if (remapped.length) next[newIndex] = [...new Set(remapped)];
-      }
-      return next;
-    };
-    setSelection(remapVertexState);
-    setSelectable(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
-    setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined))); setHiddenByUser(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
+    setSelection(previous => remapDeletedSelection(previous, result));
+    setSelectable(previous => remapGeosetSet(previous, result));
+    setVisibleOnly(previous => remapGeosetSet(previous, result)); setHiddenByUser(previous => remapGeosetSet(previous, result));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
     say(`Deleted ${result.removedVertices} free ${result.removedVertices === 1 ? 'vertex' : 'vertices'} from selected geosets.`);
   };
@@ -1947,13 +1927,9 @@ export default function App() {
     catch { return; }
     if (result === false) { say('Nuclear Weld found no selected vertices on the same spot.'); return; }
     const remap = index => result.oldToNew[index];
-    setSelection(previous => {
-      const next = {};
-      for (const [index, ids] of Object.entries(previous)) if (!(index in validSelection) && remap(index) != null && !(remap(index) in result.selection)) next[remap(index)] = ids;
-      return { ...next, ...result.selection };
-    });
-    setSelectable(previous => new Set([...previous].map(remap).filter(index => index != null)));
-    setVisibleOnly(previous => new Set([...previous].map(remap).filter(index => index != null))); setHiddenByUser(previous => new Set([...previous].map(remap).filter(index => index != null)));
+    setSelection(previous => remapWeldedSelection(previous, result, validSelection));
+    setSelectable(previous => remapGeosetSet(previous, result));
+    setVisibleOnly(previous => remapGeosetSet(previous, result)); setHiddenByUser(previous => remapGeosetSet(previous, result));
     setActiveGeoset(previous => remap(previous) ?? -1); clearZoomAnchor();
     say(result.geosetsMerged ? `Nuclear Weld: vertices welded: ${result.welded}, geosets merged: ${result.geosetsMerged}.` : `Nuclear Weld: vertices welded: ${result.welded}.`);
   };

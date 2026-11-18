@@ -288,10 +288,7 @@ const overlapBaseline = [
     "hash": "9e6ab66f398bb426edc6be2f49319884a221041a2ca3ccd0c9dee7f856ae09d5"
   }
 ];
-const overlapPresets = () => {
-  const source = readFileSync(new URL('../app/AnimXL.jsx', import.meta.url), 'utf8');
-  return Function('return ' + source.match(/const PRESETS = (\[[\s\S]*?\n\]);/)[1])();
-};
+const overlapPresets = () => animXL.ANIMXL_PRESETS;
 const overlapFixture = () => openDocument(readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', import.meta.url)), 'Tzeentch_Knight_Max_Reduced.mdx').model;
 const overlapDigest = result => createHash('sha256').update(JSON.stringify(result)).digest('hex');
 

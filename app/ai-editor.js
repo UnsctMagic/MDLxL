@@ -35,7 +35,8 @@ import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
-import { MESH_ACTIONS, applyMeshAction, workplaneAxis } from '../src/mesh-actions.js';
+import { screenEngineHint } from '../src/ai-screen-names.js';
+import { MESH_ACTIONS, GEOSET_ACTIONS, CUT_ACTION, applyMeshAction, applyGeosetAction, applyCut, remapGeosetSet, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -73,23 +74,34 @@ const VIEW_COMMANDS = {
   animation: { mode: 'animation' },
 };
 const SELECTION_COMMANDS = ['selectAll', 'clear', 'invertSelection'];
-const runsOffScreen = id => ['undo', 'redo'].includes(id) || MESH_ACTIONS.includes(id) || SELECTION_COMMANDS.includes(id) || Object.hasOwn(VIEW_COMMANDS, id);
+const runsOffScreen = id => ['undo', 'redo'].includes(id) || MESH_ACTIONS.includes(id) || Object.hasOwn(GEOSET_ACTIONS, id) || id === CUT_ACTION || SELECTION_COMMANDS.includes(id) || Object.hasOwn(VIEW_COMMANDS, id);
 // The engines behind tool windows, for scripts on a model that is not on screen.
 const WINDOW_ENGINES = {
-  optimizeModel: 'optimizexl modules (search capabilities for "optimize")',
-  uv: 'the UV modules (search capabilities for "uv")',
-  animXL: 'the animation modules (search capabilities for "animation")',
+  optimizeModel: 'optimizexl-run.optimizeModelStage / planToSize (search capabilities for "optimize")',
+  uv: 'uv-actions and the UV modules (search capabilities for "uv")',
+  animXL: 'anim-xl.buildAnimXL / applyAnimXL and the animation modules (search capabilities for "animation")',
   surfaceEffects: 'the FX modules (search capabilities for "fx")',
-  autoCorpse: 'the corpse modules (search capabilities for "corpse")',
-  forge: 'the forge modules (search capabilities for "forge")',
+  autoCorpse: 'auto-corpse.autoCorpse (search capabilities for "corpse")',
+  forge: 'forge-vertex-run and the forge modules (search capabilities for "forge")',
   bitsAndParts: 'bits-and-parts (mdlxl_assets source parts)',
   paint: 'the painting modules (search capabilities for "paint")',
+  sanityCheck: 'sanity-check.checkSanity',
+  particles: 'particle-recipes, glow-up and the particle modules (search capabilities for "particle")',
+  textureLibrary: 'material-presets and texture-references (search capabilities for "material")',
 };
 // What to use instead when a screen-only step meets the job's private copy.
 const screenOnly = (name, args) => {
-  const engine = name === 'mdlxl_command' && WINDOW_ENGINES[args.id];
+  const engine = name === 'mdlxl_command' && (screenEngineHint(args.id) || WINDOW_ENGINES[args.id]);
   return 'This step needs the model on screen, and this job now works on a private copy because the user changed the model. ' +
     (engine ? 'Use ' + engine + ' in mdlxl_script instead.' : 'Use mdlxl_script with the editor modules instead; mesh tools, selection and view commands run here too.');
+};
+// Optional numbers of the mesh tools: Extrude distance, the Mirror/Collapse/Weld pivot, the Rotate normals angle.
+const meshParameters = args => {
+  const out = {};
+  if (args.distance !== undefined) { if (!Number.isFinite(args.distance)) throw Error('distance must be a number.'); out.distance = args.distance; }
+  if (args.angle !== undefined) { if (!Number.isFinite(args.angle)) throw Error('angle must be a number of degrees.'); out.normalAngle = args.angle; }
+  if (args.pivot !== undefined) { if (!Array.isArray(args.pivot) || args.pivot.length !== 3 || !args.pivot.every(Number.isFinite)) throw Error('pivot must be [x, y, z].'); out.pivot = args.pivot; }
+  return out;
 };
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
@@ -780,7 +792,7 @@ export class AiEditorBridge {
         }
         if (Object.hasOwn(VIEW_COMMANDS, args.id))
           return { invoked: args.id, dialog: null, context: await this.dispatch('mdlxl_view', { target: args.target, ...VIEW_COMMANDS[args.id] }, { signal, requestId }) };
-        if (!MESH_ACTIONS.includes(args.id) && !SELECTION_COMMANDS.includes(args.id)) throw Error(LEFT_TAB);
+        if (!MESH_ACTIONS.includes(args.id) && !SELECTION_COMMANDS.includes(args.id) && !Object.hasOwn(GEOSET_ACTIONS, args.id) && args.id !== CUT_ACTION) throw Error(LEFT_TAB);
         const model = env.model,
           checked = [...(env.session.viewState?.selectable || model.Geosets.map((_, gi) => gi))].filter(gi => model.Geosets[gi]),
           marked = Object.fromEntries(
@@ -790,7 +802,28 @@ export class AiEditorBridge {
           ),
           count = Object.values(marked).reduce((sum, ids) => sum + ids.length, 0);
         let vertices;
-        if (SELECTION_COMMANDS.includes(args.id)) {
+        if (Object.hasOwn(GEOSET_ACTIONS, args.id) || args.id === CUT_ACTION) {
+          // The sidebar's geoset operations and the Cut tool, as on screen: one Undo step, and the
+          // marked vertices, checked geosets and active geoset follow the change.
+          const after = {}, view = env.session.viewState;
+          if (args.id === CUT_ACTION) {
+            if (!args.cut || typeof args.cut !== 'object') throw Error('Cut needs cut: { geosetIndex, start, a, b, t } (a point on line a-b, t between 0 and 1) or { geosetIndex, start, vertex }.');
+            host.editIn(env.session.id, CUT_ACTION, ['Geosets'], edited => {
+              const shown = applyCut(edited, args.cut);
+              if (shown) Object.assign(after, { vertices: { [shown.geosetIndex]: shown.selection }, activeGeoset: shown.geosetIndex });
+            }, { selection: after });
+          } else {
+            const action = GEOSET_ACTIONS[args.id];
+            if (action.needs === 'marked' && !count) throw Error('Mark the vertices first with mdlxl_select: ' + args.id + ' acts on the marked vertices.');
+            if (action.needs === 'checked' && !checked.length) throw Error('Check the geosets first with mdlxl_select geosetIds: ' + args.id + ' acts on the checked geosets.');
+            host.editIn(env.session.id, action.label, action.sections, edited => {
+              const next = applyGeosetAction(edited, args.id, { selection: marked, selectable: new Set(checked), activeGeoset: view?.activeGeoset ?? -1 }, { resolutions: args.resolutions });
+              if (next.result.oldToNew && view) for (const key of ['visibleOnly', 'hiddenByUser']) if (view[key]) view[key] = remapGeosetSet(view[key], next.result);
+              Object.assign(after, { vertices: next.selection, geosetIds: [...next.selectable], activeGeoset: next.activeGeoset });
+            }, { selection: after });
+          }
+          vertices = after.vertices ?? marked;
+        } else if (SELECTION_COMMANDS.includes(args.id)) {
           const all = gi => Array.from({ length: model.Geosets[gi].Vertices.length / 3 }, (_, i) => i);
           vertices = args.id === 'clear' ? {} : Object.fromEntries(checked.map(gi => {
             const picked = new Set(marked[gi] || []);
@@ -802,7 +835,7 @@ export class AiEditorBridge {
           if (['Collapse', 'Weld'].includes(args.id) && count < 2) throw Error(args.id + ' needs at least two marked vertices.');
           const after = {};
           host.editIn(env.session.id, args.id, ['Geosets', 'GeosetAnims', 'Nodes'], edited => {
-            const { updated, removedGeosets } = applyMeshAction(edited, args.id, marked, { axis: workplaneAxis(target.workplane), ...host.meshOptions?.() });
+            const { updated, removedGeosets } = applyMeshAction(edited, args.id, marked, { axis: workplaneAxis(target.workplane), ...host.meshOptions?.(), ...meshParameters(args) });
             // As on screen: a removed geoset clears the selection, a tool's new vertices become it.
             after.vertices = removedGeosets.length ? {} : Object.keys(updated).length ? updated : marked;
           }, { selection: after });
