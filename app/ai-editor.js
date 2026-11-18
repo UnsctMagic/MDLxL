@@ -1110,7 +1110,7 @@ export class AiEditorBridge {
       focus,
     });
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 ? '; zoom ' + zoom + 'x' : ''}`,
+      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 ? '; zoom ' + zoom + 'x' : ''}`,
       image,
     };
   }

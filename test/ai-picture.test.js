@@ -15,3 +15,10 @@ test('a wireframe picture reaches the preview as wireframe: mesh lines drawn, su
   assert.equal(textured.mode, 'textured');
   assert.equal(textured.overlays.wires, false, 'an ordinary picture has no mesh lines');
 });
+
+test('a plain picture reaches the preview as the untextured Surface View', () => {
+  // The Warcraft preview adapter shades every first layer in one grey when mode is 'solid'.
+  const plain = drawn({ renderMode: 'solid' });
+  assert.equal(plain.mode, 'solid');
+  assert.equal(plain.overlays.wires, false);
+});
