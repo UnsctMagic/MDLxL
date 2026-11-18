@@ -63,10 +63,11 @@ test('W1: Claude Code and Codex picture shapes are kept too; without a shrinker 
 });
 
 test('W1: thumbnails are small: downscaled, a few per step, and only the newest kept per chat', () => {
-  assert.deepEqual(chatState.thumbnailSize(768, 576), { width: chatState.THUMB_SIZE, height: 288 });
-  assert.deepEqual(chatState.thumbnailSize(576, 768), { width: 288, height: chatState.THUMB_SIZE });
+  assert.deepEqual(chatState.thumbnailSize(1536, 1152), { width: chatState.THUMB_SIZE, height: 576 });
+  assert.deepEqual(chatState.thumbnailSize(1152, 1536), { width: 576, height: chatState.THUMB_SIZE });
   assert.deepEqual(chatState.thumbnailSize(100, 50), { width: 100, height: 50 });
-  assert.ok(chatState.THUMB_SIZE <= 400);
+  // Sharp enough for the enlarged hover view, small enough to keep in the saved chat.
+  assert.ok(chatState.THUMB_SIZE >= 768 && chatState.THUMB_SIZE <= 1024);
   const chat = conversation(), r = recorder(chat, fakeShrink);
   r.event({ type: 'tool', name: 'mdlxl_capture', callId: 'many' });
   r.event({ type: 'tool-result', name: 'mdlxl_capture', callId: 'many', content: Array.from({ length: 12 }, (_, i) => picture(i % 10)) });

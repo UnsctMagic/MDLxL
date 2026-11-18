@@ -176,7 +176,7 @@ class AiService {
     if (!image || image.isEmpty()) return null;
     const size = image.getSize(), small = thumbnailSize(size.width, size.height);
     const shrunk = small.width < size.width ? image.resize({ ...small, quality: 'good' }) : image;
-    return 'data:image/jpeg;base64,' + shrunk.toJPEG(70).toString('base64');
+    return 'data:image/jpeg;base64,' + shrunk.toJPEG(82).toString('base64');
   }
   async configuration() {
     if (this.config) return this.config;

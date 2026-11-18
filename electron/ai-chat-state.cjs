@@ -45,7 +45,9 @@ class AiSteering {
 // The pictures a step gave the AI are kept with the chat as small copies: at most
 // THUMBS_PER_STEP per step, THUMB_SIZE pixels on the longer side, and the newest
 // THUMBS_PER_CHAT in one chat, so a long chat stays small on disk.
-const THUMB_SIZE = 384, THUMBS_PER_STEP = 6, THUMBS_PER_CHAT = 120;
+// 768 px keeps a filmstrip frame sharp when the hover view enlarges it (384 px was blurry);
+// fewer are kept per chat so the saved chat stays about the same size.
+const THUMB_SIZE = 768, THUMBS_PER_STEP = 6, THUMBS_PER_CHAT = 60;
 // The size of a thumbnail of a width x height picture; never larger than the picture.
 function thumbnailSize(width, height, max = THUMB_SIZE) {
   const scale = Math.min(1, max / Math.max(1, width, height));

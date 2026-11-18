@@ -67,6 +67,11 @@ function toolContent(value) {
 async function callEditorTool(tools, call, name, args, signal, awareness) {
   const tool = tools.find(t => t.name === name);
   if (!tool) throw Error('Unknown tool: ' + name);
+  // Models add the job's target to every call; a tool that takes none just ignores it.
+  if (args && typeof args === 'object' && 'target' in args && !tool.inputSchema?.properties?.target) {
+    args = { ...args };
+    delete args.target;
+  }
   validateArguments(tool.inputSchema, args);
   if (signal?.aborted) throw Error('Request cancelled.');
   try {
