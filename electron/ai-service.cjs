@@ -25,6 +25,7 @@ const { questionCancelled } = require('./ai-user-input.cjs');
 const {
   AiSteering,
   AiRecorder,
+  thumbnailSize,
   OrganiserRegistry,
   writeJsonAtomic,
   settleConversation,
@@ -167,7 +168,15 @@ class AiService {
   }
   // A recorder for a chat; init() has loaded the transcript rules by then.
   recorder(conversation, emit) {
-    return new AiRecorder(conversation, emit, this.recordAiEvent);
+    return new AiRecorder(conversation, emit, this.recordAiEvent, picture => this.shrinkPicture(picture));
+  }
+  // A small JPEG copy of a picture the AI received, kept with the chat (see ai-chat-state.cjs).
+  shrinkPicture({ data }) {
+    const image = this.electron?.nativeImage?.createFromBuffer(Buffer.from(data, 'base64'));
+    if (!image || image.isEmpty()) return null;
+    const size = image.getSize(), small = thumbnailSize(size.width, size.height);
+    const shrunk = small.width < size.width ? image.resize({ ...small, quality: 'good' }) : image;
+    return 'data:image/jpeg;base64,' + shrunk.toJPEG(70).toString('base64');
   }
   async configuration() {
     if (this.config) return this.config;

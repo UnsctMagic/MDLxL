@@ -8576,5 +8576,9 @@
   "Cut tool": "切割工具",
   "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "切割：先点击一个顶点，再点击对面一条线上的一点。三角形在该处分开；这条线另一侧的三角形也会分开，因此不会撕裂。点击一个角而不是线，可将线连到那个角。",
   "Stopping…": "正在停止…",
-  "Nothing is running.": "当前没有正在运行的任务。"
+  "Nothing is running.": "当前没有正在运行的任务。",
+  "A picture the AI received. Click to enlarge.": "AI 收到的图片。单击放大。",
+  "AI picture {0}": "AI 图片 {0}",
+  "AI picture": "AI 图片",
+  "Click or press Escape to close.": "单击或按 Escape 关闭。"
 }

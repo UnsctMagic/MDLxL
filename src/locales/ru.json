@@ -8670,5 +8670,9 @@
   "Cut tool": "Инструмент «Разрезать»",
   "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Разрезать: щёлкните вершину, затем точку на линии напротив неё. Треугольник делится там; треугольник за этой линией тоже делится, чтобы ничего не рвалось. Щёлкните угол вместо линии, чтобы провести линию к этому углу.",
   "Stopping…": "Остановка…",
-  "Nothing is running.": "Ничего не выполняется."
+  "Nothing is running.": "Ничего не выполняется.",
+  "A picture the AI received. Click to enlarge.": "Изображение, полученное ИИ. Нажмите, чтобы увеличить.",
+  "AI picture {0}": "Изображение ИИ {0}",
+  "AI picture": "Изображение ИИ",
+  "Click or press Escape to close.": "Щёлкните или нажмите Escape, чтобы закрыть."
 }

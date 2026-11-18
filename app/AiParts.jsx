@@ -149,12 +149,48 @@ function ToolPart({ part }) {
           </span>
         )}
       </button>
+      {part.thumbs?.length > 0 && <StepPictures thumbs={part.thumbs} />}
       {open && (
         <pre className="ai-step-body" translate="no">
           {name === 'mdlxl_plan' ? readablePlan(part.detail, line) : name}
           {part.detail && name !== 'mdlxl_plan' ? '\n' + part.detail : ''}
           {part.summary ? '\n\n→ ' + part.summary : ''}
         </pre>
+      )}
+    </div>
+  );
+}
+// Small copies of the pictures a step gave the AI; a click shows one larger until
+// a click or Escape closes it.
+function StepPictures({ thumbs }) {
+  const [shown, setShown] = useState(null);
+  useEffect(() => {
+    if (shown === null) return;
+    const close = event => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      setShown(null);
+    };
+    window.addEventListener('mdlxl-escape-key', close);
+    window.addEventListener('mdlxl-cancel-gesture', close);
+    return () => {
+      window.removeEventListener('mdlxl-escape-key', close);
+      window.removeEventListener('mdlxl-cancel-gesture', close);
+    };
+  }, [shown]);
+  return (
+    <div className="ai-step-pictures">
+      {thumbs.map((src, index) => (
+        <button key={index} type="button" className="ai-step-picture" aria-label={'AI picture ' + (index + 1)}
+          title="A picture the AI received. Click to enlarge." onClick={() => setShown(index)}>
+          <img src={src} alt="" draggable={false} />
+        </button>
+      ))}
+      {shown !== null && thumbs[shown] && (
+        <div className="ai-picture-view" role="dialog" aria-modal="true" aria-label="AI picture"
+          title="Click or press Escape to close." onClick={() => setShown(null)}>
+          <img src={thumbs[shown]} alt="" draggable={false} />
+        </div>
       )}
     </div>
   );

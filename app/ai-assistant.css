@@ -87,6 +87,11 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-step-detail{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font:11px Consolas,monospace}
 .ai-step-body{margin:3px 0 8px 22px;padding:8px 10px;max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 Consolas,monospace;background:var(--ai-soft);border:1px solid var(--ai-line);border-radius:6px;user-select:text}
 .ai-step+.ai-prose,.ai-thinking+.ai-prose{margin-top:6px}
+.ai-step-pictures{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 4px 22px}
+.ai-step-picture{padding:0;border:1px solid var(--ai-line);border-radius:4px;background:var(--ai-soft);cursor:zoom-in;line-height:0}
+.ai-step-picture img{display:block;height:44px;width:auto;max-width:96px;object-fit:contain;border-radius:3px}
+.ai-picture-view{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:#0008;cursor:zoom-out}
+.ai-picture-view img{max-width:min(90vw,768px);max-height:90vh;width:auto;height:auto;min-width:min(60vw,384px);object-fit:contain;image-rendering:auto;border-radius:6px;box-shadow:0 6px 24px #0007}
 .ai-compaction{display:flex;align-items:center;gap:7px;margin:6px 0 8px;padding:6px 10px;border-radius:8px;background:var(--ai-soft);border:1px dashed var(--ai-line);color:var(--ui-muted);font-size:12px;cursor:help;width:fit-content;max-width:100%}
 .ai-compaction.ai-live{color:var(--ui-text);animation:ai-pulse 1.6s ease-in-out infinite}
 .ai-cost{margin:2px 0 8px;color:var(--ui-muted);font-size:11px;cursor:help;width:fit-content}

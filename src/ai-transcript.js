@@ -120,7 +120,9 @@ function reduce(messages, event, copy) {
       const at =
         find(p => p.type === 'tool' && event.callId && p.id === event.callId) ||
         find(p => p.type === 'tool' && p.status === 'running' && p.name === event.name);
-      if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary });
+      // Small copies of the pictures the step gave the AI, and the parts an edit changed.
+      if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary,
+        ...(event.thumbs?.length ? { thumbs: event.thumbs } : {}), ...(event.changed ? { changed: event.changed } : {}) });
       break;
     }
     // SD Brain's art brief: a row that fills in once the brief is written.
