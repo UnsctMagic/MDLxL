@@ -17,6 +17,10 @@ import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { animationEditReport } from '../src/ai-motion-style.js';
 import { mdxSizeBreakdown } from '../src/ai-model-size.js';
+import { meshHealth } from '../src/mesh-health.js';
+import { checkSanity } from '../src/sanity-check.js';
+import { sanityForAi } from '../src/ai-sanity.js';
+import { hiveSanity } from './optimizexl-hive.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
 import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
 import {
@@ -957,6 +961,13 @@ export class AiEditorBridge {
           overwrite: args.overwrite === true,
         });
         return { ...result, revision: target.revision, format };
+      }
+      if (args.action === 'health') return meshHealth(env.doc.model);
+      if (args.action === 'sanity') {
+        // The Help menu's Sanity Check on this target's own model (a hidden tab or private copy too).
+        const report = await checkSanity(env.doc.model, hiveSanity);
+        active();
+        return sanityForAi(report);
       }
       if (args.action === 'validate') {
         const results = [];
