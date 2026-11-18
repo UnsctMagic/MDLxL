@@ -1,6 +1,6 @@
 # AI work replay (View AI work, fun to watch)
 
-State: not started. Scheduled for 19 Nov 2026 morning (Fable 5.2, high effort).
+State: not started. Scheduled for 19 Nov 2026 at 08:10 (Fable 5.2, high effort).
 Base: local branch `claude/ai-full-power` (not online). Work branch: `claude/ai-work-replay`.
 
 ## What the owner asked (18 Nov 2026)

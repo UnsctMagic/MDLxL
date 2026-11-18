@@ -919,8 +919,9 @@ class AiService {
           next: 'Make the edit, then check it once against these checks and keep items.',
         };
       }
-      if (args.target && args.target !== context.target)
-        throw Error('Use the target captured with the current prompt.');
+      // A job has exactly one target and every call is sent with it (below). A model that
+      // copies the token imperfectly (seen with OpenAI models dropping a chunk of the UUID)
+      // must not have its calls refused, so the token it sends is not checked.
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       if (name === 'mdlxl_workspace') {
         if (args.action === 'offer') {
