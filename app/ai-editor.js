@@ -33,6 +33,7 @@ import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
+import { screenEngineHint } from '../src/ai-screen-names.js';
 import { MESH_ACTIONS, GEOSET_ACTIONS, CUT_ACTION, applyMeshAction, applyGeosetAction, applyCut, remapGeosetSet, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -74,18 +75,21 @@ const SELECTION_COMMANDS = ['selectAll', 'clear', 'invertSelection'];
 const runsOffScreen = id => ['undo', 'redo'].includes(id) || MESH_ACTIONS.includes(id) || Object.hasOwn(GEOSET_ACTIONS, id) || id === CUT_ACTION || SELECTION_COMMANDS.includes(id) || Object.hasOwn(VIEW_COMMANDS, id);
 // The engines behind tool windows, for scripts on a model that is not on screen.
 const WINDOW_ENGINES = {
-  optimizeModel: 'optimizexl modules (search capabilities for "optimize")',
-  uv: 'the UV modules (search capabilities for "uv")',
-  animXL: 'the animation modules (search capabilities for "animation")',
+  optimizeModel: 'optimizexl-run.optimizeModelStage / planToSize (search capabilities for "optimize")',
+  uv: 'uv-actions and the UV modules (search capabilities for "uv")',
+  animXL: 'anim-xl.buildAnimXL / applyAnimXL and the animation modules (search capabilities for "animation")',
   surfaceEffects: 'the FX modules (search capabilities for "fx")',
-  autoCorpse: 'the corpse modules (search capabilities for "corpse")',
-  forge: 'the forge modules (search capabilities for "forge")',
+  autoCorpse: 'auto-corpse.autoCorpse (search capabilities for "corpse")',
+  forge: 'forge-vertex-run and the forge modules (search capabilities for "forge")',
   bitsAndParts: 'bits-and-parts (mdlxl_assets source parts)',
   paint: 'the painting modules (search capabilities for "paint")',
+  sanityCheck: 'sanity-check.checkSanity',
+  particles: 'particle-recipes, glow-up and the particle modules (search capabilities for "particle")',
+  textureLibrary: 'material-presets and texture-references (search capabilities for "material")',
 };
 // What to use instead when a screen-only step meets the job's private copy.
 const screenOnly = (name, args) => {
-  const engine = name === 'mdlxl_command' && WINDOW_ENGINES[args.id];
+  const engine = name === 'mdlxl_command' && (screenEngineHint(args.id) || WINDOW_ENGINES[args.id]);
   return 'This step needs the model on screen, and this job now works on a private copy because the user changed the model. ' +
     (engine ? 'Use ' + engine + ' in mdlxl_script instead.' : 'Use mdlxl_script with the editor modules instead; mesh tools, selection and view commands run here too.');
 };

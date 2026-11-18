@@ -1,4 +1,5 @@
 import { SD_BRAIN_AVAILABLE } from './ai-sd-rules.js';
+import { findScreenNames } from './ai-screen-names.js';
 
 // Human task names lead to the editor's existing APIs, not duplicate implementations.
 export const AI_AREAS = [
@@ -315,6 +316,8 @@ export function searchAiCapabilities(sources, { query = '', area, offset = 0, li
         .slice(0, 12)
         .map(({ hits, named, ...card }) => card)
     : undefined;
+  // A button or window name the user can see ("Nuclear Weld", "OptimizeXL") answers with its engine.
+  const screen = terms.length ? findScreenNames(query) : [];
   return {
     areas: AI_AREAS,
     total: rows.length,
@@ -322,7 +325,8 @@ export function searchAiCapabilities(sources, { query = '', area, offset = 0, li
     truncated: offset + limit < rows.length,
     modules: rows.slice(offset, offset + limit),
     ...(functions ? { functions } : {}),
+    ...(screen.length ? { screen } : {}),
     usage:
-      'functions lists matching functions with their arguments and what they do, ready to call. Request module by exact name for all its functions with arguments and descriptions. Use mdlxl_script and await api.module(name) for arbitrary combinations in one Undo step. All public src modules remain accessible through api.modules, including those outside these task areas.',
+      'screen names an on-screen window or button with its mdlxl_command id and module.function engines. functions lists matching functions with their arguments and what they do, ready to call. Request module by exact name for all its functions with arguments and descriptions. Use mdlxl_script and await api.module(name) for arbitrary combinations in one Undo step. All public src modules remain accessible through api.modules, including those outside these task areas.',
   };
 }
