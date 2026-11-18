@@ -87,3 +87,76 @@ Updated: 2026-11-18
 - Test build: `D:ClaudeMDLxLTestBuildsai-full-powerMDLxL-win32-x64` (owner AI connection and settings copied from the desktop profile; codex/claude sign-in folders not copied). Opened for the owner on 18 Nov with both Baron files at his request.
 - Next: fix the wireframe picture and the UV margin; owner hand test (animating the Baron); then "merge".
 - On completion: mark completed with the merge revision and remove the README row.
+
+## Round 2: every remaining gap (owner, 18 Nov: "Identify ALL the lacking areas... so that next release is a perfect AI... address ALL the features MDLxL offers"; plus "add VIEW AI WORK, I want to see him edit the model LIVE")
+
+Evidence: six read-only audits in `out/audit/` of the `ai-full-power` worktree (untracked):
+`chats.md` (Codex thread history, 67 threads / 4,425 tool calls, plus the live Baron job),
+`known.md` (open notes, provider parity), `geometry.md`, `animation.md`, `surface.md`,
+`effects-view.md`. Live Baron job (Claude API, Fable 5.2 xhigh): $10.04 after ~11 min,
+37 calls, 26 calls before the first edit, context held at 101–118K by trimming; per-step
+cost is mostly thinking output at xhigh.
+
+Streams (each its own worktree and branch from `claude/ai-full-power`, merged back by the
+consolidator). IDs are referenced in commits.
+
+**P: pictures that tell the truth** (`app/AiOffscreenRender.jsx`, `app/preview-presentation.js`,
+`app/ai-editor.js` picture paths, `src/ai-uv-picture.js`, capture schema in `src/ai-tools.js`)
+- P1 wireframe: `previewPresentationProps` overrides `mode`; pass `previewMode` from AiOffscreenRender.
+- P2 plain/solid shading does nothing (no untextured preview prop).
+- P3 "only these geosets" and the user's hidden geosets are dropped (`hiddenGeosets` kept only
+  with uv flags); framing crops the model top and parks close-ups in a corner.
+- P4 particles/ribbons not replayed from onset in pictures; `showParticles` follows the user's preference.
+- P5 overlay flags (bones, attachments, normals/facing, collision, cameras), `teamColor`, model camera / portrait view per sample.
+- P6 UV pictures: tiny-overshoot margin, all layers / team colour, island labels.
+- P7 filmstrip: N frames of one animation in one image with shared framing.
+- P8 motion trails: a bone's path through an animation drawn over the model, keys marked.
+
+**M: measurements** (new `src` modules, `mdlxl_sample` / `mdlxl_document` options)
+- M1 motion style vs donor and vs the native corpus: key spacing, interpolation mix, speed curve, impact timing, holds.
+- M2 loop seams, foot slide vs MoveSpeed, event timing; motion warnings (`scanMotion`) reported after animation edits.
+- M3 surface intersection / clipping across frames (penetration, automatic part pairs, worst-frame close-up), plus a push-out fixer.
+- M4 mesh health (holes, non-manifold, degenerate, T-junctions, islands, vertex limit).
+- M5 file size: `validate` returns a size breakdown (geosets, tracks, textures); texture inventory (size, format, bytes, used by).
+- M6 texture pixels as data for scripts (`api.texture`, regions, stats).
+- M7 Sanity Check runnable by the AI with its findings.
+- M8 `mdlxl_sample` returns texture animations and geoset colour/alpha.
+
+**R: reach and discoverability** (`src/ai-capabilities.js`, wrappers in `src`, command paths in `app/ai-editor.js`)
+- R1 missing modules in `AI_AREAS` (edge-cut, forge-vertex, sanity-check, model-extents, model-collisions,
+  mesh-clipboard, model-import, plain-track-values, optimizexl-geometry, motion-path, auto-corpse,
+  corpse-geometry, attachemator, bone-namer, rig-names, uv-unwrap, uv-grid, team-colors,
+  uv-material-compositor, global-animation-*, fx-*, ribbon-sweeps, particle-world-effects,
+  emitter-timing, event-object-codec, preview-lighting); new `fx` and `lifecycle` areas; `AREA_WORDS`
+  and `GUIDE_WORDS` (KB, bytes, clip, polygon, corpse, decay...).
+- R2 on-screen names (windows, buttons) map to their engines, with a test over the UI labels.
+- R3 one-call wrappers: OptimizeXL stage with the window's settings and a plan-to-size; UV flip/commit/fit
+  region/pack islands; Forge vertex tools; sidebar geoset operations and Cut headless; parameters for
+  Extrude distance, Mirror pivot and Rotate normals angle; exported AnimXL presets.
+- R4 paint into a region as a new texture (only on request); R5 library: sounds/all files, World Editor
+  source, texture checks; R6 portrait/camera helpers in `src`.
+
+**H: harness robustness and cost** (`app/ai-sandbox.js`, `electron/ai-workspace.cjs`, `electron/ai-service.cjs`,
+`electron/ai-providers.cjs`, save checks)
+- H1 scripts: `const before` / `log` name clash (wrap code in an inner function), `parameters` always defined, clone-safe returns.
+- H2 workspace `preview` refuses candidates outside the first marked selection (46% failures).
+- H3 save verification blocks edits on pre-existing `_MdxDefaults` quirks the AI never touched.
+- H4 an edit lost to a "different document session"; tab stalls ("bring the tab to the front").
+- H5 cap and summarise huge tool outputs (typed array dumps); cache help topics read in the same chat.
+- H6 context: clear old huge tool inputs; trim inside one job for OpenAI / compatible; compatible usage and window size.
+- H7 remove the 64-round default cap (the optional step limit stays).
+- H8 spend limit and dollar cost for every provider; Haiku 5.5 over-100K price tier.
+- H9 OpenAI reasoning items kept between steps; non-thinking Claude max output.
+
+**B: behaviour** (`src/ai-tools.js` instructions, handbook, decision diary)
+- B1 "improve this" keeps the user's object (never replaces it); edits stay inside the asked scope; a picture after each edit.
+- B2 ask less; verification scaled to the request; less exploring before the first edit.
+- B3 standing owner requirements carry across jobs (size limits, "respect the geoset pose"); the owner's hand edits between jobs are noted.
+- B4 Warcraft III style knowledge (sparse linear keys, timing) and POSE/AnimXL recipes; AnimXL re-keys to smooth Bezier.
+
+**W: View AI work** (`app/AiAssistant.jsx`, `app/AiParts.jsx`, `app/ai-editor.js`, `app/App.jsx`, `app/ai-job-copy.js`)
+- W1 the chat shows the AI's pictures as small thumbnails in its steps.
+- W2 a "View AI work" switch in the console header (off by default): shows the AI's model tab and follows the
+  animation, frame, view and part it works on, at most once per display frame; edits land live; selection-only
+  changes do not fork a private copy while watching; a forked job offers "Open as new model" early.
+- W3 each edit step can show the parts it changed.
