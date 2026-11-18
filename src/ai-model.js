@@ -257,6 +257,57 @@ export function prepareAiEdit(before, after, { scope, protectedPaths = [], anima
     changeCount: changes.length,
   };
 }
+// A whole model from a file may change any canonical section (never the Nodes alias).
+export function fileEditScope(before, after) {
+  return [...new Set([...Object.keys(before || {}), ...Object.keys(after || {})])].filter(key => key !== 'Nodes').map(key => '/' + key);
+}
+// MDL text reads some numeric data as plain lists where the open model keeps a typed
+// array (for example emitter Alpha as Uint8Array). A file's model takes the open model's
+// array types wherever both have the data, so only real value changes count.
+export function matchArrayTypes(before, after, path = []) {
+  if (!before || !after || typeof before !== 'object' || typeof after !== 'object' || ignoreHistoryAlias(path)) return after;
+  for (const key of Object.keys(after)) {
+    if (!Object.hasOwn(before, key)) continue;
+    const a = before[key], b = after[key];
+    if (ArrayBuffer.isView(a) && !(a instanceof DataView) && b && (Array.isArray(b) || ArrayBuffer.isView(b)) && b.constructor !== a.constructor)
+      after[key] = new a.constructor(Array.from(b));
+    else matchArrayTypes(a, b, [...path, key]);
+  }
+  return after;
+}
+// The open model with a file's edits: `base` is the open model as the file's format
+// reads it back (MDL text and MDX store some values differently), so only what the
+// file really changed against it is copied onto the open model.
+export function mergeFileModel(before, base, file) {
+  const after = structuredClone(before);
+  const exists = (value, path) => {
+    let node = value;
+    for (const key of path) {
+      if (!node || typeof node !== 'object' || !Object.hasOwn(node, key)) return { found: false };
+      node = node[key];
+    }
+    return { found: true, value: node };
+  };
+  for (const change of createChanges(base, file, { ignore: ignoreHistoryAlias })) {
+    // Copy the file's value at the changed path; where the open model lacks a parent,
+    // copy the file's whole branch from the first missing level.
+    let path = change.path;
+    for (let depth = 1; depth < path.length; depth++)
+      if (!exists(after, path.slice(0, depth)).found) {
+        path = path.slice(0, depth);
+        break;
+      }
+    const parent = exists(after, path.slice(0, -1)).value,
+      source = exists(file, path),
+      key = path.at(-1);
+    if (!parent || typeof parent !== 'object') continue;
+    if (!source.found) {
+      if (Array.isArray(parent) && /^\d+$/.test(String(key))) parent.length = Math.min(parent.length, Number(key));
+      else delete parent[key];
+    } else parent[key] = structuredClone(source.value);
+  }
+  return matchArrayTypes(before, after);
+}
 export function applyAiEdit(model, prepared) {
   applyChanges(model, prepared.changes);
 }

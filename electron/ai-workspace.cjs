@@ -9,15 +9,31 @@ function checkName(name) {
 }
 
 // The editor owns the model and selection. Only this job owns its scratch files.
-function createWorkspace(parent, scope, call) {
+// With `folder` (the chat's work folder) the files are that folder's own and stay
+// after the job; the shell and Python see the same files.
+function createWorkspace(parent, scope, call, { folder } = {}) {
   const sizes = new Map();
-  let directory, queue = Promise.resolve(), closed = false;
+  let directory = folder, queue = Promise.resolve(), closed = false;
+  // A kept folder: its plain .js/.json/.txt files, also ones written by other programs.
+  async function scan() {
+    if (!folder) return;
+    sizes.clear();
+    for (const entry of await fs.readdir(folder, { withFileTypes: true }).catch(() => []))
+      try {
+        if (!entry.isFile()) continue;
+        checkName(entry.name);
+        sizes.set(entry.name, (await fs.stat(path.join(folder, entry.name))).size);
+      } catch {
+        // Other files belong to the shell and Python only.
+      }
+  }
   async function save(name, text) {
     checkName(name);
     const bytes = Buffer.byteLength(text);
     const total = [...sizes.values()].reduce((a, b) => a + b, 0) - (sizes.get(name) || 0) + bytes;
-    if (bytes > MAX_FILE || total > MAX_TOTAL || (!sizes.has(name) && sizes.size >= MAX_FILES))
-      throw Error('Workspace file limit exceeded (32 files, 512 KiB each, 4 MiB total).');
+    if (bytes > MAX_FILE || (!folder && (total > MAX_TOTAL || (!sizes.has(name) && sizes.size >= MAX_FILES))))
+      throw Error(folder ? 'A workspace file holds up to 512 KiB; write bigger files with the shell.' : 'Workspace file limit exceeded (32 files, 512 KiB each, 4 MiB total).');
+    if (folder) await fs.mkdir(folder, { recursive: true });
     directory ||= await fs.mkdtemp(path.join(parent, 'workspace-'));
     const temp = path.join(directory, 'pending');
     await fs.writeFile(temp, text);
@@ -32,6 +48,7 @@ function createWorkspace(parent, scope, call) {
   }
   async function execute(args, signal) {
     signal.throwIfAborted();
+    await scan();
     const { action, file } = args;
     if (action === 'list') return { files: Array.from(sizes, ([file, bytes]) => ({ file, bytes })) };
     if (action === 'write') {
@@ -47,7 +64,7 @@ function createWorkspace(parent, scope, call) {
     if (action === 'run') {
       if (!file.endsWith('.js')) throw Error('Run a .js workspace file.');
       if (args.output) { checkName(args.output); if (!args.output.endsWith('.json')) throw Error('Program output needs a .json filename.'); }
-      const files = Object.fromEntries(await Promise.all([...sizes.keys()].map(async name => [name, await read(name)])));
+      const files = Object.fromEntries(await Promise.all([...sizes].filter(([, bytes]) => bytes <= MAX_FILE).map(async ([name]) => [name, await read(name)])));
       const result = await call('mdlxl_script', { target, code: text, workspaceFiles: files, capOutput: !args.output }, signal);
       signal.throwIfAborted();
       if (!args.output) return result;
@@ -84,7 +101,7 @@ function createWorkspace(parent, scope, call) {
     async close() {
       closed = true;
       await queue;
-      if (directory) await fs.rm(directory, { recursive: true, force: true });
+      if (directory && !folder) await fs.rm(directory, { recursive: true, force: true });
     },
   };
 }

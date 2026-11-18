@@ -41,6 +41,8 @@ function validateArguments(schema, value, path = 'arguments') {
 // A PNG, JPEG or WebP data URL: [1] is the MIME type, [2] the base64 data.
 const IMAGE_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s;
 function toolContent(value) {
+  // Shell and file tools answer in plain text, as a terminal would.
+  if (typeof value?.toolText === 'string') return [{ type: 'text', text: value.toolText }];
   if (value?.images) {
     if (!Array.isArray(value.images) || !value.images.length || value.images.length > 16)
       throw Error('Invalid viewport capture batch.');

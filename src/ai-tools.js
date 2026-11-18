@@ -44,7 +44,8 @@ export const aiToolEditsModel = (name, args) =>
   (name === 'mdlxl_command' && !AI_DISPLAY_COMMANDS.has(args.id)) ||
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
   (name === 'mdlxl_view' && !!args.mode) ||
-  (name === 'mdlxl_versions' && args.action === 'use');
+  (name === 'mdlxl_versions' && args.action === 'use') ||
+  (name === 'mdlxl_document' && args.action === 'apply');
 export const aiToolRunsUnqueued = (name, args) =>
   ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || (name === 'mdlxl_script' && !args.edit);
 export const AI_TOOLS = [
@@ -367,13 +368,15 @@ export const AI_TOOLS = [
     'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.\n' +
     'validate also gives size: where the MDX bytes go (geosets, animation tracks, nodes, materials, texture paths, emitters), the biggest geosets and tracks.\n' +
     'health: per geoset holes (open borders), non-manifold edges, degenerate and duplicate triangles, T-junctions, islands, loose vertices and the vertex limit.\n' +
-    'sanity: the Help menu\'s Sanity Check (Hive checker) findings for this model, unsaved edits included.',
+    'sanity: the Help menu\'s Sanity Check (Hive checker) findings for this model, unsaved edits included.\n' +
+    'apply: read an MDL or MDX file (for example one a Python script wrote from an export) and put it on the target model as one Undo step with label; only what differs changes, and the change report is the same as for a script edit.',
     {
       target,
-      action: { enum: ['list', 'open', 'export', 'validate', 'health', 'sanity'] },
-      path: string('Absolute local file path for open/export.'),
+      action: { enum: ['list', 'open', 'export', 'validate', 'health', 'sanity', 'apply'] },
+      path: string('Local file path for open/export/apply. In an AI chat a relative path is inside the chat\'s work folder, where export may replace its own files.'),
       format: { enum: ['mdx', 'mdl'] },
       overwrite: { type: 'boolean' },
+      label: string('apply: short Undo label.'),
     },
     ['action'],
     false,
@@ -497,10 +500,9 @@ export const AI_JOB_TOOLS = AI_TOOLS.map(tool => {
   } };
 });
 export const AI_WORKSPACE_TOOL = tool('workspace',
-  'A local JavaScript workspace. While off, only offer is available. Use offer once when reusable scripts or comparing candidates can speed up this particular job. Supply a brief, specific reason and respect the user’s answer. When enabled: write saves text or a JS function body, list shows files, read pages through text. run executes a saved JS file in the built-in sandbox with model, selection, context, references, api, log and files (a map of filename to text). Return JSON; output stores that value locally for later calls. To isolate part of the original marked selection, return a map of vertex ID arrays by zero-based geoset and save it to a .json output. preview shows only its complete faces at the current pose, without changing the editor; select applies it to the captured tab and reports the actual selected count. Scratch files are cleared when the request ends. No installed programs required.', {
-    action: { enum: ['offer', 'list', 'write', 'read', 'run', 'preview', 'select'] },
-    reason: { type: 'string', maxLength: 400, description: 'offer: explain in the user’s language what repeated work JavaScript can speed up here.' },
-    file: string('Plain lower-case .js, .txt or .json filename in this job.'), text: string('write: file contents.'),
+  'JavaScript files in this chat\'s work folder, run in MDLxL\'s built-in sandbox (no installed programs needed). write saves text or a JS function body, list shows the folder\'s .js, .json and .txt files, read pages through text. run executes a saved JS file with model, selection, context, references, api, log and files (a map of filename to text). Return JSON; output stores that value as a .json file for later calls. To isolate part of the original marked selection, return a map of vertex ID arrays by zero-based geoset and save it to a .json output. preview shows only its complete faces at the current pose, without changing the editor; select applies it to the captured tab and reports the actual selected count. The files stay for the whole chat.', {
+    action: { enum: ['list', 'write', 'read', 'run', 'preview', 'select'] },
+    file: string('Plain lower-case .js, .txt or .json filename in the work folder.'), text: string('write: file contents.'),
     output: string('run: optional .json result filename.'), offset: { type: 'integer', minimum: 0 }, view: views,
   }, ['action'], false);
 export const AI_JOB_CHECKPOINT = tool('job_checkpoint',
@@ -509,6 +511,48 @@ export const AI_JOB_CHECKPOINT = tool('job_checkpoint',
     evidence: string('Concise measured/visible findings, exact affected parts and where the retained baseline is.'),
     remaining: { type: 'array', maxItems: 20, items: string('Specific remaining operation or failed check. Empty when no work remains.') },
   }, ['phase', 'evidence', 'remaining']);
+
+// The chat's own computer. API connections get these tools, run by MDLxL in the
+// chat's work folder; Claude Code and Codex use their own shell and file tools there.
+const computerTool = (name, description, properties, required, extra = {}) => ({
+  name,
+  description,
+  inputSchema: { type: 'object', properties, required },
+  annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  computer: true,
+  ...extra,
+});
+const viewImage = computerTool('view_image', 'Look at one PNG, JPEG or WebP picture file, for example one a script saved with mdlxl.capture. Only pictures you open enter the conversation.', { path: string('Picture path, relative to the work folder or absolute.') }, ['path']);
+// Anthropic's own bash and text editor tools: the models are trained on them, so the
+// request names only their type; the schemas below check the calls MDLxL runs.
+export const AI_COMPUTER_TOOLS_ANTHROPIC = [
+  computerTool('bash', 'Run a command in the chat\'s work folder.', {
+    command: string('The command.'), restart: { type: 'boolean' }, timeout: { type: 'number', minimum: 1, maximum: 600 },
+  }, [], { anthropicType: 'bash_20250124' }),
+  computerTool('str_replace_based_edit_tool', 'View, create and edit files in the chat\'s work folder.', {
+    command: { enum: ['view', 'create', 'str_replace', 'insert'] }, path: string('File path.'), file_text: { type: 'string' },
+    old_str: { type: 'string' }, new_str: { type: 'string' }, insert_line: { type: 'integer', minimum: 0 }, insert_text: { type: 'string' },
+    view_range: { type: 'array', items: { type: 'integer' } },
+  }, ['command', 'path'], { anthropicType: 'text_editor_20250728' }),
+  viewImage,
+];
+export const AI_COMPUTER_TOOLS_FUNCTIONS = [
+  computerTool('shell', 'Run a command in the chat\'s work folder (Windows PowerShell on Windows; Python is `python`, Node.js is `node`). Returns the output (long output keeps its start and end) and the exit code when it is not 0. Each command starts in the work folder; the default time limit is 120 s.', {
+    command: string('The command or script.'), timeout: { type: 'number', minimum: 1, maximum: 600, description: 'Seconds before the command is stopped (default 120).' },
+  }, ['command']),
+  computerTool('read_file', 'Read a text file with line numbers, or list a folder.', {
+    path: string('Path, relative to the work folder or absolute.'), offset: { type: 'integer', minimum: 1, description: 'First line (1-based).' }, limit: { type: 'integer', minimum: 1, description: 'Number of lines.' },
+  }, ['path']),
+  computerTool('write_file', 'Create or replace a file in the work folder.', { path: string('Path inside the work folder.'), text: string('The whole file text.') }, ['path', 'text']),
+  computerTool('edit_file', 'Replace one exact piece of text in a work-folder file; it must match exactly once.', {
+    path: string('Path inside the work folder.'), old_text: string('Exact text to replace.'), new_text: string('Replacement text.'),
+  }, ['path', 'old_text', 'new_text']),
+  viewImage,
+];
+export const AI_COMPUTER = `Your own computer for this chat: a work folder that is the current folder of your shell and file tools. Its files stay for every later prompt of this chat and are deleted with the chat. The shell is real (on Windows MDLxL's own shell tool runs PowerShell); Python 3 is \`python\` (install packages with \`python -m pip install --user <name>\`; numpy may be missing) and Node.js is \`node\`. Work as on your own computer: write scripts as files, run them, fix and rerun them, and keep reusable code in files instead of sending it again.
+Drive MDLxL from scripts without a round trip: \`import mdlxl\` (mdlxl.py) or \`import * as mdlxl from './mdlxl.mjs'\` in the work folder. call(tool, args) calls any mdlxl_* tool on this job's model (the target is filled in) and returns its result; context(), script(code, ...), capture(name, ...), export_model(path) / exportModel and apply_file(path, label) / applyFile are shortcuts. Edits made from scripts are normal edits with Undo. capture saves PNG files in pictures/ and returns their paths; pictures taken by scripts are not shown to you, so open only the ones you need (view_image, or your own file reader). A script can try, measure and picture many candidates in a loop and print a short summary.
+Model files: mdlxl_document export writes the model to a work-folder file (.mdl text or .mdx); mdlxl_document apply puts an MDL or MDX file back onto the model as one Undo step with the usual change report.
+For posing and writing keys, the animation kit (api.module('ai-anim-kit') in mdlxl_script) is still the fastest way.`;
 
 // The outside check: a separate AI call that never saw the editing AI's reasoning
 // judges the result from the owner's request, the keep list and the pictures.

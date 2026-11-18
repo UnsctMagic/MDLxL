@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { createWorkspace } = require('./ai-workspace.cjs');
+const { createComputer, workFolderOf, prepareWorkFolder, bridgeVariables, COMPUTER_TOOL_NAMES } = require('./ai-computer.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
   PROVIDERS,
@@ -19,7 +20,7 @@ const {
   authenticationRequired,
   CANCELLED,
 } = require('./ai-providers.cjs');
-const { checkAgentExecutable } = require('./ai-process.cjs');
+const { checkAgentExecutable, prepareEnvironment } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
 const { questionCancelled } = require('./ai-user-input.cjs');
 const {
@@ -49,11 +50,12 @@ function accountKey(settings) {
 }
 // The editing instructions, with the handbook and web research when they are on.
 // The common editor functions stay the same on every turn for prompt caching.
-function editingPrompt(contract, { handbook, web, functions }) {
+function editingPrompt(contract, { handbook, web, functions, computer }) {
   return (
     contract.AI_SYSTEM_PROMPT +
     (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
     (web ? '\n' + contract.AI_WEB_RESEARCH : '') +
+    (computer ? '\n' + contract.AI_COMPUTER : '') +
     (functions ? '\n' + functions : '')
   );
 }
@@ -237,7 +239,6 @@ class AiService {
       cleanupDays: cleanupDaysOf(config),
       sdBrain:(await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
-      localWorkspace: config.localWorkspace === true,
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
       watchAi: config.watchAi === true,
@@ -562,7 +563,7 @@ class AiService {
         settings,
         contract,
         signal: controller.signal,
-        policy: { ...(await this.sdBrainPolicy()), workspace: config.localWorkspace === true, handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
+        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -755,7 +756,9 @@ class AiService {
     this.runningIds.add(id);
     // A new request on a long chat starts a fresh provider history (see FRESH_HISTORY_AT).
     let restarted = '';
-    if (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length)) {
+    const work = conversation.toolsOff ? null : workFolderOf(this.directory, id);
+    const movedThread = work && settings.provider === 'claude' && conversation.threadId && conversation.threadFolder !== work;
+    if (movedThread || (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length))) {
       restarted = lastExchange(conversation);
       conversation.messages = [];
       for (const key of ['threadId', 'sentToolAreas', 'sentCraft', 'sentContext', 'usage']) delete conversation[key];
@@ -774,12 +777,11 @@ class AiService {
     };
     // Each embedded provider gets the same workspace and the same captured edit target.
     const workspaceScope = task.workspaceScope || { revision: context.revision, selection: context.selection || {} };
-    const workspaceEnabled = () => sd.workspace === true || task.workspaceDecision === 'yes';
     const startWorkspace = () => createWorkspace(this.directory, { ...workspaceScope, target: context.target }, async (name, args, signal) => {
       const result = await this.call(name, args, signal);
       if (name === 'mdlxl_select') Object.assign(context, result);
       return result;
-    });
+    }, { folder: work });
     let workspace;
     let promptHasContext = false;
     let prompt =
@@ -867,10 +869,7 @@ class AiService {
         }
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
-    if (!conversation.toolsOff && !workspaceEnabled()) prompt += task.workspaceDecision
-      ? '\n\nThe local workspace is off for this job. Continue with the normal editor tools.'
-      : '\n\nThe local JavaScript workspace is off. Judge the actual job: if saving and reusing a script or comparing candidates would save meaningful work, use mdlxl_workspace action offer once, with a short reason specific to this task in the user’s language. Simple jobs need no offer. Wait for the decision and continue the same job.';
-    if (!conversation.toolsOff && workspaceEnabled()) prompt += '\n\nLocal workspace is enabled for this request. Use mdlxl_workspace for repeatable analyses and candidate-only pictures. For isolation within a selection, write and run a script to produce a vertex map, preview it, then select it and report the actual returned count. Scratch files start empty on resume.';
+    if (work) prompt += '\n\nWork folder of this chat: ' + work;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
@@ -889,6 +888,10 @@ class AiService {
     const performCall = async (name, args, callSignal) => {
       if (signal.aborted) throw Error(CANCELLED);
       if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this chat.');
+      if (COMPUTER_TOOL_NAMES.has(name) && computer) return computer.run(name, args, callSignal ? AbortSignal.any([callSignal, signal]) : signal);
+      // Model files named relative to the chat's work folder live there.
+      if (work && name === 'mdlxl_document' && typeof args.path === 'string' && args.path && !path.isAbsolute(args.path))
+        args = { ...args, path: path.join(work, args.path) };
       if (name === 'mdlxl_job_checkpoint') {
         if (!['candidate', 'verify'].includes(args.phase) || typeof args.evidence !== 'string' || !args.evidence.trim() || args.evidence.length > 4000 || !Array.isArray(args.remaining) || args.remaining.length > 20 || args.remaining.some(v => typeof v !== 'string' || v.length > 500)) throw Error('A checkpoint needs a phase, concise evidence and specific remaining work.');
         if (callsInFlight !== 1) throw Error('Wait for the other tool operations before recording a phase checkpoint.');
@@ -924,22 +927,6 @@ class AiService {
       // must not have its calls refused, so the token it sends is not checked.
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       if (name === 'mdlxl_workspace') {
-        if (args.action === 'offer') {
-          if (workspaceEnabled()) return { enabled: true };
-          if (task.workspaceDecision) return { enabled: false, decision: task.workspaceDecision, next: 'Continue with the ordinary editor tools.' };
-          const reason = args.reason?.trim();
-          if (!reason || reason.length > 400) throw Error('Give a short, job-specific reason for using JavaScript (up to 400 characters).');
-          task.workspaceDecision = 'offered';
-          task.workspaceScope = workspaceScope;
-          const { answers } = await this.askUser(conversation, recorder, {
-            kind: 'workspace-offer', message: reason,
-            questions: [{ id: 'workspace', question: 'Use JavaScript for this job?', options: [{ label: 'Yes' }, { label: 'No' }], allowCustom: false }],
-          }, requestSignal);
-          task.workspaceDecision = answers.workspace.answers[0] === 'Yes' ? 'yes' : 'no';
-          await this.persistConversation(conversation);
-          return { enabled: workspaceEnabled(), next: workspaceEnabled() ? 'Continue the current job with the workspace.' : 'Continue with the ordinary editor tools.' };
-        }
-        if (!workspaceEnabled()) throw Error('The workspace is disabled for this job.');
         task.workspaceScope ||= workspaceScope;
         workspace ||= startWorkspace();
         return workspace.use(args, requestSignal);
@@ -1078,16 +1065,30 @@ class AiService {
         throw error;
       }
     };
-    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT, contract.AI_WORKSPACE_TOOL];
+    // API connections get MDLxL's own shell and file tools; Claude Code and Codex bring theirs.
+    const native = providerInfo(settings.provider)?.native;
+    const computerTools = !work || native ? [] : settings.provider === 'anthropic' ? contract.AI_COMPUTER_TOOLS_ANTHROPIC : contract.AI_COMPUTER_TOOLS_FUNCTIONS;
+    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT, contract.AI_WORKSPACE_TOOL, ...computerTools];
     const web = sd.web === true;
     // A tool-free memory note needs only the opening line, not the editing rules.
-    const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
+    const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common, computer: !!work });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
       ? system + '\n\n' + sdBrainInstructions(sd, conversation.toolsOff ? 'note' : 'direct')
       : system;
+    // The chat's computer: its kept work folder, a local MCP server for scripts (Claude
+    // Code and Codex use the same server), and MDLxL's own shell for API connections.
+    let bridge = null, computer = null, shellVariables = null;
     try {
+      if (work) {
+        bridge = await startMcpServer({ tools: tools.filter(tool => !tool.computer), call, awareness: this.awareness });
+        const connection = { url: bridge.url, auth: bridge.token, target: context.target };
+        await prepareWorkFolder(work, connection);
+        shellVariables = bridgeVariables(work, connection);
+        if (computerTools.length) computer = createComputer({ folder: work, env: { ...(await prepareEnvironment(this.directory, settings.provider)), ...shellVariables } });
+        if (settings.provider === 'claude') conversation.threadFolder = work;
+      }
       await progress('inspecting');
       let runs = 0;
       for (let attempt = 0; attempt < 4; ) {
@@ -1108,6 +1109,9 @@ class AiService {
           awareness: this.awareness,
           steering,
           web,
+          mcp: bridge,
+          workDirectory: work,
+          shellVariables,
         };
         // Accepting a kept private result still uses the normal conflict choice.
         if (acceptCandidate && task.steps.length) task.acceptedByUser = true;
@@ -1189,6 +1193,8 @@ class AiService {
     } finally {
       this.runningIds.delete(id);
       if (workspace) await workspace.close();
+      computer?.close();
+      await bridge?.close();
       // The decision diary keeps what this job did and why with the model.
       if (conversation.modelKey)
         try {
@@ -1652,7 +1658,6 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:important', input => service.setImportant(input));
-  handle('ai:localWorkspace', enabled => service.setSwitch('localWorkspace', 'local-workspace', enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));

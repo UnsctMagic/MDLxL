@@ -442,7 +442,7 @@ async function runApi({
       // Prompt caching: the tools/system prefix and the conversation so far are
       // billed at the cached rate on the next step instead of full price.
       const cache = { type: 'ephemeral' };
-      const apiTools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema }));
+      const apiTools = tools.map(t => (t.anthropicType ? { type: t.anthropicType, name: t.name } : { name: t.name, description: t.description, input_schema: t.inputSchema }));
       if (apiTools.length) apiTools[apiTools.length - 1] = { ...apiTools.at(-1), cache_control: cache };
       if (web) apiTools.push(...anthropicWebTools(settings.model));
       const messages = history.slice();
@@ -740,8 +740,10 @@ async function runApi({
 }
 
 class CodexProcess {
-  constructor(settings, { directory, event = () => {}, mcp, signal, web = false, askUser } = {}) {
+  constructor(settings, { directory, event = () => {}, mcp, signal, web = false, askUser, workDirectory, shellVariables } = {}) {
     this.settings = settings;
+    this.workDirectory = workDirectory;
+    this.shellVariables = shellVariables;
     this.askUser = askUser;
     this.questions = new AbortController();
     this.interactions = new Map();
@@ -757,9 +759,12 @@ class CodexProcess {
   }
   async start() {
     await fs.mkdir(this.directory, { recursive: true });
-    const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
+    // With the chat's work folder Codex has its own shell there (sandboxed to the folder,
+    // with local network for the MDLxL bridge and package installs); without it, no shell.
+    const args = ['app-server', '-c', `features.shell_tool=${this.workDirectory ? 'true' : 'false'}`, '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
+    if (this.workDirectory) args.push('-c', 'sandbox_workspace_write.network_access=true');
     if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
-    const env = await prepareEnvironment(this.directory, 'codex');
+    const env = { ...(await prepareEnvironment(this.directory, 'codex')), ...(this.shellVariables || {}) };
     if (this.mcp) {
       env.MDLXL_AI_TOKEN = this.mcp.token;
       args.push(
@@ -773,7 +778,7 @@ class CodexProcess {
         `mcp_servers.mdlxl.tool_timeout_sec=${MCP_TOOL_TIMEOUT_MS / 1000}`,
       );
       // Sending a prompt authorizes MDLxL's own editor tools, as in the Claude
-      // allowlist. This is private to this child; shell/filesystem access stays restricted.
+      // allowlist. This is private to this child; its shell writes only in the work folder.
       for (const name of this.mcp.toolNames || [])
         args.push('-c', `mcp_servers.mdlxl.tools.${name}.approval_mode="approve"`);
     }
@@ -929,6 +934,18 @@ class CodexProcess {
       this.event({ type: 'tool', name: 'web_search', callId: p.item.id, ...toolDetail(p.item.query || '') });
     if (message.method === 'item/completed' && p.item?.type === 'webSearch')
       this.event({ type: 'tool-result', name: 'web_search', callId: p.item.id, error: false, summary: p.item.query || '' });
+    // Its own shell commands and file changes in the chat's work folder show as steps too.
+    const own = { commandExecution: 'shell', fileChange: 'edit_file' }[p.item?.type];
+    if (own && message.method === 'item/started')
+      this.event({ type: 'tool', name: own, callId: p.item.id, ...toolDetail(p.item.command || (p.item.changes || []).map(c => c.path).join(', ')) });
+    if (own && message.method === 'item/completed')
+      this.event({
+        type: 'tool-result',
+        name: own,
+        callId: p.item.id,
+        error: p.item.status === 'failed' || p.item.status === 'declined' || (p.item.exitCode ?? 0) !== 0,
+        summary: toolSummary(p.item.aggregatedOutput || ''),
+      });
     if (message.method === 'account/login/completed') this.login?.(p);
     if (message.method === 'turn/completed') this.turn?.(p.turn);
     if (message.method === 'error')
@@ -1011,7 +1028,9 @@ async function runCodex(options) {
     steering,
     web,
   } = options;
-  const mcp = await startMcpServer({ tools, call, awareness });
+  // The job's own server (shared with scripts in the work folder), or one for this turn.
+  const mcp = options.mcp || (await startMcpServer({ tools, call, awareness }));
+  const workDirectory = options.workDirectory;
   // A new thread (first turn, or a resume, which drops the old thread) counts from 0;
   // the previous thread's running total would otherwise hide this run's tokens.
   const tokenBaseline = conversation.threadId ? (conversation.providerTotalTokens ?? null) : 0;
@@ -1023,7 +1042,7 @@ async function runCodex(options) {
       value = { ...value, tokens: Math.max(0, value.tokens - tokenBaseline) };
     }
     event(value);
-  }, mcp, signal, web, askUser: options.askUser });
+  }, mcp, signal, web, askUser: options.askUser, workDirectory, shellVariables: options.shellVariables });
   client.tools = tools;
   client.call = call;
   let unsubscribe,
@@ -1038,9 +1057,9 @@ async function runCodex(options) {
     const account = await client.account();
     if (!account.account && account.requiresOpenaiAuth !== false) throw authenticationRequired();
     const params = {
-      cwd: directory,
+      cwd: workDirectory || directory,
       approvalPolicy: 'never',
-      sandbox: 'read-only',
+      sandbox: workDirectory ? 'workspace-write' : 'read-only',
       ...(settings.model ? { model: settings.model } : {}),
       developerInstructions: system,
     };
@@ -1120,10 +1139,15 @@ async function runCodex(options) {
     await delivery;
     await updates;
     await client.close();
-    await mcp.close();
+    if (mcp !== options.mcp) await mcp.close();
   }
 }
+// Claude Code's own tools for the chat's computer.
+const CLAUDE_COMPUTER_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
 async function runClaude({
+  mcp: jobMcp,
+  workDirectory,
+  shellVariables,
   askUser,
   settings,
   directory,
@@ -1140,8 +1164,13 @@ async function runClaude({
   web,
 }) {
   await fs.mkdir(directory, { recursive: true });
-  const mcp = await startMcpServer({ tools, call, awareness });
+  const mcp = jobMcp || (await startMcpServer({ tools, call, awareness }));
   const runDirectory = await fs.mkdtemp(path.join(directory, 'claude-run-'));
+  // Claude Code keeps a thread with the folder it ran in, so a tool-free turn of a chat
+  // with a work folder still runs there.
+  const cwd = workDirectory || conversation.threadFolder || directory;
+  await fs.mkdir(cwd, { recursive: true });
+  const own = workDirectory ? CLAUDE_COMPUTER_TOOLS : [];
   let child;
   try {
     const config = path.join(runDirectory, 'mcp.json'),
@@ -1156,11 +1185,12 @@ async function runClaude({
       'stream-json',
       '--verbose',
       '--include-partial-messages',
-      // Built-in tools stay off, except web search and page reading when the user allows them.
+      // Its own shell and file tools work in the chat's work folder without asking;
+      // web search and page reading only when the user allows them.
       '--tools',
-      [askUser && 'AskUserQuestion', web && 'WebSearch', web && 'WebFetch'].filter(Boolean).join(','),
+      [...own, askUser && 'AskUserQuestion', web && 'WebSearch', web && 'WebFetch'].filter(Boolean).join(','),
       '--allowedTools',
-      web ? 'mcp__mdlxl__*,WebSearch,WebFetch' : 'mcp__mdlxl__*',
+      ['mcp__mdlxl__*', ...own, ...(web ? ['WebSearch', 'WebFetch'] : [])].join(','),
       '--strict-mcp-config',
       '--mcp-config',
       config,
@@ -1175,9 +1205,9 @@ async function runClaude({
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (settings.spendLimit > 0) args.push('--max-budget-usd', String(settings.spendLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
-    const env = await prepareEnvironment(directory, 'claude');
+    const env = { ...(await prepareEnvironment(directory, 'claude')), ...(shellVariables || {}) };
     env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_TIMEOUT_MS);
-    child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
+    child = spawnAgent(settings.executable || 'claude', args, { cwd, env });
     let finalResult = null,
       streamed = false,
       newMessage = false,
@@ -1359,7 +1389,7 @@ async function runClaude({
     }
   } finally {
     stopAgent(child);
-    await mcp.close();
+    if (mcp !== jobMcp) await mcp.close();
     await fs.rm(runDirectory, { recursive: true, force: true });
   }
 }

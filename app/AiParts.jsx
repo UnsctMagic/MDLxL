@@ -25,6 +25,20 @@ export const activity = {
   mdlxl_plan: 'Planning the change',
   mdlxl_versions: 'Comparing versions',
   outside_check: 'Outside check',
+  // The chat's own computer: MDLxL's tools for API connections, Claude Code's own.
+  Bash: 'Working on the model',
+  Read: 'Checking model files',
+  Write: 'Checking model files',
+  Edit: 'Checking model files',
+  Glob: 'Checking model files',
+  Grep: 'Checking model files',
+  bash: 'Working on the model',
+  shell: 'Working on the model',
+  str_replace_based_edit_tool: 'Checking model files',
+  read_file: 'Checking model files',
+  write_file: 'Checking model files',
+  edit_file: 'Checking model files',
+  view_image: 'Checking the viewport',
 };
 export const toolName = name => name?.replace(/^mcp__mdlxl__/, '');
 // One readable line under a tool step, from the arguments the AI sent. Main

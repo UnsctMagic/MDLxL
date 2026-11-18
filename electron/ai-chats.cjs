@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const PROVIDERS = require('../src/ai-providers.json');
 const { removeFiles, deleteProviderSessions } = require('./ai-chat-state.cjs');
+const { removeWorkFolder } = require('./ai-computer.cjs');
 
 // A model's AI chats on disk: the save-cleanup choices, important models and the
 // automatic cleanup of chats left behind. Each function takes the AiService.
@@ -72,6 +73,8 @@ async function removeChats(service, entry) {
     await service.writes.get(id)?.catch(() => {});
     await fs.rm(service.chatFile(id), { force: true });
     await fs.rm(service.chatFile(id) + '.tmp', { force: true });
+    // The chat's computer goes with it.
+    await removeWorkFolder(service.directory, id);
   }
   return { ids, providerFiles: await deleteProviderSessions(service.directory, threads) };
 }
@@ -134,6 +137,13 @@ async function cleanupUnused(service, now = Date.now()) {
   const sweep = (folder, unwanted) => removeFiles(path.join(service.directory, folder), async (name, full) => unwanted(name) && (await old(full)));
   const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
   files += await sweep('temp', () => true);
+  // Work folders of chats that no longer exist.
+  for (const name of await fs.readdir(path.join(service.directory, 'work')).catch(() => [])) {
+    if (kept.has(name) || service.conversations.has(name) || service.tasks.has(name)) continue;
+    if (await fs.stat(service.chatFile(name)).then(() => true, () => false)) continue;
+    if (!(await old(path.join(service.directory, 'work', name)))) continue;
+    if (await removeWorkFolder(service.directory, name)) files++;
+  }
   for (const folder of PROVIDERS.flatMap(p => p.logFolders)) files += await sweep(folder, orphanLog);
   return { models, files };
 }

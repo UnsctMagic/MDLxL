@@ -11,6 +11,8 @@ import {
   encodeAiValue,
   limitAiOutput,
   newSaveProblems,
+  fileEditScope,
+  mergeFileModel,
 } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
@@ -243,6 +245,23 @@ function checkSample(sample, model) {
     )
       throw Error('Invalid vertices: use geoset index -> vertex ids that exist in this model.');
   checkPictureOptions(sample, model);
+}
+// The open model with the edits an MDL or MDX file makes to it (for example a file a
+// Python script wrote from an export). The file is read through the normal opener and
+// compared with the open model as that format reads it back, so only real edits count.
+async function modelFromFile(path, doc, before) {
+  if (typeof path !== 'string' || !path) throw Error('Give the MDL or MDX file to apply.');
+  const record = await window.desktop.aiReadModel({ path });
+  const file = openDocument(record.bytes, record.name);
+  if (file.readOnly) throw Error('This file can only be opened read-only, so it cannot be applied.');
+  const format = String(record.name).toLowerCase().endsWith('.mdl') ? 'mdl' : 'mdx';
+  let base = before;
+  try {
+    base = openDocument((await prepareModelSaveAsync(doc, format)).bytes, 'base.' + format).model;
+  } catch {
+    // Without a read-back the file is compared with the open model itself.
+  }
+  return mergeFileModel(before, base, file.model);
 }
 export class AiEditorBridge {
   constructor(host) {
@@ -824,16 +843,23 @@ export class AiEditorBridge {
       active();
       return result;
     }
-    if (name === 'mdlxl_script' || name === 'mdlxl_patch') {
+    const fromFile = name === 'mdlxl_document' && args.action === 'apply';
+    if (name === 'mdlxl_script' || name === 'mdlxl_patch' || fromFile) {
       if (state.saving) throw Error('Wait for the current save to finish.');
-      if ((name === 'mdlxl_patch' || args.edit) && state.mode === 'paint')
+      if ((name === 'mdlxl_patch' || fromFile || args.edit) && state.mode === 'paint')
         throw Error(
           'Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.',
         );
       const before = structuredClone(env.doc.model);
       let result;
       if (name === 'mdlxl_patch') result = { model: patchAiModel(before, args.operations) };
-      else
+      else if (fromFile) {
+        // A model file (for example one a Python script wrote) lands as one ordinary edit:
+        // every section may change, and only what differs from the model does.
+        const model = await modelFromFile(args.path, env.doc, before);
+        args = { ...args, label: args.label || 'Apply ' + String(args.path).split(/[\\/]/).pop(), scope: fileEditScope(before, model) };
+        result = { model };
+      } else
         result = await window.desktop.aiScript({
           requestId,
           code: args.code,

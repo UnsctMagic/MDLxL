@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUp,
   BookOpen,
-  FolderCode,
   Brain,
   Globe,
   Check,
@@ -192,7 +191,6 @@ function AiAssistant({ bridge, visUI }) {
     };
     const unsubscribe = window.desktop.onAiEvent(event => {
       // Setting changes matter whichever chat is showing.
-      if (event.type === 'local-workspace') setSettings(previous => ({ ...previous, localWorkspace: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
       if (event.type === 'watch-ai') setSettings(previous => ({ ...previous, watchAi: event.enabled }));
@@ -736,17 +734,6 @@ function AiAssistant({ bridge, visUI }) {
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
               >
                 <BookOpen size={15} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                role="switch"
-                className="ai-icon-button ai-switch"
-                aria-label="Local workspace" data-hotkey="local-workspace"
-                aria-checked={!!settings.localWorkspace}
-                title="Lets the AI run local analysis scripts, keep scratch files and preview a selection on its own. Applies from the next request."
-                onClick={() => action(async () => setSettings(await window.desktop.aiLocalWorkspace(!settings.localWorkspace)))}
-              >
-                <FolderCode size={15} aria-hidden="true" />
               </button>
               <button
                 type="button"

@@ -40,7 +40,6 @@ const SPECIAL = {
   'vertex-modulate2x': { needs: [fixturePath('vertex-modulate2x')] },
   'vertex-rgb-antialias': { needs: [fixturePath('vertex-rgb-match')] },
   'ai-model-merge': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
-  'ai-local-workspace': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   'ai-review-responsive': { needs: [testModel('WH_WOC_KnightSlaaneshChampion01.mdx')] },
   // Both walk every FX look; the library grew to about 70 looks on 12 November 2026.
   'visual-effects-save': { needs: [testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], timeout: 40 * 60 * 1000 },
