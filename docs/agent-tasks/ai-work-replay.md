@@ -37,6 +37,31 @@ has the before and after of each step).
 - Style with the MDLxL theme; no new panels, buttons or text beyond what the switch needs.
 - Mouse camera rotation keeps working during replays.
 
+## Part 2: ThumperXL, the AI's head (owner, 18 Nov 2026)
+
+"thumper XL comes to life inside the AI work - he is the AI head within MDLxL. embedded in the AI
+workstation and reacts to different processes the AI does." "Depending on which provider is loaded
+in - his eyes are different colors."
+
+- ThumperXL already exists: the MDLxL helmet (horns, slanted triangle eyes, long ridge) built by
+  `thumperGeometry()` in `src/forge-thumper.js`, colours `THUMPER_COLORS`, traced from
+  `public/branding/MDLxL.png`. Reuse that geometry; do not model a new head.
+- He lives inside the existing AI panel (`app/AiAssistant.jsx`), small, in the panel's own space
+  (no new panel, toolbar or window). Live 3D, lit in the MDLxL theme, black-grey plates.
+- He reacts to what the AI is doing, from the events the console already gets (thinking, text,
+  tool start/result per tool name, compaction, question/waiting for the user, error, stop, done,
+  idle): e.g. idle = slow breathing glow; thinking = eyes slowly pulse, head tilts; looking at
+  pictures/capture = head turns and eyes scan; editing = leans in, eyes narrow and brighten;
+  waiting for the user = looks out at the user; error = eyes dim, small shake; done = nod.
+  Smooth motion only, nothing flashes or strobes. Updates at most once per display frame and
+  sleeps (no drawing) when nothing changes or the panel is closed.
+- Eye colour by the loaded provider (`src/ai-providers.json` ids). Default proposal, owner may
+  change: Claude API (`anthropic`) and Claude Code (`claude`) = Claude orange #D97757;
+  OpenAI API (`openai`) and Codex (`codex`) = OpenAI green #10A37F; Compatible (`compatible`) =
+  Thumper red #ff1a20. Switching provider changes the colour with a smooth fade.
+- He ties into the replay: while View AI work is on, the marker/glow on the model uses his eye colour.
+- No text bubbles or flavour text.
+
 ## Where the code is
 
 - `app/ai-watch.js`: what a finished call looked at (`watchLook`), tab to show, frame-coalesced follower.
