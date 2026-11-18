@@ -373,8 +373,8 @@ test('animation requests carry the animation craft without the handbook; a UV re
   assert.match(prompt, /Animation craft for this job/);
   assert.match(prompt, /mdlxl_sample/);
   assert.match(prompt, /shoulder sockets/);
-  assert.match(prompt, /linear keys, about 5 to 6 rotation keys per bone per clip/);
-  assert.match(prompt, /AnimXL output is smooth Bezier/);
+  assert.match(prompt, /snap comes from timing, not from the curve type: native clips use about 6 to 7 keys per track/);
+  assert.match(prompt, /AnimXL output is dense smooth Bezier/);
   await f.service.send({ id: 'anim', text: 'now the walk too', context });
   assert.doesNotMatch(lastPrompt(), /Animation craft/, 'sent once per provider history');
 });
