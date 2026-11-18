@@ -1,13 +1,54 @@
 import { Box3, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, TRANSFORM_DEFAULTS } from './animation.js';
 import { sweepAiRelation } from './ai-relation-sweep.js';
+import { compareStyle, motionChecks, motionStyle, sequenceChanges } from './ai-motion-style.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
+
+// Texture animation values at one time: translation, rotation and scaling of each texture animation.
+function textureAnimations(model, frame, sequence) {
+  const options = { interval: model.Sequences?.[sequence]?.Interval, globalSequences: model.GlobalSequences };
+  return (model.TextureAnims || []).map((anim, id) => ({
+    id,
+    ...Object.fromEntries(['Translation', 'Rotation', 'Scaling'].map(property => [property.toLowerCase(),
+      Array.from(sampleTrack(anim?.[property], frame, { ...options, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }), round)])),
+  }));
+}
+const round = value => Number(value.toFixed(4));
+
+// Motion measures that summarise whole animations instead of sampling frames. donor and since are
+// the resolved models for style.donor and since.
+function motionMeasures(model, context, args, { donor, since } = {}) {
+  const result = {};
+  if (args.style !== undefined) {
+    const { sequence = context.sequence, nodeIds, step } = args.style || {};
+    if (args.style?.donor && !donor) throw Error('The donor model is not open. Open it with mdlxl_document open or mdlxl_assets reference.');
+    result.style = args.style?.donor
+      ? compareStyle(model, sequence, donor, args.style.donor.sequence ?? sameNamed(model, sequence, donor), { nodeIds, step })
+      : motionStyle(model, sequence, { nodeIds, step });
+  }
+  if (args.checks !== undefined) result.checks = motionChecks(model, { sequences: args.checks?.sequences, ...(args.checks?.reference !== undefined ? { reference: args.checks.reference } : {}) });
+  if (args.since !== undefined) {
+    if (!since) throw Error('Choose a saved version for since.');
+    result.since = { version: args.since, ...sequenceChanges(since, model) };
+  }
+  return result;
+}
+// The donor animation with the same name as this one, else the donor's first animation.
+function sameNamed(model, sequence, donor) {
+  const name = String(model.Sequences?.[sequence]?.Name || '').trim().toLowerCase();
+  const found = (donor?.Sequences || []).findIndex(s => String(s.Name || '').trim().toLowerCase() === name);
+  if (found >= 0) return found;
+  const kind = name.split(/[\s-]/)[0];
+  const similar = (donor?.Sequences || []).findIndex(s => String(s.Name || '').trim().toLowerCase().startsWith(kind));
+  return similar >= 0 ? similar : 0;
+}
 
 /** Numeric pose inspection uses the same skinning implementation as the editor. */
 export function sampleAiModel(
-  model, context, args = {}, signal,
+  model, context, args = {}, signal, resolved = {},
 ) {
   if (args.sweep !== undefined) return sweepAiRelation(model, args.sweep, signal);
+  if (args.style !== undefined || args.checks !== undefined || args.since !== undefined) return motionMeasures(model, context, args, resolved);
   const {
     frames = [context.frame],
     sequence = context.sequence,
@@ -104,8 +145,11 @@ export function sampleAiModel(
                   position: Array.from(posed.subarray(vertex * 3, vertex * 3 + 3)),
                 })),
             },
+            // Geoset animation at this frame: visibility (alpha) and tint (colour, RGB).
+            ...(({ alpha, color }) => ({ alpha: round(alpha), color: color.map(round) }))(sampleGeosetAnimation(sampleModel, id, frame, sampleSequence)),
           };
         }),
+        ...(model.TextureAnims?.length ? { textureAnims: textureAnimations(sampleModel, frame, sampleSequence) } : {}),
       };
     }),
     note: 'CPU hierarchy/skinning measurements; use viewport captures for materials, billboards, particles and appearance.',

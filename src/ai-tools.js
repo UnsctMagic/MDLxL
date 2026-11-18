@@ -237,12 +237,28 @@ export const AI_TOOLS = [
   ),
   tool(
     'sample',
-    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
+    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.\n' +
+    'Frames also give each sampled geoset\'s alpha and colour, and texture animation values.\n' +
+    'sweep kind intersect: clipping between parts every 5 ms (automatic weapon, shield, arm, head, body, leg and mount parts without a and b).\n' +
+    'style: one animation\'s keys and spacing, interpolation (authored and measured), speed curve, strike and impact timing, wind-up and holds, against a donor or the Blizzard range for its kind.\n' +
+    'checks: per animation loop seam and end deviation (0.00 expected), planted-foot slide (0.5 or less is planted), joint jumps and bone turns per 33 ms (snaps, angle wraps), blended socket volume against the model\'s own animations, event timing and motion warnings.\n' +
+    'since: which animations differ from a saved version (keys and posed bones; untouched ones are identical).',
     {
       target,
       sequence: { type: 'integer', minimum: -1 },
       globalSequence: { type: ['integer', 'null'], minimum: 0 },
       sweep: AI_SWEEP_SCHEMA,
+      style: {
+        ...object({
+          sequence: { type: 'integer', minimum: 0 },
+          nodeIds: { ...indices, description: 'Bones for per-bone rows; default the keyed bones that turn most.' },
+          step: { type: 'number', minimum: 1, maximum: 100 },
+          donor: { ...object({ documentId: string('Open model (reference or this one).'), sequence: { type: 'integer', minimum: 0 } }), required: ['documentId'] },
+        }),
+        description: 'Default animation: the current one. donor.sequence defaults to the animation with the same name.',
+      },
+      checks: { ...object({ sequences: { ...indices, minItems: 1 }, reference: { type: 'integer', minimum: 0, description: 'Pose the ends are compared with; default Stand Ready, else Stand.' } }) },
+      since: string('Saved version name (mdlxl_versions), for example "original".'),
       frames: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' } },
       nodeIds: indices,
       geosetIds: indices,

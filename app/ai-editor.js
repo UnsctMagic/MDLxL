@@ -15,6 +15,7 @@ import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
+import { animationEditReport } from '../src/ai-motion-style.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
 import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
 import {
@@ -89,6 +90,16 @@ const screenOnly = (name, args) => {
   return 'This step needs the model on screen, and this job now works on a private copy because the user changed the model. ' +
     (engine ? 'Use ' + engine + ' in mdlxl_script instead.' : 'Use mdlxl_script with the editor modules instead; mesh tools, selection and view commands run here too.');
 };
+// After an edit that changed animation data: which animations changed, how many stayed identical and
+// the motion warnings the edit added. Information for the AI, never a refusal.
+function animationNotes(before, after) {
+  try {
+    const animation = animationEditReport(before, after);
+    return animation ? { animation } : {};
+  } catch {
+    return {};
+  }
+}
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
@@ -599,7 +610,7 @@ export class AiEditorBridge {
       this.requireTarget(args.target);
       return { ...picture, label: 'Candidate only, ' + args.view, triangles };
     }
-    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal);
+    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal, this.sampleModels(target, env, args));
     if (name === 'mdlxl_versions') {
       const versions = this.versionStore,
         id = target.documentId;
@@ -724,6 +735,7 @@ export class AiEditorBridge {
         value,
         logs: result.logs || [],
         diagnostics: doc.diagnostics,
+        ...animationNotes(before, doc.model),
       };
     }
     if (name === 'mdlxl_select') {
@@ -957,6 +969,18 @@ export class AiEditorBridge {
       }
     }
     throw Error('Unsupported tool action.');
+  }
+  // The other models a sample measures against: a style donor (an open reference or this model) and a
+  // saved version for since.
+  sampleModels(target, env, args) {
+    const resolved = {}, donor = args.style?.donor?.documentId;
+    if (donor) {
+      const session = donor === target.documentId ? env.session : this.referenceSessions(target).find(s => s.id === donor);
+      if (!session) throw Error('The donor model is not open. Open it with mdlxl_document open or mdlxl_assets reference.');
+      resolved.donor = session.doc.model;
+    }
+    if (args.since !== undefined) resolved.since = this.versionStore.get(target.documentId, args.since);
+    return resolved;
   }
   contextFor(id) {
     const target = this.targets.get(id),
