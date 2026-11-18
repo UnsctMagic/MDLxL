@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { planChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
@@ -57,6 +57,24 @@ function editingPrompt(contract, { handbook, web, functions }) {
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
+// A new job on a chat whose provider history has grown past this many tokens starts a
+// fresh provider history, so old pictures, data and reasoning are not re-read on
+// every step. The decision diary, the memory note and the last exchange carry over.
+const FRESH_HISTORY_AT = 80000;
+// The last request and the AI's closing words, for a job that starts a fresh history.
+function lastExchange(conversation) {
+  const transcript = conversation.transcript || [];
+  const request = transcript.findLast(entry => entry.role === 'user' && entry.text && entry.text !== 'Resume task' && !entry.steer);
+  const reply = transcript.findLast(entry => entry.role === 'assistant' && String(entry.text || '').trim());
+  const clip = (text, max) => (text.length > max ? '…' + text.slice(-max) : text);
+  const lines = [
+    request && 'User: ' + clip(String(request.text).trim(), 1500),
+    reply && 'You replied: ' + clip(String(reply.text).trim(), 1500),
+  ].filter(Boolean);
+  return lines.length
+    ? '\n\nEarlier in this chat (the provider history was restarted to save tokens; inspect the model for details):\n' + lines.join('\n')
+    : '';
+}
 // Old Offload organisers kept a local ledger of requests and bird reports in
 // `messages`. It is not provider history: a native chat sends it until it has a
 // thread, an API chat once (runTask then starts its history afresh).
@@ -123,6 +141,7 @@ class AiService {
       this.contract = Promise.all([load('src/ai-tools.js'), load('src/ai-transcript.js')]).then(([contract, transcript]) => {
         this.recordAiEvent = transcript.recordAiEvent;
         this.acceptsDelivery = transcript.acceptsDelivery;
+        this.isStopRequest = transcript.isStopRequest;
         return contract;
       });
     }
@@ -507,6 +526,13 @@ class AiService {
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
+      // "stop" with nothing running starts no job and makes no AI request.
+      if (!resume && this.isStopRequest(text)) {
+        recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
+        recorder.event({ type: 'text', text: 'Nothing is running.' });
+        recorder.event({ type: 'done' });
+        return { ok: true };
+      }
       const acceptCandidate = !resume && context.retainedCandidate && this.acceptsDelivery(text);
       if (!resume && !acceptCandidate && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal })) {
         recorder.event({ type: 'done' });
@@ -561,7 +587,18 @@ class AiService {
     // An old Offload job waits for acceptance in its bird's chat.
     const owner = conversation.task?.workerId && conversation.task.status !== 'complete' ? await this.readConversation(conversation.task.workerId) : conversation,
       task = owner?.task;
-    if (!task || task.status === 'complete' || !task.checkpoint?.review?.changed) return false;
+    if (!task || !task.checkpoint?.review?.changed) return false;
+    // An unchecked result is already on the model when its job ends. Accepting it only
+    // marks it accepted: no editor step and no AI request.
+    if (task.status === 'complete') {
+      if (task.acceptedByUser || task.phase === 'verified') return false;
+      const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
+      const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + [...new Set(concerns)].join('; ') : '');
+      Object.assign(task, { acceptedByUser: true, phase: 'verified', summary });
+      recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
+      recorder.event({ type: 'text', text: summary });
+      return true;
+    }
     await this.call('mdlxl_checkpoint', { target: context.target, baseline: task.baseline, restoreReview: task.checkpoint.review }, signal);
     const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
     const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + [...new Set(concerns)].join('; ') : '');
@@ -701,6 +738,13 @@ class AiService {
     task.status = 'running';
     task.summary = '';
     this.runningIds.add(id);
+    // A new request on a long chat starts a fresh provider history (see FRESH_HISTORY_AT).
+    let restarted = '';
+    if (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length)) {
+      restarted = lastExchange(conversation);
+      conversation.messages = [];
+      for (const key of ['threadId', 'sentToolAreas', 'sentContext', 'usage']) delete conversation[key];
+    }
     recorder.start({
       role: 'user',
       text: resume ? 'Resume task' : text,
@@ -731,7 +775,8 @@ class AiService {
           (resumedOnChange
             ? '\nThe model changed after the task stopped: the unfinished result was put on the model, or the user edited it. Continue from the model as it is now and keep the user\'s edits.'
             : '')
-        : '');
+        : '') +
+      restarted;
     // SD Brain: the request first becomes an art brief, once per task.
     if (sd.enabled && !conversation.toolsOff && !task.artBrief) {
       recorder.event({ type: 'art', status: 'running' });
@@ -817,18 +862,16 @@ class AiService {
         task.workCheckpoint = { phase: args.phase, evidence: args.evidence, remaining: args.remaining };
         task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, signal);
         await this.persistConversation(conversation);
-        return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Finish the agreed review and report; do not add polishing goals.' };
+        return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Report the result; do not add polishing goals.' };
       }
-      // Look first, then change once: the plan is kept with the task, not sent to the editor.
+      // A plan is optional (the user asks for one); it is kept with the task, not sent to the editor.
       if (name === 'mdlxl_plan') {
         const options = Array.isArray(args.options) ? args.options : [];
         if (!String(args.cause || '').trim() || !String(args.reach || '').trim() || !args.keep?.length)
           throw Error('A plan names the cause, how far it reaches and what must stay the same.');
-        if (options.length < 2 && !exactValueRequest(task.request || text, images))
-          throw Error('Give at least two genuinely different fixes with what each costs, then choose one.');
+        if (!options.length) throw Error('Name at least one fix with what it costs, then choose it.');
         if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
         const checks = planChecks(args.checks, contract.AI_SWEEP_SCHEMA);
-        if (task.replanRequired && task.plan && args.cause === task.plan.cause && options[args.choice].fix === task.plan.options[task.plan.choice].fix) throw Error('The same check failed twice: ' + task.replanRequired + '. Audit the cause and choose a materially different plan, or finish blocked.');
         if (!task.plan || args.cause !== task.plan.cause || options[args.choice].fix !== task.plan.options[task.plan.choice].fix) {
           delete task.replanRequired;
           task.checkFailures = {};
@@ -840,7 +883,7 @@ class AiService {
           recorded: true,
           ...(replaces ? { replaced: 'the previous plan' } : {}),
           chosen: options[args.choice].fix,
-          next: 'Check a representative candidate before exhaustive work. The final review must cover checks and keep items.',
+          next: 'Make the edit, then check it once against these checks and keep items.',
         };
       }
       if (args.target && args.target !== context.target)
@@ -867,14 +910,10 @@ class AiService {
         workspace ||= startWorkspace();
         return workspace.use(args, requestSignal);
       }
+      // Edits run straight away: Undo is the safety net, no plan or review is required first.
       const edit = aiToolEditsModel(name, args);
-      if (edit && task.replanRequired) throw Error('The same check failed twice: ' + task.replanRequired + '. Revise mdlxl_plan based on evidence or finish blocked before another edit.');
       args = expandRoutine(task, name, args);
       if (task.routines) await this.persistConversation(conversation);
-      // Model edits need a plan, except exact value edits; switching the view or going
-      // back to a saved version does not.
-      if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !exactValueRequest(task.request || text, images))
-        throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
         const checkpoint = await this.call(
@@ -990,7 +1029,7 @@ class AiService {
             });
           if (name === 'mdlxl_review' && args.action === 'inspect') {
             const repeated = recordFailures(task, result.review?.checks, task.checkpoint.fingerprint);
-            if (repeated) result.planUpdate = 'Repeated failures: ' + repeated + '. Reassess the mechanism and record a revised plan before another edit.';
+            if (repeated) result.planUpdate = 'Repeated failures: ' + repeated + '. Reassess the cause before trying again.';
           }
           if (edit || task.checkpoint.review.phase === 'verified') delete task.unresolvedEditError;
           await this.persistConversation(conversation);
@@ -1060,7 +1099,9 @@ class AiService {
           ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, signal)
           : { changed: false };
         if (!review.changed && task.unresolvedEditError) throw Error(task.unresolvedEditError);
-        if (!review.changed || review.phase === 'verified') {
+        // The AI's own report finishes the job. A formal check (mdlxl_review) runs only when
+        // the user asks for one, so an unchecked result is delivered like a checked one.
+        {
           if (context.embeddedJob) {
             const deliver = action => this.call('mdlxl_delivery', { target: context.target, action }, signal);
             const delivery = await deliver('finish');
@@ -1094,7 +1135,7 @@ class AiService {
             }
           }
           task.status = 'complete';
-          task.phase = review.changed ? 'verified' : 'complete';
+          task.phase = review.phase === 'verified' ? 'verified' : 'complete';
           task.summary = review.summary || '';
           if (review.preExistingErrors)
             recorder.event({ type: 'text', text: '\n\nWarning: Pre-existing model errors remain.' });
@@ -1104,20 +1145,8 @@ class AiService {
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
           return;
         }
-        // A short first line; the editing AI's own explanation follows in the same box.
-        if (review.phase === 'blocked')
-          throw Error(review.summary ? 'The edit is kept but not verified.\n' + review.summary : 'The edited model still needs verification.');
-        if (attempt >= 4) break;
-        await progress('verifying');
-        recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
-        promptHasContext = false;
-        prompt =
-          task.latestRequest + '\n\nTask update:\nThe edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
-          JSON.stringify(review);
       }
-      throw Error(
-        'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
-      );
+      throw Error('The AI result could not be merged into the latest model. Resume the task to try again.');
     } catch (error) {
       task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
@@ -1440,9 +1469,17 @@ class AiService {
     if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
       throw Error('Enter a message of 1–20000 characters.');
+    // "stop" typed into the box stops the job like the Stop button; it is not advice.
+    if (this.isStopRequest?.(text)) {
+      active.recorder?.split(text);
+      this.emit({ id, type: 'steer', text });
+      this.cancel(id);
+      return { queued: false, stopped: true };
+    }
     const messageFor = id => {
       const conversation = this.conversations.get(id), task = conversation?.task;
-      if (task) task.latestRequest = text;
+      // Steering adds to the request; it never replaces what the job was asked to do.
+      if (task) task.latestRequest = (task.latestRequest || task.request || '') + '\n\nThe user added while you worked: ' + text;
       // Render at delivery, after the pending editor operation has returned its
       // updated state. Queued steering must not freeze the pre-edit snapshot.
       return () => {

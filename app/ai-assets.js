@@ -42,12 +42,48 @@ export function validateAiAssets(assets, model, existing = new Map()) {
   return assets;
 }
 
+/**
+ * The bytes of one texture by path: the open model's own textures first, then what the
+ * editor resolves (game data, texture library, the model's folder). Null when not found.
+ */
+export async function loadTextureAsset(path, session, desktop = window.desktop) {
+  if (typeof path !== 'string' || !path) return null;
+  return (
+    session?.assets?.get(gamePathKey(path)) ||
+    (await desktop.resolveTextures({ path: session?.path, names: [path] }))?.[0] ||
+    null
+  );
+}
+
 /** Reuse the installed library and codecs. No downloads, external services or shell. */
 export async function aiAssets(args, host, active, desktop = window.desktop) {
   const state = host.state(),
     { source, action = 'search', query = '', offset = 0, limit = 30 } = args;
   if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100)
     throw Error('Choose an asset page of 1–100.');
+  // A texture by path (model, texture library or game data) or by a game search hit.
+  if (action === 'preview' && ['model', 'textures', 'game'].includes(source) && (args.path || (source === 'game' && args.id))) {
+    let asset = null,
+      path = args.path;
+    if (source === 'game' && args.id) {
+      if (!args.signature) throw Error('Use the signature returned by the game library search.');
+      const record = await desktop.gameFilesRead({ id: Number(args.id), signature: args.signature });
+      active();
+      if (record.type !== 'textures') throw Error('Choose a texture.');
+      asset = { name: record.name, bytes: record.bytes };
+      path = record.path || record.name;
+    } else {
+      asset = await loadTextureAsset(path, state.session, desktop);
+      active();
+      if (!asset && source === 'game' && desktop.gameFilesReadPath) {
+        const record = await desktop.gameFilesReadPath({ path });
+        active();
+        if (record?.bytes) asset = { name: record.name, bytes: record.bytes };
+      }
+    }
+    if (!asset) throw Error('No texture was found at ' + path + '. Search with source textures or game (type textures) for its path.');
+    return { image: await decodeTextureThumbnail(asset, 1024), path };
+  }
   if (source === 'model') {
     if (action === 'search')
       return page(
@@ -59,10 +95,7 @@ export async function aiAssets(args, host, active, desktop = window.desktop) {
     if (action === 'preview') {
       const texture = state.model.Textures[args.textureId];
       if (!texture?.Image) throw Error('Choose an image texture in this model.');
-      const key = gamePathKey(texture.Image);
-      const asset =
-        state.session.assets?.get(key) ||
-        (await desktop.resolveTextures({ path: state.session.path, names: [texture.Image] }))?.[0];
+      const asset = await loadTextureAsset(texture.Image, state.session, desktop);
       active();
       if (!asset) throw Error('This texture could not be resolved by the editor.');
       return { image: await decodeTextureThumbnail(asset, 1024) };

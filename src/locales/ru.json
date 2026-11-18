@@ -8668,5 +8668,7 @@
   "Reports are full for today. Try again tomorrow.": "На сегодня сообщения больше не принимаются. Попробуйте завтра.",
   "Could not send. Check your internet connection.": "Не удалось отправить. Проверьте подключение к интернету.",
   "Cut tool": "Инструмент «Разрезать»",
-  "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Разрезать: щёлкните вершину, затем точку на линии напротив неё. Треугольник делится там; треугольник за этой линией тоже делится, чтобы ничего не рвалось. Щёлкните угол вместо линии, чтобы провести линию к этому углу."
+  "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Разрезать: щёлкните вершину, затем точку на линии напротив неё. Треугольник делится там; треугольник за этой линией тоже делится, чтобы ничего не рвалось. Щёлкните угол вместо линии, чтобы провести линию к этому углу.",
+  "Stopping…": "Остановка…",
+  "Nothing is running.": "Ничего не выполняется."
 }

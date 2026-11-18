@@ -269,6 +269,27 @@ function claudeCompaction(data) {
   if (data.subtype === 'status') return data.status === 'compacting';
   return null;
 }
+// Old pictures, data dumps and reasoning are cleared by the API itself once the
+// conversation is large, so later steps stop paying to re-read them. Server-side
+// clearing keeps prompt caching and preserved reasoning valid (a client-side edit of
+// earlier turns would not). Each clear removes at least 20K tokens, so the cache
+// rewrite it causes pays for itself.
+const CONTEXT_EDITING_BETA = 'context-management-2025-06-27';
+function anthropicContextEditing(thinking) {
+  return {
+    edits: [
+      // Keep the reasoning of the job in progress; earlier jobs' reasoning is cleared.
+      ...(thinking ? [{ type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 1 } }] : []),
+      {
+        type: 'clear_tool_uses_20250919',
+        trigger: { type: 'input_tokens', value: 60000 },
+        keep: { type: 'tool_uses', value: 4 },
+        clear_at_least: { type: 'input_tokens', value: 20000 },
+      },
+    ],
+  };
+}
+const CONTEXT_EDITING_REFUSED = /HTTP 400.*(context[_ ]management|clear_tool_uses|clear_thinking|anthropic-beta)/is;
 const CANCELLED = 'AI request cancelled.';
 // Said when a provider asks for anything beyond MDLxL's own editor tools.
 const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
@@ -364,6 +385,8 @@ async function runApi({
       });
   }
   let awarenessVersion = awareness?.version;
+  // Cleared by the API once the conversation is large; off again if a model refuses it.
+  let contextEditing = anthropic;
   const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
   for (let step = 0; step < steps; step++) {
     if (signal.aborted) throw Error(CANCELLED);
@@ -409,13 +432,20 @@ async function runApi({
             ...(apiTools.length ? { tools: apiTools } : {}),
             ...(thinking ? { thinking } : {}),
             ...(thinking && effortFor(settings) ? { output_config: { effort: effortFor(settings) } } : {}),
+            ...(contextEditing ? { context_management: anthropicContextEditing(thinking) } : {}),
             stream: true,
           },
           key,
           signal,
-          ANTHROPIC_HEADERS,
+          contextEditing ? { ...ANTHROPIC_HEADERS, 'anthropic-beta': CONTEXT_EDITING_BETA } : ANTHROPIC_HEADERS,
         );
       } catch (error) {
+        // A model or account without context editing works as before, only without the clearing.
+        if (contextEditing && CONTEXT_EDITING_REFUSED.test(error.message)) {
+          contextEditing = false;
+          step--;
+          continue;
+        }
         // Old reasoning refused: drop it (finished turns first, then all) and ask again.
         if (!STALE_THINKING.test(error.message) || !(dropStaleThinking(history) || dropStaleThinking(history, true))) throw error;
         step--;
@@ -1381,6 +1411,7 @@ module.exports = {
   providerInfo,
   anthropicCost,
   openaiCost,
+  anthropicContextEditing,
   anthropicThinking,
   claudeCompaction,
   endpoint,

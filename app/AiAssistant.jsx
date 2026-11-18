@@ -153,8 +153,18 @@ function AiAssistant({ bridge, visUI }) {
     input = useRef(),
     pinned = useRef(true),
     rekeying = useRef(Promise.resolve()),
-    activeId = useRef(id);
+    activeId = useRef(id),
+    streamed = useRef({ events: [], frame: 0, timer: 0 });
   activeId.current = id;
+  // Events still waiting for the next frame are already in a transcript loaded from
+  // disk, and belong to no fresh chat: replacing the thread drops them.
+  function dropStreamed() {
+    const stream = streamed.current;
+    cancelAnimationFrame(stream.frame);
+    clearTimeout(stream.timer);
+    stream.frame = stream.timer = 0;
+    stream.events.length = 0;
+  }
   useEffect(() => {
     if (!window.desktop?.aiStatus) return;
     window.desktop
@@ -166,7 +176,18 @@ function AiAssistant({ bridge, visUI }) {
         setConnected(true);
       })
       .catch(reason => setError(reason.message));
-    return window.desktop.onAiEvent(event => {
+    // Streamed events reach the thread at most once per display frame (or 100 ms when
+    // the window is not drawing), so a reply that streams fast never keeps the console,
+    // and its Stop button, too busy to answer a click.
+    const stream = streamed.current;
+    const flush = () => {
+      cancelAnimationFrame(stream.frame);
+      clearTimeout(stream.timer);
+      stream.frame = stream.timer = 0;
+      const events = stream.events.splice(0).filter(event => !event.id || event.id === activeId.current);
+      if (events.length) setMessages(previous => events.reduce((list, event) => applyAiEvent(list, event), previous));
+    };
+    const unsubscribe = window.desktop.onAiEvent(event => {
       // Setting changes matter whichever chat is showing.
       if (event.type === 'local-workspace') setSettings(previous => ({ ...previous, localWorkspace: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
@@ -178,7 +199,13 @@ function AiAssistant({ bridge, visUI }) {
       // A chat's events stream into its thread by the same rules main saves them
       // with: what the AI says, thinks and does, in the order it happens. An error
       // without a chat is about the app, not a reply, so it stays in the banner.
-      if (event.id || event.type !== 'error') setMessages(previous => applyAiEvent(previous, event));
+      if (event.id || event.type !== 'error') {
+        stream.events.push(event);
+        if (!stream.frame) {
+          stream.frame = requestAnimationFrame(flush);
+          stream.timer = setTimeout(flush, 100);
+        }
+      }
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       if (event.type === 'compaction')
         setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
@@ -204,6 +231,10 @@ function AiAssistant({ bridge, visUI }) {
         if (event.task?.status === 'running') setStatus(phases[event.task.phase] || 'Working on the model');
       }
     });
+    return () => {
+      unsubscribe?.();
+      dropStreamed();
+    };
   }, []);
   useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
   const summaryNow = open ? bridge.summary() : null;
@@ -251,6 +282,7 @@ function AiAssistant({ bridge, visUI }) {
       .then(([transcript, info]) => {
         if (!live) return;
         pinned.current = true;
+        dropStreamed();
         setMessages(transcript);
         setTask(info);
       })
@@ -373,6 +405,7 @@ function AiAssistant({ bridge, visUI }) {
       if (activeId.current !== id) return;
       setOrg({ ...value, modelKey: org.modelKey });
       setView(value.id);
+      dropStreamed();
       setMessages([]);
       setTask(null);
       setStatus('');
@@ -390,6 +423,12 @@ function AiAssistant({ bridge, visUI }) {
       setError(reason.message);
     }
   }
+  // Stop acts on the press itself and stops every job this chat shows as working.
+  function stopJob() {
+    setStatus('Stopping…');
+    for (const chat of new Set([sendingId, ...running.map(job => job.id)]))
+      if (ours(chat)) window.desktop.aiCancel(chat)?.catch?.(() => {});
+  }
   // While the AI works, a message steers the running task instead of starting a new one.
   async function steer() {
     const text = prompt.trim();
@@ -397,7 +436,10 @@ function AiAssistant({ bridge, visUI }) {
     setError('');
     try {
       const result = await window.desktop.aiSteer({ id, text, annotations: bridge.annotations() });
-      if (result.queued) setPrompt('');
+      if (result.stopped) {
+        setPrompt('');
+        stopJob();
+      } else if (result.queued) setPrompt('');
       else setStatus('The AI is busy with another chat. Send this when it finishes.');
     } catch (reason) {
       setError(reason.message);
@@ -445,7 +487,7 @@ function AiAssistant({ bridge, visUI }) {
           Object.assign(context, bridge.context(context.target, fresh.id));
           if (activeId.current === id) {
             activeId.current = sending;
-            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setMessages([]);
+            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); dropStreamed(); setMessages([]);
           }
         }
       }
@@ -479,7 +521,10 @@ function AiAssistant({ bridge, visUI }) {
           updateSendingDraft({ prompt: text, images: attached });
         }
         const transcript = await window.desktop.aiTranscript(sending);
-        if (activeId.current === sending) setMessages(transcript);
+        if (activeId.current === sending) {
+          dropStreamed();
+          setMessages(transcript);
+        }
       }
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
@@ -1146,7 +1191,9 @@ function AiAssistant({ bridge, visUI }) {
                         )}
                       </span>
                       {busy && (
-                        <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop" onClick={() => window.desktop.aiCancel(id)}>
+                        <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop"
+                          onPointerDown={event => { if (event.button === 0) stopJob(); }}
+                          onClick={event => { if (!event.detail) stopJob(); }}>
                           <Square size={11} aria-hidden="true" />
                           <span className="sr-only">Stop</span>
                         </button>

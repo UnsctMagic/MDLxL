@@ -31,23 +31,54 @@ const REUSE_RULE = "Reuse before creating: for textures, materials and geosets u
 const NUMBER_BEFORE = "All IDs are zero-based; explain visible labels clearly.";
 const NUMBER_AFTER = "All IDs and paths are zero-based, but the Geosets list numbers geosets from 1: /Geosets/0 is geoset 1 and /Geosets/32 is geoset 33. A geoset number from the user means that list number. When writing to the user, name geosets by the list number (for example \"geoset 33\"), never by a /Geosets/ path or zero-based index, and name bones by name.";
 const SWEEP_RULE = "When a requirement must hold in all animations, everywhere or always, use a mdlxl_sample sweep and inspect its worst clip and frame. Include the same sweep in the plan check so review measures it again after edits.";
+// Owner, 18 Nov 2026 ("I wanted AI to just have full power in MDLxL"): edits run
+// straight away with Undo as the safety net, a plan and a formal review only when the
+// user asks, one check after an edit, fewer pictures, and stop/question handling.
+// Each pair is [before, after]; undoing them must give back the earlier prompt.
+const FULL_POWER_RULES = [
+  [
+    "Include the same sweep in the plan check so review measures it again after edits",
+    "Run the same sweep again after the edit"
+  ],
+  [
+    "Work as an active modeling assistant: inspect, perform the requested work, verify and correct it before reporting completion. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. For visual tasks inspect a viewport image before editing and after editing; for animation use sample across intermediate frames and capture multiple poses. Iterate on a failed result within the requested scope",
+    "Work as an active modeling assistant: make the requested change directly and early; Undo is the safety net. Look only at what the change needs (usually one picture or one read), then edit. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. After an edit, check the result once (a picture of the changed part; for animation a sample of a few frames) and report what you see; fix a visible failure within the requested scope. Take only the pictures a question needs: one capture call can show several views, a close-up of chosen vertices, a zoom, only some geosets, wireframe or the UV layout, so do not re-shoot just to change the framing"
+  ],
+  [
+    "Inspect actual captures, sample intermediate animation poses, and use document validate for MDX/MDL serialization when relevant",
+    "Use document validate when the save format is in question"
+  ],
+  [
+    "Look first, then change once. Before the first edit of a job, inspect everything the request touches, measure what is actually wrong, and call mdlxl_plan: the cause, how far it reaches (the marked area is where the user saw a symptom; the cause can be larger or smaller), what must stay the same, at least two genuinely different fixes with what each costs, and which one you choose and why. Prefer the fix that removes the cause and keeps the most of what must stay the same over one that compensates for it. Patterns from reference models or rules passed on in the chat (\"Blizzard usually binds X to Y\") are evidence about what is common and why, not orders: check that this model's rig, shapes and motion match the cases the pattern comes from before applying it, and say so when it does not fit. Reason from how the game actually moves and draws the data. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result shows the plan was wrong, go back to the last good version with mdlxl_versions and record a new plan before editing again, rather than patching on top. When several fixes are plausible, save a version, try them side by side, compare, and keep the best. To judge a part, capture it with samples that show only the geosets in question (geosets, plain) before and after, with the same view and frames, so the pair compares like with like",
+    "Fix the cause, not the symptom: the marked area is where the user saw a problem; the cause can be larger or smaller. Prefer the change that removes the cause and keeps the most of what must stay the same over one that compensates for it. Patterns from reference models or rules passed on in the chat (\"Blizzard usually binds X to Y\") are evidence about what is common and why, not orders: check that this model's rig, shapes and motion match the cases the pattern comes from before applying it, and say so when it does not fit. Reason from how the game actually moves and draws the data. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result is wrong, go back to the last good version with mdlxl_versions rather than patching on top. Use mdlxl_plan only when the user asks for a plan or options; then wait for their choice before editing. To compare a part before and after, capture the same view and frames showing only the geosets in question"
+  ],
+  [
+    "Before completing an edit, use mdlxl_review inspect. Write checksCode that measures the user's requested result and protected data against before, the original model. Inspect the returned original/edited images (and donor images when copying motion) and animation samples. Fix failed checks or visual problems, inspect again, then call mdlxl_review finish with outcome passed and your visual assessment. Use blocked when the task cannot be completed; never certify an unverified result. A task cannot complete with outstanding verification",
+    "Run mdlxl_review (inspect, then finish) only when the user asks you to check, verify or compare a result; otherwise your own short report ends the job. Never call a result verified unless such a review passed"
+  ],
+  [
+    "The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked.",
+    "The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked. A message asking you to stop means stop: end your turn at once with one short sentence. When the user asks a question or complains (for example \"why did you…\", \"did you change anything?\"), answer it in words first, using read-only tools only for facts you need; do not start or resume edits until they ask for a change. A request phrased as a question (\"can you make the eyes red?\") is a request."
+  ]
+];
+const undoFullPower = text => FULL_POWER_RULES.reduce((s, [before, after]) => s.replace(after, before), text);
 const stripMotionRules = text => [SWEEP_RULE, ACCEPTED_RULE, TOLERANCE_RULE, REJECTION_RULE, REUSE_RULE].reduce((s, rule) => s.replace('\n' + rule, ''), text).replace(NUMBER_AFTER, NUMBER_BEFORE);
 const EXPECTED = {
   "editing plain": [
-    "e9f2d8bb9bd55c19db6f72174bfbcdfa8075d53f3a86bbbe51795b77e8abde06",
-    9316
+    "c82ee8a3d07503482ade2c184dd2fe992511475c1842e6a89cd59bc63deaa918",
+    9118
   ],
   "editing plain+web": [
-    "1e620a34bf2eca9cede547cb4664433ba37c7c525417354abf5bcfcf457cac27",
-    9818
+    "ab5333157f421e4f6e584ff0d8f957308d0bd2687efecc7d9701c6aa7114501b",
+    9620
   ],
   "editing handbook": [
-    "8692708d4e8b6dca4cc3c0608f7d0257558c0580e47623f4c52ab890185b5e63",
-    12323
+    "0baa0a6174928512b54333fbbdf3f970a5d6878ae154acea5dfe66eee8d715e0",
+    12125
   ],
   "editing handbook+web": [
-    "18ba6c2d33e8d2430f44bd33b95c9487aff7fe9466a2efc9448992225e5a71e7",
-    12825
+    "05e9b3df249a2da66a48f1687eacc882a583f1f876b510538fa5ce8c8ab75317",
+    12627
   ],
 };
 const fingerprint = text => [createHash('sha256').update(text, 'utf8').digest('hex'), text.length];
@@ -65,7 +96,7 @@ test('direct editing prompt hashes retain every existing instruction', () => {
     for (const web of [false, true]) {
       const key = (handbook ? 'handbook' : 'plain') + (web ? '+web' : '');
       assert.deepEqual(fingerprint(editingPrompt(contract, { handbook, web })), EXPECTED['editing ' + key], 'editing ' + key);
-      assert.deepEqual(fingerprint(stripMotionRules(editingPrompt(contract, { handbook, web })).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
+      assert.deepEqual(fingerprint(stripMotionRules(undoFullPower(editingPrompt(contract, { handbook, web }))).replace('\n' + EXAMPLE_RULE, '').replace(CONTEXT_AFTER, CONTEXT_BEFORE)), BEFORE_RULE['editing ' + key], 'only the documented rules change editing ' + key);
     }
   assert.equal(contract.AI_SYSTEM_PROMPT, contract.AI_EDITING_INTRO + '\n' + contract.AI_EDITING_BODY);
   assert.ok(!contract.AI_EDITING_INTRO.includes('\n'));

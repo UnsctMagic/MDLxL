@@ -144,30 +144,23 @@ const plan = (extra = {}) =>
     why: 'Keeps the triangle count and every other part.',
     ...extra,
   });
-test('an unverified edit cannot produce a success message and is checkpointed for Resume', async t => {
-  let lastPrompt = '';
+// Owner, 18 Nov 2026: edits run straight away and the AI's own report ends the job;
+// a formal review runs only when the user asks for one.
+test('an unchecked edit finishes on the AI report, with no forced review turn', async t => {
+  const prompts = [];
   const f = await setup(t, ({ data, requests }) => {
-    lastPrompt = JSON.stringify(data.messages);
+    prompts.push(JSON.stringify(data.messages.at(-1)));
     return requests === 1 ? edit() : done();
   });
   const result = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
-  assert.equal(result.ok, false);
-  assert.match(result.error, /verification is incomplete/);
-  assert.equal(f.counts().edits, 1);
-  // The AI's words stream live, so its claim is shown, but the turn ends as a failure.
-  assert.match((await f.service.conversation('test', 'compatible')).transcript.at(-1).error, /verification is incomplete/);
-  assert.equal(f.events.at(-1).type, 'task');
-  assert.equal(f.events.some(e => e.type === 'done'), false);
-  const restarted = f.make(),
-    task = await restarted.taskInfo('test');
-  assert.equal(task.canResume, true);
-  // Resume never refuses: a model that changed since the stop is where the task carries on.
-  f.changeFingerprint();
-  const resumed = await restarted.send({ id: 'test', context, resume: true });
-  assert.equal(resumed.ok, false);
-  assert.match(resumed.error, /verification is incomplete/);
-  assert.match(lastPrompt, /The model changed after the task stopped/);
-  assert.equal(f.counts().edits, 1);
+  assert.equal(result.ok, true);
+  assert.deepEqual(f.counts(), { requests: 2, edits: 1 }, 'no extra AI request to check the edit');
+  assert.ok(!prompts.some(prompt => /Task update|still unverified/.test(prompt)));
+  const task = await f.service.taskInfo('test');
+  assert.equal(task.status, 'complete');
+  assert.equal(task.phase, 'complete', 'complete, not verified');
+  assert.equal(task.canResume, false);
+  assert.ok(f.events.some(e => e.type === 'done'));
 });
 test('a failed edit cannot be reported as success when the model is unchanged', async t => {
   const f = await setup(t, ({ requests }) => (requests === 1 ? edit() : done()));
@@ -187,26 +180,25 @@ test('a failed edit cannot be reported as success when the model is unchanged', 
   assert.equal(task.steps[0].status, 'failed');
 });
 
-test('look first: an edit is refused until the job has a plan, and the review gets its keep list', async t => {
+test('an edit runs straight away without a plan; a plan the user asks for is still recorded and reaches the review', async t => {
   const toolMessages = [];
   let lastRequest;
   const f = await setup(t, ({ data, requests }) => {
-    if (requests === 7) lastRequest = data;
+    if (requests === 6) lastRequest = data;
     const last = data.messages.at(-1);
     if (last.role === 'tool') toolMessages.push(last.content);
     if (requests === 1) return edit();
-    // One option is not a choice for a repair.
+    // One fix is enough for a plan the user asked for.
     if (requests === 2) return plan({ options: [{ fix: 'Reshape the rim ring', cost: 'rim only' }] });
     if (requests === 3) return plan({ choice: 5 });
     if (requests === 4) return plan();
-    if (requests === 5) return edit();
-    if (requests === 6) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
+    if (requests === 5) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
     return done();
   });
-  await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context });
-  assert.match(toolMessages[0], /Look first/);
-  assert.equal(f.counts().edits, 1, 'only the edit made after the plan ran');
-  assert.match(toolMessages[1], /at least two genuinely different fixes/);
+  await f.service.send({ id: 'test', text: 'plan it, then fix the rim so it looks hammered', context });
+  assert.equal(f.counts().edits, 1, 'the first edit ran without a plan');
+  assert.match(toolMessages[0], /"applied":true/);
+  assert.match(toolMessages[1], /"recorded":true/);
   assert.match(toolMessages[2], /choice must be the index/);
   assert.match(toolMessages[3], /"recorded":true/);
   // The review result reminds the AI of the plan's keep list.
@@ -214,7 +206,7 @@ test('look first: an edit is refused until the job has a plan, and the review ge
   assert.ok(reviewed.includes('Confirm each keep item') && /cup body.*stem.*UVs/.test(reviewed));
   const task = (await f.service.conversation('test', 'compatible')).task;
   assert.equal(task.plan.options[task.plan.choice].fix, 'Reshape the rim ring');
-  assert.equal(task.steps.length, 1, 'the refused edit left no step behind');
+  assert.equal(task.steps.length, 1);
 });
 
 test('the decision diary keeps each job with the model, with the owner reaction, for the next job', async t => {
@@ -436,13 +428,15 @@ test('verified completion requires measured review before finish and removes the
   assert.equal(saved.task.baseline, undefined);
   assert.equal(saved.task.steps[0].status, 'applied');
 });
-test('Resume after a service restart inspects the checkpoint without repeating an applied edit', async t => {
-  let resume = false;
-  const f = await setup(t, ({ requests, phase }) =>
-    !resume
+test('Resume after a service restart continues a stopped job without repeating an applied edit, also on a changed model', async t => {
+  let resume = false,
+    lastPrompt = '',
+    f;
+  f = await setup(t, ({ data, requests, phase }) =>
+    (lastPrompt = JSON.stringify(data.messages)) && !resume
       ? requests === 1
         ? edit()
-        : done()
+        : (f.service.cancel('test'), done())
       : phase === 'pending'
         ? tool('mdlxl_review', {
             target: 'selected',
@@ -458,10 +452,15 @@ test('Resume after a service restart inspects the checkpoint without repeating a
             })
           : done(),
   );
-  await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
+  // Stopped while the AI was still working after its edit.
+  assert.equal((await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context })).cancelled, true);
   resume = true;
   const restarted = f.make();
+  assert.equal((await restarted.taskInfo('test')).canResume, true);
+  // Resume never refuses: a model that changed since the stop is where the task carries on.
+  f.changeFingerprint();
   assert.equal((await restarted.send({ id: 'test', context, resume: true })).ok, true);
+  assert.match(lastPrompt, /The model changed after the task stopped/);
   assert.equal(f.counts().edits, 1);
   assert.equal((await restarted.taskInfo('test')).canResume, false);
 });
@@ -709,22 +708,21 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
   });
   await g.service.setSdBrain(true);
   const stopped = await g.service.send({ id: 'test', text: 'fix the rim', context });
-  // From the third failure on, more revisions are refused and the task cannot pass.
-  assert.equal(stopped.ok, false);
+  // From the third failure on, more revisions are refused; the job then ends unverified.
+  assert.equal(stopped.ok, true);
+  assert.notEqual((await g.service.taskInfo('test')).phase, 'verified');
   assert.ok((await g.service.conversation('test', 'compatible')).task.corrections['detail-value'] >= 3);
   assert.ok(g.events.some(e => e.type === 'tool-result' && /failed three times/.test(e.summary || '')));
 });
 
-test('two measured failures require a different plan before a third edit', async t=>{
+test('two measured failures add a reassess note to the review result and never block the next edit', async t=>{
   const errors=[]; let edits=0, phase='unchanged', inspections=0;
   const f=await setup(t,({data,requests})=>{
     if(lastMessage(data)?.role==='tool')errors.push(lastMessage(data).content);
     if(requests===1)return plan();
-    if([2,4,6,9].includes(requests))return edit();
-    if([3,5,10].includes(requests))return tool('mdlxl_review',{target:'selected',action:'inspect',checksCode:'return [{name:"rim contact",passed:false}];'});
-    if(requests===7)return plan();
-    if(requests===8)return plan({cause:'Measured contact is caused by the neighboring ring, not the rim strip.',choice:1});
-    if(requests===11)return tool('mdlxl_review',{target:'selected',action:'finish',outcome:'passed',summary:'Measured contact cleared.'});
+    if([2,4,6].includes(requests))return edit();
+    if([3,5,7].includes(requests))return tool('mdlxl_review',{target:'selected',action:'inspect',checksCode:'return [{name:"rim contact",passed:false}];'});
+    if(requests===8)return tool('mdlxl_review',{target:'selected',action:'finish',outcome:'passed',summary:'Measured contact cleared.'});
     return done();
   });
   function lastMessage(data){return data.messages.at(-1);}
@@ -732,15 +730,18 @@ test('two measured failures require a different plan before a third edit', async
     if(name==='mdlxl_checkpoint')return {fingerprint:'rev'+edits,context,review:{changed:edits>0,phase},...(args.includeBaseline?{baseline:{Info:{Name:'original'}}}:{})};
     if(name==='mdlxl_patch'){edits++;phase='pending';return {applied:true,changes:[]};}
     if(name==='mdlxl_review'){
-      if(args.action==='inspect'){inspections++;phase='inspected';return {review:{checks:[{name:'rim contact',passed:inspections>2}],passed:inspections>2},images:[]};}
+      if(args.action==='inspect'){inspections++;phase='inspected';return {review:{checks:[{name:'rim contact',passed:inspections>2}],passed:inspections>2},images:[{label:'after',image:'data:image/png;base64,YQ=='}]};}
       if(args.action==='finish')phase='verified';
       return {changed:edits>0,phase};
     }
     assert.fail(name);
   };
   const result=await f.service.send({id:'test',text:'Fix the rim contact while preserving the rest',context});
-  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(edits,3,'third blind edit was refused; the changed plan allowed one new edit');
-  assert.ok(errors.some(s=>/same check failed twice/.test(s))); assert.ok(errors.some(s=>/materially different plan/.test(s)));
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(edits,3,'the third edit ran after two measured failures');
+  // Tool results with pictures are followed by the pictures, so read them from the saved history.
+  const results=(await f.service.readConversation('test')).messages.filter(m=>m.role==='tool').map(m=>m.content);
+  assert.ok(results.some(s=>/Repeated failures: rim contact/.test(s)&&/Reassess the cause/.test(s)));
+  assert.ok(!results.some(s=>/same check failed twice|materially different plan/.test(s)));
   const task=(await f.service.readConversation('test')).task; assert.equal(task.replanRequired,undefined); assert.equal(task.phase,'verified');
 });
 
@@ -803,12 +804,14 @@ test('owner replay: absent comparison evidence is a note and does not block fini
 });
 
 
-test('owner replay: explicit delivery completes the kept result without another provider call', async t => {
+test('owner replay: a blocked review still delivers, and "deliver it" accepts it without another provider call', async t => {
   const actions = [plan(), edit(), tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }), tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The picture packet omits baseline and wireframe.' })];
   const f = await setup(t, () => actions.shift() || done());
   const id = (await f.service.organiser({ modelKey: 'file:fixture.mdx' })).id;
-  assert.equal((await f.service.send({ id, text: ownerTurns.turns['27'].text, context })).ok, false);
+  assert.equal((await f.service.send({ id, text: ownerTurns.turns['27'].text, context })).ok, true);
   const owner = await f.service.conversation(id, 'compatible');
+  assert.equal(owner.task.status, 'complete');
+  assert.equal(owner.task.phase, 'complete', 'the result is on the model, not verified');
   const chat = owner;
   chat.task.outsideCheck = { verdict: 'doubtful', problems: ['wireframe not available'], notes: ['No source file has been saved.'] };
   const before = f.counts();
@@ -883,7 +886,7 @@ test('a new owner turn has a fresh abort signal after Stop', async t => {
 });
 
 
-test('context diet: verification nudges lead with the latest steering words and current edited state', async t => {
+test('steering adds to the job request instead of replacing it, and reaches the AI with the current edited state', async t => {
   let f, steered=false;
   const prompts=[];
   f=await setup(t,({data,requests})=>{
@@ -901,9 +904,11 @@ test('context diet: verification nudges lead with the latest steering words and 
     return result;
   };
   await f.service.send({id:'test',text:'Set the marked vertex to 2',context:{...context,revision:1,geosets:[{index:0,triangles:24}],nodes:[{id:42,name:'Band bone'}]}});
-  const nudges=prompts.filter(p=>p.includes('Task update:'));
-  assert.ok(nudges.length>0);
-  for(const message of nudges)assert.ok(message.startsWith('Keep the marked points, only reduce their triangles\n\nTask update:'));
+  assert.ok(!prompts.some(p=>p.includes('Task update:')),'no review turn is forced');
+  assert.ok(prompts.some(p=>p.startsWith('Keep the marked points, only reduce their triangles')),'the steering reached the AI');
+  const task=(await f.service.conversation('test','compatible')).task;
+  assert.match(task.latestRequest,/^Set the marked vertex to 2/);
+  assert.match(task.latestRequest,/The user added while you worked: Keep the marked points, only reduce their triangles/);
   const delivered=prompts.join('\n');
   assert.match(delivered,/"revision":2/);
   assert.match(delivered,/"triangles":8/);
@@ -926,10 +931,74 @@ test('context diet: steering queued during an edit describes the post-edit state
     return result;
   };
   await f.service.send({id:'test',text:'Set the marked vertex to 2',context:{...context,revision:1}});
-  // The final verification nudge is separate; the steering itself leads with the owner words.
+  // The steering leads with the owner words.
   const messages=(await f.service.conversation('test','compatible')).messages;
   const steer=messages.filter(m=>m.role==='user').map(m=>typeof m.content==='string'?m.content:m.content[0]?.text).find(m=>m?.startsWith('Keep my example')&&m.includes('Steering:'));
   assert.match(steer,/"revision":2/);
   assert.ok(!steer.includes('"revision":1'));
   assert.match(steer,/"color":"red"/);
+});
+
+// Owner, 18 Nov 2026: "stgop", "STOP" and "STOP CUNT" typed while the AI worked went in
+// as advice and it kept working.
+test('typing stop while the AI works stops the job like the Stop button, it is not advice', async t => {
+  let f, stopped;
+  f = await setup(t, ({ requests }) => {
+    if (requests === 1) {
+      stopped = f.service.steer({ id: 'test', text: 'stgop' });
+      return tool('mdlxl_review', { target: 'selected', action: 'status' });
+    }
+    return done();
+  });
+  const result = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
+  assert.equal(result.cancelled, true);
+  assert.deepEqual(await stopped, { queued: false, stopped: true });
+  assert.equal(f.counts().requests, 1, 'no AI request after the stop');
+  const transcript = (await f.service.conversation('test', 'compatible')).transcript;
+  assert.ok(transcript.some(entry => entry.role === 'user' && entry.steer && entry.text === 'stgop'));
+  assert.equal((await f.service.taskInfo('test')).status, 'interrupted');
+  // A longer message that only mentions stopping still steers.
+  let g, steered;
+  g = await setup(t, ({ requests }) => {
+    if (requests === 1) steered = g.service.steer({ id: 'test', text: 'stop making the eyes green, use red' });
+    return done();
+  });
+  assert.equal((await g.service.send({ id: 'test', text: 'Shape this', context })).ok, true);
+  assert.deepEqual(await steered, { queued: true });
+});
+
+test('stop typed when nothing runs starts no job and makes no AI request', async t => {
+  const f = await setup(t, () => {
+    throw Error('Stop must not reach the AI');
+  });
+  assert.equal((await f.service.send({ id: 'test', text: 'STOP', context })).ok, true);
+  assert.equal(f.counts().requests, 0);
+  const transcript = (await f.service.conversation('test', 'compatible')).transcript;
+  assert.equal(transcript.at(-2).text, 'STOP');
+  assert.equal(transcript.at(-1).text, 'Nothing is running.');
+});
+
+// The Shield chat re-read every earlier step on each new one: a new request on a long
+// chat starts a fresh provider history, carrying the last exchange.
+test('a new request on a long chat starts a fresh provider history with the last exchange', async t => {
+  const sent = [];
+  const f = await setup(t, ({ data }) => {
+    sent.push(data.messages);
+    return done();
+  });
+  assert.equal((await f.service.send({ id: 'test', text: 'Make the eyes red', context })).ok, true);
+  const conversation = await f.service.conversation('test', 'compatible');
+  conversation.usage = { used: 120000, window: 200000 };
+  assert.equal((await f.service.send({ id: 'test', text: 'now the horns', context })).ok, true);
+  const fresh = sent.at(-1).filter(m => m.role === 'user');
+  assert.equal(fresh.length, 1, 'only the new request is sent');
+  const text = JSON.stringify(fresh[0].content);
+  assert.match(text, /now the horns/);
+  assert.match(text, /Earlier in this chat/);
+  assert.match(text, /User: Make the eyes red/);
+  assert.match(text, /You replied: Done\./);
+  // Below that size the history carries on as before.
+  conversation.usage = { used: 5000, window: 200000 };
+  assert.equal((await f.service.send({ id: 'test', text: 'and the tail', context })).ok, true);
+  assert.ok(sent.at(-1).filter(m => m.role === 'user').length > 1);
 });

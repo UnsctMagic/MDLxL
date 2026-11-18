@@ -15,7 +15,20 @@ import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
-import { aiAssets, validateAiAssets } from './ai-assets.js';
+import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
+import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
+import {
+  clampZoom,
+  groupGeosetsByTexture,
+  markedUvPoints,
+  uvArray,
+  uvBounds,
+  uvEdges,
+  uvPictureGeosets,
+  uvPictureSize,
+  uvRange,
+  zoomedFocus,
+} from '../src/ai-uv-picture.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
@@ -81,6 +94,24 @@ function checkView(args, model) {
     throw Error('Global animation index is out of range.');
   if (args.globalSequence != null && args.sequence !== undefined)
     throw Error('Choose a local or global animation, not both.');
+}
+// Checks a capture sample's close-up, wireframe and UV-layout options.
+function checkSample(sample, model) {
+  for (const key of ['uv', 'wireframe'])
+    if (sample[key] !== undefined && typeof sample[key] !== 'boolean') throw Error('Invalid ' + key + ' option.');
+  if (sample.zoom !== undefined && !(Number.isFinite(sample.zoom) && sample.zoom >= 1 && sample.zoom <= 8))
+    throw Error('Zoom is 1 to 8.');
+  if (sample.uvSet !== undefined && !Number.isInteger(sample.uvSet)) throw Error('Invalid UV set.');
+  if (sample.uvSet !== undefined && !(sample.uvSet >= 0)) throw Error('Invalid UV set.');
+  for (const [gi, ids] of Object.entries(sample.vertices || {}))
+    if (
+      !/^\d+$/.test(gi) ||
+      !model.Geosets[gi] ||
+      !Array.isArray(ids) ||
+      !ids.length ||
+      ids.some(i => !Number.isInteger(i) || i < 0 || i >= model.Geosets[gi].Vertices.length / 3)
+    )
+      throw Error('Invalid vertices: use geoset index -> vertex ids that exist in this model.');
 }
 export class AiEditorBridge {
   constructor(host) {
@@ -737,12 +768,16 @@ export class AiEditorBridge {
     if (name === 'mdlxl_capture' || (name === 'mdlxl_ui' && args.action === 'capture')) {
       if (name === 'mdlxl_capture' && args.samples) {
         // Each sample is drawn off-screen, so the view on screen never moves.
-        for (const sample of args.samples) checkView(sample, env.model);
+        for (const sample of args.samples) {
+          checkView(sample, env.model);
+          checkSample(sample, env.model);
+        }
         const images = [];
         for (const sample of args.samples) {
           active();
           this.requireTarget(args.target);
-          images.push(await this.picture(args.target, sample));
+          if (sample.uv) images.push(...(await this.uvPictures(args.target, sample)));
+          else images.push(await this.picture(args.target, sample));
         }
         return { images };
       }
@@ -938,7 +973,7 @@ export class AiEditorBridge {
         sequence,
         globalSequence: sample.globalSequence ?? null,
         frame: sample.frame ?? 0,
-        renderMode: sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
+        renderMode: sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
         hiddenGeosets: [],
         marks: null,
         focus: source.focus || null,
@@ -957,9 +992,12 @@ export class AiEditorBridge {
           ? (model.Sequences[sample.sequence]?.Interval?.[0] ?? 0)
           : s.time);
     const view = sample.view || s.view,
-      // Pictures show the surface; wireframe marks belong to the live viewport.
-      renderMode = sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
-    const marked = markedPositions(model, source.candidate || target.selection, sequence, globalSequence, frame);
+      // Pictures show the surface; mesh lines only when the sample asks for them (wireframe: true).
+      wireframe = sample.wireframe === true,
+      renderMode = wireframe ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
+    // sample.vertices marks and frames exactly those vertices without touching the selection.
+    const own = sample.vertices && !source.candidate ? sample.vertices : null;
+    const marked = markedPositions(model, own || source.candidate || target.selection, sequence, globalSequence, frame);
     if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
@@ -967,6 +1005,23 @@ export class AiEditorBridge {
     const parts = only
       ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
       : null;
+    let focus = source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts);
+    if (own && !source.focus && sample.fit !== 'model') focus = marked;
+    const zoom = clampZoom(sample.zoom);
+    if (zoom > 1 && !source.focus) {
+      // Shrink the framed box around its centre; with nothing framed yet, that is the whole visible model.
+      const hiddenNow = new Set(s.hiddenGeosets || []);
+      const whole = focus?.length
+        ? focus
+        : markedPositions(
+            model,
+            Object.fromEntries(model.Geosets.flatMap((g, gi) => (hiddenNow.has(gi) ? [] : [[gi, Array.from({ length: g.Vertices.length / 3 }, (_, i) => i)]]))),
+            sequence,
+            globalSequence,
+            frame,
+          );
+      focus = zoomedFocus(whole, zoom);
+    }
     const image = await this.host().render({
       documentId: env.session.id,
       ...(source.model ? { model: structuredClone(source.model) } : {}),
@@ -982,12 +1037,97 @@ export class AiEditorBridge {
           : s.hiddenGeosets,
       marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
       ...(source.candidate ? { hiddenGeosets: [], showParticles: false } : {}),
-      focus: source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts),
+      focus,
     });
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}`,
+      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 ? '; zoom ' + zoom + 'x' : ''}`,
       image,
     };
+  }
+  // Flat pictures of the geosets' UV layout: the texture with the UV triangles drawn over it, one
+  // picture per texture. Marked vertices (sample.vertices, else the task's marks) are red dots.
+  async uvPictures(id, sample) {
+    const target = this.targets.get(id),
+      env = this.env(target),
+      model = env.model,
+      uvSet = sample.uvSet ?? 0,
+      marks = sample.vertices || target.selection || {};
+    const geosets = uvPictureGeosets(model, sample.geosets, marks).filter(g => uvArray(model.Geosets[g], uvSet));
+    if (!geosets.length) throw Error('These geosets have no UV set ' + uvSet + '.');
+    const pictures = [];
+    for (const group of groupGeosetsByTexture(model, geosets)) {
+      const list = group.geosets.map(g => model.Geosets[g]),
+        range = uvRange(uvBounds(list, uvSet)),
+        { width, height } = uvPictureSize(range),
+        canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d'),
+        spanU = range.maxU - range.minU,
+        spanV = range.maxV - range.minV,
+        px = u => ((u - range.minU) / spanU) * width,
+        py = v => ((v - range.minV) / spanV) * height;
+      // Background: the texture tiled across the range (Warcraft III wraps), else plain grey.
+      context.fillStyle = '#808080';
+      context.fillRect(0, 0, width, height);
+      let note = '';
+      const path = group.texture?.path;
+      if (!group.texture) note = 'no texture: plain grey background';
+      else if (!path) note = 'replaceable texture ' + group.texture.replaceableId + ': plain grey background';
+      else {
+        let picture = null;
+        try {
+          const asset = await loadTextureAsset(path, env.session);
+          if (asset) {
+            picture = new Image();
+            picture.src = await decodeTextureThumbnail(asset, 1024);
+            await picture.decode();
+          }
+        } catch {
+          picture = null;
+        }
+        if (picture)
+          for (let tu = range.minU; tu < range.maxU; tu++)
+            for (let tv = range.minV; tv < range.maxV; tv++)
+              context.drawImage(picture, px(tu), py(tv), px(tu + 1) - px(tu), py(tv + 1) - py(tv));
+        else note = 'texture could not be loaded: plain grey background';
+      }
+      // Tile borders where the UVs go outside 0..1.
+      if (spanU > 1 || spanV > 1) {
+        context.strokeStyle = 'rgba(255,255,0,0.7)';
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let tu = range.minU; tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
+        for (let tv = range.minV; tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
+        context.stroke();
+      }
+      // White under cyan keeps the thin edges readable on both light and dark textures.
+      const edges = group.geosets.flatMap(g => uvEdges(model.Geosets[g], uvSet));
+      for (const [style, line] of [['rgba(255,255,255,0.6)', 2], ['rgba(0,255,255,0.95)', 1]]) {
+        context.strokeStyle = style;
+        context.lineWidth = line;
+        context.beginPath();
+        for (let i = 0; i < edges.length; i += 4) {
+          context.moveTo(px(edges[i]), py(edges[i + 1]));
+          context.lineTo(px(edges[i + 2]), py(edges[i + 3]));
+        }
+        context.stroke();
+      }
+      let dots = 0;
+      context.fillStyle = '#ff2020';
+      for (const g of group.geosets)
+        for (const [u, v] of markedUvPoints(model.Geosets[g], marks[g] || [], uvSet)) {
+          context.beginPath();
+          context.arc(px(u), py(v), 3.5, 0, Math.PI * 2);
+          context.fill();
+          dots++;
+        }
+      pictures.push({
+        label: `UV layout, set ${uvSet}; ${group.geosets.map(g => 'geoset ' + (g + 1)).join(', ')}; texture ${path || (group.texture ? 'replaceable ' + group.texture.replaceableId : 'none')}; UV range u ${range.minU}..${range.maxU}, v ${range.minV}..${range.maxV}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}`,
+        image: canvas.toDataURL('image/png'),
+      });
+    }
+    return pictures;
   }
   inspectUi() {
     this.controls.clear();

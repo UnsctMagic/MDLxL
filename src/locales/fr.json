@@ -8671,6 +8671,8 @@
   "Could not send. Check your internet connection.": "Envoi impossible. Vérifiez votre connexion Internet.",
   "Cut tool": "Outil Couper",
   "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Couper : cliquez sur un sommet, puis sur un point d’une ligne en face. Le triangle se divise à cet endroit ; le triangle derrière cette ligne aussi, pour que rien ne se déchire. Cliquez sur un coin au lieu d’une ligne pour tracer la ligne jusqu’à ce coin.",
+  "Stopping…": "Arrêt en cours…",
+  "Nothing is running.": "Rien n’est en cours.",
   "Paste special...": "Collage spécial...",
   "Indo cache...": "Cache d’annulation...",
   "Undo cache...": "Cache d’annulation...",

@@ -450,3 +450,58 @@ test('provider executes the complete plan while emitting only a shortened displa
   assert.match(detail, /\+\d+ more/);
   assert.deepEqual(plan, before);
 });
+
+// Owner, 18 Nov 2026: the Shield chat re-read every earlier picture and data dump on
+// each of its 64 steps. The API itself now clears old tool results and earlier jobs'
+// reasoning once the conversation is large, which keeps caching and reasoning valid.
+test('Claude API asks the API to clear old tool results and reasoning, and works on without it if refused', async t => {
+  const reply = res => {
+    event(res, { type: 'message_start', message: { usage: { input_tokens: 10 } } });
+    event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } });
+    event(res, { type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    res.end();
+  };
+  const server = await fixture(t, (data, res) => reply(res));
+  const options = (url, model) => ({
+    settings: { provider: 'anthropic', baseUrl: url, model },
+    key: 'k',
+    tools: AI_TOOLS,
+    call: () => ({ content: [] }),
+    prompt: 'Look',
+    system: 'editor',
+    conversation: { messages: [] },
+    signal: new AbortController().signal,
+    event: () => {},
+  });
+  await runApi(options(server.url, 'claude-fable-5-2'));
+  const { data, headers } = server.requests[0];
+  assert.equal(headers['anthropic-beta'], 'context-management-2025-06-27');
+  const [thinking, tools] = data.context_management.edits;
+  assert.deepEqual(thinking, { type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 1 } });
+  assert.equal(tools.type, 'clear_tool_uses_20250919');
+  assert.equal(tools.trigger.type, 'input_tokens');
+  assert.ok(tools.clear_at_least.value >= 20000, 'each clear removes enough to pay for the cache rewrite');
+  // A model without adaptive reasoning gets only the tool-result clearing.
+  await runApi(options(server.url, 'claude-3-haiku-20240307'));
+  assert.deepEqual(server.requests[1].data.context_management.edits.map(edit => edit.type), ['clear_tool_uses_20250919']);
+  // A refusal of the feature is retried once without it; the prompt still runs.
+  const seen = [];
+  const refusing = http.createServer(async (req, res) => {
+    let text = '';
+    for await (const part of req) text += part;
+    seen.push({ data: JSON.parse(text), beta: req.headers['anthropic-beta'] });
+    if (seen.length === 1) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'context_management: this model does not support context editing' } }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    reply(res);
+  });
+  await new Promise(resolve => refusing.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => { refusing.closeAllConnections(); refusing.close(resolve); }));
+  await runApi(options(`http://127.0.0.1:${refusing.address().port}/v1`, 'claude-fable-5-2'));
+  assert.equal(seen.length, 2);
+  assert.equal(seen[1].data.context_management, undefined);
+  assert.equal(seen[1].beta, undefined);
+});
