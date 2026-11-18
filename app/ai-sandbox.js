@@ -80,3 +80,7 @@ window.aiSandbox.onRun(async payload => {
     if (replaced.length) logs.push('Returned value had parts that cannot be sent back, shown as text instead: ' + replaced.join('; '));
     window.aiSandbox.finish({ model, selection, assets, value, logs, ...(before ? { before } : {}) });
 
+  } catch (error) {
+    window.aiSandbox.finish({ error: String(error.message || error) });
+  }
+});
