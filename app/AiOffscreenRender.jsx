@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { aiPictureProps } from '../src/ai-picture.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 
 // AI pictures of a model, drawn in a hidden preview of their own. The view, camera
@@ -98,27 +99,7 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
       style={{ position: 'fixed', left: -10000 - WIDTH, top: 0, width: WIDTH, height: HEIGHT, pointerEvents: 'none' }}
     >
       <Suspense fallback={null}>
-        <GamePreview
-          key={job.id}
-          presentation="preview"
-          model={job.model}
-          revision={job.revision || 0}
-          textureAssets={job.assets}
-          modelPath={job.path}
-          preferences={previewPreferences}
-          teamColor={teamColor}
-          sequenceIndex={job.sequence ?? -1}
-          globalSeqId={job.globalSequence ?? null}
-          time={job.frame || 0}
-          playing={false}
-          showGrid={false}
-          showParticles={job.showParticles}
-          mode={job.renderMode || 'textured'}
-          view={job.view || 'perspective'}
-          hiddenGeosets={job.hiddenGeosets}
-          overlays={{ bones: false, nodes: false, particles: false, attachments: false }}
-          onCaptureReady={ready}
-        />
+        <GamePreview key={job.id} {...aiPictureProps(job, { preferences: previewPreferences, teamColor })} onCaptureReady={ready} />
       </Suspense>
     </div>
   );
