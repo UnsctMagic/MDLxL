@@ -77,12 +77,13 @@ Updated: 2026-11-18
 - Checks: `node --test test/ai-*.test.js test/mesh-actions.test.js
   test/localization-catalogs.test.js` pass. The 14 new or changed checks were run
   against the pre-change code (a temporary worktree at 879728a2) and failed there.
-  `npx vite build` passes. Source suite result: see the latest branch commit message.
-- Remaining: real pictures (wireframe, UV layout, zoom, texture preview) not yet
-  seen in the packaged app; no real-provider run (costs the owner money; owner
+  `npx vite build` passes. Full source suite (`node --test test/*.test.js`): 4065 pass, 5 fail, 9 skipped; the 5 (4 EMTR in particle-reentry, 1 portrait-toolbar viewpoint dropdown) fail the same way on unchanged main 0084b368.
+- Hidden probe of the built app (MCP tool calls on `TEST AI FULLPOWER 01.mdx`): zoom, vertex close-up (selection unchanged), UV layout picture and texture previews by path and game path work; no error notices. Hidden smoke of the packaged build: AI panel opens and closes, no page errors.
+- Remaining: **wireframe pictures do not draw lines yet** (the picture equals the plain one; `mode: wireframe` reaches AiOffscreenRender but the capture shows the textured surface; investigate GamePreview `render`/`captureView` and the geometry overlay). UV pictures widen to whole tiles for tiny overshoots past 0..1 (Footman geoset 1 gave u -1..2): add a small margin in `uvRange`. no real-provider run (costs the owner money; owner
   hand test). Haiku 5.5's over-100K price tier is not modelled.
 
 ## Blockers and next action
 
-- Next: owner hand test with `TEST AI FULLPOWER 01.mdx`; then "merge".
+- Test build: `D:ClaudeMDLxLTestBuildsai-full-powerMDLxL-win32-x64` (owner AI connection and settings copied from the desktop profile; codex/claude sign-in folders not copied). Opened for the owner on 18 Nov with both Baron files at his request.
+- Next: fix the wireframe picture and the UV margin; owner hand test (animating the Baron); then "merge".
 - On completion: mark completed with the merge revision and remove the README row.
