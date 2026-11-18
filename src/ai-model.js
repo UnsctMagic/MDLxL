@@ -404,3 +404,38 @@ export function limitAiOutput(value, budget = OUTPUT_BUDGET) {
     keys: top.slice(0, 50).map(([k, v]) => ({ key: k, characters: size(v) })),
   };
 }
+
+// ---- Save verification: only problems an edit introduced count (H3) ----
+const CHANGED = /^Save verification failed: serialization changed (\d+) fields?: (.*?)(?:; (\d+) more)?\.$/s;
+function splitSaveWarning(message) {
+  const match = CHANGED.exec(String(message).trim());
+  if (!match) return { items: [String(message).trim()], total: null, truncated: false };
+  return { items: match[2].split(', '), total: Number(match[1]), truncated: !!match[3] };
+}
+const pattern = text => text.replace(/\d+/g, '#');
+// Returns the problems in `after` that were not already in `before`.
+export function newSaveProblems(before = [], after = []) {
+  const known = new Set(),
+    patterns = new Set();
+  let knownTotal = 0,
+    knownTruncated = false;
+  for (const message of before) {
+    const parsed = splitSaveWarning(message);
+    parsed.items.forEach(item => (known.add(item), patterns.add(pattern(item))));
+    if (parsed.total !== null) knownTotal += parsed.total;
+    knownTruncated ||= parsed.truncated;
+  }
+  const fresh = [];
+  let afterTotal = 0;
+  for (const message of after) {
+    const parsed = splitSaveWarning(message);
+    if (parsed.total === null) {
+      if (!known.has(parsed.items[0])) fresh.push(parsed.items[0]);
+      continue;
+    }
+    afterTotal += parsed.total;
+    for (const item of parsed.items) if (!known.has(item) && !(knownTruncated && patterns.has(pattern(item)))) fresh.push(item);
+  }
+  if (!fresh.length && afterTotal > knownTotal) fresh.push(afterTotal - knownTotal + ' more field(s) changed in the saved copy than before the edit');
+  return fresh;
+}

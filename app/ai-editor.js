@@ -10,6 +10,7 @@ import {
   applyAiEdit,
   encodeAiValue,
   limitAiOutput,
+  newSaveProblems,
 } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
@@ -150,6 +151,8 @@ function checkSample(sample, model) {
 export class AiEditorBridge {
   constructor(host) {
     this.host = host;
+    this.saveBaselines = new WeakMap();
+    this.reportedSaveIssues = new WeakSet();
     this.targets = new Map();
     this.chats = new Map();
     this.controls = new Map();
@@ -678,6 +681,7 @@ export class AiEditorBridge {
         { doc } = now;
       const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
+      const baseline = this.saveBaseline(doc);
       const options = { rethrow: true, validate: (model, committed) => {
         const checked = prepareAiEdit(committed, model, args);
         return checked;
@@ -700,10 +704,11 @@ export class AiEditorBridge {
       // An edit the model could not be saved with is taken back at once; left in place it
       // would block every later checkpoint, review and Undo step. Checked in the document's
       // own format, and MDX too when it can convert (AI checkpoints use MDX).
-      try {
-        for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
-          doc.serialize(format, { strict: true });
-      } catch (error) {
+      // Only problems this edit introduced refuse it; ones the model already had are reported once.
+      const afterSave = this.saveWarnings(doc),
+        freshProblems = newSaveProblems(baseline, afterSave);
+      if (freshProblems.length) {
+        const error = Error(freshProblems.join(' '));
         if (now.live) await host.command('undo');
         else {
           host.undoIn(now.session.id, false);
@@ -714,6 +719,9 @@ export class AiEditorBridge {
           `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
         );
       }
+      this.saveBaselines.set(doc, { revision: doc.revision, warnings: afterSave });
+      const existingSaveIssues = baseline.length && !this.reportedSaveIssues.has(doc) ? baseline : null;
+      if (existingSaveIssues) this.reportedSaveIssues.add(doc);
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
       if (assets.length) await host.addAssetsIn(now.session.id, assets);
@@ -727,6 +735,7 @@ export class AiEditorBridge {
         value,
         logs: result.logs || [],
         diagnostics: doc.diagnostics,
+        ...(existingSaveIssues ? { savedWithExistingIssues: existingSaveIssues, note: 'The model already had these save-check differences before your edit; they are not caused by it and did not block it.' } : {}),
       };
     }
     if (name === 'mdlxl_select') {
@@ -928,7 +937,6 @@ export class AiEditorBridge {
         const format = args.format || args.path?.split('.').at(-1)?.toLowerCase();
         if (!['mdl', 'mdx'].includes(format)) throw Error('Choose MDL or MDX.');
         const bytes = await prepareModelSaveAsync(env.doc, format);
-        if (bytes.verificationWarnings.length) throw Error(bytes.verificationWarnings.join(' '));
         active();
         this.requireTarget(args.target);
         const result = await window.desktop.aiWriteModel({
@@ -938,20 +946,20 @@ export class AiEditorBridge {
           forgeAssets: host.assetsIn(env.session.id),
           overwrite: args.overwrite === true,
         });
-        return { ...result, revision: target.revision, format };
+        return { ...result, revision: target.revision, format, ...(bytes.verificationWarnings.length ? { saveCheckNotes: bytes.verificationWarnings } : {}) };
       }
       if (args.action === 'validate') {
         const results = [];
         for (const format of ['mdx', 'mdl'])
           try {
             const saved = await prepareModelSaveAsync(env.doc, format);
-            if (saved.verificationWarnings.length) throw Error(saved.verificationWarnings.join(' '));
             const reopened = openDocument(saved.bytes, 'AI round-trip.' + format);
             results.push({
               format,
               bytes: saved.bytes.byteLength,
               diagnostics: reopened.diagnostics,
               readOnly: reopened.readOnly,
+              ...(saved.verificationWarnings.length ? { saveCheckNotes: saved.verificationWarnings } : {}),
             });
           } catch (error) {
             results.push({ format, error: error.message });
@@ -960,6 +968,25 @@ export class AiEditorBridge {
       }
     }
     throw Error('Unsupported tool action.');
+  }
+  // What saving the document in its formats reports right now (never throws).
+  saveWarnings(doc) {
+    const found = new Set();
+    for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+      try {
+        doc.serialize(format);
+        doc.lastSaveWarnings.forEach(w => found.add(w));
+      } catch (error) {
+        found.add(error.message);
+      }
+    return [...found];
+  }
+  saveBaseline(doc) {
+    const known = this.saveBaselines.get(doc);
+    if (known?.revision === doc.revision) return known.warnings;
+    const warnings = this.saveWarnings(doc);
+    this.saveBaselines.set(doc, { revision: doc.revision, warnings });
+    return warnings;
   }
   contextFor(id) {
     const target = this.targets.get(id),
