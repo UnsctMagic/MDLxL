@@ -375,6 +375,6 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label .view-label-icon{height:26px}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label .view-label-icon select{width:100%!important;padding:0!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar>.panel-hide-button,:root .classic-app.classic-app:not([data-vis-ui]) .classic-view>.panel-show-tab{border:1px solid var(--m-line)!important;border-radius:6px!important;background:var(--ui-panel)!important;color:var(--ui-text)!important;box-shadow:none!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar>button.panel-hide-button:not(.sidebar-fold){display:flex!important;width:22px!important;height:18px!important;margin:0 0 3px auto!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar>button.panel-hide-button:not(.sidebar-fold){display:flex!important;width:22px!important;height:18px!important;margin:3px 0 0 auto!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view>.panel-show-tab{border-right:0!important;border-radius:6px 0 0 6px!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar>.panel-hide-button,.classic-view>.panel-show-tab):hover{background:var(--ui-hover)!important}

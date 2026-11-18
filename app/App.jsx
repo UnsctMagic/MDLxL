@@ -2164,7 +2164,6 @@ export default function App() {
       {panelHidden && mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <button type="button" className="panel-show-tab" data-hotkey="editingPanel" data-hotkey-label="Show panel" aria-label="Show panel" title="Show the editing panel." onClick={() => setPanelHidden(false)}><ChevronsLeft size={14} aria-hidden="true"/></button>}
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className={'classic-sidebar' + (panelHidden ? ' panel-hidden' : '')} ref={captureToolbox}>
       <SidebarResizer/>
-      {!panelHidden && <button type="button" className="panel-hide-button" data-hotkey="editingPanel" data-hotkey-label="Hide panel" aria-label="Hide panel" title="Hide the editing panel to see more of the model." onClick={() => setPanelHidden(true)}><ChevronsRight size={14} aria-hidden="true"/></button>}
       {cameraRotating && !activePortrait && !sequenceShown && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, editable, lockedVertexPlane, quadView,
@@ -2184,6 +2183,7 @@ export default function App() {
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
       {rigWorkspace && boundBoneIds.length > 0 && bindingPanel}
+      {!panelHidden && <button type="button" className="panel-hide-button" data-hotkey="editingPanel" data-hotkey-label="Hide panel" aria-label="Hide panel" title="Hide the editing panel to see more of the model." onClick={() => setPanelHidden(true)}><ChevronsRight size={14} aria-hidden="true"/></button>}
     </aside>}</main>
     {mode==='animation' && timeline}
     <div className="classic-status"><ModelTabs sessions={sessions} session={bitReplacement?.original ?? activeSession} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/>{saving && <span className="saving-indicator" role="status">Saving…</span>}{toolbarHidden && <ToolbarHiddenStatus {...{adjustingInput, animationPanel, commands, doc, mode, model, preferences, saving}}/>}</div>

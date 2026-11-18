@@ -151,8 +151,8 @@ input[type=range].range-input{display:block;width:100%;min-width:0;height:18px;m
 
 /* Editing panel hide button and the tab that brings it back. */
 .classic-sidebar.panel-hidden{display:none!important}
-.classic-sidebar>.panel-hide-button{display:flex;align-items:center;justify-content:center;width:22px;height:18px;min-height:0;margin:0 0 3px auto;padding:0}
-.classic-view>.panel-show-tab{position:absolute;right:0;top:12px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:26px;min-height:0;padding:0}
+.classic-sidebar>.panel-hide-button{display:flex;align-items:center;justify-content:center;width:22px;height:18px;min-height:0;margin:3px 0 0 auto;padding:0;position:sticky;bottom:0;z-index:6}
+.classic-view>.panel-show-tab{position:absolute;right:0;bottom:12px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:26px;min-height:0;padding:0}
 /* Narrow views: the camera bar shows icons, the names stay on hover. */
 .view-label-icon{position:relative;display:inline-grid;place-items:center;min-width:24px;height:21px;padding:0 3px;color:var(--ui-text,inherit)}
 .view-label-icon:has(select:focus-visible){outline:1px dotted currentColor;outline-offset:-2px}
