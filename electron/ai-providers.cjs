@@ -96,11 +96,33 @@ function responsesInput(history) {
     if (m.role === 'tool') return [{ type: 'function_call_output', call_id: m.tool_call_id, output: m.content }];
     if (m.role === 'assistant')
       return [
+        ...(m.reasoning_items || []),
         ...(m.content ? [{ role: 'assistant', content: m.content }] : []),
         ...(m.tool_calls || []).map(c => ({ type: 'function_call', call_id: c.id, name: c.function.name, arguments: c.function.arguments })),
       ];
     return [{ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) }];
   });
+}
+// Once a long conversation is big, old pictures and long tool results (all but the newest
+// few) become short placeholders, so each later step stops paying to re-read them. The
+// history itself is trimmed, in one batch, so the provider's prompt cache stays valid
+// between trims. Returns how many items were cleared.
+function trimOldContext(history, { keepResults = 6, keepPictures = 2, minChars = 1200 } = {}) {
+  let cleared = 0;
+  const tools = [], pictures = [];
+  history.forEach((m, i) => {
+    if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > minChars && !m.content.startsWith('[Cleared')) tools.push(i);
+    if (m.role === 'user' && Array.isArray(m.content) && m.content.some(c => c.type === 'image_url')) pictures.push(i);
+  });
+  for (const i of tools.slice(0, Math.max(0, tools.length - keepResults))) {
+    history[i] = { ...history[i], content: '[Cleared to save context: an earlier tool result of ' + history[i].content.length + ' characters. Run the step again if you need it.]' };
+    cleared++;
+  }
+  for (const i of pictures.slice(0, Math.max(0, pictures.length - keepPictures))) {
+    history[i] = { ...history[i], content: history[i].content.map(c => (c.type === 'image_url' ? { type: 'text', text: '[Earlier picture cleared to save context.]' } : c)) };
+    cleared++;
+  }
+  return cleared;
 }
 // Attached images must be plain base64 (no whitespace), stricter than tool captures.
 function imageParts(images = [], kind = 'openai') {
@@ -156,8 +178,7 @@ function toolDetail(input) {
 function toolSummary(text) {
   return typeof text === 'string' ? text.slice(0, 300) : undefined;
 }
-// One prompt may take at most this many tool rounds unless the user sets a step limit.
-const API_STEP_LIMIT = 64;
+// A prompt may take as many tool rounds as it needs; only the user's own step limit ends it.
 // A price list entry for a model id, also when the id ends in a dated snapshot.
 function listedPrice(prices, model) {
   return prices[model] || prices[String(model || '').replace(/-\d{4}-?\d{2}-?\d{2}$/, '')] || null;
@@ -173,11 +194,16 @@ const ANTHROPIC_PRICES = {
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
   'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1 },
   'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
-  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  // Above 100K prompt tokens a request is billed at the long-context rates.
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01, long: { above: 100000, input: 0.5, output: 2.5, cacheRead: 0.05 } },
 };
+// Cost of one request (or the sum of several at one rate). A request is priced on its own
+// prompt size, so tiered models never bill a small request at the big-prompt rate.
 function anthropicCost(model, spent) {
-  const price = listedPrice(ANTHROPIC_PRICES, model);
-  if (!price) return null;
+  const listed = listedPrice(ANTHROPIC_PRICES, model);
+  if (!listed) return null;
+  const prompt = (spent.input || 0) + (spent.cacheWrite || 0) + (spent.cacheRead || 0);
+  const price = listed.long && prompt > listed.long.above ? { ...listed, ...listed.long } : listed;
   return (
     (spent.input * price.input +
       spent.cacheWrite * price.input * 1.25 +
@@ -282,6 +308,8 @@ function anthropicContextEditing(thinking) {
       ...(thinking ? [{ type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 1 } }] : []),
       {
         type: 'clear_tool_uses_20250919',
+        // Old tool inputs (whole scripts) go too, not only their results.
+        clear_tool_inputs: true,
         trigger: { type: 'input_tokens', value: 60000 },
         keep: { type: 'tool_uses', value: 4 },
         clear_at_least: { type: 'input_tokens', value: 20000 },
@@ -329,6 +357,7 @@ async function runApi({
   const limit = settings.spendLimit > 0 ? settings.spendLimit : 0;
   // OpenAI bills each response on its own, so its cost is added up per response.
   let openaiUsd = 0;
+  let anthropicUsd = 0;
   const charge = usd => {
     event({ type: 'cost', usd, tokens: spent.input + spent.cacheWrite + spent.cacheRead + spent.output });
     if (limit && usd !== null && usd >= limit)
@@ -387,7 +416,11 @@ async function runApi({
   let awarenessVersion = awareness?.version;
   // Cleared by the API once the conversation is large; off again if a model refuses it.
   let contextEditing = anthropic;
-  const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
+  // Providers without server-side clearing: trim the history here once it is large.
+  const TRIM_ABOVE = 60000;
+  let lastUsed = 0;
+  let compatibleUsage = true, keepReasoning = true;
+  const steps = settings.stepLimit > 0 ? settings.stepLimit : Infinity;
   for (let step = 0; step < steps; step++) {
     if (signal.aborted) throw Error(CANCELLED);
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
@@ -402,6 +435,7 @@ async function runApi({
         last.content.push({ type: 'text', text: steer });
       else history.push({ role: 'user', content: anthropic ? [{ type: 'text', text: steer }] : steer });
     }
+    if (!anthropic && lastUsed > TRIM_ABOVE && trimOldContext(history)) lastUsed = 0;
     if (anthropic) {
       const thinking = anthropicThinking(settings.model);
       // Prompt caching: the tools/system prefix and the conversation so far are
@@ -452,6 +486,7 @@ async function runApi({
         continue;
       }
       const content = [];
+      const request = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
       let stopReason = null;
       for await (const data of sseEvents(response)) {
         if (data.type === 'error') throw Error(data.error?.message || 'Claude stream failed.');
@@ -462,6 +497,9 @@ async function runApi({
           spent.input += u.input_tokens || 0;
           spent.cacheWrite += u.cache_creation_input_tokens || 0;
           spent.cacheRead += u.cache_read_input_tokens || 0;
+          request.input = u.input_tokens || 0;
+          request.cacheWrite = u.cache_creation_input_tokens || 0;
+          request.cacheRead = u.cache_read_input_tokens || 0;
           event({
             type: 'usage',
             used: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
@@ -487,11 +525,15 @@ async function runApi({
         if (data.type === 'message_delta') {
           stopReason = data.delta?.stop_reason;
           // output_tokens here is the reply's final total.
-          if (data.usage?.output_tokens) spent.output += data.usage.output_tokens;
+          if (data.usage?.output_tokens) (spent.output += data.usage.output_tokens, (request.output = data.usage.output_tokens));
         }
       }
       if (!stopReason) throw Error('The provider stream ended before completion.');
-      charge(anthropicCost(settings.model, spent));
+      {
+        const usd = anthropicCost(settings.model, request);
+        anthropicUsd = usd === null || anthropicUsd === null ? null : anthropicUsd + usd;
+        charge(anthropicUsd);
+      }
       for (const block of content) {
         if ((block.type === 'tool_use' || block.type === 'server_tool_use') && block._json) block.input = JSON.parse(block._json);
         delete block._json;
@@ -544,12 +586,17 @@ async function runApi({
       // OpenAI's newer models take tools together with a thinking effort only
       // through its Responses API. The chat keeps its usual history format.
       event({ type: 'request', model: settings.model });
-      const response = await requestJson(
+      const reasoningModel = /^(?:od|gpt-[5-9])/.test(settings.model);
+      let response;
+      try {
+        response = await requestJson(
         base + '/responses',
         {
           model: settings.model,
           instructions: system,
           input: responsesInput(history),
+          // Stateless reasoning models hand back encrypted reasoning, kept between steps.
+          ...(reasoningModel && keepReasoning ? { include: ['reasoning.encrypted_content'] } : {}),
           ...(tools.length
             ? { tools: tools.map(t => ({ type: 'function', name: t.name, description: t.description, parameters: t.inputSchema, strict: false })) }
             : {}),
@@ -560,7 +607,18 @@ async function runApi({
         key,
         signal,
       );
-      const calls = [];
+      } catch (error) {
+        // A model, account or changed model that cannot take the saved reasoning runs without it.
+        if (keepReasoning && /HTTP 400.*(reasoning|encrypted|include)/is.test(error.message)) {
+          keepReasoning = false;
+          for (const m of history) delete m.reasoning_items;
+          step--;
+          continue;
+        }
+        throw error;
+      }
+      const calls = [],
+        reasoningItems = [];
       let text = '',
         incomplete = null;
       for await (const data of sseEvents(response)) {
@@ -570,12 +628,15 @@ async function runApi({
           text += data.delta;
           event({ type: 'text', text: data.delta });
         } else if (data.type === 'response.reasoning_summary_text.delta') event({ type: 'thinking', text: data.delta });
+        else if (data.type === 'response.output_item.done' && data.item?.type === 'reasoning' && keepReasoning && data.item.encrypted_content)
+          reasoningItems.push({ type: 'reasoning', id: data.item.id, summary: data.item.summary || [], encrypted_content: data.item.encrypted_content });
         else if (data.type === 'response.output_item.done' && data.item?.type === 'function_call')
           calls.push({ id: data.item.call_id, type: 'function', function: { name: data.item.name, arguments: data.item.arguments || '{}' } });
         else if (data.type === 'response.completed' || data.type === 'response.incomplete') {
           const usage = data.response?.usage;
           if (usage?.input_tokens) {
             event({ type: 'usage', used: usage.input_tokens, window: 400000 });
+            lastUsed = usage.input_tokens;
             spent.input += usage.input_tokens;
             spent.output += usage.output_tokens || 0;
             const usd = openaiCost(settings.model, usage);
@@ -586,7 +647,7 @@ async function runApi({
         }
       }
       if (incomplete === null) throw Error('The provider stream ended before completion.');
-      history.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      history.push({ role: 'assistant', content: text || null, ...(reasoningItems.length ? { reasoning_items: reasoningItems } : {}), ...(calls.length ? { tool_calls: calls } : {}) });
       if (!calls.length) {
         if (incomplete === 'max_output_tokens')
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
@@ -595,7 +656,9 @@ async function runApi({
       await runChatToolCalls(calls);
     } else {
       event({ type: 'request', model: settings.model });
-      const response = await requestJson(
+      let response;
+      try {
+        response = await requestJson(
         base + '/chat/completions',
         {
           model: settings.model,
@@ -609,10 +672,20 @@ async function runApi({
               }
             : {}),
           stream: true,
+          // Ask for token counts so the fresh-history rule and trimming can work.
+          ...(compatibleUsage ? { stream_options: { include_usage: true } } : {}),
         },
         key,
         signal,
       );
+      } catch (error) {
+        if (compatibleUsage && /HTTP 400.*(stream_options|include_usage)/is.test(error.message)) {
+          compatibleUsage = false;
+          step--;
+          continue;
+        }
+        throw error;
+      }
       const calls = new Map();
       let text = '',
         finishReason;
@@ -620,6 +693,7 @@ async function runApi({
         if (data.error) throw Error(data.error.message || 'AI stream failed.');
         if (data.usage?.prompt_tokens) {
           event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
+          lastUsed = data.usage.prompt_tokens;
           spent.input += data.usage.prompt_tokens;
           spent.output += data.usage.completion_tokens || 0;
           charge(null);
@@ -660,7 +734,7 @@ async function runApi({
       await runChatToolCalls(toolCalls);
     }
   }
-  throw Error(`The AI used ${steps} tool rounds. Progress is retained; send another prompt to continue.`);
+  throw Error(`The AI used ${steps} tool rounds, your step limit. Progress is retained; send another prompt to continue.`);
 }
 
 class CodexProcess {
@@ -1096,6 +1170,7 @@ async function runClaude({
     if (settings.model) args.push('--model', settings.model);
     if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
+    if (settings.spendLimit > 0) args.push('--max-budget-usd', String(settings.spendLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = await prepareEnvironment(directory, 'claude');
     env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_TIMEOUT_MS);
@@ -1412,6 +1487,8 @@ module.exports = {
   anthropicCost,
   openaiCost,
   anthropicContextEditing,
+  trimOldContext,
+  responsesInput,
   anthropicThinking,
   claudeCompaction,
   endpoint,
