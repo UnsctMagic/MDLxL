@@ -123,18 +123,20 @@ consolidator). IDs are referenced in commits.
 - M8 `mdlxl_sample` returns texture animations and geoset colour/alpha.
 
 **R: reach and discoverability** (`src/ai-capabilities.js`, wrappers in `src`, command paths in `app/ai-editor.js`)
-- R1 missing modules in `AI_AREAS` (edge-cut, forge-vertex, sanity-check, model-extents, model-collisions,
-  mesh-clipboard, model-import, plain-track-values, optimizexl-geometry, motion-path, auto-corpse,
-  corpse-geometry, attachemator, bone-namer, rig-names, uv-unwrap, uv-grid, team-colors,
-  uv-material-compositor, global-animation-*, fx-*, ribbon-sweeps, particle-world-effects,
-  emitter-timing, event-object-codec, preview-lighting); new `fx` and `lifecycle` areas; `AREA_WORDS`
-  and `GUIDE_WORDS` (KB, bytes, clip, polygon, corpse, decay...).
-- R2 on-screen names (windows, buttons) map to their engines, with a test over the UI labels.
-- R3 one-call wrappers: OptimizeXL stage with the window's settings and a plan-to-size; UV flip/commit/fit
-  region/pack islands; Forge vertex tools; sidebar geoset operations and Cut headless; parameters for
-  Extrude distance, Mirror pivot and Rotate normals angle; exported AnimXL presets.
-- R4 paint into a region as a new texture (only on request); R5 library: sounds/all files, World Editor
-  source, texture checks; R6 portrait/camera helpers in `src`.
+- R1 DONE (branch `claude/ai-fp-reach`): every listed module is in an `AI_AREAS` area; new `fx` and `lifecycle`
+  areas; `AREA_WORDS` and `GUIDE_WORDS` know KB, bytes, polygon, clipboard, sanity, corpse, decay, death.
+- R2 DONE: `src/ai-screen-names.js` (`SCREEN_NAMES`) maps on-screen names to `mdlxl_command` ids and
+  `module.function` engines; `searchAiCapabilities` returns them as `screen`; `screenOnly` uses them.
+  `test/ai-reach.test.js` walks the UI labels (UV Wrapper tools, toolbar icons, Modules/Managers/Help menus,
+  sidebar buttons, geoset operations) and fails on an unmapped label. New UI labels need a table entry.
+- R3 DONE: `src/optimizexl-run.js` (`optimizeModelStage`, `planToSize`, `applyOptimized`), `src/uv-actions.js`
+  (`flipUVs`, `unwrapUVs`, `commitUVCornerPlans`, `fitUVsToRegion`, `packUVIslands`), `src/forge-vertex-run.js`
+  (`runForgeVertexTool`, `addForgeVertexShape`), hidden `mdlxl_command` ids 'Separate by loose parts',
+  'Nuclear separation', 'Merge geosets', 'Nuclear Weld', 'Delete free vertices', 'Cut' (+ `cut`, `resolutions`),
+  optional `distance` / `pivot` / `angle` for Extrude, Mirror/Collapse/Weld and Rotate normals; the selection
+  remaps live in `src/mesh-actions.js` and `app/App.jsx` now calls them; AnimXL presets exported from `src/anim-xl.js`.
+- R4 not done (paint a region into a new texture): skipped for time; it needs a new texture slot, so only on request.
+- R5 library: sounds/all files, World Editor source, texture checks; R6 portrait/camera helpers in `src`.
 
 **H: harness robustness and cost** (`app/ai-sandbox.js`, `electron/ai-workspace.cjs`, `electron/ai-service.cjs`,
 `electron/ai-providers.cjs`, save checks)
