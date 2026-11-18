@@ -41,8 +41,8 @@ async function cleanup(service, { modelKey, mode, remember = false }) {
   }
   const { ids, providerFiles } = await removeChats(service, entry);
   entry.note = mode === 'summary' ? note || entry.note : null;
-  // A summary keeps the decision diary; wiping removes it with the chats.
-  if (mode === 'wipe') delete entry.diary;
+  // A summary keeps the decision diary and standing requirements; wiping removes them with the chats.
+  if (mode === 'wipe') { delete entry.diary; delete entry.requirements; }
   entry.organiser = null;
   entry.earlier = [];
   await service.registry.save();

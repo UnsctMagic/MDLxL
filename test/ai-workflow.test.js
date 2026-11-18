@@ -379,6 +379,73 @@ test('animation requests carry the animation craft without the handbook; a UV re
   assert.doesNotMatch(lastPrompt(), /Animation craft/, 'sent once per provider history');
 });
 
+test('standing requirements carry to later jobs and stop when the owner replaces them', async t => {
+  const received = [];
+  let steered = null;
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    if (!steered && JSON.stringify(data.messages.at(-1)).includes('shorten the sleeves')) steered = f.service.steer({ id: 'test', text: 'never touch my rig' });
+    return done();
+  });
+  const conversation = await f.service.conversation('test', 'compatible');
+  conversation.modelKey = 'file:d:\\model.mdx';
+  const lastPrompt = () => JSON.stringify(received.at(-1).messages.filter(m => m.role === 'user').at(-1));
+  await f.service.send({ id: 'test', text: 'Trim the cape. Keep the file under 250 KB from now on, and respect the geoset pose.', context });
+  assert.doesNotMatch(lastPrompt(), /Standing requirements/, 'rules stated in this request are already in front of the AI');
+  await f.service.send({ id: 'test', text: 'make the cape a bit longer', context });
+  let prompt = lastPrompt();
+  assert.match(prompt, /Standing requirements the owner gave for this model/);
+  assert.match(prompt, /Keep the file under 250 KB from now on/);
+  assert.match(prompt, /respect the geoset pose/);
+  // A new size limit replaces the old one; a release drops its rule.
+  await f.service.send({ id: 'test', text: 'Under 300 KB is fine now. You can now change the geoset pose.', context });
+  await f.service.send({ id: 'test', text: 'shorten the sleeves', context });
+  prompt = lastPrompt();
+  assert.match(prompt, /Under 300 KB is fine now/);
+  assert.doesNotMatch(prompt, /250 KB/);
+  assert.doesNotMatch(prompt, /respect the geoset pose/);
+  // A rule given while the AI works is kept as well.
+  assert.ok(steered, 'steered while the job ran');
+  await steered;
+  const entry = await f.service.registry.model('file:d:\\model.mdx');
+  assert.deepEqual(entry.requirements.map(r => r.text), ['Under 300 KB is fine now.', 'never touch my rig']);
+  // Wiping the chats removes them with the diary.
+  await f.service.cleanup({ modelKey: 'file:d:\\model.mdx', mode: 'wipe' });
+  assert.equal((await f.service.registry.model('file:d:\\model.mdx')).requirements, undefined);
+});
+
+test("the owner's hand edits since the AI's last delivery reach the next job", async t => {
+  const received = [], checkpoints = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const call = f.service.call;
+  let model = { 'geoset 1': 'v:1', 'node Arm_L': 'r:1' };
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_checkpoint' && args.digest) {
+      checkpoints.push(args);
+      return { digest: model, ...(args.since ? { handEdits: args.since['node Arm_L'] !== model['node Arm_L'] ? ['node Arm_L: rotation keys'] : [] } : {}) };
+    }
+    return call(name, args, ...rest);
+  };
+  const conversation = await f.service.conversation('test', 'compatible');
+  conversation.modelKey = 'file:d:\\model.mdx';
+  const lastPrompt = () => JSON.stringify(received.at(-1).messages.filter(m => m.role === 'user').at(-1));
+  await f.service.send({ id: 'test', text: 'raise the shield', context });
+  assert.doesNotMatch(lastPrompt(), /Hand edits since/);
+  assert.deepEqual((await f.service.registry.model('file:d:\\model.mdx')).delivered.digest, model, 'the delivery is remembered');
+  // The owner turns the arm by hand between jobs.
+  model = { 'geoset 1': 'v:1', 'node Arm_L': 'r:2' };
+  await f.service.send({ id: 'test', text: 'now lower the sword', context });
+  assert.match(lastPrompt(), /Hand edits since the AI's last delivery on this model/);
+  assert.match(lastPrompt(), /node Arm_L: rotation keys/);
+  assert.deepEqual(checkpoints.at(-2).since, { 'geoset 1': 'v:1', 'node Arm_L': 'r:1' });
+  // Seen once: the next job compares with this job's delivery.
+  await f.service.send({ id: 'test', text: 'thanks, now the helmet', context });
+  assert.doesNotMatch(lastPrompt(), /Hand edits since/);
+});
+
 test('with the handbook on, a job carries the guides its request touches; effort defaults to high', async t => {
   const received = [],
     read = [];
