@@ -9,6 +9,8 @@ import {
   prepareAiEdit,
   applyAiEdit,
   encodeAiValue,
+  limitAiOutput,
+  newSaveProblems,
 } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
@@ -149,6 +151,8 @@ function checkSample(sample, model) {
 export class AiEditorBridge {
   constructor(host) {
     this.host = host;
+    this.saveBaselines = new WeakMap();
+    this.reportedSaveIssues = new WeakSet();
     this.targets = new Map();
     this.chats = new Map();
     this.controls = new Map();
@@ -244,6 +248,16 @@ export class AiEditorBridge {
     if (retained) {
       const [id, target] = retained;
       if (resume) { target.job.retained = false; return { ...this.context(id), retainedCandidate: true }; }
+      // A result the last job could not put on the model is never discarded silently.
+      if (target.job.draft && !target.job.delivered)
+        try {
+          const result = deliverJob(this, target, 'finish');
+          if (result.conflict || result.correction) deliverJob(this, target, 'open');
+        } catch {
+          try {
+            deliverJob(this, target, 'open');
+          } catch {}
+        }
       this.host().dropAiDraft(target.job.draft);
       this.targets.delete(id);
     }
@@ -661,7 +675,9 @@ export class AiEditorBridge {
         });
       active();
       this.requireTarget(args.target);
-      const value = encodeAiValue(result.value);
+      // Large typed arrays and long lists come back summarised; workspace programs that write an output file keep their full data.
+      const encoded = encodeAiValue(result.value),
+        value = args.workspaceFiles && args.capOutput === false ? encoded : limitAiOutput(encoded);
       if (name === 'mdlxl_script' && !args.edit) return { value, logs: result.logs || [], applied: false };
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');
@@ -675,6 +691,7 @@ export class AiEditorBridge {
         { doc } = now;
       const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
+      const baseline = this.saveBaseline(doc);
       const options = { rethrow: true, validate: (model, committed) => {
         const checked = prepareAiEdit(committed, model, args);
         return checked;
@@ -697,10 +714,11 @@ export class AiEditorBridge {
       // An edit the model could not be saved with is taken back at once; left in place it
       // would block every later checkpoint, review and Undo step. Checked in the document's
       // own format, and MDX too when it can convert (AI checkpoints use MDX).
-      try {
-        for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
-          doc.serialize(format, { strict: true });
-      } catch (error) {
+      // Only problems this edit introduced refuse it; ones the model already had are reported once.
+      const afterSave = this.saveWarnings(doc),
+        freshProblems = newSaveProblems(baseline, afterSave);
+      if (freshProblems.length) {
+        const error = Error(freshProblems.join(' '));
         if (now.live) await host.command('undo');
         else {
           host.undoIn(now.session.id, false);
@@ -711,6 +729,9 @@ export class AiEditorBridge {
           `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
         );
       }
+      this.saveBaselines.set(doc, { revision: doc.revision, warnings: afterSave });
+      const existingSaveIssues = baseline.length && !this.reportedSaveIssues.has(doc) ? baseline : null;
+      if (existingSaveIssues) this.reportedSaveIssues.add(doc);
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
       if (assets.length) await host.addAssetsIn(now.session.id, assets);
@@ -724,6 +745,7 @@ export class AiEditorBridge {
         value,
         logs: result.logs || [],
         diagnostics: doc.diagnostics,
+        ...(existingSaveIssues ? { savedWithExistingIssues: existingSaveIssues, note: 'The model already had these save-check differences before your edit; they are not caused by it and did not block it.' } : {}),
       };
     }
     if (name === 'mdlxl_select') {
@@ -957,6 +979,25 @@ export class AiEditorBridge {
       }
     }
     throw Error('Unsupported tool action.');
+  }
+  // What saving the document in its formats reports right now (never throws).
+  saveWarnings(doc) {
+    const found = new Set();
+    for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+      try {
+        doc.serialize(format);
+        doc.lastSaveWarnings.forEach(w => found.add(w));
+      } catch (error) {
+        found.add(error.message);
+      }
+    return [...found];
+  }
+  saveBaseline(doc) {
+    const known = this.saveBaselines.get(doc);
+    if (known?.revision === doc.revision) return known.warnings;
+    const warnings = this.saveWarnings(doc);
+    this.saveBaselines.set(doc, { revision: doc.revision, warnings });
+    return warnings;
   }
   contextFor(id) {
     const target = this.targets.get(id),
@@ -1302,7 +1343,19 @@ export class AiEditorBridge {
     notify(true);
     try {
       await new Promise((resolve, reject) => {
+        // A step that needs the screen waits briefly, then says so plainly: an indefinite
+        // wait looked like a stalled editor and made the AI ask the user to switch tabs.
+        const timer = setTimeout(
+          () =>
+            finish(
+              Error(
+                'This step needs the model "' + document + '" on screen, and the user is looking at another tab. Nothing was changed. Do not ask the user to switch tabs: use mdlxl_script, mdlxl_capture or the other tools that run on a tab in the background, or retry this step later.',
+              ),
+            ),
+          this.screenWaitMs ?? 8000,
+        );
         const finish = error => {
+          clearTimeout(timer);
           this.waiters.delete(check);
           signal?.removeEventListener('abort', check);
           error ? reject(error) : resolve();

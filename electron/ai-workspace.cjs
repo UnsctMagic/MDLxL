@@ -48,7 +48,7 @@ function createWorkspace(parent, scope, call) {
       if (!file.endsWith('.js')) throw Error('Run a .js workspace file.');
       if (args.output) { checkName(args.output); if (!args.output.endsWith('.json')) throw Error('Program output needs a .json filename.'); }
       const files = Object.fromEntries(await Promise.all([...sizes.keys()].map(async name => [name, await read(name)])));
-      const result = await call('mdlxl_script', { target, code: text, workspaceFiles: files }, signal);
+      const result = await call('mdlxl_script', { target, code: text, workspaceFiles: files, capOutput: !args.output }, signal);
       signal.throwIfAborted();
       if (!args.output) return result;
       return { ...await save(args.output, JSON.stringify(result.value)), logs: result.logs };
@@ -58,15 +58,19 @@ function createWorkspace(parent, scope, call) {
     if (!vertices || typeof vertices !== 'object' || Array.isArray(vertices)) throw Error('Expected vertex IDs keyed by geoset.');
     let count = 0;
     for (const [key, ids] of Object.entries(vertices)) {
+      // Only select applies to the captured tab, so only select is held to the marked vertices.
+      // Preview is read-only and may show any valid vertices.
       const marked = new Set(scope.selection[key]);
-      if (!Array.isArray(ids) || ids.some(id => !marked.has(id)) || new Set(ids).size !== ids.length)
-        throw Error('The candidate must be a subset of the vertices marked when you sent the request.');
+      if (!Array.isArray(ids) || new Set(ids).size !== ids.length || ids.some(id => !Number.isInteger(id) || id < 0))
+        throw Error('Each geoset needs a list of distinct, non-negative vertex numbers.');
+      if (action === 'select' && ids.some(id => !marked.has(id)))
+        throw Error('To select, the candidate must be a subset of the vertices marked when you sent the request. Preview accepts any vertices.');
       count += ids.length;
     }
-    if (!count) throw Error('The candidate contains no marked vertices.');
+    if (!count) throw Error('The candidate contains no vertices.');
     const params = { target, vertices, expectedRevision: scope.revision };
     if (action === 'preview')
-      return call('mdlxl_capture', { target, expectedRevision: scope.revision, workspaceVertices: vertices, view: args.view || 'perspective' }, signal);
+      return call('mdlxl_capture', { target, workspaceVertices: vertices, view: args.view || 'perspective' }, signal);
     const selected = await call('mdlxl_select', params, signal);
     return { target, revision: selected.revision, selectedVertices: Object.values(selected.selection).reduce((n, ids) => n + ids.length, 0) };
   }
