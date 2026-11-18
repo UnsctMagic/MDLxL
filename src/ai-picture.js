@@ -38,6 +38,15 @@ export function aiPictureProps(job, { preferences, teamColor } = {}) {
   };
 }
 
+/** Checks a capture sample's picture options against the model; throws a plain message. */
+export function checkPictureOptions(sample, model) {
+  if (sample.filmstrip !== undefined) {
+    if (!Number.isInteger(sample.filmstrip) || sample.filmstrip < 2 || sample.filmstrip > 12) throw Error('A filmstrip has 2 to 12 frames.');
+    if (sample.uv) throw Error('A filmstrip is a 3D picture: drop uv.');
+    if (sample.frame !== undefined) throw Error('A filmstrip spreads its frames over the animation: drop frame.');
+  }
+}
+
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number.isFinite(value) ? value : low));
 
 /**
@@ -91,6 +100,40 @@ export function posedPoints(pose, byGeoset, matrices = poseMatrices(pose)) {
       if (Number.isInteger(id) && id >= 0 && id * 3 + 2 < positions.length) out.push(positions[id * 3], positions[id * 3 + 1], positions[id * 3 + 2]);
   }
   return Float32Array.from(out);
+}
+
+/** Several flat point lists as one. */
+export function concatPoints(lists) {
+  const out = new Float32Array(lists.reduce((sum, list) => sum + (list?.length || 0), 0));
+  let at = 0;
+  for (const list of lists) if (list?.length) (out.set(list, at), (at += list.length));
+  return out;
+}
+
+/** Filmstrip frames: `count` frames evenly spread over [start, end], both ends included; null without an animation. */
+export function filmstripFrames(interval, count) {
+  const [start, end] = interval || [];
+  if (!(Number.isFinite(start) && Number.isFinite(end) && end >= start) || !(count >= 2)) return null;
+  return Array.from({ length: count }, (_, i) => Math.round(start + ((end - start) * i) / (count - 1)));
+}
+
+/** Cells of a filmstrip picture: rows of at most four, 4:3 cells, at most `maxWidth` pixels wide. */
+export function filmstripLayout(count, maxWidth = 1536) {
+  const columns = count <= 4 ? count : count <= 6 ? 3 : 4,
+    rows = Math.ceil(count / columns),
+    cellWidth = Math.min(768, Math.floor(maxWidth / columns)),
+    cellHeight = Math.round((cellWidth * 3) / 4);
+  return {
+    columns, rows, cellWidth, cellHeight, width: columns * cellWidth, height: rows * cellHeight,
+    cells: Array.from({ length: count }, (_, i) => ({ x: (i % columns) * cellWidth, y: Math.floor(i / columns) * cellHeight })),
+  };
+}
+
+/** A filmstrip cell's caption: its frame and how far through the animation it is. */
+export function frameCaption(frame, interval) {
+  const [start, end] = interval || [];
+  const share = end > start ? Math.round(((frame - start) / (end - start)) * 100) : 0;
+  return `${frame} (${share}%)`;
 }
 
 /** Centre and half size of flat [x, y, z, ...] points, or null when there are none. */

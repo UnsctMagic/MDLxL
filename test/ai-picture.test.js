@@ -7,7 +7,10 @@ import { createRequire } from 'node:module';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { previewPresentationProps } from '../app/preview-presentation.js';
 import { VIEW_PRESETS, orthographicHalfHeight, perspectiveFitDistance } from '../app/viewport-math.js';
-import { aiPictureProps, drawnGeosets, frameExactly, picturePose, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
+import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, picturePose, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
+import { AI_TOOLS } from '../src/ai-tools.js';
+const { validateArguments } = createRequire(import.meta.url)('../electron/ai-mcp.cjs');
+const captureSchema = AI_TOOLS.find(t => t.name === 'mdlxl_capture').inputSchema;
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 
@@ -145,4 +148,38 @@ test('framed points end up centred and filling the picture in every view preset'
       const zoomed = frameExactly(previewStandIn(view), points, { zoom: 2 }), slack = view === 'perspective' ? 0.08 : 0.003;
       assert.ok(Math.abs(zoomed.dx) < 768 * slack && Math.abs(zoomed.dy) < 576 * slack && Math.abs(zoomed.fill - 2 * PICTURE_FILL) < (view === 'perspective' ? 0.2 : 0.02), `${view} zoom 2: ${JSON.stringify(zoomed)}`);
     }
+});
+
+test('a filmstrip spreads its frames over the whole animation, both ends included', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), walk = model.Sequences.findIndex(s => s.Name === 'Walk'),
+    interval = picturePose(model, { sequence: walk }).interval, frames = filmstripFrames(interval, 6);
+  assert.deepEqual([frames[0], frames.at(-1)], [model.Sequences[walk].Interval[0], model.Sequences[walk].Interval[1]]);
+  assert.equal(frames.length, 6);
+  assert.ok(frames.every((f, i) => !i || f > frames[i - 1]), 'in time order');
+  assert.equal(filmstripFrames(picturePose(model, { sequence: -1 }).interval, 6), null, 'the bind pose has no animation to spread');
+  assert.equal(frameCaption(frames[3], interval), `${frames[3]} (60%)`);
+  // One framing for every frame: the walk's points over all frames contain each frame's points.
+  const each = frames.map(frame => posedPoints(picturePose(model, { sequence: walk, frame }), { 0: true })), all = pointsBox(concatPoints(each));
+  for (const points of each) {
+    const box = pointsBox(points);
+    for (let k = 0; k < 3; k++) assert.ok(box.center[k] - box.half[k] >= all.center[k] - all.half[k] - 1e-4 && box.center[k] + box.half[k] <= all.center[k] + all.half[k] + 1e-4);
+  }
+});
+
+test('filmstrip cells are 4:3, at most four in a row and fit one picture', () => {
+  for (let count = 2; count <= 12; count++) {
+    const layout = filmstripLayout(count);
+    assert.ok(layout.columns <= 4 && layout.columns * layout.rows >= count && (layout.columns - 1) * layout.rows < count + layout.rows);
+    assert.ok(layout.width <= 1536 && layout.cellWidth * 3 === layout.cellHeight * 4, `${count}: ${JSON.stringify(layout)}`);
+    assert.equal(new Set(layout.cells.map(c => c.x + ',' + c.y)).size, count, 'no two cells overlap');
+  }
+  assert.deepEqual([filmstripLayout(6).columns, filmstripLayout(6).rows], [3, 2]);
+});
+
+test('the capture tool takes a filmstrip of 2 to 12 frames and refuses one without room for its frames', () => {
+  validateArguments(captureSchema, { target: 't', samples: [{ sequence: 6, filmstrip: 6 }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ filmstrip: 13 }] }), /out of range/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 1.5 }, {}), /2 to 12/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 4, frame: 10 }, {}), /drop frame/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 4, uv: true }, {}), /drop uv/);
 });

@@ -28,7 +28,7 @@ import {
   uvPictureSize,
   uvRange,
 } from '../src/ai-uv-picture.js';
-import { drawnGeosets, picturePose, posedPoints, poseMatrices } from '../src/ai-picture.js';
+import { checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, picturePose, posedPoints, poseMatrices } from '../src/ai-picture.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
@@ -93,6 +93,38 @@ const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
+const loadPicture = async url => {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  return image;
+};
+// One picture of several frames: each cell shrunk into a grid, its caption in the top-left corner.
+async function composeFilmstrip(urls, captions) {
+  const layout = filmstripLayout(urls.length),
+    canvas = document.createElement('canvas');
+  canvas.width = layout.width;
+  canvas.height = layout.height;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#202020';
+  context.fillRect(0, 0, layout.width, layout.height);
+  context.font = 'bold 15px Tahoma, sans-serif';
+  context.textBaseline = 'top';
+  for (const [i, url] of urls.entries()) {
+    const { x, y } = layout.cells[i];
+    context.drawImage(await loadPicture(url), x, y, layout.cellWidth, layout.cellHeight);
+    context.strokeStyle = '#202020';
+    context.lineWidth = 2;
+    context.strokeRect(x + 1, y + 1, layout.cellWidth - 2, layout.cellHeight - 2);
+    const text = `${i + 1}: ${captions[i]}`,
+      width = context.measureText(text).width;
+    context.fillStyle = 'rgba(0,0,0,0.7)';
+    context.fillRect(x + 4, y + 4, width + 10, 21);
+    context.fillStyle = '#ffffff';
+    context.fillText(text, x + 9, y + 7);
+  }
+  return canvas.toDataURL('image/png');
+}
 function checkView(args, model) {
   if (
     args.sequence !== undefined &&
@@ -125,6 +157,7 @@ function checkSample(sample, model) {
       ids.some(i => !Number.isInteger(i) || i < 0 || i >= model.Geosets[gi].Vertices.length / 3)
     )
       throw Error('Invalid vertices: use geoset index -> vertex ids that exist in this model.');
+  checkPictureOptions(sample, model);
 }
 export class AiEditorBridge {
   constructor(host) {
@@ -1046,17 +1079,11 @@ export class AiEditorBridge {
         : sample.sequence !== undefined && sample.sequence !== s.sequence
           ? (model.Sequences[sample.sequence]?.Interval?.[0] ?? 0)
           : s.time);
-    // The pose the preview draws: the frame kept inside the animation, or the bind pose.
-    const pose = picturePose(model, { sequence, globalSequence, frame: asked }),
-      frame = pose.frame,
-      matrices = poseMatrices(pose);
     const view = sample.view || s.view,
       // Pictures show the surface; mesh lines only when the sample asks for them (wireframe: true).
       wireframe = renderMode === 'wireframe';
     // sample.vertices marks and frames exactly those vertices without touching the selection.
     const own = sample.vertices && !source.candidate ? sample.vertices : null;
-    const marked = posedPoints(pose, own || source.candidate || target.selection || {}, matrices);
-    if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
     if (sample.geosets?.length && !only.length) throw Error('None of those geosets exist in this model.');
@@ -1067,37 +1094,59 @@ export class AiEditorBridge {
         : source.model && source.model.Geosets.length !== env.model.Geosets.length
           ? []
           : [...(s.hiddenGeosets || [])];
-    // What the preview draws: shown geosets that their geoset animation does not fade out here.
-    const shown = drawnGeosets(pose, hidden),
-      faded = (only || model.Geosets.map((_, g) => g)).filter(g => !hidden.includes(g) && !shown.includes(g)),
-      whole = posedPoints(pose, new Map(shown.map(g => [g, true])), matrices);
-    let focus = source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? whole : only ? posedPoints(pose, new Map(only.map(g => [g, true])), matrices) : whole);
-    if (own && !source.focus && sample.fit !== 'model') focus = marked;
-    if (!focus?.length) focus = whole.length ? whole : null;
+    // One frame as the preview draws it: the frame kept inside the animation (or the bind pose),
+    // the marked points, the geosets drawn (not hidden, not faded out) and the points to frame.
+    const shot = at => {
+      const pose = picturePose(model, { sequence, globalSequence, frame: at }),
+        matrices = poseMatrices(pose),
+        marked = posedPoints(pose, own || source.candidate || target.selection || {}, matrices),
+        shown = drawnGeosets(pose, hidden),
+        whole = posedPoints(pose, new Map(shown.map(g => [g, true])), matrices);
+      let focus = sample.fit === 'selection' ? marked : sample.fit === 'model' ? whole : only ? posedPoints(pose, new Map(only.map(g => [g, true])), matrices) : whole;
+      if (own && sample.fit !== 'model') focus = marked;
+      if (!focus.length) focus = whole;
+      return { pose, frame: pose.frame, marked, shown, focus };
+    };
+    const strip = sample.filmstrip > 1 ? filmstripFrames(picturePose(model, { sequence, globalSequence }).interval || [], sample.filmstrip) : null;
+    if (sample.filmstrip > 1 && !strip) throw Error('A filmstrip needs an animation: give sequence or globalSequence.');
+    const shots = (strip || [asked]).map(shot),
+      first = shots[0];
+    if (sample.fit === 'selection' && !first.marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+    // A filmstrip frames every frame alike, so the motion is the model's, not the camera's.
+    const focus = source.focus || (shots.length > 1 ? concatPoints(shots.map(one => one.focus)) : first.focus);
     const zoom = clampZoom(sample.zoom);
-    const image = await this.host().render({
-      documentId: env.session.id,
-      ...(source.model ? { model: structuredClone(source.model) } : {}),
-      view,
-      sequence,
-      globalSequence,
-      frame,
-      restPose: !!pose.bind,
-      renderMode,
-      hiddenGeosets: hidden,
-      marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
-      ...(source.candidate ? { showParticles: false } : {}),
-      focus,
-      zoom: source.focus ? 1 : zoom,
-    });
-    const name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
-      triangles = shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
+    const draw = one =>
+      this.host().render({
+        documentId: env.session.id,
+        ...(source.model ? { model: structuredClone(source.model) } : {}),
+        view,
+        sequence,
+        globalSequence,
+        frame: one.frame,
+        restPose: !!one.pose.bind,
+        renderMode,
+        hiddenGeosets: hidden,
+        marks: source.candidate ? null : { strokes: target.strokes || [], vertices: one.marked },
+        ...(source.candidate ? { showParticles: false } : {}),
+        focus: focus?.length ? focus : null,
+        zoom: source.focus ? 1 : zoom,
+      });
+    const pictures = [];
+    for (const one of shots) pictures.push(await draw(one));
+    const pose = first.pose,
+      name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
+      triangles = first.shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
+      faded = [...new Set(shots.flatMap(one => (only || model.Geosets.map((_, g) => g)).filter(g => !hidden.includes(g) && !one.shown.includes(g))))],
+      animation = pose.kind === 'global' ? 'global sequence ' + globalSequence : 'sequence ' + sequence + (name ? ' "' + name + '"' : ''),
       when =
         pose.kind === 'bind'
           ? 'bind pose (no animation)'
-          : `${pose.kind === 'global' ? 'global sequence ' + globalSequence : 'sequence ' + sequence + (name ? ' "' + name + '"' : '')}; frame ${frame}${Number.isFinite(asked) && asked !== frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
+          : strip
+            ? `${animation}; filmstrip of ${strip.length} frames ${strip.join(', ')}, left to right, top to bottom, one shared framing`
+            : `${animation}; frame ${first.frame}${Number.isFinite(asked) && asked !== first.frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
+    const image = strip ? await composeFilmstrip(pictures, strip.map(at => frameCaption(at, pose.interval))) : pictures[0];
     return {
-      label: `${view}; ${when}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? '; not drawn at this frame (geoset alpha 0): ' + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
+      label: `${view}; ${when}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
       image,
     };
   }
