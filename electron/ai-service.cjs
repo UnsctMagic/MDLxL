@@ -679,6 +679,8 @@ class AiService {
       AI_JOB_CHECKPOINT,
       AI_PLAN_TOOL,
       guidesForRequest,
+      animationRequest,
+      AI_ANIMATION_CRAFT,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -718,6 +720,7 @@ class AiService {
       conversation.messages = [];
       delete conversation.threadId;
       delete conversation.sentToolAreas;
+      delete conversation.sentCraft;
     } else
       task = conversation.task = {
         prompt: text,
@@ -743,7 +746,7 @@ class AiService {
     if (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length)) {
       restarted = lastExchange(conversation);
       conversation.messages = [];
-      for (const key of ['threadId', 'sentToolAreas', 'sentContext', 'usage']) delete conversation[key];
+      for (const key of ['threadId', 'sentToolAreas', 'sentCraft', 'sentContext', 'usage']) delete conversation[key];
     }
     recorder.start({
       role: 'user',
@@ -805,6 +808,12 @@ class AiService {
           // A guide that cannot be read leaves the job as it was.
         }
       }
+    // Animation requests carry the animation craft once per provider history,
+    // whether or not the handbook is on.
+    if (!conversation.toolsOff && animationRequest?.(text) && !(conversation.sentContext && conversation.sentCraft)) {
+      prompt += '\n\n' + AI_ANIMATION_CRAFT;
+      conversation.sentCraft = true;
+    }
     // Function pages inferred from the request go once per conversation; capabilities finds the rest.
     const cards = await this.functionCards();
     if (!conversation.toolsOff) {

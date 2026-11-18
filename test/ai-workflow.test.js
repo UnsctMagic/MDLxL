@@ -359,6 +359,26 @@ test('a recorded sweep travels to inspection and its measured rows reach the out
   assert.doesNotMatch(question, /\[object Object\]/);
 });
 
+test('animation requests carry the animation craft without the handbook; a UV request does not', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const lastPrompt = () => JSON.stringify(received.at(-1).messages.filter(m => m.role === 'user').at(-1));
+  await f.service.send({ id: 'uv', text: 'unwrap the shield UVs and fit them into one square', context });
+  assert.doesNotMatch(lastPrompt(), /Animation craft/, 'a plain UV request gets no animation craft');
+  await f.service.send({ id: 'anim', text: 'make the attack swing snappier', context });
+  const prompt = lastPrompt();
+  assert.match(prompt, /Animation craft for this job/);
+  assert.match(prompt, /mdlxl_sample/);
+  assert.match(prompt, /shoulder sockets/);
+  assert.match(prompt, /linear keys, about 5 to 6 rotation keys per bone per clip/);
+  assert.match(prompt, /AnimXL output is smooth Bezier/);
+  await f.service.send({ id: 'anim', text: 'now the walk too', context });
+  assert.doesNotMatch(lastPrompt(), /Animation craft/, 'sent once per provider history');
+});
+
 test('with the handbook on, a job carries the guides its request touches; effort defaults to high', async t => {
   const received = [],
     read = [];

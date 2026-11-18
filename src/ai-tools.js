@@ -397,6 +397,22 @@ export function guidesForRequest(text) {
     .map(([guide]) => guide);
 }
 
+// Animation craft: how good Warcraft III motion is made and judged. Sent with
+// requests that involve animation, whether or not the handbook is on.
+export const AI_ANIMATION_CRAFT = `Animation craft for this job:
+- Judge motion in the animated model, never by numbers alone, and make the change visible when the clip plays. Your senses: mdlxl_sample at chosen frames or as a whole-clip sweep (worst clip and frame), motion compared with the original or a donor (mdlxl_versions, or ai-motion-compare in a script on references["version:NAME"].model), and mdlxl_capture of the changed part at several frames of the clip.
+- Nothing clips at any moment, also between keys: check fast parts densely (about every 5 ms). No jitter, snaps or abnormal bends of arms, hands or knees; watch rotations that wrap the long way round, above all at a clip's ends and loop seam.
+- Joints hold: arms stay inside their shoulder sockets. Armour on a limb follows that limb about its joint with most of its swing (a pauldron about 70% of the upper arm's swing); a nearly frozen piece looks wrong.
+- Planted feet do not slide or shuffle; a step is a clean lift and set-down. Hips and knees keep moving; no part of the body stays static while the rest acts.
+- Cloth such as cloaks moves like the model's own hand-keyed cloth (a few broad keyed swings following the body), not like simulated cloth.
+- Attacks: a wide, level arc with real reach, hands in front of the chest; the wind-up flows out of the guard without a pause, the strike is fast, the follow-through finishes low, then a short hold and recovery.
+- A rider acts with and against the mount's motion; never let a body sit rigidly on what carries it.
+- Warcraft III style is snappy: a few strong key poses; quick anticipation, fast action, short hold, recover. Native clips use mostly linear keys, about 5 to 6 rotation keys per bone per clip; never bake a key per frame. Smooth Bezier or Hermite curves read floaty, and AnimXL output is smooth Bezier, so it is not a Warcraft III style finish: reduce it to sparse linear keys afterwards or keep the original interpolation.
+- Keep the file small: drop keys that change nothing; when precision trades against size, report both in numbers (bytes, largest pose difference).
+- When asked to make or re-make an animation, author new motion on this model's own rig; copy another model's animation only when asked. Do not play it safe: animate boldly and well.`;
+const ANIMATION_WORDS = /\b(animat|walk|attack|stand\b|death|dies\b|spell|swing|strike|slash|lunge|sway|idle|gallop|trot|gait|stride|keyframe|keys\b|re-?key|retim|timing|motion|pose|posing|sequence|loop|clips?\b|snapp|floaty|jitter|rider)/i;
+export const animationRequest = text => ANIMATION_WORDS.test(String(text || ''));
+
 // Look first, then change once: an editing job records its plan before the
 // first edit. Handled by the AI service, never by the editor or MCP clients.
 export const AI_PLAN_TOOL = {
