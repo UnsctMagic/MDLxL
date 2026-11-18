@@ -240,6 +240,7 @@ class AiService {
       localWorkspace: config.localWorkspace === true,
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
+      watchAi: config.watchAi === true,
     };
   }
   // An on/off setting: saved, applied by `after`, then announced to the console.
@@ -1612,6 +1613,8 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));
+  // View AI work: off until the user turns it on; the console applies it at once.
+  handle('ai:watchAi', enabled => service.setSwitch('watchAi', 'watch-ai', enabled));
   handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());

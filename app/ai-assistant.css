@@ -193,6 +193,8 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-workspace-offer p{margin:6px 0}
 .ai-workspace-choices{display:flex;gap:8px;margin-top:12px}
 .ai-workspace-choices button{flex:1}
+.ai-watch-fork{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:4px 0 10px;padding:6px 10px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-soft);color:var(--ui-text);font-size:12px}
+.ai-watch-fork span{flex:1 1 160px}
 .ai-assistant .ai-workspace-choices button:first-child{background:#247140!important;color:#fff!important;border-color:#247140}
 
 /* Clarifications stay in the conversation, in the model chat. */

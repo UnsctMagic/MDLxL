@@ -1726,6 +1726,11 @@ export default function App() {
     },
     view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.globalSequence!==undefined)selectTimeline(value.globalSequence==null?String(value.sequence??sequence):'global:'+value.globalSequence);else if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);if(value.renderMode)setViewRenderMode(value.renderMode);if(value.fit)frame(value.fit==='selection');},
     open: record => queueModelRecords([record]),
+    // View AI work (the console's switch): show the AI's model tab, wait for the editor to
+    // draw, and keep the part it works on in view (posed points for the preview, rest for the editor).
+    showTab: id => { const next = latest.current.sessions.find(item => item.id === id); if (next && next !== latest.current.session) flushSync(() => activateSession(next)); },
+    afterPaint,
+    followFit: points => window.dispatchEvent(new CustomEvent('mdlxl-ai-follow', { detail: points })),
     assets: () => retainedForgeAssets(session.assets,doc.model),
     addAssets: records => loadTextures(records,session,{source:'forge'}),
     // A model tab the AI works on while another tab is showing: its own document,
@@ -2071,7 +2076,7 @@ export default function App() {
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={bitReplacement?.original.id || session.id}
         onSelectParts={forgePicking?.select} forgeGeometryPreview={!!forgePreview} editHandles={forgePreview?.editHandles} onStartPartDrag={forgePreview?.onStartPartDrag} onCancelPartDrag={forgePreview?.cancel}
-        hoveredGeoset={highlightedFromSelection} model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
+        hoveredGeoset={highlightedFromSelection} aiFollow model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
         selectedVertices={forgePreview?.model?.forgeSelection?.[activeGeoset] || validSelection[activeGeoset] || []}
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={forgePreview ? {...validSelection,...forgePreview.model.forgeSelection} : validSelection}
         onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, model));}}
@@ -2107,7 +2112,7 @@ export default function App() {
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
         mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={showAxes} workplane={workplane}
         onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
-        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
+        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection} aiFollow
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying} onEditPause={holdForEdit}

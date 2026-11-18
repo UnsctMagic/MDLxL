@@ -16,6 +16,7 @@ import {
   LogIn,
   Paperclip,
   PenLine,
+  ScanEye,
   Pause,
   Settings2,
   Square,
@@ -74,6 +75,8 @@ const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
 const WEB_TIP =
   'Web research: lets the AI search the web and read pages, such as XGM tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
+const WATCH_TIP =
+  "View AI work: while the AI works, shows its model tab and follows the animation, frame, view and part it works on. Off keeps your own view.";
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
   ['summary', 'Keep a summary', 'Keep a short note of what was done; delete the chats.'],
@@ -97,7 +100,7 @@ const storedWidth = () => {
 // changes on every playback tick; FrameLabel follows that on its own.
 function headerKey(bridge) {
   const { time, ...summary } = bridge.summary();
-  return JSON.stringify([summary, bridge.references(), getLanguage()]);
+  return JSON.stringify([summary, bridge.references(), getLanguage(), !!bridge.forkedDraft(summary.documentId)]);
 }
 function FrameLabel({ bridge }) {
   return useSyncExternalStore(bridge.subscribe, () => Math.round(bridge.summary().time));
@@ -192,6 +195,7 @@ function AiAssistant({ bridge, visUI }) {
       if (event.type === 'local-workspace') setSettings(previous => ({ ...previous, localWorkspace: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
+      if (event.type === 'watch-ai') setSettings(previous => ({ ...previous, watchAi: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
@@ -237,6 +241,8 @@ function AiAssistant({ bridge, visUI }) {
     };
   }, []);
   useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
+  // View AI work follows the AI only while the console is open with the switch on.
+  useEffect(() => bridge.setWatching(open && !!settings.watchAi), [bridge, open, settings.watchAi]);
   const summaryNow = open ? bridge.summary() : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
   // Right after a tab switch the console still holds the previous model's chat until
@@ -753,6 +759,17 @@ function AiAssistant({ bridge, visUI }) {
               >
                 <Globe size={15} aria-hidden="true" />
               </button>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-switch"
+                aria-label="View AI work" data-hotkey="watch"
+                aria-checked={!!settings.watchAi}
+                title={WATCH_TIP}
+                onClick={() => action(async () => setSettings(await window.desktop.aiWatchAi(!settings.watchAi)))}
+              >
+                <ScanEye size={15} aria-hidden="true" />
+              </button>
               <span className="ai-heading-gap" />
               <button
                 type="button"
@@ -915,6 +932,12 @@ function AiAssistant({ bridge, visUI }) {
                       {status && (
                         <div className="ai-status" role="status">
                           {status}
+                        </div>
+                      )}
+                      {summary && bridge.forkedDraft(summary.documentId) && (
+                        <div className="ai-watch-fork" role="group" aria-label="AI private copy">
+                          <span>You changed the model, so the AI works on a private copy.</span>
+                          <button type="button" title="Open the AI's copy as its own model tab and watch the work there." onClick={() => bridge.openForkedDraft(summary.documentId)}>Open as new model</button>
                         </div>
                       )}
                     </div>
