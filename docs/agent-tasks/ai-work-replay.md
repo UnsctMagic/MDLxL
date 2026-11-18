@@ -43,11 +43,13 @@ has the before and after of each step).
 workstation and reacts to different processes the AI does." "Depending on which provider is loaded
 in - his eyes are different colors."
 
-- ThumperXL already exists: the MDLxL helmet (horns, slanted triangle eyes, long ridge) built by
-  `thumperGeometry()` in `src/forge-thumper.js`, colours `THUMPER_COLORS`, traced from
-  `public/branding/MDLxL.png`. Reuse that geometry; do not model a new head.
+- Owner correction (18 Nov): NOT a 3D model. Reuse the Thumper icon MDLxL already has,
+  `public/branding/MDLxL.png` (the program's helmet icon: half wireframe with blue points, half
+  painted, red eyes), and animate it 2.5D: the icon cut into a few flat layers from that same
+  picture (horns, helmet, wireframe half, eyes/eye glow) that move with parallax, small tilts,
+  turns and squash, plus a glow layer on the eyes. No new art and no 3D model.
 - He lives inside the existing AI panel (`app/AiAssistant.jsx`), small, in the panel's own space
-  (no new panel, toolbar or window). Live 3D, lit in the MDLxL theme, black-grey plates.
+  (no new panel, toolbar or window).
 - He reacts to what the AI is doing, from the events the console already gets (thinking, text,
   tool start/result per tool name, compaction, question/waiting for the user, error, stop, done,
   idle): e.g. idle = slow breathing glow; thinking = eyes slowly pulse, head tilts; looking at
