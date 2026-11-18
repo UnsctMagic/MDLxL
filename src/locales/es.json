@@ -8678,5 +8678,9 @@
   "Reports are full for today. Try again tomorrow.": "Hoy ya no se admiten más informes. Inténtalo mañana.",
   "Could not send. Check your internet connection.": "No se pudo enviar. Comprueba tu conexión a internet.",
   "Cut tool": "Herramienta Cortar",
-  "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Cortar: haz clic en un vértice y luego en un punto de una línea enfrente. El triángulo se divide ahí; el triángulo detrás de esa línea también, para que nada se rasgue. Haz clic en una esquina en lugar de una línea para llevar la línea hasta esa esquina."
+  "Cut: click a vertex, then a point on a line across from it. The triangle splits there; the triangle behind that line splits too, so nothing tears. Click a corner instead of a line to draw the line to that corner.": "Cortar: haz clic en un vértice y luego en un punto de una línea enfrente. El triángulo se divide ahí; el triángulo detrás de esa línea también, para que nada se rasgue. Haz clic en una esquina en lugar de una línea para llevar la línea hasta esa esquina.",
+  "Hide panel": "Ocultar panel",
+  "Show panel": "Mostrar panel",
+  "Hide the editing panel to see more of the model.": "Oculta el panel de edición para ver más del modelo.",
+  "Show the editing panel.": "Muestra el panel de edición."
 }
