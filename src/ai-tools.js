@@ -11,20 +11,24 @@ const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', '
 const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
 export const MAX_SWEEP_POINT_VERTICES = 256;
 const sweepPoint = {
-  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES } }),
-  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based).',
+  ...object({
+    nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES },
+    geosets: indices, nodeIds: indices, exclude: indices,
+  }),
+  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based). For intersect, a part: geosets, and/or triangles on nodeIds and bones below them, minus triangles on exclude.',
 };
 export const AI_SWEEP_SCHEMA = {
   ...object({
-    kind: { enum: ['attached', 'clear', 'level'] },
+    kind: { enum: ['attached', 'clear', 'level', 'intersect'] },
     a: sweepPoint, b: sweepPoint,
     sequences: { ...indices, minItems: 1 },
     globalSequence: { type: 'integer', minimum: 0 },
     reference: { ...object({ sequence: { type: 'integer', minimum: 0 }, frame: { type: 'number' } }), description: 'Attached reference pose. Defaults to the Stand sequence start.' },
-    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it.' },
+    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it; intersect: crossings above it count as a hit (default 0).' },
+    step: { type: 'number', minimum: 1, maximum: 1000, description: 'intersect: ms between samples (default 5).' },
   }),
-  required: ['kind', 'a'],
-  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
+  required: ['kind'],
+  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. A is required for attached, clear and level; B for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints. Intersect counts triangle edges of part A crossing triangles of part B (both ways) every 5 ms through each animation except Decay; without A and B it checks the rig\'s weapon, shield, arm, head, body, leg and mount parts. Per pair: crossings at rest, per animation frames hit and the worst frame, and for the worst frame depth, size and the vertices involved (for capture vertices).',
 };
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,
