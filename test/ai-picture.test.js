@@ -87,11 +87,12 @@ test('geosets faded out by their geoset animation are not counted as drawn', { s
 });
 
 // A stand-in for the hidden GamePreview's capture API with its fit rules: the camera looks at the
-// box centre and sizes the view from 0.75 of the box diagonal, in the preset's direction.
+// box centre and sizes the view from 0.75 of the box diagonal, in the preset's direction. Its clip
+// planes are stale (the preview sets them only when it draws), so every point reads as out of depth.
 function previewStandIn(view, { width = 768, height = 576, radius = 60 } = {}) {
   const aspect = width / height,
-    perspective = new PerspectiveCamera(42, aspect, 0.2, 1e6),
-    ortho = new OrthographicCamera(-1, 1, 1, -1, -1e6, 1e6),
+    perspective = new PerspectiveCamera(42, aspect, 0.2, 50),
+    ortho = new OrthographicCamera(-1, 1, 1, -1, 0.2, 50),
     target = new Vector3(),
     camera = view === 'perspective' ? perspective : ortho;
   perspective.up.set(0, 0, 1);
@@ -216,4 +217,19 @@ test('a trail follows the node through the animation and marks the keys of the n
   assert.throws(() => checkPictureOptions({ trails: ['Weapon Ref'], uv: true }, model), /drop uv/);
   validateArguments(captureSchema, { target: 't', samples: [{ sequence: 4, trails: [43, 'Bone_Hand_R'] }] });
   assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ trails: [1, 2, 3, 4, 5, 6, 7, 8, 9] }] }), /number of items/);
+});
+
+test('pictures replay particles and ribbons from the animation start, whatever the user preference', () => {
+  const effects = { Geosets: [], ParticleEmitters2: [{ ObjectId: 0 }], RibbonEmitters: [] }, off = { graphics: { particles: false } };
+  const shown = drawn({ model: effects, sequence: 2, frame: 500 }, { preferences: off });
+  assert.equal(shown.showParticles, true, 'the Graphics particles preference must not blind the AI');
+  assert.equal(shown.particleAuthoring, true, 'the editor replay that builds the effect up to the frame');
+  const hidden = drawn({ model: effects, sequence: 2, particles: false }, { preferences: off });
+  assert.equal(hidden.showParticles, false);
+  assert.equal(hidden.particleAuthoring, false);
+  assert.equal(drawn({ model: effects, restPose: true }).particleAuthoring, false, 'the bind pose has no animation to replay');
+  assert.equal(drawn({ model: { Geosets: [] }, sequence: 2 }).particleAuthoring, false, 'nothing to replay');
+  // The workspace candidate preview turns them off as before.
+  assert.equal(drawn({ model: effects, sequence: 2, showParticles: false }).showParticles, false);
+  validateArguments(captureSchema, { target: 't', samples: [{ particles: false }] });
 });

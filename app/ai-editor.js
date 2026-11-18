@@ -37,6 +37,7 @@ import {
   filmstripFrames,
   filmstripLayout,
   frameCaption,
+  hasEffects,
   motionTrails,
   picturePose,
   posedPoints,
@@ -1081,7 +1082,7 @@ export class AiEditorBridge {
         marks: null,
         focus: source.focus || posedPoints(pose, new Map(drawnGeosets(pose).map(g => [g, true]))),
       });
-      return { label: donor.doc.name, image };
+      return { label: donor.doc.name, image: typeof image === 'string' ? image : image.image };
     }
     const model = source.model || env.model;
     const globalSequence =
@@ -1159,12 +1160,24 @@ export class AiEditorBridge {
                 now: trail.points[motionPathMarker(trail.frames, one.frame)] || null,
               })),
             },
-        ...(source.candidate ? { showParticles: false } : {}),
+        particles: !source.candidate && sample.particles !== false,
         focus: focus?.length ? focus : null,
         zoom: source.focus ? 1 : zoom,
       });
-    const pictures = [];
-    for (const one of shots) pictures.push(await draw(one));
+    const pictures = [],
+      notes = new Set();
+    for (const one of shots) {
+      const drawn = await draw(one);
+      pictures.push(typeof drawn === 'string' ? drawn : drawn.image);
+      for (const note of drawn?.notes || []) notes.add(note);
+    }
+    const effects = hasEffects(model) && !source.candidate
+      ? sample.particles === false
+        ? '; particles and ribbons off'
+        : first.pose.bind
+          ? '; particles and ribbons need an animation (none in the bind pose)'
+          : '; particles and ribbons replayed from the animation start'
+      : '';
     const pose = first.pose,
       name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
       triangles = first.shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
@@ -1183,7 +1196,7 @@ export class AiEditorBridge {
           trails.map((trail, i) => `${i + 1} ${TRAIL_NAMES[i]} "${trail.name}" (node ${trail.id}): ${trail.keys.length} keys at ${trail.keys.map(key => key.frame).join(', ') || 'none'}; path ${round(trail.length)} units; peak speed ${round(trail.peakSpeed)} units/s near frame ${trail.peakFrame}; start to end ${round(trail.travel)} units`).join('; ')
         : '';
     return {
-      label: `${view}; ${when}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}; ${triangles} triangles drawn`,
+      label: `${view}; ${when}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}${effects}${[...notes].map(note => '; ' + note).join('')}; ${triangles} triangles drawn`,
       image,
     };
   }

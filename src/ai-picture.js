@@ -16,6 +16,9 @@ export const PICTURE_FILL = 0.88;
  * render mode from previewMode (it overwrites mode), so wireframe and plain pictures set it there.
  * The geosets the job hides stay hidden, and no animation (sequence -1) is the bind pose. */
 export function aiPictureProps(job, { preferences, teamColor } = {}) {
+  // Particles and ribbons are the history of the animation so far: the editor's particle replay
+  // runs them from the animation start to the drawn frame (it waits in whenReady).
+  const particles = (job.particles ?? job.showParticles) !== false;
   return {
     presentation: 'preview',
     model: job.model,
@@ -30,7 +33,8 @@ export function aiPictureProps(job, { preferences, teamColor } = {}) {
     restPose: job.restPose === true,
     playing: false,
     showGrid: false,
-    showParticles: job.showParticles,
+    showParticles: particles,
+    particleAuthoring: particles && job.restPose !== true && hasEffects(job.model),
     mode: job.renderMode || 'textured',
     previewMode: PICTURE_MODES.includes(job.renderMode) ? job.renderMode : 'textured',
     view: job.view || 'perspective',
@@ -115,6 +119,9 @@ export function checkPictureOptions(sample, model) {
     if (sample.frame !== undefined) throw Error('A filmstrip spreads its frames over the animation: drop frame.');
   }
 }
+
+/** Whether the model has particle or ribbon emitters the preview simulates. */
+export const hasEffects = model => !!(model?.ParticleEmitters2?.length || model?.RibbonEmitters?.length);
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number.isFinite(value) ? value : low));
 
@@ -233,13 +240,13 @@ export function boxCorners({ center, half }) {
  * box centre's offset from the picture centre (dx right, dy down) and the share of the picture the
  * box spans (fill, the larger of its width and height share), or null when nothing is in front.
  */
-export function screenBox(screen, width, height) {
+export function screenBox(screen, width, height, { depth = true } = {}) {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
     maxY = -Infinity;
   for (let i = 0; i + 2 < screen.length; i += 3) {
-    if (!screen[i + 2]) continue;
+    if (depth && !screen[i + 2]) continue;
     const x = screen[i],
       y = screen[i + 1];
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
@@ -274,7 +281,7 @@ export function pictureShift(columns, dx, dy) {
  * preview's own fit centres a box and sizes the view from it, so a few corrected fits converge
  * in every view preset; returns how the points finally sit.
  */
-export function frameExactly(api, points, { fill = PICTURE_FILL, zoom = 1, passes = 4 } = {}) {
+export function frameExactly(api, points, { fill = PICTURE_FILL, zoom = 1, passes = 8 } = {}) {
   const box = pointsBox(points);
   if (!box) {
     api.fit(null);
@@ -291,9 +298,14 @@ export function frameExactly(api, points, { fill = PICTURE_FILL, zoom = 1, passe
     height = cy * 2;
   if (!(width > 0 && height > 0)) return null;
   // Each pass moves the box centre to the picture centre and, while sizing, scales it to `fill`.
+  // Depth is ignored: the preview's far plane is only set when it draws, and while sizing the camera
+  // stays outside the points (fit keeps it 1.5 radii away), so none is behind it.
+  const measure = () => screenBox(api.project(points), width, height, { depth: false });
   const correct = sizing => {
-    const placed = screenBox(api.project(points), width, height);
+    const placed = measure();
     if (!placed) return false;
+    // Closer than the points' own size a perspective camera can have points behind it; leave those pictures be.
+    if (!sizing && (Math.abs(placed.dx) > width / 4 || Math.abs(placed.dy) > height / 4)) return false;
     const scale = sizing && placed.fill > 1e-6 ? placed.fill / fill : 1;
     if (Math.abs(placed.dx) < 0.5 && Math.abs(placed.dy) < 0.5 && Math.abs(scale - 1) < 0.005) return false;
     const step = extent * 0.01,
@@ -318,5 +330,5 @@ export function frameExactly(api, points, { fill = PICTURE_FILL, zoom = 1, passe
     api.fit(boxCorners(box));
     for (let pass = 0; pass < 2 && correct(false); pass++);
   }
-  return screenBox(api.project(points), width, height);
+  return measure();
 }

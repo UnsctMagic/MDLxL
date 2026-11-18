@@ -127,8 +127,15 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
       frameExactly(api, entry.focus, { zoom: entry.zoom });
       const image = api.captureView();
       drawMarks(image, api, entry.marks);
-      finish(entry, null, image.toDataURL('image/png'));
+      const url = image.toDataURL('image/png');
+      finish(entry, null, entry.notes?.length ? { image: url, notes: entry.notes } : url);
     } catch (error) {
+      // An effect over the preview's live-particle budget still gets its picture, without effects.
+      if (entry.particles !== false && /particle budget/.test(error.message)) {
+        Object.assign(entry, { particles: false, started: false, id: crypto.randomUUID(), notes: [...(entry.notes || []), 'no particles or ribbons: their replay went over the preview budget'] });
+        setJob({ ...entry });
+        return;
+      }
       finish(entry, error);
     }
   }, []);
