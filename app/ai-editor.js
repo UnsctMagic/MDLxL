@@ -147,6 +147,26 @@ function sizeOf(bytes, model) {
     return {};
   }
 }
+// Model-space positions of the marked vertices, posed at the picture's frame.
+function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
+  // The kept original of an edited model can have fewer vertices than the selection names.
+  const valid = Object.entries(selection)
+    .map(([gi, ids]) => [gi, model.Geosets[gi] ? ids.filter(i => i * 3 < model.Geosets[gi].Vertices.length) : []])
+    .filter(([, ids]) => ids.length);
+  if (!valid.length) return [];
+  if (sequence < 0 && globalSequence == null)
+    return valid.flatMap(([gi, ids]) => ids.flatMap(id => Array.from(model.Geosets[gi].Vertices.subarray(id * 3, id * 3 + 3))));
+  try {
+    const sampled = sampleAiModel(
+      model,
+      { frame, sequence, globalSequence, selectedNodeIds: [] },
+      { frames: [frame], vertices: Object.fromEntries(valid), limit: 1000 },
+    );
+    return sampled.samples[0].geosets.flatMap(g => g.selected.positions.flatMap(p => p.position));
+  } catch {
+    return [];
+  }
+}
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
