@@ -17,6 +17,12 @@ import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
+import { animationEditReport } from '../src/ai-motion-style.js';
+import { mdxSizeBreakdown } from '../src/ai-model-size.js';
+import { meshHealth } from '../src/mesh-health.js';
+import { checkSanity } from '../src/sanity-check.js';
+import { sanityForAi } from '../src/ai-sanity.js';
+import { hiveSanity } from './optimizexl-hive.js';
 import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
 import { decodeTextureThumbnail } from '../src/texture-thumbnail.js';
 import {
@@ -103,6 +109,24 @@ const meshParameters = args => {
   if (args.pivot !== undefined) { if (!Array.isArray(args.pivot) || args.pivot.length !== 3 || !args.pivot.every(Number.isFinite)) throw Error('pivot must be [x, y, z].'); out.pivot = args.pivot; }
   return out;
 };
+// After an edit that changed animation data: which animations changed, how many stayed identical and
+// the motion warnings the edit added. Information for the AI, never a refusal.
+function animationNotes(before, after) {
+  try {
+    const animation = animationEditReport(before, after);
+    return animation ? { animation } : {};
+  } catch {
+    return {};
+  }
+}
+// Where the saved MDX bytes go (validate), for size limits such as "under 250 KB".
+function sizeOf(bytes, model) {
+  try {
+    return { size: mdxSizeBreakdown(bytes, model) };
+  } catch {
+    return {};
+  }
+}
 const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
@@ -625,7 +649,7 @@ export class AiEditorBridge {
       this.requireTarget(args.target);
       return { ...picture, label: 'Candidate only, ' + args.view, triangles };
     }
-    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal);
+    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal, this.sampleModels(target, env, args));
     if (name === 'mdlxl_versions') {
       const versions = this.versionStore,
         id = target.documentId;
@@ -758,6 +782,7 @@ export class AiEditorBridge {
         logs: result.logs || [],
         diagnostics: doc.diagnostics,
         ...(existingSaveIssues ? { savedWithExistingIssues: existingSaveIssues, note: 'The model already had these save-check differences before your edit; they are not caused by it and did not block it.' } : {}),
+        ...animationNotes(before, doc.model),
       };
     }
     if (name === 'mdlxl_select') {
@@ -992,6 +1017,13 @@ export class AiEditorBridge {
         });
         return { ...result, revision: target.revision, format };
       }
+      if (args.action === 'health') return meshHealth(env.doc.model);
+      if (args.action === 'sanity') {
+        // The Help menu's Sanity Check on this target's own model (a hidden tab or private copy too).
+        const report = await checkSanity(env.doc.model, hiveSanity);
+        active();
+        return sanityForAi(report);
+      }
       if (args.action === 'validate') {
         const results = [];
         for (const format of ['mdx', 'mdl'])
@@ -1004,6 +1036,7 @@ export class AiEditorBridge {
               bytes: saved.bytes.byteLength,
               diagnostics: reopened.diagnostics,
               readOnly: reopened.readOnly,
+              ...(format === 'mdx' ? sizeOf(saved.bytes, env.doc.model) : {}),
             });
           } catch (error) {
             results.push({ format, error: error.message });
@@ -1031,6 +1064,18 @@ export class AiEditorBridge {
     const warnings = this.saveWarnings(doc);
     this.saveBaselines.set(doc, { revision: doc.revision, warnings });
     return warnings;
+  }
+  // The other models a sample measures against: a style donor (an open reference or this model) and a
+  // saved version for since.
+  sampleModels(target, env, args) {
+    const resolved = {}, donor = args.style?.donor?.documentId;
+    if (donor) {
+      const session = donor === target.documentId ? env.session : this.referenceSessions(target).find(s => s.id === donor);
+      if (!session) throw Error('The donor model is not open. Open it with mdlxl_document open or mdlxl_assets reference.');
+      resolved.donor = session.doc.model;
+    }
+    if (args.since !== undefined) resolved.since = this.versionStore.get(target.documentId, args.since);
+    return resolved;
   }
   contextFor(id) {
     const target = this.targets.get(id),

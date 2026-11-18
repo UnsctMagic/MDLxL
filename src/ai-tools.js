@@ -11,20 +11,24 @@ const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', '
 const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
 export const MAX_SWEEP_POINT_VERTICES = 256;
 const sweepPoint = {
-  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES } }),
-  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based).',
+  ...object({
+    nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES },
+    geosets: indices, nodeIds: indices, exclude: indices,
+  }),
+  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based). For intersect, a part: geosets, and/or triangles on nodeIds and bones below them, minus triangles on exclude.',
 };
 export const AI_SWEEP_SCHEMA = {
   ...object({
-    kind: { enum: ['attached', 'clear', 'level'] },
+    kind: { enum: ['attached', 'clear', 'level', 'intersect'] },
     a: sweepPoint, b: sweepPoint,
     sequences: { ...indices, minItems: 1 },
     globalSequence: { type: 'integer', minimum: 0 },
     reference: { ...object({ sequence: { type: 'integer', minimum: 0 }, frame: { type: 'number' } }), description: 'Attached reference pose. Defaults to the Stand sequence start.' },
-    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it.' },
+    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it; intersect: crossings above it count as a hit (default 0).' },
+    step: { type: 'number', minimum: 1, maximum: 1000, description: 'intersect: ms between samples (default 5).' },
   }),
-  required: ['kind', 'a'],
-  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
+  required: ['kind'],
+  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. A is required for attached, clear and level; B for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints. Intersect counts triangle edges of part A crossing triangles of part B (both ways) every 5 ms through each animation except Decay; without A and B it checks the rig\'s weapon, shield, arm, head, body, leg and mount parts. Per pair: crossings at rest, per animation frames hit and the worst frame, and for the worst frame depth, size and the vertices involved (for capture vertices).',
 };
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,
@@ -241,12 +245,28 @@ export const AI_TOOLS = [
   ),
   tool(
     'sample',
-    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
+    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.\n' +
+    'Frames also give each sampled geoset\'s alpha and colour, and texture animation values.\n' +
+    'sweep kind intersect: clipping between parts every 5 ms (automatic weapon, shield, arm, head, body, leg and mount parts without a and b).\n' +
+    'style: one animation\'s keys and spacing, interpolation (authored and measured), speed curve, strike and impact timing, wind-up and holds, against a donor or the Blizzard range for its kind.\n' +
+    'checks: per animation loop seam and end deviation (0.00 expected), planted-foot slide (0.5 or less is planted), joint jumps and bone turns per 33 ms (snaps, angle wraps), blended socket volume against the model\'s own animations, event timing and motion warnings.\n' +
+    'since: which animations differ from a saved version (keys and posed bones; untouched ones are identical).',
     {
       target,
       sequence: { type: 'integer', minimum: -1 },
       globalSequence: { type: ['integer', 'null'], minimum: 0 },
       sweep: AI_SWEEP_SCHEMA,
+      style: {
+        ...object({
+          sequence: { type: 'integer', minimum: 0 },
+          nodeIds: { ...indices, description: 'Bones for per-bone rows; default the keyed bones that turn most.' },
+          step: { type: 'number', minimum: 1, maximum: 100 },
+          donor: { ...object({ documentId: string('Open model (reference or this one).'), sequence: { type: 'integer', minimum: 0 } }), required: ['documentId'] },
+        }),
+        description: 'Default animation: the current one. donor.sequence defaults to the animation with the same name.',
+      },
+      checks: { ...object({ sequences: { ...indices, minItems: 1 }, reference: { type: 'integer', minimum: 0, description: 'Pose the ends are compared with; default Stand Ready, else Stand.' } }) },
+      since: string('Saved version name (mdlxl_versions), for example "original".'),
       frames: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' } },
       nodeIds: indices,
       geosetIds: indices,
@@ -287,11 +307,17 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a texture as an image: a model texture (textureId or path), or any texture by path (source textures or game, for example Textures\Eyes.blp) or by a game search hit (id and signature, type textures). Returns the image and its path. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a texture as an image: a model texture (textureId or path), or any texture by path (source textures or game, for example Textures\Eyes.blp) or by a game search hit (id and signature, type textures). Returns the image and its path. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.\n' +
+    'source model search also gives each texture\'s file (format, width, height, mipmaps, bytes) and what uses it (materials, geosets, triangles, emitters), and the total texture bytes.\n' +
+    'pixels reads a texture as data (same texture choice as preview): a colour grid over a region (up to 64 cells), colour statistics, and with find the regions of a colour, in pixels and UV, to locate an eye or a gem on an atlas.',
     {
       target,
       source: { enum: ['model', 'textures', 'parts', 'game'] },
-      action: { enum: ['search', 'preview', 'reference'] },
+      action: { enum: ['search', 'preview', 'reference', 'pixels'] },
+      region: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number' }, description: 'pixels: [left, top, right, bottom]; default the whole texture.' },
+      units: { enum: ['uv', 'pixels'], description: 'Region units; UV (0..1, as TVertices) by default.' },
+      grid: { type: 'integer', minimum: 1, maximum: 64, description: 'pixels: cells on the longer side; default 16.' },
+      find: { ...object({ color: string('#rrggbb'), tolerance: { type: 'number', minimum: 0, maximum: 442 } }), required: ['color'] },
       query: string('Asset search words.'),
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
@@ -328,10 +354,13 @@ export const AI_TOOLS = [
   ),
   tool(
     'document',
-    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
+    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.\n' +
+    'validate also gives size: where the MDX bytes go (geosets, animation tracks, nodes, materials, texture paths, emitters), the biggest geosets and tracks.\n' +
+    'health: per geoset holes (open borders), non-manifold edges, degenerate and duplicate triangles, T-junctions, islands, loose vertices and the vertex limit.\n' +
+    'sanity: the Help menu\'s Sanity Check (Hive checker) findings for this model, unsaved edits included.',
     {
       target,
-      action: { enum: ['list', 'open', 'export', 'validate'] },
+      action: { enum: ['list', 'open', 'export', 'validate', 'health', 'sanity'] },
       path: string('Absolute local file path for open/export.'),
       format: { enum: ['mdx', 'mdl'] },
       overwrite: { type: 'boolean' },
