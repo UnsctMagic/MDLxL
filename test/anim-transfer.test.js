@@ -1097,3 +1097,46 @@ test('R13 feet stay down: a stride and a hip lift the legs cannot follow are bro
   assert.ok(donorWorst < 0.1 * rigT.hipHeight, `the Tauren always has a foot down in its Walk (${donorWorst.toFixed(1)})`);
   assert.ok(worst < 0.1 * rig.hipHeight, `the Kurgan's lower foot gets ${worst.toFixed(1)} above its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
 });
+
+// Size for a body that does not stand on legs: docs/agent-tasks/xfer-transplant-fixes.md, package A.
+const nodeName = (model, id) => String(allNodes(model).find(node => node.ObjectId === id)?.Name ?? '').trim();
+test('S1 a body without legs has a real size: the Naga is sized by its extent and stands on its mesh floor', { skip: missing('transfer-naga') }, () => {
+  const rig = transferRig(load('transfer-naga'));
+  assert.equal(rig.hipMeasured, false);
+  assert.ok(Math.abs(rig.extent - 233) < 2, `extent ${rig.extent}`);
+  assert.ok(Math.abs(rig.hipHeight - 60.7) < 1, `stand-in hip height ${rig.hipHeight} (was 0.001)`);
+  assert.ok(Math.abs(rig.ground - 3.2) < 1, `ground ${rig.ground}`);
+});
+test('S2 legs that do not stand are not a hip height: the Spider gets the stand-in, the Footman keeps its own', { skip: missing('transfer-spider', 'transfer-footman') }, () => {
+  const spider = transferRig(load('transfer-spider')), footman = transferRig(load('transfer-footman'));
+  assert.equal(spider.hipMeasured, false);
+  assert.ok(Math.abs(spider.hipHeight - 56.2) < 1, `Spider hip height ${spider.hipHeight} (was 1.42)`);
+  assert.equal(footman.hipMeasured, true);
+  assert.ok(Math.abs(footman.hipHeight - 41.382) < 1e-3, `Footman hip height ${footman.hipHeight}`);
+});
+test('S3 the Felhound\'s body is the joint its legs hang from', { skip: missing('transfer-felhound') }, () => {
+  const model = load('transfer-felhound'), rig = transferRig(model);
+  assert.equal(nodeName(model, rig.body), 'Bone Center');
+  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 3, Object.keys(rig.parts).join(', '));
+  assert.equal(rig.hipMeasured, true);
+  assert.ok(Math.abs(rig.hipHeight - 36.9) < 1, `hip height ${rig.hipHeight} (was 0.001)`);
+});
+test('S4 size ratio: extents when one body has no legs, hip heights when both stand', { skip: missing('transfer-footman', 'transfer-naga', 'transfer-grunt') }, () => {
+  const footman = transferRig(load('transfer-footman')), naga = transferRig(load('transfer-naga')), grunt = transferRig(load('transfer-grunt'));
+  assert.ok(Math.abs(XFER.rigSizeRatio(footman, naga) - 0.52) < 0.02, `Footman / Naga ${XFER.rigSizeRatio(footman, naga)}`);
+  assert.equal(XFER.rigSizeRatio(footman, grunt), footman.hipHeight / grunt.hipHeight);
+});
+test('S5 a rider read alone keeps its numbers', { skip: missing('transfer-cold-one-rider', 'transfer-knight') }, () => {
+  // Values from the parent commit 595082ae.
+  for (const [key, hip, ground] of [['transfer-cold-one-rider', 27.71578394163012, 91.0053597893212], ['transfer-knight', 39.35223606391638, 50.75666256869438]]) {
+    const rig = transferRig(load(key), { actor: 'seated' });
+    assert.equal(rig.hipMeasured, true, key);
+    assert.ok(Math.abs(rig.hipHeight - hip) < 1e-9 && Math.abs(rig.ground - ground) < 1e-9, `${key}: ${rig.hipHeight}, ${rig.ground}`);
+  }
+});
+test('S6 one mesh, no legs: the Wisp and the robed Necromancer get a size from their mesh', { skip: missing('transfer-wisp', 'transfer-necromancer') }, () => {
+  const wisp = transferRig(load('transfer-wisp')), necro = transferRig(load('transfer-necromancer'));
+  assert.ok(Math.abs(wisp.hipHeight - 83.4) < 2, `Wisp ${wisp.hipHeight} (was 0.001)`);
+  assert.equal(necro.hipMeasured, false);
+  assert.ok(necro.hipHeight > 10, `Necromancer ${necro.hipHeight} (was 3.4)`);
+});

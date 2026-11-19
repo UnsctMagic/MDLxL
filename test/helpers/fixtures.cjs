@@ -59,6 +59,11 @@ const FIXTURES = {
   'transfer-red-dragon': ['MDLXL_TRANSFER_RED_DRAGON', testModel('corpus-sd/creeps__reddragon.mdx')], // the root scales to zero in Death: the whole body goes
   'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
   'transfer-gargoyle': ['MDLXL_TRANSFER_GARGOYLE', testModel('corpus-sd/undead__gargoyle.mdx')], // its body joint Bone_Root hangs under Dummy01, a parentless joint
+  'transfer-naga': ['MDLXL_TRANSFER_NAGA', testModel('corpus-sd/naga__nagamyrmidon.mdx')], // no legs: a snake tail under the body
+  'transfer-felhound': ['MDLXL_TRANSFER_FELHOUND', testModel('corpus-sd/demon__felhound.mdx')], // the node named Body is a still skin bone beside the legs' driver
+  'transfer-spider': ['MDLXL_TRANSFER_SPIDER', testModel('corpus-sd/creeps__spider.mdx')], // splayed legs: the first leg joint is level with the feet
+  'transfer-wisp': ['MDLXL_TRANSFER_WISP', testModel('corpus-sd/nightelf__wisp.mdx')], // one floating mesh, no limbs that stand
+  'transfer-necromancer': ['MDLXL_TRANSFER_NECROMANCER', testModel('corpus-sd/undead__necromancer.mdx')], // robed: no legs read
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };

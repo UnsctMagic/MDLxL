@@ -236,6 +236,15 @@ function readRig(model, info, skeleton, wanted = 'both') {
   if (body == null && own.length) {
     try { body = suggestPoseBody(model, own, tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
   }
+  // A body that drives none of this skeleton's limbs only carries the name (a still skin bone called "Body" beside
+  // the helper that moves the creature): the body is then the joint the legs hang from (the limbs, with no leg).
+  let rebased = false;
+  const limbsHere = own.filter(chain => !chain.cloth && chain.label !== 'Chain');
+  if (body != null && limbsHere.length && !limbsHere.some(chain => chain.root !== body && tree.isAncestor(chain.root, body))) {
+    const hung = limbsHere.filter(chain => joints.has(tree.parentOf(chain.root))), legsHere = hung.filter(legChain), basis = legsHere.length ? legsHere : hung;
+    const driver = basis.length ? tree.ancestors(basis[0].root).find(id => joints.has(id) && basis.every(chain => chain.root !== id && tree.isAncestor(chain.root, id))) : undefined;
+    if (driver != null) { body = driver; rebased = true; }
+  }
   // Reference pose: the first frame of this skeleton's own Stand (the plain
   // Stand when this skeleton moves most in it), else of an animation it moves
   // most in, else the plain Stand, else rest.
@@ -348,7 +357,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // creature's own limbs only.
   // Hanging cloth is no limb in any reading: its joints stay outside the parts, as a cape's do.
   const chains = (actor === 'seated' ? seatedChains : pose.chains.filter(chain => actor === 'walker' ? tree.isAncestor(chain.root, walkerBody) && !seatedId(chain.root)
-    : seatedId(chain.root) ? armChain(chain) : tree.isAncestor(chain.root, walkerBody))).filter(chain => !chain.cloth);
+    : seatedId(chain.root) ? armChain(chain) : tree.isAncestor(chain.root, walkerBody))).filter(chain => !chain.cloth && !(rebased && poseChainIds(chain).includes(walkerBody)));
   const limbIds = new Set(chains.flatMap(poseChainIds));
   const controls = (pose.nodes || []).filter(id => under(id) && joints.has(id) && !limbIds.has(id));
   // Upper and lower body: a trunk joint that carries a leg walks with the hips
@@ -428,12 +437,17 @@ function readRig(model, info, skeleton, wanted = 'both') {
   for (const part of Object.values(parts).filter(part => part.weapon)) part.weapon.grip = twoHandGrip(model, info, ref, part, Object.values(parts).filter(other => other.limbKind === 'arm' && other !== part));
   const legs = Object.values(parts).filter(part => part.limbKind === 'leg');
   const hipCentre = legs.length ? average(legs.map(part => pos(part.joints[0]))) : bodyPos;
-  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
   if (!Object.keys(parts).length) return fail('No body parts were recognised on this model.');
+  // Size (rules 1 to 4 of docs/agent-tasks/xfer-transplant-fixes.md). Read alone, a rider or its mount keeps the plain numbers.
+  const plainReading = actor === 'both', extent = plainReading ? bodyExtent(model, ref, sequence) : { size: 0, floor: null };
+  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : extent.floor ?? Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
+  const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - ground > 1e-3 && hipCentre.z - ground >= HIP_MIN_SHARE * extent.size;
   const partJoints = new Set(Object.values(parts).flatMap(part => part.joints));
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
-  const rig = { ok: true, reference, body, parts, hipHeight: Math.max(1e-3, hipCentre.z - ground), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
+  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - ground) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
+  Object.defineProperty(rig, 'hipMeasured', { value: hipMeasured, enumerable: false });
+  Object.defineProperty(rig, 'extent', { value: extent.size, enumerable: false });
   // Trunk length, hips to the middle of the shoulders: a size that does not depend on how the legs are folded.
   const shoulders = ['armL', 'armR'].map(key => parts[key]).filter(Boolean).map(part => pos(part.joints[0]));
   Object.defineProperty(rig, 'trunk', { value: shoulders.length === 2 ? shoulders[0].add(shoulders[1]).multiplyScalar(0.5).distanceTo(hipCentre) : 0, enumerable: false });
@@ -444,6 +458,32 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
   return rig;
+}
+
+// A hip height counts as measured from this share of the body extent up; a body that does not
+// stand on legs gets this share of its extent as a stand-in. Library figures: docs/agent-tasks/xfer-transplant-fixes.md.
+const HIP_MIN_SHARE = 0.05, HIP_SHARE = 0.26, EXTENT_TRIM = 0.02;
+/** The body's extent in the reference pose: the diagonal of the box around the visible skinned mesh, each axis
+ * between its 2nd and 98th percentile; `floor` is that lower height. Geosets hidden in the reference animation are
+ * left out; when that leaves nothing, every geoset counts. -> { size, floor } ({ size: 0, floor: null } without a mesh). */
+function bodyExtent(model, ref, sequence) {
+  const item = model.Sequences?.[sequence];
+  const read = visibleOnly => {
+    const axes = [[], [], []];
+    (model.Geosets || []).forEach((geoset, index) => {
+      if (!geoset.Vertices?.length) return;
+      if (visibleOnly && item?.Interval) { const alpha = geosetAlphaTrack(model, index); if (!(isGlobalTrack(alpha) || geosetVisibleIn(model, alpha, item, item.Interval))) return; }
+      const points = skinGeoset(geoset, ref.world);
+      for (let i = 0; i + 2 < points.length; i += 3) if (Number.isFinite(points[i] + points[i + 1] + points[i + 2])) { axes[0].push(points[i]); axes[1].push(points[i + 1]); axes[2].push(points[i + 2]); }
+    });
+    return axes;
+  };
+  let axes = read(true);
+  if (!axes[0].length) axes = read(false);
+  if (!axes[0].length) return { size: 0, floor: null };
+  for (const axis of axes) axis.sort((a, b) => a - b);
+  const at = (axis, share) => axis[Math.min(axis.length - 1, Math.floor(axis.length * share))];
+  return { size: Math.hypot(...axes.map(axis => at(axis, 1 - EXTENT_TRIM) - at(axis, EXTENT_TRIM))), floor: at(axes[2], EXTENT_TRIM) };
 }
 
 /** Vertices skinned only to `end` and the nodes below it, in the reference pose. */
@@ -1227,7 +1267,12 @@ const share = value => Math.max(0, Math.min(1, Number(value) || 0));
  * alone on either side the trunks (hips to shoulders) are compared instead. */
 function sizeRatio(rigB, rigA) {
   const seated = rigA.actor === 'seated' || rigB.actor === 'seated';
-  return seated && rigA.trunk > 1e-3 && rigB.trunk > 1e-3 ? rigB.trunk / rigA.trunk : rigB.hipHeight / rigA.hipHeight;
+  return seated && rigA.trunk > 1e-3 && rigB.trunk > 1e-3 ? rigB.trunk / rigA.trunk : rigSizeRatio(rigB, rigA);
+}
+/** How much bigger one body is than another: hip heights when both stand on legs, else their extents. */
+export function rigSizeRatio(rigB, rigA) {
+  if (rigB.hipMeasured && rigA.hipMeasured) return rigB.hipHeight / rigA.hipHeight;
+  return rigB.extent > 0 && rigA.extent > 0 ? rigB.extent / rigA.extent : rigB.hipHeight / rigA.hipHeight;
 }
 function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient }) {
   const refA = sampleAt(donor, rigA.reference.sequence, rigA.reference.frame);
