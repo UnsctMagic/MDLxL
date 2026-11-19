@@ -532,7 +532,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // donor moves by itself, the Tauren's totem) is used as it is.
     const partAbove = id => treeA.ancestors(id, true).find(a => partOfDonor.has(a)) ?? null;
     const armOf = id => { const at = partAbove(id), key = at != null ? partOfDonor.get(at) : null; return key != null && rigA.parts[key]?.limbKind === 'arm' ? key : null; };
-    const onHand = id => { const at = partAbove(id); return at == null || rigA.parts[partOfDonor.get(at)]?.limbKind === 'arm' && rigA.parts[partOfDonor.get(at)].marker === at; };
+    // A hand bone beside the arm's last joint (the Ghoul's Bone_Hand_L hangs from its forearm next to Wrist2) is a hand too.
+    const onHand = id => { const at = partAbove(id), part = at != null ? rigA.parts[partOfDonor.get(at)] : null; return at == null || part?.limbKind === 'arm' && (part.marker === at || id !== at && part.joints.at(-2) === at); };
     if (bone != null && handTarget) {
       const arm = armOf(bone);
       if (!onHand(bone)) weaponSkip = `The donor's weapon bone (${donorById.get(bone)?.Name}) is not on a hand: the weapon stays in the hand.`;
