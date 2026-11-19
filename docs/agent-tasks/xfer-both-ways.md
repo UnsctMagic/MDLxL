@@ -1164,3 +1164,99 @@ Owner on the gore2 sheet: Ogre, Ghoul (`ghoul-grunt-2`) and Skeleton Warrior all
 - Package `TestBuilds\transfer-xl-27` (TEMP on D:); `transfer` harness hidden with the sweep: 70 checks, 151 controls,
   passed. Launcher `_START HERE\7 TRANSPLANT - in the XFER window.cmd` opens build 27 on `TEST TRANSPLANT 12.mdx`
   (Kurgan copy).
+
+## Posture: a transplant is 100% a transplant (builder: Claude Opus, overnight 19-20 Nov 2026)
+
+Owner (19 Nov, quoted): "A TRANSPLANT IS 100% A TRANSPLANT." The Khorne Berserker on the Ghoul stood upright with its
+arms folded into its body while the Ghoul is hunched with long arms hanging at its sides. Two causes: the engine kept the
+open model's own trunk posture on purpose (v2 skin contract: "Making them equal ... Not proposed"; arms carried a constant
+key correction), and POSE reads the Ghoul's arms to `Wrist1`/`Wrist2`, still forearm skin bones whose pivots are parked in
+its chest, so the forearm was aimed into the chest. Commits `0f2a8185`, `f828a91b`, `85f5b78b`. Scripts, pictures and data in
+`out/transfer-probe/overnight/posture/`.
+
+What the engine does now (`src/skeleton-transplant.js`, default, no option):
+- The donor's rotation keys are copied as they are; the posture lives in the bind pose. The mesh is re-posed into the
+  donor's rest posture on this model's proportions: each donor joint sits where its parent's turn carries it, each vertex
+  turns with the bones it is bound to (blended by weight). Own nodes hanging on a donor joint (effects, a kept piece) keep
+  their place in the world; a donor joint this model lacks and with no skin of it (a tail) keeps the donor's offset.
+- Limbs: every stretch along the donor's (as before; straight shin, feet down and the weapon rules unchanged).
+- Trunk, for donors with legs and two arms: it turns as one piece so the hip centre (first leg joints) to the shoulder
+  centre (first arm joints) points as the donor's, the shoulder line twisted to follow; landmarks, not trunk pivots
+  (riggers put a chest pivot anywhere: the Tauren's sits 5.8 behind its root). The donor's trunk joints (hips, chest and
+  the joints between) are placed in this model's trunk where they sit in the donor's (hip-to-shoulder length, shoulder
+  width), and the trunk skin is shared between them where the donor's own trunk skin is (median height of each joint's
+  skin, 10% band), so the body bends where the donor's does (v2 item 4 "trunk included"). A vertex shared with a limb keeps
+  the trunk joint that limb hangs from. Legless or armless donors (Naga, Banshee) keep this model's trunk, as before.
+- Neck, for every donor with a neck joint: the neck joints turn so the first neck joint to the head joint points as the
+  donor's; the head joint keeps the donor's turn (as a foot). A head's moves are scaled by the neck's own length. A neck
+  placed inside the chest takes only skin within half the distance to the nearest shoulder (`splitJoints` `radius`).
+- `transplantReading` (exported): a limb whose last joint is a still skin carrier with one moving joint beside it ends at
+  the moving joint (Ghoul: `Bone_Hand_R/L`). Retargeting keeps the shared reading (the recogniser gap is still there for
+  Retarget; see open points).
+- Feet: `settleFeet`/`feetDown` read the result's legs through the id map (the donor's legs), not by reading the re-posed
+  result again (Grunt on the Ghoul read the Ghoul's corpse skeleton: 88 off in Stand Victory). This is the analyst's F1.
+- `report.counts.posture` (spine and neck turn, degrees), `report.repose` (result node -> turn its skin took).
+
+Tests (`node --test test/skeleton-transplant.test.js test/transplant-skin.test.js`: 57 pass):
+- New Q1 Berserker on the Ghoul (fixture `transfer-berserker` = new `MDLxL-TestModels/transfer-posture/WH_WOC_WarriorKhorneBerserker03.mdx`),
+  Q2 Kurgan on the Tauren, Q4 Footman on the Ghoul: at 9 moments of Stand, Walk, Attack and Death every arm stretch, the
+  thigh, hips>shoulders and the neck within 3 degrees of the donor's (world, both face the same way); arms at least 80% of
+  rest length and reach; no hand inside the torso where the donor's is not. Q3: every donor rotation key is the donor's.
+  Q4 also: POSE reads the Ghoul's arms to `Wrist*`, the transplant to `Bone_Hand_*`. Q1-Q4 fail on df9c4059 (Q1 "arm
+  Bone_Arm2_R > Bone_Hand_R up to 74.1 degrees", Q2 "spine up to 25.3", Q4 "125.1"). Q5 (feet through the id map) fails
+  when the result is read again (88.3 off). U8 (`radius`).
+- Expectations that encoded the old rule, changed: P2 neck skin 14 -> 1 vertex, moved 34 -> 21, blended 1 -> 2 (the neck
+  no longer takes the collar ring, since it now turns away from the chest at rest; trunk shares are counted apart in
+  `counts.skin.trunk`); T6, T11, T7 find the result's hand through `donorNodes` and carry the Kurgan's grip through
+  `report.repose` (they assumed the result's hand sits on the Kurgan's pivot in the Kurgan's rest pose).
+- Unchanged: `node --test test/anim-transfer.test.js test/transfer-window.test.js` 89 pass; `baseline.mjs p1`,
+  `baseline-compare.mjs z3 p1`: 32 compared, 0 differ.
+
+Measured (`posture/measure.mjs`, worst degrees off the donor over Stand, Walk, Attack, Death; before = df9c4059):
+
+| Pair | limb | hips>shoulders | neck |
+| --- | --- | --- | --- |
+| Berserker on the Ghoul | 74.1 -> 0.0 | 70.8 -> 0.3 | 99.8 -> 0.0 |
+| Kurgan on the Tauren | 0.0 -> 0.0 | 36.4 -> 0.1 | 138.7 -> 0.0 |
+| Footman on the Ghoul | 125.1 -> 0.0 | 78.2 -> 2.5 | 88.1 -> 0.0 |
+| Kurgan on the Naga | 0.0 -> 0.0 | 15.9 -> 15.9 (legless: trunk kept) | 111.6 -> 0.0 |
+
+Panel (the other worker's `panel.mjs`/`look.mjs` of 23:51, base = df9c4059 snapshot and this engine run back to back:
+`posture/panel-posture-base8.json`, `panel-posture8.json`, `panel-compare8.txt`, table by `panel-table.mjs`): verdicts
+ok 5 -> 18 of 61; mean of per-pair medians: posture pitch 27.2 -> 0.4, spine 27.6 -> 0.7, neck 48.3 -> 17.3, arm upper
+22.0 -> 3.4, arm lower 24.8 -> 12.4, leg upper 28.8 -> 3.6, leg lower 34.4 -> 8.6. The gate still lists 32 pairs with
+some metric worse (47 better). The reasons, by class:
+- arm.lower on the Ghoul (6 pairs, about 20 -> 75): the yardstick reads the Ghoul's arm to `Wrist1`, the still skin bone
+  parked in its chest; against its moving hand the forearm is 0.0 off (Q1, Q4). Yardstick fix: read the donor with
+  `transplantReading`.
+- leg.lower / leg.end2 on the Tauren (4 pairs): straight shin (owner's pick); the legs did not move in the world (my
+  knee-to-foot measure 16 both), the yardstick's body frame now matches the Tauren's (spine 39.7 -> 0).
+- neck = chest pivot > head pivot, on donors with no neck joint (Paladin, Footman x3, Grunt, Mountain Giant, Footman HD,
+  Gryphon Rider; 6 -> 15 typical): the donor's chest pivot now sits where the donor has it inside this model's trunk; the
+  head mesh only moves with the trunk turn (there is no neck joint to bend).
+- sinks-into-ground (Footman, Grunt, Graveguard on the Ghoul; Dire Wolf on the Tauren): the lowest vertex of the whole
+  mesh; the hunch brings claws and weapons low like the Ghoul's; the feet are on target (Q5).
+- inside / hand-inside, small (about 10 pairs): the arms point as the donor's on a bulkier body.
+- riders: Wyvern Rider on Gryphon Rider (posture 4.2 -> 7.4, neck, arms), Kurgan on Khorne Knight Axe (medians better, p90s
+  worse), Knight on Wolf Rider (its tail is now measured); other rider pairs improved (Wolf Rider on Knight 70.2 -> 2.5).
+- Infernal on Grunt: p90s up, medians down; Kurgan on Felhound: arm reach short 0 -> 0.19 (four-legged donor).
+
+Mesh (`posture/mesh-check.mjs`: triangle edges over 2x / under 0.5x their bind length, 9 moments; before -> after): Berserker
+on the Ghoul Stand 110/79 -> 90/57, Walk 93/109 -> 84/103, Attack 93/141 -> 82/209 (of 34,866); Kurgan on the Tauren
+Stand 45/8 -> 60/15, Attack 91/24 -> 104/34 (of 25,524); Footman on the Ghoul Stand 12/9 -> 85/42, Walk 20/46 -> 86/56,
+Attack 20/29 -> 81/82 (of 6,543: its tabard is bound to chest and thighs and the Ghoul crouches 62 degrees). Pictures
+(software render; donor blue, before red, after green; side then front): `posture/pictures/0N *.png`.
+
+Trial models (`posture/make-posture-trials.mjs`, validated and reopened, 0 errors; Mirror as the window sets it):
+`TestBuilds\test-models\TEST POSTURE 01|02|03|04 BEFORE|AFTER.mdx` = Berserker on the Ghoul, Kurgan on the Tauren,
+Footman on the Ghoul, Kurgan on the Naga. Not opened in a packaged build (no build made).
+
+Open points and risks:
+- The Ghoul as donor hides the result for its whole Death (old rule in `holdShowing`: "nothing shows where the donor hides
+  its own body"; the Ghoul swaps to a corpse copy on a second skeleton). The Berserker on the Ghoul vanishes when it dies.
+- POSE (the shared recogniser) reads the Ghoul's arms to `Wrist1`/`Wrist2`; Retarget still aims at them (the Ghoul is in
+  the retarget baseline, so it was left alone tonight). The fix belongs in `src/pose-ik.js` with the POSE corpus diff.
+- Rigid pieces follow the re-posed trunk: capes and shields stick out where the donor hunches (the Berserker's cape; the
+  Footman's tabard stretches). The Kurgan's neck band turns 139 degrees into the Tauren's (the head hangs forward of the hump).
+- The Tauren's hump is mesh, not skeleton: its trunk line leans only 18 degrees, so the Kurgan changes little there.
+- Riders as donors are mixed (above). Legless donors keep this model's trunk line.

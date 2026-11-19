@@ -23,6 +23,8 @@ Kurgan on the Tauren (`rigs.mjs`):
   correction (study, step 5: A for the trunk; the owner called that result Good), so each trunk
   stretch stays off the donor's by a constant while every trunk joint turns exactly as the donor's.
   Making them equal means bending the Kurgan's torso into the Tauren's hunch. Not proposed.
+  (Superseded 20 Nov 2026, owner: "A TRANSPLANT IS 100% A TRANSPLANT": the trunk and neck now take the donor's posture,
+  read between landmarks; see [xfer-both-ways.md](xfer-both-ways.md), "Posture: a transplant is 100% a transplant".)
 
 ## 2. Key idea
 
