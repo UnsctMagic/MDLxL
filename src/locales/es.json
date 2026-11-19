@@ -8881,5 +8881,8 @@
   "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.": "El donante no tiene {0} que dar al de este modelo: va sobre el cuerpo del donante sin moverse por sí mismo.",
   "A geoset needs {0} bone groups after the transplant; the format holds 256.": "Un geoset necesita {0} grupos de huesos tras el trasplante; el formato admite 256.",
   "The open model has bind poses (Reforged skinning); they are left out of the result.": "El modelo abierto tiene poses de enlace (skinning de Reforged); se dejan fuera del resultado.",
-  "The result's body was not recognised: {0}": "No se reconoció el cuerpo del resultado: {0}"
+  "The result's body was not recognised: {0}": "No se reconoció el cuerpo del resultado: {0}",
+  "Whole skeleton": "Esqueleto entero",
+  "Pick parts": "Elegir partes",
+  "Takes movement from the donor part by part onto this model's own bones.": "Toma el movimiento del donante parte por parte en los huesos propios de este modelo."
 }

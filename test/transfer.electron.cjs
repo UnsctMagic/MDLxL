@@ -75,7 +75,8 @@ async function session(fixture, label, settings) {
 // The parts column must not scroll in normal use; no model name shows its file extension.
 const noScroll = async (s, what) => { const { scroll, client } = await s.parts().evaluate(e => ({ scroll: e.scrollHeight, client: e.clientHeight })); assert.ok(scroll <= client + 1, `${what}: the parts column fits without scrolling (${scroll} > ${client})`); };
 const noExtensions = async (s, what) => { const text = await s.dialog.innerText(); assert.doesNotMatch(text, /\.(mdx|mdl)\b/i, `${what}: no file extension in the window`); };
-const openTransfer = async s => { await s.page.locator('button.transfer-tool').click(); await s.dialog.waitFor(); await s.page.waitForTimeout(800); };
+// The window opens in Transplant (owner, build 23); the Retarget stories switch to Retarget first.
+const openTransfer = async (s, mode = 'retarget') => { await s.page.locator('button.transfer-tool').click(); await s.dialog.waitFor(); await s.page.waitForTimeout(800); if (mode === 'retarget') { await s.dialog.locator('button[data-mode="retarget"]').click(); await s.dialog.locator('aside[aria-label="Parts"], .xf-problems').first().waitFor(); await s.page.waitForTimeout(300); } };
 const pathMoved = (a, b) => !!a && !!b && a.length === b.length && a.some((p, i) => Math.hypot(p[0] - b[i][0], p[1] - b[i][1], p[2] - b[i][2]) > 1);
 
 async function storyB() {
@@ -498,7 +499,10 @@ async function darkStory() {
   const footman = copyModel('transfer-footman', 'TEST TRANSFER 11 dark.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor dark.mdx');
   const s = await session(footman, 'dark', { preferences: { theme: 'dark' } }), { page, dialog } = s;
   try {
-    await openTransfer(s);
+    await openTransfer(s, 'transplant');
+    const shotsT = path.resolve(process.env.MDLXL_TRANSPLANT_SHOTS || 'out/transplant-ui'); fs.mkdirSync(shotsT, { recursive: true });
+    await s.shot('00-just-opened-dark', shotsT);
+    await dialog.locator('button[data-mode="retarget"]').click(); await s.parts().waitFor(); await page.waitForTimeout(300);
     await s.parts().getByLabel('Body animation', { exact: true }).selectOption({ label: 'Stand Defend' });
     await s.openDonor(grunt); await s.animation('Attack - 1');
     await dialog.locator('input[data-part-switch="armL"]').click(); await page.waitForTimeout(800);
@@ -1461,10 +1465,11 @@ async function transplantStory() {
   const ready = (what, test = () => true) => until(() => state(page), v => v.transplant?.ready && test(v.transplant), what);
   const cameraOf = async name => (await s.probe(name)).camera.object.matrix.map(v => Math.round(v * 1000) / 1000).join(',');
   try {
-    await openTransfer(s);
-    assert.equal(await dialog.locator('button[data-mode="retarget"]').getAttribute('aria-pressed'), 'true', 'transplant: the window opens in Retarget');
-    await click(dialog.locator('button[data-mode="transplant"]'), 'Transplant mode');
-    assert.equal(await dialog.locator('button[data-mode="transplant"]').getAttribute('aria-pressed'), 'true', 'transplant: Transplant is pressed');
+    await openTransfer(s, 'transplant');
+    assert.equal(await dialog.locator('button[data-mode="transplant"]').getAttribute('aria-pressed'), 'true', 'transplant: the window opens in Transplant');
+    assert.equal(await dialog.locator('button[data-mode="retarget"]').getAttribute('aria-pressed'), 'false', 'transplant: Retarget is not pressed');
+    const order = await dialog.locator('header .xf-mode-switch button').evaluateAll(list => list.map(b => b.dataset.mode + ':' + b.innerText.replace(/\s+/g, ' ').trim()));
+    assert.deepEqual(order, ['transplant:Transplant Whole skeleton', 'retarget:Retarget Pick parts'], 'transplant: the caption bar holds Transplant then Retarget with their sub-labels');
     assert.equal(await s.parts().count(), 0, 'transplant: the parts column is replaced');
     assert.equal(await dialog.locator('.xt-lane').count(), 0, 'transplant: no clip timeline');
     for (const name of ['Add animation', 'Add all', 'Take whole body']) assert.equal(await dialog.getByRole('button', { name, exact: true }).count(), 0, `transplant: no ${name}`);
@@ -1472,8 +1477,8 @@ async function transplantStory() {
     assert.equal(await settings().getByLabel('Effects').isChecked(), false, 'transplant: Effects off at first');
     assert.equal(await button().isDisabled(), true, 'transplant: Transplant waits for a donor');
     assert.match(await s.view('Result').innerText(), /Choose a model under From/, 'transplant: the result view asks for a donor');
-    await s.shot('01-transplant-mode-empty', shotsT);
-    results.checks.push('transplant: the switch shows the settings column (Sounds on, Effects off), no parts, timeline or Add buttons; Transplant waits for a donor');
+    await s.shot('00-just-opened-light', shotsT);
+    results.checks.push('transplant: the window opens in Transplant (caption switch: Transplant | Retarget); it shows the settings column (Sounds on, Effects off), no parts, timeline or Add buttons; Transplant waits for a donor');
     if (magnataur) {
       // A poor fit is named with its reason; the transplant is still offered.
       await s.openDonor(magnataur);
@@ -1536,7 +1541,7 @@ async function transplantStory() {
     assert.equal(await button().isDisabled(), true, 'transplant: Transplant is done for these settings');
     await s.shot('03-transplant-done', shotsT);
     results.checks.push(`transplant: Transplant puts the Kurgan on the Tauren skeleton in place (${after.names.length} animations: the Tauren's; ${theirs} of its ${after.bones.length} joints are the Tauren's by name; own camera kept; no new tab)`);
-    await click(dialog.getByRole('button', { name: 'Retarget', exact: true }), 'Retarget mode');
+    await click(dialog.locator('button[data-mode="retarget"]'), 'Retarget mode');
     assert.equal(await s.parts().count(), 1, 'transplant: Retarget brings the parts column back');
     await click(dialog.getByRole('button', { name: 'Close Transfer' }), 'close');
     await page.keyboard.press('Control+Z');

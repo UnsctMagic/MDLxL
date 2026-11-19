@@ -8871,5 +8871,8 @@
   "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.": "У донора нет части «{0}» для этой модели: она едет на теле донора, не двигаясь сама.",
   "A geoset needs {0} bone groups after the transplant; the format holds 256.": "Геосету после пересадки нужно {0} групп костей; формат вмещает 256.",
   "The open model has bind poses (Reforged skinning); they are left out of the result.": "У открытой модели есть позы привязки (скиннинг Reforged); в результат они не входят.",
-  "The result's body was not recognised: {0}": "Тело результата не распознано: {0}"
+  "The result's body was not recognised: {0}": "Тело результата не распознано: {0}",
+  "Whole skeleton": "Весь скелет",
+  "Pick parts": "Выбор частей",
+  "Takes movement from the donor part by part onto this model's own bones.": "Переносит движение донора часть за частью на собственные кости этой модели."
 }

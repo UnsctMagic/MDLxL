@@ -172,9 +172,15 @@
 .transfer-xl .xf-feature-name{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .transfer-xl .xf-feature>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
 .transfer-xl .xf-list .xf-feature.xf-off{opacity:.5}
-/* Retarget / Transplant switch over the three columns; Transplant's settings in the right column. */
-.transfer-xl .xf-modes{display:flex;gap:4px;padding:8px 8px 0}
-.transfer-xl .xf-modes>button{min-width:90px}
+/* Transplant / Retarget: a segmented switch in the caption bar; Transplant's settings in the right column. */
 .transfer-xl .xf-transplant .xf-feature-name{max-width:none;flex:1;min-width:0}
 .transfer-xl .xf-poor{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-panel,#f0f0f0)}
 .transfer-xl .xf-poor>b{font-size:12px}
+.transfer-xl .xf-caption-title{display:flex;align-items:center;gap:14px;min-width:0}
+.transfer-xl .xf-mode-switch{display:inline-flex;border:1px solid var(--ui-border,#8b8b87);border-radius:7px;overflow:hidden;background:var(--ui-field,#fff)}
+:root .transfer-xl .xf-mode-switch>button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;min-width:128px;height:auto;min-height:34px;margin:0;padding:3px 14px;border:0;border-radius:0;box-shadow:none!important;background:var(--ui-field,#fff)!important;color:var(--ui-text,#16191e)!important;text-align:left;cursor:pointer}
+:root .transfer-xl .xf-mode-switch>button+button{border-left:1px solid var(--ui-border,#8b8b87)}
+:root .transfer-xl .xf-mode-switch>button:not([aria-pressed=true]):hover{background:var(--ui-hover,#e7e3db)!important}
+:root .transfer-xl .xf-mode-switch>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important;color:oklch(from var(--ui-accent,#71b5f3) clamp(0, (0.62 - l) * 1000, 1) 0 0)!important}
+.transfer-xl .xf-mode-switch>button>b{font-size:13px;font-weight:700;line-height:1.2}
+.transfer-xl .xf-mode-switch>button>small{font-size:11px;font-weight:400;line-height:1.2;opacity:.85}

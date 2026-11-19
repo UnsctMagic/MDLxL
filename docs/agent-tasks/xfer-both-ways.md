@@ -900,3 +900,18 @@ Proof:
 
 Open: the ~1 s build runs on the UI thread (no worker); window Ctrl+Z in Transplant mode steps the Retarget
 history (Mirror included), not the model; the result is not checked in Warcraft III; owner's eye pending.
+
+### Transplant mode polish: owner feedback on build 23 (19 Nov 2026)
+
+Owner: "Make transplant the default" and the mode buttons must be more visible and clearer ("two VERY different
+modes"). The window now opens in Transplant. The switch moved into the caption bar beside the title as a
+segmented two-part control, Transplant first: **Transplant** / Whole skeleton, **Retarget** / Pick parts; the
+active part is filled with `--ui-accent` (text black or white by the accent's lightness), the other plain.
+Tooltips: Transplant "Puts this model on the donor's skeleton with all the donor's animations.", Retarget
+"Takes movement from the donor part by part onto this model's own bones." Three new strings in the five catalogs.
+Harness: `openTransfer` switches to Retarget unless a story asks for Transplant (an unreadable model shows only
+its problems); the transplant story checks the default and the switch order; the dark story shoots the window
+just opened. Package `TestBuilds\transfer-xl-24`, whole harness hidden with the sweep: 68 checks passed, the one
+failure (`unreadable`: the helper waited for a parts column that model never has) fixed in the test and that
+story rerun alone on build 24: passed. Screenshots `out/transplant-ui/00-just-opened-light.png`, `-dark.png`.
+Launcher `_START HERE\7 TRANSPLANT - in the XFER window.cmd` now opens build 24.

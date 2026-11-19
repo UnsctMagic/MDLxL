@@ -1932,7 +1932,10 @@
     "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.",
     "A geoset needs {0} bone groups after the transplant; the format holds 256.",
     "The open model has bind poses (Reforged skinning); they are left out of the result.",
-    "The result's body was not recognised: {0}"
+    "The result's body was not recognised: {0}",
+    "Whole skeleton",
+    "Pick parts",
+    "Takes movement from the donor part by part onto this model's own bones."
   ],
   "paint": [
     "Citadel Paint",

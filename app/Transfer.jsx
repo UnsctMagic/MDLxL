@@ -158,8 +158,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Donors loaded in this window. Never tabs, never changed. 'self' is the open model.
   const [donors, setDonors] = useState([]), [donorId, setDonorId] = useState(null), [donorSeqs, setDonorSeqs] = useState({});
   const [loading, setLoading] = useState(''), [message, setMessage] = useState(''), [picker, setPicker] = useState(false);
-  // Retarget (parts into a new animation) or Transplant (the model onto the donor's skeleton).
-  const [mode, setMode] = useState('retarget'), transplanting = mode === 'transplant';
+  // Transplant (the model onto the donor's skeleton, the default: owner, build 23) or Retarget (parts into a new animation).
+  const [mode, setMode] = useState('transplant'), transplanting = mode === 'transplant';
   const releases = useRef([]);
   useEffect(() => () => { for (const release of releases.current) release(); }, []);
   const donor = useMemo(() => { const d = donors.find(item => item.id === donorId); return d?.id === 'self' ? { ...d, model, assets: textureAssets, revision: doc.revision } : d; }, [donors, donorId, model, textureAssets, doc.revision]);
@@ -694,12 +694,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
   const lacksTip = key => !donor ? 'Choose a model to take animation from first.' : `The donor has no ${transferPartLabel(feedsFrom(key))}.`;
-  return <ToolWindow title="Transfer" overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
+  // The two modes are a segmented switch in the caption bar beside the title: Transplant first.
+  const caption = <span className="xf-caption-title"><span>Transfer</span>
+    <span className="xf-mode-switch" role="group" aria-label="Mode">
+      <button type="button" data-hotkey="transfer:mode-transplant" data-hotkey-manual data-hotkey-label="Transplant mode" data-mode="transplant" aria-pressed={transplanting} title="Puts this model on the donor's skeleton with all the donor's animations." onClick={() => setMode('transplant')}><b>Transplant</b><small>Whole skeleton</small></button>
+      <button type="button" data-hotkey="transfer:mode-retarget" data-hotkey-manual data-hotkey-label="Retarget" data-mode="retarget" aria-pressed={!transplanting} title="Takes movement from the donor part by part onto this model's own bones." onClick={() => setMode('retarget')}><b>Retarget</b><small>Pick parts</small></button>
+    </span></span>;
+  return <ToolWindow title="Transfer" caption={caption} overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
     {!rigB.ok ? <div className="xf-problems" role="alert">{rigB.problems.map(text => <p key={text}>{text}</p>)}</div> : <>
-      <div className="xf-modes" role="group" aria-label="Mode">
-        <button data-hotkey="transfer:mode-retarget" data-hotkey-manual data-hotkey-label="Retarget" data-mode="retarget" aria-pressed={!transplanting} title="Adds movement from the donor to this model as a new animation, part by part." onClick={() => setMode('retarget')}>Retarget</button>
-        <button data-hotkey="transfer:mode-transplant" data-hotkey-manual data-hotkey-label="Transplant mode" data-mode="transplant" aria-pressed={transplanting} title="Puts this model on the donor's skeleton with all the donor's animations." onClick={() => setMode('transplant')}>Transplant</button>
-      </div>
       <div className="xf-body">
         <aside className="xf-from" aria-label="From">
           <b className="xf-heading">From</b>

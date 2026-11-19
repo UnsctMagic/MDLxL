@@ -4,7 +4,8 @@ Transfer gives the open model movement from another model, or from another of it
 animations, one body part at a time. The result is added as a new animation. The open model
 keeps its bones, mesh and every animation it already has; one Undo removes the new one.
 
-Open it with the **XFER** module button, Modules → Transfer…, or F11.
+Open it with the **XFER** module button, Modules → Transfer…, or F11. It opens in Transplant mode
+(see [Transplant mode](#transplant-mode)); click **Retarget** in its title bar for the part-by-part tools below.
 
 ## The window
 
@@ -48,7 +49,8 @@ Double-click a slider to put its default back.
 
 ## Transplant mode
 
-**Retarget / Transplant** at the top of the window switches modes. Retarget is everything above.
+The window opens in Transplant. The two-part switch in the title bar, **Transplant** (Whole skeleton)
+and **Retarget** (Pick parts), changes mode; the lit part is the mode in use. Retarget is everything above.
 Transplant puts the open model's mesh on the donor's skeleton: the model gets the donor's bones,
 all of the donor's animations (its own are replaced) and the donor's attachment points. Its own
 camera stays. Retarget keeps its taken parts while Transplant is shown.
