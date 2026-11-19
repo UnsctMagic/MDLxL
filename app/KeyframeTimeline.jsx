@@ -62,7 +62,7 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
   const span = Math.max(1, (domain?.end || 0) - (domain?.start || 0));
   const percent = value => (value - (domain?.start || 0)) / span * 100;
   // View AI work: keys an AI step just wrote pop onto the reel once (CSS animation, no per-frame work).
-  useSyncExternalStore(aiReplay.subscribe, aiReplay.version);
+  useSyncExternalStore(aiReplay.subscribe, aiReplay.version, aiReplay.version);
   const replay = aiReplay.sample(), replayKeys = replay && domain ? replay.plan.keyFrames.filter(value => value >= domain.start && value <= domain.end) : [];
   const selectedKeysById = keySelection && activeController === keySelection.controller && selectedNodeIds.length === 1 && selectedNodeIds[0] === keySelection.nodeId ? keySelection : null;
   const keyMarkers = useMemo(() => times.map(value => <span key={value} data-frame={value} className={`classic-reel-key${motionActive && value >= motionActive.start && value <= motionActive.end ? ' motion-key-highlight' : ''}${selectedKeysById?.frames.has(value) && keys.some(key => key.frame === value && key.trackId === selectedKeysById.trackId) ? ' motion-key-selected' : ''}`} style={{ left: `clamp(0px, ${(value - (domain?.start || 0)) / span * 100}%, calc(100% - 1px))` }}/>), [times, domain, span, motionActive, selectedKeysById, keys]);
