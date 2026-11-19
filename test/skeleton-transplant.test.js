@@ -743,3 +743,41 @@ test('G5 the body goes where the donor hides its own: Ghoul on the Grunt shows n
   const decay = model.Sequences.findIndex(s => /decay flesh/i.test(s.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
   assert.ok(model.Geosets.some((_, g) => geosetShown(model, g, decay, mid)), 'his body still shows in Decay Flesh');
 });
+
+// ------------------------------------------------------------------ hidden geosets stay hidden (xfer-overnight.md: identity sweep, geoset class)
+/** Whether geoset `g` shows anywhere in animation `index` (its ends, middle and every key inside). */
+const shownIn = (model, g, index) => {
+  const alpha = (model.GeosetAnims || []).find(anim => anim.GeosetId === g)?.Alpha, [a, b] = model.Sequences[index].Interval;
+  return [a, (a + b) >> 1, b, ...(alpha?.Keys || []).map(key => key.Frame).filter(f => f >= a && f <= b)].some(f => geosetShown(model, g, index, f));
+};
+/** Every geoset of a model transplanted onto itself shows in every animation but death and decay exactly where its own does. */
+function sameShowing(key) {
+  const result = transplant(key, key, { mirror: false }), { own, model } = result, wrong = [];
+  own.Sequences.forEach((sequence, index) => {
+    if (/death|decay|dissipate/i.test(sequence.Name)) return;
+    own.Geosets.forEach((_, g) => { if (shownIn(model, g, index) !== shownIn(own, g, index)) wrong.push(`${sequence.Name}: geoset ${g} ${shownIn(own, g, index) ? 'hidden' : 'shown'}`); });
+  });
+  assert.deepEqual(wrong, [], 'every geoset shows as in its own animation');
+  return result;
+}
+
+test('H1 Penguin on itself: its corpse and portrait geosets stay hidden where its own animations hide them (they showed in Stand: 58% of its vertices)', { skip: missing('transfer-penguin') }, () => {
+  const { own, model } = sameShowing('transfer-penguin'), stand = standSequenceIndex(own);
+  const hidden = own.Geosets.map((_, g) => g).filter(g => !shownIn(own, g, stand));
+  assert.ok(hidden.length >= 3, `${hidden.length} geosets hidden in its Stand`);
+  for (const g of hidden) assert.ok(!shownIn(model, g, stand), `geoset ${g} hidden in Stand`);
+});
+
+test('H2 LowPolyWorks Ogre on itself: every geoset shows as in its own animations', { skip: missing('transfer-ogre-twin') }, () => {
+  sameShowing('transfer-ogre-twin');
+});
+
+test('H3 Ghoul on the Grunt: in the Grunt\'s living animations he shows exactly what his own Stand shows (his corpse never)', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const { own, model } = transplant('transfer-ghoul', 'transfer-grunt'), stand = standSequenceIndex(own);
+  const living = own.Geosets.map((_, g) => g).filter(g => shownIn(own, g, stand));
+  model.Sequences.forEach((sequence, index) => {
+    if (/death|decay|dissipate|portrait/i.test(sequence.Name)) return;
+    const shown = model.Geosets.map((_, g) => g).filter(g => shownIn(model, g, index));
+    assert.deepEqual(shown, living, `${sequence.Name}: the geosets of his own Stand`);
+  });
+});

@@ -119,8 +119,14 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
     const ownLength = own.Interval[1] - own.Interval[0];
     if (ownLength <= 0) return null;
     const looping = !own.NonLooping, rate = looping ? Math.max(1, Math.round(length / ownLength)) * ownLength / length : ownLength / length;
-    return { start, length, clock: { sequence: kind, first: own.Interval[0], length: ownLength, looping, start: 0, rate, amount: 1, blend: 0 } };
+    // The own animation is read from a copy moved past the new one (geoset sweep): copyBodyAnimation clears the new
+    // animation's time span first, so where the two share frames (a model on itself, or a donor animation lying over
+    // the own one) the own keys were cleared before they were read and the track showed what no key shows.
+    const shift = start + length + 1 - own.Interval[0];
+    const sequences = ownSequences.map((s, i) => i === kind ? { ...s, Interval: [own.Interval[0] + shift, own.Interval[1] + shift] } : s);
+    return { start, length, shift, from: own.Interval, sequences, clock: { sequence: kind, first: own.Interval[0] + shift, length: ownLength, looping, start: 0, rate, amount: 1, blend: 0 } };
   });
+  const holderFor = (plan, list) => ({ ...holderOf(list), Sequences: plan.sequences });
   for (const entry of entries) {
     if (entry.event) {
       const original = entry.owner.EventTrack;
@@ -128,8 +134,8 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
       const frames = [];
       for (const plan of plans) {
         if (!plan) continue;
-        const copy = { EventTrack: Array.from(original), GlobalSeqId: entry.owner.GlobalSeqId };
-        copyBodyAnimation(holderOf([copy]), plan.clock, plan.start, plan.length);
+        const copy = { EventTrack: Array.from(original).filter(f => f >= plan.from[0] && f <= plan.from[1]).map(f => f + plan.shift), GlobalSeqId: entry.owner.GlobalSeqId };
+        copyBodyAnimation(holderFor(plan, [copy]), plan.clock, plan.start, plan.length);
         frames.push(...copy.EventTrack.filter(f => f >= plan.start && f <= plan.start + plan.length));
       }
       entry.owner.EventTrack = like(original, [...new Set(frames)].sort((a, b) => a - b));
@@ -140,8 +146,9 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
     const keys = [], name = entry.quaternion ? 'Rotation' : 'Value';
     for (const plan of plans) {
       if (!plan) continue;
-      const copy = { [name]: structuredClone(track) };
-      copyBodyAnimation(holderOf([copy]), plan.clock, plan.start, plan.length);
+      const { Keys: _all, ...rest } = track;
+      const copy = { [name]: { ...structuredClone(rest), Keys: keysInInterval(track, plan.from).map(key => ({ ...structuredClone(key), Frame: key.Frame + plan.shift })) } };
+      copyBodyAnimation(holderFor(plan, [copy]), plan.clock, plan.start, plan.length);
       keys.push(...copy[name].Keys.filter(key => key.Frame >= plan.start && key.Frame <= plan.start + plan.length));
     }
     if (!keys.length && track.Keys.length) { holdTrack(entry, track, ownSequences[ownStand]?.Interval, globalSequences, newSequences); continue; }
