@@ -828,3 +828,8 @@ Proposed, not built (`out/transfer-probe/feet-fix-probe.mjs`): the body joint's 
 foot (times travel), keyed every 33 ms; the shin is not bent. On 08: Walk -0.01..0.04, Attack Slam -0.05..0.01,
 Attack - 1 -0.02..0.02, Death -0.06..0.14; body moved -0.33..0.16 hip heights; ~4,300 height keys (100 ms keys:
 1,434, Attack - 1 up to 0.12). A real build must also move loose donor joints (the totem root) with the body.
+
+## Owner's answer on the feet sheet (19 Nov 2026)
+
+`TestBuilds\transplant-review-feet`: **Feet down, body dips** (TEST TRANSPLANT 09: body height follows the
+donor's lowest foot, the totem root moves with it). Goes into the engine default with straight shin.
