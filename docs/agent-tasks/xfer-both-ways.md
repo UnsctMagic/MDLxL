@@ -860,3 +860,43 @@ Transplant mode: From list and donor view as now; result view shows the open mod
 the donor's animations; the right column becomes the transplant settings (poor-fit line, Sounds on,
 Effects off, Keep options off, mirror offer on the donor caption as now); bottom button Transplant
 (in place, one Undo step). Not built until the owner says "go".
+
+### Transplant mode: result (builder: Claude Opus, 19 Nov 2026)
+
+Built to the owner's layout A (commit d5c88b6f). Retarget is unchanged when selected; it keeps its taken
+parts while Transplant is shown.
+- **Switch** `Retarget | Transplant` above the three columns (`data-mode`, hotkey ids `transfer:mode-retarget`,
+  `transfer:mode-transplant`). Transplant hides the part handles and Both/Rider/Mount on the donor view, the
+  clip timeline, the parts column and the Name/Add footer.
+- **Result view**: `transplantSkeleton(model, donor, options)` with engine defaults (100%, straight shin, feet
+  down, extents on), built 30 ms after a paint (~1 s on the owner's pair; the UI waits that long per setting).
+  The last result stays on screen while a setting rebuilds it, so the camera never moves. It plays the
+  result's animation of the donor view's name (`transplantSequence`); its dropdown moves the donor view too.
+- **Settings column**: poor-fit box (`Poor fit` + each engine reason) only when `report.fit === 'poor'`;
+  Sounds (`events`, on), Effects (`emitters`, off; the donor's textures join the preview), `Keep` one box per
+  `report.extras` (off, tooltip "Keeps this piece on its own bone instead of the donor's."). Mirror is the
+  donor caption's existing button (`mirror: donorMirror`). The engine already had every option: no engine change.
+- **Transplant** button: `edit('Transplant', ...)` with `replaceModelContents` (the previewed result, cloned):
+  in place, one Undo step, no tab. The window stays open (as Add all) and says `Transplanted`; the result view
+  then shows the open model itself until a setting, the donor or the model changes. Disabled for "This model".
+- New pure helpers in `src/transfer-window.js`: `transplantOptions`, `transplantSequence`, `replaceModelContents`.
+- 23 strings (UI and the engine's poor-fit sentences as templates) in ru/es/zh/fr/de
+  (`out/transfer-probe/transplant-window-strings.json` through `locales.mjs`); catalog sizes updated.
+
+Proof:
+- `node --test` skeleton-transplant, transplant-skin, anim-transfer, transfer-window, ui-primitives,
+  hotkey-default-overlaps, localization*: 181 pass, 0 fail. The two new transfer-window tests fail on the old
+  `src/transfer-window.js` (helpers missing). `baseline.mjs v`, `baseline-compare.mjs u v`: 32 compared, 0 differ.
+- `test/transfer.electron.cjs` new story `transplant` (TEST TRANSPLANT WINDOW 01 = the Kurgan): switch shows the
+  settings column and nothing of Retarget; Kurgan on the Magnataur shows Poor fit with 3 reasons, Transplant
+  enabled; on the Tauren the result view has the Tauren's 10 animations and follows the donor view both ways;
+  Sounds, Effects (0 -> 2 effects), Keep Belt/Wep/RP and Mirror each rebuild with the dragged camera unchanged;
+  Transplant: the model has the Tauren's animation list, 44 of 45 joints are the Tauren's, own camera kept, no
+  tab; one Undo restores 15 animations and 21 bones. Sweep also toggles Transplant mode and its settings and
+  checks Retarget keeps its parts. Riders story fixed: reads the left leg's Pose (the stale hips check).
+- Package `TestBuilds\transfer-xl-23`, whole transfer harness hidden with the sweep: 69 checks, 0 errors,
+  sweep 151 controls, PASSED. Screenshots `out/transplant-ui/` (empty, Tauren picked, after Transplant).
+- Launcher `TestBuilds\_START HERE\7 TRANSPLANT - in the XFER window.cmd` (build 23, TEST TRANSPLANT WINDOW 01).
+
+Open: the ~1 s build runs on the UI thread (no worker); window Ctrl+Z in Transplant mode steps the Retarget
+history (Mirror included), not the model; the result is not checked in Warcraft III; owner's eye pending.
