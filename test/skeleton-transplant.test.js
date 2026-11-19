@@ -638,3 +638,29 @@ test('F6 under half: Footman on the Wisp is a poor fit and is still made', { ski
   assert.equal(result.report.fit, 'poor');
   structural(result);
 });
+
+// ------------------------------------------------------------------ the weapon bone must be a hand (or below one)
+test('W1 a weapon point on the donor\'s head is no weapon bone: Footman on the Gargoyle keeps the sword in the hand', { skip: missing('transfer-footman', 'transfer-gargoyle') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-gargoyle');
+  const point = donorWeaponBone(donor);
+  assert.equal(String(byId(donor).get(point).Name).trim(), 'Bone_Head', 'the Gargoyle\'s Weapon Ref hangs from its head');
+  const head = report.donorNodes[point];
+  assert.equal(report.weapon.rides, false, report.weapon.note);
+  assert.equal(report.weapon.bone, null);
+  // The sword (the bone the Footman's Weapon Ref hangs from and the bones under it) goes where the hand mesh goes.
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), hand = Object.values(rig.parts).find(part => part.weapon).marker;
+  const mesh = own.Bones.find(bone => bone.Parent === hand && own.Bones.some(child => child.Parent === bone.ObjectId));
+  const top = donorWeaponBone(own), under = id => { for (let at = id; at != null && at !== -1; at = own.Nodes[at]?.Parent ?? null) if (at === top) return true; return false; };
+  const sword = own.Bones.map(bone => bone.ObjectId).filter(under), handNodes = new Set();
+  own.Geosets.forEach((geoset, g) => { for (let v = 0; v < geoset.VertexGroup.length; v++) { const bones = Array.from(geoset.Groups[geoset.VertexGroup[v]]); if (bones.length === 1 && bones[0] === mesh.ObjectId) for (const id of model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]) handNodes.add(id); } });
+  let swordVertices = 0;
+  own.Geosets.forEach((geoset, g) => { for (let v = 0; v < geoset.VertexGroup.length; v++) {
+    const bones = Array.from(geoset.Groups[geoset.VertexGroup[v]]), result = Array.from(model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]);
+    if (!bones.length || !bones.every(id => sword.includes(id))) continue;
+    swordVertices++;
+    assert.ok(!result.includes(head), `sword vertex ${v} is not on the Gargoyle's head`);
+    assert.ok(result.every(id => handNodes.has(id)), `sword vertex ${v} is on the hand's bones (${result} against ${[...handNodes]})`);
+  } });
+  assert.ok(swordVertices >= 10, `sword ${swordVertices} vertices`);
+  structural({ own, donor, model, report });
+});

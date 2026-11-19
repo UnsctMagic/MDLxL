@@ -23,7 +23,8 @@
 //    `keep` keeps its bone, held the same way. The weapon (v2: the extras on the weapon hand and
 //    the one the model's weapon attachment hangs from) instead rides the donor's weapon bone (the
 //    joint its weapon attachment hangs from, else its weapon hand), from where the model holds it
-//    in the result's reference moment, unless that bone is on the donor's other arm.
+//    in the result's reference moment, unless that bone is on the donor's other arm or on no hand (a head, a leg,
+//    the body: then the weapon stays in the hand).
 // 5. The donor's keys are copied with its animation list. Rotation keys of a transplanted limb
 //    are corrected per key by constants so each limb stretch points as the donor's does (the
 //    model's own rest shape is kept); position keys are scaled by the size ratio.
@@ -460,7 +461,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The model's weapon is every extra on its weapon hand and the extra its own weapon attachment hangs from.
   // It rides the donor's weapon bone (the joint the donor's weapon attachment hangs from; else the donor's
   // weapon hand), placed where the model holds it at the result's reference moment, so it swings and is
-  // thrown off as the donor's weapon is. A weapon bone on the donor's other arm (no mirror taken) is not
+  // thrown off as the donor's weapon is. A weapon bone on the donor's other arm (no mirror taken), or on no hand, is not
   // used: the weapon then stays on the hand it pairs with. The donor's weapon attachments hang from the bone
   // that carries the weapon, where the model's own weapon attachment sits on it.
   const isWeaponPoint = node => /weapon/i.test(node?.Name || '');
@@ -525,10 +526,17 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     weaponChain = bone != null && use ? use.chain : [];
     const ownArm = weaponVia != null ? ownPartOf.get(weaponVia) : null;
     const pairedArm = ownArm != null ? limbEntries.find(entry => entry.key === ownArm)?.theirs.key ?? null : null;
-    const armOf = id => { for (const at of treeA.ancestors(id, true)) { const key = partOfDonor.get(at); if (key != null && rigA.parts[key]?.limbKind === 'arm') return key; } return null; };
+    // The first part joint at or above the bone decides: an arm's hand (the bone is the hand or hangs below it) gives that
+    // arm; any other part joint (a head, a leg, the body, a forearm: Gargoyle, Kodo, the dragons' Bone_Head, the Frog's
+    // leg, the Dire Wolf's body) is no hand, and the weapon stays in the hand. A bone under no part joint (a weapon root the
+    // donor moves by itself, the Tauren's totem) is used as it is.
+    const partAbove = id => treeA.ancestors(id, true).find(a => partOfDonor.has(a)) ?? null;
+    const armOf = id => { const at = partAbove(id), key = at != null ? partOfDonor.get(at) : null; return key != null && rigA.parts[key]?.limbKind === 'arm' ? key : null; };
+    const onHand = id => { const at = partAbove(id); return at == null || rigA.parts[partOfDonor.get(at)]?.limbKind === 'arm' && rigA.parts[partOfDonor.get(at)].marker === at; };
     if (bone != null && handTarget) {
       const arm = armOf(bone);
-      if (arm != null && arm !== pairedArm) weaponSkip = `The donor's weapon bone is on its other arm: the weapon stays in the hand${mirrorOffer && mirror !== true ? ' (mirroring moves it to the weapon hand)' : ''}.`;
+      if (!onHand(bone)) weaponSkip = `The donor's weapon bone (${donorById.get(bone)?.Name}) is not on a hand: the weapon stays in the hand.`;
+      else if (arm != null && arm !== pairedArm) weaponSkip = `The donor's weapon bone is on its other arm: the weapon stays in the hand${mirrorOffer && mirror !== true ? ' (mirroring moves it to the weapon hand)' : ''}.`;
       else donorWeapon = bone;
     }
   }
