@@ -45,7 +45,8 @@ export function transplantRuns({ donorPartJoints, ownPartJoints, pairedOwn, isDo
 }
 
 /** Donor joints for a point (4.3 steps 3 and 4): one, or two at a joint's plane (`band: false`: always one,
- * for an extra's centroid). `defaultJoint` replaces each run's top joint `a`. */
+ * for an extra's centroid). `defaultJoint` replaces each run's top joint `a`. A run with `radius` takes only
+ * points within that distance of its line. */
 export function splitJoints(point, defaultJoint, runs, { band = true } = {}) {
   let best = null;
   for (const run of runs) {
@@ -55,6 +56,8 @@ export function splitJoints(point, defaultJoint, runs, { band = true } = {}) {
     const width = i => SKIN_BAND * Math.min(b[i] - b[i - 1], b[i + 1] - b[i]);
     if (t < b[1] - width(1)) continue;
     const d = point.distanceTo(run.start.clone().addScaledVector(axis, Math.min(1, Math.max(0, t))));
+    // A run with a reach (a neck inside the chest) takes only skin that near its line: not the shoulders.
+    if (run.radius != null && d > run.radius) continue;
     if (!best || d < best.d - 1e-9 || (Math.abs(d - best.d) <= 1e-9 && run.q < best.run.q)) best = { d, t, run, n, width };
   }
   if (!best) return [defaultJoint];

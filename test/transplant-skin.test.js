@@ -75,3 +75,10 @@ test('U7 band: false gives one joint at the plane', () => {
   assert.deepEqual(splitJoints(v(0, 0, 5.9), 'T', runs, { band: false }), ['T']);
   assert.deepEqual(splitJoints(v(0, 0, 6.1), 'T', runs, { band: false }), [2]);
 });
+
+test('U8 a run with a reach takes only points that near its line (a neck in the chest leaves the shoulders)', () => {
+  const runs = transplantRuns(chain()).map(run => ({ ...run, radius: 3 }));
+  assert.deepEqual(splitJoints(v(2, 0, 9), 'T', runs), [2]);
+  assert.deepEqual(splitJoints(v(5, 0, 9), 'T', runs), ['T']);
+  assert.deepEqual(splitJoints(v(5, 0, 9), 'T', transplantRuns(chain())), [2], 'without a reach, as before');
+});

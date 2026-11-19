@@ -13,7 +13,7 @@ import { validateModel } from '../src/editor-document.js';
 import { clearTransferCache, transferRig } from '../src/anim-transfer.js';
 import { poseLimbStart } from '../src/pose-recognition.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
-import { mirrorModel, transplantSkeleton } from '../src/skeleton-transplant.js';
+import { mirrorModel, transplantReading, transplantSkeleton } from '../src/skeleton-transplant.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = (...keys) => { const absent = keys.filter(key => { const file = fixturePath(key); return !file || !fs.existsSync(file); }); return absent.length ? `private test model not on this machine: ${absent.join(', ')}` : false; };
@@ -155,12 +155,14 @@ test('P1 Kurgan on the Tauren: nothing converted, the Tauren\'s own leg bones, e
   for (const [key, roles] of [['armL', ['upper', 'lower']], ['armR', ['upper', 'lower']], ['legL', ['upper']], ['legR', ['upper']]]) for (const role of roles) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
 });
 
-test('P2 Kurgan on the Tauren: the skin lands on the Tauren\'s skin bones (neck 14, lower shins 10 each; 34 moved, 1 blended)', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+test('P2 Kurgan on the Tauren: the skin lands on the Tauren\'s skin bones (neck 1, lower shins 10 each; 21 moved, 2 blended)', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const { donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren');
   const count = new Map();
   for (const geoset of model.Geosets) for (let v = 0; v < geoset.VertexGroup.length; v++) for (const id of geoset.Groups[geoset.VertexGroup[v]]) count.set(model.Nodes[id].Name, (count.get(model.Nodes[id].Name) || 0) + 1);
-  assert.deepEqual(['Geo_Neck', 'Geo_lowershinL', 'Geo_lowershinR'].map(name => count.get(name) || 0), [14, 10, 10]);
-  assert.equal(report.counts.skin.moved, 34); assert.equal(report.counts.skin.blended, 1);
+  // Posture (19 Nov 2026): the neck inside the chest takes only skin near its line, not the collar ring (was 14, 34 moved,
+  // 1 blended): the neck now turns into the Tauren's at rest. The trunk's own split is counted apart (	runk).
+  assert.deepEqual(['Geo_Neck', 'Geo_lowershinL', 'Geo_lowershinR'].map(name => count.get(name) || 0), [1, 10, 10]);
+  assert.equal(report.counts.skin.moved, 21); assert.equal(report.counts.skin.blended, 2);
   const geo = donor.Bones.filter(n => /^Geo_/.test(n.Name)).map(n => n.Name).filter(name => count.get(name) > 0);
   assert.equal(geo.length, 18, `Geo_ bones with skin: ${geo.join(', ')}`);
   assert.ok(model.Geosets.every(geoset => geoset.Groups.length <= 14), `groups per geoset ${model.Geosets.map(g => g.Groups.length)}`);
@@ -279,14 +281,12 @@ test('P11 feet down moves the body and the totem root together: the totem and th
  * against the hand that holds them in the result and where they sit against the Kurgan's own hand in
  * its own reference pose. The hammer is the largest extra; the result's hand the donor joint placed at
  * the Kurgan's hand. */
-function gripDrift({ own, model, report }) {
-  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), hand = Object.values(rig.parts).find(part => part.weapon).marker;
+function gripDrift(result) {
+  const { own, model, report } = result, { rig, hand, result: resultId, carry } = weaponHands(result), resultHand = { ObjectId: resultId };
   const hammer = [...report.extras].sort((a, b) => b.vertices - a.vertices)[0], nO = byId(own);
   const below = id => { for (let at = id; at != null && at !== -1; at = nO.get(at)?.Parent ?? null) if (at === hammer.id) return true; return false; };
   const under = new Set(allNodes(own).map(n => n.ObjectId).filter(below));
   const g = own.Geosets.findIndex(geoset => geoset.Groups.some(group => group.some(id => under.has(id))));
-  const pivot = new Vector3(...nodePivot(own, nO.get(hand), hand));
-  const resultHand = [...model.Bones, ...model.Helpers].find(n => new Vector3(...n.PivotPoint).distanceTo(pivot) < 1e-4 && !Object.values(report.ownNodes).includes(n.ObjectId));
   const ownRef = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence), mine = skinGeoset(own.Geosets[g], ownRef), toHand = ownRef.get(hand).clone().invert();
   let drift = 0;
   model.Sequences.forEach((sequence, index) => [0, 0.5, 1].forEach(share => {
@@ -294,7 +294,7 @@ function gripDrift({ own, model, report }) {
     const theirs = skinGeoset(model.Geosets[g], m), toResult = m.get(resultHand.ObjectId).clone().invert();
     for (let v = 0; v < own.Geosets[g].VertexGroup.length; v++) {
       if (!own.Geosets[g].Groups[own.Geosets[g].VertexGroup[v]].every(id => under.has(id))) continue;
-      const a = new Vector3(mine[v * 3], mine[v * 3 + 1], mine[v * 3 + 2]).applyMatrix4(toHand), b = new Vector3(theirs[v * 3], theirs[v * 3 + 1], theirs[v * 3 + 2]).applyMatrix4(toResult);
+      const a = carry(new Vector3(mine[v * 3], mine[v * 3 + 1], mine[v * 3 + 2]).applyMatrix4(toHand)), b = new Vector3(theirs[v * 3], theirs[v * 3 + 1], theirs[v * 3 + 2]).applyMatrix4(toResult);
       drift = Math.max(drift, a.distanceTo(b));
     }
   }));
@@ -311,12 +311,17 @@ function hammerVertices({ own, report }) {
   const list = []; for (let v = 0; v < own.Geosets[g].VertexGroup.length; v++) if (own.Geosets[g].Groups[own.Geosets[g].VertexGroup[v]].every(id => under.has(id))) list.push(v);
   return { hammer, g, list };
 }
-/** The Kurgan's weapon hand and the result's joint placed on it. */
-function weaponHands({ own, model, report }) {
-  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), hand = Object.values(rig.parts).find(part => part.weapon).marker;
-  const pivot = new Vector3(...nodePivot(own, byId(own).get(hand), hand));
-  const result = [...model.Bones, ...model.Helpers].find(n => new Vector3(...n.PivotPoint).distanceTo(pivot) < 1e-4 && !Object.values(report.ownNodes).includes(n.ObjectId)).ObjectId;
-  return { rig, hand, result };
+/** The Kurgan's weapon hand, the result's joint that took it (the donor's hand of the same arm), and `carry`: where a
+ * point of the open model's bind space at that hand sits in the result's bind space. The result's bind pose is the
+ * donor's rest posture (posture, 19 Nov 2026): the hand's skin turned by `report.repose` about the hand's new place.
+ * (Before the posture change the result's hand sat exactly on the Kurgan's pivot and `carry` was the identity.) */
+function weaponHands({ own, donor, model, report }) {
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), part = Object.values(rig.parts).find(p => p.weapon), hand = part.marker;
+  const theirs = transplantReading(transferRig(donor, { sequence: standSequenceIndex(donor) }), donor).parts[part.key].marker, result = report.donorNodes[theirs];
+  const pivotOwn = new Vector3(...nodePivot(own, byId(own).get(hand), hand)), pivotResult = new Vector3(...nodePivot(model, byId(model).get(result), result));
+  const turn = new Quaternion(...(report.repose?.[result] || [0, 0, 0, 1]));
+  const carry = p => p.clone().sub(pivotOwn).applyQuaternion(turn).add(pivotResult);
+  return { rig, hand, result, carry };
 }
 test('T6 Kurgan on the Tauren: the hammer rides the Tauren\'s weapon bone from where the Kurgan holds it, and leaves the hand with it', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const result = transplant('transfer-kurgan', 'transfer-tauren'), { own, donor, model, report } = result, { hammer, g, list } = hammerVertices(result);
@@ -328,11 +333,11 @@ test('T6 Kurgan on the Tauren: the hammer rides the Tauren\'s weapon bone from w
   assert.equal(report.weapon.bone, carrier);
   for (const v of list) assert.deepEqual(Array.from(model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]), [carrier], `hammer vertex ${v} rides only the weapon bone`);
   // At the result's reference moment (first frame of its Stand) the hammer sits where the Kurgan holds it.
-  const { rig, hand, result: resultHand } = weaponHands(result), nD = byId(donor), nM = byId(model);
+  const { rig, hand, result: resultHand, carry } = weaponHands(result), nD = byId(donor), nM = byId(model);
   const ownRef = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence), mine = skinGeoset(own.Geosets[g], ownRef), toHand = ownRef.get(hand).clone().invert();
   const stand = standSequenceIndex(model), ref = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand), theirs = skinGeoset(model.Geosets[g], ref), toResult = ref.get(resultHand).clone().invert();
   let grip = 0;
-  for (const v of list) grip = Math.max(grip, new Vector3(mine[v * 3], mine[v * 3 + 1], mine[v * 3 + 2]).applyMatrix4(toHand).distanceTo(new Vector3(theirs[v * 3], theirs[v * 3 + 1], theirs[v * 3 + 2]).applyMatrix4(toResult)));
+  for (const v of list) grip = Math.max(grip, carry(new Vector3(mine[v * 3], mine[v * 3 + 1], mine[v * 3 + 2]).applyMatrix4(toHand)).distanceTo(new Vector3(theirs[v * 3], theirs[v * 3 + 1], theirs[v * 3 + 2]).applyMatrix4(toResult)));
   assert.ok(grip < 0.05, `at the reference moment the hammer is ${grip.toFixed(2)} from the Kurgan's own grip`);
   // Where the Tauren's weapon leaves its hand the most, the hammer leaves the result's hand too.
   const donorHand = Number(Object.keys(report.donorNodes).find(id => report.donorNodes[id] === resultHand));
@@ -354,9 +359,9 @@ test('T11 Kurgan on the Tauren: the Weapon Ref hangs from the bone that carries 
   const point = model.Attachments.find(a => /weapon/i.test(a.Name)), mine = own.Attachments.find(a => /weapon/i.test(a.Name));
   assert.equal(point.Parent, report.weapon?.bone, 'the Weapon Ref hangs from the weapon bone');
   // Against the hand: in the result at its reference moment, in the Kurgan at its own.
-  const { rig, hand, result: resultHand } = weaponHands(result), nO = byId(own), nM = byId(model);
+  const { rig, hand, result: resultHand, carry } = weaponHands(result), nO = byId(own), nM = byId(model);
   const ownRef = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence), stand = standSequenceIndex(model), ref = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand);
-  const a = at(own, nO, ownRef, mine.ObjectId).applyMatrix4(ownRef.get(hand).clone().invert()), b = at(model, nM, ref, point.ObjectId).applyMatrix4(ref.get(resultHand).clone().invert());
+  const a = carry(at(own, nO, ownRef, mine.ObjectId).applyMatrix4(ownRef.get(hand).clone().invert())), b = at(model, nM, ref, point.ObjectId).applyMatrix4(ref.get(resultHand).clone().invert());
   assert.ok(a.distanceTo(b) < 0.05, `the Weapon Ref is ${a.distanceTo(b).toFixed(2)} from where the Kurgan's sits against the hand`);
 });
 
@@ -742,4 +747,103 @@ test('G5 the body goes where the donor hides its own: Ghoul on the Grunt shows n
   for (const t of [0.1, 0.5, 0.9]) { const f = Math.round(a + t * (b - a)); assert.deepEqual(model.Geosets.map((_, g) => g).filter(g => geosetShown(model, g, index, f)), [], `nothing shown at ${f}`); }
   const decay = model.Sequences.findIndex(s => /decay flesh/i.test(s.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
   assert.ok(model.Geosets.some((_, g) => geosetShown(model, g, decay, mid)), 'his body still shows in Decay Flesh');
+});
+
+// ------------------------------------------------------------------ (f) posture: a transplant is 100% a transplant
+// Owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT". The result takes the donor's posture as well as its motion:
+// at every moment each paired stretch points as the donor's (relative to the body; both face the same way), the trunk
+// and neck included (the Ghoul's hunch), with this model's own lengths. The trunk is read between landmarks (hip centre =
+// first leg joints, shoulder centre = first arm joints) because riggers put trunk pivots anywhere. A leg's shin is straight
+// along the donor's knee-to-foot line (owner's pick, P10) and is left out here. The donor is read as the transplant reads
+// it (transplantReading: the Ghoul's arm ends at its moving hand, not at the still forearm skin bone named Wrist1).
+const POSE_KINDS = [['Stand', /^stand(\s*-?\s*\d+)?$/i], ['Walk', /^walk$/i], ['Attack', /^attack/i], ['Death', /^death$/i]];
+function posture({ donor, model, report }, moments = 9) {
+  const rigA = transplantReading(transferRig(donor, { sequence: standSequenceIndex(donor) }), donor), map = report.donorNodes;
+  const nD = byId(donor), nM = byId(model), inR = id => id != null && map[id] != null;
+  const lines = [];
+  for (const part of Object.values(rigA.parts)) {
+    if (part.kind !== 'limb' || !part.joints.every(inR)) continue;
+    const j = part.joints, last = part.limbKind === 'leg' && j.length > 3 ? 1 : j.length - 1;
+    for (let i = 0; i < last; i++) lines.push({ kind: part.limbKind, name: `${nD.get(j[i]).Name} > ${nD.get(j[i + 1]).Name}`, from: [j[i]], to: [j[i + 1]] });
+  }
+  const roots = kind => Object.values(rigA.parts).filter(p => p.limbKind === kind && inR(p.joints[0])).map(p => p.joints[0]);
+  const legs = roots('leg'), arms = roots('arm'), head = rigA.parts.head?.marker, neck = rigA.parts.head?.joints?.[0];
+  if (legs.length && arms.length) lines.push({ kind: 'spine', name: 'hips > shoulders', from: legs, to: arms });
+  if (inR(neck) && neck !== head && inR(head)) lines.push({ kind: 'neck', name: `${nD.get(neck).Name} > ${nD.get(head).Name}`, from: [neck], to: [head] });
+  const armParts = Object.values(rigA.parts).filter(p => p.limbKind === 'arm' && p.joints.every(inR));
+  const out = { worst: new Map(), armLength: Infinity, armReach: Infinity, handsInside: [] };
+  const posD = m => id => at(donor, nD, m, id), posM = m => id => at(model, nM, m, map[id]);
+  const mean = (pos, ids) => ids.map(pos).reduce((a, b) => a.add(b), new Vector3()).divideScalar(ids.length);
+  const sum = (pos, part) => part.joints.slice(1).reduce((s, id, i) => s + pos(id).distanceTo(pos(part.joints[i])), 0);
+  // Reach from where the arm's own line starts (the shoulder, not a collar): straight distance to the hand over the stretches.
+  const reach = (pos, part) => { const s = Math.max(0, part.joints.indexOf(part.line?.find(id => part.joints.includes(id)))), arm = { joints: part.joints.slice(s) }; return pos(arm.joints[0]).distanceTo(pos(arm.joints.at(-1))) / sum(pos, arm); };
+  const restM = id => new Vector3(...nodePivot(model, nM.get(map[id]), map[id]));
+  const spine = [rigA.body, rigA.parts.chest?.marker, head].filter(inR);
+  const toSpine = (pos, p) => Math.min(...spine.slice(1).map((id, i) => { const a = pos(spine[i]), ab = pos(id).sub(a), t = Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / Math.max(ab.lengthSq(), 1e-12))); return p.distanceTo(a.addScaledVector(ab, t)); }));
+  const half = pos => armParts.length >= 2 ? pos(armParts[0].joints[0]).distanceTo(pos(armParts[1].joints[0])) / 2 : null;
+  for (const [label, re] of POSE_KINDS) {
+    const index = donor.Sequences.findIndex(s => re.test(String(s.Name).trim()));
+    if (index < 0) continue;
+    const [a, b] = donor.Sequences[index].Interval;
+    for (let k = 0; k < moments; k++) {
+      const frame = Math.round(a + (b - a) * k / (moments - 1)), pd = posD(sampleNodeMatrices(donor, frame, index)), pm = posM(sampleNodeMatrices(model, frame, index));
+      for (const line of lines) {
+        const d = mean(pd, line.to).sub(mean(pd, line.from)), r = mean(pm, line.to).sub(mean(pm, line.from)), key = `${label}: ${line.kind} ${line.name}`;
+        out.worst.set(key, Math.max(out.worst.get(key) ?? 0, d.angleTo(r) * 180 / Math.PI));
+      }
+      for (const part of armParts) {
+        out.armLength = Math.min(out.armLength, sum(pm, part) / sum(restM, part));
+        out.armReach = Math.min(out.armReach, reach(pm, part) / reach(pd, part));
+        if (spine.length >= 2 && half(restM) && half(id => new Vector3(...nodePivot(donor, nD.get(id), id)))) {
+          const h = part.joints.at(-1), inD = toSpine(pd, pd(h)) / half(id => new Vector3(...nodePivot(donor, nD.get(id), id))), inM = toSpine(pm, pm(h)) / half(restM);
+          if (inM < 0.6 && inD >= 0.6) out.handsInside.push(`${label} ${frame} ${part.key}`);
+        }
+      }
+    }
+  }
+  return out;
+}
+function assertPosture(result, label) {
+  const p = posture(result), kinds = new Set([...p.worst.keys()].map(key => key.split(' ')[1]));
+  assert.ok(kinds.has('spine') && kinds.has('arm') && kinds.has('leg'), `${label}: the trunk, arms and legs are measured (${[...kinds]})`);
+  for (const [key, worst] of p.worst) assert.ok(worst < 3, `${label}, ${key}: up to ${worst.toFixed(1)} degrees from the donor's`);
+  assert.ok(p.armLength >= 0.8, `${label}: an arm is ${(p.armLength * 100).toFixed(0)}% of its rest length`);
+  assert.ok(p.armReach >= 0.8, `${label}: an arm reaches ${(p.armReach * 100).toFixed(0)}% as far as the donor's`);
+  assert.deepEqual(p.handsInside, [], `${label}: a hand inside the torso where the donor's is not`);
+}
+
+test('Q1 Berserker on the Ghoul: hunched like the Ghoul, arms hanging at its sides: every stretch, the trunk and the neck point as the Ghoul\'s in Stand, Walk, Attack and Death', { skip: missing('transfer-berserker', 'transfer-ghoul') }, () => {
+  const result = transplant('transfer-berserker', 'transfer-ghoul');
+  structural(result);
+  assertPosture(result, 'Berserker on the Ghoul');
+  // The hunch is real: the trunk turned forward by far more than a little.
+  assert.ok(result.report.counts.posture.spine > 30, `the trunk turned ${result.report.counts.posture.spine?.toFixed(0)} degrees into the Ghoul's posture`);
+});
+
+test('Q2 Kurgan on the Tauren: the Tauren\'s posture: every stretch, the trunk and the neck point as the Tauren\'s in Stand, Walk, Attack and Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  assertPosture(transplant('transfer-kurgan', 'transfer-tauren'), 'Kurgan on the Tauren');
+});
+
+test('Q3 the donor\'s keys are the donor\'s: no rotation key of a donor joint carries a correction (the posture is in the bind pose)', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const { donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nM = byId(model);
+  let checked = 0;
+  for (const node of [...donor.Bones, ...donor.Helpers]) {
+    const id = report.donorNodes[node.ObjectId], copy = id != null ? nM.get(id) : null;
+    if (!copy || !node.Rotation?.Keys?.length) continue;
+    assert.equal(copy.Rotation?.Keys?.length, node.Rotation.Keys.length, `${node.Name}: as many rotation keys`);
+    node.Rotation.Keys.forEach((key, i) => assert.ok(Array.from(key.Vector).every((v, c) => Math.abs(v - copy.Rotation.Keys[i].Vector[c]) < 1e-6), `${node.Name} key ${i} is the Tauren's`));
+    checked++;
+  }
+  assert.ok(checked > 20, `${checked} turning joints checked`);
+});
+
+test('Q4 Footman on the Ghoul: the arm ends at the Ghoul\'s moving hand, not at its still forearm skin bone (Wrist1)', { skip: missing('transfer-footman', 'transfer-ghoul') }, () => {
+  const result = transplant('transfer-footman', 'transfer-ghoul'), { donor } = result;
+  const raw = transferRig(donor, { sequence: standSequenceIndex(donor) }), read = transplantReading(raw, donor);
+  for (const key of ['armL', 'armR']) {
+    assert.match(donor.Nodes[raw.parts[key].marker].Name, /^Wrist/, `POSE reads ${key} to the forearm skin bone`);
+    assert.match(donor.Nodes[read.parts[key].marker].Name, /^Bone_Hand_/, `the transplant reads ${key} to the hand`);
+  }
+  assert.equal(transferRig(donor, { sequence: standSequenceIndex(donor) }), raw, 'the shared reading is unchanged');
+  assertPosture(result, 'Footman on the Ghoul');
 });

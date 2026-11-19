@@ -66,6 +66,7 @@ const FIXTURES = {
   'transfer-necromancer': ['MDLXL_TRANSFER_NECROMANCER', testModel('corpus-sd/undead__necromancer.mdx')], // robed: no legs read
   'transfer-ogre-twin': ['MDLXL_TRANSFER_OGRE_TWIN', testModel('transfer-gore/WH_WOC_Ogre10.mdx')], // LowPolyWorks Ogre: an off-hand weapon on a second left arm whose joints sit on the real arm's
   'transfer-skeleton': ['MDLXL_TRANSFER_SKELETON', testModel('corpus-sd/undead__skeleton.mdx')], // swaps bodies in Death; the death body is not on a twin skeleton
+  'transfer-berserker': ['MDLXL_TRANSFER_BERSERKER', testModel('transfer-posture/WH_WOC_WarriorKhorneBerserker03.mdx')], // LowPolyWorks Khorne Berserker: upright, the owner's model on the hunched Ghoul (transplant posture)
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
