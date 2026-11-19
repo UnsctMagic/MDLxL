@@ -991,3 +991,9 @@ for (const [label, ownKey] of [['Berserker', 'transfer-berserker'], ['Kurgan', '
     assert.ok(report.deathSwap.some(swap => /^death$/i.test(swap.sequence) && swap.twin), 'the swap is reported');
   });
 }
+
+// ------------------------------------------------------------------ T1 no skeleton (xfer-overnight.md: 6.8% of the sweep threw)
+test('N1 a model or donor with no bone or helper (Plague Cloud) is refused in plain words, not "Geoset 0 references missing node NaN"', { skip: missing('transfer-footman', 'transfer-plague-cloud') }, () => {
+  assert.throws(() => transplantSkeleton(load('transfer-footman'), load('transfer-plague-cloud')), { message: /^The donor has no skeleton to transplant onto/ });
+  assert.throws(() => transplantSkeleton(load('transfer-plague-cloud'), load('transfer-footman')), { message: /^This model has no skeleton to transplant/ });
+});

@@ -562,6 +562,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
   // ------------------------------------------------------------ read both bodies
+  // A model with no bone or helper (an effect: Plague Cloud) has no skeleton: say so plainly before anything is read
+  // (its joints would be undefined ids further on: "Geoset 0 references missing node NaN").
+  const jointless = m => !JOINT_KEYS.some(k => (m?.[k] || []).length);
+  if (jointless(donor)) throw new Error('The donor has no skeleton to transplant onto (it has no bones or helpers).');
+  if (jointless(model)) throw new Error('This model has no skeleton to transplant (it has no bones or helpers).');
   const ownStand = standSequenceIndex(model);
   let rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined });
   const donorStand0 = standSequenceIndex(donor), rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined });

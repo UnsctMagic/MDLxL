@@ -71,6 +71,7 @@ const FIXTURES = {
   'transfer-rat': ['MDLXL_TRANSFER_RAT', testModel('corpus-sd/critters__rat.mdx')], // no legs read: the whole rat rides the body
   'transfer-direwolf': ['MDLXL_TRANSFER_DIREWOLF', testModel('corpus-sd/creeps__direwolf.mdx')], // read with three legs: no legs pair with a two- or no-legged model
   'transfer-banshee': ['MDLXL_TRANSFER_BANSHEE', testModel('corpus-sd/undead__banshee.mdx')], // no legs, hovers: its body rises and falls
+  'transfer-plague-cloud': ['MDLXL_TRANSFER_PLAGUE_CLOUD', testModel('corpus-sd/undead__plaguecloud.mdx')], // an effect model: no bone or helper
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
