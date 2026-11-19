@@ -16,10 +16,10 @@ const indicesOf = selection => Array.from(selection || []);
 const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, fitTexture = false, faintWires = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, fitTexture = false, faintWires = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false, marking = null }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, fitTexture, faintWires, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, fitTexture, faintWires, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls, marking };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -27,7 +27,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
   // History can patch typed arrays in place; revision must invalidate this drawing copy.
   const eligibilityKey = eligibleVertices === undefined ? '*' : indicesOf(eligibleVertices).join(',');
   useLayoutEffect(() => { state.current.uv = new Float32Array(geoset?.TVertices?.[uvSet] || []); state.current.drag = null; current.current.onPreviewChange?.(null); state.current.draw(); }, [geoset, uvSet, geoset?.TVertices?.[uvSet], revision, textureUrl, eligibilityKey]);
-  useEffect(() => { state.current.draw(); }, [selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, showSelectedVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
+  useEffect(() => { state.current.draw(); }, [marking, selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, showSelectedVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
   useEffect(() => {
     let cancelled = false; state.current.image = null; setImageError(false);
     if (!textureUrl || !graphics.textures) { state.current.draw(); return; }
@@ -86,7 +86,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     function draw() {
       const p = current.current, { sizeX, sizeY, x, y } = mapping();
-      element.style.cursor = s.drag?.cursor || viewportCursor(p.cameraMode, p.transformMode);
+      element.style.cursor = s.drag?.cursor || (p.marking ? 'crosshair' : viewportCursor(p.cameraMode, p.transformMode));
       // Suspended input leaves the texture workstation visible.
       if (ownerDocument === document && ownerDocument.hidden && graphicsOptions(p.preferences).pauseWhenHidden) return;
       const visuals = visualOptions(p.preferences);
@@ -148,6 +148,24 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         if (sx < -5 || sy < -5 || sx > width + 5 || sy > height + 5) continue;
         context.fillStyle = selected.has(i) ? visuals.selectedVertex : visuals.vertex; context.fillRect(sx - visuals.vertexSize / 2, sy - visuals.vertexSize / 2, visuals.vertexSize, visuals.vertexSize);
       }
+      // Fit's area, in Citadel Paint's selection colour: the finished outline filled, a polygon or
+      // lasso in progress dashed, the polygon's corners and its closing edge to the pointer.
+      const mark = p.marking;
+      if (mark) {
+        const screen = ([u, v]) => [x + u * sizeX, y + v * sizeY], shape = mark.area || mark.points || [];
+        context.save(); context.strokeStyle = '#ffe664'; context.lineWidth = 2;
+        if (shape.length) {
+          context.beginPath(); shape.forEach((q, i) => { const [sx, sy] = screen(q); if (i) context.lineTo(sx, sy); else context.moveTo(sx, sy); });
+          if (mark.area) { context.closePath(); context.fillStyle = 'rgba(255,230,100,.2)'; context.fill(); } else context.setLineDash([6, 4]);
+          context.stroke(); context.setLineDash([]);
+        }
+        if (!mark.area && mark.mode === 'polygon' && mark.points?.length) {
+          const first = screen(mark.points[0]), last = screen(mark.points.at(-1));
+          if (s.hover) { const [hx, hy] = screen(s.hover); context.setLineDash([4, 4]); context.beginPath(); context.moveTo(...last); context.lineTo(hx, hy); context.lineTo(...first); context.stroke(); context.setLineDash([]); }
+          mark.points.forEach((q, i) => { const [sx, sy] = screen(q); context.beginPath(); context.arc(sx, sy, i ? 3 : 5, 0, Math.PI * 2); context.fillStyle = i ? '#ffe664' : '#ff9a3c'; context.fill(); });
+        }
+        context.restore();
+      }
       if (s.drag?.type === 'select' && Math.hypot(s.drag.endX - s.drag.x, s.drag.endY - s.drag.y) > 5) {
         const drag = s.drag; context.strokeStyle = visuals.selection; context.setLineDash([2, 2]);
         context.strokeRect(drag.x + .5, drag.y + .5, drag.endX - drag.x, drag.endY - drag.y); context.setLineDash([]);
@@ -165,8 +183,24 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const center = [0, 0]; for (const index of indices) { center[0] += values[index * 2]; center[1] += values[index * 2 + 1]; }
       if (indices.length) { center[0] /= indices.length; center[1] /= indices.length; } return center;
     }
+    // Fit's area marking takes the left button; the right and middle buttons still pan and zoom.
+    function markingEvent(event, m = mapping()) { const { x, y } = point(event); return { uv: [(x - m.x) / m.sizeX, (y - m.y) / m.sizeY], detail: event.detail, sizeX: m.sizeX, sizeY: m.sizeY, raster: textureRaster }; }
+    function textureRaster() {
+      const image = s.image; if (!image) return null;
+      if (s.raster?.image !== image) {
+        const scratch = ownerDocument.createElement('canvas'); scratch.width = image.naturalWidth || image.width; scratch.height = image.naturalHeight || image.height;
+        const paint = scratch.getContext('2d', { willReadFrequently: true }); paint.drawImage(image, 0, 0);
+        s.raster = { image, raster: paint.getImageData(0, 0, scratch.width, scratch.height) };
+      }
+      return s.raster.raster;
+    }
     function pointerDown(event) {
       if (current.current.suspended || s.drag || event.button > 2) return;
+      if (current.current.marking && event.button === 0) {
+        element.focus(); element.setPointerCapture(event.pointerId);
+        s.drag = { type: 'mark', cursor: 'crosshair', x: 0, y: 0, endX: 0, endY: 0 };
+        current.current.marking.onDown?.(markingEvent(event)); return;
+      }
       const p = current.current, { x, y } = point(event), m = mapping(), indices = selection();
       const binding = event.button === 2 ? cameraBindings(p.preferences).right : event.button === 1 ? cameraBindings(p.preferences).middle : null;
       if (binding === 'none' || binding === 'toggle') return;
@@ -210,6 +244,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const moveFrame = createFrameCoalescer(applyMove, ownerDocument === document
       ? { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) }
       : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
+    // The polygon's closing edge follows the pointer once per frame.
+    const hoverFrame = createFrameCoalescer(draw, ownerDocument === document
+      ? { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) }
+      : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
+    function markingHover(event) { if (!s.drag && current.current.marking?.mode === 'polygon') { s.hover = markingEvent(event).uv; hoverFrame.schedule(); } }
     function pointerMove(event) {
       if (!s.drag) return;
       const rawEnd = point(event), preferences = current.current.preferences;
@@ -224,11 +263,14 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         // Shift may change between frames: retain each weighted movement, redraw once.
         uvZoom(s.drag, rawEnd.x, rawEnd.y, s.drag.pointerSensitivity * (modifierHeld(event, 'drag.uv.fine', preferences) ? s.drag.shiftFine : 1));
       }
+      // A Fit area being marked: the latest point, applied once per frame.
+      if (s.drag.type === 'mark') { s.pendingMark = markingEvent(event); moveFrame.schedule(); return; }
       const snap = modifierHeld(event, 'drag.uv.snap', preferences);
       if (!snap) s.drag.snapHeldAtPress = false;
       s.pendingMove = { rawEnd, axisLock: modifierHeld(event, 'drag.uv.axisLock', preferences), snap }; moveFrame.schedule();
     }
     function applyMove() {
+      if (s.drag?.type === 'mark') { const mark = s.pendingMark; s.pendingMark = null; if (mark) current.current.marking?.onMove?.(mark); return; }
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
       const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
       const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y;
@@ -279,6 +321,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       moveFrame.flush();
       const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+      if (drag.type === 'mark') { p.marking?.onUp?.(markingEvent(event)); draw(); return; }
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         // The Wrapper commits the visible change; FX fitting keeps the one-pixel click tolerance.
         const commit = p.wrapperControls ? uvDragChanged(drag.original, s.uv, drag.indices)
@@ -387,13 +430,13 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       onIndicator: setAdjustingSensitivity,
       onWheel: wheel,
     }));
-    element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
+    element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointermove', markingHover); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
     ownerDocument.addEventListener('visibilitychange', draw);
     const stopPressLost = onMousePressLost(() => { if (s.drag) cancelGesture(); });
     window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); ownerWindow.addEventListener('keydown', snapKey, true); ownerWindow.addEventListener('keyup', snapKey, true); window.addEventListener('mdlxl-window-key', nudgeKey);
     return () => {
-      stopPressLost(); observer.disconnect(); unbindScroll(); moveFrame.cancel(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
-      element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
+      stopPressLost(); observer.disconnect(); unbindScroll(); moveFrame.cancel(); hoverFrame.cancel(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
+      element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointermove', markingHover); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
       window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); ownerWindow.removeEventListener('keydown', snapKey, true); ownerWindow.removeEventListener('keyup', snapKey, true); window.removeEventListener('mdlxl-window-key', nudgeKey);
     };
   }, []);

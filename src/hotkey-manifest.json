@@ -312,6 +312,7 @@
   {"id":"uv-wrapper:uv-material","label":"UV material","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv-wrapper:wrap","label":"Wrap U and V","group":"UV Wrapper","category":"UV Wrapper"},
   {"id":"uv:each-piece","label":"Each Piece","group":"UV Wrapper","category":"UV"},
+  {"id":"uv:fit","label":"Fit","group":"UV Wrapper","category":"UV"},
   {"id":"uv:mirror-copy","label":"Mirror Copy","group":"UV Wrapper","category":"UV"},
   {"id":"uv:relax","label":"Relax","group":"UV Wrapper","category":"UV"},
   {"id":"uv:straighten","label":"Straighten","group":"UV Wrapper","category":"UV"},
