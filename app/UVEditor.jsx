@@ -11,15 +11,17 @@ import { holdGestureKey, onMousePressLost } from './gesture-keys.js';
 import { occupiedUVTextureFrames } from '../src/uv-preview-display.js';
 import { normalizeUVGrid, snapUVCoordinates, visibleUVGridLines } from '../src/uv-grid.js';
 import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js';
+import { sketchStore, smoothStroke, uvStrokeVertices, SKETCH_SPACES } from '../src/ai-sketch.js';
+import { drawSketchNotes, noteNearPoint, SKETCH_CURSORS, SKETCH_MARKER_PIXELS, SKETCH_SPACING_PIXELS } from './sketch-draw-2d.js';
 
 const indicesOf = selection => Array.from(selection || []);
 const EMPTY_VERTICES = [];
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, fitTexture = false, faintWires = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false, marking = null }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = EMPTY_VERTICES, eligibleVertices, hiddenVertices = EMPTY_VERTICES, onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, fitUVs = false, fitTexture = false, faintWires = false, showWires = true, showVertices = true, showSelectedVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', axis = null, wrapperControls = false, marking = null, sketchDocument = null, sketchRefs = null }) {
   const host = useRef(null), canvas = useRef(null);
   const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, fitTexture, faintWires, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls, marking };
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, fitUVs, fitTexture, faintWires, showWires, showVertices, showSelectedVertices, uvGrid, showTextureFrame, textureFrameColor, axis, wrapperControls, marking, sketchDocument, sketchRefs };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -27,7 +29,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
   // History can patch typed arrays in place; revision must invalidate this drawing copy.
   const eligibilityKey = eligibleVertices === undefined ? '*' : indicesOf(eligibleVertices).join(',');
   useLayoutEffect(() => { state.current.uv = new Float32Array(geoset?.TVertices?.[uvSet] || []); state.current.drag = null; current.current.onPreviewChange?.(null); state.current.draw(); }, [geoset, uvSet, geoset?.TVertices?.[uvSet], revision, textureUrl, eligibilityKey]);
-  useEffect(() => { state.current.draw(); }, [marking, selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, showSelectedVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
+  // AI console notes on the map redraw with the drawings store (Undo, Clear, Eraser, console open).
+  useEffect(() => sketchStore.subscribe(() => state.current.draw()), []);
+  useEffect(() => { state.current.draw(); }, [marking, sketchDocument, selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, showSelectedVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
   useEffect(() => {
     let cancelled = false; state.current.image = null; setImageError(false);
     if (!textureUrl || !graphics.textures) { state.current.draw(); return; }
@@ -84,9 +88,22 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const { sizeX, sizeY } = mapping();
       s.panX = -frameU * sizeX; s.panY = -frameV * sizeY; s.centered = true;
     }
+    // The AI console's drawing tool, when it draws on this map.
+    function sketchTool() {
+      const p = current.current, sketch = sketchStore.get();
+      return p.wrapperControls && p.sketchDocument != null && sketch.visible && SKETCH_SPACES.uv.includes(sketch.tool) ? sketch.tool : null;
+    }
+    function noteItems(m) {
+      const p = current.current, toScreen = (points, i) => [m.x + points[i] * m.sizeX, m.y + points[i + 1] * m.sizeY];
+      const screenOf = points => Array.from({ length: points.length / 2 }, (_, i) => toScreen(points, i * 2));
+      const items = p.sketchDocument == null || !sketchStore.get().visible ? [] : sketchStore.strokes(p.sketchDocument, 'uv').map(stroke => ({ id: stroke.id, tool: stroke.tool, colorValue: stroke.colorValue, width: stroke.width * m.sizeX, screen: screenOf(stroke.points) }));
+      const live = s.drag?.type === 'sketch' ? s.drag.stroke : null;
+      if (live) items.push({ tool: live.tool, colorValue: live.colorValue, width: live.width * m.sizeX, screen: screenOf(live.points) });
+      return items;
+    }
     function draw() {
-      const p = current.current, { sizeX, sizeY, x, y } = mapping();
-      element.style.cursor = s.drag?.cursor || (p.marking ? 'crosshair' : viewportCursor(p.cameraMode, p.transformMode));
+      const p = current.current, { sizeX, sizeY, x, y } = mapping(), drawing = sketchTool();
+      element.style.cursor = s.drag?.cursor || (p.marking ? 'crosshair' : drawing ? SKETCH_CURSORS[drawing] : viewportCursor(p.cameraMode, p.transformMode));
       // Suspended input leaves the texture workstation visible.
       if (ownerDocument === document && ownerDocument.hidden && graphicsOptions(p.preferences).pauseWhenHidden) return;
       const visuals = visualOptions(p.preferences);
@@ -170,6 +187,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         const drag = s.drag; context.strokeStyle = visuals.selection; context.setLineDash([2, 2]);
         context.strokeRect(drag.x + .5, drag.y + .5, drag.endX - drag.x, drag.endY - drag.y); context.setLineDash([]);
       }
+      const notes = noteItems({ sizeX, sizeY, x, y });
+      if (notes.length) drawSketchNotes(context, notes);
     }
     s.draw = draw;
     function resize() {
@@ -183,6 +202,31 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const center = [0, 0]; for (const index of indices) { center[0] += values[index * 2]; center[1] += values[index * 2 + 1]; }
       if (indices.length) { center[0] /= indices.length; center[1] /= indices.length; } return center;
     }
+    function eraseNotes(at, gesture) {
+      const hits = noteItems(mapping()).filter(item => item.id != null && noteNearPoint(item, at.x, at.y)).map(item => item.id);
+      if (hits.length) sketchStore.remove(hits, gesture);
+    }
+    // Notes for the AI never touch UVs or the selection; Undo and Eraser handle them.
+    function beginSketch(event, tool) {
+      const p = current.current, at = point(event), m = mapping();
+      element.focus(); element.setPointerCapture(event.pointerId);
+      if (tool === 'eraser') { s.drag = { type: 'sketch-erase', cursor: SKETCH_CURSORS.eraser, gesture: {} }; eraseNotes(at, s.drag.gesture); draw(); return; }
+      const stroke = { space: 'uv', tool, documentId: p.sketchDocument, color: sketchStore.get().color[tool], colorValue: sketchStore.colorOf(tool), points: [], width: SKETCH_MARKER_PIXELS / m.sizeX, reach: 6 / m.sizeX };
+      s.drag = { type: 'sketch', cursor: SKETCH_CURSORS[tool], stroke, last: null };
+      extendSketch(at); draw();
+    }
+    function extendSketch(at) {
+      const drag = s.drag, m = mapping();
+      if (drag.last && Math.hypot(at.x - drag.last.x, at.y - drag.last.y) < SKETCH_SPACING_PIXELS) return;
+      drag.last = at; drag.stroke.points.push((at.x - m.x) / m.sizeX, (at.y - m.y) / m.sizeY);
+    }
+    function finishSketch() {
+      const p = current.current, stroke = s.drag.stroke; s.drag = null;
+      if (!stroke.points.length) { draw(); return; }
+      stroke.points = smoothStroke(stroke.points, 2, 2);
+      stroke.vertices = uvStrokeVertices(stroke, s.uv, eligible(), p.sketchRefs);
+      sketchStore.add(stroke);
+    }
     // Fit's area marking takes the left button; the right and middle buttons still pan and zoom.
     function markingEvent(event, m = mapping()) { const { x, y } = point(event); return { uv: [(x - m.x) / m.sizeX, (y - m.y) / m.sizeY], detail: event.detail, sizeX: m.sizeX, sizeY: m.sizeY, raster: textureRaster }; }
     function textureRaster() {
@@ -195,12 +239,16 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       return s.raster.raster;
     }
     function pointerDown(event) {
-      if (current.current.suspended || s.drag || event.button > 2) return;
-      if (current.current.marking && event.button === 0) {
+      if (s.drag || event.button > 2) return;
+      // Fit's own area marking comes first, then an AI console drawing tool.
+      if (!current.current.suspended && current.current.marking && event.button === 0) {
         element.focus(); element.setPointerCapture(event.pointerId);
         s.drag = { type: 'mark', cursor: 'crosshair', x: 0, y: 0, endX: 0, endY: 0 };
         current.current.marking.onDown?.(markingEvent(event)); return;
       }
+      const drawing = event.button === 0 && current.current.cameraMode === 'work' && sketchTool();
+      if (drawing) { beginSketch(event, drawing); return; }
+      if (current.current.suspended) return;
       const p = current.current, { x, y } = point(event), m = mapping(), indices = selection();
       const binding = event.button === 2 ? cameraBindings(p.preferences).right : event.button === 1 ? cameraBindings(p.preferences).middle : null;
       if (binding === 'none' || binding === 'toggle') return;
@@ -244,13 +292,20 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const moveFrame = createFrameCoalescer(applyMove, ownerDocument === document
       ? { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) }
       : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
+    // Drawing notes: every sample joins the line; the map redraws once per frame.
+    function sketchMove(event) {
+      if (s.drag.type === 'sketch-erase') { eraseNotes(point(event), s.drag.gesture); return true; }
+      if (s.drag.type !== 'sketch') return false;
+      for (const sample of event.getCoalescedEvents?.() || [event]) extendSketch(point(sample));
+      s.pendingMove = {}; moveFrame.schedule(); return true;
+    }
     // The polygon's closing edge follows the pointer once per frame.
     const hoverFrame = createFrameCoalescer(draw, ownerDocument === document
       ? { request: ownerWindow.requestAnimationFrame.bind(ownerWindow), cancel: ownerWindow.cancelAnimationFrame.bind(ownerWindow) }
       : { request: callback => ownerWindow.setTimeout(callback, 16), cancel: ownerWindow.clearTimeout.bind(ownerWindow) });
     function markingHover(event) { if (!s.drag && current.current.marking?.mode === 'polygon') { s.hover = markingEvent(event).uv; hoverFrame.schedule(); } }
     function pointerMove(event) {
-      if (!s.drag) return;
+      if (!s.drag || sketchMove(event)) return;
       const rawEnd = point(event), preferences = current.current.preferences;
       // Turning sums wrapped angle steps; feed every sample so a fast turn between
       // frames cannot flip direction. Repeating the last point adds nothing.
@@ -272,6 +327,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     function applyMove() {
       if (s.drag?.type === 'mark') { const mark = s.pendingMark; s.pendingMark = null; if (mark) current.current.marking?.onMove?.(mark); return; }
       const drag = s.drag, p = current.current, event = s.pendingMove; if (!drag || !event) return;
+      if (drag.type === 'sketch') { draw(); return; }
       const rawEnd = event.rawEnd, { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
       const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
@@ -319,8 +375,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     function pointerUp(event) {
       moveFrame.flush();
-      const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
+      const p = current.current, drag = s.drag; if (!drag) return;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+      if (drag.type === 'sketch') { finishSketch(); return; }
+      s.drag = null;
+      if (drag.type === 'sketch-erase') { draw(); return; }
       if (drag.type === 'mark') { p.marking?.onUp?.(markingEvent(event)); draw(); return; }
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         // The Wrapper commits the visible change; FX fitting keeps the one-pixel click tolerance.
