@@ -5,9 +5,7 @@ etc they should work in 2D as well. for movement editor - add directional arrows
 movement helpers - e.g stuff I can put to quickly show an AI what I want ... find
 the holy grail for animating".
 
-State: built on local branch `claude/ai-markup` (Claude Code), not online. Waiting
-for the owner's hand test with `TestBuilds\ai-notes` and
-`TestBuilds\test-models\TEST AI NOTES 01.mdx`.
+State: **completed**, merged in PR #686 (dc7b3660) on 19 Nov 2026.
 
 ## What exists
 
