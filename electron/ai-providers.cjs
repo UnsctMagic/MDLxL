@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-process.cjs');
+const { spawnAgent, stopAgent, lines, prepareEnvironment, resolveExecutable } = require('./ai-process.cjs');
 const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
@@ -26,10 +26,14 @@ function endpoint(value) {
     throw Error('Use an HTTPS API base URL, or HTTP on localhost.');
   return url.href.replace(/\/$/, '');
 }
-// The connection's API address: its own server, or Anthropic's or OpenAI's.
+// The connection's API address: its own server, the provider's listed address
+// (src/ai-providers.json "apiBase"), or Anthropic's or OpenAI's.
 function apiBase(settings) {
+  const info = providerInfo(settings.provider) || {};
+  if (!settings.baseUrl && info.baseUrlRequired)
+    throw Error('Enter the API base URL for ' + info.label + ' in AI connection settings.');
   return endpoint(
-    settings.baseUrl || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
+    settings.baseUrl || info.apiBase || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
   );
 }
 const ANTHROPIC_HEADERS = Object.freeze({ 'anthropic-version': '2023-06-01' });
@@ -228,6 +232,71 @@ const OPENAI_PRICES = {
   'gpt-5.6-terra': [2, 0.2, 12, 4, 0.4, 18],
   'gpt-5.6-luna': [0.2, 0.02, 1.2, 0.4, 0.04, 1.8],
 };
+// List prices of the providers on the chat-completions route, in US$ per million
+// tokens (checked 2026-11-19 on each provider's own price page): [input, cached
+// input, output], then the same above the provider's long-prompt mark where it has
+// one. Unlisted models show tokens only and have no limit. DeepSeek is listed at its
+// peak rate (off-peak is half), so its limit never undercounts.
+const PROVIDER_PRICES = {
+  google: {
+    long: 200000,
+    'gemini-4-carbon': [2, 0.1, 10],
+    'gemini-4-argon': [2, 0.1, 10],
+    'gemini-4-neon': [3, 0.15, 15],
+    'gemini-4-hydrogen': [1.5, 0.075, 7.5],
+    'gemini-3.8-flash': [0.75, 0.075, 3.75],
+    'gemini-3.6-flash': [0.75, 0.075, 3.75],
+    'gemini-3.5-flash-lite': [0.3, 0.03, 2.5],
+    'gemini-3.1-pro-preview': [2, 0.2, 12, 4, 0.4, 18],
+    'gemini-3.1-flash-lite': [0.25, 0.025, 1.5],
+    'gemini-3-flash-preview': [0.5, 0.05, 3],
+    'gemini-2.5-pro': [1.25, 0.125, 10, 2.5, 0.25, 15],
+    'gemini-2.5-flash': [0.3, 0.03, 2.5],
+    'gemini-2.5-flash-lite': [0.1, 0.01, 0.4],
+  },
+  xai: {
+    long: 200000,
+    'grok-4.7': [2, 0.5, 6, 4, 1, 12],
+    'grok-4.6': [2, 0.5, 6, 4, 1, 12],
+    'grok-4.5': [2, 0.3, 6, 4, 0.6, 12],
+    'grok-4.3': [1.25, 0.2, 2.5, 2.5, 0.4, 5],
+    'grok-build-0.1': [1, 0.2, 2, 2, 0.4, 4],
+  },
+  mistral: { 'mistral-large-latest': [0.5, 0.05, 1.5] },
+  deepseek: {
+    'deepseek-flash': [0.3, 0.006, 1.2],
+    'deepseek-v4-flash': [0.3, 0.006, 1.2],
+    'deepseek-v4-pro': [1.32, 0.044, 3.96],
+  },
+  groq: { 'openai/gpt-oss-120b': [0.15, 0.15, 0.6], 'openai/gpt-oss-20b': [0.075, 0.075, 0.3] },
+};
+// Cost of one chat-completions response, or null when the model has no listed price.
+// The prompt count includes the cached part (OpenAI's and DeepSeek's field names).
+function compatibleCost(provider, model, usage) {
+  const prices = PROVIDER_PRICES[provider], price = prices && listedPrice(prices, String(model || '').replace(/^models\//, ''));
+  if (!price) return null;
+  const input = usage.prompt_tokens || 0,
+    cached = Math.min(usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? 0, input);
+  const [rate, cachedRate, outputRate] = prices.long && input > prices.long && price.length > 3 ? price.slice(3) : price;
+  return ((input - cached) * rate + cached * cachedRate + (usage.completion_tokens || 0) * outputRate) / 1e6;
+}
+// A chat-completions answer as stream events: the stream itself, or one event built
+// from a whole answer (a provider that cannot stream tool calls).
+async function* chatEvents(response, streamed) {
+  if (streamed) return yield* sseEvents(response);
+  const data = await response.json();
+  if (data.error) throw Error(data.error.message || 'AI request failed.');
+  const choice = data.choices?.[0], message = choice?.message || {};
+  yield {
+    usage: data.usage,
+    choices: choice
+      ? [{
+          finish_reason: choice.finish_reason || 'stop',
+          delta: { content: message.content || '', reasoning_content: message.reasoning_content, tool_calls: (message.tool_calls || []).map((call, index) => ({ ...call, index })) },
+        }]
+      : [],
+  };
+}
 // Cost of one OpenAI response; its input count includes the cached part.
 function openaiCost(model, usage) {
   const price = listedPrice(OPENAI_PRICES, model);
@@ -381,8 +450,13 @@ const CANCELLED = 'AI request cancelled.';
 // Said when a provider asks for anything beyond MDLxL's own editor tools.
 const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
 const CLAUDE_SIGN_IN = 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in.';
+// Providers whose CLI the user signs in to themselves (src/ai-providers.json "ownSignIn").
+const ownSignIn = provider => {
+  const info = providerInfo(provider) || {};
+  return provider === 'claude' ? CLAUDE_SIGN_IN : 'Sign in to ' + info.label + ' in your own terminal with: ' + info.signInHint + '. Then press Check sign-in.';
+};
 function authenticationRequired(provider) {
-  const message = provider === 'claude' ? CLAUDE_SIGN_IN + ' Your prompt has been kept.' : 'Sign in to connect your AI. Your prompt has been kept.';
+  const message = providerInfo(provider)?.ownSignIn ? ownSignIn(provider) + ' Your prompt has been kept.' : 'Sign in to connect your AI. Your prompt has been kept.';
   return Object.assign(Error(message), {
     code: 'AI_AUTH_REQUIRED',
   });
@@ -417,6 +491,8 @@ async function runApi({
   // OpenAI bills each response on its own, so its cost is added up per response.
   let openaiUsd = 0;
   let anthropicUsd = 0;
+  let compatibleUsd = 0;
+  const info = providerInfo(settings.provider) || {};
   const charge = usd => {
     event({ type: 'cost', usd, tokens: spent.input + spent.cacheWrite + spent.cacheRead + spent.output });
     if (limit && usd !== null && usd >= limit)
@@ -768,6 +844,9 @@ async function runApi({
       await runChatToolCalls(calls);
     } else {
       event({ type: 'request', model: settings.model });
+      // A provider that cannot stream tool calls answers whole (src/ai-providers.json "toolStream").
+      const streamed = !(info.toolStream === false && tools.length);
+      const effort = info.reasoningEffort ? effortFor(settings) : null;
       let response;
       try {
         response = await requestJson(
@@ -783,9 +862,10 @@ async function runApi({
                 })),
               }
             : {}),
-          stream: true,
+          stream: streamed,
+          ...(effort ? { reasoning_effort: effort === 'xhigh' ? 'high' : effort } : {}),
           // Ask for token counts so the fresh-history rule and trimming can work.
-          ...(compatibleUsage ? { stream_options: { include_usage: true } } : {}),
+          ...(streamed && compatibleUsage ? { stream_options: { include_usage: true } } : {}),
         },
         key,
         signal,
@@ -801,14 +881,16 @@ async function runApi({
       const calls = new Map();
       let text = '',
         finishReason;
-      for await (const data of sseEvents(response)) {
+      for await (const data of chatEvents(response, streamed)) {
         if (data.error) throw Error(data.error.message || 'AI stream failed.');
         if (data.usage?.prompt_tokens) {
-          event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
+          event({ type: 'usage', used: data.usage.prompt_tokens, window: info.window || 128000 });
           lastUsed = data.usage.prompt_tokens;
           spent.input += data.usage.prompt_tokens;
           spent.output += data.usage.completion_tokens || 0;
-          charge(null);
+          const cost = compatibleCost(settings.provider, settings.model, data.usage);
+          if (cost !== null) compatibleUsd += cost;
+          charge(cost === null ? null : compatibleUsd);
         }
         const choice = data.choices?.[0];
         if (!choice) continue;
@@ -827,6 +909,8 @@ async function runApi({
             calls.set(delta.index, call);
           }
           if (delta.id) call.id = delta.id;
+          // Gemini signs each tool call; the signature must go back with the call.
+          if (delta.extra_content) call.extra_content = delta.extra_content;
           if (delta.function?.name) call.function.name += delta.function.name;
           if (delta.function?.arguments) call.function.arguments += delta.function.arguments;
         }
@@ -1503,10 +1587,180 @@ async function runClaude({
     await fs.rm(runDirectory, { recursive: true, force: true });
   }
 }
-// One provider turn through the connection's own route: Codex, Claude Code or an API.
+// Gemini CLI and GitHub Copilot CLI (src/ai-providers.json "cli"): each prompt is one run
+// of the CLI's non-interactive mode, with MDLxL's tools over the local MCP link. Built to
+// each CLI's published options; the user's own sign-in is used as it is and never copied.
+const CLI_MODELS = {
+  gemini: [
+    { id: 'gemini-4-neon', name: 'Gemini 4 Neon' },
+    { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen' },
+    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
+  ],
+};
+// Gemini CLI's own shell, file and web tools stay off unless the chat has a work folder.
+const GEMINI_OWN_TOOLS = ['run_shell_command', 'write_file', 'replace', 'save_memory', 'web_fetch', 'google_web_search'];
+const CLI_PROMPT_LIMIT = 24000;
+const cliToolName = name => String(name || '').replace(/^(?:mcp__)?mdlxl__/, '');
+// Whether the CLI is installed and has been set up by its user. The sign-in itself is
+// only known to the CLI: a signed-out CLI says so in its answer to the first prompt.
+async function cliSignedIn(settings) {
+  const kind = providerInfo(settings.provider).cli;
+  try {
+    resolveExecutable(settings.executable || kind);
+  } catch (error) {
+    return { loggedIn: false, error: error.message };
+  }
+  if (kind !== 'gemini') return { loggedIn: true };
+  const home = process.env.GEMINI_CLI_HOME || require('node:os').homedir();
+  const known = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) || (await fs.stat(path.join(home, '.gemini')).then(() => true, () => false));
+  return { loggedIn: known };
+}
+async function runCli({ mcp: jobMcp, workDirectory, shellVariables, settings, directory, event, tools, call, system, prompt, images, conversation, signal, awareness, steering }) {
+  const kind = providerInfo(settings.provider).cli, gemini = kind === 'gemini';
+  await fs.mkdir(directory, { recursive: true });
+  // Copilot prints only its answer, so its tool steps are reported from MDLxL's end of the link.
+  let serial = 0;
+  const reported = async (name, args, toolSignal) => {
+    const callId = kind + '-' + ++serial;
+    event({ type: 'tool', name, callId, ...toolDetail(args) });
+    try {
+      const result = await call(name, args, toolSignal);
+      event({ type: 'tool-result', name, callId, error: false, summary: toolSummary(typeof result === 'string' ? result : JSON.stringify(result ?? '')) });
+      return result;
+    } catch (error) {
+      event({ type: 'tool-result', name, callId, error: true, summary: toolSummary(error.message) });
+      throw error;
+    }
+  };
+  const mcp = gemini && jobMcp ? jobMcp : await startMcpServer({ tools, call: gemini ? call : reported, awareness });
+  const cwd = workDirectory || conversation.threadFolder || path.join(directory, kind + '-work');
+  await fs.mkdir(cwd, { recursive: true });
+  const runDirectory = await fs.mkdtemp(path.join(directory, kind + '-run-'));
+  const link = mcp.config.mcpServers.mdlxl, written = [];
+  const write = async (file, text) => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text, { mode: 0o600 });
+    written.push(file);
+  };
+  if (images?.length) event({ type: 'provider-notice', text: 'Pictures attached to the prompt are not passed to this CLI.', severity: 'warning' });
+  let child;
+  // One run of the CLI for one message; resolves with whether it answered.
+  const turn = async (message, resume) => {
+    const env = { ...(await prepareEnvironment(directory, settings.provider)), ...(shellVariables || {}) };
+    let args, input = null;
+    if (gemini) {
+      const instructions = path.join(runDirectory, 'system.md');
+      await write(instructions, system);
+      // Gemini CLI reads its MCP servers from the folder it runs in.
+      await write(path.join(cwd, '.gemini', 'settings.json'), JSON.stringify({
+        mcpServers: { mdlxl: { httpUrl: link.url, headers: link.headers, timeout: MCP_TOOL_TIMEOUT_MS, trust: true } },
+        ...(workDirectory ? {} : { excludeTools: GEMINI_OWN_TOOLS, tools: { exclude: GEMINI_OWN_TOOLS } }),
+      }));
+      env.GEMINI_SYSTEM_MD = instructions;
+      args = ['-o', 'stream-json', '--approval-mode', 'yolo', '--allowed-mcp-server-names', 'mdlxl'];
+      if (settings.model) args.push('-m', settings.model);
+      if (resume) args.push('--resume', resume);
+      // The prompt goes in on standard input, which also selects the non-interactive mode.
+      input = message;
+    } else {
+      const config = path.join(runDirectory, 'mcp.json');
+      await write(config, JSON.stringify({ mcpServers: { mdlxl: { type: 'http', url: link.url, headers: link.headers, tools: ['*'] } } }));
+      // Copilot CLI reads AGENTS.md in the folder it runs in as its instructions.
+      await write(path.join(cwd, 'AGENTS.md'), system);
+      let text = message;
+      if (text.length > CLI_PROMPT_LIMIT) {
+        // Too long for a command line: the request waits in a file the CLI is told to read.
+        await write(path.join(cwd, 'MDLXL-REQUEST.md'), message);
+        text = 'Read the file MDLXL-REQUEST.md in the current folder and carry out the request in it exactly.';
+      }
+      args = ['-p', text, '-s', '--no-ask-user', '--additional-mcp-config', '@' + config, '--allow-tool', 'mdlxl'];
+      if (text !== message) args.push('--allow-tool', 'read');
+      if (workDirectory) args.push('--allow-all-tools');
+      else args.push('--deny-tool', 'shell', '--deny-tool', 'write');
+      if (settings.model) args.push('--model', settings.model);
+    }
+    child = spawnAgent(settings.executable || kind, args, { cwd, env });
+    const running = child, toolNames = new Map();
+    let failure = '', answered = false, streamedText = false, stderr = '';
+    const abort = () => stopAgent(running);
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      await new Promise((resolve, reject) => {
+        running.on('error', reject);
+        running.once('close', code => (signal.aborted ? reject(Error(CANCELLED)) : failure || code !== 0 ? reject(Error(failure || stderr.trim().slice(-1500) || providerInfo(settings.provider).label + ' ended with code ' + code + '.')) : resolve()));
+        running.stdin.on('error', () => {});
+        running.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+        if (!gemini) {
+          // Plain text: the answer as it is printed.
+          running.stdout.setEncoding('utf8');
+          running.stdout.on('data', text => { if (text) { answered = true; event({ type: 'text', text }); } });
+        } else
+          lines(running.stdout, line => {
+            let data;
+            try {
+              data = JSON.parse(line);
+            } catch {
+              return;
+            }
+            if (data.type === 'init' && data.session_id) conversation.threadId = data.session_id;
+            if (data.type === 'message' && data.role === 'assistant' && data.content) {
+              if (!data.delta && streamedText) event({ type: 'text', text: '\n\n' });
+              streamedText = true;
+              answered = true;
+              event({ type: 'text', text: data.content });
+            }
+            if (data.type === 'tool_use') {
+              toolNames.set(data.tool_id, cliToolName(data.tool_name));
+              event({ type: 'tool', name: cliToolName(data.tool_name), callId: data.tool_id, ...toolDetail(data.parameters) });
+            }
+            if (data.type === 'tool_result')
+              event({ type: 'tool-result', name: toolNames.get(data.tool_id), callId: data.tool_id, error: data.status === 'error', summary: toolSummary(data.output || data.error?.message || '') });
+            if (data.type === 'error') event({ type: 'provider-notice', text: data.message || 'Gemini CLI reported a problem.', severity: data.severity === 'error' ? 'error' : 'warning' });
+            if (data.type === 'result') {
+              if (data.status === 'error') failure = data.error?.message || 'Gemini CLI ended with an error.';
+              const stats = data.stats;
+              if (stats) {
+                event({ type: 'cost', usd: null, tokens: stats.total_tokens || (stats.input_tokens || 0) + (stats.output_tokens || 0) });
+                if (stats.input_tokens) event({ type: 'usage', used: stats.input_tokens, window: 1000000 });
+              }
+            }
+          }, reject);
+        if (signal.aborted) return abort();
+        if (input !== null) running.stdin.write(input);
+        running.stdin.end();
+      });
+      return answered;
+    } finally {
+      signal.removeEventListener('abort', abort);
+      stopAgent(running);
+    }
+  };
+  try {
+    event({ type: 'request', model: settings.model });
+    let message = prompt;
+    while (message) {
+      try {
+        await turn(message, gemini ? conversation.threadId : null);
+      } catch (error) {
+        // A session the CLI no longer has: say it again in a new one.
+        if (!gemini || !conversation.threadId || signal.aborted || !/session|resume/i.test(error.message)) throw error;
+        conversation.threadId = null;
+        await turn(message, null);
+      }
+      // A message sent while the CLI worked becomes the next run.
+      message = steering?.take() || '';
+    }
+  } finally {
+    stopAgent(child);
+    if (mcp !== jobMcp) await mcp.close();
+    for (const file of written) await fs.rm(file, { force: true });
+    await fs.rm(runDirectory, { recursive: true, force: true });
+  }
+}
+// One provider turn through the connection's own route: Codex, Claude Code, another CLI or an API.
 function runProvider(options) {
   const provider = options.settings.provider;
-  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
+  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : providerInfo(provider)?.cli ? runCli(options) : runApi(options);
 }
 // The models a connection offers: Codex asks its app server, Claude Code takes
 // aliases, and APIs list their own.
@@ -1519,6 +1773,8 @@ async function providerModels(settings, key, signal, { directory } = {}) {
       { id: 'haiku', name: 'Haiku (newest, cheapest)' },
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
+  // The other CLIs choose their own default; a model ID can still be typed.
+  if (providerInfo(settings.provider)?.cli) return CLI_MODELS[settings.provider] || [];
   if (settings.provider === 'codex') {
     const client = new CodexProcess(settings, { directory, signal });
     try {
@@ -1546,6 +1802,9 @@ async function providerModels(settings, key, signal, { directory } = {}) {
     items = items
       .filter(item => /^(?:gpt-|o\d|chatgpt-)/.test(item.id) && !/audio|realtime|transcribe|tts|image|search|embedding|instruct/.test(item.id))
       .sort((a, b) => (b.created || 0) - (a.created || 0));
+  // Providers that also list speech, image and embedding models: keep the chat ones.
+  const filter = providerInfo(settings.provider)?.modelFilter;
+  if (filter) items = items.filter(item => new RegExp(filter, 'i').test(String(item.id || item.name || '').replace(/^models\//, '')));
   return items.map(item => ({
     id: item.id || item.name,
     name: item.display_name || item.id || item.name,
@@ -1588,9 +1847,10 @@ async function providerAuth(settings, action, { directory, signal, openExternal,
       await client.close();
     }
   }
-  // MDLxL never signs in or out of Claude Code: the user does that in their
-  // own terminal, and MDLxL only checks the result.
-  if (action !== 'status') throw Error(CLAUDE_SIGN_IN);
+  // MDLxL never signs in or out of Claude Code, Gemini CLI or Copilot CLI: the user
+  // does that in their own terminal, and MDLxL only checks the result.
+  if (action !== 'status') throw Error(ownSignIn(settings.provider));
+  if (providerInfo(settings.provider)?.cli) return cliSignedIn(settings);
   const env = await prepareEnvironment(directory, 'claude');
   if (signal.aborted) throw Error('Sign-in cancelled.');
   const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
@@ -1640,6 +1900,9 @@ module.exports = {
   runApi,
   runCodex,
   runClaude,
+  runCli,
+  apiBase,
+  compatibleCost,
   runProvider,
   providerModels,
   providerAuth,

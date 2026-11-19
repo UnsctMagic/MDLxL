@@ -527,11 +527,33 @@ Reference models remain open as ordinary tabs. Image paste also works.
 
 | Choice | Setup |
 | --- | --- |
-| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
 | Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in to it in your own terminal with `claude auth login`, then click **Check sign-in**. MDLxL uses that sign-in and does not offer a Claude sign-in of its own. Your plan must support Claude Code. |
-| OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
 | Claude API | Enter a workspace-scoped Claude API key and choose a model that supports tools. |
+| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
+| OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
+| Gemini CLI | Install [Gemini CLI](https://github.com/google-gemini/gemini-cli) and sign in to it in your own terminal (run `gemini` and choose your Google account), then click **Check sign-in**. Each prompt is one run of the CLI's non-interactive mode with MDLxL's tools over the local link. |
+| GitHub Copilot CLI | Install [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli) and sign in with `copilot login` in your own terminal, then click **Check sign-in**. Its answer is shown when it is ready; its tool steps are listed as MDLxL receives them. Each prompt is a new Copilot session (the chat's earlier requests are passed along). |
+| Google Gemini API | Enter a Gemini API key from Google AI Studio and choose a model. |
+| xAI Grok API | Enter an xAI API key and choose a Grok model. |
+| Mistral API | Enter a Mistral API key and choose a model. |
+| DeepSeek API | Enter a DeepSeek API key and choose a model. |
+| Qwen API (Alibaba Cloud) | Enter your Model Studio API key and your workspace's OpenAI-compatible base URL (it ends in `/compatible-mode/v1`; the key belongs to that region). |
+| OpenRouter | Enter an OpenRouter API key and choose any model that supports tools. |
+| Groq | Enter a Groq API key and choose a model that supports tools. |
+| Azure OpenAI | Enter your resource's key and its v1 base URL (`https://YOUR-RESOURCE.openai.azure.com/openai/v1`); the model is your deployment name. |
+| Ollama (local) / LM Studio (local) | Start the local server; the usual address is filled in and can be changed. No key. Choose a model that supports tools. |
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
+
+The list always starts with Claude, then Codex; the custom connection is last. The
+key providers after OpenAI use each provider's official OpenAI-compatible address
+(`apiBase` in the [provider table](../src/ai-providers.json)) through the same route as
+**Other AI**, so trimming, Stop, steering, step and spending limits work the same.
+Costs are shown for models with a list price in `PROVIDER_PRICES`
+([ai-providers.cjs](../electron/ai-providers.cjs)); other models show tokens only.
+Keys are stored encrypted, per provider, like the existing ones. Not offered as their
+own choice: Amazon Bedrock (tool calling on its OpenAI-compatible address could not be
+confirmed; it still works through **Other AI** with its base URL and key when the
+chosen model has tools) and CLIs without a published non-interactive mode with MCP.
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
 path in Connection. PATH can omit a CLI (installed after Windows sign-in, or one

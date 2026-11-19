@@ -953,7 +953,7 @@ function AiAssistant({ bridge, visUI }) {
                 {native && signedIn !== null && !signedIn && (
                   <div className="ai-account" role="status">
                     {provider.ownSignIn
-                      ? 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in. Your prompt has been kept.'
+                      ? 'Sign in to ' + provider.label + ' in your own terminal with: ' + (provider.signInHint || 'claude auth login') + '. Then press Check sign-in. Your prompt has been kept.'
                       : 'Sign in to connect your AI. Your prompt has been kept.'}
                   </div>
                 )}
