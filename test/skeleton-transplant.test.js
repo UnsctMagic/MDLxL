@@ -897,3 +897,53 @@ test('H3 Ghoul on the Grunt: in the Grunt\'s living animations he shows exactly 
     assert.deepEqual(shown, living, `${sequence.Name}: the geosets of his own Stand`);
   });
 });
+
+// ------------------------------------------------------------------ G1 soles down where the legs do not pair (xfer-overnight.md)
+// The donor's legs carry none of this model's skin, so its feet cannot be put down: this model's own sole goes down as
+// the donor stands (legged donor) or rises and falls with the donor's body (legless, hovering donor).
+/** The lowest point of the geosets `living` (skinned) at a moment. */
+const lowestOf = (model, living, index, frame) => {
+  const m = sampleNodeMatrices(model, frame, index);
+  let low = Infinity;
+  for (const g of living) { const p = skinGeoset(model.Geosets[g], m); for (let i = 2; i < p.length; i += 3) low = Math.min(low, p[i]); }
+  return low;
+};
+const heightOf = model => { let lo = Infinity, hi = -Infinity; for (const g of model.Geosets) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); } return hi - lo; };
+const standLiving = model => { const stand = standSequenceIndex(model); return model.Geosets.map((_, g) => g).filter(g => geosetShown(model, g, stand, model.Sequences[stand].Interval[0])); };
+const everydayMoments = (model, each) => model.Sequences.forEach((sequence, index) => {
+  if (/death|decay|dissipate|portrait|birth|morph/i.test(sequence.Name)) return;
+  const [a, b] = sequence.Interval;
+  for (const t of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) each(sequence, index, Math.round(a + t * (b - a)));
+});
+
+test('S1 Rat on the Dire Wolf: where the wolf stands on its feet the rat stands on the ground as in its own Stand (it floated half its height)', { skip: missing('transfer-rat', 'transfer-direwolf') }, () => {
+  const { own, donor, model, report } = transplant('transfer-rat', 'transfer-direwolf');
+  assert.equal(report.counts.ground, 'soles');
+  const living = standLiving(own), stand = standSequenceIndex(own), rest = lowestOf(own, living, stand, own.Sequences[stand].Interval[0]), H = heightOf(own);
+  const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), feet = Object.values(rigD.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  let worst = { d: 0 }, checked = 0;
+  everydayMoments(model, (sequence, index, frame) => {
+    const md = sampleNodeMatrices(donor, frame, index);
+    if (Math.min(...feet.map(id => at(donor, nD, md, id).z)) - rigD.ground > 0.05 * rigD.hipHeight) return; // the wolf's feet are off the ground
+    checked++;
+    const d = Math.abs(lowestOf(model, living, index, frame) - rest);
+    if (d > worst.d) worst = { d, name: sequence.Name, frame };
+  });
+  assert.ok(checked > 20, `${checked} moments with the wolf on its feet`);
+  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the rat's lowest point is ${(worst.d / H).toFixed(2)} of its height off its own Stand's`);
+});
+
+test('S2 Footman on the Banshee (no legs, hovers): the Footman rises and falls with the Banshee\'s body from his own ground (he floated nearly his height)', { skip: missing('transfer-footman', 'transfer-banshee') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-banshee');
+  assert.equal(report.counts.ground, 'hover');
+  const living = standLiving(own), stand = standSequenceIndex(own), rest = lowestOf(own, living, stand, own.Sequences[stand].Interval[0]), H = heightOf(own);
+  const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), dStand = standSequenceIndex(donor);
+  const bodyRest = at(donor, nD, sampleNodeMatrices(donor, donor.Sequences[dStand].Interval[0], dStand), rigD.body).z;
+  let worst = { d: 0 };
+  everydayMoments(model, (sequence, index, frame) => {
+    const rise = (at(donor, nD, sampleNodeMatrices(donor, frame, index), rigD.body).z - bodyRest) * report.counts.travel;
+    const d = Math.abs(lowestOf(model, living, index, frame) - rest - rise);
+    if (d > worst.d) worst = { d, name: sequence.Name, frame };
+  });
+  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the Footman's lowest point is ${(worst.d / H).toFixed(2)} of his height off his own ground plus the Banshee's rise`);
+});
