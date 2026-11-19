@@ -803,3 +803,12 @@ Sweep (561 bodies, `transplant-sweep-all.sh`; items 1-3 numbers kept in `transpl
 Open: the owner's choice between 06 and 07; `travel` also shortens steps and `MoveSpeed` (not checked in game);
 collar skin on `Bone_ClavicalL/R` (contract risk 3); plane cuts through still rigid pieces (risk 4); motion
 tearing not looked at by eye.
+
+## Owner's answers on the v2 compare sheet (19 Nov 2026)
+
+Sheet: build 22, `TestBuilds\transplant-review-v2\cases.json`, answers in `answers.json` there.
+- Old (v1, TEST TRANSPLANT 01) or New (v2, 06): **New**.
+- Legs: **Straight shin** (TEST TRANSPLANT 07), not "Bent like the Tauren" (06). The engine default
+  must switch to the straight-shin variant; 06's folded shin becomes the alternative (or goes).
+- Next: make straight shin the default (rerun the gates and the sweep), then the transplant window
+  entry, concept with the owner first (talk only until "go").
