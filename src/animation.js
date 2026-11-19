@@ -198,16 +198,57 @@ export function composeNodeMatrices(model, ids, localTRS, byId = new Map(allNode
   return matrices;
 }
 
+const sampledTRS = (frame, options) => node => ({
+  t: new Vector3().fromArray(sampleTrack(node.Translation, frame, { ...options, fallback: [0, 0, 0] })),
+  r: new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { ...options, fallback: [0, 0, 0, 1], quaternion: true })),
+  s: new Vector3().fromArray(sampleTrack(node.Scaling, frame, { ...options, fallback: [1, 1, 1] })),
+});
+
 export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame) {
   const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
   const interval = model.Sequences?.[sequenceIndex]?.Interval;
   if (sequenceIndex < 0 || !interval) return new Map(nodes.map(node => [node.ObjectId, new Matrix4()]));
   const options = { interval, globalSequences: model.GlobalSequences, globalTime };
-  return composeNodeMatrices(model, nodes.map(node => node.ObjectId), node => ({
-    t: new Vector3().fromArray(sampleTrack(node.Translation, frame, { ...options, fallback: [0, 0, 0] })),
-    r: new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { ...options, fallback: [0, 0, 0, 1], quaternion: true })),
-    s: new Vector3().fromArray(sampleTrack(node.Scaling, frame, { ...options, fallback: [1, 1, 1] })),
-  }), byId);
+  return composeNodeMatrices(model, nodes.map(node => node.ObjectId), sampledTRS(frame, options), byId);
+}
+
+/** The model's nodes by ObjectId and whether any parent chain loops, for sampleSomeNodeMatrices. */
+export function nodeIndex(model) {
+  const byId = new Map(allNodes(model).map(n => [n.ObjectId, n])), done = new Set();
+  let loop = false;
+  for (const id of byId.keys()) {
+    const path = new Set();
+    for (let at = id; at != null && byId.has(at) && !done.has(at); at = byId.get(at).Parent) {
+      if (path.has(at)) { loop = true; break; }
+      path.add(at);
+    }
+    if (loop) break;
+    for (const at of path) done.add(at);
+  }
+  return { byId, loop };
+}
+
+/** sampleNodeMatrices for the nodes `ids` and their parents only, added to `into` (a Map from an earlier
+ * call at the same time grows; entries it holds are kept). Each matrix equals sampleNodeMatrices'. A
+ * model whose parents loop gets every node, since there the result depends on the order nodes resolve. */
+export function sampleSomeNodeMatrices(model, ids, frame = 0, sequenceIndex = -1, globalTime = frame, into = new Map(), index = nodeIndex(model)) {
+  const interval = model.Sequences?.[sequenceIndex]?.Interval;
+  if (sequenceIndex < 0 || !interval || index.loop) {
+    if (into.size) return into;
+    for (const [id, matrix] of sampleNodeMatrices(model, frame, sequenceIndex, globalTime)) into.set(id, matrix);
+    return into;
+  }
+  const missing = ids.filter(id => !into.has(id) && index.byId.has(id));
+  if (!missing.length) return into;
+  const options = { interval, globalSequences: model.GlobalSequences, globalTime };
+  for (const [id, matrix] of composeNodeMatrices(model, missing, sampledTRS(frame, options), index.byId)) if (!into.has(id)) into.set(id, matrix);
+  return into;
+}
+
+/** The bones a geoset vertex is skinned to (geosetSkinMatrix's group). */
+export function geosetVertexBones(geoset, vertex) {
+  const skin = geoset.SkinWeights;
+  return skin?.length >= (vertex + 1) * 8 ? Array.prototype.slice.call(skin, vertex * 8, vertex * 8 + 4) : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
 }
 
 /** Applies classic equal-weight matrix groups or HD's four byte bone weights. */

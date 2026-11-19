@@ -156,6 +156,17 @@ export function installWarcraftPreviewAdapter(gl, model, getClock, isUVWorkingGe
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
   const layerUVBuffers = [];
+  // gl.SAMPLES waits for the GPU; ask once per framebuffer, again only after a framebuffer's attachments change.
+  const framebufferSamples = new Map();
+  for (const name of ['framebufferRenderbuffer', 'framebufferTexture2D', 'framebufferTextureLayer', 'renderbufferStorage', 'renderbufferStorageMultisample', 'deleteFramebuffer']) {
+    original[name] = gl[name];
+    gl[name] = function (...args) { framebufferSamples.clear(); return original[name].apply(this, args); };
+  }
+  const samples = () => {
+    const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    if (!framebufferSamples.has(framebuffer)) framebufferSamples.set(framebuffer, gl.getParameter(gl.SAMPLES));
+    return framebufferSamples.get(framebuffer);
+  };
   // A unit war3-model never binds, so the per-bone map survives layer setup.
   const bindBoneInfluence = (context, influence) => {
     influenceTexture ||= context.createTexture();
@@ -365,7 +376,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock, isUVWorkingGe
           if (lightUniforms.Power) this.uniform1f(lightUniforms.Power, lighting.power);
           if (lightUniforms.Legacy) this.uniform1f(lightUniforms.Legacy, lighting.preset === 'legacy' ? 1 : 0);
           if (lightUniforms.ViewDirection) this.uniform3fv(lightUniforms.ViewDirection, getClock().viewDirection || [0, 0, 1]);
-          const coverage = !influence && activeLayer?.FilterMode === 1 && gl.getParameter(gl.SAMPLES) > 0;
+          const coverage = !influence && activeLayer?.FilterMode === 1 && samples() > 0;
           if (coverageLocation) this.uniform1f(coverageLocation, coverage ? 1 : 0);
           if (coverage) this.enable(this.SAMPLE_ALPHA_TO_COVERAGE);
           else this.disable(this.SAMPLE_ALPHA_TO_COVERAGE);
