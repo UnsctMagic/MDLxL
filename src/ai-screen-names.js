@@ -51,6 +51,7 @@ export const SCREEN_NAMES = [
   e(['Mirror Copy'], ['uv-tools.mirrorCopyUVCoordinates']),
   e(['Unwrap', 'Box Projection', 'Cylinder Projection'], ['uv-actions.unwrapUVs', 'uv-unwrap.unwrapUVCorners', 'uv-actions.commitUVCornerPlans']),
   e(['Relax'], ['uv-tools.relaxUVCoordinates']),
+  e(['Fit'], ['uv-fit.fitUVs']),
   e(['Project from Current View', 'Project UVs from model view'], ['uv-tools.projectUVFromView']),
   e(['Fit to region', 'Pack islands'], ['uv-actions.fitUVsToRegion', 'uv-actions.packUVIslands', 'uv-tools.uvPieces']),
   // Windows and toolbar icons.
