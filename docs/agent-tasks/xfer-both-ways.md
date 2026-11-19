@@ -613,3 +613,15 @@ Checked again on ad9693a7, not through the builder's own tests where it mattered
   (trunk), while a seated rider sets only `match` on hips (`seatedMatch`, kept on purpose). So a
   seated Footman's Hips slider reads Mine (0) although the hips take the seat. Open: fix the test
   to read a leg, or make the trunk slider show the seat; decide with the window work (step 7).
+
+## Owner's answers on the compare sheet (19 Nov 2026)
+
+Compare sheet (build 21, `TestBuilds\transplant-review\cases.json`, answers in `answers.json` there):
+- Transplant, warrior on the Tauren skeleton: **Good**.
+- "The Tauren lets go of his totem. What should the Kurgan's hammer do?": **Follows the totem**
+  (TEST TRANSPLANT 03: the weapon rides the donor's weapon bone, thrown off with it). This replaces
+  the unconfirmed reading "weapon stays in the hand". The engine cannot make this yet (03 was built in
+  `out/transfer-probe/make-transplant-options.mjs`); it goes into transplant v2.
+- Extras question dropped: kept plates and belt move within 0.41 of 01 (keep holds a bone still on its
+  joint), so there was no visible choice. Still open, together with the hammer losing its own swing.
+- Owner, 19 Nov: no Fable; when the hard algorithm step comes, ask him which model.
