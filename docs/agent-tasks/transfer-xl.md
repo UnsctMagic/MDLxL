@@ -908,9 +908,17 @@ answers file are unchanged.
 - First review file: `TestBuilds\transplant-review\cases.json` (answers `answers.json` beside it), three
   cases on the Tauren, 01 and 02. Case 1 line: "01 and 02 move the same; only the hammer's bone
   differs."; Flip Tauren vs 01; looks Hammer, hands — Attack Slam; Feet — Walk; Feet, head — Death;
-  Arms — Stand 1; Neck, chest, collar — Stand 1; Hammer — Stand 1; Good / Needs work. Case 2 extras
-  (Shoulder plate, Belt — Death; Yes / No). Case 3 weapon stays in the hand (Death, Attack Slam, Stand
-  Victory; Yes / No). Measured: 01 and 02 move the same (hammer 0.0 apart: the kept bone stays still on
+  Arms — Stand 1; Neck, chest, collar — Stand 1; Hammer — Stand 1; Good / Needs work. Owner rule (19 Nov,
+  after rejecting two cases whose views all looked the same): a choice question shows each option as its
+  own built model that visibly differs, and the buttons name the views. Case 2: "The Tauren lets go of his
+  totem (Death, Attack Slam, Stand Victory). What should the Kurgan's hammer do?" Tauren / "Hammer stays in
+  hand" (01) / "Hammer follows the totem" (`TEST TRANSPLANT 03.mdx`: made by
+  `out/transfer-probe/make-transplant-options.mjs`, not the engine, which keeps extras still on the hand:
+  01's hammer vertices re-bound to `Bone_Totum` (made a bone), placed where 01 holds them at the first frame
+  of Stand -1; 252.7 from 01's hammer in Death, 115.2 Attack Slam, 49.8 Stand Victory); looks Totem — Death,
+  Attack Slam, Stand Victory; Flip middle vs right; Stays in hand / Follows the totem. The extras question was
+  dropped: shoulder plate and belt kept on their own bones (engine `keep`) are at most 0.41 from 01 in every
+  animation (kept bones stay still on their joint), so no `TEST TRANSPLANT 04.mdx` was written. Measured: 01 and 02 move the same (hammer 0.0 apart: the kept bone stays still on
   the hand; the Kurgan's own hammer turns up to 110 degrees against its hand in its attacks, gone in
   both); lower foot 2.4 above standing in Walk, 12.3 in Death; arm bones 20.8 to 22.3 degrees from the
   Tauren's in Stand; stretches neck to head 139, root to chest 71, chest to left collar 44 degrees; hammer
