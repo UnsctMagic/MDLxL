@@ -771,8 +771,14 @@ function posture({ donor, model, report }, moments = 9) {
   if (legs.length && arms.length) lines.push({ kind: 'spine', name: 'hips > shoulders', from: legs, to: arms });
   if (inR(neck) && neck !== head && inR(head)) lines.push({ kind: 'neck', name: `${nD.get(neck).Name} > ${nD.get(head).Name}`, from: [neck], to: [head] });
   const armParts = Object.values(rigA.parts).filter(p => p.limbKind === 'arm' && p.joints.every(inR));
-  const out = { worst: new Map(), armLength: Infinity, armReach: Infinity, handsInside: [] };
-  const posD = m => id => at(donor, nD, m, id), posM = m => id => at(model, nM, m, map[id]);
+  const out = { worst: new Map(), corpse: new Set(), armLength: Infinity, armReach: Infinity, handsInside: [] };
+  // Where the donor hides its living body and shows its corpse copy (the Ghoul's Death: joints named as the living ones
+  // with 01), the donor's visible body is the corpse: the result follows that (donor corpse swap, xfer-overnight.md).
+  const byName = new Map([...nD.values()].map(n => [n.Name, n.ObjectId])), stand = donor.Sequences[standSequenceIndex(donor)];
+  const bodyGeoset = donor.Geosets.map((g, i) => [i, g.Vertices.length]).filter(([i]) => geosetShown(donor, i, donor.Sequences.indexOf(stand), stand.Interval[0])).sort((x, y) => y[1] - x[1])[0][0];
+  let corpse = false;
+  const visible = id => corpse && byName.has(`${nD.get(id).Name}01`) ? byName.get(`${nD.get(id).Name}01`) : id;
+  const posD = m => id => at(donor, nD, m, visible(id)), posM = m => id => at(model, nM, m, map[id]);
   const mean = (pos, ids) => ids.map(pos).reduce((a, b) => a.add(b), new Vector3()).divideScalar(ids.length);
   const sum = (pos, part) => part.joints.slice(1).reduce((s, id, i) => s + pos(id).distanceTo(pos(part.joints[i])), 0);
   // Reach from where the arm's own line starts (the shoulder, not a collar): straight distance to the hand over the stretches.
@@ -786,10 +792,13 @@ function posture({ donor, model, report }, moments = 9) {
     if (index < 0) continue;
     const [a, b] = donor.Sequences[index].Interval;
     for (let k = 0; k < moments; k++) {
-      const frame = Math.round(a + (b - a) * k / (moments - 1)), pd = posD(sampleNodeMatrices(donor, frame, index)), pm = posM(sampleNodeMatrices(model, frame, index));
+      const frame = Math.round(a + (b - a) * k / (moments - 1));
+      corpse = !geosetShown(donor, bodyGeoset, index, frame);
+      const pd = posD(sampleNodeMatrices(donor, frame, index)), pm = posM(sampleNodeMatrices(model, frame, index));
       for (const line of lines) {
         const d = mean(pd, line.to).sub(mean(pd, line.from)), r = mean(pm, line.to).sub(mean(pm, line.from)), key = `${label}: ${line.kind} ${line.name}`;
         out.worst.set(key, Math.max(out.worst.get(key) ?? 0, d.angleTo(r) * 180 / Math.PI));
+        if (corpse) out.corpse.add(key);
       }
       for (const part of armParts) {
         out.armLength = Math.min(out.armLength, sum(pm, part) / sum(restM, part));
@@ -806,7 +815,9 @@ function posture({ donor, model, report }, moments = 9) {
 function assertPosture(result, label) {
   const p = posture(result), kinds = new Set([...p.worst.keys()].map(key => key.split(' ')[1]));
   assert.ok(kinds.has('spine') && kinds.has('arm') && kinds.has('leg'), `${label}: the trunk, arms and legs are measured (${[...kinds]})`);
-  for (const [key, worst] of p.worst) assert.ok(worst < 3, `${label}, ${key}: up to ${worst.toFixed(1)} degrees from the donor's`);
+  // On a corpse twin skeleton (the Ghoul's Death) the trunk line may be off up to 6 degrees: the corpse's waist is a root of
+  // its own, so the result's waist (under its root, on this model's pivots) turns about another place (Footman 5.4).
+  for (const [key, worst] of p.worst) assert.ok(worst < (p.corpse.has(key) && / spine /.test(key) ? 6 : 3), `${label}, ${key}: up to ${worst.toFixed(1)} degrees from the donor's`);
   assert.ok(p.armLength >= 0.8, `${label}: an arm is ${(p.armLength * 100).toFixed(0)}% of its rest length`);
   assert.ok(p.armReach >= 0.8, `${label}: an arm reaches ${(p.armReach * 100).toFixed(0)}% as far as the donor's`);
   assert.deepEqual(p.handsInside, [], `${label}: a hand inside the torso where the donor's is not`);
@@ -947,3 +958,36 @@ test('S2 Footman on the Banshee (no legs, hovers): the Footman rises and falls w
   });
   assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the Footman's lowest point is ${(worst.d / H).toFixed(2)} of his height off his own ground plus the Banshee's rise`);
 });
+
+// ------------------------------------------------------------------ donor corpse swap (xfer-overnight.md, 20 Nov 2026)
+// The Ghoul hides its living body in its Death and shows a corpse copy on a twin skeleton (joints named as the living ones
+// with 01). The model on the Ghoul stays visible all through the Death (it vanished: the owner's Berserker/Kurgan on the
+// Ghoul) and falls as the corpse does: its root > head line is as close to the corpse's as it is to the living Ghoul's
+// in Stand, Walk and Attack (this model's own proportions make that line differ a little everywhere).
+for (const [label, ownKey] of [['Berserker', 'transfer-berserker'], ['Kurgan', 'transfer-kurgan'], ['Footman', 'transfer-footman']]) {
+  test(`C1 ${label} on the Ghoul: visible all through the Ghoul's Death and falls as its corpse does`, { skip: missing(ownKey, 'transfer-ghoul') }, () => {
+    const { own, donor, model, report } = transplant(ownKey, 'transfer-ghoul');
+    const living = standLiving(own), total = living.reduce((n, g) => n + own.Geosets[g].Vertices.length, 0);
+    const nD = byId(donor), nM = byId(model), named = new Map([...nD.values()].map(n => [n.Name, n.ObjectId]));
+    const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), root = rigD.body, head = rigD.parts.head?.marker;
+    const lineOff = (index, twin) => {
+      const [a, b] = model.Sequences[index].Interval;
+      let worst = 0;
+      for (let k = 0; k <= 8; k++) {
+        const frame = Math.round(a + (b - a) * k / 8), md = sampleNodeMatrices(donor, frame, index), mm = sampleNodeMatrices(model, frame, index);
+        const d = at(donor, nD, md, twin(head)).sub(at(donor, nD, md, twin(root))), r = at(model, nM, mm, report.donorNodes[head]).sub(at(model, nM, mm, report.donorNodes[root]));
+        worst = Math.max(worst, d.angleTo(r) * 180 / Math.PI);
+      }
+      return worst;
+    };
+    const everyday = Math.max(...model.Sequences.map((s, i) => /^(stand|walk|attack)/i.test(s.Name) ? lineOff(i, id => id) : 0));
+    const index = model.Sequences.findIndex(s => /^death$/i.test(String(s.Name).trim())), [a, b] = model.Sequences[index].Interval;
+    for (let k = 0; k <= 8; k++) {
+      const frame = Math.round(a + (b - a) * k / 8), shown = living.filter(g => geosetShown(model, g, index, frame)).reduce((n, g) => n + own.Geosets[g].Vertices.length, 0);
+      assert.ok(shown >= 0.95 * total, `${frame}: ${(shown / total * 100).toFixed(0)}% of his living body shows`);
+    }
+    const death = lineOff(index, id => named.get(`${nD.get(id).Name}01`));
+    assert.ok(death <= everyday + 3, `Death: the root > head line is up to ${death.toFixed(1)} degrees off the corpse's (${everyday.toFixed(1)} off the living Ghoul's in Stand, Walk and Attack)`);
+    assert.ok(report.deathSwap.some(swap => /^death$/i.test(swap.sequence) && swap.twin), 'the swap is reported');
+  });
+}

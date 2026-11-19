@@ -427,6 +427,120 @@ function donorBodyAlpha(D) {
   return best;
 }
 
+/** Donor corpse swap (xfer-overnight.md, 20 Nov 2026; the owner's Berserker on the Ghoul vanished when it died). Where a
+ * donor animation of death kind hides the donor's living body (`donorBodyAlpha`) and shows a death body (its biggest
+ * geoset hidden in the Stand):
+ * - when the death body hangs on joints that twin the living ones (pivots within `TWIN_NEAR` hip heights, each under its
+ *   parent's twin; at least `TWIN_DEATH_SHARE` of its vertices), the living joints move as their twins do in that
+ *   animation (each pivot where its twin's goes, turned as it turns; baked every 33 ms and at the twins' keys) and the
+ *   living body shows where either shows;
+ * - otherwise, in a Death (not Decay or Dissipate), the living body shows where either shows (it follows the living joints).
+ * `D` (the engine's own copy of the donor) is changed in place. -> [{ sequence, twin, joints }] */
+const TWIN_DEATH_SHARE = 0.9;
+function donorDeathSwap(D, rigA) {
+  const done = [], stand = standSequenceIndex(D), body = donorBodyAlpha(D);
+  if (!rigA.ok || stand < 0 || !body) return done;
+  const nodes = allNodes(D), byId = new Map(nodes.map(n => [n.ObjectId, n])), tree = nodeIndex(D, nodes);
+  const isJoint = id => JOINT_KEYS.some(k => (D[k] || []).includes(byId.get(id)));
+  const alphaOf = g => (D.GeosetAnims || []).find(item => item.GeosetId === g)?.Alpha;
+  const keyed = track => track?.Keys?.length && !isGlobalTrack(track, D);
+  const bonesOf = (geoset, v) => { const skin = geoset.SkinWeights; return skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []); };
+  const standSequence = D.Sequences[stand];
+  const living = [], deathOnly = [];
+  (D.Geosets || []).forEach((geoset, g) => { const alpha = alphaOf(g); if (!keyed(alpha) || sampleShows(D, alpha, standSequence)) living.push(g); else deathOnly.push(g); });
+  const livingJoints = new Set();
+  for (const g of living) { const geoset = D.Geosets[g]; for (let v = 0; v < geoset.Vertices.length / 3; v++) for (const id of bonesOf(geoset, v)) for (const a of tree.ancestors(id, true)) livingJoints.add(a); }
+  const pivot = id => v3(nodePivot(D, byId.get(id), id)), near = TWIN_NEAR * rigA.hipHeight;
+  const show = (track, sequence, frame) => sampleTrack(track, frame, { interval: sequence.Interval, globalSequences: D.GlobalSequences, globalTime: 0, fallback: 1 });
+  const hasKeys = id => ['Translation', 'Rotation', 'Scaling'].some(p => byId.get(id)?.[p]?.Keys?.length);
+  D.Sequences.forEach((sequence, si) => {
+    if (!sequence.Interval || !DEATH_KIND.test(String(sequence.Name || ''))) return;
+    const [a, b] = sequence.Interval, probe = [a, (a + b) >> 1, b, ...body.Keys.map(k => k.Frame).filter(f => f > a && f < b)];
+    if (probe.every(f => show(body, sequence, f) > 0.001)) return;
+    // The death body: the biggest geoset hidden in the Stand that shows here.
+    let deathGeoset = -1;
+    for (const g of deathOnly) if (sampleShows(D, alphaOf(g), sequence) && (deathGeoset < 0 || D.Geosets[g].Vertices.length > D.Geosets[deathGeoset].Vertices.length)) deathGeoset = g;
+    if (deathGeoset < 0) return;
+    const geoset = D.Geosets[deathGeoset], count = geoset.Vertices.length / 3;
+    // Its joints' twins among the living joints (a joint of the living body is its own twin).
+    const corpse = new Set();
+    for (let v = 0; v < count; v++) for (const id of bonesOf(geoset, v)) for (const x of tree.ancestors(id, true)) if (isJoint(x) && !livingJoints.has(x)) corpse.add(x);
+    const twin = new Map(), candidates = [...livingJoints].filter(isJoint);
+    for (const c of [...corpse].sort((x, y) => tree.ancestors(x).length - tree.ancestors(y).length)) {
+      const parent = tree.parentOf(c), up = parent == null ? null : livingJoints.has(parent) ? parent : twin.get(parent), at = pivot(c);
+      let best = null, score = Infinity;
+      for (const l of candidates) {
+        if (up != null && l !== up && !tree.ancestors(l).includes(up)) continue;
+        const d = at.distanceTo(pivot(l));
+        if (d > near) continue;
+        const s = d + (up != null && tree.parentOf(l) !== up ? near : 0); // a direct child of the parent's twin first
+        if (s < score) { score = s; best = l; }
+      }
+      if (best != null) twin.set(c, best);
+    }
+    let twinned = 0;
+    for (let v = 0; v < count; v++) if (bonesOf(geoset, v).every(id => livingJoints.has(id) || twin.has(id))) twinned++;
+    const isTwin = count > 0 && twinned >= TWIN_DEATH_SHARE * count;
+    if (!isTwin && (!/death/i.test(String(sequence.Name || '')) || /decay|dissipate/i.test(String(sequence.Name || '')))) return;
+    let moved = 0;
+    if (isTwin && twin.size) {
+      // Each living joint's world placement: its twin's where it has one, else carried by its parent (own local motion).
+      const order = [...livingJoints].filter(isJoint).sort((x, y) => tree.ancestors(x).length - tree.ancestors(y).length);
+      const livingTwin = new Map(); for (const [c, l] of twin) if (!livingTwin.has(l)) livingTwin.set(l, c);
+      const frames = new Set([a, b]);
+      for (let f = a; f < b; f += 33) frames.add(Math.round(f));
+      for (const c of twin.keys()) for (const p of ['Translation', 'Rotation', 'Scaling']) for (const k of byId.get(c)?.[p]?.Keys || []) if (k.Frame > a && k.Frame < b) frames.add(k.Frame);
+      const sorted = [...frames].sort((x, y) => x - y);
+      const writes = new Map(); // living joint -> [{ frame, t, r, s }]
+      const skip = l => { const c = livingTwin.get(l); return c == null || (!hasKeys(l) && !hasKeys(c) && (tree.parentOf(l) ?? null) === (tree.parentOf(c) == null ? null : livingJoints.has(tree.parentOf(c)) ? tree.parentOf(c) : twin.get(tree.parentOf(c)) ?? -2)); };
+      const global = l => ['Translation', 'Rotation', 'Scaling'].some(p => byId.get(l)?.[p]?.Keys?.length && isGlobalTrack(byId.get(l)[p], D));
+      for (const frame of sorted) {
+        const W = sampleNodeMatrices(D, frame, si), placed = new Map();
+        for (const l of order) {
+          const parent = tree.parentOf(l), P = parent != null && byId.has(parent) ? placed.get(parent) ?? W.get(parent) : null;
+          const c = livingTwin.get(l);
+          // Its pivot goes where the twin's goes (turned as the twin turns), so the joints stand exactly as the corpse's.
+          if (c != null) placed.set(l, W.get(c).clone().multiply(new Matrix4().makeTranslation(pivot(c).sub(pivot(l)))));
+          else placed.set(l, P ? P.clone().multiply(safeInverse(W.get(parent)) ?? new Matrix4()).multiply(W.get(l)) : W.get(l).clone());
+          if (skip(l) || global(l)) continue;
+          const local = (P ? safeInverse(P) ?? new Matrix4() : new Matrix4()).multiply(placed.get(l));
+          const pos = new Vector3(), r = new Quaternion(), s = new Vector3();
+          local.decompose(pos, r, s);
+          const p = pivot(l), t = pos.sub(p).add(p.clone().multiply(s).applyQuaternion(r));
+          if (!writes.has(l)) writes.set(l, []);
+          writes.get(l).push({ frame, t, r, s });
+        }
+      }
+      for (const [l, list] of writes) {
+        const node = byId.get(l);
+        for (let i = 1; i < list.length; i++) if (list[i].r.dot(list[i - 1].r) < 0) list[i].r.set(-list[i].r.x, -list[i].r.y, -list[i].r.z, -list[i].r.w);
+        const scaled = node.Scaling?.Keys?.length || list.some(k => Math.abs(k.s.x - 1) + Math.abs(k.s.y - 1) + Math.abs(k.s.z - 1) > 1e-3);
+        for (const [property, get, size] of [['Translation', k => k.t.toArray(), 3], ['Rotation', k => k.r.toArray(), 4], ...(scaled ? [['Scaling', k => k.s.toArray(), 3]] : [])]) {
+          if (!node[property]?.Keys) node[property] = { LineType: 1, GlobalSeqId: null, Keys: [] };
+          const track = node[property], type = track.LineType, template = track.Keys[0]?.Vector ?? new Float32Array(size);
+          const rest = track.Keys.filter(k => k.Frame < a || k.Frame > b);
+          const fresh = list.map(k => { const vector = like(template, get(k)), key = { Frame: k.frame, Vector: vector }; if (type >= 2) { const tan = property === 'Rotation' || type === 3 ? vector : like(template, new Array(size).fill(0)); key.InTan = tan; key.OutTan = tan; } return key; });
+          track.Keys = [...rest, ...fresh].sort((x, y) => x.Frame - y.Frame);
+        }
+        moved++;
+      }
+    }
+    // Visibility: the living body shows where it or the death body shows.
+    const death = alphaOf(deathGeoset);
+    for (const g of living) {
+      const alpha = alphaOf(g);
+      if (!keyed(alpha)) continue;
+      const frames = [...new Set([a, b, ...alpha.Keys.map(k => k.Frame), ...death.Keys.map(k => k.Frame)].filter(f => f >= a && f <= b))].sort((x, y) => x - y);
+      const values = frames.map(f => Math.max(show(alpha, sequence, f), show(death, sequence, f)));
+      const template = alpha.Keys[0].Vector;
+      alpha.Keys = [...alpha.Keys.filter(k => k.Frame < a || k.Frame > b), ...frames.map((f, i) => { const k = { Frame: f, Vector: like(template, [values[i]]) }; if (alpha.LineType >= 2) { k.InTan = like(template, [values[i]]); k.OutTan = like(template, [values[i]]); } return k; })].sort((x, y) => x.Frame - y.Frame);
+    }
+    done.push({ sequence: sequence.Name, twin: isTwin, joints: moved });
+  });
+  if (done.length) clearTransferCache(D);
+  return done;
+}
+
 /** The open model's mesh on the donor's skeleton with the donor's animations.
  * -> { model, report } where model is a new model object (the caller swaps it in as one undo
  * step) and report = { fit: 'good' | 'poor', reasons: [...], follows: share of the body skin that follows the donor,
@@ -456,6 +570,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }) : rigA0;
   // The donor's node data in this model's format (materials and versioned fields).
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
+  // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
+  const deathSwap = donorDeathSwap(D, rigA);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
   if (!(D.Sequences || []).some(s => s.Interval)) hard.push('The donor has no animations.');
@@ -1358,7 +1474,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, twins: twin.size,
+      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, twins: twin.size, deathSwap,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
