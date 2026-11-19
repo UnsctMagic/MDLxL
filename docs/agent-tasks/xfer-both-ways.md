@@ -966,3 +966,25 @@ Proof:
   problems.
 - 100 previously fine pairs (`fine-pairs.json`, `hash-fine.mjs`, `diffall.mjs`): 53 identical; 47 differ only in tracks
   that had zero keys and now hold the renderer's no-key value or were removed (node moves): same picture.
+
+## Package D, feet moved once: result (builder: Claude Opus, 19 Nov 2026)
+
+Contract: [xfer-transplant-fixes.md](xfer-transplant-fixes.md), package D. Only `src/skeleton-transplant.js` (`feetDown`
+movers, `settleFeet`, new `bodyMover`) and its test changed; fixture key `transfer-gargoyle` added. Scripts and data in
+`out/transfer-probe/fix-design/d-check/` and `fingerprint-{preD,postD2}-*.jsonl`.
+- **One deviation from the contract, to meet its own proof:** `bodyMover` climbs to the topmost free joint only when
+  the line above the body joint reaches a joint that is moved anyway (a parentless donor joint in `loose`); otherwise
+  the body joint alone moves, as before. As written ("always climb"), the Khorne Knight Axe as open model on ten
+  legless donors changed (20 runs): its result keeps its own `Bone_Root` under its own `HorseBONE_ABDOMEN_Death`,
+  which was never moved twice (`khorne-line.mjs`).
+- Tests D1 (Footman on the Gargoyle: lower foot within 0.06 hip heights of the Gargoyle's times travel; before 0.513
+  off in Morph) and D2 (`Dummy01` carries the height, `Bone_Root` keys as with feet free) fail on the old engine and
+  pass. skeleton-transplant + transplant-skin 35/35, anim-transfer + transfer-window 83/83, `baseline.mjs x` vs `w`:
+  32 compared, 0 differ.
+- Fingerprint (`fingerprint-compare.mjs preD postD2 D`, 3,068 runs, 2 idle processes): 2,600 must-be-identical runs,
+  0 differ; all 468 runs on the nine donors changed, no throws before or after.
+- Feet on the nine donors (`feet-d.mjs`, 234 pairs, every animation but death/decay/portrait, 13 moments, off target =
+  over 0.1 hip heights): before 2,126 of 2,392 animations in 227 pairs; after 17 animations in 4 pairs, all the Naga
+  Myrmidon as open model at size 0.00 (class 1, packages A/B, not the feet).
+- Class 5 note (weapon bone = the donor's head on ~20 donors): not in the functions D touches (it is the weapon-bone
+  choice in `transplantSkeleton`, `armOf(bone)` is null for a head so the head is taken). Left for its own work.

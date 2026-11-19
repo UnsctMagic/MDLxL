@@ -519,3 +519,29 @@ test('C9 safety net: a donor key that is not a number never reaches the result; 
   assert.deepEqual(nonFinite(model), []);
   assert.ok(report.reasons.some(reason => /not a number/i.test(reason)), report.reasons.join(' | '));
 });
+
+// ------------------------------------------------------------------ package D: the body is moved once
+test('D1 a body joint under another joint is moved once: Footman on the Gargoyle, the lower foot as high as the Gargoyle\'s times travel (within 0.06 hip heights) in every animation but death and decay', { skip: missing('transfer-footman', 'transfer-gargoyle') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-gargoyle');
+  [own, donor, model].forEach(clearTransferCache);
+  const rigO = transferRig(own, { sequence: standSequenceIndex(own) }), rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), rigM = transferRig(model, { sequence: standSequenceIndex(model) });
+  const legEnds = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  const feetM = legEnds(rigM), feetD = legEnds(rigD), nM = byId(model), nD = byId(donor), travel = report.counts.travel;
+  assert.ok(feetM.length && feetD.length, 'both stand on legs');
+  let worst = 0, where = '';
+  for (const [index, frame] of moments(model, 12, /decay|portrait|death/i)) {
+    const mm = sampleNodeMatrices(model, frame, index), md = sampleNodeMatrices(donor, frame, index);
+    const mine = Math.min(...feetM.map(id => at(model, nM, mm, id).z)) - rigO.ground;
+    const theirs = (Math.min(...feetD.map(id => at(donor, nD, md, id).z)) - rigD.ground) * travel;
+    const off = Math.abs(mine - theirs) / rigO.hipHeight;
+    if (off > worst) { worst = off; where = `${model.Sequences[index].Name} at ${frame}: ${mine.toFixed(1)} against ${theirs.toFixed(1)}`; }
+  }
+  assert.ok(worst < 0.06, `the lower foot is up to ${worst.toFixed(3)} hip heights off the Gargoyle's (${where})`);
+});
+
+test('D2 one joint carries the height: Footman on the Gargoyle, feet down changes Dummy01\'s position keys and leaves Bone_Root\'s as with feet free', { skip: missing('transfer-footman', 'transfer-gargoyle') }, () => {
+  const down = transplant('transfer-footman', 'transfer-gargoyle').model, free = transplant('transfer-footman', 'transfer-gargoyle', { feet: 'free' }).model;
+  const keys = (model, name) => JSON.stringify(allNodes(model).find(n => n.Name.trim() === name)?.Translation?.Keys ?? null, (key, value) => ArrayBuffer.isView(value) ? Array.from(value) : value);
+  assert.notEqual(keys(down, 'Dummy01'), keys(free, 'Dummy01'), 'feet down moves Dummy01');
+  assert.equal(keys(down, 'Bone_Root'), keys(free, 'Bone_Root'), 'Bone_Root, under Dummy01, is not moved again');
+});

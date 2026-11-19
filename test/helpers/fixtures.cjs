@@ -58,6 +58,7 @@ const FIXTURES = {
   'transfer-villager': ['MDLXL_TRANSFER_VILLAGER', testModel('corpus-sd/critters__villagerman.mdx')],
   'transfer-red-dragon': ['MDLXL_TRANSFER_RED_DRAGON', testModel('corpus-sd/creeps__reddragon.mdx')], // the root scales to zero in Death: the whole body goes
   'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
+  'transfer-gargoyle': ['MDLXL_TRANSFER_GARGOYLE', testModel('corpus-sd/undead__gargoyle.mdx')], // its body joint Bone_Root hangs under Dummy01, a parentless joint
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };

@@ -967,6 +967,17 @@ function groundShift(M, rigM, rigB) {
   if (!legs.length || !rigB.ok) return 0;
   return rigB.ground - rigM.ground;
 }
+/** The joint that moves the body up and down. When the body joint hangs under a joint that is moved anyway (a parentless
+ * donor joint in `loose`), moving both moved the body twice: then it is the topmost joint above the body joint whose
+ * position keys are not on a global sequence (else the body joint), and the joints on that line are not moved again.
+ * Otherwise (no joint above it, or only the open model's own) the body joint alone, as before. */
+function bodyMover(M, body, loose = []) {
+  const joint = node => node && JOINT_KEYS.some(key => (M[key] || []).includes(node)), line = [body];
+  for (let parent = M.Nodes[body]?.Parent; parent != null && parent !== -1 && joint(M.Nodes[parent]); parent = M.Nodes[parent].Parent) line.unshift(parent);
+  const free = id => !(M.Nodes[id]?.Translation?.Keys?.length && isGlobalTrack(M.Nodes[id].Translation, M));
+  if (!line.some(id => id !== body && loose.includes(id))) return { mover: body, line: new Set([body]) };
+  return { mover: line.find(free) ?? body, line: new Set(line) };
+}
 function shiftBody(M, body, dz, loose = []) {
   if (Math.abs(dz) < 1e-3) return;
   for (const id of new Set([body, ...loose])) shiftNode(M, id, dz);
@@ -1000,7 +1011,8 @@ function feetDown(M, D, rigB, rigA, loose, travel) {
   const legsOf = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
   const feetM = legsOf(rigM), feetA = legsOf(rigA);
   if (!feetM.length || !feetA.length) return;
-  const movers = [...new Set([rigM.body, ...loose])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+  const { mover, line } = bodyMover(M, rigM.body, loose);
+  const movers = [...new Set([mover, ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval), donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
   const lowest = (model, byId, feet, ground, sequence, frame) => { const m = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => v3(nodePivot(model, byId(id), id)).applyMatrix4(m.get(id)).z)) - ground; };
   const tolerance = 0.01 * rigB.hipHeight;
@@ -1095,6 +1107,7 @@ function settleFeet(M, rigB, rigA, remap, offset, reasons, loose = []) {
   clearTransferCache(M);
   const rigM = transferRig(M, { sequence: stand >= 0 ? stand : undefined });
   if (!rigM.ok) { reasons.push(`The result's body was not recognised: ${rigM.problems.join(' ')}`); return; }
-  shiftBody(M, rigM.body, groundShift(M, rigM, rigB), loose);
+  const { mover, line } = bodyMover(M, rigM.body, loose);
+  shiftBody(M, mover, groundShift(M, rigM, rigB), loose.filter(id => !line.has(id)));
   void rigA; void remap; void offset;
 }
