@@ -949,8 +949,9 @@ async function ridersStory() {
     assert.equal(recipe.sources[knightId].actor, 'seated', 'riders: the donor reads as the rider (sources[id].actor)');
     for (const key of ['hips', 'legL', 'legR']) assert.equal(recipe.parts[key].match, 1, `riders: ${key} takes the rider at Pose Theirs`);
     assert.notEqual(await motion(page), standing, 'riders: the result changes: the legs take the seat');
-    await dialog.locator('button[data-part="hips"]').click(); await page.waitForTimeout(300);
-    assert.equal(await dialog.locator('input[data-field="match"]').inputValue(), '100', 'riders: the Pose slider shows Theirs');
+    // A leg's Pose slider shows its `match`; the trunk's shows `stance`, which a seated rider leaves alone (seatedMatch).
+    await dialog.locator('button[data-part="legL"]').click(); await page.waitForTimeout(300);
+    assert.equal(await dialog.locator('input[data-field="match"]').inputValue(), '100', 'riders: the left leg\'s Pose slider shows Theirs');
     await s.shot('02-rider-whole-body-footman-seated', shots7b);
     const before = await s.count();
     await dialog.getByRole('button', { name: 'Add animation' }).click(); await page.waitForTimeout(1500);
@@ -1266,6 +1267,16 @@ async function sweep() {
     await page.keyboard.press('Control+z'); await page.waitForTimeout(300); clicked.push('window Ctrl+Z');
     assert.ok(await dialog.locator('input[data-part-switch]:checked').count() > 0, 'Ctrl+Z in the window brings the cleared parts back');
     await page.keyboard.press('Control+y'); await page.waitForTimeout(300); clicked.push('window Ctrl+Y');
+    // Both modes: Transplant (the Footman on the Grunt's skeleton), each of its settings, and back to Retarget unchanged.
+    const takenBefore = await dialog.locator('input[data-part-switch]:checked').count();
+    await click(dialog.locator('button[data-mode="transplant"]'), 'Transplant mode');
+    await s.view('Result').locator('.game-preview-root').waitFor({ timeout: 60000 });
+    for (const name of ['Sounds', 'Effects']) { await click(dialog.getByLabel(name, { exact: true }), name); await page.waitForTimeout(1500); await click(dialog.getByLabel(name, { exact: true }), name + ' back'); }
+    for (const box of await dialog.locator('[data-keep] input').all()) { await click(box, 'Keep'); await page.waitForTimeout(1000); await click(box, 'Keep back'); }
+    await click(s.view('Result').locator('.xs-strip').getByRole('button', { name: /Pause|Play/ }), 'transplant result Play/Pause');
+    await page.waitForTimeout(1500); await s.noCrash('transplant settings');
+    await click(dialog.locator('button[data-mode="retarget"]'), 'Retarget mode');
+    assert.equal(await dialog.locator('input[data-part-switch]:checked').count(), takenBefore, 'Retarget keeps its taken parts after Transplant mode');
     const tabs = await page.locator('.model-tab').count();
     await click(dialog.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel');
     await openTransfer(s); clicked.push('reopen');
@@ -1431,6 +1442,111 @@ async function setStory() {
   } finally { await s.close(); }
 }
 
+// Transplant mode (docs/agent-tasks/xfer-both-ways.md "Transplant in the window"): the Kurgan onto the
+// Tauren's skeleton through the window, every setting toggled, one Transplant, one Undo. Screenshots in
+// out/transplant-ui (MDLXL_TRANSPLANT_SHOTS).
+async function transplantStory() {
+  const kurganFile = fixturePath('transfer-kurgan'), taurenFile = fixturePath('transfer-tauren');
+  if (![kurganFile, taurenFile].every(file => file && fs.existsSync(file))) { results.checks.push('transplant: the Kurgan or the Tauren is not on this machine, skipped'); return; }
+  const shotsT = path.resolve(process.env.MDLXL_TRANSPLANT_SHOTS || 'out/transplant-ui'); fs.mkdirSync(shotsT, { recursive: true });
+  const kurgan = copyModel('transfer-kurgan', 'TEST TRANSPLANT WINDOW 01.mdx'), tauren = copyModel('transfer-tauren', 'tauren donor transplant.mdx');
+  const magnataurFile = fixturePath('transfer-magnataur'), magnataur = magnataurFile && fs.existsSync(magnataurFile) ? copyModel('transfer-magnataur', 'magnataur donor transplant.mdx') : null;
+  const own = await readModel(kurgan), donorModel = await readModel(tauren), donorNames = donorModel.Sequences.map(q => q.Name), ownNames = own.Sequences.map(q => q.Name);
+  const state = page => page.evaluate(() => window.__mdlxl.transfer());
+  const until = async (read, ok, what, ms = 90000) => { let last; for (const end = Date.now() + ms; Date.now() < end;) { last = await read(); if (ok(last)) return last; await new Promise(r => setTimeout(r, 150)); } throw new Error(`transplant: ${what} (last: ${JSON.stringify(last)?.slice(0, 400)})`); };
+  const s = await session(kurgan, 'transplant'), { page, dialog } = s, clicked = [];
+  const click = async (locator, what) => { await locator.click(); await page.waitForTimeout(250); clicked.push(what); await s.noCrash(what); };
+  const settings = () => dialog.locator('aside[aria-label="Transplant"]'), button = () => dialog.locator('button[data-hotkey="transfer:transplant"]');
+  const shown = () => page.evaluate(() => { const root = document.querySelector('[role="dialog"][aria-label="Transfer"] section[aria-label="Result"] .game-preview-root'); if (!root) return null; const p = window.__mdlxl.preview(root).props; return { names: p.model.Sequences.map(q => q.Name), sequence: p.model.Sequences[p.sequenceIndex]?.Name, bones: p.model.Bones.length }; });
+  const ready = (what, test = () => true) => until(() => state(page), v => v.transplant?.ready && test(v.transplant), what);
+  const cameraOf = async name => (await s.probe(name)).camera.object.matrix.map(v => Math.round(v * 1000) / 1000).join(',');
+  try {
+    await openTransfer(s);
+    assert.equal(await dialog.locator('button[data-mode="retarget"]').getAttribute('aria-pressed'), 'true', 'transplant: the window opens in Retarget');
+    await click(dialog.locator('button[data-mode="transplant"]'), 'Transplant mode');
+    assert.equal(await dialog.locator('button[data-mode="transplant"]').getAttribute('aria-pressed'), 'true', 'transplant: Transplant is pressed');
+    assert.equal(await s.parts().count(), 0, 'transplant: the parts column is replaced');
+    assert.equal(await dialog.locator('.xt-lane').count(), 0, 'transplant: no clip timeline');
+    for (const name of ['Add animation', 'Add all', 'Take whole body']) assert.equal(await dialog.getByRole('button', { name, exact: true }).count(), 0, `transplant: no ${name}`);
+    assert.equal(await settings().getByLabel('Sounds').isChecked(), true, 'transplant: Sounds on at first');
+    assert.equal(await settings().getByLabel('Effects').isChecked(), false, 'transplant: Effects off at first');
+    assert.equal(await button().isDisabled(), true, 'transplant: Transplant waits for a donor');
+    assert.match(await s.view('Result').innerText(), /Choose a model under From/, 'transplant: the result view asks for a donor');
+    await s.shot('01-transplant-mode-empty', shotsT);
+    results.checks.push('transplant: the switch shows the settings column (Sounds on, Effects off), no parts, timeline or Add buttons; Transplant waits for a donor');
+    if (magnataur) {
+      // A poor fit is named with its reason; the transplant is still offered.
+      await s.openDonor(magnataur);
+      const poor = await ready('the Magnataur result', t => t.fit === 'poor');
+      await settings().locator('.xf-poor').waitFor({ timeout: 30000 });
+      assert.match(await settings().locator('.xf-poor').innerText(), /Poor fit[\s\S]+\w/, 'transplant: the poor-fit line shows with a reason');
+      assert.equal(await button().isEnabled(), true, 'transplant: a poor fit can still be transplanted');
+      results.checks.push(`transplant: the Kurgan on the Magnataur shows "Poor fit" with ${poor.transplant.reasons.length} reason(s); Transplant stays enabled`);
+    }
+    await s.openDonor(tauren);
+    await ready('the Tauren result', t => t.fit === 'good');
+    assert.equal(await settings().locator('.xf-poor').count(), 0, 'transplant: no poor-fit line for a good fit');
+    let view = await until(shown, v => v && JSON.stringify(v.names) === JSON.stringify(donorNames), 'the result view plays the transplanted model with the Tauren\'s animations');
+    await s.animation('Walk');
+    view = await until(shown, v => v?.sequence === 'Walk', 'the result view plays the donor view\'s Walk');
+    await s.animation('Attack - 1'); await until(shown, v => v?.sequence === 'Attack - 1', 'the result view follows the donor view to Attack - 1'); clicked.push('animation Walk', 'animation Attack - 1');
+    await s.view('Result').getByLabel('Animation in this view').selectOption({ label: 'Walk' }); await page.waitForTimeout(400); clicked.push('result view: Walk');
+    assert.equal(await s.probe('Donor').then(p => p.sequence), donorNames.indexOf('Walk'), 'transplant: choosing in the result view moves the donor view too');
+    await s.shot('02-transplant-tauren-picked', shotsT);
+    results.checks.push(`transplant: the result view shows the Kurgan on the Tauren skeleton (${view.bones} bones, the Tauren's ${donorNames.length} animations) and plays the donor view's animation both ways`);
+    await s.dragCamera('Result'); clicked.push('result camera drag');
+    const camera = await cameraOf('Result');
+    // Every setting: Sounds, Effects, each Keep, Mirror; each rebuilds the result and keeps the camera.
+    const settle = async (what, test) => { await ready(what, test); await page.waitForTimeout(300); assert.equal(await cameraOf('Result'), camera, `transplant: ${what} keeps the result camera`); };
+    const first = (await state(page)).transplant;
+    await click(settings().getByLabel('Sounds'), 'Sounds off'); await settle('Sounds off', t => t.options.events === false);
+    await click(settings().getByLabel('Sounds'), 'Sounds on'); await settle('Sounds on', t => t.options.events === true && t.events === first.events);
+    await click(settings().getByLabel('Effects'), 'Effects on'); const fx = (await ready('Effects on', t => t.options.emitters === true)).transplant; await settle('Effects on', t => t.options.emitters === true);
+    assert.ok(fx.emitters > first.emitters, `transplant: Effects brings the donor's effects (${first.emitters} -> ${fx.emitters})`);
+    await click(settings().getByLabel('Effects'), 'Effects off'); await settle('Effects off', t => t.options.emitters === false);
+    const extras = first.extras;
+    assert.ok(extras.length > 0, 'transplant: the Kurgan lists Keep options');
+    assert.equal(await settings().locator('[data-keep]').count(), extras.length, 'transplant: one Keep box per extra');
+    for (const extra of extras) {
+      const box = settings().locator(`[data-keep="${extra.id}"] input`);
+      assert.equal(await box.isChecked(), false, `transplant: Keep ${extra.name} off at first`);
+      await click(box, 'Keep ' + extra.name); await settle('Keep ' + extra.name, t => t.options.keep.includes(extra.id) && t.extras.find(e => e.id === extra.id)?.kept);
+      await click(box, 'Keep off ' + extra.name); await settle('Keep off ' + extra.name, t => !t.options.keep.includes(extra.id));
+    }
+    const mirror = s.view('Donor').getByRole('button', { name: 'Mirror' }), mirrored = (await state(page)).transplant.options.mirror;
+    await click(mirror, 'Mirror'); await settle('Mirror', t => t.options.mirror === !mirrored);
+    await click(mirror, 'Mirror back'); await settle('Mirror back', t => t.options.mirror === mirrored);
+    results.checks.push(`transplant: Sounds, Effects (${first.emitters} -> ${fx.emitters} effects), ${extras.length} Keep boxes (${extras.map(e => e.name).join(', ')}) and Mirror each rebuild the result; the camera stays where it was dragged`);
+    // Transport of the result view.
+    await click(s.view('Result').locator('.xs-strip').getByRole('button', { name: /Pause|Play/ }), 'result Play/Pause');
+    await s.view('Result').getByLabel('Viewing speed').selectOption('50'); clicked.push('result speed');
+    const rs = await s.view('Result').getByLabel('Time in this view').boundingBox();
+    await page.mouse.move(rs.x + 3, rs.y + rs.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(rs.x + rs.width * i / 7, rs.y + rs.height / 2); await page.waitForTimeout(20); }
+    await page.mouse.up(); clicked.push('result scrub'); await s.noCrash('result scrub');
+    // Transplant: in place, one Undo step.
+    const tabs = await page.locator('.model-tab').count();
+    await click(button(), 'Transplant');
+    await dialog.getByText('Transplanted', { exact: true }).waitFor({ timeout: 120000 });
+    const after = await until(() => page.evaluate(() => { const m = window.__mdlxl.model(); return { names: m.Sequences.map(q => q.Name), bones: [...m.Bones, ...(m.Helpers || [])].map(b => b.Name), cameras: (m.Cameras || []).map(c => c.Name) }; }), v => JSON.stringify(v.names) === JSON.stringify(donorNames), 'the open model has the Tauren\'s animation list');
+    assert.equal(await page.locator('.model-tab').count(), tabs, 'transplant: no new tab');
+    assert.deepEqual(after.cameras, (own.Cameras || []).map(c => c.Name), 'transplant: the model keeps its own camera');
+    const donorJoints = new Set([...donorModel.Bones, ...(donorModel.Helpers || [])].map(b => b.Name)), theirs = after.bones.filter(name => donorJoints.has(name)).length;
+    assert.ok(theirs >= 30, `transplant: the model has the Tauren's joints (${theirs} of its ${after.bones.length} by name)`);
+    assert.equal(await button().isDisabled(), true, 'transplant: Transplant is done for these settings');
+    await s.shot('03-transplant-done', shotsT);
+    results.checks.push(`transplant: Transplant puts the Kurgan on the Tauren skeleton in place (${after.names.length} animations: the Tauren's; ${theirs} of its ${after.bones.length} joints are the Tauren's by name; own camera kept; no new tab)`);
+    await click(dialog.getByRole('button', { name: 'Retarget', exact: true }), 'Retarget mode');
+    assert.equal(await s.parts().count(), 1, 'transplant: Retarget brings the parts column back');
+    await click(dialog.getByRole('button', { name: 'Close Transfer' }), 'close');
+    await page.keyboard.press('Control+Z');
+    const back = await until(() => page.evaluate(() => { const m = window.__mdlxl.model(); return { names: m.Sequences.map(q => q.Name), bones: m.Bones.length }; }), v => JSON.stringify(v.names) === JSON.stringify(ownNames), 'one Undo puts the Kurgan back');
+    assert.equal(back.bones, own.Bones.length, 'transplant: one Undo restores the Kurgan\'s own bones');
+    results.checks.push(`transplant: one Undo restores the Kurgan (${ownNames.length} animations, ${own.Bones.length} bones); ${clicked.length} controls clicked, no crash or page error`);
+    await s.noCrash('transplant');
+  } finally { await s.close(); }
+}
+
 // Director trials: whole body onto very different rigs, caught mid-movement.
 async function trials() {
   const footman = copyModel('transfer-footman', 'footman donor 3.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor 3.mdx');
@@ -1461,9 +1577,9 @@ async function trials() {
 (async () => {
   fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true }); fs.mkdirSync(shots8, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'set', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'set', 'transplant', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['set', setStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['set', setStory], ['transplant', transplantStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

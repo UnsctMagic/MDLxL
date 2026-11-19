@@ -382,3 +382,38 @@ test('Add all on the Kurgan from the Tauren: replaces the names it has by defaul
   const dissipate = kurgan.Sequences.findIndex(s => s.Name === 'Dissipate');
   assert.equal(names[sequenceIndexAfter(dissipate, count, all)], 'Dissipate');
 });
+
+// Transplant mode (the window's second mode): the engine options from its settings, the animation
+// the result view plays for the donor view's, and the whole-model swap the Transplant button makes.
+test('Transplant settings: Sounds on, Effects off, Keep off by default; Keep lists only offered extras', async () => {
+  const { transplantOptions } = await import('../src/transfer-window.js');
+  assert.deepEqual(transplantOptions(), { events: true, emitters: false, keep: [], mirror: false });
+  assert.deepEqual(transplantOptions({ sounds: false, effects: true, keep: [9, 4, 4], mirror: true }), { events: false, emitters: true, keep: [4, 9], mirror: true });
+  assert.deepEqual(transplantOptions({ keep: [4, 9] }, [{ id: 9, name: 'Hammer' }]).keep, [9], 'an id the report does not list is dropped');
+});
+
+test('Transplant on the Kurgan from the Tauren: the result plays the donor view\'s animation, and one swap makes the model the result', { skip: missing('transfer-kurgan', 'transfer-tauren') }, async () => {
+  const { transplantOptions, transplantSequence, replaceModelContents } = await import('../src/transfer-window.js');
+  const { transplantSkeleton } = await import('../src/skeleton-transplant.js');
+  const kurgan = load('transfer-kurgan'), tauren = load('transfer-tauren');
+  const quiet = transplantSkeleton(kurgan, tauren, { ...transplantOptions({ sounds: false }), extents: false });
+  const { model, report } = transplantSkeleton(kurgan, tauren, { ...transplantOptions(), extents: false });
+  assert.equal(report.fit, 'good');
+  assert.ok(report.extras.length > 0, 'the Kurgan lists extras to keep');
+  // Sounds: the donor's events come with Sounds on, not with it off.
+  const names = m => (m.EventObjects || []).map(node => node.Name).sort();
+  assert.deepEqual(names(model), names(tauren));
+  assert.notDeepEqual(names(quiet.model), names(tauren));
+  // Each donor animation has the result's animation of the same name, wherever it sits.
+  tauren.Sequences.forEach((sequence, i) => assert.equal(model.Sequences[transplantSequence(model, tauren, i)].Name, sequence.Name));
+  const reordered = { Sequences: [...model.Sequences].reverse() };
+  assert.equal(reordered.Sequences[transplantSequence(reordered, tauren, 0)].Name, tauren.Sequences[0].Name);
+  assert.equal(transplantSequence({ Sequences: [] }, tauren, 0), -1);
+  // The swap: the open model object now holds the result's sections, and sections the result lacks are gone.
+  const own = load('transfer-kurgan'), extra = Symbol('kept'); own[extra] = 1; own.OnlyMine = [1];
+  replaceModelContents(own, model);
+  assert.equal(own.OnlyMine, undefined);
+  assert.deepEqual(own.Sequences.map(s => s.Name), tauren.Sequences.map(s => s.Name));
+  assert.equal(own.Bones, model.Bones);
+  assert.equal(own[extra], 1, 'non-section data on the model object stays');
+});

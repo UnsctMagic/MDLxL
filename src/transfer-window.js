@@ -370,3 +370,27 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase, feature
   }
   return { recipe: { base: { sequence: body >= 0 ? body : fallbackBase, ...(setup.bodyActor ? { actor: setup.bodyActor } : {}) }, length: setup.length ?? null, sources, parts, ...(kept ? { features: kept } : {}) }, left: [...new Set(left)] };
 }
+
+// ---------------------------------------------------------------- Transplant mode
+/** The transplant engine's options from the Transplant settings: Sounds (the donor's events, on),
+ * Effects (the donor's particle effects, off), Keep (own extras whose bone stays; only ids the
+ * engine's report lists, when it is given) and the donor caption's Mirror. */
+export function transplantOptions({ sounds = true, effects = false, keep = [], mirror = false } = {}, extras = null) {
+  const offered = extras ? new Set(extras.map(extra => extra.id)) : null;
+  return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror };
+}
+
+/** The transplanted model's animation that matches the donor's `sequence`: the one of the same
+ * name, else the one at the same place in the list; -1 when there is none. */
+export function transplantSequence(result, donor, sequence) {
+  const list = result?.Sequences || [], name = donor?.Sequences?.[sequence]?.Name;
+  const named = name == null ? -1 : list.findIndex(item => item.Name === name);
+  return named >= 0 ? named : sequence >= 0 && sequence < list.length ? sequence : -1;
+}
+
+/** Puts every section of `next` in place of `target`'s (the transplant swaps the whole model in
+ * one edit): sections `next` lacks are removed, the rest replaced. Returns `target`. */
+export function replaceModelContents(target, next) {
+  for (const key of Object.keys(target)) if (!Object.hasOwn(next, key)) delete target[key];
+  return Object.assign(target, next);
+}

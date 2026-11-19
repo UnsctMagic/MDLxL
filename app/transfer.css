@@ -172,3 +172,9 @@
 .transfer-xl .xf-feature-name{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .transfer-xl .xf-feature>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
 .transfer-xl .xf-list .xf-feature.xf-off{opacity:.5}
+/* Retarget / Transplant switch over the three columns; Transplant's settings in the right column. */
+.transfer-xl .xf-modes{display:flex;gap:4px;padding:8px 8px 0}
+.transfer-xl .xf-modes>button{min-width:90px}
+.transfer-xl .xf-transplant .xf-feature-name{max-width:none;flex:1;min-width:0}
+.transfer-xl .xf-poor{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-panel,#f0f0f0)}
+.transfer-xl .xf-poor>b{font-size:12px}

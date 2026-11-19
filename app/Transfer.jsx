@@ -18,6 +18,8 @@ import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
+import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { replaceModelContents, transplantOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
@@ -48,6 +50,12 @@ const ACTORS = [
   ['walker', 'Mount', 'The mount alone.'],
 ];
 const OWN_RIDER_TIP = 'The rider alone, hips and legs included.';
+// Transplant mode: the open model's mesh on the donor's skeleton with all the donor's animations.
+const SOUNDS_TIP = 'The donor\'s sounds and footprints.';
+const EFFECTS_TIP = 'The donor\'s particle effects, ribbons and lights.';
+const KEEP_TIP = 'Keeps this piece on its own bone instead of the donor\'s.';
+// The transplant replaces the whole model (src/skeleton-transplant.js keeps only the model's own camera and effects).
+const TRANSPLANT_SECTIONS = [...SECTIONS, 'Info', 'GlobalSequences', 'Textures', 'PivotPoints', 'BindPoses'];
 const removedSentence = keys => translate('Removed with this choice: {0}.').replace('{0}', () => keys.map(transferPartLabel).join(', '));
 
 /** A switch shared by several parts (All taken parts): on when all are, a dash when they differ. */
@@ -150,6 +158,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Donors loaded in this window. Never tabs, never changed. 'self' is the open model.
   const [donors, setDonors] = useState([]), [donorId, setDonorId] = useState(null), [donorSeqs, setDonorSeqs] = useState({});
   const [loading, setLoading] = useState(''), [message, setMessage] = useState(''), [picker, setPicker] = useState(false);
+  // Retarget (parts into a new animation) or Transplant (the model onto the donor's skeleton).
+  const [mode, setMode] = useState('retarget'), transplanting = mode === 'transplant';
   const releases = useRef([]);
   useEffect(() => () => { for (const release of releases.current) release(); }, []);
   const donor = useMemo(() => { const d = donors.find(item => item.id === donorId); return d?.id === 'self' ? { ...d, model, assets: textureAssets, revision: doc.revision } : d; }, [donors, donorId, model, textureAssets, doc.revision]);
@@ -425,6 +435,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const turnCamera = useRef(null); turnCamera.current ||= { saved: null, listeners: new Set() };
   const latestHandlers = useRef({});
   latestHandlers.current.donorHandle = target => {
+    if (transplanting) return;
     const theirs = handlePart(rigA, poseA, target);
     if (!theirs) return;
     const key = sourcePartKey(theirs, donorMirror, false);
@@ -577,7 +588,57 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   useEffect(() => { if (added && addedRecipe.current !== JSON.stringify(recipe)) setAdded(''); }, [recipe]);
   const unapplied = taken.length > 0 && !doc.readOnly && addedRecipe.current !== JSON.stringify(recipe);
 
-  useWindowHotkeys('transfer', windowCommandActions('transfer', 'Transfer', {undo: () => stepHistory(false), redo: () => stepHistory(true), play: () => setPlaying(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
+  // Transplant mode: the open model's mesh on the donor's skeleton with the donor's animations
+  // (src/skeleton-transplant.js, engine defaults). The result view plays it with the donor view's
+  // animation; Transplant swaps it into the open model as one Undo step. Built after a paint, so the
+  // last result stays on screen (and the camera where it is) while a setting rebuilds it.
+  const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [] });
+  const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
+  const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
+  const tpOptions = useMemo(() => transplantOptions({ ...tpSettings, mirror: donorMirror }), [tpSettings, donorMirror]);
+  const tpSettingsKey = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpOptions)}` : null;
+  // After Transplant the result view shows the open model itself, until a setting, the donor or the model changes.
+  const tpShowsModel = !!tpApplied && tpApplied.revision === doc.revision && tpApplied.key === tpSettingsKey;
+  const tpKey = tpSettingsKey && rigB.ok && !tpShowsModel ? `${tpSettingsKey}|${doc.revision}` : null;
+  useEffect(() => {
+    if (!tpKey || tpBuilt?.key === tpKey) return;
+    let gone = false;
+    const from = tpDonor.model, options = tpOptions, key = tpKey;
+    const timer = setTimeout(() => {
+      let next;
+      try { const out = transplantSkeleton(model, from, options); next = { key, model: out.model, report: out.report }; }
+      catch (error) { next = { key, error: error.message }; }
+      if (!gone) setTpBuilt(next);
+    }, 30);
+    return () => { gone = true; clearTimeout(timer); };
+  }, [tpKey]);
+  const tpReady = !!tpKey && tpBuilt?.key === tpKey && !!tpBuilt.model;
+  const tpShown = !tpDonor ? null : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
+  // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
+  const tpReport = tpShown?.report || null;
+  const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
+  const tpInterval = tpShown?.model?.Sequences?.[tpSeq]?.Interval;
+  const [tpTime, setTpTime] = useState(0), [tpPlaying, setTpPlaying] = useState(true), [tpSpeed, setTpSpeed] = useState(100);
+  useEffect(() => { setTpTime(tpInterval?.[0] ?? 0); }, [tpShown?.model, tpSeq]);
+  const tpAssets = useMemo(() => tpSettings.effects && tpDonor?.assets instanceof Map && textureAssets instanceof Map ? new Map([...tpDonor.assets, ...textureAssets]) : textureAssets, [tpSettings.effects, tpDonor?.assets, textureAssets]);
+  const tpOptionsList = useMemo(() => (tpShown?.model?.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(tpShown.model, i), own: true })), [tpShown?.model]);
+  const setTp = values => setTpSettings(old => ({ ...old, ...values }));
+  const keepExtra = (id, on) => setTpSettings(old => ({ ...old, keep: on ? [...old.keep.filter(item => item !== id), id] : old.keep.filter(item => item !== id) }));
+  const transplantNow = () => {
+    if (!tpReady || doc.readOnly || tpWorking) return;
+    const made = tpBuilt, key = tpSettingsKey;
+    setTpWorking(true);
+    requestAnimationFrame(() => setTimeout(() => {
+      try {
+        const staged = structuredClone(made.model);
+        const result = edit('Transplant', TRANSPLANT_SECTIONS, m => { replaceModelContents(m, staged); });
+        clearTransferCache(model);
+        if (result !== false) setTpApplied({ revision: doc.revision, key, report: made.report });
+      } finally { setTpWorking(false); }
+    }, 0));
+  };
+
+  useWindowHotkeys('transfer', windowCommandActions('transfer', 'Transfer', {undo: () => stepHistory(false), redo: () => stepHistory(true), play: () => (transplanting ? setTpPlaying : setPlaying)(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
   useEffect(() => { dialog.current?.focus(); }, []);
 
   const sourceRows = [
@@ -628,13 +689,17 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, 5);
   // The parts list names a part's clips in order: "Attack - 1, then Attack - 2".
   const chainName = part => partClips(part).map((clip, i) => i === 0 || clip.source !== part.source ? clipName(clip) : sequenceName(modelOf(clip.source), clip.sequence)).reduce((a, b) => translate('{0}, then {1}').replace('{0}', () => a).replace('{1}', () => b));
-  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at })); return () => exposeTransferForTests(null); });
+  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
   const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
   const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
   const lacksTip = key => !donor ? 'Choose a model to take animation from first.' : `The donor has no ${transferPartLabel(feedsFrom(key))}.`;
   return <ToolWindow title="Transfer" overlayClass="resource-editor transfer-xl" className="re-window xf-window" headerClass="re-caption" closeClass="re-caption-close" closeTitle="Close. Parts not added are lost." windowRef={dialog} onClose={onClose} unapplied={unapplied} after={picker && <LibraryPicker onPick={pickLibrary} onClose={() => setPicker(false)}/>} sectionProps={{'data-hotkey-prefix': 'transfer', 'data-hotkey-scope': 'transfer'}}>
     {!rigB.ok ? <div className="xf-problems" role="alert">{rigB.problems.map(text => <p key={text}>{text}</p>)}</div> : <>
+      <div className="xf-modes" role="group" aria-label="Mode">
+        <button data-hotkey="transfer:mode-retarget" data-hotkey-manual data-hotkey-label="Retarget" data-mode="retarget" aria-pressed={!transplanting} title="Adds movement from the donor to this model as a new animation, part by part." onClick={() => setMode('retarget')}>Retarget</button>
+        <button data-hotkey="transfer:mode-transplant" data-hotkey-manual data-hotkey-label="Transplant mode" data-mode="transplant" aria-pressed={transplanting} title="Puts this model on the donor's skeleton with all the donor's animations." onClick={() => setMode('transplant')}>Transplant</button>
+      </div>
       <div className="xf-body">
         <aside className="xf-from" aria-label="From">
           <b className="xf-heading">From</b>
@@ -656,17 +721,31 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             <section className="xf-view" aria-label="Donor">
               <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
                 {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}
-                {donor && rigA?.actors?.length > 1 && <>
+                {donor && !transplanting && rigA?.actors?.length > 1 && <>
                   <button data-hotkey="transfer:donor-both" data-hotkey-manual data-hotkey-label="Donor: Both" data-actor="both" aria-pressed={donorActor === 'both'} title={ACTORS[0][2]} onClick={() => chooseActor('both')}>Both</button>
                   <button data-hotkey="transfer:donor-rider" data-hotkey-manual data-hotkey-label="Donor: Rider" data-actor="seated" aria-pressed={donorActor === 'seated'} title={ACTORS[1][2]} onClick={() => chooseActor('seated')}>Rider</button>
                   <button data-hotkey="transfer:donor-mount" data-hotkey-manual data-hotkey-label="Donor: Mount" data-actor="walker" aria-pressed={donorActor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseActor('walker')}>Mount</button>
                 </>}</div>
-              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={donorPose} onPoseSelect={onDonorHandle} path={donorPath} turnCamera={turnCamera.current}
+              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={transplanting ? null : donorPose} onPoseSelect={onDonorHandle} path={transplanting ? null : donorPath} turnCamera={turnCamera.current}
                   notes={<>{!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</>}/>
                 : <><div className="xf-preview"><div className="xf-placeholder">Choose a model under From.</div>{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</div>
                   <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} onReset={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}
             </section>
-            <section className="xf-view" aria-label="Result">
+            {transplanting ? <section className="xf-view" aria-label="Result">
+              <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
+              <div className="xf-preview" data-transplant-view="">
+                {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
+                  <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
+                    cleanAnimationPreview emptyDragRotates transformMode="select" onCaptureReady={onResultCapture}/>
+                </Suspense> : <div className="xf-placeholder">{tpDonor ? 'Loading preview…' : 'Choose a model under From.'}</div>}
+                {tpDonor && tpBuilt?.key === tpKey && tpBuilt.error && <div className="xf-overlay-note" role="status">{tpBuilt.error}</div>}
+                {tpDonor && tpKey && tpShown && !tpReady && !tpBuilt?.error && <div className="xf-overlay-note xf-message" role="status">Loading preview…</div>}
+              </div>
+              <TransferViewStrip name="Result view" playing={tpPlaying} onPlay={() => setTpPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
+                interval={tpInterval || null} time={tpTime} onSeek={value => { setTpPlaying(false); setTpTime(value); }} speed={tpSpeed} onSpeed={setTpSpeed}
+                value={tpSeq >= 0 ? String(tpSeq) : ''} options={tpOptionsList} onChange={value => { const index = transplantSequence(tpDonor.model, tpShown.model, Number(value)); if (index >= 0) setDonorSeqs(old => ({ ...old, [tpDonor.id]: index })); }} disabled={!tpShown || tpSeq < 0}
+                selectTitle="The donor animation to look at. The same choice as the Animations list."/>
+            </section> : <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span>
                 {rigB.actors?.length > 1 && <>
                   <button data-hotkey="transfer:model-both" data-hotkey-manual data-hotkey-label="This model: Both" data-actor="both" aria-pressed={(recipe.base.actor || 'both') === 'both'} title={ACTORS[0][2]} onClick={() => chooseBaseActor('both')}>Both</button>
@@ -684,13 +763,27 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                 interval={preview ? preview.model.Sequences[viewSeq ?? preview.sequenceIndex]?.Interval : null} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={resultSpeed} onSpeed={setResultSpeed}
                 value={viewSeq == null ? 'new' : String(viewSeq)} options={resultOptions} onChange={value => value === 'new' ? showNew() : showOwn(Number(value))} disabled={!preview}
                 selectTitle="What this view shows: the new animation, or one of this model's own animations to look at. Looking never changes the Body animation or the parts."/>
-            </section>
+            </section>}
           </div>
-          <TransferTimeline length={axis} time={viewSeq == null ? time0 - (preview?.start || 0) : 0} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }} dimmed={viewSeq != null} onUse={showNew}
+          {!transplanting && <TransferTimeline length={axis} time={viewSeq == null ? time0 - (preview?.start || 0) : 0} onSeek={t => { setPlaying(false); if (preview) setTime(preview.start + t); }} dimmed={viewSeq != null} onUse={showNew}
             bodyLane={bodyLane} lanes={lanes} selectedLanes={selectedLanes} onLaneSelect={selectLane} onLaneChange={changeLane} onLaneRemove={removeClip} onFixSelect={selectFix} onFixDelete={deleteFix}
-            readout={`${preview && viewSeq == null ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}/>
+            readout={`${preview && viewSeq == null ? ((time0 - preview.start) / 1000).toFixed(2) : '0.00'} s`}/>}
         </main>
-        <aside className="xf-controls" aria-label="Parts">
+        {transplanting ? <aside className="xf-controls xf-transplant" aria-label="Transplant">
+          {tpReport?.fit === 'poor' && <div className="xf-poor" role="status"><b>Poor fit</b>{tpReport.reasons.map(text => <p key={text} className="xf-note xf-reason">{text}</p>)}</div>}
+          <label className="xf-check" title={SOUNDS_TIP}><input data-hotkey="transfer:sounds" data-hotkey-manual data-hotkey-label="Sounds" type="checkbox" checked={tpSettings.sounds} onChange={event => setTp({ sounds: event.target.checked })}/> Sounds</label>
+          <label className="xf-check" title={EFFECTS_TIP}><input data-hotkey="transfer:effects" data-hotkey-manual data-hotkey-label="Effects" type="checkbox" checked={tpSettings.effects} onChange={event => setTp({ effects: event.target.checked })}/> Effects</label>
+          {tpReport?.extras?.length > 0 && <>
+            <b className="xf-heading">Keep</b>
+            <div className="gf-tree xf-list xf-features" role="group" aria-label="Keep">
+              {tpReport.extras.map(extra => <label key={extra.id} className="gf-row xf-feature" title={KEEP_TIP} data-keep={extra.id}>
+                <input type="checkbox" aria-label={translate('Keep {0}').replace('{0}', () => extra.name)} checked={tpSettings.keep.includes(extra.id)} onChange={event => keepExtra(extra.id, event.target.checked)}/>
+                <span className="xf-feature-name" translate="no">{extra.name}</span>
+              </label>)}
+            </div>
+          </>}
+          {!tpDonor && <p className="xf-note">Choose where the animation comes from.</p>}
+        </aside> : <aside className="xf-controls" aria-label="Parts">
           <div className="preset-bar xf-setup-bar">
             <div className="preset-bar-main">
               <button type="button" data-hotkey="transfer:setup-save" data-hotkey-manual data-hotkey-label="Save setup" aria-expanded={naming} disabled={!taken.length} title="Keeps the taken parts and their settings as a setup, or writes it to a file to share. Load it on any model." onClick={() => { setLoadMenu(false); setNaming(open => !open); }}>Save as…</button>
@@ -762,9 +855,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             {/^arm/.test(selected) && kind === 'limb' && <label className="xf-check" title={AVOID_TIP}><input data-hotkey="transfer:avoid-body" data-hotkey-manual data-hotkey-label="Keep arm out of the body" type="checkbox" checked={selectedTaken.avoid > 0} onChange={event => setPart(selected, { avoid: event.target.checked ? 1 : 0 })}/> Keep arm out of the body</label>}
             <Section className="xf-timing" title="Timing" defaultOpen={false}>{slidersFor(true)}</Section>
           </div> : <p className="xf-note">{!donor ? 'Choose where the animation comes from.' : selected && selected !== 'all' ? 'Switch the part on to take it.' : 'Click a part on the donor to take it, or Take whole body.'}</p>}
-        </aside>
+        </aside>}
       </div>
-      <footer className="xf-footer">
+      {transplanting ? <footer className="xf-footer">
+        {tpShowsModel && <span className="xf-added" role="status">Transplanted</span>}
+        <span className="xf-spacer"/>
+        <button disabled={tpWorking} onClick={onClose} title="Close">Cancel</button>
+        <button data-hotkey="transfer:transplant" data-hotkey-manual data-hotkey-label="Transplant" className="xf-add" disabled={tpWorking || !tpReady || doc.readOnly} title="Puts this model on the donor's skeleton with all the donor's animations. One Undo restores it." onClick={transplantNow}>{tpWorking ? 'Transplanting…' : 'Transplant'}</button>
+      </footer> : <footer className="xf-footer">
         <label className="xf-name" title="Name of the new animation.">Name <input data-hotkey="transfer:name" data-hotkey-manual data-hotkey-label="Animation name" aria-label="Name" value={shownName} maxLength={79} onChange={event => setName(event.target.value)}/></label>
         {added && <span className="xf-added" role="status">{added.count ? `Added ${added.count} animations` : <>Added <span translate="no">{added.name}</span></>}</span>}
         <span className="xf-spacer"/>
@@ -772,7 +870,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
         <label className="xf-check xf-keep-own" title="On: Add all adds only the animations this model does not have. Off: an animation of the same name is replaced."><input data-hotkey="transfer:keep-own" data-hotkey-manual data-hotkey-label="Keep own animations" type="checkbox" checked={keepOwn} disabled={adding} onChange={event => setKeepOwn(event.target.checked)}/> Keep own animations</label>
         <button data-hotkey="transfer:add-all" data-hotkey-manual data-hotkey-label="Add all" className="xf-add-all" disabled={adding || !plan.clips.length || doc.readOnly || !built} title={addAllTip} onClick={addAll}>{adding ? 'Adding…' : <>Add all <span translate="no">({plan.clips.length})</span></>}</button>
         <button data-hotkey="transfer:add-animation" data-hotkey-manual data-hotkey-label="Add animation" className="xf-add" disabled={adding || !built || !taken.length || doc.readOnly} title="Add the result to this model as a new animation. One Undo removes it." onClick={add}>Add animation</button>
-      </footer>
+      </footer>}
     </>}
   </ToolWindow>;
 }
