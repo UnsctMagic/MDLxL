@@ -727,3 +727,79 @@ Risks and open points:
   other animations is offset as the donor's weapon is (that is the owner's pick, 03).
 - Weapon detection relies on the model's weapon arm (`part.weapon`) or its own `Weapon` attachment; a model with
   neither keeps v1 behaviour. Item 4 (trunk split) still open.
+
+### v2 item 4: result (builder: Claude Opus, 19 Nov 2026)
+
+Built to [the skin contract](xfer-transplant-v2-skin.md) (committed as written, f2618503). New pure module
+`src/transplant-skin.js` (`transplantRuns`, `splitJoints`, `donorSkinCarriers`, `legTravelRatio`, `SKIN_BAND`);
+`src/skeleton-transplant.js` uses it. Default now: no limb is converted (`convert()` removed); a donor joint the
+model lacks (neck, hock, forearm) takes the own host's skin past its plane, both bones within the band; skin goes
+onto the donor bone that carries that joint's skin in the donor (`Geo_*`); a leg's foot is not corrected; the
+body's travel and `MoveSpeed` scale by the fitted legs (0.567 on the owner's pair, hip-height ratio 0.817).
+`report.counts.skin` and `report.counts.travel` are new. Internal option `legs: 'straight'` (trial 07 only).
+
+Where I deviated from the contract or reconciled it with items 1-3, and why:
+1. Items 1-3's leg split (`segmentTargets`: nearest segment, 15% band, legs only) is replaced by the contract's
+   runs (plane, 10% band, every run). They agreed on the Kurgan's legs (the same 10 vertices per hock).
+2. Items 1-3 still converted arms; the contract converts nothing, so arms are transplanted too (T2's `converted`
+   is now `[]`; the Footman's shield arm gets the Grunt's forearm, P7).
+3. `travel` scales every position key outside transplanted limbs (body, tail, the totem root), not only the
+   body joint's: a top-level weapon root that kept `size` would drift from a body moving by `travel`. Placement
+   offsets keep `size` (as the contract says). Effect: the hammer sits 13.3 differently on the totem than in 03
+   (reference moment moved), and is thrown slightly less far (farthest from the hand 148, 03: 166).
+4. The weapon rides the donor's weapon joint itself (`Bone_Totum`), not a carrier: carriers are for part joints
+   (4.4) and item 1 takes precedence (4.3 step 2). Weapon Ref stays on that joint.
+5. HD models: the `SkinWeights` get the split as written; their classic `Groups` (kept beside them) take the
+   default joint's carrier without a split (the contract is silent).
+6. Detection risk 3 from items 1-3 fixed (not in the contract): only a weapon extra's pieces ride (bones that
+   move by themselves or hang under one that does). Still skin on the hand (the Footman's hand mesh `Mesh02`
+   and its `Cantine`) stays with the hand. Test P9.
+7. Trial names per the coordinator: 06 and 07, not the contract's 04. Not opened in a packaged build
+   (coordinator: no packaging).
+8. P4's "turn within 0.5 degrees" covers trunk joints and their carriers; limb carriers carry the rest
+   correction by design (their stretches are checked within 1 degree instead).
+
+Tests: `test/transplant-skin.test.js` U1-U7 (7 pass); `test/skeleton-transplant.test.js` 17 pass: T1, T2 (changed
+as above), P7, P9 (hand mesh), P1-P6 (replace T4 and T5), T6, T11, T12, T7, T8, T9, T10 (= P8). Fail first
+(`out/transfer-probe/item4-fail-first.py`, one break at a time, file restored): items 1-3 engine fails T2, P7, P9,
+P2, P3, P5; no runs fails P7, P2, P3; no carriers fails P7, P2, P3; foot corrected fails P5; travel by hip height
+fails P5; no band fails P7, P2, U2; hand mesh riding fails P9. P1, P4, P6 already held on the items 1-3 engine.
+Contract gate numbers met exactly on the owner's pair: `Geo_Neck` 14, `Geo_lowershinL/R` 10 / 10, 34 moved,
+1 blended, 18 `Geo_*` bones with skin, at most 14 groups per geoset, 44 of 50 Tauren joints by name (v1: 18);
+limb stretches within 1 degree, trunk stretches constant within 1, trunk turns within 0.5, feet turn within 0.5,
+feet within 0.06 hip heights in every animation but Death. Retarget and window tests 81 pass; `baseline.mjs t`,
+`baseline-compare.mjs r t`: 0 differ.
+
+Trials (`out/transfer-probe/make-transplant-item4.mjs`, measured from the saved files; both validate with 0
+errors, 10 animations, 251 KB, Weapon Ref on `Bone_Totum`, hammer rides it). Lower foot against the Kurgan's
+standing height, in hip heights (42):
+
+| Animation | 06 default: shin folds at the hock (travel 0.567) | 07 straight shin (travel 0.724) |
+| --- | --- | --- |
+| Stand -1 | 0.00 .. 0.00 | 0.00 .. 0.06 |
+| Walk | -0.01 .. 0.05 | -0.03 .. 0.34 |
+| Stand Ready | -0.02 .. 0.00 | -0.16 .. -0.07 |
+| Attack - 1 | -0.02 .. 0.03 | -0.08 .. 0.18 |
+| Attack Slam | -0.03 .. 0.02 | -0.21 .. 0.20 |
+| Death | -0.04 .. 0.13 | -0.18 .. 0.32 |
+| Hips standing (own 54.1) | 41.0 | 49.4 |
+| Bend inside the shin, median / largest | 93 / 144 degrees | 15 / 110 degrees |
+
+`TEST TRANSPLANT 06.mdx` and `07.mdx` in `TestBuilds\test-models` (01-05 untouched). Owner chooses by eye.
+
+Sweep (561 bodies, `transplant-sweep-all.sh`; items 1-3 numbers kept in `transplant-sweep-summary-v2items.txt`):
+
+| Donor | Built / threw / not finite | Not valid | Poor fit | Converted | Over 256 groups | Coincident mismatch | Capped to 4 (models) | Share of vertices moved (median / 90th / max) | Transplanted parts within 10 | Walk foot within 0.1 hip (v1 / items 1-3) | s per body |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tauren | 561 / 0 / 0 | 32 | 3 | none | 0 | 0 | 17 | 10.4% / 27% / 46.6% | 98% of 4,488 | **89%** (91% / 14%) | 0.16 |
+| Grunt | 561 / 0 / 0 | 32 | 3 | none | 0 | 0 | 16 | 0% / 0% / 16.3% | 100% of 4,488 | 0% (0% / 0%) | 0.07 |
+| Footman | 561 / 0 / 0 | 32 | 3 | none | 0 | 0 | 16 | 0% / 0% / 3.2% | 100% of 4,488 | 0% (0% / 0%) | 0.08 |
+
+- Not valid: 32 per donor as in v1 (count compared; the file list was not re-diffed against v1's).
+- Weapon rides: Tauren 323, Grunt and Footman 105 (281 on the other arm, mostly mirror offers).
+- Grunt / Footman walk foot: the measure reads their ankle joints, which lift in their own walks (as for v1).
+- Capped: 16-17 models have a vertex that would need over 4 bones (the corpus-sd prototype saw 1 of 344).
+
+Open: the owner's choice between 06 and 07; `travel` also shortens steps and `MoveSpeed` (not checked in game);
+collar skin on `Bone_ClavicalL/R` (contract risk 3); plane cuts through still rigid pieces (risk 4); motion
+tearing not looked at by eye.
