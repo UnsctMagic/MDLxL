@@ -642,3 +642,88 @@ Correction, same day (quoted): "YOU CAN retain the keep options - just I am expl
 a transplant is always 100% transplant ... i want 100% transplant and the user can adjust from there."
 So: the Keep options stay as opt-in controls, all off. The default result is 100% the donor's skeleton
 and motion, nothing of the model's own motion. The v2 list above is the default; Keep is unchanged.
+
+### v2 items 1-3: result (builder: Claude Opus, 19 Nov 2026)
+
+Default behaviour of `transplantSkeleton` changed for items 1 to 3 of the owner's v2 list; item 4 (trunk skin
+split) not touched. Keep options unchanged (off by default; a kept extra still holds still on its joint).
+Commits: bbed78dd (engine and tests), this note. Probes (untracked, `out/transfer-probe/`): `make-transplant-v2.mjs`,
+`v2-feet.mjs`, `v2-totem-shift.mjs`, `v2-leg-skin.mjs`, `v2-rigs.mjs`; the sweep script now counts the weapon.
+
+- **1. Weapon rides the donor's weapon bone.** The model's weapon = every extra on its weapon hand plus the extra
+  its own weapon attachment hangs from. The donor's weapon bone = the joint its weapon attachment hangs from
+  (by attachment, not by name), else its weapon hand. The weapon's vertices are bound to it, placed where the
+  model holds them at the result's reference moment (first frame of its Stand), so they swing and leave the hand
+  with the donor's weapon. A weapon bone on the donor's other arm (unmirrored) is not used: the weapon stays in
+  the hand it pairs with and `report.weapon.note` says so (Kurgan on the Grunt; mirrored, it rides the axe bone).
+  New `report.weapon = { extras, bone, rides, vertices, note }`.
+- **2. The donor's own leg bones.** Legs are never converted now (arms still are when the donor has a joint
+  inside the arm the model lacks, e.g. the Footman's shield arm). A donor leg joint no own joint takes (the
+  Tauren's hock) sits on the model's leg between its neighbours at the donor's share; the own stretch's skin is
+  split between the donor joints along it by nearest placed segment (both joints near a bend). That split
+  (`segmentTargets`, ~20 lines) is the small helper item 4 will likely want for trunk joints too.
+- **3. Weapon attachments** (`/weapon/i`) hang from the bone that carries the weapon (the donor's weapon bone, the
+  hand target when it does not ride, the kept bone when kept), where the model's own weapon attachment of the same
+  name sits on the weapon.
+- Also changed (needed for 1): donor joints that hang from nothing (the Tauren's `Bone_Totum`) are now lowered
+  with the body when the ground is settled. In v1 only the body moved, so 01-03's totem sat 0.81 higher against
+  the hand than the Tauren's does.
+
+Tests (`test/skeleton-transplant.test.js`, 11 pass; new and changed ones fail on the v1 engine: 6 fail, run by
+swapping in `HEAD:src/skeleton-transplant.js` and restoring). v1 expectations changed by the owner's default:
+- T4: `converted` was `['legL', 'legR']`, now `[]`; now also checks the legs point within 10 degrees of the
+  Tauren's and that all eight Tauren leg joints (hocks included) are in the result carrying skin.
+- T5: was "the Kurgan's own feet stay down in Walk (within 0.1 hip height)". Feet are now the Tauren's foot
+  joints with the Tauren's motion, nothing plants them: the check is now feet on the ground in the Stand (within
+  0.05 hip height) and in Walk within 0.2 hip height (a regression guard; measured 0.18, see below).
+- T6: was "the hammer stays in the hand as held (drift < 0.05 in every animation)". Now: rides only the Tauren's
+  weapon bone, sits at the Kurgan's grip at the reference moment (< 0.05), and leaves the hand where the totem does.
+- T7 (keep): unchanged, plus the Weapon Ref hangs from the kept hammer bone.
+- New T11 (Weapon Ref on the weapon bone, at the Kurgan's place on the hammer, < 0.05) and T12 (weapon side rule
+  on the Grunt, plain and mirrored).
+
+Other proofs: `node --test test/anim-transfer.test.js test/transfer-window.test.js` 81 pass;
+`baseline.mjs s`, `baseline-compare.mjs r s`: 32 trials compared, 0 differ.
+
+Trial: `TestBuilds\test-models\TEST TRANSPLANT 05.mdx` (Kurgan on the Tauren, v2 defaults; 01-03 untouched),
+made and measured from the saved file by `out/transfer-probe/make-transplant-v2.mjs`: validateModel 0 errors,
+10 animations, 48 nodes, 249 KB, built in 0.5 s (v1: 10-12 s, the converted legs).
+- Hammer: 675 vertices, all on `Bone_Totum` (as 03). In the totem's frame 05 and 03 differ by at most 0.82
+  (every animation, 13 moments each): exactly the totem fix above (`v2-totem-shift.mjs`: totem-to-hand height
+  16.86 in 03, 16.05 in 05). In the world up to 9.9 apart (Death), because the body stands lower (below).
+- Weapon Ref: parent `Bone_Totum`, at the hammer's own Weapon Ref place.
+- Legs: all eight Tauren leg joints in the result with skin; none of the Kurgan's own leg joints left
+  (`v2-leg-skin.mjs`: shin-only vertices on the knee joint, shin+foot vertices on hock+foot).
+- Feet (lower Tauren foot joint against the Kurgan's standing height, hip height 42): Stand -1 0.0..1.7,
+  Stand - 3 -2.1..2.0, Walk -0.5..7.7, Stand Ready -3.6..-1.1, Attack - 1 -1.7..1.1, Stand Victory -0.6..-0.2,
+  Attack Slam -4.1..3.9, Death -17.7..4.9 (the Tauren's own, scaled: within -2.7..6.8; Walk -0.4..1.1).
+  The body stands 8.3 lower than in 03: the Kurgan's straight legs bent at the Tauren's angles reach less far.
+
+Collection sweep (same 561 bodies, `transplant-sweep-all.sh`, now also counting the weapon; v1 numbers kept in
+`out/transfer-probe/transplant-sweep-summary-v1.txt` and `transplant-sweep-v1.json`):
+
+| Donor | Built | Threw | Not valid | Poor fit (v1) | Converted limbs (v1) | Transplanted parts: worst within 10 (v1) | Weapon rides / other arm / no weapon found | Walk foot within 0.1 hip (v1; median) | s per body (v1) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tauren | 561 | 0 | 32 | 3 (5) | armR 35, armL 18 (+ legs 500/499) | 98% of 4,382 (98% of 2,376) | 322 / 0 / 239 | 14% (91%; 0.1) | 0.16 (22) |
+| Grunt | 561 | 0 | 32 | 3 (3) | armR 35, armL 18 (+ legL 2) | 100% of 4,382 (100% of 4,378) | 105 / 281 / 175 | 0% (0%; 0.3) | 0.06 (0.15) |
+| Footman | 561 | 0 | 32 | 3 (3) | armL 18 (+ legL 2) | 100% of 4,452 (100% of 4,448) | 105 / 281 / 175 | 0% (0%; 0.4) | 0.08 (0.17) |
+
+- Not valid: the same 32 open models that already fail `validateModel` (as in v1). Not finite: 0.
+- Poor fit with the Tauren fell from 5 to 3: the two "legs not recognised on the result" cases are gone (no
+  converted legs). Left: 2 winged bodies, 1 Reforged model with bind poses.
+- Weapon "other arm" (281 with the Grunt and the Footman): the donor's weapon bone hangs from its other arm, so
+  the weapon stays in the hand; most of these are the 223 bodies offered a mirror. "No weapon found" (175-239):
+  no extra on the weapon hand and no own weapon attachment on an extra (the weapon is in the hand's own skin,
+  or the body has no weapon) - unchanged from v1.
+- Walk foot with the Tauren: 91% -> 14% within a tenth of hip height (median 0.1, 9 in 10 within 0.2): the
+  v1 converted legs planted the feet; v2's donor legs do not (see risks). Grunt and Footman unchanged (this
+  measure reads their ankle joints, which lift in their own walks, as noted for v1).
+
+Risks and open points:
+- Feet are not kept down any more (v1's planting belonged to the converted legs). Different leg proportions
+  make feet float (Walk +7.7) or sink (Death -17.7). Not fixed here (outside items 1-3). A small fix if wanted:
+  per key, the body height follows the donor's lower foot height times the size ratio.
+- The weapon's own reference is the result's Stand first frame; a weapon that the donor holds differently in
+  other animations is offset as the donor's weapon is (that is the owner's pick, 03).
+- Weapon detection relies on the model's weapon arm (`part.weapon`) or its own `Weapon` attachment; a model with
+  neither keeps v1 behaviour. Item 4 (trunk split) still open.
