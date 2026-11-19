@@ -92,12 +92,14 @@ export function withNodeTracks(model, tracks) {
 
 /** Where a joint's pivot travels through one animation, sampled every `step` ms:
  * { frames, points } with model-space [x, y, z] points (the path a hand or foot draws). */
-export function jointPath(model, sequence, jointId, step = 1000 / 30) {
+export function jointPath(model, sequence, jointId, step = 1000 / 30, range = null) {
   const interval = model?.Sequences?.[sequence]?.Interval, node = model && allNodes(model).find(item => item.ObjectId === jointId);
   if (!interval || !node) return { frames: [], points: [] };
+  // `range` (the compare sheet's looks): only this part of the animation, kept inside it.
+  const start = range ? Math.max(interval[0], Math.min(interval[1], range[0])) : interval[0], end = range ? Math.max(start, Math.min(interval[1], range[1])) : interval[1];
   const pivot = new Vector3().fromArray(nodePivot(model, node, jointId)), frames = [], points = [];
-  for (let f = interval[0]; f < interval[1]; f += step) frames.push(Math.round(f));
-  frames.push(interval[1]);
+  for (let f = start; f < end; f += step) frames.push(Math.round(f));
+  frames.push(end);
   for (const frame of frames) points.push(pivot.clone().applyMatrix4(sampleNodeMatrices(model, frame, sequence).get(jointId) || new Matrix4()).toArray());
   return { frames, points };
 }

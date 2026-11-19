@@ -149,6 +149,16 @@
 .transfer-picks .xp-message p{margin:0}
 .transfer-picks .xp-path{color:var(--ui-muted,#444);overflow-wrap:anywhere}
 .transfer-picks .xp-problem{margin:0;color:var(--ui-danger,#b00000)}
+/* Compare sheet: animation and look rows, labels, Flip (one place, two variants stacked). */
+.transfer-picks .xp-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.transfer-picks .xp-row-name{min-width:70px;font-weight:bold;color:var(--ui-text,#16191e)}
+.resource-editor.transfer-picks .xf-window .xp-row button[aria-pressed="true"],.resource-editor.transfer-picks .xf-window .xp-answer[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.resource-editor.transfer-picks .xf-window .xp-answer{font-weight:bold;padding:5px 14px}
+.transfer-picks .xp-auto{display:flex;align-items:center;gap:4px;color:var(--ui-text,#16191e)}
+.transfer-picks .xp-label{position:absolute;left:8px;top:46px;z-index:6;font-weight:bold;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
+.transfer-picks .xp-missing{position:absolute;left:8px;bottom:6px;z-index:6;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
+.transfer-picks .xp-flipping .xp-view{grid-area:1/1}
+.transfer-picks .xp-view.xp-off{visibility:hidden}
 
 /* Own features (round 8): one switch per feature of the open model, about six rows before it scrolls. */
 /* The same fold look as Timing. */
