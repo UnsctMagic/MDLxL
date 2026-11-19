@@ -988,3 +988,66 @@ movers, `settleFeet`, new `bodyMover`) and its test changed; fixture key `transf
   Myrmidon as open model at size 0.00 (class 1, packages A/B, not the feet).
 - Class 5 note (weapon bone = the donor's head on ~20 donors): not in the functions D touches (it is the weapon-bone
   choice in `transplantSkeleton`, `armOf(bone)` is null for a head so the head is taken). Left for its own work.
+
+## Packages A and B, weapon bone on a hand: result (builder: Claude Opus, 19 Nov 2026)
+
+Contract: [xfer-transplant-fixes.md](xfer-transplant-fixes.md), packages A and B (owner: legless "After" in all five
+cases, Poor fit as written). Package C not built (on hold). Commits `0a70da55` (A), `9775710e` (B), `518de79f` and
+`244deebd` (weapon bone). Scripts and data in `out/transfer-probe/xfer26/`.
+- **A** (`src/anim-transfer.js`): `bodyExtent`, measured or stand-in hip height (0.26 of the extent), mesh floor as
+  ground without legs, the Felhound's body joint rebased to `Bone Center`, exported `rigSizeRatio`. Tests S1-S6.
+  `rig-diff.mjs` (parent vs built): 392 of 510 readings identical, 118 changed = 96 legless, 19 legs that do not
+  stand, 3 Felhound files; no measured reading and no seated/walker reading changed. `baseline.mjs y` vs `x`: 32
+  compared, 0 differ. Retarget changes for those bodies as designed: Footman takes Walk from the Naga, size 41,382 ->
+  0.517 (chest, head, arms; no problems); from the Felhound 41,382 with no part taken -> 1.12 (head, arms).
+- **B** (`src/skeleton-transplant.js`): size from `rigSizeRatio`, leg travel only when both stand. `report.follows`,
+  `report.still`, `report.notes`; `reasons` = share line, "different number of legs", "No counterpart in the donor:
+  ...", hard reasons, notes. Bind poses, "Sized by the bodies' overall size", "The result's legs were not read" and
+  the safety-net sentence are notes. **One deviation:** `follows` counts skin by part (skin under any joint of a
+  part that got a donor joint), not by joint as the B1 sketch reads: the joint form gave 0.74 for the Kurgan on the
+  Naga, the part form 0.903 as F2 and `coverage.mjs` (whose figures set the 0.5 cut) define it. Five strings added
+  to the five catalogs, two retired; catalog sizes updated; harness story checks the share line and <= 4 sentences;
+  `docs/TRANSFER.md` Poor fit row. Tests Z1-Z4, F1-F6; T10 reads `fit` (Z1, Z3 already pass after A alone).
+- **Weapon bone** (passed on from the class 7 verdict): the donor's weapon point counts only when its first part
+  joint is an arm's hand (or the bone hangs beside the arm's last joint, as the Ghoul's `Bone_Hand_L`), or when it
+  hangs under no part joint (the Tauren's totem: T6/T11 unchanged). Else the weapon stays in the hand it pairs with;
+  `report.weapon.note` names the bone. Test W1 (Footman on the Gargoyle, Weapon Ref on `Bone_Head`) fails before.
+  Footman and Kurgan on all 59 donors: 41 runs change, all head, leg, body, jaw or tentacle bones (Gargoyle, Kodo,
+  dragons, Hydra, Wyvern, Skink, Frog, Dire Wolf, Catapult, Grizzly's front paw read as a leg, Sheep, Penguin, ...).
+- **Owner's sheet:** the five legless cases built by `src` at B (`legless-compare.mjs`) equal the approved
+  `TEST LEGLESS 0N AFTER.mdx` exactly (max difference 0, no structural difference). With the weapon rule, Footman
+  on the Dune Worm differs from its After in one way: the sword stays in the hand instead of riding the worm's head.
+- **Fingerprint for B** (`fingerprint-compare.mjs preB26 postB26 B`, 3,068 runs, 2 idle processes): 1,748
+  must-be-identical runs, 0 differ; 1,190 changed as designed, none with a size outside 0.1 to 10 or a throw.
+- Tests: skeleton-transplant + transplant-skin 46/46, anim-transfer + transfer-window 89/89, localization 20/20.
+- **Failure sweep again** (all 1,593 pairs, window default, 2 idle shards, 27 min; `failure-sweep/rows26-*.jsonl`,
+  `analysis26.txt`). `sweep.mjs` keeps every old measure and adds the gate's three as extra classes ("new: ...",
+  left out of the fine/broken totals so they stay comparable; the old version is `sweep-before26.mjs.bak`).
+
+  | Window default | Before (`analysis.txt`) | After |
+  | --- | --- | --- |
+  | fine / broken / doubtful | 466 / 748 / 379 | **866 / 102 / 625** |
+  | size outside 0.05-20 | 452 | 0 (sizes 0.17 to 12.9, median 1.03) |
+  | throws | 141 | 0 |
+  | exploded shape / extents absurd | 29 / 21 | 0 / 0 |
+  | weapon on hidden bone | 90 | 0 |
+  | flung vertices (old measure) | 296 | 74 |
+  | new: flung on donor bones | - | 8 |
+  | mesh vanishes (old measure) | 20 | 28 |
+  | new: mesh vanishes (bone collapsed where the donor's is not) | - | 0 |
+  | sinks / floats (old measures) | 513 / 395 | 395 / 257 |
+  | new: feet off target | - | 5 (Frog x2 at 0.34, Felhound x2, Hippogryph) |
+  | slow (over 2 s) | 172 | 92 |
+  | poor without a cause | 59+ | 0 |
+  | good with size outside 0.1-10 | 33 | 1 (Doom Guard on the Skink, 10.3) |
+
+  Sizes above 10: two standing bodies on the tiny Skink (Blood Dragon 12.9, Doom Guard 10.3): measured hip heights
+  on both, the unchanged branch, real proportions. The old mesh-vanishes count rose because more pairs are now at
+  sane scale where the donor's body collapses (class 6, kept as donor motion); the new measure finds none.
+- Package `TestBuilds\transfer-xl-26`; whole transfer harness hidden with the sweep: 70 checks, 0 errors, 151
+  controls, passed (Kurgan on the Magnataur: share line + 2 sentences). Launcher
+  `_START HERE\7 TRANSPLANT - in the XFER window.cmd` opens build 26 on `TEST TRANSPLANT 11.mdx` (Kurgan copy)
+  and names Naga Myrmidon, Felhound, Spider and the Tauren.
+
+Open: package C (own gore pieces) on hold; the five "new: flung on donor bones" Death/Birth pairs (Penguin, Wyvern,
+Phoenix Egg, Sheep) not judged; owner's eye on build 26 pending.

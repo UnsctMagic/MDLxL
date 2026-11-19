@@ -645,3 +645,4 @@ Sheets for answers 1 and 2 (19 Nov, prototype engines in `out/transfer-probe/own
 4. Model vanishes where the donor's body vanishes: yes (keep as donor motion).
 - Sheet answers (19 Nov evening): legless donors, all five cases **After** (Kurgan on Naga: "Looks right") → build packages A+B as written.
 - Gore sheet: owner rejects all versions: "both death animations (gore pieces) look wrong, ogre has many bones unbound, ghoul doesnt move". Package C is on hold until the cause is investigated.
+- Built 19 Nov: A (`0a70da55`) and B (`9775710e`), plus the weapon bone on a hand (`518de79f`, `244deebd`); results in [xfer-both-ways.md](xfer-both-ways.md#packages-a-and-b-weapon-bone-on-a-hand-result-builder-claude-opus-19-nov-2026). C not built.
