@@ -480,7 +480,8 @@ function donorDeathSwap(D, rigA) {
     }
     let twinned = 0;
     for (let v = 0; v < count; v++) if (bonesOf(geoset, v).every(id => livingJoints.has(id) || twin.has(id))) twinned++;
-    const isTwin = count > 0 && twinned >= TWIN_DEATH_SHARE * count;
+    // A twin skeleton is a chain (two joints or more, as `twinChains`): one joint on a living pivot is no copy of the body.
+    const isTwin = count > 0 && twin.size >= 2 && twinned >= TWIN_DEATH_SHARE * count;
     if (!isTwin && (!/death/i.test(String(sequence.Name || '')) || /decay|dissipate/i.test(String(sequence.Name || '')))) return;
     let moved = 0;
     if (isTwin && twin.size) {
