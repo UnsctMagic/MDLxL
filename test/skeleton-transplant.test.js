@@ -699,30 +699,27 @@ test('G1 a twin chain moves with its twin: Ogre on the Tauren, the off-hand weap
     const spread = (Math.max(...d) - Math.min(...d)) / hip;
     assert.ok(spread <= 0.02, `${sequence.Name}: the weapon against the hand varies by ${spread.toFixed(3)} hip heights`);
   });
-  assert.equal(report.deathBody, 'own');
   structural(result);
 });
 
-test('G2 a corpse skeleton is no twin by default: Ghoul on the Grunt keeps the own showing and the corpse joints', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
-  const { report, model } = transplant('transfer-ghoul', 'transfer-grunt');
-  assert.equal(report.twins, 0); assert.equal(report.deathBody, 'own');
-  assert.ok(allNodes(model).some(node => String(node.Name).trim() === 'Bone_Root01'), 'the corpse skeleton stays');
+test('G2 a corpse skeleton is no twin: Ghoul on the Grunt, his corpse joints are not paired', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const { report } = transplant('transfer-ghoul', 'transfer-grunt');
+  assert.equal(report.twins, 0);
 });
 
 /** Geosets shown in the own Stand (living) and those shown only in Death (corpse). */
 function swapBodies(own) {
   const stand = standSequenceIndex(own), death = own.Sequences.findIndex(s => /^death$/i.test(String(s.Name).trim()));
   const living = [], corpse = [], s = own.Sequences[stand].Interval, d = own.Sequences[death].Interval;
-  own.Geosets.forEach((_, g) => { if (geosetShown(own, g, stand, (s[0] + s[1]) >> 1)) living.push(g); else if (geosetShown(own, g, death, d[1])) corpse.push(g); });
+  own.Geosets.forEach((_, g) => { if (geosetShown(own, g, stand, (s[0] + s[1]) >> 1)) living.push(g); else if ([0.25, 0.5, 0.75, 1].some(t => geosetShown(own, g, death, Math.round(d[0] + t * (d[1] - d[0]))))) corpse.push(g); });
   return { living, corpse };
 }
 const deathMoments = model => model.Sequences.map((s, i) => [s, i]).filter(([s]) => /death/i.test(s.Name)).flatMap(([s, i]) => [0.25, 0.5, 0.75, 1].map(t => [i, Math.round(s.Interval[0] + t * (s.Interval[1] - s.Interval[0]))]));
 
-test('G3 Living body dies: Ghoul on the Grunt shows his living body and hides his corpse through the Grunt\'s Death', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
-  const result = transplant('transfer-ghoul', 'transfer-grunt', { deathBody: 'living' }), { own, model, report } = result;
+test('G3 the living body dies (owner, 19 Nov 2026): Ghoul on the Grunt shows his living body and hides his corpse through the Grunt\'s Death', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const result = transplant('transfer-ghoul', 'transfer-grunt'), { own, model } = result;
   const { living, corpse } = swapBodies(own);
   assert.ok(living.length && corpse.length, `${living.length} living, ${corpse.length} corpse geosets`);
-  assert.equal(report.deathBody, 'living');
   for (const [i, f] of deathMoments(model)) {
     for (const g of living) assert.ok(geosetShown(model, g, i, f), `living geoset ${g} shown at ${f}`);
     for (const g of corpse) assert.ok(!geosetShown(model, g, i, f), `corpse geoset ${g} hidden at ${f}`);
@@ -730,35 +727,19 @@ test('G3 Living body dies: Ghoul on the Grunt shows his living body and hides hi
   structural(result);
 });
 
-test('G4 Corpse follows: Ghoul on the Grunt keeps his own swap and his corpse is on the living body\'s donor joints', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
-  const result = transplant('transfer-ghoul', 'transfer-grunt', { deathBody: 'follow' }), { own, model, report } = result;
+test('G4 the living body dies: Skeleton Warrior on the Grunt shows his body through the Grunt\'s Death, his corpse never', { skip: missing('transfer-skeleton', 'transfer-grunt') }, () => {
+  const result = transplant('transfer-skeleton', 'transfer-grunt'), { own, model } = result;
   const { living, corpse } = swapBodies(own);
-  assert.equal(report.deathBody, 'follow'); assert.ok(report.twins >= 10, `${report.twins} twin joints`);
-  assert.ok(!allNodes(model).some(node => String(node.Name).trim() === 'Bone_Root01'), 'the corpse skeleton is gone: its skin is on donor joints');
-  const last = deathMoments(model).at(-1);
-  const shown = corpse.filter(g => geosetShown(model, g, ...last)).reduce((n, g) => n + own.Geosets[g].Vertices.length / 3, 0);
-  assert.ok(shown >= 500 && living.every(g => !geosetShown(model, g, ...last)), `the own swap: ${shown} corpse vertices shown, the living body hidden at the end of the Death`);
-  // Decay goes on from the end of his own Death: the corpse, not the living body.
-  const decay = model.Sequences.findIndex(sq => /decay flesh/i.test(sq.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
-  assert.ok(corpse.some(g => geosetShown(model, g, decay, mid)) && living.every(g => !geosetShown(model, g, decay, mid)), 'Decay Flesh shows the corpse, not the living body');
-  // The corpse's face is on the same donor joints as the living face.
-  const id = name => allNodes(own).find(n => String(n.Name).trim() === name).ObjectId;
-  const [a] = verticesOn(own, b => b === id('Face')), [b] = verticesOn(own, x => x === id('Face01'));
-  assert.deepEqual(bonesOfVertex(model.Geosets[b[0]], b[1]), bonesOfVertex(model.Geosets[a[0]], a[1]));
-  structural(result);
-});
-
-test('G5 Corpse follows needs a death body on a twin skeleton: Skeleton Warrior on the Grunt gets exactly Living body dies', { skip: missing('transfer-skeleton', 'transfer-grunt') }, () => {
-  const follow = transplant('transfer-skeleton', 'transfer-grunt', { deathBody: 'follow' }), living = transplant('transfer-skeleton', 'transfer-grunt', { deathBody: 'living' });
-  assert.equal(follow.report.deathBody, 'living');
-  assert.ok(Buffer.from(generateCompatibleMdx(follow.model)).equals(Buffer.from(generateCompatibleMdx(living.model))));
-});
-
-test('G6 the body goes where the donor hides its own: Ghoul on the Grunt, both death choices show nothing of him in the Grunt\'s Decay Bone (its body is hidden there, its bones lie on other joints)', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
-  for (const deathBody of ['living', 'follow']) {
-    const { model } = transplant('transfer-ghoul', 'transfer-grunt', { deathBody }), index = model.Sequences.findIndex(s => /decay bone/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
-    for (const t of [0.1, 0.5, 0.9]) { const f = Math.round(a + t * (b - a)); assert.deepEqual(model.Geosets.map((_, g) => g).filter(g => geosetShown(model, g, index, f)), [], `${deathBody}: nothing shown at ${f}`); }
-    const decay = model.Sequences.findIndex(s => /decay flesh/i.test(s.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
-    assert.ok(model.Geosets.some((_, g) => geosetShown(model, g, decay, mid)), `${deathBody}: his body still shows in Decay Flesh`);
+  assert.ok(living.length && corpse.length, `${living.length} living, ${corpse.length} corpse geosets`);
+  for (const [i, f] of deathMoments(model)) {
+    for (const g of living) assert.ok(geosetShown(model, g, i, f), `living geoset ${g} shown at ${f}`);
+    for (const g of corpse) assert.ok(!geosetShown(model, g, i, f), `corpse geoset ${g} hidden at ${f}`);
   }
+});
+
+test('G5 the body goes where the donor hides its own: Ghoul on the Grunt shows nothing of him in the Grunt\'s Decay Bone (its body is hidden there, its bones lie on other joints)', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const { model } = transplant('transfer-ghoul', 'transfer-grunt'), index = model.Sequences.findIndex(s => /decay bone/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
+  for (const t of [0.1, 0.5, 0.9]) { const f = Math.round(a + t * (b - a)); assert.deepEqual(model.Geosets.map((_, g) => g).filter(g => geosetShown(model, g, index, f)), [], `nothing shown at ${f}`); }
+  const decay = model.Sequences.findIndex(s => /decay flesh/i.test(s.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
+  assert.ok(model.Geosets.some((_, g) => geosetShown(model, g, decay, mid)), 'his body still shows in Decay Flesh');
 });

@@ -269,19 +269,14 @@ function holdExtents(M) {
 /** Pivots within this share of the hip height count as one place (twin chains: the Ogre's second arm and the Ghoul's corpse
  * skeleton sit within 0.022; the nearest pair that is no twin, 0.044). */
 const TWIN_NEAR = 0.03;
-/** 'follow' is used when the death-only vertices on twin chains are at least this share of the living body the own Death
- * hides (Ghoul 535 of 535; Knight 208 of 629 and Skeleton Warrior none: they get 'living'). */
-const TWIN_DEATH_SHARE = 0.9;
 const DEATH_KIND = /death|decay|dissipate/i, NOT_EVERYDAY = /death|decay|dissipate|portrait/i;
 /** Twin chains: own joints outside the recognised body whose pivots sit on body joints, each under its parent's twin, in
- * groups of two or more joints. A group whose skin shows in everyday animations is a twin when it moves with its twins
- * through the own Stand (the Ogre's second left arm). A group whose skin shows only in Death or Decay (a corpse
- * skeleton) is one only for deathBody 'follow', and only when such groups carry TWIN_DEATH_SHARE of the living body
- * the own Death hides. -> { twin: Map own joint -> body joint, deathOnly: Map geoset -> share of its vertices on death twins,
- * twinDeathShare }. */
-function twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, bodyAncestors, deathBody }) {
-  const twin = new Map(), deathOnly = new Map();
-  if (!rigB.ok) return { twin, deathOnly, twinDeathShare: 0 };
+ * groups of two or more joints, whose skin shows in everyday animations and which move with their twins through the own
+ * Stand (the Ogre's second left arm). A corpse skeleton (skin shown only in Death or Decay: the Ghoul's) is no twin: the
+ * transplant hides it there. -> Map own joint -> body joint. */
+function twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, bodyAncestors }) {
+  const twin = new Map();
+  if (!rigB.ok) return twin;
   const isJoint = id => JOINT_KEYS.some(k => (model[k] || []).includes(ownById.get(id)));
   const inBody = id => partJoint(id) || bodyAncestors.has(id) || treeB.ancestors(id).some(partJoint);
   const ids = ownNodes.map(n => n.ObjectId).filter(isJoint);
@@ -307,34 +302,23 @@ function twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, body
     groups.get(head).push(id);
   }
   for (const [head, members] of groups) if (members.length < 2) groups.delete(head);
-  // Skin per group: vertices under the head shown in an everyday animation, and death-only ones.
-  const sequences = model.Sequences || [], everyday = sequences.filter(s => s.Interval && !NOT_EVERYDAY.test(String(s.Name || ''))), dying = sequences.filter(s => s.Interval && DEATH_KIND.test(String(s.Name || '')));
-  const geosetKind = index => {
+  // Skin per group: vertices under the head shown in an everyday animation.
+  const sequences = model.Sequences || [], everyday = sequences.filter(s => s.Interval && !NOT_EVERYDAY.test(String(s.Name || '')));
+  const shownEveryday = index => {
     const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha;
-    if (!alpha?.Keys?.length || isGlobalTrack(alpha, model) || !everyday.length) return 'everyday';
-    const shows = sequence => sampleShows(model, alpha, sequence);
-    return everyday.some(shows) ? 'everyday' : dying.some(shows) ? 'death' : 'never';
+    return !alpha?.Keys?.length || isGlobalTrack(alpha, model) || !everyday.length || everyday.some(sequence => sampleShows(model, alpha, sequence));
   };
   const headOf = new Map();
   for (const id of ids) { const h = treeB.ancestors(id, true).find(a => groups.has(a)); if (h != null) headOf.set(id, h); }
-  const skin = new Map([...groups.keys()].map(h => [h, { everyday: 0, death: 0 }]));
-  // The living body the own Death hides: shown in the own Stand, hidden at the end of the first Death.
-  const standSequence = sequences[standSequenceIndex(model)], inStand = index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || isGlobalTrack(alpha, model) || !standSequence?.Interval || sampleShows(model, alpha, standSequence); };
-  const death = dying.find(s => /death/i.test(String(s.Name || ''))), hiddenAtEnd = index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !!(death && alpha?.Keys?.length && !isGlobalTrack(alpha, model)) && !(sampleTrack(alpha, death.Interval[1], { interval: death.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001); };
-  let livingHidden = 0, deathOnTwins = 0;
+  const alive = new Map([...groups.keys()].map(h => [h, 0]));
   (model.Geosets || []).forEach((geoset, index) => {
-    const kind = geosetKind(index), count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
-    let on = 0;
+    if (!shownEveryday(index)) return;
+    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
     for (let v = 0; v < count; v++) {
       const bones = weights?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => weights[v * 8 + 4 + i] > 0).map(i => weights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
-      const heads = new Set(bones.map(id => headOf.get(id)).filter(h => h != null));
-      for (const h of heads) if (kind !== 'never') skin.get(h)[kind]++;
-      if (kind === 'death' && heads.size && bones.every(id => headOf.has(id))) on++;
+      for (const h of new Set(bones.map(id => headOf.get(id)).filter(h => h != null))) alive.set(h, alive.get(h) + 1);
     }
-    if (kind === 'death') { deathOnly.set(index, count ? on / count : 0); deathOnTwins += on; }
-    if (inStand(index) && hiddenAtEnd(index)) livingHidden += count;
   });
-  const twinDeathShare = livingHidden ? deathOnTwins / livingHidden : 0;
   const stand = standSequenceIndex(model), interval = sequences[stand]?.Interval;
   const movesWith = members => {
     if (!interval) return false;
@@ -347,30 +331,25 @@ function twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, body
     }
     return true;
   };
-  for (const [head, members] of groups) {
-    const { everyday: alive, death } = skin.get(head);
-    const take = alive > 0 ? movesWith(members) : death > 0 && deathBody === 'follow' && twinDeathShare >= TWIN_DEATH_SHARE;
-    if (take) for (const id of members) twin.set(id, proposed.get(id));
-  }
-  return { twin, deathOnly, twinDeathShare };
+  for (const [head, members] of groups) if (alive.get(head) > 0 && movesWith(members)) for (const id of members) twin.set(id, proposed.get(id));
+  return twin;
 }
 /** Whether a geoset alpha track shows anywhere in an animation. */
 function sampleShows(model, track, sequence) {
   const [start, end] = sequence.Interval, frames = [start, (start + end) / 2, end, ...track.Keys.map(key => key.Frame).filter(frame => frame >= start && frame <= end)];
   return frames.some(frame => sampleTrack(track, frame, { interval: sequence.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001);
 }
-/** In the result's animations whose name matches `kind`, the geosets (all, or those `only` keeps) show as the open model
- * shows them in its animation `source`: over all of it (`at` 'all': hidden where it hides them throughout, else at the
- * highest value it gives them), or at its end (`at` 'end'). */
-function holdShowing(M, model, source, newSequences, { kind = DEATH_KIND, only = () => true, at = 'all', donor = null } = {}) {
+/** In the result's Death and Decay animations every geoset shows as the open model's animation `source` shows it (hidden
+ * where it hides it throughout, else at the highest value it gives it), and nothing shows where the donor hides its body. */
+function holdShowing(M, model, source, newSequences, donor) {
   if (!source?.Interval) return;
-  const targets = newSequences.filter(s => kind.test(String(s.Name || ''))), body = donor ? donorBodyAlpha(donor) : null;
+  const targets = newSequences.filter(s => DEATH_KIND.test(String(s.Name || ''))), body = donorBodyAlpha(donor);
   // Where the donor hides its own body (the Grunt's Decay Bone: its bones lie on other joints), so does this model.
   const bodyShows = (sequence, frame) => !body || sampleTrack(body, frame, { interval: sequence.Interval, globalSequences: donor.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001;
   (model.GeosetAnims || []).forEach(anim => {
     const index = anim.GeosetId, own = anim.Alpha, track = (M.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha;
-    if (!only(index) || !own?.Keys?.length || !track?.Keys || isGlobalTrack(own, model)) return;
-    const [start, end] = source.Interval, frames = at === 'end' ? [end] : [start, (start + end) / 2, end, ...own.Keys.map(key => key.Frame).filter(frame => frame >= start && frame <= end)];
+    if (!own?.Keys?.length || !track?.Keys || isGlobalTrack(own, model)) return;
+    const [start, end] = source.Interval, frames = [start, (start + end) / 2, end, ...own.Keys.map(key => key.Frame).filter(frame => frame >= start && frame <= end)];
     const value = Math.max(0, ...frames.map(frame => sampleTrack(own, frame, { interval: source.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 })));
     const template = track.Keys[0]?.Vector ?? own.Keys[0].Vector;
     const key = (frame, x) => { const k = { Frame: frame, Vector: like(template, [x]) }; if (track.LineType >= 2) { k.InTan = like(template, [x]); k.OutTan = like(template, [x]); } return k; };
@@ -411,11 +390,8 @@ function donorBodyAlpha(D) {
  * straight shin along the donor's knee-to-foot chord; 'folded' bends it where the donor's bends. `feet`: 'down' (default)
  * moves the body (and the donor joints that hang from nothing) up or down so the lower foot is as high above the
  * ground as the donor's, times the travel ratio (owner's pick, TEST TRANSPLANT 09); 'free' leaves the height as the keys give it.
- * `deathBody`: how the model looks in the donor's Death and Decay. 'own' (default) shows and hides its meshes as its own
- * Death and Decay do; 'living' shows what its Stand shows (the living body dies with the donor, death-only meshes stay
- * hidden); 'follow' keeps its own swap where its death body sits on a twin skeleton, which then follows the donor like
- * the living body, and is 'living' otherwise (`report.deathBody` says which was used). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', deathBody = 'own' } = {}) {
+ * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down' } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -538,7 +514,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Twin chains (docs/agent-tasks/xfer-both-ways.md, "Twin chains and how he dies"): own joints outside the body that sit
   // on body joints (a second left arm carrying the Ogre's off-hand weapon, the Ghoul's corpse skeleton). Their skin
   // goes where the twin's goes, so it moves as the twin does in every animation, instead of staying still.
-  const { twin, deathOnly, twinDeathShare } = twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, bodyAncestors, deathBody });
+  const twin = twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, bodyAncestors });
   for (const id of [...outsideKept]) if (treeB.ancestors(id, true).some(a => twin.has(a))) outsideKept.delete(id);
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
@@ -1070,20 +1046,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const ownSequences = model.Sequences || [];
   const timed = ownTimedTracks([M.GeosetAnims || [], M.Materials || [], M.TextureAnims || [], M.Cameras || [], ...NODE_KEYS.flatMap(k => M[k].filter(n => n.ObjectId < offset && !JOINT_KEYS.includes(k)))]);
   refitTracks(timed, ownSequences, M.GlobalSequences, newSequences, ownStand >= 0 ? ownStand : 0);
-  // How he dies (deathBody): 'own' plays the model's own showing and hiding in the donor's Death and Decay (today's);
-  // 'living' shows there what his Stand shows (the living body dies, his own death-only meshes stay hidden); 'follow'
-  // keeps his own swap where his death body sits on a twin skeleton (it then follows the donor) and hides the death-only
-  // meshes that do not; with no such death body it is 'living'.
-  const deathMode = deathBody === 'follow' && !(twinDeathShare >= TWIN_DEATH_SHARE) ? 'living' : deathBody;
-  // In 'follow' the Decay shows the end of his own Death (the corpse, not the living body); death-only meshes not on a twin
-  // skeleton (a gut pile) stay hidden throughout, as in 'living'.
-  const ownStandSequence = ownSequences[ownStand], ownDeath = ownSequences.find(s => s.Interval && /death/i.test(String(s.Name || '')));
-  if (deathMode === 'living') holdShowing(M, model, ownStandSequence, newSequences, { donor: D });
-  else if (deathMode === 'follow') {
-    const loose = index => deathOnly.has(index) && deathOnly.get(index) < TWIN_DEATH_SHARE;
-    holdShowing(M, model, ownDeath, newSequences, { kind: /decay/i, only: index => !loose(index), at: 'end', donor: D });
-    holdShowing(M, model, ownStandSequence, newSequences, { only: loose });
-  }
+  // How he dies (owner, 19 Nov 2026, TEST GORE2 sheet): in the donor's Death and Decay he shows what his Stand shows, so
+  // his living body dies with the donor and his own death-only meshes (corpse copies, gut piles) stay hidden; where the
+  // donor hides its body, so does he.
+  holdShowing(M, model, ownSequences[ownStand], newSequences, D);
   for (const geoset of M.Geosets || []) fillSequenceExtents(M, geoset, { onlyIfPresent: false });
 
   // ------------------------------------------------------------ ids
@@ -1141,7 +1107,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, deathBody: deathMode, twins: twin.size,
+      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, twins: twin.size,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
