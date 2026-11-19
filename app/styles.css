@@ -146,3 +146,15 @@ input[type=range].range-input{display:block;width:100%;min-width:0;height:18px;m
 .range-steps{display:flex;align-items:center;gap:1px;min-width:0;flex:1 1 auto}.range-steps>input[type=range]{flex:1 1 auto;width:auto;min-width:24px;margin:0}
 .range-steps>button.range-step{flex:none;order:0;display:inline-grid;place-items:center;width:13px;min-width:13px;height:15px;min-height:0;padding:0;margin:0;border:1px solid transparent;border-radius:2px;background:transparent;box-shadow:none;color:#404040;font-size:12px;font-weight:bold;line-height:1}.range-steps>button.range-step-down{order:-1}
 .range-steps>button.range-step:hover:not(:disabled){border-color:#808080;background:#e4e0d8}.range-steps>button.range-step:disabled{opacity:.35}
+/* VIS keeps the classic rows; Cut follows them. */
+.classic-app[data-vis-ui] .classic-tools>.classic-cut{order:1}
+
+/* Editing panel hide button and the tab that brings it back. */
+.classic-sidebar.panel-hidden{display:none!important}
+.classic-sidebar>.panel-hide-button{display:flex;align-items:center;justify-content:center;width:22px;height:18px;min-height:0;margin:3px 0 0 auto;padding:0;position:sticky;bottom:0;z-index:6}
+.classic-view>.panel-show-tab{position:absolute;right:0;bottom:12px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:26px;min-height:0;padding:0}
+/* Narrow views: the camera bar shows icons, the names stay on hover. */
+.view-label-icon{position:relative;display:inline-grid;place-items:center;min-width:24px;height:21px;padding:0 3px;color:var(--ui-text,inherit)}
+.view-label-icon:has(select:focus-visible){outline:1px dotted currentColor;outline-offset:-2px}
+.classic-view-label .view-label-icon select{position:absolute;inset:0;width:100%!important;height:100%;margin:0;padding:0;opacity:0;cursor:pointer}
+.compact-view-label>button{display:inline-grid;place-items:center;min-width:24px}

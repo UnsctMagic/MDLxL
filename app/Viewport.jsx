@@ -26,6 +26,7 @@ import { configureGeosetHighlightMaterial } from './geoset-highlight.js';
 import { configureEditorTexture, cameraLeftLight, viewportPixelRatio } from './viewport-quality.js';
 import { createRigMarkersGL } from './rig-markers-gl.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
+import { cutTargets, sameSpot } from '../src/edge-cut.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -97,7 +98,7 @@ export default function Viewport({ children, ...inputProps }) {
     const backgroundCanvas = document.createElement('canvas'), backgroundTexture = new THREE.CanvasTexture(backgroundCanvas);
     backgroundTexture.colorSpace = THREE.SRGBColorSpace;
     const state = { renderer, modelSmoothing, scene, modelGroup, perspective, ortho, camera, controls, grid, entries: [], nodes: [], textures: new Map(), markerTextures: new Map(), checker: makeChecker(), background: { canvas: backgroundCanvas, texture: backgroundTexture, data: null, image: null, status: 'idle', drawKey: '' }, frame: 0, lastExternalTime: undefined, sequenceIndex: -1, wasPlaying: false, drag: null, anchorCandidate: null, dirty: true, radius: 100, center: new THREE.Vector3(0, 0, 40), loadedSignature: null, selectionKey: '', hoveredGeoset: null, disposed: false };
-    runtime.current = state; state.sketch = sketch;
+    runtime.current = state; state.sketch = sketch; state.cut = { start: null, targets: null, hover: null };
     state.teamGlow = makeTeamGlow();
     state.globalTime = 0;
     state.textureSources = new Map();
@@ -400,6 +401,77 @@ export default function Viewport({ children, ...inputProps }) {
       }
       return first;
     }
+    // Cut tool: the first click picks a vertex; the second picks a point on the far
+    // line of a triangle touching it, or the far corner of a quad it starts.
+    function clearCut() { state.cut.start = state.cut.targets = state.cut.hover = null; }
+    function cutStart(p) {
+      const start = state.cut.start, entry = start && state.entries[start.geosetIndex];
+      if (!start || p.transformMode !== 'cut' || start.revision !== p.revision || !entry?.group.visible || start.vertex >= entry.geometry.attributes.position.count) { state.cut.start = state.cut.targets = null; return null; }
+      state.cut.targets ||= cutTargets(entry.geoset.Faces, entry.geoset.Vertices, start.vertex);
+      return start;
+    }
+    function cutPick(p, at) {
+      const screen = new THREE.Vector3(), radius = Math.max(7, visualOptions(p.preferences).vertexSize / 2 + 3);
+      const project = (entry, i) => { screen.fromBufferAttribute(entry.geometry.attributes.position, i).project(camera); return screen.z < -1 || screen.z > 1 ? null : [(screen.x + 1) * at.width / 2, (1 - screen.y) * at.height / 2]; };
+      let vertex = null, best = radius;
+      for (const geosetIndex of editableGeosets(p)) {
+        const entry = state.entries[geosetIndex]; if (!entry?.group.visible) continue;
+        const hidden = new Set(p.hiddenVertices?.[geosetIndex] || []), count = entry.geometry.attributes.position.count;
+        for (let i = 0; i < count; i++) {
+          const spot = !hidden.has(i) && project(entry, i), distance = spot && Math.hypot(spot[0] - at.x, spot[1] - at.y);
+          if (spot && distance < best) { best = distance; vertex = { geosetIndex, vertex: i }; }
+        }
+      }
+      const start = cutStart(p);
+      if (!start) return vertex && { kind: 'start', ...vertex };
+      const targets = state.cut.targets, entry = state.entries[start.geosetIndex];
+      if (vertex) {
+        if (vertex.geosetIndex !== start.geosetIndex) return { kind: 'start', ...vertex };
+        if (targets.start.has(vertex.vertex)) return { kind: 'cancel' };
+        // Copies on one spot (texture seams) all count: any of them may be the far corner.
+        const corner = [...sameSpot(entry.geoset.Vertices, vertex.vertex)].find(index => targets.corners.has(index));
+        if (corner !== undefined) return { kind: 'corner', geosetIndex: start.geosetIndex, start: start.vertex, vertex: corner };
+        return { kind: 'start', ...vertex };
+      }
+      const hidden = new Set(p.hiddenVertices?.[start.geosetIndex] || []), position = entry.geometry.attributes.position;
+      let edge = null, closest = 8;
+      for (const [a, b] of targets.edges) {
+        const pa = !hidden.has(a) && !hidden.has(b) && project(entry, a), pb = pa && project(entry, b); if (!pb) continue;
+        const dx = pb[0] - pa[0], dy = pb[1] - pa[1], length = dx * dx + dy * dy; if (length < 1) continue;
+        const u = Math.max(0, Math.min(1, ((at.x - pa[0]) * dx + (at.y - pa[1]) * dy) / length)), distance = Math.hypot(pa[0] + u * dx - at.x, pa[1] + u * dy - at.y);
+        if (distance < closest) { closest = distance; edge = { a, b, u }; }
+      }
+      if (!edge) return null;
+      // Even screen steps are uneven along a line seen in perspective: undo the depth.
+      const depth = i => Math.abs(new THREE.Vector4(position.getX(i), position.getY(i), position.getZ(i), 1).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix).w) || 1;
+      const wa = depth(edge.a), wb = depth(edge.b), t = edge.u * wa / (edge.u * wa + (1 - edge.u) * wb);
+      return t > 1e-4 && t < 1 - 1e-4 ? { kind: 'edge', geosetIndex: start.geosetIndex, start: start.vertex, a: edge.a, b: edge.b, t } : null;
+    }
+    function cutClick(p, at) {
+      const target = cutPick(p, at);
+      if (!target) return;
+      if (target.kind === 'cancel') clearCut();
+      else if (target.kind === 'start') { state.cut.start = { geosetIndex: target.geosetIndex, vertex: target.vertex, revision: p.revision }; state.cut.targets = state.cut.hover = null; }
+      else { clearCut(); p.onCut(target); }
+      invalidate();
+    }
+    function drawCut(context, p, width, height) {
+      const start = cutStart(p), hover = state.cut.hover?.pane === boundPane.id ? state.cut.hover : null;
+      const at = (geosetIndex, index, other, t = 0) => {
+        const position = state.entries[geosetIndex]?.geometry.attributes.position; if (!position) return null;
+        const point = new THREE.Vector3().fromBufferAttribute(position, index);
+        if (other != null) point.lerp(new THREE.Vector3().fromBufferAttribute(position, other), t);
+        point.project(camera); return point.z < -1 || point.z > 1 ? null : [(point.x + 1) * width / 2, (1 - point.y) * height / 2];
+      };
+      const line = (from, to, dashed) => { if (!from || !to) return; context.setLineDash(dashed ? [6, 4] : []); for (const [color, size] of [['#000', 5], ['#ffe14d', 2.5]]) { context.strokeStyle = color; context.lineWidth = size; context.beginPath(); context.moveTo(...from); context.lineTo(...to); context.stroke(); } context.setLineDash([]); };
+      const ring = (spot, filled) => { if (!spot) return; context.beginPath(); context.arc(spot[0], spot[1], filled ? 4.5 : 7, 0, Math.PI * 2); context.lineWidth = 2; context.strokeStyle = '#000'; context.fillStyle = '#ffe14d'; if (filled) { context.fill(); context.stroke(); } else { context.stroke(); context.strokeStyle = '#ffe14d'; context.lineWidth = 1.5; context.stroke(); } };
+      const from = start && at(start.geosetIndex, start.vertex);
+      ring(from, false);
+      if (hover?.kind === 'start') ring(at(hover.geosetIndex, hover.vertex), false);
+      if (hover?.kind === 'edge') { const dot = at(hover.geosetIndex, hover.a, hover.b, hover.t); line(at(hover.geosetIndex, hover.a), at(hover.geosetIndex, hover.b)); line(from, dot, true); ring(dot, true); }
+      if (hover?.kind === 'corner') { const corner = at(hover.geosetIndex, hover.vertex); line(from, corner, true); ring(corner, true); }
+      return !!(from || hover);
+    }
     function cameraAction(event) {
       const p = latest.current;
       const binding = cameraBindings(p.preferences);
@@ -441,6 +513,7 @@ export default function Viewport({ children, ...inputProps }) {
       // camera navigation only, so no edit can target the wrong vertices.
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
+      if (p.transformMode === 'cut' && p.onCut && !p.onStartPartDrag && !p.onSelectParts) { down.action = 'cut'; return; }
       if (p.onStartPartDrag) {
         down.action = 'parts'; start.shift = partSnap(event);
         down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return;
@@ -457,7 +530,8 @@ export default function Viewport({ children, ...inputProps }) {
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
-      if (p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
+      // Cut without its handler (Forge picking, read-only) clicks like Select.
+      if (p.transformMode === 'select' || p.transformMode === 'cut' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const animated = p.vertexPreviewSequence != null;
       const posedEditing = animated || state.nodes.some(node => node.Flags & 120);
       if (!animated && posedEditing) applyPreviewPose(p, camera);
@@ -604,6 +678,9 @@ export default function Viewport({ children, ...inputProps }) {
       hoverParts(move.event); inspectHoveredGeoset(move.event);
       const at = point(move.event), hovered = latest.current.cameraMode === 'work' ? pickMovementHandle(boundPane.gizmoHandles || [], at.x, at.y, latest.current.transformMode === 'rotate' ? 'rotate' : 'move')?.axis : null;
       if (boundPane.hoverAxis !== hovered) { boundPane.hoverAxis = hovered; invalidate(); }
+      const p = latest.current, cutHover = p.transformMode === 'cut' && p.onCut && p.cameraMode === 'work' && !move.event.buttons ? cutPick(p, at) : null;
+      const nextCut = cutHover && { ...cutHover, pane: boundPane.id };
+      if (JSON.stringify(nextCut) !== JSON.stringify(state.cut.hover)) { state.cut.hover = nextCut; invalidate(); }
       if (move.pane) bindPane(activePane);
     }, drawFrames);
     // The zoom-anchor marquee searches every vertex; once per frame with the latest point.
@@ -742,6 +819,11 @@ export default function Viewport({ children, ...inputProps }) {
         if (start.anchorCandidate) latest.current.onChooseZoomAnchor?.(start.anchorCandidate);
         return;
       }
+      if (start.action === 'cut') {
+        const end = point(event);
+        if (event.type !== 'pointercancel' && Math.hypot(end.x - start.x, end.y - start.y) <= 5) cutClick(latest.current, end);
+        return;
+      }
       if (start.action !== 'select') return;
       const end = point(event), distance = Math.hypot(end.x - start.x, end.y - start.y), p = latest.current;
       syncAnimatedBillboards(p);
@@ -855,7 +937,7 @@ export default function Viewport({ children, ...inputProps }) {
     };
     // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
-    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
+    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (cutStart(latest.current)) { clearCut(); invalidate(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
     const claimWindowKey = claim => {
       const {event,localWindow}=claim.detail,canvas=renderer.domElement;
       // Forge's Undo and Redo do not edit behind a drag: they cancel it (historyAction in ForgeShapes.jsx).
@@ -865,7 +947,7 @@ export default function Viewport({ children, ...inputProps }) {
       claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
     };
     const contextMenu = event => event.preventDefault();
-    const pointerLeave = event => { if (!down) { const pane = quad ? panes.find(pane => pane.surface === event.currentTarget) : singlePane; if (pane?.hoverAxis) { pane.hoverAxis = null; invalidate(); } hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
+    const pointerLeave = event => { if (!down) { const pane = quad ? panes.find(pane => pane.surface === event.currentTarget) : singlePane; if (pane?.hoverAxis) { pane.hoverAxis = null; invalidate(); } hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; if (state.cut.hover) { state.cut.hover = null; invalidate(); } latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
@@ -1115,12 +1197,17 @@ export default function Viewport({ children, ...inputProps }) {
           return projected.z >= -1 && projected.z <= 1 ? projected : null;
         };
         const anchorPoint = overlayPoint(p.zoomAnchor), candidatePoint = overlayPoint(p.choosingZoomAnchor ? state.anchorCandidate : null);
-        if (anchorPoint || candidatePoint) {
+        // The Cut tool's marks share this canvas: Resize's anchor and Cut never show together.
+        if (p.transformMode !== 'cut' || p.cameraMode !== 'work') { if (state.cut.start || state.cut.hover) clearCut(); }
+        const cutting = !!(cutStart(p) || state.cut.hover?.pane === boundPane.id);
+        if (anchorPoint || candidatePoint || cutting) {
           if (!anchorCanvas) { anchorCanvas = document.createElement('canvas'); anchorCanvas.dataset.anchorOverlay = ''; anchorCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2'; overlayHost.appendChild(anchorCanvas); }
           anchorCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); anchorCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
           const context = anchorCanvas.getContext('2d'), pixelRatio = renderer.getPixelRatio(), width = surface.clientWidth, height = surface.clientHeight;
           context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, anchorCanvas.width, anchorCanvas.height);
-          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0); context.fillStyle = p.choosingZoomAnchor === 'align' ? '#ff4fd8' : '#39ff14';
+          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+          anchorCanvas.dataset.cut = cutting && drawCut(context, p, width, height) ? (state.cut.hover?.pane === boundPane.id && state.cut.hover.kind) || 'start' : '';
+          context.fillStyle = p.choosingZoomAnchor === 'align' ? '#ff4fd8' : '#39ff14';
           if (candidatePoint) {
             context.beginPath(); context.arc((candidatePoint.x + 1) * width / 2, (1 - candidatePoint.y) * height / 2, 7, 0, Math.PI * 2); context.fill();
           }

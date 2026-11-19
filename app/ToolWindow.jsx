@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { trapTab } from './focus-trap.js';
+import { useHoldPlayback } from './playback-hold.js';
 
 /**
  * The shell of a tool window: a backdrop and a window moved by its title bar, with ×
@@ -17,6 +18,8 @@ import { trapTab } from './focus-trap.js';
  */
 export default function ToolWindow({ title, caption, actions, groupButtons = false, className = '', overlayClass = '', headerClass, closeClass, closeTitle, onClose, onKeyDown, trap = true, modal = true, windowRef, sectionProps, after, unapplied = false, children }) {
   const localRef = useRef(null), ref = windowRef || localRef, movable = useMovableWindow(ref);
+  // An open editing window pauses the main animation and resumes it on close.
+  useHoldPlayback();
   const close = <button data-hotkey="close" className={closeClass} aria-label={`Close ${title}`} title={closeTitle} onClick={onClose}>×</button>;
   return <><div className={`mdlxl-overlay ${overlayClass}`.trim()} onKeyDown={event => { onKeyDown?.(event); if (trap) trapTab(event, ref.current); }}>
     <section ref={ref} style={movable.style} tabIndex={-1} className={`mdlxl-window ${className}`.trim()} data-hotkey-prefix={title} data-hotkey-scope={title} role="dialog" aria-modal={modal} aria-label={title} data-hotkey-unapplied={unapplied ? '' : undefined} {...sectionProps}>
