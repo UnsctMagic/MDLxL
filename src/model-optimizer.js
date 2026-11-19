@@ -106,10 +106,15 @@ function textureRefs(model) {
   return refs;
 }
 export function resources(model, counts, skipped) {
+  // An FX layer list keeps the part's own material to restore it later, so
+  // that material stays and its saved index follows the renumbering.
+  const fxStacks = model.Geosets.map(geoset => geoset._FxStack).filter(stack => Number.isInteger(stack?.baseMaterial));
   const usedMaterials = new Set([...model.Geosets, ...model.RibbonEmitters].map(consumer => consumer.MaterialID).filter(id => !sentinel(id)));
+  for (const stack of fxStacks) if (!sentinel(stack.baseMaterial)) usedMaterials.add(stack.baseMaterial);
   const materialMap = new Map(); model.Materials = model.Materials.filter((material, i) => { if (!usedMaterials.has(i)) return false; materialMap.set(i, materialMap.size); return true; });
   counts.materials += counts.originalMaterials - model.Materials.length;
   for (const consumer of [...model.Geosets, ...model.RibbonEmitters]) if (!sentinel(consumer.MaterialID)) consumer.MaterialID = materialMap.get(consumer.MaterialID);
+  for (const stack of fxStacks) if (materialMap.has(stack.baseMaterial)) stack.baseMaterial = materialMap.get(stack.baseMaterial);
   const refs = textureRefs(model);
   if (refs.some(([owner, field]) => owner[field]?.Keys && (owner[field].LineType !== 0 || owner[field].Keys.some(key => key.InTan || key.OutTan)))) {
     skipped.add('Texture cleanup skipped: interpolated texture-ID tracks cannot be safely reindexed.'); return;
