@@ -1051,3 +1051,56 @@ cases, Poor fit as written). Package C not built (on hold). Commits `0a70da55` (
 
 Open: package C (own gore pieces) on hold; the five "new: flung on donor bones" Death/Birth pairs (Penguin, Wyvern,
 Phoenix Egg, Sheep) not judged; owner's eye on build 26 pending.
+
+## Twin chains and how he dies (builder: Claude Opus, 19 Nov 2026)
+
+Cause (investigation in `out/transfer-probe/owner-choices/gore-why/`): the Ogre's "plank" is his off-hand weapon
+`Cylinder03` on a second left arm (`Bone_Root#25 > Bone_Chest#3 > Bone_Arm1_L#8 > Bone_Arm2_L#44 > Bone_Hand_L#52`,
+pivots on the real chain's); the Ghoul's Death hides his living body and shows a corpse copy on a second skeleton
+(`Bone_Waist01`, `Bone_Root01`, ...). Both sat in `outsideKept` and were frozen.
+
+- **Part 1, twin chains (`src/skeleton-transplant.js`, `twinChains`; recogniser untouched).** An own joint outside
+  the body whose pivot lies within `TWIN_NEAR` = 0.03 hip heights of a body joint (under its parent's twin), in a
+  group of 2 or more, is that joint's twin: its skin goes where the twin's goes. A group whose skin shows in everyday
+  animations is taken only when it moves with its twins through the own Stand (within 0.03). Measured over the
+  library (`gore2/twin-scan.mjs`, `scan-sd.txt`, `scan-lpw.txt`): Ogre and Ghoul twins at 0 to 0.022; the nearest
+  pivot pair that is no twin 0.044; Khorne/Nurgle knights' `Object22` pairs coincide but move 0.07 apart in Stand
+  (not taken). Death-only groups (the Ghoul's corpse) are not taken by default.
+  - Ogre on the Tauren (`gore2/twin-probe.mjs`): weapon against left hand varies by 1.85 hip heights (HEAD, Attack
+    Slam) -> 0.000.
+  - Fingerprint (`fingerprint-compare.mjs preT postT T`, 3,068 runs, 2 idle processes): 2,950 must-be-identical
+    runs, 0 differ; the 118 that change are exactly the Ogre (LPW) on all 59 donors, Mirror off and on, none with
+    a bad size or a throw. Retarget `baseline.mjs z` vs `y`: 32 compared, 0 differ.
+  - Not changed: an emitter or attachment under the twin chain rides the twin's target (emitter) or stays the donor's
+    (attachments); pieces under a twin that move by themselves are not listed as extras.
+- **Part 2, `deathBody` option (default `'own'`, unchanged).** `'living'` ("Living body dies"): in the donor's
+  Death and Decay every geoset shows as the own Stand shows it (living body follows the donor and dies; corpse
+  copies, gut piles hidden). `'follow'` ("Corpse follows"): death-only groups on twin skeletons become twins when
+  their vertices are at least `TWIN_DEATH_SHARE` = 0.9 of the living body the own Death hides (shown in the own
+  Stand, hidden at the end of the own Death; Ghoul 535 of 535, Knight 208 of 629, Skeleton Warrior 0); the own
+  swap moment is kept in Death, Decay shows the end of the own Death, death-only meshes not on twins (the Ghoul's gut
+  pile) are hidden. Otherwise `'follow'` is `'living'` exactly (test G5). `report.deathBody`, `report.twins`.
+  - Found on the way, not fixed (shared refit, changes default): the own geoset showing refit into the donor's
+    Decay drops the Ghoul's keys (`refitTracks`: own keys at the very start of Decay Flesh are lost), so today's
+    default shows his living body, not his corpse, in Decay.
+- Tests (`test/skeleton-transplant.test.js` G1-G5; fixtures `transfer-ogre-twin` = new
+  `MDLxL-TestModels/transfer-gore/WH_WOC_Ogre10.mdx`, `transfer-skeleton`): all five fail on HEAD's engine (G1:
+  "Stand -1: the weapon against the hand varies by 0.085 hip heights"); skeleton-transplant + transplant-skin
+  51/51, anim-transfer + transfer-window 89/89.
+- **Owner sheet** (`gore2/gore2-sheet.mjs`, `gore2-sheet.txt`; models `TestBuilds\test-models\TEST GORE2 0N
+  BEFORE|A|B.mdx`, `TestBuilds\transplant-review-gore2\cases.json`, launcher `_START HERE\7 TRANSPLANT - how he
+  dies.cmd` on build 26). BEFORE = HEAD's engine.
+  1. Ogre on the Tauren: A = B (no death-only body); Before / After, "Looks right" / "Looks wrong". After vs Before
+     up to 1.62 hip heights (Death), 1.49 (Attack Slam), 0.99 (Attack - 1); the weapon now moves with the hand.
+     After also shows the body through Decay (A's rule) where Before shows nothing.
+  2. Ghoul on the Grunt: Living body dies / Corpse follows. A vs B up to 0.65 hip heights in Death (1.2 s) and 1.32
+     at the start of Decay Bone. **The Ghoul's corpse is a copy of his living mesh**, so the two look alike: the
+     difference is the hands (the living claws ride the Grunt's axe bone as the weapon; the corpse's claws are
+     skinned to the hand bone and stay with the hand) and the gut pile (hidden in both).
+  3. Skeleton Warrior on the Grunt: B falls back to A; Before / After. Before shows nothing of his body in the Death
+     (his living body hidden, the corpse frozen off to the side); After shows him dying with the Grunt.
+  Hidden click run on build 26 (`out/compare-sheet-gore2/`, `results.txt`): 3 cases, 6 looks, Flip, answers, Done,
+  no page errors; PASSED.
+
+Open: owner's pick on the gore2 sheet; then set the `deathBody` default and offer it in the window if he wants a
+choice; the Decay refit gap above.
