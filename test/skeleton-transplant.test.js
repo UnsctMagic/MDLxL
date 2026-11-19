@@ -847,3 +847,15 @@ test('Q4 Footman on the Ghoul: the arm ends at the Ghoul\'s moving hand, not at 
   assert.equal(transferRig(donor, { sequence: standSequenceIndex(donor) }), raw, 'the shared reading is unchanged');
   assertPosture(result, 'Footman on the Ghoul');
 });
+test('Q5 Grunt on the Ghoul: the feet stay on the Ghoul\'s ground in every animation but Death (the result\'s legs are read as the donor\'s, not from the re-posed result, which reads the Ghoul\'s corpse skeleton)', { skip: missing('transfer-grunt', 'transfer-ghoul') }, () => {
+  const { own, donor, model, report } = transplant('transfer-grunt', 'transfer-ghoul'), nM = byId(model), nD = byId(donor);
+  const rigG = transferRig(donor, { sequence: standSequenceIndex(donor) }), rigO = transferRig(own, { sequence: standSequenceIndex(own) });
+  const feetD = Object.values(rigG.parts).filter(p => p.limbKind === 'leg').map(p => p.marker), feetM = feetD.map(id => report.donorNodes[id]);
+  let worst = { d: 0 };
+  for (const [index, frame] of moments(model, 12, /death|decay|portrait/i)) {
+    const md = sampleNodeMatrices(donor, frame, index), mm = sampleNodeMatrices(model, frame, index);
+    const target = (Math.min(...feetD.map(id => at(donor, nD, md, id).z)) - rigG.ground) * report.counts.travel, got = Math.min(...feetM.map(id => at(model, nM, mm, id).z)) - rigO.ground;
+    if (Math.abs(got - target) > worst.d) worst = { d: Math.abs(got - target), name: model.Sequences[index].Name, frame };
+  }
+  assert.ok(worst.d < 0.06 * rigO.hipHeight, `${worst.name} ${worst.frame}: the lower foot is ${worst.d.toFixed(1)} off the Ghoul's (hip height ${rigO.hipHeight.toFixed(0)})`);
+});
