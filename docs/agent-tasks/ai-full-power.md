@@ -1,8 +1,8 @@
 # AI full power (no gates, real Stop, shrinking history, eyes, tools on hidden tabs)
 
-Status: ready for review (owner hand test of a packaged build)
+Status: completed - merged into main on 19 Nov 2026 (owner: "merge ai-full-power only"). Open follow-ups, not built: View AI work does nothing on click (jump to the last look, follow script steps); Astra refused calls (reference capture with filmstrip, "step is 1 to 50 ms"); see TestBuilds/reports/baron-run-errors-2026-11-18.md. Replay, Thumper and new providers stay on local claude/ai-work-replay.
 Owner / consolidator: Claude Code (branch `claude/ai-full-power`)
-Updated: 2026-11-18
+Updated: 2026-11-19
 
 ## Goal and completion criteria
 
