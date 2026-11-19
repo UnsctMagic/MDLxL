@@ -625,3 +625,15 @@ Compare sheet (build 21, `TestBuilds\transplant-review\cases.json`, answers in `
 - Extras question dropped: kept plates and belt move within 0.41 of 01 (keep holds a bone still on its
   joint), so there was no visible choice. Still open, together with the hammer losing its own swing.
 - Owner, 19 Nov: no Fable; when the hard algorithm step comes, ask him which model.
+
+## Owner's scope for transplant v2 (19 Nov 2026, quoted)
+
+"No, it gets the taurens swing and the user can correct - this is an implant - when did i ask for it to
+be a complicated implant that preserves anything?" Transplant = the model's mesh goes onto the donor's
+skeleton and takes the donor's motion, whole. Nothing of the model's own motion is preserved; the user
+corrects afterwards with the existing tools. Dropped: the hammer's own swing, the per-extra Keep
+checkbox, carrying the model's own followers. v2 list:
+1. The weapon rides the donor's weapon bone (the Tauren's swing, thrown off with the totem).
+2. The donor's own leg bones, not the converted legs.
+3. Weapon Ref (attachment) on the bone that carries the weapon.
+4. Skin goes onto the donor's bones so the body bends where the donor's does (trunk included).
