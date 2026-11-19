@@ -757,7 +757,7 @@ class AiService {
     // A new request on a long chat starts a fresh provider history (see FRESH_HISTORY_AT).
     let restarted = '';
     const work = conversation.toolsOff ? null : workFolderOf(this.directory, id);
-    const movedThread = work && settings.provider === 'claude' && conversation.threadId && conversation.threadFolder !== work;
+    const movedThread = work && ['claude', 'gemini'].includes(settings.provider) && conversation.threadId && conversation.threadFolder !== work;
     if (movedThread || (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length))) {
       restarted = lastExchange(conversation);
       conversation.messages = [];
@@ -1087,7 +1087,8 @@ class AiService {
         await prepareWorkFolder(work, connection);
         shellVariables = bridgeVariables(work, connection);
         if (computerTools.length) computer = createComputer({ folder: work, env: { ...(await prepareEnvironment(this.directory, settings.provider)), ...shellVariables } });
-        if (settings.provider === 'claude') conversation.threadFolder = work;
+        // Claude Code and Gemini CLI keep a session with the folder it ran in.
+        if (['claude', 'gemini'].includes(settings.provider)) conversation.threadFolder = work;
       }
       await progress('inspecting');
       let runs = 0;

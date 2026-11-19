@@ -296,22 +296,35 @@ test(
 
 test('the provider table keeps the settings order, labels and what each connection supports', () => {
   const { PROVIDERS, providerInfo } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  // Claude first, Codex after, then the other providers, the custom connection last.
   assert.deepEqual(PROVIDERS.map(p => [p.id, p.label]), [
-    ['codex', 'Codex / ChatGPT'],
     ['claude', 'Claude Code'],
-    ['openai', 'OpenAI API'],
     ['anthropic', 'Claude API'],
+    ['codex', 'Codex / ChatGPT'],
+    ['openai', 'OpenAI API'],
+    ['gemini', 'Gemini CLI'],
+    ['copilot', 'GitHub Copilot CLI'],
+    ['google', 'Google Gemini API'],
+    ['xai', 'xAI Grok API'],
+    ['mistral', 'Mistral API'],
+    ['deepseek', 'DeepSeek API'],
+    ['qwen', 'Qwen API (Alibaba Cloud)'],
+    ['openrouter', 'OpenRouter'],
+    ['groq', 'Groq'],
+    ['azure', 'Azure OpenAI'],
+    ['ollama', 'Ollama (local)'],
+    ['lmstudio', 'LM Studio (local)'],
     ['compatible', 'Other AI / local model'],
   ]);
   const has = flag => PROVIDERS.filter(p => p[flag]).map(p => p.id);
-  assert.deepEqual(has('native'), ['codex', 'claude']);
-  assert.deepEqual(has('apiKey'), ['openai', 'anthropic', 'compatible']);
-  assert.deepEqual(has('baseUrl'), ['compatible']);
-  assert.deepEqual(has('effort'), ['codex', 'claude', 'openai', 'anthropic']);
-  assert.deepEqual(has('spendLimit'), ['openai', 'anthropic', 'compatible']);
-  assert.deepEqual(has('stepLimit'), ['claude', 'openai', 'anthropic', 'compatible']);
-  assert.deepEqual(has('web'), ['codex', 'claude', 'anthropic']);
-  assert.deepEqual(PROVIDERS.flatMap(p => p.logFolders), ['codex/sessions', 'codex/archived_sessions', 'claude/projects']);
+  assert.deepEqual(has('native'), ['claude', 'codex', 'gemini', 'copilot']);
+  assert.deepEqual(has('apiKey'), ['anthropic', 'openai', 'google', 'xai', 'mistral', 'deepseek', 'qwen', 'openrouter', 'groq', 'azure', 'compatible']);
+  assert.deepEqual(has('baseUrl'), ['qwen', 'azure', 'ollama', 'lmstudio', 'compatible']);
+  assert.deepEqual(has('effort'), ['claude', 'anthropic', 'codex', 'openai', 'google']);
+  assert.deepEqual(has('spendLimit'), ['anthropic', 'openai', 'google', 'xai', 'mistral', 'deepseek', 'qwen', 'openrouter', 'groq', 'azure', 'compatible']);
+  assert.deepEqual(has('stepLimit'), ['claude', 'anthropic', 'openai', 'google', 'xai', 'mistral', 'deepseek', 'qwen', 'openrouter', 'groq', 'azure', 'ollama', 'lmstudio', 'compatible']);
+  assert.deepEqual(has('web'), ['claude', 'anthropic', 'codex']);
+  assert.deepEqual(PROVIDERS.flatMap(p => p.logFolders), ['claude/projects', 'codex/sessions', 'codex/archived_sessions']);
   assert.equal(providerInfo('unknown'), undefined);
 });
 
