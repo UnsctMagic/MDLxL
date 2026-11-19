@@ -41,6 +41,8 @@ function validateArguments(schema, value, path = 'arguments') {
 // A PNG, JPEG or WebP data URL: [1] is the MIME type, [2] the base64 data.
 const IMAGE_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s;
 function toolContent(value) {
+  // Shell and file tools answer in plain text, as a terminal would.
+  if (typeof value?.toolText === 'string') return [{ type: 'text', text: value.toolText }];
   if (value?.images) {
     if (!Array.isArray(value.images) || !value.images.length || value.images.length > 16)
       throw Error('Invalid viewport capture batch.');
@@ -67,6 +69,11 @@ function toolContent(value) {
 async function callEditorTool(tools, call, name, args, signal, awareness) {
   const tool = tools.find(t => t.name === name);
   if (!tool) throw Error('Unknown tool: ' + name);
+  // Models add the job's target to every call; a tool that takes none just ignores it.
+  if (args && typeof args === 'object' && 'target' in args && !tool.inputSchema?.properties?.target) {
+    args = { ...args };
+    delete args.target;
+  }
   validateArguments(tool.inputSchema, args);
   if (signal?.aborted) throw Error('Request cancelled.');
   try {

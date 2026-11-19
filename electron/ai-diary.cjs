@@ -87,4 +87,50 @@ function diaryText(entry, task) {
   );
 }
 
-module.exports = { recordJob, noteOwnerReply, diaryText };
+// Standing requirements: rules the owner states for a model ("keep it under
+// 250 KB", "respect the geoset pose", "never touch my rig") stay with the model
+// and go to every later job until the owner replaces or drops them.
+const REQUIRED_KEPT = 8;
+const SIZE = /\b\d+(?:[.,]\d+)?\s*(?:kb|mb|bytes|k)\b|\bfile size\b|\bsize limit\b/i;
+const COUNT = /\b(?:under|below|at most|no more than|max(?:imum)?(?: of)?)\s+\d[\d,.]*\s*(?:kb|mb|k|bytes|triangles|tris|polys|polygons|faces|vertices|verts|keys|bones)\b/i;
+const STANDING = /\b(?:always|never|must|from now on|at all times|in (?:all|every) (?:animations?|clips?|jobs?)|every (?:animation|clip|time|job)|respect|keep my|leave (?:my|the) .{1,40}? alone|do ?n[o’']t (?:ever )?(?:touch|change|move|edit|delete|remove|wipe|replace|rebind|re-?rig)|stay (?:under|below|within))\b/i;
+const RELEASE = /\b(?:no longer|forget (?:about )?(?:the|my)?|ignore (?:the|my)|drop the|(?:does|do)(?: not|n[o’']t) matter (?:any ?more)?|not needed any ?more|no (?:size |file size )?limit|you (?:can|may) now)\b/i;
+const QUESTION = /^(?:why|what|how|did|where|when|who|is|are|was|were)\b/i;
+// Words that say how strongly, not what about; they never make two rules the same subject.
+const MARKERS = new Set('always never must now from times all every time job jobs respect keep leave alone dont don touch change move edit delete remove wipe replace rebind rerig stay under below within longer forget ignore drop matter anymore any more needed limit can may fine instead'.split(' '));
+const subject = text => new Set([...terms(text)].filter(word => !MARKERS.has(word) && !/^\d/.test(word)));
+const sameSubject = (a, b) => {
+  if (a.toLowerCase().replace(/\W+/g, ' ').trim() === b.toLowerCase().replace(/\W+/g, ' ').trim()) return true;
+  if (SIZE.test(a) && SIZE.test(b)) return true;
+  const left = subject(a), right = subject(b);
+  const shared = [...left].filter(word => right.has(word)).length;
+  return shared > 0 && shared >= Math.ceil(Math.min(left.size, right.size) / 2);
+};
+function noteRequirements(entry, text) {
+  const sentences = String(text || '').split(/(?<=[.!?;])\s+|\n+/).map(s => s.trim()).filter(s => s.length >= 6 && s.length <= 400 && !QUESTION.test(s));
+  let changed = false;
+  for (const sentence of sentences) {
+    const release = RELEASE.test(sentence), standing = !release && (STANDING.test(sentence) || COUNT.test(sentence) || (SIZE.test(sentence) && /\b(?:under|below|keep|max|limit|at most|smaller than|less than)\b/i.test(sentence)));
+    if (!release && !standing) continue;
+    const kept = (entry.requirements || []).filter(item => !sameSubject(item.text, sentence));
+    if (standing) kept.push({ text: short(sentence, 200), at: new Date().toISOString() });
+    if (kept.length !== (entry.requirements || []).length || standing) changed = true;
+    entry.requirements = kept.slice(-REQUIRED_KEPT);
+  }
+  if (entry.requirements && !entry.requirements.length) delete entry.requirements;
+  return changed;
+}
+// The list for a job; rules stated in this very request are already in front of the AI.
+function requirementsText(entry, request = '') {
+  const items = (entry?.requirements || []).filter(item => !String(request).includes(item.text)).reverse();
+  if (!items.length) return '';
+  return "Standing requirements the owner gave for this model, in their words, newest first. Keep every one in this job and report any you could not keep; the current request wins where it says otherwise:\n" +
+    items.map(item => `- "${item.text}" (${item.at.slice(0, 10)})`).join('\n');
+}
+// What the owner changed by hand since the AI's last delivery on this model.
+function handEditsText(lines) {
+  if (!lines?.length) return '';
+  return "Hand edits since the AI's last delivery on this model (the owner's own changes; keep them unless the request says otherwise):\n" + lines.map(line => '- ' + line).join('\n');
+}
+
+module.exports = { recordJob, noteOwnerReply, diaryText, noteRequirements, requirementsText, handEditsText };

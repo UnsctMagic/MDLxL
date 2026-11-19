@@ -10,6 +10,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | --- | --- | --- |
 | Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
+| AI work replay: View AI work animates each AI step (fun to watch) | Scheduled 19 Nov 08:10, Fable 5.2 high; based on `claude/ai-full-power` | [AI work replay](ai-work-replay.md) / Claude Code |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

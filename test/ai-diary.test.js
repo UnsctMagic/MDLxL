@@ -73,3 +73,20 @@ test('diary relevance uses selected node object ids, not the Bones array index',
   assert.ok(text.includes('Exact selected joint'));
   assert.ok(!text.includes('Another joint'));
 });
+
+test('only standing rules become requirements; one-off requests and questions do not', async () => {
+  const { noteRequirements, requirementsText } = createRequire(import.meta.url)('../electron/ai-diary.cjs');
+  const entry = {};
+  for (const text of ['Retexture this shield, keep the shape.', 'make the walk faster', 'why did you never ask?', 'fit the UVs into one square'])
+    assert.equal(noteRequirements(entry, text), false, text);
+  assert.equal(entry.requirements, undefined);
+  noteRequirements(entry, 'DO NOT DELETE ANYTHING. Keep my rig.');
+  noteRequirements(entry, 'Keep my rig.');
+  assert.deepEqual(entry.requirements.map(r => r.text), ['DO NOT DELETE ANYTHING.', 'Keep my rig.'], 'a repeated rule is kept once');
+  noteRequirements(entry, 'max 2000 triangles for the whole model');
+  noteRequirements(entry, 'forget the triangles');
+  assert.ok(!entry.requirements.some(r => /triangles/.test(r.text)), 'a release drops its rule');
+  assert.match(requirementsText(entry), /^Standing requirements[^\n]*\n- "Keep my rig\." \(\d{4}-\d\d-\d\d\)\n- "DO NOT DELETE ANYTHING\."/);
+  for (let i = 0; i < 12; i++) noteRequirements(entry, `never move bone${i}x`);
+  assert.equal(entry.requirements.length, 8, 'at most eight, newest kept');
+});

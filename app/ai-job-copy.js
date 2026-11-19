@@ -82,6 +82,8 @@ export function deliverJob(bridge, target, action) {
   const job = target.job, host = bridge.host(), source = host.sessionOf(target.documentId);
   if (!job?.draft) return { delivered: true };
   const draft = job.draft;
+  // Opened early as its own model (View AI work): the result already lives in that tab.
+  if (job.opened) return { delivered: true, opened: draft.doc.name };
   if (action === 'open') {
     host.openAiDraft(draft);
     return { delivered: true, opened: draft.doc.name };

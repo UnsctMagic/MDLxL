@@ -7,7 +7,7 @@ import { RangeField, Section } from './Fields.jsx';
 import { isTypingTarget } from '../src/preferences.js';
 import { readStored, writeStored } from '../src/local-store.js';
 import { createFrameCoalescer } from './viewport-performance.js';
-import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
+import { ANIMXL_DEFAULTS, ANIMXL_PRESETS, ANIMXL_PRESET_KEYS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
@@ -54,20 +54,15 @@ const ICONS = {
 };
 // Death types (the engine's DEATH_STYLES), by the names the Fall Simulation card shows.
 const DEATH_NAMES = { knees: 'Knees then fall', back: 'Fall backwards', forward: 'Fall forwards', side: 'Onto the side', limp: 'Limp' };
-const PRESETS = [
-  ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 40, overlap: 40, settle: 9, weight: 20, poses: 60, anticipation: 20, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
-  ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 48.8, settle: 4, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
-  ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 29.8, settle: 30, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
-  ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 71.2, settle: 30, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
-  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 32.8, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, collapseStyle: 'auto', bounce: 30 }],
-];// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
+const PRESETS = ANIMXL_PRESETS;
+// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
 const heat = share => share < 0.004 ? '#4fc3ff' : share < 0.02 ? '#ffd23f' : share < 0.05 ? '#ff8a2a' : '#ff3b30';
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
 const readSaved = key => readStored(key, null);
 const writeSaved = (key, value) => { writeStored(key, value); };
 // Your own presets keep slider values only; bones, markers and timing belong to one animation.
 const USER_PRESETS = 'mdlxl.animxl.presets';
-const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind', 'collapse', 'collapseAt', 'collapseDir', 'collapseStyle', 'bounce'];
+const PRESET_KEYS = ANIMXL_PRESET_KEYS;
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <RangeField className="ax-slider" title={tip} label={label} output={Math.round(value)} ends={[low, high]} min="0" max="100" step="1" value={value} disabled={disabled} inputProps={{ title: tip }} onChange={next => onChange(id, next)}/>;

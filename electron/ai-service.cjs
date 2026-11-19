@@ -1,13 +1,14 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { planChecks, exactValueRequest, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
-const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
+const { planChecks, expandRoutine, recordFailures, checkpointNote } = require('./ai-job-plan.cjs');
+const { recordJob, noteOwnerReply, diaryText, noteRequirements, requirementsText, handEditsText } = require('./ai-diary.cjs');
 // Thinking effort for a connection; "default" leaves it to the provider.
 const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
 const { createWorkspace } = require('./ai-workspace.cjs');
+const { createComputer, workFolderOf, prepareWorkFolder, bridgeVariables, COMPUTER_TOOL_NAMES } = require('./ai-computer.cjs');
 const { runModelScript } = require('./ai-sandbox.cjs');
 const {
   PROVIDERS,
@@ -19,12 +20,13 @@ const {
   authenticationRequired,
   CANCELLED,
 } = require('./ai-providers.cjs');
-const { checkAgentExecutable } = require('./ai-process.cjs');
+const { checkAgentExecutable, prepareEnvironment } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
 const { questionCancelled } = require('./ai-user-input.cjs');
 const {
   AiSteering,
   AiRecorder,
+  thumbnailSize,
   OrganiserRegistry,
   writeJsonAtomic,
   settleConversation,
@@ -48,15 +50,34 @@ function accountKey(settings) {
 }
 // The editing instructions, with the handbook and web research when they are on.
 // The common editor functions stay the same on every turn for prompt caching.
-function editingPrompt(contract, { handbook, web, functions }) {
+function editingPrompt(contract, { handbook, web, functions, computer }) {
   return (
     contract.AI_SYSTEM_PROMPT +
     (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
     (web ? '\n' + contract.AI_WEB_RESEARCH : '') +
+    (computer ? '\n' + contract.AI_COMPUTER : '') +
     (functions ? '\n' + functions : '')
   );
 }
 const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
+// A new job on a chat whose provider history has grown past this many tokens starts a
+// fresh provider history, so old pictures, data and reasoning are not re-read on
+// every step. The decision diary, the memory note and the last exchange carry over.
+const FRESH_HISTORY_AT = 80000;
+// The last request and the AI's closing words, for a job that starts a fresh history.
+function lastExchange(conversation) {
+  const transcript = conversation.transcript || [];
+  const request = transcript.findLast(entry => entry.role === 'user' && entry.text && entry.text !== 'Resume task' && !entry.steer);
+  const reply = transcript.findLast(entry => entry.role === 'assistant' && String(entry.text || '').trim());
+  const clip = (text, max) => (text.length > max ? '…' + text.slice(-max) : text);
+  const lines = [
+    request && 'User: ' + clip(String(request.text).trim(), 1500),
+    reply && 'You replied: ' + clip(String(reply.text).trim(), 1500),
+  ].filter(Boolean);
+  return lines.length
+    ? '\n\nEarlier in this chat (the provider history was restarted to save tokens; inspect the model for details):\n' + lines.join('\n')
+    : '';
+}
 // Old Offload organisers kept a local ledger of requests and bird reports in
 // `messages`. It is not provider history: a native chat sends it until it has a
 // thread, an API chat once (runTask then starts its history afresh).
@@ -123,6 +144,7 @@ class AiService {
       this.contract = Promise.all([load('src/ai-tools.js'), load('src/ai-transcript.js')]).then(([contract, transcript]) => {
         this.recordAiEvent = transcript.recordAiEvent;
         this.acceptsDelivery = transcript.acceptsDelivery;
+        this.isStopRequest = transcript.isStopRequest;
         return contract;
       });
     }
@@ -148,7 +170,15 @@ class AiService {
   }
   // A recorder for a chat; init() has loaded the transcript rules by then.
   recorder(conversation, emit) {
-    return new AiRecorder(conversation, emit, this.recordAiEvent);
+    return new AiRecorder(conversation, emit, this.recordAiEvent, picture => this.shrinkPicture(picture));
+  }
+  // A small JPEG copy of a picture the AI received, kept with the chat (see ai-chat-state.cjs).
+  shrinkPicture({ data }) {
+    const image = this.electron?.nativeImage?.createFromBuffer(Buffer.from(data, 'base64'));
+    if (!image || image.isEmpty()) return null;
+    const size = image.getSize(), small = thumbnailSize(size.width, size.height);
+    const shrunk = small.width < size.width ? image.resize({ ...small, quality: 'good' }) : image;
+    return 'data:image/jpeg;base64,' + shrunk.toJPEG(82).toString('base64');
   }
   async configuration() {
     if (this.config) return this.config;
@@ -209,9 +239,9 @@ class AiService {
       cleanupDays: cleanupDaysOf(config),
       sdBrain:(await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
-      localWorkspace: config.localWorkspace === true,
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
+      watchAi: config.watchAi === true,
     };
   }
   // An on/off setting: saved, applied by `after`, then announced to the console.
@@ -497,7 +527,9 @@ class AiService {
     // The owner's next message is their reaction to the last job on this model.
     if (!resume && conversation.modelKey) {
       const entry = await this.registry.model(conversation.modelKey);
-      if (noteOwnerReply(entry, text)) await this.registry.save();
+      const replied = noteOwnerReply(entry, text);
+      // Rules the owner states for this model stay for later jobs (standing requirements).
+      if (noteRequirements(entry, text) || replied) await this.registry.save();
     }
     const recorder = this.recorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
@@ -507,6 +539,13 @@ class AiService {
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
+      // "stop" with nothing running starts no job and makes no AI request.
+      if (!resume && this.isStopRequest(text)) {
+        recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
+        recorder.event({ type: 'text', text: 'Nothing is running.' });
+        recorder.event({ type: 'done' });
+        return { ok: true };
+      }
       const acceptCandidate = !resume && context.retainedCandidate && this.acceptsDelivery(text);
       if (!resume && !acceptCandidate && await this.acceptDelivery({ conversation, recorder, text, context, signal: controller.signal })) {
         recorder.event({ type: 'done' });
@@ -524,7 +563,7 @@ class AiService {
         settings,
         contract,
         signal: controller.signal,
-        policy: { ...(await this.sdBrainPolicy()), workspace: config.localWorkspace === true, handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
+        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -561,7 +600,18 @@ class AiService {
     // An old Offload job waits for acceptance in its bird's chat.
     const owner = conversation.task?.workerId && conversation.task.status !== 'complete' ? await this.readConversation(conversation.task.workerId) : conversation,
       task = owner?.task;
-    if (!task || task.status === 'complete' || !task.checkpoint?.review?.changed) return false;
+    if (!task || !task.checkpoint?.review?.changed) return false;
+    // An unchecked result is already on the model when its job ends. Accepting it only
+    // marks it accepted: no editor step and no AI request.
+    if (task.status === 'complete') {
+      if (task.acceptedByUser || task.phase === 'verified') return false;
+      const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
+      const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + [...new Set(concerns)].join('; ') : '');
+      Object.assign(task, { acceptedByUser: true, phase: 'verified', summary });
+      recorder.start({ role: 'user', text, document: context.name, selection: context.selection });
+      recorder.event({ type: 'text', text: summary });
+      return true;
+    }
     await this.call('mdlxl_checkpoint', { target: context.target, baseline: task.baseline, restoreReview: task.checkpoint.review }, signal);
     const concerns = [task.summary, ...(task.outsideCheck?.problems || []), ...(task.outsideCheck?.notes || [])].filter(Boolean);
     const summary = 'You accepted the current result.' + (concerns.length ? '\nNote: ' + [...new Set(concerns)].join('; ') : '');
@@ -642,6 +692,8 @@ class AiService {
       AI_JOB_CHECKPOINT,
       AI_PLAN_TOOL,
       guidesForRequest,
+      animationRequest,
+      AI_ANIMATION_CRAFT,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -681,6 +733,7 @@ class AiService {
       conversation.messages = [];
       delete conversation.threadId;
       delete conversation.sentToolAreas;
+      delete conversation.sentCraft;
     } else
       task = conversation.task = {
         prompt: text,
@@ -701,6 +754,15 @@ class AiService {
     task.status = 'running';
     task.summary = '';
     this.runningIds.add(id);
+    // A new request on a long chat starts a fresh provider history (see FRESH_HISTORY_AT).
+    let restarted = '';
+    const work = conversation.toolsOff ? null : workFolderOf(this.directory, id);
+    const movedThread = work && settings.provider === 'claude' && conversation.threadId && conversation.threadFolder !== work;
+    if (movedThread || (!resume && !conversation.toolsOff && (conversation.usage?.used || 0) > FRESH_HISTORY_AT && (conversation.threadId || conversation.messages?.length))) {
+      restarted = lastExchange(conversation);
+      conversation.messages = [];
+      for (const key of ['threadId', 'sentToolAreas', 'sentCraft', 'sentContext', 'usage']) delete conversation[key];
+    }
     recorder.start({
       role: 'user',
       text: resume ? 'Resume task' : text,
@@ -715,12 +777,11 @@ class AiService {
     };
     // Each embedded provider gets the same workspace and the same captured edit target.
     const workspaceScope = task.workspaceScope || { revision: context.revision, selection: context.selection || {} };
-    const workspaceEnabled = () => sd.workspace === true || task.workspaceDecision === 'yes';
     const startWorkspace = () => createWorkspace(this.directory, { ...workspaceScope, target: context.target }, async (name, args, signal) => {
       const result = await this.call(name, args, signal);
       if (name === 'mdlxl_select') Object.assign(context, result);
       return result;
-    });
+    }, { folder: work });
     let workspace;
     let promptHasContext = false;
     let prompt =
@@ -731,7 +792,8 @@ class AiService {
           (resumedOnChange
             ? '\nThe model changed after the task stopped: the unfinished result was put on the model, or the user edited it. Continue from the model as it is now and keep the user\'s edits.'
             : '')
-        : '');
+        : '') +
+      restarted;
     // SD Brain: the request first becomes an art brief, once per task.
     if (sd.enabled && !conversation.toolsOff && !task.artBrief) {
       recorder.event({ type: 'art', status: 'running' });
@@ -760,6 +822,12 @@ class AiService {
           // A guide that cannot be read leaves the job as it was.
         }
       }
+    // Animation requests carry the animation craft once per provider history,
+    // whether or not the handbook is on.
+    if (!conversation.toolsOff && animationRequest?.(text) && !(conversation.sentContext && conversation.sentCraft)) {
+      prompt += '\n\n' + AI_ANIMATION_CRAFT;
+      conversation.sentCraft = true;
+    }
     // Function pages inferred from the request go once per conversation; capabilities finds the rest.
     const cards = await this.functionCards();
     if (!conversation.toolsOff) {
@@ -785,14 +853,23 @@ class AiService {
     }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!conversation.toolsOff && conversation.modelKey) {
-      const diary = diaryText(await this.registry.model(conversation.modelKey), { request: task.request, context, previous: previousTask?.diaryId });
+      const model = await this.registry.model(conversation.modelKey);
+      const diary = diaryText(model, { request: task.request, context, previous: previousTask?.diaryId });
       if (diary) prompt += '\n\n' + diary;
+      const requirements = requirementsText(model, task.request);
+      if (requirements) prompt += '\n\n' + requirements;
+      // The owner's hand edits since the AI's last delivery on this model.
+      if (!resume && model.delivered?.digest)
+        try {
+          const now = await this.call('mdlxl_checkpoint', { target: context.target, digest: true, since: model.delivered.digest }, signal);
+          const edits = handEditsText(now?.handEdits);
+          if (edits) prompt += '\n\n' + edits;
+        } catch {
+          // Without the comparison the job runs as before.
+        }
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
-    if (!conversation.toolsOff && !workspaceEnabled()) prompt += task.workspaceDecision
-      ? '\n\nThe local workspace is off for this job. Continue with the normal editor tools.'
-      : '\n\nThe local JavaScript workspace is off. Judge the actual job: if saving and reusing a script or comparing candidates would save meaningful work, use mdlxl_workspace action offer once, with a short reason specific to this task in the user’s language. Simple jobs need no offer. Wait for the decision and continue the same job.';
-    if (!conversation.toolsOff && workspaceEnabled()) prompt += '\n\nLocal workspace is enabled for this request. Use mdlxl_workspace for repeatable analyses and candidate-only pictures. For isolation within a selection, write and run a script to produce a vertex map, preview it, then select it and report the actual returned count. Scratch files start empty on resume.';
+    if (work) prompt += '\n\nWork folder of this chat: ' + work;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     let callsInFlight = 0;
     const call = async (name, args, callSignal) => {
@@ -811,24 +888,26 @@ class AiService {
     const performCall = async (name, args, callSignal) => {
       if (signal.aborted) throw Error(CANCELLED);
       if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this chat.');
+      if (COMPUTER_TOOL_NAMES.has(name) && computer) return computer.run(name, args, callSignal ? AbortSignal.any([callSignal, signal]) : signal);
+      // Model files named relative to the chat's work folder live there.
+      if (work && name === 'mdlxl_document' && typeof args.path === 'string' && args.path && !path.isAbsolute(args.path))
+        args = { ...args, path: path.join(work, args.path) };
       if (name === 'mdlxl_job_checkpoint') {
         if (!['candidate', 'verify'].includes(args.phase) || typeof args.evidence !== 'string' || !args.evidence.trim() || args.evidence.length > 4000 || !Array.isArray(args.remaining) || args.remaining.length > 20 || args.remaining.some(v => typeof v !== 'string' || v.length > 500)) throw Error('A checkpoint needs a phase, concise evidence and specific remaining work.');
         if (callsInFlight !== 1) throw Error('Wait for the other tool operations before recording a phase checkpoint.');
         task.workCheckpoint = { phase: args.phase, evidence: args.evidence, remaining: args.remaining };
         task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, signal);
         await this.persistConversation(conversation);
-        return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Finish the agreed review and report; do not add polishing goals.' };
+        return { checkpointed: true, remaining: args.remaining, replanRequired: task.replanRequired || null, next: args.remaining.length ? 'Continue only the remaining work; preserve the baseline and reuse saved routines.' : 'Report the result; do not add polishing goals.' };
       }
-      // Look first, then change once: the plan is kept with the task, not sent to the editor.
+      // A plan is optional (the user asks for one); it is kept with the task, not sent to the editor.
       if (name === 'mdlxl_plan') {
         const options = Array.isArray(args.options) ? args.options : [];
         if (!String(args.cause || '').trim() || !String(args.reach || '').trim() || !args.keep?.length)
           throw Error('A plan names the cause, how far it reaches and what must stay the same.');
-        if (options.length < 2 && !exactValueRequest(task.request || text, images))
-          throw Error('Give at least two genuinely different fixes with what each costs, then choose one.');
+        if (!options.length) throw Error('Name at least one fix with what it costs, then choose it.');
         if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
         const checks = planChecks(args.checks, contract.AI_SWEEP_SCHEMA);
-        if (task.replanRequired && task.plan && args.cause === task.plan.cause && options[args.choice].fix === task.plan.options[task.plan.choice].fix) throw Error('The same check failed twice: ' + task.replanRequired + '. Audit the cause and choose a materially different plan, or finish blocked.');
         if (!task.plan || args.cause !== task.plan.cause || options[args.choice].fix !== task.plan.options[task.plan.choice].fix) {
           delete task.replanRequired;
           task.checkFailures = {};
@@ -840,41 +919,22 @@ class AiService {
           recorded: true,
           ...(replaces ? { replaced: 'the previous plan' } : {}),
           chosen: options[args.choice].fix,
-          next: 'Check a representative candidate before exhaustive work. The final review must cover checks and keep items.',
+          next: 'Make the edit, then check it once against these checks and keep items.',
         };
       }
-      if (args.target && args.target !== context.target)
-        throw Error('Use the target captured with the current prompt.');
+      // A job has exactly one target and every call is sent with it (below). A model that
+      // copies the token imperfectly (seen with OpenAI models dropping a chunk of the UUID)
+      // must not have its calls refused, so the token it sends is not checked.
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       if (name === 'mdlxl_workspace') {
-        if (args.action === 'offer') {
-          if (workspaceEnabled()) return { enabled: true };
-          if (task.workspaceDecision) return { enabled: false, decision: task.workspaceDecision, next: 'Continue with the ordinary editor tools.' };
-          const reason = args.reason?.trim();
-          if (!reason || reason.length > 400) throw Error('Give a short, job-specific reason for using JavaScript (up to 400 characters).');
-          task.workspaceDecision = 'offered';
-          task.workspaceScope = workspaceScope;
-          const { answers } = await this.askUser(conversation, recorder, {
-            kind: 'workspace-offer', message: reason,
-            questions: [{ id: 'workspace', question: 'Use JavaScript for this job?', options: [{ label: 'Yes' }, { label: 'No' }], allowCustom: false }],
-          }, requestSignal);
-          task.workspaceDecision = answers.workspace.answers[0] === 'Yes' ? 'yes' : 'no';
-          await this.persistConversation(conversation);
-          return { enabled: workspaceEnabled(), next: workspaceEnabled() ? 'Continue the current job with the workspace.' : 'Continue with the ordinary editor tools.' };
-        }
-        if (!workspaceEnabled()) throw Error('The workspace is disabled for this job.');
         task.workspaceScope ||= workspaceScope;
         workspace ||= startWorkspace();
         return workspace.use(args, requestSignal);
       }
+      // Edits run straight away: Undo is the safety net, no plan or review is required first.
       const edit = aiToolEditsModel(name, args);
-      if (edit && task.replanRequired) throw Error('The same check failed twice: ' + task.replanRequired + '. Revise mdlxl_plan based on evidence or finish blocked before another edit.');
       args = expandRoutine(task, name, args);
       if (task.routines) await this.persistConversation(conversation);
-      // Model edits need a plan, except exact value edits; switching the view or going
-      // back to a saved version does not.
-      if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !exactValueRequest(task.request || text, images))
-        throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
         const checkpoint = await this.call(
@@ -990,7 +1050,7 @@ class AiService {
             });
           if (name === 'mdlxl_review' && args.action === 'inspect') {
             const repeated = recordFailures(task, result.review?.checks, task.checkpoint.fingerprint);
-            if (repeated) result.planUpdate = 'Repeated failures: ' + repeated + '. Reassess the mechanism and record a revised plan before another edit.';
+            if (repeated) result.planUpdate = 'Repeated failures: ' + repeated + '. Reassess the cause before trying again.';
           }
           if (edit || task.checkpoint.review.phase === 'verified') delete task.unresolvedEditError;
           await this.persistConversation(conversation);
@@ -1005,16 +1065,30 @@ class AiService {
         throw error;
       }
     };
-    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT, contract.AI_WORKSPACE_TOOL];
+    // API connections get MDLxL's own shell and file tools; Claude Code and Codex bring theirs.
+    const native = providerInfo(settings.provider)?.native;
+    const computerTools = !work || native ? [] : settings.provider === 'anthropic' ? contract.AI_COMPUTER_TOOLS_ANTHROPIC : contract.AI_COMPUTER_TOOLS_FUNCTIONS;
+    const tools = conversation.toolsOff ? [] : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT, contract.AI_WORKSPACE_TOOL, ...computerTools];
     const web = sd.web === true;
     // A tool-free memory note needs only the opening line, not the editing rules.
-    const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common });
+    const system = conversation.toolsOff ? contract.AI_EDITING_INTRO : editingPrompt(contract, { handbook: sd.handbook === true, web, functions: cards.common, computer: !!work });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
       ? system + '\n\n' + sdBrainInstructions(sd, conversation.toolsOff ? 'note' : 'direct')
       : system;
+    // The chat's computer: its kept work folder, a local MCP server for scripts (Claude
+    // Code and Codex use the same server), and MDLxL's own shell for API connections.
+    let bridge = null, computer = null, shellVariables = null;
     try {
+      if (work) {
+        bridge = await startMcpServer({ tools: tools.filter(tool => !tool.computer), call, awareness: this.awareness });
+        const connection = { url: bridge.url, auth: bridge.token, target: context.target };
+        await prepareWorkFolder(work, connection);
+        shellVariables = bridgeVariables(work, connection);
+        if (computerTools.length) computer = createComputer({ folder: work, env: { ...(await prepareEnvironment(this.directory, settings.provider)), ...shellVariables } });
+        if (settings.provider === 'claude') conversation.threadFolder = work;
+      }
       await progress('inspecting');
       let runs = 0;
       for (let attempt = 0; attempt < 4; ) {
@@ -1035,6 +1109,9 @@ class AiService {
           awareness: this.awareness,
           steering,
           web,
+          mcp: bridge,
+          workDirectory: work,
+          shellVariables,
         };
         // Accepting a kept private result still uses the normal conflict choice.
         if (acceptCandidate && task.steps.length) task.acceptedByUser = true;
@@ -1060,7 +1137,9 @@ class AiService {
           ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, signal)
           : { changed: false };
         if (!review.changed && task.unresolvedEditError) throw Error(task.unresolvedEditError);
-        if (!review.changed || review.phase === 'verified') {
+        // The AI's own report finishes the job. A formal check (mdlxl_review) runs only when
+        // the user asks for one, so an unchecked result is delivered like a checked one.
+        {
           if (context.embeddedJob) {
             const deliver = action => this.call('mdlxl_delivery', { target: context.target, action }, signal);
             const delivery = await deliver('finish');
@@ -1094,7 +1173,7 @@ class AiService {
             }
           }
           task.status = 'complete';
-          task.phase = review.changed ? 'verified' : 'complete';
+          task.phase = review.phase === 'verified' ? 'verified' : 'complete';
           task.summary = review.summary || '';
           if (review.preExistingErrors)
             recorder.event({ type: 'text', text: '\n\nWarning: Pre-existing model errors remain.' });
@@ -1104,20 +1183,8 @@ class AiService {
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
           return;
         }
-        // A short first line; the editing AI's own explanation follows in the same box.
-        if (review.phase === 'blocked')
-          throw Error(review.summary ? 'The edit is kept but not verified.\n' + review.summary : 'The edited model still needs verification.');
-        if (attempt >= 4) break;
-        await progress('verifying');
-        recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
-        promptHasContext = false;
-        prompt =
-          task.latestRequest + '\n\nTask update:\nThe edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
-          JSON.stringify(review);
       }
-      throw Error(
-        'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
-      );
+      throw Error('The AI result could not be merged into the latest model. Resume the task to try again.');
     } catch (error) {
       task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
@@ -1126,6 +1193,8 @@ class AiService {
     } finally {
       this.runningIds.delete(id);
       if (workspace) await workspace.close();
+      computer?.close();
+      await bridge?.close();
       // The decision diary keeps what this job did and why with the model.
       if (conversation.modelKey)
         try {
@@ -1140,6 +1209,17 @@ class AiService {
           }
         } catch {
           // A diary that cannot be written never fails the job itself.
+        }
+      // What the model looks like at delivery, so the next job can name the owner's hand edits.
+      if (conversation.modelKey && !conversation.toolsOff)
+        try {
+          const now = await this.call('mdlxl_checkpoint', { target: context.target, digest: true });
+          if (now?.digest) {
+            (await this.registry.model(conversation.modelKey)).delivered = { at: new Date().toISOString(), digest: now.digest };
+            await this.registry.save();
+          }
+        } catch {
+          // A model that cannot be read now leaves the last delivery as it was.
         }
     }
   }
@@ -1440,9 +1520,17 @@ class AiService {
     if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
       throw Error('Enter a message of 1–20000 characters.');
+    // "stop" typed into the box stops the job like the Stop button; it is not advice.
+    if (this.isStopRequest?.(text)) {
+      active.recorder?.split(text);
+      this.emit({ id, type: 'steer', text });
+      this.cancel(id);
+      return { queued: false, stopped: true };
+    }
     const messageFor = id => {
       const conversation = this.conversations.get(id), task = conversation?.task;
-      if (task) task.latestRequest = text;
+      // Steering adds to the request; it never replaces what the job was asked to do.
+      if (task) task.latestRequest = (task.latestRequest || task.request || '') + '\n\nThe user added while you worked: ' + text;
       // Render at delivery, after the pending editor operation has returned its
       // updated state. Queued steering must not freeze the pre-edit snapshot.
       return () => {
@@ -1453,6 +1541,14 @@ class AiService {
       };
     };
     if (this.acceptsDelivery(text)) { const task = this.conversations.get(id)?.task; if (task) task.acceptedByUser = true; }
+    // A rule given while the AI works stays for later jobs as well.
+    const modelKey = this.conversations.get(id)?.modelKey;
+    if (modelKey)
+      try {
+        if (noteRequirements(await this.registry.model(modelKey), text)) await this.registry.save();
+      } catch {
+        // Steering still reaches the job.
+      }
     active.steering.push(text, messageFor(id));
     this.emit({ id, type: 'steer', text });
     return { queued: true };
@@ -1562,10 +1658,11 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:important', input => service.setImportant(input));
-  handle('ai:localWorkspace', enabled => service.setSwitch('localWorkspace', 'local-workspace', enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:webResearch', enabled => service.setWebResearch(enabled));
+  // View AI work: off until the user turns it on; the console applies it at once.
+  handle('ai:watchAi', enabled => service.setSwitch('watchAi', 'watch-ai', enabled));
   handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
