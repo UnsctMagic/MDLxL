@@ -1,7 +1,7 @@
 # AI work replay (View AI work, fun to watch)
 
-State: replay merged (branch `claude/ai-work-replay-only`, see Outcome). ThumperXL removed by the owner.
-New providers: still only on the local branch `claude/ai-work-replay` (49f6d150), not merged, waiting for the owner.
+State: completed 19 Nov 2026. Replay merged in PR 683 (merge 9a199b4f). New providers merged from branch `claude/ai-more-providers` (PR after 683).
+ThumperXL removed by the owner and never merged; it survives only on the local branch `claude/ai-work-replay`.
 
 ## What the owner asked (18 Nov 2026)
 
@@ -155,3 +155,6 @@ Open items:
   were never run against the real programs.
 - Checks before merge: `node --test test/ai-*.test.js test/ui-primitives.test.js` 443 pass, 0 fail;
   hidden `test/ai-replay.electron.cjs` on the built app 30/30.
+- Owner then said "Merge providers too": 49f6d150 cherry-picked onto main without the Thumper eye colours
+  (`eye` fields and their test removed). AI source tests 501 pass / 0 fail; hidden replay app check 30/30.
+  Gemini CLI and Copilot CLI flags are still unproven against the real programs; the owner tests logins and keys by hand.
