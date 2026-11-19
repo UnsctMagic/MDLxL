@@ -637,3 +637,8 @@ checkbox, carrying the model's own followers. v2 list:
 2. The donor's own leg bones, not the converted legs.
 3. Weapon Ref (attachment) on the bone that carries the weapon.
 4. Skin goes onto the donor's bones so the body bends where the donor's does (trunk included).
+
+Correction, same day (quoted): "YOU CAN retain the keep options - just I am explaiing to you - by default
+a transplant is always 100% transplant ... i want 100% transplant and the user can adjust from there."
+So: the Keep options stay as opt-in controls, all off. The default result is 100% the donor's skeleton
+and motion, nothing of the model's own motion. The v2 list above is the default; Keep is unchanged.
