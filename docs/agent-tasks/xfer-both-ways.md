@@ -851,3 +851,12 @@ on Root and the totem root (09: 4,322; 08: 190 and 79). Lower foot (hip heights)
 Sweep 561 x 3: all built, 0 threw, 32 not valid as before, 0 over 256 groups, 0 coincident mismatch; Tauren Walk foot
 within 0.1 hip heights 99% (v1 91%, straight without feet down 12%); seconds per body with the Tauren 0.72 median
 (was 0.16; the per-moment foot sampling), Grunt and Footman 0.24 / 0.23.
+
+## Transplant in the window: owner picks layout A (19 Nov 2026)
+
+Engine default now: straight shin, feet down (`54d148bb`, TEST TRANSPLANT 10). Window concept shown as two
+sketches; owner picked **A: a Retarget / Transplant switch at the top of the Transfer window**. In
+Transplant mode: From list and donor view as now; result view shows the open model transplanted, playing
+the donor's animations; the right column becomes the transplant settings (poor-fit line, Sounds on,
+Effects off, Keep options off, mirror offer on the donor caption as now); bottom button Transplant
+(in place, one Undo step). Not built until the owner says "go".
