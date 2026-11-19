@@ -768,7 +768,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const count = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
   const bipeds = rigA.ok && rigB.ok && count(rigA, 'leg') >= 2 && count(rigA, 'arm') >= 2;
   const ownLimbRoots = Object.values(rigB.parts || {}).filter(part => part.kind === 'limb').map(part => part.line?.find(id => part.joints.includes(id)) ?? part.joints[0]);
-  for (const run of bipeds ? runs : []) {
+  for (const run of rigA.ok && rigB.ok ? runs : []) {
     if (rigB.parts[ownPartOf.get(run.host)]?.kind !== 'trunk') continue;
     const end = pairedOwn.get(run.q), axis = run.end.clone().sub(run.start), length = axis.lengthSq();
     const toLine = p => { const t = length > 1e-12 ? Math.min(1, Math.max(0, p.clone().sub(run.start).dot(axis) / length)) : 0; return p.distanceTo(run.start.clone().addScaledVector(axis, t)); };
@@ -868,7 +868,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const band = levels.slice(1).map((level, i) => SKIN_BAND * (level.at - levels[i].at));
     return { levels, bounds, band, chain, at: point => point.clone().sub(fB.h).dot(fB.e1) / fB.length };
   };
-  if (bipeds) {
+  if (rigA.ok && rigB.ok) {
     const at = (list, from) => list.length ? list.map(from).reduce((a, b) => a.add(b), new Vector3()).divideScalar(list.length) : null;
     const rootsOf = kind => Object.values(rigA.parts).filter(part => part.limbKind === kind && placed.has(part.joints[0])).map(part => part.joints[0]);
     const legRoots = rootsOf('leg'), armRoots = rootsOf('arm');
@@ -880,7 +880,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const angle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
     // The upper end of the trunk line: the shoulders; a body with no arms, its head joint.
     const topB = shoulderB ?? (headAt != null ? placed.get(headAt) : null), topA = shoulderA ?? (headAt != null ? pA(headAt) : null);
-    if (trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    if (bipeds && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
@@ -890,12 +890,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // is (`trunkSkin`, used by the skin below). Needs legs and two arms; else the trunk keeps this model's joints.
       const sideB = sideOf(id => placed.get(id)), sideA = sideOf(pA);
       if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints });
-      const neckJoints = headAt != null ? headJoints.slice(0, headJoints.indexOf(headAt)) : [];
-      if (neckJoints.length && placed.get(headAt).distanceTo(placed.get(neckJoints[0])) > 1e-3 * rigB.hipHeight) {
-        const neck = alignFrames(placed.get(headAt).clone().sub(placed.get(neckJoints[0])), pA(headAt).sub(pA(neckJoints[0])), sideOf(id => placed.get(id)), sideOf(pA));
-        for (const id of neckJoints) correction.set(id, neck.clone());
-        posture.neck = angle(neck);
-      }
+    }
+    // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).
+    const neckJoints = headAt != null ? headJoints.slice(0, headJoints.indexOf(headAt)) : [];
+    if (neckJoints.length && placed.get(headAt).distanceTo(placed.get(neckJoints[0])) > 1e-3 * rigB.hipHeight) {
+      const neck = alignFrames(placed.get(headAt).clone().sub(placed.get(neckJoints[0])), pA(headAt).sub(pA(neckJoints[0])), sideOf(id => placed.get(id)), sideOf(pA));
+      for (const id of neckJoints) correction.set(id, neck.clone());
+      posture.neck = angle(neck);
     }
   }
   const trunkJoint = id => { const key = partOfDonor.get(id); return key != null && rigA.parts[key]?.kind === 'trunk'; };
@@ -1025,7 +1026,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // Translation: scaled to this model. Inside a transplanted limb a joint's move is scaled by its own stretch (this
     // model's length over the donor's), so the stretch keeps pointing as the donor's does; elsewhere by the travel ratio.
     const parentId = parent?.donor;
-    const sameLimb = parentId != null && partOfDonor.has(id) && partOfDonor.get(id) === partOfDonor.get(parentId) && !trunkJoint(id);
+    // (A limb, or the neck and head: so the neck too keeps pointing as the donor's when its head moves.)
+    const sameLimb = parentId != null && partOfDonor.has(id) && partOfDonor.get(id) === partOfDonor.get(parentId) && (!trunkJoint(id) || partOfDonor.get(id) === 'head');
     const lengthA = sameLimb ? pA(id).distanceTo(pA(parentId)) : 0, scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA : travel;
     if (copy.Translation?.Keys) {
       const move = v => v && like(v, new Vector3().fromArray(v).multiplyScalar(scale).toArray());
