@@ -362,23 +362,39 @@ function sampleShows(model, track, sequence) {
 /** In the result's animations whose name matches `kind`, the geosets (all, or those `only` keeps) show as the open model
  * shows them in its animation `source`: over all of it (`at` 'all': hidden where it hides them throughout, else at the
  * highest value it gives them), or at its end (`at` 'end'). */
-function holdShowing(M, model, source, newSequences, { kind = DEATH_KIND, only = () => true, at = 'all' } = {}) {
+function holdShowing(M, model, source, newSequences, { kind = DEATH_KIND, only = () => true, at = 'all', donor = null } = {}) {
   if (!source?.Interval) return;
-  const targets = newSequences.filter(s => kind.test(String(s.Name || '')));
+  const targets = newSequences.filter(s => kind.test(String(s.Name || ''))), body = donor ? donorBodyAlpha(donor) : null;
+  // Where the donor hides its own body (the Grunt's Decay Bone: its bones lie on other joints), so does this model.
+  const bodyShows = (sequence, frame) => !body || sampleTrack(body, frame, { interval: sequence.Interval, globalSequences: donor.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001;
   (model.GeosetAnims || []).forEach(anim => {
     const index = anim.GeosetId, own = anim.Alpha, track = (M.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha;
     if (!only(index) || !own?.Keys?.length || !track?.Keys || isGlobalTrack(own, model)) return;
     const [start, end] = source.Interval, frames = at === 'end' ? [end] : [start, (start + end) / 2, end, ...own.Keys.map(key => key.Frame).filter(frame => frame >= start && frame <= end)];
     const value = Math.max(0, ...frames.map(frame => sampleTrack(own, frame, { interval: source.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 })));
     const template = track.Keys[0]?.Vector ?? own.Keys[0].Vector;
-    const key = frame => { const k = { Frame: frame, Vector: like(template, [value]) }; if (track.LineType >= 2) { k.InTan = like(template, [value]); k.OutTan = like(template, [value]); } return k; };
+    const key = (frame, x) => { const k = { Frame: frame, Vector: like(template, [x]) }; if (track.LineType >= 2) { k.InTan = like(template, [x]); k.OutTan = like(template, [x]); } return k; };
     for (const sequence of targets) {
-      const [s0, s1] = sequence.Interval;
+      const [s0, s1] = sequence.Interval, frames = new Set([s0, s1]);
+      if (body) for (const k of body.Keys) if (k.Frame > s0 && k.Frame < s1) frames.add(k.Frame);
       track.Keys = track.Keys.filter(k => k.Frame < s0 || k.Frame > s1);
-      track.Keys.push(key(s0)); if (s1 > s0) track.Keys.push(key(s1));
+      for (const frame of [...frames].sort((x, y) => x - y)) track.Keys.push(key(frame, bodyShows(sequence, frame) ? value : 0));
     }
     track.Keys.sort((x, y) => x.Frame - y.Frame);
   });
+}
+
+/** The alpha track of the donor's body: its biggest geoset shown in its Stand, when that one is keyed (else null). */
+function donorBodyAlpha(D) {
+  const stand = D.Sequences?.[standSequenceIndex(D)];
+  let best = null, size = 0;
+  (D.Geosets || []).forEach((geoset, index) => {
+    const alpha = (D.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha, count = (geoset.Vertices?.length || 0) / 3;
+    const keyed = alpha?.Keys?.length && !isGlobalTrack(alpha, D);
+    if (keyed && stand?.Interval && !sampleShows(D, alpha, stand)) return;
+    if (count > size) { size = count; best = keyed ? alpha : null; }
+  });
+  return best;
 }
 
 /** The open model's mesh on the donor's skeleton with the donor's animations.
@@ -1062,10 +1078,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // In 'follow' the Decay shows the end of his own Death (the corpse, not the living body); death-only meshes not on a twin
   // skeleton (a gut pile) stay hidden throughout, as in 'living'.
   const ownStandSequence = ownSequences[ownStand], ownDeath = ownSequences.find(s => s.Interval && /death/i.test(String(s.Name || '')));
-  if (deathMode === 'living') holdShowing(M, model, ownStandSequence, newSequences);
+  if (deathMode === 'living') holdShowing(M, model, ownStandSequence, newSequences, { donor: D });
   else if (deathMode === 'follow') {
     const loose = index => deathOnly.has(index) && deathOnly.get(index) < TWIN_DEATH_SHARE;
-    holdShowing(M, model, ownDeath, newSequences, { kind: /decay/i, only: index => !loose(index), at: 'end' });
+    holdShowing(M, model, ownDeath, newSequences, { kind: /decay/i, only: index => !loose(index), at: 'end', donor: D });
     holdShowing(M, model, ownStandSequence, newSequences, { only: loose });
   }
   for (const geoset of M.Geosets || []) fillSequenceExtents(M, geoset, { onlyIfPresent: false });

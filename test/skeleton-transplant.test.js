@@ -753,3 +753,12 @@ test('G5 Corpse follows needs a death body on a twin skeleton: Skeleton Warrior 
   assert.equal(follow.report.deathBody, 'living');
   assert.ok(Buffer.from(generateCompatibleMdx(follow.model)).equals(Buffer.from(generateCompatibleMdx(living.model))));
 });
+
+test('G6 the body goes where the donor hides its own: Ghoul on the Grunt, both death choices show nothing of him in the Grunt\'s Decay Bone (its body is hidden there, its bones lie on other joints)', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  for (const deathBody of ['living', 'follow']) {
+    const { model } = transplant('transfer-ghoul', 'transfer-grunt', { deathBody }), index = model.Sequences.findIndex(s => /decay bone/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
+    for (const t of [0.1, 0.5, 0.9]) { const f = Math.round(a + t * (b - a)); assert.deepEqual(model.Geosets.map((_, g) => g).filter(g => geosetShown(model, g, index, f)), [], `${deathBody}: nothing shown at ${f}`); }
+    const decay = model.Sequences.findIndex(s => /decay flesh/i.test(s.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
+    assert.ok(model.Geosets.some((_, g) => geosetShown(model, g, decay, mid)), `${deathBody}: his body still shows in Decay Flesh`);
+  }
+});

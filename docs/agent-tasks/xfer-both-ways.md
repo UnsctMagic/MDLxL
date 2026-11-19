@@ -1104,3 +1104,28 @@ pivots on the real chain's); the Ghoul's Death hides his living body and shows a
 
 Open: owner's pick on the gore2 sheet; then set the `deathBody` default and offer it in the window if he wants a
 choice; the Decay refit gap above.
+
+### Owner's verdict on gore2 and the follow-up (19 Nov 2026)
+
+Ogre: "Looks right". Ghoul: "both look wrong": Living body dies "contorted, legs stretched long and splayed, torso
+twisted"; Corpse follows "tiny, about a third, also contorted". Measured (`gore2/ghoul-why.mjs`, `leg-len.mjs`,
+pictures by `out/compare-sheet-gore2/death-shot.cjs`, which scrubs the sheet's own time slider):
+
+- **Torn skin: no.** Edges outside 0.5-1.5x of their bind length: the Ghoul's own Death 8-16 of 1,389 (worst 2.3x);
+  the transplant's Stand - 1 16 (2.1x), Attack - 1 40 (2.9x), Death 12-24 (2.6x). All at elbows and knees (rigid SD
+  skin), the same in every transplanted animation.
+- **Long legs: his own.** Thigh-to-foot piece distance: own Stand 23 (crouched), own Death end 54; transplant Stand 36
+  (shin straight along the Grunt's chord, the owner's pick), Death end 50-56. Lying, the Ghoul's legs are that long
+  in his own Death too.
+- **Tiny: not reproduced.** Corpse follows and Living body dies have the same size at every Death moment (box at the
+  end 95x134x88 against 95x115x77; Stand 71x78x83) and in the pictures.
+- **Real bug (fixed):** where the donor hides its own body (the Grunt's Decay Bone shows a bone pile on other
+  joints) both choices still showed the Ghoul, on joints the Grunt does not move there: standing, 147 wide, edges
+  stretched up to 5.0x. Now `holdShowing` follows the donor body's showing (its biggest geoset shown in its Stand),
+  as the owner ruled for the totem. Test G6 fails before. The Ogre's After now also vanishes in the Tauren's Decay.
+- Corpse follows differs from Living body dies only at the hands (0.65 hip heights in Death, 0.56 in Decay Flesh):
+  no real choice, so the Ghoul case is now Before / After (`TEST GORE2 02 BEFORE|A.mdx`, "Does he die right?", id
+  `ghoul-grunt-2` so it opens unanswered; the owner's `answers.json` is kept). Tests 52/52 and 89/89, baseline `z2` 0
+  differ, fingerprint `postT2` 2,950 must-be-identical 0 differ (118 Ogre runs as before). Hidden click run: every
+  check passed; its last check fails only because the owner's real answers file already exists. Pictures
+  `out/compare-sheet-gore2/v3-case2-*.png`: lying at the end of the Death, same size as the Grunt, nothing in Decay Bone.
