@@ -1,6 +1,7 @@
 // Read-only test hook (docs/PACKAGED-TESTS.md#test-hook). window.__mdlxl exists only when the desktop app was
 // started with MDLXL_TEST_HOOK=1, as test/helpers/app.cjs does; normal use and the browser build never get it.
 let readApp = null;
+let readReplay = null;
 const previews = new WeakMap();
 const infoMessages = [];
 let infoId = 0;
@@ -17,6 +18,9 @@ if (typeof window !== 'undefined' && window.desktop?.testHook) window.__mdlxl = 
   selection: () => { const app = readApp?.(); return app ? { selection: app.selection, selectedNodeIds: app.selectedNodeIds, activeGeoset: app.activeGeoset } : null; },
   // The preview drawn into element (default: the first one, the main editor preview): { runtime, props }.
   preview: (element = document.querySelector('.game-preview-root')) => previews.get(element)?.() ?? null,
+  // View AI work: the replay running now and what each view shows of it (app/ai-replay-stage.js).
+  replay: () => readReplay?.() ?? null,
 });
 export const exposeAppForTests = read => { readApp = read; };
+export const exposeReplayForTests = read => { readReplay = read; };
 export const exposePreviewForTests = (element, read) => { if (element) previews.set(element, read); };

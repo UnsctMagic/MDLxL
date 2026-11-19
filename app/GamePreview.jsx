@@ -24,6 +24,7 @@ import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js
 import { textureFromAsset } from './Viewport.jsx';
 import { drawGeosetHighlight } from './geoset-highlight.js';
 import { needsFit } from './ai-watch.js';
+import { createReplayStage } from './ai-replay-stage.js';
 import { motionPathInputs, motionPathMarker, motionPaths, sameInputs } from '../src/motion-path.js';
 import { allNodes, localSequenceAtFrame, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { isolateGlobalSequence } from '../src/global-sequence-preview.js';
@@ -1399,9 +1400,53 @@ export default function GamePreview(inputProps) {
       native.rendererData.frame = frame;
       return index;
     }
+    // View AI work: a finished AI step replays here, in this preview's own frame. Only the
+    // editor's own preview (aiFollow) takes part.
+    const replayPoint = new THREE.Vector3(), replayFinal = new Map(), replayFinalUV = new Map();
+    let replayMatrices = null;
+    const replayPose = () => replayMatrices ||= new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
+    const replayUpload = (buffer, values) => { if (!buffer) return; const prior = gl.getParameter(gl.ARRAY_BUFFER_BINDING); gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, values); gl.bindBuffer(gl.ARRAY_BUFFER, prior); };
+    const replayStage = latest.current.aiFollow ? createReplayStage({
+      kind: 'preview', host: hostElement, posed: true,
+      target: () => ({ documentId: latest.current.aiDocument, revision: latest.current.revision }),
+      size: () => ({ width: canvas.width, height: canvas.height }),
+      source: () => { if (disposed || !scheduler) return null; render(performance.now(), 0); return canvas; },
+      viewports: () => {
+        const view = camera, width = canvas.width, height = canvas.height;
+        view.updateMatrixWorld();
+        return [{ x: 0, y: 0, width, height, key: view.matrixWorldInverse.elements.join() + '|' + view.projectionMatrix.elements.join() + '|' + width + 'x' + height,
+          project(px, py, pz, out) { replayPoint.set(px, py, pz).project(view); if (!(replayPoint.z >= -1 && replayPoint.z <= 1)) return false; out[0] = (replayPoint.x + 1) * width / 2; out[1] = (1 - replayPoint.y) * height / 2; return true; } }];
+      },
+      geometry: {
+        count: () => ownedModel.Geosets.length,
+        length: index => ownedModel.Geosets[index]?.Vertices.length ?? -1,
+        write(index, rest) {
+          const geoset = ownedModel.Geosets[index]; if (!geoset) return false;
+          if (!replayFinal.has(index)) replayFinal.set(index, Float32Array.from(geoset.Vertices));
+          geoset.Vertices.set(rest); if (!native.softwareSkinning) replayUpload(native.vertexBuffer?.[index], geoset.Vertices);
+          posedGeometryCache = null; return true;
+        },
+        uv(index, sets) {
+          const geoset = ownedModel.Geosets[index], uv = geoset?.TVertices?.[0]; if (!uv || !sets[0] || sets[0].length !== uv.length) return false;
+          if (!replayFinalUV.has(index)) replayFinalUV.set(index, Float32Array.from(uv));
+          uv.set(sets[0]); replayUpload(native.texCoordBuffer?.[index], uv); return true;
+        },
+        restore() {
+          for (const [index, vertices] of replayFinal) { const geoset = ownedModel.Geosets[index]; if (geoset?.Vertices.length !== vertices.length) continue; geoset.Vertices.set(vertices); if (!native.softwareSkinning) replayUpload(native.vertexBuffer?.[index], geoset.Vertices); }
+          for (const [index, uv] of replayFinalUV) { const own = ownedModel.Geosets[index]?.TVertices?.[0]; if (own?.length !== uv.length) continue; own.set(uv); replayUpload(native.texCoordBuffer?.[index], own); }
+          replayFinal.clear(); replayFinalUV.clear(); posedGeometryCache = null; invalidate();
+        },
+      },
+      displayed: (index, rest) => { const geoset = ownedModel.Geosets[index]; return geoset ? skinGeoset(rest ? { ...geoset, Vertices: rest } : geoset, replayPose()) : null; },
+      nodePoint: (id, at) => { const matrix = id != null && replayPose().get(id); return matrix ? replayPoint.fromArray(at).applyMatrix4(matrix).toArray() : at; },
+      blocked: () => !!nodeGesture,
+      invalidate,
+    }) : null;
     function render(now, delta, { captureOnly = false } = {}) {
       if (disposed) return;
       const p = latest.current;
+      replayMatrices = null;
+      if (!captureOnly) replayStage?.begin(now);
       const viewingBillboards = previewBillboarding(p);
       if (viewingBillboards !== billboardPreview) {
         for (const { node, flags } of billboardNodes) node.Flags = viewingBillboards ? flags : flags & ~120;
@@ -1508,6 +1553,9 @@ export default function GamePreview(inputProps) {
           if (clocks) for (let i = 0; i < (ownedModel.GlobalSequences?.length || 0); i++) { const duration = ownedModel.GlobalSequences[i]; if (duration > 0) clocks[i] = start % duration; }
           updateNative(0);
         } else if (!p.showcase && Math.abs(native.getFrame() - playback.frame) > 1e-5) { setPreviewFrame(playback.frame); updateNative(0); }
+        // View AI work: the changed span plays once, on screen only (the timeline's frame stays).
+        const replayFrame = captureOnly ? null : replayStage?.frame();
+        if (replayFrame != null && replayStage.sequence() === selected && !p.playing && !p.showcase && !p.restPose && !nodeGesture && !particleAuthor) { setPreviewFrame(Math.min(end, Math.max(start, replayFrame))); updateNative(0); }
         poseSequence = useAuthoredSequenceInterval(native.getFrame());
         const footprintInterval = poseSequence === selected ? [start,end] : ownedModel.Sequences[poseSequence]?.Interval;
         const footprintKey = `${poseSequence}:${footprintInterval?.join(':')}:${!!p.restPose}:${globalPreviewId}`;
@@ -1778,11 +1826,12 @@ export default function GamePreview(inputProps) {
       else if (!captureOnly && p.playing && !playbackStopped && now - reportAt > 32) { reportAt = now; reportedFrame = native.getFrame(); p.onTimeChange?.(reportedFrame); }
       layerAPI.current?.draw(showcaseSample?.globalTime || 0, {time:showcaseSample?.presentationTime || 0,enabled:!!p.showcase?.recording || !!p.showcasePlaying});
       if (!captureOnly && recordingSink) recordingSink(showcaseSample?.presentationTime || 0);
+      if (!captureOnly) { replayMatrices = null; replayStage?.end(); }
     }
     const unwatchContext = watchContextLoss(canvas, () => { scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); });
     scheduler = state.scheduler = createRenderScheduler({ render,
       continuous: () => {
-        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || !!(latest.current.restPose && latest.current.wiggleNodeIds?.length) || latest.current.playing && !latest.current.restPose && !playbackStopped;
+        return replayStage?.active() || nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || !!(latest.current.restPose && latest.current.wiggleNodeIds?.length) || latest.current.playing && !latest.current.restPose && !playbackStopped;
       },
       // Electron may report an owned about:blank window as hidden during focus
       // transfer. Only the main-document preview uses hidden-tab suspension;
@@ -1968,7 +2017,7 @@ export default function GamePreview(inputProps) {
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);
-      disposed = true; cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); revealStrip?.remove(); canvas.removeEventListener('pointermove', poseRightMove, true); canvas.removeEventListener('pointerup', finishPoseRight, true); canvas.removeEventListener('pointercancel', finishPoseRight, true); canvas.removeEventListener('pointerdown',startParticleClick,true); canvas.removeEventListener('pointermove',trackParticleClick,true); canvas.removeEventListener('click',pickParticleClick,true); canvas.removeEventListener('dblclick',pickEmitterMarker,true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-ai-follow', aiFollow); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; replayStage?.dispose(); cancelPreviewFrame(glideFrame); cameraReport.cancel(); nodeFrame.cancel(); nodeHoverFrame.cancel(); nodeHoverMove = null; selectionFrame.cancel(); hoverFrame.cancel(); pinButton?.remove(); revealStrip?.remove(); canvas.removeEventListener('pointermove', poseRightMove, true); canvas.removeEventListener('pointerup', finishPoseRight, true); canvas.removeEventListener('pointercancel', finishPoseRight, true); canvas.removeEventListener('pointerdown',startParticleClick,true); canvas.removeEventListener('pointermove',trackParticleClick,true); canvas.removeEventListener('click',pickParticleClick,true); canvas.removeEventListener('dblclick',pickEmitterMarker,true); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',pickFxPart,true); canvas.removeEventListener('dblclick',pickPartBones,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-ai-follow', aiFollow); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); unwatchContext(); runtime.current = null; modelSmoothing.dispose(); rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, uvRestPose, props.isolatedGeosets?.join(','), props.modelPath, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
