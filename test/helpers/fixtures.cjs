@@ -64,6 +64,8 @@ const FIXTURES = {
   'transfer-spider': ['MDLXL_TRANSFER_SPIDER', testModel('corpus-sd/creeps__spider.mdx')], // splayed legs: the first leg joint is level with the feet
   'transfer-wisp': ['MDLXL_TRANSFER_WISP', testModel('corpus-sd/nightelf__wisp.mdx')], // one floating mesh, no limbs that stand
   'transfer-necromancer': ['MDLXL_TRANSFER_NECROMANCER', testModel('corpus-sd/undead__necromancer.mdx')], // robed: no legs read
+  'transfer-ogre-twin': ['MDLXL_TRANSFER_OGRE_TWIN', testModel('transfer-gore/WH_WOC_Ogre10.mdx')], // LowPolyWorks Ogre: an off-hand weapon on a second left arm whose joints sit on the real arm's
+  'transfer-skeleton': ['MDLXL_TRANSFER_SKELETON', testModel('corpus-sd/undead__skeleton.mdx')], // swaps bodies in Death; the death body is not on a twin skeleton
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
-import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
 import { validateModel } from '../src/editor-document.js';
 import { clearTransferCache, transferRig } from '../src/anim-transfer.js';
 import { poseLimbStart } from '../src/pose-recognition.js';
@@ -663,4 +663,93 @@ test('W1 a weapon point on the donor\'s head is no weapon bone: Footman on the G
   } });
   assert.ok(swordVertices >= 10, `sword ${swordVertices} vertices`);
   structural({ own, donor, model, report });
+});
+
+// ------------------------------------------------------------------ twin chains and how he dies (xfer-both-ways.md, "Twin chains and how he dies")
+const bonesOfVertex = (geoset, v) => geoset.SkinWeights?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => geoset.SkinWeights[v * 8 + 4 + i] > 0).map(i => geoset.SkinWeights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+/** Own vertices ([geoset, vertex]) whose bones all pass `test`. */
+const verticesOn = (own, test) => own.Geosets.flatMap((geoset, g) => Array.from({ length: geoset.Vertices.length / 3 }, (_, v) => [g, v]).filter(([, v]) => { const bones = bonesOfVertex(geoset, v); return bones.length && bones.every(test); }));
+/** Centroid of result vertices at a frame of animation `index`. */
+const centroidAt = (model, list, index, frame) => {
+  const matrices = sampleNodeMatrices(model, frame, index), cache = new Map(), p = new Vector3();
+  for (const [g, v] of list) { if (!cache.has(g)) cache.set(g, skinGeoset(model.Geosets[g], matrices)); const q = cache.get(g); p.x += q[v * 3]; p.y += q[v * 3 + 1]; p.z += q[v * 3 + 2]; }
+  return p.divideScalar(list.length);
+};
+const geosetShown = (model, g, index, frame) => {
+  const alpha = (model.GeosetAnims || []).find(anim => anim.GeosetId === g)?.Alpha;
+  if (!alpha?.Keys?.length) return true;
+  const sequence = model.Sequences[index];
+  return sampleTrack(alpha, frame, { interval: sequence.Interval, globalSequences: model.GlobalSequences, fallback: 1 }) > 0.001;
+};
+
+test('G1 a twin chain moves with its twin: Ogre on the Tauren, the off-hand weapon on the second left arm keeps its place against the left hand in every animation but decay', { skip: missing('transfer-ogre-twin', 'transfer-tauren') }, () => {
+  const result = transplant('transfer-ogre-twin', 'transfer-tauren'), { own, model, report } = result, nodes = byId(own);
+  const named = name => allNodes(own).filter(node => String(node.Name).trim() === name).map(node => node.ObjectId);
+  const [weapon] = named('Cylinder03'), hands = named('Bone_Hand_L');
+  assert.equal(hands.length, 2, 'the Ogre has two left hands');
+  const second = hands.find(id => nodes.get(weapon).Parent === id), realHand = hands.find(id => id !== second);
+  assert.ok(second != null, 'the weapon hangs from one of them');
+  const hand = verticesOn(own, id => id === realHand || nodes.get(id)?.Parent === realHand), blade = verticesOn(own, id => id === weapon);
+  assert.ok(blade.length > 200 && hand.length > 0, `${blade.length} weapon and ${hand.length} hand vertices`);
+  const hip = transferRig(own, { sequence: standSequenceIndex(own) }).hipHeight;
+  model.Sequences.forEach((sequence, index) => {
+    if (/decay|portrait/i.test(sequence.Name)) return;
+    const [a, b] = sequence.Interval, d = [];
+    for (let k = 0; k <= 8; k++) { const f = Math.round(a + (b - a) * k / 8); d.push(centroidAt(model, blade, index, f).distanceTo(centroidAt(model, hand, index, f))); }
+    const spread = (Math.max(...d) - Math.min(...d)) / hip;
+    assert.ok(spread <= 0.02, `${sequence.Name}: the weapon against the hand varies by ${spread.toFixed(3)} hip heights`);
+  });
+  assert.equal(report.deathBody, 'own');
+  structural(result);
+});
+
+test('G2 a corpse skeleton is no twin by default: Ghoul on the Grunt keeps the own showing and the corpse joints', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const { report, model } = transplant('transfer-ghoul', 'transfer-grunt');
+  assert.equal(report.twins, 0); assert.equal(report.deathBody, 'own');
+  assert.ok(allNodes(model).some(node => String(node.Name).trim() === 'Bone_Root01'), 'the corpse skeleton stays');
+});
+
+/** Geosets shown in the own Stand (living) and those shown only in Death (corpse). */
+function swapBodies(own) {
+  const stand = standSequenceIndex(own), death = own.Sequences.findIndex(s => /^death$/i.test(String(s.Name).trim()));
+  const living = [], corpse = [], s = own.Sequences[stand].Interval, d = own.Sequences[death].Interval;
+  own.Geosets.forEach((_, g) => { if (geosetShown(own, g, stand, (s[0] + s[1]) >> 1)) living.push(g); else if (geosetShown(own, g, death, d[1])) corpse.push(g); });
+  return { living, corpse };
+}
+const deathMoments = model => model.Sequences.map((s, i) => [s, i]).filter(([s]) => /death/i.test(s.Name)).flatMap(([s, i]) => [0.25, 0.5, 0.75, 1].map(t => [i, Math.round(s.Interval[0] + t * (s.Interval[1] - s.Interval[0]))]));
+
+test('G3 Living body dies: Ghoul on the Grunt shows his living body and hides his corpse through the Grunt\'s Death', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const result = transplant('transfer-ghoul', 'transfer-grunt', { deathBody: 'living' }), { own, model, report } = result;
+  const { living, corpse } = swapBodies(own);
+  assert.ok(living.length && corpse.length, `${living.length} living, ${corpse.length} corpse geosets`);
+  assert.equal(report.deathBody, 'living');
+  for (const [i, f] of deathMoments(model)) {
+    for (const g of living) assert.ok(geosetShown(model, g, i, f), `living geoset ${g} shown at ${f}`);
+    for (const g of corpse) assert.ok(!geosetShown(model, g, i, f), `corpse geoset ${g} hidden at ${f}`);
+  }
+  structural(result);
+});
+
+test('G4 Corpse follows: Ghoul on the Grunt keeps his own swap and his corpse is on the living body\'s donor joints', { skip: missing('transfer-ghoul', 'transfer-grunt') }, () => {
+  const result = transplant('transfer-ghoul', 'transfer-grunt', { deathBody: 'follow' }), { own, model, report } = result;
+  const { living, corpse } = swapBodies(own);
+  assert.equal(report.deathBody, 'follow'); assert.ok(report.twins >= 10, `${report.twins} twin joints`);
+  assert.ok(!allNodes(model).some(node => String(node.Name).trim() === 'Bone_Root01'), 'the corpse skeleton is gone: its skin is on donor joints');
+  const last = deathMoments(model).at(-1);
+  const shown = corpse.filter(g => geosetShown(model, g, ...last)).reduce((n, g) => n + own.Geosets[g].Vertices.length / 3, 0);
+  assert.ok(shown >= 500 && living.every(g => !geosetShown(model, g, ...last)), `the own swap: ${shown} corpse vertices shown, the living body hidden at the end of the Death`);
+  // Decay goes on from the end of his own Death: the corpse, not the living body.
+  const decay = model.Sequences.findIndex(sq => /decay flesh/i.test(sq.Name)), mid = (model.Sequences[decay].Interval[0] + model.Sequences[decay].Interval[1]) >> 1;
+  assert.ok(corpse.some(g => geosetShown(model, g, decay, mid)) && living.every(g => !geosetShown(model, g, decay, mid)), 'Decay Flesh shows the corpse, not the living body');
+  // The corpse's face is on the same donor joints as the living face.
+  const id = name => allNodes(own).find(n => String(n.Name).trim() === name).ObjectId;
+  const [a] = verticesOn(own, b => b === id('Face')), [b] = verticesOn(own, x => x === id('Face01'));
+  assert.deepEqual(bonesOfVertex(model.Geosets[b[0]], b[1]), bonesOfVertex(model.Geosets[a[0]], a[1]));
+  structural(result);
+});
+
+test('G5 Corpse follows needs a death body on a twin skeleton: Skeleton Warrior on the Grunt gets exactly Living body dies', { skip: missing('transfer-skeleton', 'transfer-grunt') }, () => {
+  const follow = transplant('transfer-skeleton', 'transfer-grunt', { deathBody: 'follow' }), living = transplant('transfer-skeleton', 'transfer-grunt', { deathBody: 'living' });
+  assert.equal(follow.report.deathBody, 'living');
+  assert.ok(Buffer.from(generateCompatibleMdx(follow.model)).equals(Buffer.from(generateCompatibleMdx(living.model))));
 });
