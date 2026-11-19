@@ -151,7 +151,8 @@ test('P1 Kurgan on the Tauren: nothing converted, the Tauren\'s own leg bones, e
     if (ownIds.has(id)) assert.ok(!bodyJoint(ownIds.get(id)), `${model.Nodes[id].Name} is the Kurgan's own and carries skin`);
   }
   const worst = limbAngles(result, donor);
-  for (const key of ['armL', 'armR', 'legL', 'legR']) for (const role of ['upper', 'lower']) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
+  // Straight shins (owner's pick): the legs' lower part follows the Tauren's knee-to-foot chord, checked in P10.
+  for (const [key, roles] of [['armL', ['upper', 'lower']], ['armR', ['upper', 'lower']], ['legL', ['upper']], ['legR', ['upper']]]) for (const role of roles) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
 });
 
 test('P2 Kurgan on the Tauren: the skin lands on the Tauren\'s skin bones (neck 14, lower shins 10 each; 34 moved, 1 blended)', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
@@ -171,13 +172,14 @@ test('P3 Kurgan on the Tauren: at least 44 of the Tauren\'s 50 bones and helpers
   assert.ok(theirs.filter(name => names.has(name)).length >= 44, `${theirs.filter(name => names.has(name)).length}; missing ${theirs.filter(name => !names.has(name))}`);
 });
 
-test('P4 Kurgan on the Tauren: every limb stretch points as the Tauren\'s, every trunk stretch keeps a constant angle, trunk joints turn as the Tauren\'s', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+test('P4 Kurgan on the Tauren: every limb stretch but the shin points as the Tauren\'s, every trunk stretch keeps a constant angle, trunk joints turn as the Tauren\'s', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const { donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nD = byId(donor), nM = byId(model);
   const rigT = transferRig(donor, { sequence: standSequenceIndex(donor) }), map = report.donorNodes;
   const limbs = [], trunk = [], turning = [];
   const partJoints = new Set(Object.values(rigT.parts).flatMap(part => part.joints));
   for (const part of Object.values(rigT.parts)) {
-    if (part.kind === 'limb' && part.limbKind !== 'tail') part.joints.forEach((id, i) => { if (i + 1 < part.joints.length) limbs.push([id, part.joints[i + 1]]); });
+    // Every limb stretch but the two inside a leg's shin (knee > hock > foot: straight, P10).
+    if (part.kind === 'limb' && part.limbKind !== 'tail') part.joints.forEach((id, i) => { if (i + 1 < part.joints.length && !(part.limbKind === 'leg' && i >= part.joints.length - 3)) limbs.push([id, part.joints[i + 1]]); });
     if (part.kind === 'trunk') for (const id of part.joints) {
       turning.push(id);
       for (const child of donor.Bones.filter(b => b.Parent === id && !partJoints.has(b.ObjectId)).map(b => b.ObjectId)) if (map[child] != null) turning.push(child);
@@ -198,7 +200,7 @@ test('P4 Kurgan on the Tauren: every limb stretch points as the Tauren\'s, every
   assert.ok(turnWorst.d < 0.5, `${turnWorst.id != null ? donor.Nodes[turnWorst.id].Name : ''} turns up to ${turnWorst.d.toFixed(2)} degrees off the Tauren's`);
 });
 
-test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay on the ground in every animation but Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay within 0.4 hip heights of the ground in every animation but Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const { own, donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nM = byId(model);
   const rig = transferRig(own, { sequence: standSequenceIndex(own) }), rigT = transferRig(donor, { sequence: standSequenceIndex(donor) });
   const theirs = ['legL', 'legR'].map(key => rigT.parts[key].marker), feet = theirs.map(id => report.donorNodes[id]);
@@ -212,7 +214,9 @@ test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay on the gr
     const r = range.get(name) || [Infinity, -Infinity]; range.set(name, [Math.min(r[0], h), Math.max(r[1], h)]);
   }
   assert.ok(worstTurn < 0.5, `a foot turns up to ${worstTurn.toFixed(2)} degrees off the Tauren's`);
-  for (const [name, [lo, hi]] of range) if (!/death/i.test(name)) assert.ok(Math.max(-lo, hi) < 0.06 * rig.hipHeight, `${name}: the lower foot goes ${lo.toFixed(1)} to ${hi.toFixed(1)} from its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
+  // Straight shins reach farther than the Tauren's folded ones, so feet float and sink with its knee bend (owner saw
+  // TEST TRANSPLANT 07, up to 0.34 hip heights). A regression guard, not a feet-down claim (folded legs: 0.06).
+  for (const [name, [lo, hi]] of range) if (!/death/i.test(name)) assert.ok(Math.max(-lo, hi) < 0.4 * rig.hipHeight, `${name}: the lower foot goes ${lo.toFixed(1)} to ${hi.toFixed(1)} from its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
 });
 
 test('P6 Kurgan on the Tauren and Footman on the Grunt: vertices in one place with the same bones get the same bones; none over four', { skip: missing('transfer-kurgan', 'transfer-tauren', 'transfer-footman', 'transfer-grunt') }, () => {
@@ -225,6 +229,32 @@ test('P6 Kurgan on the Tauren and Footman on the Grunt: vertices in one place wi
       if (seen.has(key)) assert.deepEqual(group, seen.get(key), `${a}: coincident vertex ${v}`); else seen.set(key, group);
     } });
   }
+});
+
+test('P10 Kurgan on the Tauren: the shin stays straight (owner\'s pick) and follows the Tauren\'s knee-to-foot chord; folded is an option', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const shins = ({ model, report, donor }) => {
+    const rigT = transferRig(donor, { sequence: standSequenceIndex(donor) }), nM = byId(model), nD = byId(donor), bends = [], chords = [];
+    const stand = standSequenceIndex(model), ref = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand);
+    let rest = 0;
+    for (const key of ['legL', 'legR']) {
+      const [, knee, hock, foot] = rigT.parts[key].joints, [k, h, f] = [knee, hock, foot].map(id => report.donorNodes[id]);
+      const bend = m => at(model, nM, m, h).sub(at(model, nM, m, k)).angleTo(at(model, nM, m, f).sub(at(model, nM, m, h))) * 180 / Math.PI;
+      rest = Math.max(rest, bend(ref));
+      for (const [index, frame] of moments(model, 8, /decay|portrait|death/i)) {
+        const mm = sampleNodeMatrices(model, frame, index), md = sampleNodeMatrices(donor, frame, index);
+        bends.push(bend(mm));
+        chords.push(at(model, nM, mm, f).sub(at(model, nM, mm, k)).angleTo(at(donor, nD, md, foot).sub(at(donor, nD, md, knee))) * 180 / Math.PI);
+      }
+    }
+    const median = list => [...list].sort((x, y) => x - y)[list.length >> 1];
+    return { rest, bend: median(bends), chord: median(chords) };
+  };
+  const straight = shins(transplant('transfer-kurgan', 'transfer-tauren'));
+  assert.ok(straight.rest < 5, `at the reference moment the shin bends ${straight.rest.toFixed(1)} degrees`);
+  assert.ok(straight.bend < 20, `the shin bends ${straight.bend.toFixed(1)} degrees (median)`);
+  assert.ok(straight.chord < 3, `the knee-to-foot line is ${straight.chord.toFixed(1)} degrees off the Tauren's (median)`);
+  const folded = shins(transplant('transfer-kurgan', 'transfer-tauren', { legs: 'folded', extents: false }));
+  assert.ok(folded.rest > 60, `legs: 'folded' bends the shin at the hock (${folded.rest.toFixed(0)} degrees)`);
 });
 
 /** Largest distance, through three moments of every animation, between where the hammer's vertices sit

@@ -12,7 +12,8 @@
 //    (a neck, a hock, a forearm) sits on this model's line between its neighbours and takes the
 //    skin past its plane (src/transplant-skin.js). Skin goes onto the donor bone that carries
 //    that joint's skin in the donor; a leg's foot is not corrected; the body's travel is scaled
-//    by the fitted legs.
+//    by the fitted legs. A leg's run (knee > hock > foot) points along the donor's chord, so the
+//    shin stays straight (owner's pick); `legs: 'folded'` folds it at the hock as the donor's.
 // 3. Donor joints sit on this model's joints (paired), on this model's line between its
 //    neighbours (a donor collar or neck it lacks), or at the donor's offset scaled by the size
 //    ratio (a tail, a weapon root).
@@ -155,8 +156,9 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
  * `events`: the donor's sounds and footprints (else the model's own, fitted to the new animations).
  * `emitters`: the donor's particle effects, ribbons and lights. `mirror`: true takes the donor
  * reflected, left and right exchanged (`report.mirrorOffer` says when its weapon is in the other hand).
- * `extents` (default true): per-animation extents from the sampled motion. */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'donor' } = {}) {
+ * `extents` (default true): per-animation extents from the sampled motion. `legs`: 'straight' (default) keeps a
+ * straight shin along the donor's knee-to-foot chord; 'folded' bends it where the donor's bends. */
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight' } = {}) {
   const reasons = [], keepSet = new Set(keep.map(Number));
   // ------------------------------------------------------------ read both bodies
   const ownStand = standSequenceIndex(model);
@@ -385,10 +387,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const runsByHost = new Map();
   for (const run of runs) { if (!runsByHost.has(run.host)) runsByHost.set(run.host, []); runsByHost.get(run.host).push(run); }
   const isLeg = id => rigA.parts[partOfDonor.get(id)]?.limbKind === 'leg';
-  // `legs: 'straight'` (trial variant, contract risk 1): the joints of a leg run point along the donor's chord
-  // over the run, so this model's shin stays straight at rest.
+  // Legs (owner's pick, 19 Nov 2026: straight shin, TEST TRANSPLANT 07): the joints of a leg run point along the
+  // donor's chord over the run, so this model's shin stays straight at rest. `legs: 'folded'` points each
+  // stretch as the donor's instead (the shin folds at the hock; contract rule A, TEST TRANSPLANT 06).
   const chordOf = new Map();
-  if (legs === 'straight') for (const run of runs) if (isLeg(run.q)) { const chord = pA(run.q).sub(pA(run.a)); for (const id of run.seq) chordOf.set(id, chord); }
+  if (legs !== 'folded') for (const run of runs) if (isLeg(run.q)) { const chord = pA(run.q).sub(pA(run.a)); for (const id of run.seq) chordOf.set(id, chord); }
   // Corrections: each transplanted limb joint turns this model's stretch onto the donor's; a leg's end joint
   // (the foot) is not corrected, so its world turn is the donor's (contract 4.5).
   for (const entry of transplanted) {
