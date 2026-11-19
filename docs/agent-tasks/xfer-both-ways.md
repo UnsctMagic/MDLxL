@@ -599,3 +599,17 @@ Checked again on ad9693a7, not through the builder's own tests where it mattered
   of 50 bones here; trunk skin is not split and followers (shoulder pads) are not carried.
 - Launcher for the owner: `TestBuilds\_START HERE\7 TRANSPLANT - warrior on Tauren skeleton.cmd`
   (build 18, the Tauren and both prototypes). Not opened by the director.
+
+## Main merged in, build 19 (19 Nov 2026)
+
+- Merge `0f0bc3b7` (main at ff39c9f0; conflicts only in `app/App.jsx`, `app/AppDialogs.jsx` dialog
+  lines and the catalog sizes in `test/localization-catalogs.test.js`). 81/81 retarget + window tests,
+  9/9 transplant, ui-primitives/hotkeys/catalogs 37 pass, `baseline-compare q r` 0 differ.
+- Package `D:\Claude\MDLxL\TestBuilds\transfer-xl-19`, launcher `_START HERE\8 TRANSFER - build 19
+  after main.cmd`. Packaged `transfer` harness hidden: 57 checks, 1 error, the 140-control sweep
+  without a crash (needs `MDLXL_REAL_PLAYWRIGHT=D:\Claude\tools\node_modules\playwright-core`).
+- The one error is old, not the merge: riders story (`test/transfer.electron.cjs` "the Pose slider
+  shows Theirs") clicks Hips and expects 100. Since stage 2 the Hips Pose slider shows `stance`
+  (trunk), while a seated rider sets only `match` on hips (`seatedMatch`, kept on purpose). So a
+  seated Footman's Hips slider reads Mine (0) although the hips take the seat. Open: fix the test
+  to read a leg, or make the trunk slider show the seat; decide with the window work (step 7).
