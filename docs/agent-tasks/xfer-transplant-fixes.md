@@ -636,5 +636,12 @@ Not targets (they are the donor's motion or the user's correction, see the verdi
 ## Owner's answers (19 Nov 2026)
 1. Legless donors that pass today change too: "Show me examples first of before and after." (pending, side-by-side sheet)
 2. Own gore pieces in the donor's Death, play own vs hide: "Show me both." (pending, side-by-side sheet)
+
+Sheets for answers 1 and 2 (19 Nov, prototype engines in `out/transfer-probe/owner-choices/`, `make.mjs`; build 25):
+`_START HERE\7 TRANSPLANT - legless before and after.cmd` (`TestBuilds\transplant-review-legless`, models
+`TEST LEGLESS 01-05`) and `_START HERE\7 TRANSPLANT - gore pieces.cmd` (`TestBuilds\transplant-review-gore`,
+`TEST GORE 01-02 NOW/PLAY/HIDE`). Measurements in `owner-choices/legless-sheet.txt` and `gore-sheet.txt`.
 3. Poor fit rule as written: yes.
 4. Model vanishes where the donor's body vanishes: yes (keep as donor motion).
+- Sheet answers (19 Nov evening): legless donors, all five cases **After** (Kurgan on Naga: "Looks right") → build packages A+B as written.
+- Gore sheet: owner rejects all versions: "both death animations (gore pieces) look wrong, ogre has many bones unbound, ghoul doesnt move". Package C is on hold until the cause is investigated.
