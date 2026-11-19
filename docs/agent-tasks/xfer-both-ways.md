@@ -915,3 +915,15 @@ just opened. Package `TestBuilds\transfer-xl-24`, whole harness hidden with the 
 failure (`unreadable`: the helper waited for a parts column that model never has) fixed in the test and that
 story rerun alone on build 24: passed. Screenshots `out/transplant-ui/00-just-opened-light.png`, `-dark.png`.
 Launcher `_START HERE\7 TRANSPLANT - in the XFER window.cmd` now opens build 24.
+
+## Failure sweep, report only (19 Nov 2026)
+
+After the owner hit two bugs in three tries (Naga donor = thin line; Khorne knight = "non-finite geometry"):
+1593 pairs (27 open models x 59 donors, Mirror as the window sets it). Fine 466, broken 748 (141 throw),
+doubtful 379. Classes, causes with lines, and per-donor safety in `out/transfer-probe/failure-sweep/`
+(`analysis.txt`, scripts, raw rows). Main causes: size ratio from hip heights, which are 0.001 for rigs
+without recognised legs (`skeleton-transplant.js` size line; `anim-transfer.js` hipHeight floor), old in v1;
+refitted particle tracks left with no keys (`refitTracks`), old; donor weapon bone scaled to zero ->
+singular inverse -> NaN weapon (new in v2); joint ancestor not yet placed (`placeFrom`), old; weapon vanishes
+when the donor hides its weapon bone in Death (new in v2). The poor-fit label does not predict breakage.
+Owner asked for a report, not a fix; nothing changed.
