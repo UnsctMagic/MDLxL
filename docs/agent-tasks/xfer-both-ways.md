@@ -1252,8 +1252,9 @@ Trial models (`posture/make-posture-trials.mjs`, validated and reopened, 0 error
 Footman on the Ghoul, Kurgan on the Naga. Not opened in a packaged build (no build made).
 
 Open points and risks:
-- The Ghoul as donor hides the result for its whole Death (old rule in `holdShowing`: "nothing shows where the donor hides
-  its own body"; the Ghoul swaps to a corpse copy on a second skeleton). The Berserker on the Ghoul vanishes when it dies.
+- Fixed overnight (e795111e..82a73f98, `xfer-overnight.md` Log): the Ghoul as donor hid the result for its whole Death. Now
+  the donor corpse swap: where a donor hides its living body and shows a death body on a twin skeleton, the living joints
+  take the twins' placement there and the body stays visible (`donorDeathSwap`, `report.deathSwap`, tests C1).
 - POSE (the shared recogniser) reads the Ghoul's arms to `Wrist1`/`Wrist2`; Retarget still aims at them (the Ghoul is in
   the retarget baseline, so it was left alone tonight). The fix belongs in `src/pose-ik.js` with the POSE corpus diff.
 - Rigid pieces follow the re-posed trunk: capes and shields stick out where the donor hunches (the Berserker's cape; the
