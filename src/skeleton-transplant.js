@@ -18,10 +18,12 @@
 //    neighbours (a donor collar or neck it lacks), or at the donor's offset scaled by the size
 //    ratio (a tail, a weapon root).
 // 4. The mesh is bound to the donor joint each of its bones pairs with. An extra (weapon, plate,
-//    belt: a skinned bone outside the body parts) goes with its bone and rides the donor joint
-//    its own part joint pairs with, held as the model holds it in its own reference pose; one in
-//    `keep` keeps its bone, held the same way. The weapon (v2: the extras on the weapon hand and
-//    the one the model's weapon attachment hangs from) instead rides the donor's weapon bone (the
+//    belt: a skinned bone outside the body parts) goes with its bone and rides the donor's matching
+//    chain (hair, cape, tail, claws: same part, same place), else the donor joint its own part joint
+//    pairs with, held as the model holds it in its own reference pose; one in `keep` keeps its bone,
+//    held the same way. Skin on joints outside the body rides the part joint it follows in the
+//    model's own animations (the body joint when none, the world when it stays still there). The
+//    weapon (v2: the extras on the weapon hand and the one the model's weapon attachment hangs from) instead rides the donor's weapon bone (the
 //    joint its weapon attachment hangs from, else its weapon hand), from where the model holds it
 //    in the result's reference moment, unless that bone is on the donor's other arm or on no hand (a head, a leg,
 //    the body: then the weapon stays in the hand).
@@ -44,6 +46,7 @@ import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
 import { updateCounts } from './editor-document.js';
 import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
+import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
   rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
@@ -320,6 +323,11 @@ function holdExtents(M) {
 /** Pivots within this share of the hip height count as one place (twin chains: the Ogre's second arm and the Ghoul's corpse
  * skeleton sit within 0.022; the nearest pair that is no twin, 0.044). */
 const TWIN_NEAR = 0.03;
+/** An own extra rides a donor chain whose top sits within this share of the hip height of its own top (class E1). */
+const EXTRA_NEAR = 0.1;
+/** Own skin outside the body rides a part joint (or stays still in the world) instead of the body joint when it drifts at most
+ * this share as far against it as against the body joint, through the model's own everyday animations (class K1). */
+const FOLLOW_SHARE = 0.75;
 const DEATH_KIND = /death|decay|dissipate/i, NOT_EVERYDAY = /death|decay|dissipate|portrait/i;
 /** Twin chains: own joints outside the recognised body whose pivots sit on body joints, each under its parent's twin, in
  * groups of two or more joints, whose skin shows in everyday animations and which move with their twins through the own
@@ -578,7 +586,8 @@ function donorDeathSwap(D, rigA) {
  * -> { model, report } where model is a new model object (the caller swaps it in as one undo
  * step) and report = { fit: 'good' | 'poor', reasons: [...], follows: share of the body skin that follows the donor,
  * still: [own part keys none of whose joints got a donor joint], notes: [...], converted: [part keys],
- * extras: [{ id, name, vertices, kept }], mirrorOffer: boolean, counts: {...},
+ * extras: [{ id, name, vertices, kept, follows: the donor joint whose chain it rides, else null }],
+ * riders: [{ id, name, joint, vertices, drift, follows }] (own skin outside the body and the part joint it rides), mirrorOffer: boolean, counts: {...},
  * ownNodes: { [own ObjectId]: ObjectId in the result }, donorNodes: { [donor ObjectId]: ObjectId in the result } }.
  * `keep`: ObjectIds of own extras (their top bone, as `report.extras` lists them) whose bone stays.
  * `events`: the donor's sounds and footprints (else the model's own, fitted to the new animations).
@@ -727,20 +736,98 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // goes where the twin's goes, so it moves as the twin does in every animation, instead of staying still.
   const twin = twinChains({ model, rigB, treeB, ownNodes, ownById, pB, partJoint, bodyAncestors });
   for (const id of [...outsideKept]) if (treeB.ancestors(id, true).some(a => twin.has(a))) outsideKept.delete(id);
+  // Own skin outside the body (owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT"; overnight class K1): an outside
+  // joint whose skin shows in an everyday animation (a staff, wheels, the Corrupted Ent's body) rides the part joint it
+  // follows best through the model's own everyday animations (the body joint when none follows it better), held where the
+  // model's reference pose holds it against that joint (as an extra is), instead of staying still in the world while the
+  // donor's body moves away. One the donor has too (same name, same place) takes the donor's joint (below). Skin shown in
+  // no everyday animation (a corpse, a portrait plane) stays as before. -> own outside joint -> own part joint.
+  const rideOf = new Map(), ridersOut = [], outsideShown = new Set();
+  // An outside joint stays only where skin that stays (not riding, not on a donor joint) hangs from it.
+  const trimOutside = (away = id => rideOf.has(id)) => {
+    const staying = new Set();
+    for (const [id, count] of ownVertexCount) if (count > 0 && outsideKept.has(id) && !away(id)) for (const a of treeB.ancestors(id, true)) staying.add(a);
+    for (const id of [...outsideKept]) if (!staying.has(id)) outsideKept.delete(id);
+  };
+  if (rigB.ok && outsideKept.size) {
+    const hidden = corpseAndBackgroundGeosets(model), skinOf = new Map(), geosetsOf = new Map();
+    (model.Geosets || []).forEach((geoset, index) => {
+      if (hidden.has(index)) return;
+      const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+      for (let v = 0; v < count; v++) {
+        const bones = skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+        for (const id of new Set(bones)) if (outsideKept.has(id)) {
+          if (!skinOf.has(id)) { skinOf.set(id, []); geosetsOf.set(id, new Set()); }
+          skinOf.get(id).push(v3(geoset.Vertices.subarray(v * 3, v * 3 + 3))); geosetsOf.get(id).add(index); outsideShown.add(id);
+        }
+      }
+    });
+    // Samples: the reference moment, then nine moments of the Stand and of the first everyday animation of each other kind
+    // (six kinds at most); each joint is judged where its skin shows (the Grunt's berserk body shows only in Spell).
+    const sequences = model.Sequences || [], ref = rigB.reference, kinds = new Map();
+    const kindOf = sequence => String(sequence.Name || '').trim().split(/[\s\-_]+/)[0].toLowerCase();
+    if (sequences[ownStand]?.Interval) kinds.set(kindOf(sequences[ownStand]), ownStand);
+    sequences.forEach((sequence, index) => { if (sequence.Interval && !NOT_EVERYDAY.test(String(sequence.Name || '')) && !kinds.has(kindOf(sequence)) && kinds.size < 6) kinds.set(kindOf(sequence), index); });
+    const frames = skinOf.size ? [[ref.frame, ref.sequence], ...[...kinds.values()].flatMap(index => { const [a, b] = sequences[index].Interval; return Array.from({ length: 9 }, (_, k) => [Math.round(a + k / 8 * (b - a)), index]); })] : [];
+    const sampled = frames.map(([frame, sequence]) => {
+      const options = { interval: sequences[sequence]?.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 };
+      const shows = new Set((model.Geosets || []).map((_, index) => index).filter(index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || sampleTrack(alpha, frame, options) > 0.001; }));
+      return { m: sampleNodeMatrices(model, frame, sequence), shows };
+    });
+    const parts = [...ownPartOf.keys()].sort((a, b) => treeB.depth(a) - treeB.depth(b) || a - b);
+    /** How far the skin drifts against a joint where it shows: its centre and its farthest vertex, in the joint's frame. */
+    const drift = (id, joint, probe, samples) => {
+      let worst = 0, first = null;
+      for (const { m } of samples) {
+        const back = safeInverse(m.get(joint) || new Matrix4()), own = m.get(id) || new Matrix4();
+        if (!back) return Infinity;
+        const local = probe.map(p => p.clone().applyMatrix4(own).applyMatrix4(back));
+        if (local.some(p => !Number.isFinite(p.x + p.y + p.z))) return Infinity;
+        if (!first) { first = local; continue; }
+        for (let i = 0; i < local.length; i++) worst = Math.max(worst, local[i].distanceTo(first[i]));
+      }
+      return worst;
+    };
+    for (const [id, points] of skinOf) {
+      const centre = points.reduce((s, p) => s.add(p), new Vector3()).divideScalar(points.length);
+      const probe = [centre, points.reduce((far, p) => p.distanceTo(centre) > far.distanceTo(centre) ? p : far, centre)];
+      // Where it shows and is not scaled to nothing.
+      let samples = sampled.filter(({ m, shows }) => [...geosetsOf.get(id)].some(index => shows.has(index)) && Math.abs((m.get(id) || new Matrix4()).determinant()) > 1e-9);
+      if (samples.length < 2) samples = sampled;
+      // The body joint, unless the world (staying still, as a hero glow on the ground does) or another part joint holds it
+      // clearly better: it drifts at most FOLLOW_SHARE as far against it (the Orc Warlock's staff slides and turns in his
+      // left hand, 1.25 hip heights against 2.10 against his body). Pieces that follow nothing (a second form shown in one
+      // animation) go with the body.
+      const WORLD = -1, body = rigB.body ?? parts[0];
+      if (body == null) continue;
+      const bodyDrift = drift(id, body, probe, samples);
+      let joint = body, least = bodyDrift;
+      for (const at of [WORLD, ...parts.filter(at => at !== body)]) { const d = drift(id, at, probe, samples); if (d <= FOLLOW_SHARE * bodyDrift && d < least - 1e-6 * rigB.hipHeight) { least = d; joint = at; } }
+      if (joint === WORLD) continue;
+      rideOf.set(id, joint);
+      ridersOut.push({ id, name: ownById.get(id)?.Name, joint: ownById.get(joint)?.Name, vertices: points.length, drift: Number.isFinite(least) ? least / rigB.hipHeight : null });
+    }
+    trimOutside();
+  }
+  // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
+  // own extra bone -> donor joint.
+  const extraMatch = new Map();
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
   const resolved = new Map();
   const targetOf = id => {
     if (resolved.has(id)) return resolved.get(id);
     let result;
-    if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
+    if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
+    else if (rideOf.has(id)) result = { ...targetOf(rideOf.get(id)), via: rideOf.get(id) };
+    else if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
     else if (twin.has(id)) result = targetOf(twin.get(id));
     else if (jointTarget.has(id)) result = { donor: jointTarget.get(id), via: id };
     else if (ownPartOf.has(id)) { const part = rigB.parts[ownPartOf.get(id)], anchor = part.anchor ?? treeB.parentOf(part.joints[0]); result = anchor != null ? { ...targetOf(anchor), via: anchor } : { donor: fallbackDonor, via: null }; }
     else {
-      let up = treeB.ancestors(id).find(a => partJoint(a) || keptOwn.has(a) || outsideKept.has(a) || twin.has(a));
+      let up = treeB.ancestors(id).find(a => partJoint(a) || keptOwn.has(a) || outsideKept.has(a) || twin.has(a) || extraMatch.has(a) || rideOf.has(a));
       if (up != null && twin.has(up)) up = twin.get(up);
-      result = up != null ? { ...targetOf(up), via: up } : { donor: fallbackDonor, via: null };
+      result = up != null ? { ...targetOf(up), via: extraMatch.has(up) ? null : rideOf.has(up) ? rideOf.get(up) : up } : { donor: fallbackDonor, via: null };
     }
     if (result.own != null) result = { own: result.own, via: null };
     resolved.set(id, result);
@@ -918,6 +1005,88 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     placed.set(id, groundB.clone().add(pA(id).sub(groundA).multiplyScalar(size)));
   };
   for (const id of byDepth) if (isDonorJoint(id)) placeJoint(id);
+  // Extras on the donor's matching chain (owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT"; overnight class E1):
+  // an own extra (hair, a cape, a tail, a jaw, claws) whose donor counterpart hangs from the same part with its top where
+  // this extra's is (EXTRA_NEAR of the hip height, in the result's placement) rides that chain: its bones take the donor
+  // joints depth by depth (each child the donor child whose offset is nearest its own), which sit on this model's pivots,
+  // so the donor's keys move it. Unpaired bones below ride the nearest paired one. With no such chain the extra rides its
+  // part joint, held as the model's reference pose holds it (as before); one in `keep` keeps its bone.
+  if (rigA.ok && rigB.ok && (extras.size || outsideShown.size)) {
+    const donorMoves = id => ['Translation', 'Rotation', 'Scaling'].some(property => {
+      const track = donorById.get(id)?.[property];
+      if (!track?.Keys?.length || isGlobalTrack(track, D)) return false;
+      const first = track.Keys[0].Vector;
+      return track.Keys.some(key => Array.from(key.Vector).some((value, i) => Math.abs(value - first[i]) > 1e-6));
+    });
+    const free = id => isDonorJoint(id) && keepDonor.has(id) && !partOfDonor.has(id) && placed.has(id);
+    const donorTops = new Map(); // donor chain top -> its part joint
+    for (const node of donorNodes) {
+      const id = node.ObjectId;
+      if (!free(id)) continue;
+      const line = treeA.ancestors(id, true), at = line.findIndex(a => partOfDonor.has(a));
+      if (at === 1) donorTops.set(id, line[1]);
+    }
+    const chainMoves = top => { const walk = id => donorMoves(id) || (treeA.children.get(id) || []).some(child => free(child.ObjectId) && walk(child.ObjectId)); return walk(top); };
+    // A chain with a part joint below it is body, not an extra (the Gryphon Rider's front carries its front legs, the Wyvern
+    // Rider's its rider): left alone, so no body joint moves. The donor's weapon is the weapon's, no extra's.
+    const holdsPart = (tree, isPart, top) => { const walk = id => (tree.children.get(id) || []).some(child => isPart(child.ObjectId) || walk(child.ObjectId)); return walk(top); };
+    for (const top of [...donorTops.keys()]) if (!chainMoves(top) || holdsPart(treeA, id => partOfDonor.has(id), top) || donorWeapon != null && treeA.ancestors(donorWeapon, true).includes(top)) donorTops.delete(top);
+    const used = new Set(), near = EXTRA_NEAR * rigB.hipHeight;
+    const offsetOf = (id, parent) => pA(id).sub(pA(parent)).multiplyScalar(size);
+    const pair = (own, theirs) => {
+      extraMatch.set(own, theirs); used.add(theirs);
+      for (const child of treeB.children.get(own) || []) {
+        const id = child.ObjectId;
+        if (!extraTop.has(id) || !JOINT_KEYS.some(k => (model[k] || []).includes(child))) continue;
+        const mine = pB(id).sub(pB(own)), reach = Math.max(near, 0.5 * mine.length());
+        let best = null, distance = Infinity;
+        for (const other of treeA.children.get(theirs) || []) {
+          if (!free(other.ObjectId) || used.has(other.ObjectId)) continue;
+          const d = offsetOf(other.ObjectId, theirs).distanceTo(mine);
+          if (d < distance) { distance = d; best = other.ObjectId; }
+        }
+        if (best != null && distance <= reach) pair(id, best);
+      }
+    };
+    const candidates = [];
+    for (const extra of extras.values()) {
+      if (extra.kept || weaponExtras.has(extra.id) || holdsPart(treeB, partJoint, extra.id)) continue;
+      const anchor = treeB.parentOf(extra.id), target = anchor != null ? targetOf(anchor).donor : null;
+      if (target == null || !partOfDonor.has(target)) continue;
+      for (const [top, joint] of donorTops) {
+        if (partOfDonor.get(joint) !== partOfDonor.get(target)) continue;
+        const d = placed.get(top).distanceTo(pB(extra.id));
+        if (d <= near) candidates.push({ own: extra.id, top, d });
+      }
+    }
+    candidates.sort((a, b) => a.d - b.d || a.own - b.own || a.top - b.top);
+    for (const { own, top } of candidates) if (!extraMatch.has(own) && !used.has(top)) pair(own, top);
+    // Outside joints the donor has too (same name, same place: a family's second skeleton or wheels) take the donor's.
+    const plain = name => String(name ?? '').trim().toLowerCase(), outside = new Map();
+    for (const node of donorNodes) {
+      const id = node.ObjectId;
+      if (!free(id) || used.has(id) || treeA.ancestors(id).some(a => partOfDonor.has(a))) continue;
+      if (!outside.has(plain(node.Name))) outside.set(plain(node.Name), []);
+      outside.get(plain(node.Name)).push(id);
+    }
+    for (const id of [...outsideShown].sort((a, b) => treeB.depth(a) - treeB.depth(b) || a - b)) {
+      let best = null, distance = TWIN_NEAR * rigB.hipHeight;
+      for (const other of outside.get(plain(ownById.get(id)?.Name)) || []) { const d = placed.get(other).distanceTo(pB(id)); if (!used.has(other) && d <= distance) { distance = d; best = other; } }
+      if (best != null) { extraMatch.set(id, best); used.add(best); }
+    }
+    trimOutside(id => rideOf.has(id) || extraMatch.has(id));
+    if (extraMatch.size) {
+      // The donor's chain joints sit on this model's pivots; the joints below them, at the donor's offsets from there.
+      const moved = new Set();
+      for (const [own, theirs] of extraMatch) { placed.set(theirs, pB(own)); offsetJoint.delete(theirs); moved.add(theirs); }
+      for (const id of byDepth) {
+        if (moved.has(id) || !placed.has(id) || !isDonorJoint(id) || partOfDonor.has(id) || pairedOwn.has(id)) continue;
+        const parent = treeA.parentOf(id);
+        if (parent != null && moved.has(parent)) { placed.set(id, placeFrom(placed.get(parent), parent, id)); moved.add(id); }
+      }
+      resolved.clear();
+    }
+  }
   // Runs (skin contract 4.2): donor joints placed on this model's line between two paired joints.
   const donorPartJoints = new Set(partOfDonor.keys()), ownPartJoints = new Set(ownPartOf.keys());
   const runs = rigB.ok && rigA.ok ? transplantRuns({ donorPartJoints, ownPartJoints, pairedOwn, isDonorJoint: id => isDonorJoint(id) && keepDonor.has(id), treeA, treeB, pA, pB, minLength: 1e-3 * rigB.hipHeight }) : [];
@@ -1088,7 +1257,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const ownParent = id => {
     let parent = treeB.parentOf(id);
     while (parent != null && !ownKeep.has(parent)) {
-      if (partJoint(parent) || jointTarget.has(parent) || twin.has(parent)) { const target = targetOf(parent); return target.own != null ? target.own : newId(target.donor); }
+      if (partJoint(parent) || jointTarget.has(parent) || twin.has(parent) || rideOf.has(parent) || extraMatch.has(parent)) { const target = targetOf(parent); return target.own != null ? target.own : newId(target.donor); }
       parent = treeB.parentOf(parent);
     }
     return parent;
@@ -1219,7 +1388,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
     for (let v = 0; v < count; v++) {
       const bones = weights?.length >= count * 8 ? [0, 1, 2, 3].filter(i => weights[v * 8 + 4 + i] > 0).map(i => weights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
-      for (const top of new Set(bones.map(id => extraTop.get(id)).filter(top => top != null && extras.has(top)))) {
+      for (const top of new Set(bones.map(id => extraTop.get(id) ?? (rideOf.has(id) ? id : null)).filter(top => top != null && (extras.has(top) || rideOf.has(top))))) {
         if (!extraCentre.has(top)) extraCentre.set(top, { sum: new Vector3(), n: 0 });
         const entry = extraCentre.get(top); entry.sum.add(v3(geoset.Vertices.subarray(v * 3, v * 3 + 3))); entry.n++;
       }
@@ -1229,7 +1398,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const jointsOf = (id, point, { trunk = true } = {}) => {
     const t = targetOf(id);
     if (t.own != null) return [{ own: t.own }];
-    const top = extraTop.get(id), rigid = top != null && extras.has(top) && extraCentre.has(top);
+    const top = extraTop.get(id) ?? (rideOf.has(id) ? id : null), rigid = top != null && (extras.has(top) || rideOf.has(top)) && extraCentre.has(top);
     const at = rigid ? extraCentre.get(top).sum.clone().divideScalar(extraCentre.get(top).n) : point;
     const hosted = t.via != null ? runsByHost.get(t.via) : null;
     const first = hosted ? splitJoints(at, t.donor, hosted, { band: !rigid }) : [t.donor];
@@ -1288,8 +1457,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   for (const geoset of M.Geosets || []) {
     const count = (geoset.Vertices?.length || 0) / 3;
     const bake = (v, bones) => {
-      // A vertex carried by extras alone rides the part joint they hang from, held as the model's own reference pose holds it.
-      if (!rigB.ok || !bones.length || !bones.every(id => extraTop.has(id) && !keptExtra(id))) return;
+      // A vertex carried by extras alone rides the part joint they hang from, held as the model's own reference pose holds it
+      // (an outside joint's skin: the part joint it rides). An extra on the donor's matching chain is not held (no `via`).
+      if (!rigB.ok || !bones.length || !bones.every(id => extraTop.has(id) && !keptExtra(id) || rideOf.has(id))) return;
       const vias = new Set(bones.map(viaOf));
       if (vias.size !== 1) return;
       const via = [...vias][0];
@@ -1508,11 +1678,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const listed = still.filter(key => !(whole.reason && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
   reasons.push(...hard, ...notes);
-  const extrasOut = [...extras.values()].map(({ bones, ...rest }) => rest);
+  const extrasOut = [...extras.values()].map(({ bones, ...rest }) => ({ ...rest, follows: extraMatch.has(rest.id) ? donorById.get(extraMatch.get(rest.id))?.Name ?? null : null }));
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, twins: twin.size, deathSwap,
+      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
