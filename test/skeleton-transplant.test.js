@@ -100,35 +100,45 @@ test('T2 Footman on the Grunt: every transplanted arm and leg part points as the
 });
 
 // ------------------------------------------------------------------ (b) the owner's pair: the Kurgan on the Tauren
-test('T4 Kurgan on the Tauren: a valid model with exactly the Tauren\'s animations; the arms point as the Tauren\'s, the hoofed legs are converted', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+test('T4 Kurgan on the Tauren: a valid model with exactly the Tauren\'s animations; arms and legs are the Tauren\'s own bones and point as its do', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const result = transplant('transfer-kurgan', 'transfer-tauren');
   structural(result);
   assert.equal(result.report.fit, 'good', result.report.reasons.join(' '));
-  assert.deepEqual([...result.report.converted].sort(), ['legL', 'legR'], 'the legs, which lack the Tauren\'s hock, keep their own joints');
+  // v2 (owner, 19 Nov 2026): a transplant is 100% the donor's skeleton. The legs are no longer converted.
+  assert.deepEqual(result.report.converted, [], 'no limb keeps its own joints');
   const worst = limbAngles(result, result.donor);
-  for (const key of ['armL', 'armR']) {
+  for (const key of ['armL', 'armR', 'legL', 'legR']) {
     assert.equal(worst[key]?.kind, 'transplanted', `${key} is transplanted`);
     for (const role of ['upper', 'lower']) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
   }
+  // Every joint of the Tauren's legs, the hock included, is in the result and carries the Kurgan's leg skin.
+  const rigT = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) }), carried = new Set();
+  for (const geoset of result.model.Geosets) for (const group of geoset.Groups) for (const id of group) carried.add(id);
+  for (const key of ['legL', 'legR']) for (const id of rigT.parts[key].joints) {
+    const there = result.report.donorNodes[id];
+    assert.ok(there != null, `${result.donor.Nodes[id].Name} is in the result`);
+    assert.ok(carried.has(there), `${result.donor.Nodes[id].Name} carries skin`);
+  }
 });
 
-test('T5 Kurgan on the Tauren: in Walk a foot stays down', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
-  // The R13 measure: the lower of the two feet against the Kurgan's own standing foot height.
+test('T5 Kurgan on the Tauren: the Tauren\'s feet stand on the Kurgan\'s ground in the Stand; in Walk a foot stays near it', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  // v2: the legs are the Tauren's bones with its motion, so nothing plants the feet (v1's converted legs did).
+  // The ground is settled in the result's reference moment; in Walk the lower foot is measured as in R13 and
+  // must stay within a fifth of hip height (measured 7.7 of 42 on 19 Nov 2026: the Kurgan's legs, bent at the
+  // Tauren's angles, reach less far). A plain regression guard, not a feet-kept-down claim.
   const { own, donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren');
   const rig = transferRig(own, { sequence: standSequenceIndex(own) }), rigT = transferRig(donor, { sequence: standSequenceIndex(donor) });
-  const walk = model.Sequences.findIndex(s => /^walk$/i.test(s.Name)), nM = byId(model), nT = byId(donor);
-  const feet = ['legL', 'legR'].map(key => report.ownNodes[rig.parts[key].marker]), theirFeet = ['legL', 'legR'].map(key => rigT.parts[key].marker);
-  assert.ok(feet.every(id => id != null), 'the Kurgan\'s own feet are in the result');
+  const walk = model.Sequences.findIndex(s => /^walk$/i.test(s.Name)), stand = standSequenceIndex(model), nM = byId(model);
+  const feet = ['legL', 'legR'].map(key => report.donorNodes[rigT.parts[key].marker]);
+  assert.ok(feet.every(id => id != null), 'the Tauren\'s feet are in the result');
+  const lower = (sequence, frame) => { const mm = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => at(model, nM, mm, id).z)) - rig.ground; };
+  const standing = lower(stand, model.Sequences[stand].Interval[0]);
+  assert.ok(Math.abs(standing) < 0.05 * rig.hipHeight, `in the Stand the lower foot is ${standing.toFixed(1)} from the Kurgan's standing height`);
   const [a, b] = model.Sequences[walk].Interval;
-  let worst = -Infinity, donorWorst = -Infinity;
-  for (let i = 0; i <= 40; i++) {
-    const frame = Math.round(a + (b - a) * i / 40), mm = sampleNodeMatrices(model, frame, walk), mt = sampleNodeMatrices(donor, frame, walk);
-    worst = Math.max(worst, Math.min(...feet.map(id => at(model, nM, mm, id).z)) - rig.ground);
-    donorWorst = Math.max(donorWorst, Math.min(...theirFeet.map(id => at(donor, nT, mt, id).z)) - rigT.ground);
-  }
-  assert.ok(donorWorst < 0.1 * rigT.hipHeight, `the Tauren always has a foot down in its Walk (${donorWorst.toFixed(1)})`);
-  assert.ok(worst < 0.1 * rig.hipHeight, `the Kurgan's lower foot gets ${worst.toFixed(1)} above its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
-  assert.ok(worst > -0.1 * rig.hipHeight, `the Kurgan's lower foot sinks ${(-worst).toFixed(1)} below its standing height`);
+  let worst = -Infinity;
+  for (let i = 0; i <= 40; i++) worst = Math.max(worst, lower(walk, Math.round(a + (b - a) * i / 40)));
+  assert.ok(worst < 0.2 * rig.hipHeight, `in Walk the lower foot gets ${worst.toFixed(1)} above its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
+  assert.ok(worst > -0.1 * rig.hipHeight, `in Walk the lower foot sinks ${(-worst).toFixed(1)} below its standing height`);
 });
 
 /** Largest distance, through three moments of every animation, between where the hammer's vertices sit
@@ -156,11 +166,75 @@ function gripDrift({ own, model, report }) {
   }));
   return { drift, hammer };
 }
-test('T6 Kurgan on the Tauren: the hammer stays in the hand as the Kurgan holds it, its bone gone', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
-  const result = transplant('transfer-kurgan', 'transfer-tauren'), { drift, hammer } = gripDrift(result);
+/** The donor's weapon bone, read from the file: the joint its weapon attachment hangs from. */
+const donorWeaponBone = donor => donor.Attachments.find(a => /weapon/i.test(a.Name)).Parent;
+/** The hammer's vertices: the largest extra, its geoset and the vertices carried only by bones under it. */
+function hammerVertices({ own, report }) {
+  const hammer = [...report.extras].sort((a, b) => b.vertices - a.vertices)[0], nO = byId(own);
+  const below = id => { for (let at = id; at != null && at !== -1; at = nO.get(at)?.Parent ?? null) if (at === hammer.id) return true; return false; };
+  const under = new Set(allNodes(own).map(n => n.ObjectId).filter(below));
+  const g = own.Geosets.findIndex(geoset => geoset.Groups.some(group => group.some(id => under.has(id))));
+  const list = []; for (let v = 0; v < own.Geosets[g].VertexGroup.length; v++) if (own.Geosets[g].Groups[own.Geosets[g].VertexGroup[v]].every(id => under.has(id))) list.push(v);
+  return { hammer, g, list };
+}
+/** The Kurgan's weapon hand and the result's joint placed on it. */
+function weaponHands({ own, model, report }) {
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), hand = Object.values(rig.parts).find(part => part.weapon).marker;
+  const pivot = new Vector3(...nodePivot(own, byId(own).get(hand), hand));
+  const result = [...model.Bones, ...model.Helpers].find(n => new Vector3(...n.PivotPoint).distanceTo(pivot) < 1e-4 && !Object.values(report.ownNodes).includes(n.ObjectId)).ObjectId;
+  return { rig, hand, result };
+}
+test('T6 Kurgan on the Tauren: the hammer rides the Tauren\'s weapon bone from where the Kurgan holds it, and leaves the hand with it', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const result = transplant('transfer-kurgan', 'transfer-tauren'), { own, donor, model, report } = result, { hammer, g, list } = hammerVertices(result);
   assert.ok(hammer.vertices > 600 && !hammer.kept, `the hammer is the largest extra (${hammer.name}, ${hammer.vertices} vertices), not kept`);
-  assert.equal(result.report.ownNodes[hammer.id], undefined, 'the hammer\'s own bone is gone');
-  assert.ok(drift < 0.05, `the hammer drifts up to ${drift.toFixed(2)} from the Kurgan's own grip`);
+  assert.equal(report.ownNodes[hammer.id], undefined, 'the hammer\'s own bone is gone');
+  const totem = donorWeaponBone(donor), carrier = report.donorNodes[totem];
+  assert.ok(carrier != null, `the Tauren's weapon bone (${donor.Nodes[totem].Name}) is in the result`);
+  assert.equal(report.weapon?.rides, true, 'the weapon rides the donor\'s weapon bone');
+  assert.equal(report.weapon.bone, carrier);
+  for (const v of list) assert.deepEqual(Array.from(model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]), [carrier], `hammer vertex ${v} rides only the weapon bone`);
+  // At the result's reference moment (first frame of its Stand) the hammer sits where the Kurgan holds it.
+  const { rig, hand, result: resultHand } = weaponHands(result), nD = byId(donor), nM = byId(model);
+  const ownRef = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence), mine = skinGeoset(own.Geosets[g], ownRef), toHand = ownRef.get(hand).clone().invert();
+  const stand = standSequenceIndex(model), ref = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand), theirs = skinGeoset(model.Geosets[g], ref), toResult = ref.get(resultHand).clone().invert();
+  let grip = 0;
+  for (const v of list) grip = Math.max(grip, new Vector3(mine[v * 3], mine[v * 3 + 1], mine[v * 3 + 2]).applyMatrix4(toHand).distanceTo(new Vector3(theirs[v * 3], theirs[v * 3 + 1], theirs[v * 3 + 2]).applyMatrix4(toResult)));
+  assert.ok(grip < 0.05, `at the reference moment the hammer is ${grip.toFixed(2)} from the Kurgan's own grip`);
+  // Where the Tauren's weapon leaves its hand the most, the hammer leaves the result's hand too.
+  const donorHand = Number(Object.keys(report.donorNodes).find(id => report.donorNodes[id] === resultHand));
+  const gap = (m, nodes, matrices, a, b) => at(m, nodes, matrices, a).distanceTo(at(m, nodes, matrices, b));
+  const centre = (m, matrices) => { const s = skinGeoset(m.Geosets[g], matrices), c = new Vector3(); for (const v of list) c.add(new Vector3(s[v * 3], s[v * 3 + 1], s[v * 3 + 2])); return c.divideScalar(list.length); };
+  const d0 = gap(donor, nD, sampleNodeMatrices(donor, donor.Sequences[stand].Interval[0], stand), totem, donorHand), r0 = centre(model, ref).distanceTo(at(model, nM, ref, resultHand));
+  let most = { change: 0 };
+  donor.Sequences.forEach((sequence, index) => {
+    if (/decay|portrait/i.test(sequence.Name)) return;
+    for (let i = 0; i <= 12; i++) { const frame = Math.round(sequence.Interval[0] + (sequence.Interval[1] - sequence.Interval[0]) * i / 12), change = Math.abs(gap(donor, nD, sampleNodeMatrices(donor, frame, index), totem, donorHand) - d0); if (change > most.change) most = { change, frame, index }; }
+  });
+  const mm = sampleNodeMatrices(model, most.frame, most.index), moved = Math.abs(centre(model, mm).distanceTo(at(model, nM, mm, resultHand)) - r0);
+  assert.ok(most.change > 20, `the Tauren lets go of its weapon (${most.change.toFixed(0)})`);
+  assert.ok(moved > 0.5 * report.counts.sizeRatio * most.change, `in ${model.Sequences[most.index].Name} the hammer leaves the hand by ${moved.toFixed(1)}, the Tauren's weapon by ${most.change.toFixed(1)} (size ratio ${report.counts.sizeRatio.toFixed(2)})`);
+});
+
+test('T11 Kurgan on the Tauren: the Weapon Ref hangs from the bone that carries the hammer, where the Kurgan\'s sits on it', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const result = transplant('transfer-kurgan', 'transfer-tauren'), { own, model, report } = result;
+  const point = model.Attachments.find(a => /weapon/i.test(a.Name)), mine = own.Attachments.find(a => /weapon/i.test(a.Name));
+  assert.equal(point.Parent, report.weapon?.bone, 'the Weapon Ref hangs from the weapon bone');
+  // Against the hand: in the result at its reference moment, in the Kurgan at its own.
+  const { rig, hand, result: resultHand } = weaponHands(result), nO = byId(own), nM = byId(model);
+  const ownRef = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence), stand = standSequenceIndex(model), ref = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand);
+  const a = at(own, nO, ownRef, mine.ObjectId).applyMatrix4(ownRef.get(hand).clone().invert()), b = at(model, nM, ref, point.ObjectId).applyMatrix4(ref.get(resultHand).clone().invert());
+  assert.ok(a.distanceTo(b) < 0.05, `the Weapon Ref is ${a.distanceTo(b).toFixed(2)} from where the Kurgan's sits against the hand`);
+});
+
+test('T12 weapon side: on a donor whose weapon bone is on the other arm the hammer stays in the hand; mirrored, it rides that bone', { skip: missing('transfer-kurgan', 'transfer-grunt') }, () => {
+  const plain = transplant('transfer-kurgan', 'transfer-grunt', { extents: false });
+  assert.equal(plain.report.weapon?.rides, false, 'unmirrored, the Grunt\'s weapon bone is on the other arm');
+  assert.match(plain.report.weapon.note, /other arm/);
+  const mirrored = transplant('transfer-kurgan', 'transfer-grunt', { mirror: true, extents: false }), axe = donorWeaponBone(mirrored.donor);
+  assert.equal(mirrored.report.weapon.rides, true);
+  assert.equal(mirrored.report.weapon.bone, mirrored.report.donorNodes[axe], `mirrored, the hammer rides the Grunt's weapon bone (${mirrored.donor.Nodes[axe].Name})`);
+  const { g, list } = hammerVertices(mirrored);
+  for (const v of list) assert.deepEqual(Array.from(mirrored.model.Geosets[g].Groups[mirrored.model.Geosets[g].VertexGroup[v]]), [mirrored.report.weapon.bone]);
 });
 
 // ------------------------------------------------------------------ (c) keep, sounds and effects, mirror, poor fit
@@ -172,6 +246,7 @@ test('T7 keep: with the hammer\'s bone in keep, that bone survives, still and in
   assert.ok(kept != null, 'the hammer\'s bone is in the result');
   assert.equal(result.report.extras.find(e => e.id === hammer.id).kept, true);
   assert.ok(result.model.Geosets.some(geoset => geoset.Groups.some(group => group.includes(kept))), 'the hammer\'s vertices ride its own bone');
+  assert.equal(result.model.Attachments.find(a => /weapon/i.test(a.Name)).Parent, kept, 'the Weapon Ref hangs from the kept hammer bone');
   const { drift } = gripDrift(result);
   assert.ok(drift < 0.05, `kept, the hammer drifts up to ${drift.toFixed(2)} from the Kurgan's own grip`);
 });
