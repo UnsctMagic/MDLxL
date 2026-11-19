@@ -361,7 +361,8 @@ async function writeAiModel(payload){
   let overwrite=false;
   if(await fs.access(destination).then(()=>true,()=>false)){
     if(!payload.overwrite)throw new Error('A file already exists at '+destination+'. Ask the user before replacing it.');
-    const answer=await dialog.showMessageBox(win,{type:'warning',buttons:['Replace','Cancel'],defaultId:1,cancelId:1,noLink:true,title:'AI export',message:'The AI wants to replace '+path.basename(destination)+'.',detail:destination});
+    // Files in an AI chat's own work folder are the AI's: no question.
+    const answer=payload.workFolder?{response:0}:await dialog.showMessageBox(win,{type:'warning',buttons:['Replace','Cancel'],defaultId:1,cancelId:1,noLink:true,title:'AI export',message:'The AI wants to replace '+path.basename(destination)+'.',detail:destination});
     if(answer.response!==0)throw new Error('The user did not allow replacing '+destination+'.');
     overwrite=true;
   }

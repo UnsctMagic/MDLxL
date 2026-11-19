@@ -46,8 +46,19 @@ keeping readable plan lines. Older cut-off plans show their saved short line or
 You can keep typing while it works: **Enter** sends the message into the running
 task (the button becomes **Steer**) and it appears in the chat where you sent it,
 marked "Sent while the AI was working". The AI picks it up at its next step; if it
-had just finished, the message starts a follow-up turn on the same task. **Stop**
-(the square) cancels; applied edits stay in Undo.
+had just finished, the message starts a follow-up turn on the same task. A steering
+message adds to what the job was asked; it never replaces the request. **Stop**
+(the square) cancels the moment you press it; applied edits stay in Undo. Typing a
+short "stop" (also "STOP!", "stop it now" or a typo such as "stgop") works like the
+square. A longer message that only mentions stopping ("stop making the eyes green")
+still steers. With nothing running, "stop" starts no job.
+
+The AI edits straight away; Undo is the safety net. It plans first only when you ask
+for a plan or options, and runs a formal check (before/after pictures and measured
+checks) only when you ask it to check or verify. Otherwise it looks at its result
+once and reports, and the chat shows **Task complete**; **Result verified** appears
+after a formal check passes or after you accept the result ("deliver it"). A
+question or complaint gets an answer, not a new round of edits.
 
 When Codex or Claude Code asks a clarification, the question and its choices
 appear directly in chat. Choose an option (or several when requested) or type
@@ -64,6 +75,35 @@ and only while their request remains live. Privileged additional-tool approvals
 are declined. Terminal and arbitrary filesystem access stay disabled for both
 native providers; model changes still use the registered MDLxL tools and Undo.
 
+Steps that gave the AI pictures show them as small thumbnails; click one to see it
+larger, click again or press Escape to close. The chat keeps small copies (the
+newest 120 per chat), so they are still there after a restart. An edit step shows
+the geosets it changed; click one to flash it on the model. The **View AI work**
+switch in the console header (off by default) lets you watch the job live: while
+it is on and the console is open, MDLxL shows the AI's model tab (once per model the
+AI moves to, so switching away yourself is respected) and follows the animation,
+frame and view each of its pictures and samples use, and brings the part it edits
+or looks at back into view when most of it is off screen, at most once per display
+frame. Your render mode, hidden geosets and grid stay as they are. While watching,
+your own selection or animation changes do not send the job to a private copy; if
+you edit the model and it does, the chat offers **Open as new model** right away so
+you can watch it there. Off, nothing on screen follows the AI.
+
+With the switch on, each finished AI step also **replays** in the editor's own view:
+a short animation (about half a second to a second) from the model before the step
+to the model after it. Moved vertices glide to their new place, a new part grows in,
+a removed part shrinks and fades, new texture pixels sweep in like a brush pass,
+materials and colours crossfade, UVs slide, new animation keys pop onto the timeline
+and the changed span plays once with its bones softly lit, emitters start up or fade
+out. A small marker hovers where the AI works and the changed part glows softly. The replay is display only: the model, Undo, saves
+and the AI's own pictures already hold the final result, the AI never waits for it,
+a newer step replaces a replay still running, and your camera stays yours (mouse
+rotation works throughout; your own drag ends the replay's hold on the mesh at once).
+Planning is in [ai-replay.js](../src/ai-replay.js), the clock in
+[app/ai-replay.js](../app/ai-replay.js) and each view's share in
+[ai-replay-stage.js](../app/ai-replay-stage.js); it draws inside the view's own frame
+(at most once per display frame, nothing when no replay runs).
+
 Provider warnings/errors, connection failures, usage-limit updates, model
 switches and plans stay in chat after later activity. Click a notice to read its
 details or use its dismiss button.
@@ -71,11 +111,17 @@ Codex-managed sign-in remains the account mechanism. A request for externally
 managed auth tokens or client attestation receives a visible connection error;
 MDLxL does not fabricate credentials or attestation tokens.
 
-### Local JavaScript workspace
+### The AI's own computer
 
-The folder-and-code switch in the chat header enables the workspace for new requests with any embedded tool-capable provider. It starts off. If repeated measurements or candidate comparisons would benefit from a script, the AI can offer it once during a job. The green card explains the specific benefit. **Yes** enables it immediately for that job and keeps its selection and progress. **No** continues with the ordinary tools. Neither answer changes the header preference.
+Every chat has its own work folder (`<profile>/ai/work/<chat>`). Its files stay for every later prompt of that chat and are deleted with the chat. There is no switch and no question: the AI works there as it would on its own computer.
 
-The built-in JavaScript runner can keep named scripts and JSON results in private scratch files for the current job. A candidate preview draws only complete triangles from the proposed vertices. Applying a candidate uses the original marked selection and model revision as its boundary and reports the vertex count read back from the editor. Programs run in the existing protected renderer. Scratch files close with the request and start empty on resume.
+- **Claude Code** uses its own Bash, Read, Write, Edit, Glob and Grep tools there without asking.
+- **Codex** uses its own shell, limited to writing in the work folder, with local network access.
+- **Claude API** gets Anthropic's bash and text editor tools; **OpenAI API** and compatible servers get shell, read, write and edit tools. MDLxL runs them in the work folder (PowerShell on Windows), with a time limit, a cap on long output, and Stop ends the command.
+- Every command sees the job's MDLxL connection. `mdlxl.py` and `mdlxl.mjs` in the folder call any editor tool from a script: `call`, `context`, `script`, `capture` (saves PNG files in `pictures/` instead of sending them to the AI), `export_model` and `apply_file`. The AI opens only the pictures it needs.
+- `mdlxl_document` export writes the model into the folder as MDL text or MDX; `mdlxl_document` apply puts such a file back onto the model as one Undo step and reports what changed.
+
+The built-in JavaScript runner (`mdlxl_workspace`) keeps its scripts and JSON results in the same folder. A candidate preview draws only complete triangles from the proposed vertices. Applying a candidate uses the original marked selection and model revision as its boundary and reports the vertex count read back from the editor. Programs run in the existing protected renderer.
 
 ### Editing while the AI is working
 
@@ -125,7 +171,22 @@ messages carry the target and changed sections; omitted fields retain their last
 values. A reset, compaction or replacement model starts with the full snapshot
 again. `mdlxl_context` returns the current full lists and commands. The cost row
 shows calls and tokens by role (direct, art direction when available, outside
-check); Codex counts provider turns and unavailable usage is labelled.
+check); Codex counts provider turns and unavailable usage is labelled. The Claude
+API shows dollars for the current Claude models, so its spending limit works for them.
+
+Every step re-sends the conversation so far, so old material is trimmed. On the
+Claude API, Anthropic clears old tool results (pictures, data) and the reasoning of
+earlier requests itself once a conversation passes about 60,000 tokens, keeping the
+latest steps. A whole job is one Claude turn, so its own reasoning is never cleared;
+past 100,000 tokens Anthropic summarises the job so far (the request, plan, changes
+and checks, work-folder paths, remaining work) and the job continues from that
+summary, which shows in the chat as a compaction step. The saved history then starts
+at the summary. If Claude refuses compaction or clearing, the chat shows a warning
+and only that piece is switched off. Each chat keeps every request's tokens (input,
+cache read and write, output, clearing and compaction) in `requestUsage`. When a new request starts on a chat whose history has grown past
+80,000 tokens, any provider starts a fresh history for it; the decision diary, the
+model's memory note and your last exchange carry over, and the visible chat stays
+as it was.
 
 ### Working in the background
 
@@ -155,9 +216,13 @@ the first one. The AI has its own environment for its model tab:
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
   them. When you switch to the AI's tab you see the selection it left there.
-- **Screen-only steps wait.** Editor commands other than Undo/Redo, program
-  controls (`mdlxl_ui`) and choosing timeline keys need the AI's tab on screen.
-  Such a step waits until you return to that tab.
+- **Editor commands run there too.** Undo/Redo, the mesh tools (Delete vertices,
+  Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the
+  rest), Select all/Clear/Invert selection and view commands work on the AI's own
+  model, selection and view, also on its private copy. Commands that open a window,
+  program controls (`mdlxl_ui`) and choosing timeline keys need the AI's tab on
+  screen and wait until you return to it; on the private copy the AI uses the same
+  tool's engine in a script instead.
 - **Changes are checked.** On the tab being shown, if you change that model or its
   selection while the AI prepares an edit, the edit is refused and the AI asks,
   as before. Closing the AI's tab stops its task.
@@ -436,6 +501,16 @@ model. The diary lives in MDLxL's own profile, so it survives switching between
 Codex and Claude, and **Keep a summary** after
 saving. **Wipe it all** deletes it with the chats.
 
+**Standing requirements and hand edits.** Rules you state for a model, in a request
+or while the AI works ("keep it under 250 KB", "respect the geoset pose", "never
+touch my rig"), are kept with the model in your words, at most eight, and every
+later job on it gets them until you replace one (a new size limit replaces the old)
+or drop it ("you can now change the pose"); the current request wins where it says
+otherwise. At the end of every job MDLxL remembers a small per-part fingerprint of
+the model, so the next job is told what you changed by hand in between (for example
+"geoset 3: vertex positions", "node Arm_L: rotation keys") and keeps it. **Wipe it
+all** deletes the requirements with the chats.
+
 After model edits, **Result verified** appears only after the AI runs measured,
 read-only checks against the original model, validates MDX/MDL reopening, receives
 actual before/after images, and finishes its visual review. Animation edits also
@@ -474,11 +549,33 @@ Reference models remain open as ordinary tabs. Image paste also works.
 
 | Choice | Setup |
 | --- | --- |
-| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
 | Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in to it in your own terminal with `claude auth login`, then click **Check sign-in**. MDLxL uses that sign-in and does not offer a Claude sign-in of its own. Your plan must support Claude Code. |
-| OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
 | Claude API | Enter a workspace-scoped Claude API key and choose a model that supports tools. |
+| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
+| OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
+| Gemini CLI | Install [Gemini CLI](https://github.com/google-gemini/gemini-cli) and sign in to it in your own terminal (run `gemini` and choose your Google account), then click **Check sign-in**. Each prompt is one run of the CLI's non-interactive mode with MDLxL's tools over the local link. |
+| GitHub Copilot CLI | Install [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli) and sign in with `copilot login` in your own terminal, then click **Check sign-in**. Its answer is shown when it is ready; its tool steps are listed as MDLxL receives them. Each prompt is a new Copilot session (the chat's earlier requests are passed along). |
+| Google Gemini API | Enter a Gemini API key from Google AI Studio and choose a model. |
+| xAI Grok API | Enter an xAI API key and choose a Grok model. |
+| Mistral API | Enter a Mistral API key and choose a model. |
+| DeepSeek API | Enter a DeepSeek API key and choose a model. |
+| Qwen API (Alibaba Cloud) | Enter your Model Studio API key and your workspace's OpenAI-compatible base URL (it ends in `/compatible-mode/v1`; the key belongs to that region). |
+| OpenRouter | Enter an OpenRouter API key and choose any model that supports tools. |
+| Groq | Enter a Groq API key and choose a model that supports tools. |
+| Azure OpenAI | Enter your resource's key and its v1 base URL (`https://YOUR-RESOURCE.openai.azure.com/openai/v1`); the model is your deployment name. |
+| Ollama (local) / LM Studio (local) | Start the local server; the usual address is filled in and can be changed. No key. Choose a model that supports tools. |
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
+
+The list always starts with Claude, then Codex; the custom connection is last. The
+key providers after OpenAI use each provider's official OpenAI-compatible address
+(`apiBase` in the [provider table](../src/ai-providers.json)) through the same route as
+**Other AI**, so trimming, Stop, steering, step and spending limits work the same.
+Costs are shown for models with a list price in `PROVIDER_PRICES`
+([ai-providers.cjs](../electron/ai-providers.cjs)); other models show tokens only.
+Keys are stored encrypted, per provider, like the existing ones. Not offered as their
+own choice: Amazon Bedrock (tool calling on its OpenAI-compatible address could not be
+confirmed; it still works through **Other AI** with its base URL and key when the
+chosen model has tools) and CLIs without a published non-interactive mode with MCP.
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
 path in Connection. PATH can omit a CLI (installed after Windows sign-in, or one
@@ -541,21 +638,21 @@ Embedded chat works without enabling this external listener.
 | Tool | Capability |
 | --- | --- |
 | `mdlxl_capabilities` | Search installed editing libraries by task; a search returns the matching functions with their arguments and descriptions, and a module request returns all of its functions the same way. |
-| `mdlxl_plan` | Embedded chat only: record the job's cause, reach, keep list, alternative fixes and choice before the first edit. |
+| `mdlxl_plan` | Embedded chat only, when you ask for a plan: record the job's cause, reach, keep list, fixes and choice. Edits never wait for it. |
 | `mdlxl_versions` | Keep versions of the model side by side: list, save, compare, and use one again as one Undo step. Scripts read them as `references["version:NAME"]`. |
-| `mdlxl_review` | Run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
+| `mdlxl_review` | When you ask for a check: run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
 | `mdlxl_context` | Live document, exact selection, animation context, references, diagnostics and enabled commands. |
 | `mdlxl_read` | Read any model field, with typed arrays and explicit pagination. |
 | `mdlxl_script` | General JavaScript using the complete model, references, captured selection and MDLxL's own modeling libraries. |
 | `mdlxl_patch` | Precise JSON Pointer edits with typed values, validation and Undo. |
 | `mdlxl_select` | Change real vertex, bone, geoset and exact transform-key selections. |
-| `mdlxl_command` | Invoke existing editor commands using their normal behavior. |
+| `mdlxl_command` | Invoke existing editor commands using their normal behavior; mesh tools, selection and view commands also run on a model tab that is not showing. |
 | `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit; for a tab that is not showing, the task's own view. |
 | `mdlxl_sample` | Measure node world transforms and skinned vertex positions/bounds across up to 32 frames without moving the playhead. |
-| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame. |
-| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview model textures, load donor references without switching the working model. |
+| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame; `vertices` frames given vertices without changing the selection, `zoom` (1–8) zooms in, `wireframe` shows the mesh lines and `uv` draws the texture flat with the UV triangles over it. |
+| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview any texture (the model's own, by game path or from a search), load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
-| `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |
+| `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, validate MDX/MDL reopening, or apply an MDL/MDX file as one Undo step. |
 | `mdlxl_help` | Read the installed documentation and discover the scripting API. |
 
 Model scripts can edit geometry, UVs, skinning, bones, animation tracks, materials,

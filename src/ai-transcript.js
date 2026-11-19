@@ -9,6 +9,34 @@ export function acceptsDelivery(text) {
   return /^(?:(?:please|just|fucking)\s+)*(?:i\s+)?(?:deliver|accept)(?:\s+(?:it|this(?:\s+(?:result|edit|model))?|(?:the\s+)?(?:current\s+)?(?:result|edit|model)))?(?:\s+(?:anyway|now|as[ -]is))?(?:\s*$|[,.!;]|\s+i (?:don['’]?t|do not) care)/i.test(String(text || '').trim());
 }
 
+// A short message whose point is "stop" stops the job, typos and shouting included
+// ("stgop", "STOP!!", "stop it now", "please stop"). A longer message that only
+// mentions stopping ("stop making the eyes green") or a negation ("don't stop")
+// stays steering for the AI.
+const STOP_WORDS = new Set(['stop', 'stopp', 'halt', 'abort', 'enough', 'basta', 'detente', 'arrête', 'arrete', 'стоп', 'хватит', 'остановись']);
+const NOT_STOP = new Set(['step', 'shop', 'slop', 'stomp', 'stoop', 'swop', 'atop', 'top', 'sop']);
+const NEGATIONS = new Set(["don't", 'dont', 'not', 'never']);
+// Typing distance to "stop" of at most one edit (a swapped pair counts as one).
+function nearStop(word) {
+  if (word.length < 4 || word.length > 6 || NOT_STOP.has(word)) return false;
+  const a = word, b = 'stop', d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  return d[a.length][b.length] <= 1;
+}
+export function isStopRequest(text) {
+  const plain = String(text || '').trim().toLowerCase();
+  // Chinese has no spaces: a short message built around 停 ("stop").
+  if (/^[\s\p{P}]*停[\p{Script=Han}\s\p{P}]{0,3}$/u.test(plain)) return true;
+  const words = plain.replace(/[^\p{L}\p{N}'’\s]/gu, ' ').replace(/’/g, "'").split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 3 || words.some(word => NEGATIONS.has(word))) return false;
+  return words.some(word => STOP_WORDS.has(word) || nearStop(word));
+}
+
 const newReply = () => ({ role: 'assistant', text: '', parts: [] });
 
 // One event applied to `messages`. With `copy`, nothing passed in is changed: the
@@ -92,7 +120,9 @@ function reduce(messages, event, copy) {
       const at =
         find(p => p.type === 'tool' && event.callId && p.id === event.callId) ||
         find(p => p.type === 'tool' && p.status === 'running' && p.name === event.name);
-      if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary });
+      // Small copies of the pictures the step gave the AI, and the parts an edit changed.
+      if (at) update(at, { status: event.error ? 'error' : 'done', summary: event.summary,
+        ...(event.thumbs?.length ? { thumbs: event.thumbs } : {}), ...(event.changed ? { changed: event.changed } : {}) });
       break;
     }
     // SD Brain's art brief: a row that fills in once the brief is written.

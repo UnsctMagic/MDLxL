@@ -61,6 +61,9 @@ function windowsInstallations(name, env) {
         [local, 'Packages', 'Claude_*', 'LocalCache', 'Roaming', 'Claude', 'claude-code', '*', '*', 'claude.exe'],
       ],
     },
+    // npm tools: Gemini CLI (@google/gemini-cli) and GitHub Copilot CLI (@github/copilot).
+    gemini: { folders: shared, versions: [] },
+    copilot: { folders: shared, versions: [] },
     node: { folders: [at(programs, 'nodejs')], versions: [] },
   }[name];
   if (!known) return { folders: [], versions: [] };
@@ -109,7 +112,7 @@ function isFile(full) {
 }
 function resolveExecutable(command, env = process.env) {
   const windows = process.platform === 'win32',
-    known = windows && /^(codex|claude)(?:\.exe|\.cmd)?$/i.exec(path.basename(command)),
+    known = windows && /^(codex|claude|gemini|copilot)(?:\.exe|\.cmd)?$/i.exec(path.basename(command)),
     name = known ? known[1].toLowerCase() : path.isAbsolute(command) ? '' : command.toLowerCase(),
     installations = windows ? windowsInstallations(name, env) : { folders: [], versions: [] };
   // Keep a working explicit path first. A missing saved CLI path recovers through

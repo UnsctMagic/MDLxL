@@ -18,6 +18,10 @@ import { LANGUAGES, translate } from '../src/localization.js';
 import { TOOLBAR_MODES, TOOLBAR_MODE_LABELS } from '../src/toolbar-mode.js';
 import { setToolbarTabStops } from './toolbar-tab-order.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
+import { Bone, Box, Film, Focus, Image, LayoutGrid, Maximize, Square } from 'lucide-react';
+
+// Below this view width the camera bar shows icons instead of words.
+const COMPACT_VIEW_WIDTH = 560;
 
 const teamColors = TEAM_COLORS.map(row => [row.index === null ? row.name : `${row.index} · ${row.name}`, row.rgbHex]);
 function neutralTextColor(hex) {
@@ -220,7 +224,7 @@ function VertexAnimationFrame({ frame, interval, onFrame, onClose }) {
   </label>;
 }
 
-function VertexAnimationControl({ sequences, index, frame, active, disabled, onToggle, onChoose, onFrame }) {
+function VertexAnimationControl({ sequences, index, frame, active, disabled, onToggle, onChoose, onFrame, compact = false }) {
   const control = useRef(null), button = useRef(null);
   const [showFrame, setShowFrame] = useState(false);
   const open = showFrame && !disabled;
@@ -234,7 +238,8 @@ function VertexAnimationControl({ sequences, index, frame, active, disabled, onT
   return <span ref={control} className="vertex-animation-control">
     <button ref={button} type="button" data-hotkey="vertexAnimated" title="Preview the selected frame while editing the base pose. Right-click to choose a frame." aria-pressed={active} disabled={disabled}
       onClick={() => { setShowFrame(false); onToggle(); }}
-      onContextMenu={event => { event.preventDefault(); if (open) closeFrame(); else setShowFrame(true); }}>Animated</button>
+      aria-label={compact ? 'Animated' : undefined}
+      onContextMenu={event => { event.preventDefault(); if (open) closeFrame(); else setShowFrame(true); }}>{compact ? <Film size={15} aria-hidden="true"/> : 'Animated'}</button>
     <label className="vertex-animation-picker">
       <span aria-hidden="true">▾</span>
       <select aria-label="Choose animation" title={name ? label + ' · ' + name : label} value={index} disabled={disabled} onChange={event => { setShowFrame(false); onChoose(Number(event.target.value)); }}>
@@ -252,7 +257,26 @@ export function AppViewLabel({
 }) {
   // The one sign on the viewport that left-dragging draws for the AI rather than editing.
   const drawingTool = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get).tool;
+  // A narrow view (two windows side by side) shows the same controls as icons; names stay on hover.
+  const label = useRef(null);
+  const [compact, setCompact] = useState(false);
+  useLayoutEffect(() => {
+    const host = label.current?.parentElement;
+    if (!host || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setCompact(host.clientWidth > 0 && host.clientWidth < COMPACT_VIEW_WIDTH);
+    const observer = new ResizeObserver(() => requestAnimationFrame(measure));
+    observer.observe(host);
+    measure();
+    return () => observer.disconnect();
+  }, [mode]);
+  const viewOptions = mode === 'vertices' && quadView ? QUAD_VIEW_OPTIONS : views.map(name => [name, name[0].toUpperCase() + name.slice(1)]);
+  const viewValue = cameraPortraitActive ? portraitView : mode === 'vertices' && quadView ? activeVertexPane?.view || 'front' : view;
+  const viewName = viewOptions.find(([name]) => name === viewValue)?.[1] || '';
+  const viewSelect = <select data-hotkey="viewDirection" aria-label="View direction" title={compact ? translate('View direction') + ' · ' + translate(viewName) : undefined} value={viewValue} onChange={event => cameraPortraitActive ? setPortraitView(event.target.value) : setView(event.target.value)}>{viewOptions.map(([name, label]) => <option key={name} value={name}>{label}</option>)}</select>;
+  const renderNames = { wireframe: 'Wireframe', solid: 'Surface', textured: 'Textured View', influence: 'Bone influence' };
+  const RenderIcon = { wireframe: Box, solid: Square, textured: Image, influence: Bone }[renderMode] || Box;
+  const renderSelect = <select aria-label="Render mode" title={renderMode === 'influence' ? BONE_INFLUENCE_TIP : compact ? translate('Render mode') + ' · ' + translate(renderNames[renderMode] || '') : undefined} value={renderMode} onChange={event=>{setRenderMode(event.target.value);setCleanViews(previous=>({...previous,[mode]:false}));}}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option>{boneInfluenceAvailable && <option value="influence" title={BONE_INFLUENCE_TIP}>Bone influence</option>}</select>;
   return <>
-      {mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <div className="classic-view-label"><select data-hotkey="viewDirection" aria-label="View direction" value={cameraPortraitActive ? portraitView : mode === 'vertices' && quadView ? activeVertexPane?.view || 'front' : view} onChange={event => cameraPortraitActive ? setPortraitView(event.target.value) : setView(event.target.value)}>{(mode === 'vertices' && quadView ? QUAD_VIEW_OPTIONS : views.map(name => [name, name[0].toUpperCase() + name.slice(1)])).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</select>{!cleanAnimationPreview && <select aria-label="Render mode" title={renderMode === 'influence' ? BONE_INFLUENCE_TIP : undefined} value={renderMode} onChange={event=>{setRenderMode(event.target.value);setCleanViews(previous=>({...previous,[mode]:false}));}}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option>{boneInfluenceAvailable && <option value="influence" title={BONE_INFLUENCE_TIP}>Bone influence</option>}</select>}{mode === 'vertices' && <button aria-pressed={quadView} onClick={toggleQuadView}>Quad View</button>}<button data-hotkey="fit" title="Fit model" onClick={()=>frame(false)}>Fit</button><button data-hotkey="fitSelection" title="Fit selection" onClick={()=>frame(true)}>Fit selection</button>{vertexAnimation && <VertexAnimationControl {...vertexAnimation}/>}{mode === 'vertices' && drawingTool && <button className="ai-drawing-tag" title="Left-dragging on the model draws for the AI instead of editing it. Click, press Esc or pick an editor tool to stop." onClick={() => sketchStore.clearTool()}>{{ marker: 'Marker', pen: 'Pen', eraser: 'Eraser' }[drawingTool]}: drawing for the AI ✕</button>}</div>}
+      {mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <div ref={label} className={'classic-view-label' + (compact ? ' compact-view-label' : '')}>{compact ? <label className="view-label-icon view-label-direction"><span aria-hidden="true">{viewName.slice(0, 1)}▾</span>{viewSelect}</label> : viewSelect}{!cleanAnimationPreview && (compact ? <label className="view-label-icon"><RenderIcon size={15} aria-hidden="true"/>{renderSelect}</label> : renderSelect)}{mode === 'vertices' && <button aria-pressed={quadView} aria-label={compact ? 'Quad View' : undefined} title={compact ? 'Quad View' : undefined} onClick={toggleQuadView}>{compact ? <LayoutGrid size={15} aria-hidden="true"/> : 'Quad View'}</button>}<button data-hotkey="fit" aria-label={compact ? 'Fit' : undefined} title="Fit model" onClick={()=>frame(false)}>{compact ? <Maximize size={15} aria-hidden="true"/> : 'Fit'}</button><button data-hotkey="fitSelection" aria-label={compact ? 'Fit selection' : undefined} title="Fit selection" onClick={()=>frame(true)}>{compact ? <Focus size={15} aria-hidden="true"/> : 'Fit selection'}</button>{vertexAnimation && <VertexAnimationControl {...vertexAnimation} compact={compact}/>}{mode === 'vertices' && drawingTool && <button className="ai-drawing-tag" title="Left-dragging on the model draws for the AI instead of editing it. Click, press Esc or pick an editor tool to stop." onClick={() => sketchStore.clearTool()}>{{ marker: 'Marker', pen: 'Pen', eraser: 'Eraser' }[drawingTool]}: drawing for the AI ✕</button>}</div>}
   </>;
 }

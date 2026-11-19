@@ -3,6 +3,7 @@ import { allNodes, geosetSkinMatrix, nodePivot, sampleGeosetAnimation, sampleNod
 import { MAX_SWEEP_POINT_VERTICES } from './ai-tools.js';
 import { animation, animationFrames } from './ai-motion-compare.js';
 import { standSequenceIndex } from './sequence-editor.js';
+import { sweepIntersections } from './mesh-intersect.js';
 
 const index = id => Number.isInteger(id) && id >= 0;
 const compact = value => Number(value.toPrecision(6));
@@ -89,7 +90,8 @@ function selections(model, { sequences, globalSequence }) {
 }
 
 export async function sweepAiRelation(model, rule, signal) {
-  if (!['attached', 'clear', 'level'].includes(rule?.kind)) throw Error('Choose an attached, clear or level sweep.');
+  if (rule?.kind === 'intersect') return sweepIntersections(model, rule, signal);
+  if (!['attached', 'clear', 'level'].includes(rule?.kind)) throw Error('Choose an attached, clear, level or intersect sweep.');
   const { kind, limit } = rule;
   if (limit !== undefined && (!Number.isFinite(limit) || limit < 0)) throw Error('Choose a finite nonnegative sweep limit.');
   const clips = selections(model, rule);

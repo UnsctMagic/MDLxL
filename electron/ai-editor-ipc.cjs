@@ -63,12 +63,16 @@ function registerAiEditorIpc(service, getWindow, handle) {
   handle('ai:writeModel', async ({ path: file, bytes, overwrite, format, forgeAssets }) => {
     if (!path.isAbsolute(file || '') || !['.mdx', '.mdl'].includes(path.extname(file).toLowerCase()))
       throw Error('Choose an absolute MDL or MDX output path.');
+    // An AI chat's own work folder holds the AI's files: export replaces them without asking.
+    const relative = path.relative(path.join(service.directory, 'work'), path.resolve(file));
+    const workFolder = !!relative && !relative.startsWith('..') && !path.isAbsolute(relative);
     return writeModel({
       path: file,
       bytes,
       format,
       forgeAssets,
-      overwrite: overwrite === true,
+      overwrite: overwrite === true || workFolder,
+      workFolder,
       export: true,
     });
   });

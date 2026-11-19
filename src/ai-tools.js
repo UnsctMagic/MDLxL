@@ -11,20 +11,24 @@ const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', '
 const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
 export const MAX_SWEEP_POINT_VERTICES = 256;
 const sweepPoint = {
-  ...object({ nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES } }),
-  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based).',
+  ...object({
+    nodeId: { type: 'integer', minimum: 0 }, geoset: { type: 'integer', minimum: 0 }, vertices: { ...indices, minItems: 1, maxItems: MAX_SWEEP_POINT_VERTICES },
+    geosets: indices, nodeIds: indices, exclude: indices,
+  }),
+  description: 'Choose a node pivot with nodeId, or a vertex group with geoset and vertices (all IDs zero-based). For intersect, a part: geosets, and/or triangles on nodeIds and bones below them, minus triangles on exclude.',
 };
 export const AI_SWEEP_SCHEMA = {
   ...object({
-    kind: { enum: ['attached', 'clear', 'level'] },
+    kind: { enum: ['attached', 'clear', 'level', 'intersect'] },
     a: sweepPoint, b: sweepPoint,
     sequences: { ...indices, minItems: 1 },
     globalSequence: { type: 'integer', minimum: 0 },
     reference: { ...object({ sequence: { type: 'integer', minimum: 0 }, frame: { type: 'number' } }), description: 'Attached reference pose. Defaults to the Stand sequence start.' },
-    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it.' },
+    limit: { type: 'number', minimum: 0, description: 'Optional share among measured frames: clear below this distance, attached drift or absolute level above it; intersect: crossings above it count as a hit (default 0).' },
+    step: { type: 'number', minimum: 1, maximum: 1000, description: 'intersect: ms between samples (default 5).' },
   }),
-  required: ['kind', 'a'],
-  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. B is required for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints.',
+  required: ['kind'],
+  description: 'Walk all local and global animations, or the sequences/globalSequence listed here. Attached measures centroid drift in B’s local axes (mean skin transform for a group). Clear measures closest vertex/pivot pair. Level measures signed Z of A’s centre minus B’s (or Z alone), with worst by absolute height. For a floor or ceiling rule such as "never below Z 0", read each row’s min for the floor and max for the ceiling. A is required for attached, clear and level; B for attached and clear. Rows count all visited frames and usable visible measurements separately; stepMs is 1, or 10 for clips longer than 5 s, including both endpoints. Intersect counts triangle edges of part A crossing triangles of part B (both ways) every 5 ms through each animation except Decay; without A and B it checks the rig\'s weapon, shield, arm, head, body, leg and mount parts. Per pair: crossings at rest, per animation frames hit and the worst frame, and for the worst frame depth, size and the vertices involved (for capture vertices).',
 };
 const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
   name: `mdlxl_${name}`,
@@ -40,13 +44,14 @@ export const aiToolEditsModel = (name, args) =>
   (name === 'mdlxl_command' && !AI_DISPLAY_COMMANDS.has(args.id)) ||
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
   (name === 'mdlxl_view' && !!args.mode) ||
-  (name === 'mdlxl_versions' && args.action === 'use');
+  (name === 'mdlxl_versions' && args.action === 'use') ||
+  (name === 'mdlxl_document' && args.action === 'apply');
 export const aiToolRunsUnqueued = (name, args) =>
   ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || (name === 'mdlxl_script' && !args.edit);
 export const AI_TOOLS = [
   tool(
     'review',
-    'Required before completing model edits. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns pictures of the original target and the edited target drawn at the same animation, phase, view and framing (labelled by role, animation and frame). Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits compare 3–8 phases of the animation the edit changed; sequence or globalSequence names it when the edit changed several, and frames may specify times inside it. For motion copied from another open model, donor adds the donor\'s matching phases (by fraction of each animation, so different frame ranges line up). After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress.',
+    'Optional formal check, used when the user asks to check, verify or compare a result. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns pictures of the original target and the edited target drawn at the same animation, phase, view and framing (labelled by role, animation and frame). Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits compare 3–8 phases of the animation the edit changed; sequence or globalSequence names it when the edit changed several, and frames may specify times inside it. For motion copied from another open model, donor adds the donor\'s matching phases (by fraction of each animation, so different frame ranges line up). After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress.',
     {
       target,
       action: { enum: ['status', 'inspect', 'finish'] },
@@ -209,8 +214,16 @@ export const AI_TOOLS = [
   ),
   tool(
     'command',
-    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
-    { target, id: string('Exact command ID.') },
+    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. On a model tab that is not showing, or the job\'s private copy, Undo/Redo, the mesh tools (Delete vertices, Weld, Collapse, Uncouple, Mirror, Extrude, Detach, the normals tools and the rest), selectAll/clear/invertSelection, view commands and the sidebar geoset operations (\'Separate by loose parts\', \'Nuclear separation\', \'Merge geosets\', \'Nuclear Weld\', \'Delete free vertices\', and \'Cut\' with cut) run on the task\'s own model, selection and view; commands that open a window wait for the tab. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
+    {
+      target,
+      id: string('Exact command ID.'),
+      distance: { type: 'number', description: 'Extrude distance in model units along the workplane axis (default 10).' },
+      pivot: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3, description: 'Mirror, Collapse and Weld pivot [x, y, z] (default: the marked vertices\' centre).' },
+      angle: { type: 'number', description: 'Rotate normals angle in degrees (default: the editor\'s setting).' },
+      cut: { type: 'object', description: 'Cut: { geosetIndex, start, a, b, t } splits line a-b at t from vertex start; { geosetIndex, start, vertex } turns a quad\'s middle line.' },
+      resolutions: { type: 'object', description: 'Merge geosets: the choices for the conflicts the editor would ask about.' },
+    },
     ['target', 'id'],
     false,
   ),
@@ -233,12 +246,28 @@ export const AI_TOOLS = [
   ),
   tool(
     'sample',
-    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
+    'Supply sweep for a compact whole-animation measurement, or measure actual hierarchy and skinned geometry at up to 32 chosen frames. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.\n' +
+    'Frames also give each sampled geoset\'s alpha and colour, and texture animation values.\n' +
+    'sweep kind intersect: clipping between parts every 5 ms (automatic weapon, shield, arm, head, body, leg and mount parts without a and b).\n' +
+    'style: one animation\'s keys and spacing, interpolation (authored and measured), speed curve, strike and impact timing, wind-up and holds, against a donor or the Blizzard range for its kind.\n' +
+    'checks: per animation loop seam and end deviation (0.00 expected), planted-foot slide (0.5 or less is planted), joint jumps and bone turns per 33 ms (snaps, angle wraps), blended socket volume against the model\'s own animations, event timing and motion warnings.\n' +
+    'since: which animations differ from a saved version (keys and posed bones; untouched ones are identical).',
     {
       target,
       sequence: { type: 'integer', minimum: -1 },
       globalSequence: { type: ['integer', 'null'], minimum: 0 },
       sweep: AI_SWEEP_SCHEMA,
+      style: {
+        ...object({
+          sequence: { type: 'integer', minimum: 0 },
+          nodeIds: { ...indices, description: 'Bones for per-bone rows; default the keyed bones that turn most.' },
+          step: { type: 'number', minimum: 1, maximum: 100 },
+          donor: { ...object({ documentId: string('Open model (reference or this one).'), sequence: { type: 'integer', minimum: 0 } }), required: ['documentId'] },
+        }),
+        description: 'Default animation: the current one. donor.sequence defaults to the animation with the same name.',
+      },
+      checks: { ...object({ sequences: { ...indices, minItems: 1 }, reference: { type: 'integer', minimum: 0, description: 'Pose the ends are compared with; default Stand Ready, else Stand.' } }) },
+      since: string('Saved version name (mdlxl_versions), for example "original".'),
       frames: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' } },
       nodeIds: indices,
       geosetIds: indices,
@@ -250,7 +279,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'capture',
-    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. A sample with fit selection is a close-up of the marked vertices as they sit in that frame (mark them with select first); otherwise the whole model is framed. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
+    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. A sample with fit selection is a close-up of the marked vertices as they sit in that frame (mark them with select first); otherwise the whole drawn model is framed, centred. Sequence -1 is the bind pose. A filmstrip shows a whole animation in one picture. A sample can also frame and mark given vertices without changing the selection (vertices), zoom in (zoom), show the mesh lines (wireframe), or be a flat UV layout picture (uv): the material with its UV triangles drawn over it, the marked vertices as red dots and the islands numbered, one picture per material look. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
     {
       target,
       samples: {
@@ -266,6 +295,21 @@ export const AI_TOOLS = [
             fit: { enum: ['model', 'selection'] },
             geosets: { ...indices, description: 'Show only these geosets, framed on them, so the parts in question are not hidden by the rest.' },
             plain: { type: 'boolean', description: 'Plain shading without textures, so shape, folds and gaps read clearly.' },
+            wireframe: { type: 'boolean', description: 'Show the mesh lines.' },
+            vertices: { type: 'object', additionalProperties: indices, description: 'Geoset index to vertex ids: frame and mark exactly these vertices in red. The selection does not change.' },
+            zoom: { type: 'number', minimum: 1, maximum: 8, description: 'Zoom in on what is framed (model, geosets, vertices or selection). 1 to 8; default 1.' },
+            uv: { type: 'boolean', description: 'A flat UV layout picture instead of the 3D view: the material (all layers, team colour) with the UV triangles over it, marked vertices red, islands numbered. Uses geosets, else geosets with marked vertices, else all.' },
+            uvSet: { type: 'integer', minimum: 0, description: 'UV set for uv; default 0.' },
+            overlays: {
+              ...object(Object.fromEntries(['bones', 'attachments', 'labels', 'normals', 'collision', 'cameras', 'wires'].map(key => [key, { type: 'boolean' }]))),
+              description: 'Editor overlays drawn over the model: bones (skeleton with helpers), attachments (points), labels (names on those markers), normals, collision (shapes), cameras (model camera frames), wires (mesh lines over the surface).',
+            },
+            teamColor: { type: 'string', description: 'Team colour for this picture, like #0042ff; default the editor\'s.' },
+            camera: { type: 'integer', minimum: 0, description: 'Look through this model camera as the game shows a portrait (its view, portrait light and shape) instead of a view preset.' },
+            particles: { type: 'boolean', description: 'Particles and ribbons, replayed from the animation start to the frame. Default on; false hides them.' },
+            trails: { type: 'array', minItems: 1, maxItems: 8, items: { type: ['integer', 'string'] }, description: 'Node ids or names: draw each node\'s path through the animation over the picture (key frames as big dots, every ~33 ms as small dots); the label gives keys, path length and peak speed.' },
+            filmstrip: { type: 'integer', minimum: 2, maximum: 12, description: 'One picture of this many frames spread over the animation (sequence or globalSequence), both ends included, one shared framing, each frame captioned.' },
+            documentId: string('Draw this open reference model (an id from mdlxl_document list) instead, at its own sequence and frame, to compare with a donor. View, sequence, frame, plain and wireframe only.'),
           }),
         },
       },
@@ -274,15 +318,22 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a model texture as an image. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Check the model and native game textures here before making a new texture. Preview a texture as an image: a model texture (textureId or path), or any texture by path (source textures or game, for example Textures\Eyes.blp) or by a game search hit (id and signature, type textures). Returns the image and its path. Load a listed game model or part as an AI-only reference without opening an editor tab or switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.\n' +
+    'source model search also gives each texture\'s file (format, width, height, mipmaps, bytes) and what uses it (materials, geosets, triangles, emitters), and the total texture bytes.\n' +
+    'pixels reads a texture as data (same texture choice as preview): a colour grid over a region (up to 64 cells), colour statistics, and with find the regions of a colour, in pixels and UV, to locate an eye or a gem on an atlas.',
     {
       target,
       source: { enum: ['model', 'textures', 'parts', 'game'] },
-      action: { enum: ['search', 'preview', 'reference'] },
+      action: { enum: ['search', 'preview', 'reference', 'pixels'] },
+      region: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number' }, description: 'pixels: [left, top, right, bottom]; default the whole texture.' },
+      units: { enum: ['uv', 'pixels'], description: 'Region units; UV (0..1, as TVertices) by default.' },
+      grid: { type: 'integer', minimum: 1, maximum: 64, description: 'pixels: cells on the longer side; default 16.' },
+      find: { ...object({ color: string('#rrggbb'), tolerance: { type: 'number', minimum: 0, maximum: 442 } }), required: ['color'] },
       query: string('Asset search words.'),
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
       textureId: { type: 'integer', minimum: 0 },
+      path: string('Texture path for preview, for example Units\Orc\SentryWard\Eye3.blp.'),
       folder: string('Optional library folder.'),
       variant: string('Installed game variant; defaults to all.'),
       type: { enum: ['models', 'textures'] },
@@ -314,13 +365,18 @@ export const AI_TOOLS = [
   ),
   tool(
     'document',
-    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
+    'List the working model and this chat\'s references, open a local MDL/MDX reference for the AI only (no editor tab), export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.\n' +
+    'validate also gives size: where the MDX bytes go (geosets, animation tracks, nodes, materials, texture paths, emitters), the biggest geosets and tracks.\n' +
+    'health: per geoset holes (open borders), non-manifold edges, degenerate and duplicate triangles, T-junctions, islands, loose vertices and the vertex limit.\n' +
+    'sanity: the Help menu\'s Sanity Check (Hive checker) findings for this model, unsaved edits included.\n' +
+    'apply: read an MDL or MDX file (for example one a Python script wrote from an export) and put it on the target model as one Undo step with label; only what differs changes, and the change report is the same as for a script edit.',
     {
       target,
-      action: { enum: ['list', 'open', 'export', 'validate'] },
-      path: string('Absolute local file path for open/export.'),
+      action: { enum: ['list', 'open', 'export', 'validate', 'health', 'sanity', 'apply'] },
+      path: string('Local file path for open/export/apply. In an AI chat a relative path is inside the chat\'s work folder, where export may replace its own files.'),
       format: { enum: ['mdx', 'mdl'] },
       overwrite: { type: 'boolean' },
+      label: string('apply: short Undo label.'),
     },
     ['action'],
     false,
@@ -336,19 +392,19 @@ export const AI_TOOLS = [
 // shared by direct model chats.
 export const AI_EDITING_INTRO = `You are connected inside MDLxL, a Warcraft III model editor. Use its tools to accomplish the user's prompts, including arbitrary surgical model and animation edits. You can inspect the complete model and run general JavaScript with the editor's own libraries; you are not limited to canned operations.`;
 export const AI_EDITING_BODY = `Every user prompt carries a captured context and target token: the first prompt of a conversation has the full context; later prompts carry the target and only changed fields, including selection, view and sequence. Omitted fields keep their last value. The full snapshot returns after a reset, compaction or model replacement. Call mdlxl_context when you need the full lists or editor commands. "These", "this", and "selected" mean the marked vertices/bones/keyframes in THAT context, not every vertex in checked geosets. Inspect the selection and relevant data before editing. All IDs and paths are zero-based, but the Geosets list numbers geosets from 1: /Geosets/0 is geoset 1 and /Geosets/32 is geoset 33. A geoset number from the user means that list number. When writing to the user, name geosets by the list number (for example "geoset 33"), never by a /Geosets/ path or zero-based index, and name bones by name. Use the target supplied with this turn. If it becomes stale, stop and explain the conflict; do not take a fresh target and silently retarget the work.
-When a requirement must hold in all animations, everywhere or always, use a mdlxl_sample sweep and inspect its worst clip and frame. Include the same sweep in the plan check so review measures it again after edits.
+When a requirement must hold in all animations, everywhere or always, use a mdlxl_sample sweep and inspect its worst clip and frame. Run the same sweep again after the edit.
 When the user points to an example they made, first read or sample the referenced area with mdlxl_read or mdlxl_sample and inspect its structure before planning edits. Copy that example's pattern and apply it across the full requested scope, including less visible regions; do not substitute your own picks. "Keep the look" means preserve the geometry silhouette and texture appearance, including UV mapping and material/texture assignments; reducing polygons does not authorize changing them.
-Work as an active modeling assistant: inspect, perform the requested work, verify and correct it before reporting completion. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. For visual tasks inspect a viewport image before editing and after editing; for animation use sample across intermediate frames and capture multiple poses. Iterate on a failed result within the requested scope. If clarification is needed, keep it short and specific. Do not stop at advice when an edit was requested.
+Work as an active modeling assistant: make the requested change directly and early; Undo is the safety net. Look only at what the change needs (usually one picture or one read), then edit; do not survey the whole model or read library source you do not need before the first edit. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. After each edit, look at the changed part once (one picture; for animation a few frames sampled or captured) and report what you see; fix a visible failure within the requested scope. Take only the pictures a question needs: one capture call can show several views, a close-up of chosen vertices, a zoom, only some geosets, wireframe or the UV layout, so do not re-shoot just to change the framing. Scale checking to the request: a simple edit (move, replace, bind, recolour, square a layout) needs that one look and no more; measure further only where the edit can break something the user cares about, such as motion, binding, clipping or size. When the request is clear, act without asking for confirmation. Ask only when missing information would change the result, meaning two readings change the model differently and neither is the obvious one; otherwise take the obvious reading and say which one you took. Keep any question short and specific. Do not stop at advice when an edit was requested. When the user asks to improve, fix, reshape or retexture something, keep their object and change it: the same part, shape and part list, never a different one in its place. Change only what the request names: a request about one kind of data (for example UVs) changes only that kind, and existing work the request did not name is never wiped or redone. When the user says to re-make, re-animate, redo or start over, do that fully and boldly instead of patching the old version.
 Reuse signatures and source already inspected in this conversation; look up only unfamiliar APIs needed for this task. Simple coordinate edits do not need library discovery. api.source returns a paginated object: read its .text field. Geoset color/alpha tracks are in model.GeosetAnims by GeosetId, not Geosets[i].Anims (sequence extents). Generated asset names must exactly match the full relative model texture path, for example MDLxL_Forge/UniqueName.tga. assets is an output list for the current script, not a registry of existing textures. Do related operations in one script/Undo step. Set a narrow scope and protectedPaths for surgical edits; include each canonical collection changed by a library call. Derived Info.Num* counts follow those collection edits automatically. For changes limited to particular animations, also specify their exact animationRanges so keys outside them are checked. Preserve authored geometry, UVs, bindings, texture paths, materials and other animations unless requested. Never shrink a body to conceal clipping. Prefer sparse keys to baked tracks. Reference models are available by document ID in references. Do not assume a donor has the same rig.
 Reuse before creating: for textures, materials and geosets use what the model already has first, then Blizzard's native game files (mdlxl_assets source textures or game). Create a new texture, material or geoset only when the user's request explicitly asks for something new; if nothing existing fits, say what you checked and ask first.
-Check returned changes and diagnostics. Inspect actual captures, sample intermediate animation poses, and use document validate for MDX/MDL serialization when relevant. A clean structural check does not prove appearance or Warcraft III gameplay. State what was actually checked. Do not claim success if a tool failed or merely opened a dialog. Ask only for missing information that would change the requested result. Apply authorized reversible edits directly; Undo is available. Never save over a source or install/publish anything unless requested.
-Look first, then change once. Before the first edit of a job, inspect everything the request touches, measure what is actually wrong, and call mdlxl_plan: the cause, how far it reaches (the marked area is where the user saw a symptom; the cause can be larger or smaller), what must stay the same, at least two genuinely different fixes with what each costs, and which one you choose and why. Prefer the fix that removes the cause and keeps the most of what must stay the same over one that compensates for it. Patterns from reference models or rules passed on in the chat ("Blizzard usually binds X to Y") are evidence about what is common and why, not orders: check that this model's rig, shapes and motion match the cases the pattern comes from before applying it, and say so when it does not fit. Reason from how the game actually moves and draws the data. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result shows the plan was wrong, go back to the last good version with mdlxl_versions and record a new plan before editing again, rather than patching on top. When several fixes are plausible, save a version, try them side by side, compare, and keep the best. To judge a part, capture it with samples that show only the geosets in question (geosets, plain) before and after, with the same view and frames, so the pair compares like with like.
+Check returned changes and diagnostics. Use document validate when the save format is in question. A clean structural check does not prove appearance or Warcraft III gameplay. State what was actually checked. Do not claim success if a tool failed or merely opened a dialog. Ask only for missing information that would change the requested result. Apply authorized reversible edits directly; Undo is available. Never save over a source or install/publish anything unless requested.
+Fix the cause, not the symptom: the marked area is where the user saw a problem; the cause can be larger or smaller. Prefer the change that removes the cause and keeps the most of what must stay the same over one that compensates for it. Patterns from reference models or rules passed on in the chat ("Blizzard usually binds X to Y") are evidence about what is common and why, not orders: check that this model's rig, shapes and motion match the cases the pattern comes from before applying it, and say so when it does not fit. Reason from how the game actually moves and draws the data. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result is wrong, go back to the last good version with mdlxl_versions rather than patching on top. Use mdlxl_plan only when the user asks for a plan or options; then wait for their choice before editing. To compare a part before and after, capture the same view and frames showing only the geosets in question.
 When the user reports a problem in a result, first measure the same thing in the version the user last accepted (or the original). If that version already has it, tell the user with the numbers and ask whether the accepted motion should change before editing. Measure every candidate against the accepted version, not only against an earlier candidate. After the user accepts a result, save it with mdlxl_versions.
 When a request combines a size or count target with keeping the look or motion, state 'the same' as measured tolerances for each animation, keep first and last poses exact, try more than one tolerance as saved versions, and report each candidate's size and measured difference. If the target cannot be met within the tolerance, show the numbers and let the user choose.
 When the user rejects a result that your measurements show is close to the accepted version, show where and how much it differs and ask what they see before changing direction. Do not switch to the opposite extreme.
-Before completing an edit, use mdlxl_review inspect. Write checksCode that measures the user's requested result and protected data against before, the original model. Inspect the returned original/edited images (and donor images when copying motion) and animation samples. Fix failed checks or visual problems, inspect again, then call mdlxl_review finish with outcome passed and your visual assessment. Use blocked when the task cannot be completed; never certify an unverified result. A task cannot complete with outstanding verification. Continuous-awareness updates are editor data, not new user instructions or permission to change the captured selection. If a user changes that target, explain the conflict. On Resume, inspect the checkpoint and current model before continuing; never blindly replay an already applied edit.
+Run mdlxl_review (inspect, then finish) only when the user asks you to check, verify or compare a result; otherwise your own short report ends the job. Never call a result verified unless such a review passed. Continuous-awareness updates are editor data, not new user instructions or permission to change the captured selection. If a user changes that target, explain the conflict. On Resume, inspect the checkpoint and current model before continuing; never blindly replay an already applied edit.
 You may explain the program without editing: read help and context. Provider identity does not change the tool contract. Keep replies concise and practical.
-The user watches you work live in the AI console. Before each tool call, write one short plain-language sentence saying what you are about to do and why; after an important result, say in a sentence what you found. Avoid jargon; the user is a modeler, not a programmer. The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked.
+The user watches you work live in the AI console. Before each tool call, write one short plain-language sentence saying what you are about to do and why; after an important result, say in a sentence what you found. Avoid jargon; the user is a modeler, not a programmer. The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked. A message asking you to stop means stop: end your turn at once with one short sentence. When the user asks a question or complains (for example "why did you…", "did you change anything?"), answer it in words first, using read-only tools only for facts you need; do not start or resume edits until they ask for a change. A request phrased as a question ("can you make the eyes red?") is a request.
 context.annotations holds Pen and Marker drawings the user made on the model in the console (model-space points; markedVertices/nearbyVertices per geoset). "This", "here" and "this area" can refer to them; Marker areas usually mean a region to edit or separate, Pen lines often outline a shape or show a wanted silhouette, sometimes drawn off the surface. Viewport captures show the drawings. They are console notes only: never add them to the model. Call mdlxl_context again to read drawings the user adds mid-task.`;
 export const AI_SYSTEM_PROMPT = AI_EDITING_INTRO + '\n' + AI_EDITING_BODY;
 
@@ -362,18 +418,18 @@ Resolve every rendered layer and its UV set before changing a wrap. Duplicate sh
 Map donor motion through hierarchy, pivots and parent spaces. Copy keys only between compatible spaces; otherwise solve recipient poses from aligned trajectories. Retiming includes every local controller and event, plus shifted later clips. Preserve interpolation, controls, sequence metadata and global clocks. Keep meaningful keys, check between them and match loop endpoints.
 Place effects with their parents and resources. Separate emission timing, particle lifetime and visibility; replay from onset through residual particles and trails. Use the pivot-compensation procedure before relocating an animated pivot.
 Read the relevant mdlxl_help topic before an unfamiliar operation; reuse sections already read: shape/weld/normals -> WC3-EDITING-GEOMETRY.md; wrap/texture/colour/visibility -> WC3-EDITING-UV-MATERIALS.md; hierarchy/pivots/skin/layers -> WC3-EDITING-NODES-BINDING.md; keys/retiming/donor motion -> WC3-EDITING-ANIMATION.md; particles/ribbons/lights/events -> WC3-EDITING-EMITTERS.md; format/bounds/attachments/collision/portrait/glow/lifecycle -> WC3-EDITING-GAME-INTEGRATION.md; review/limits -> WC3-EDITING-VERIFICATION.md. Follow their ordered procedures and existing API signatures.
-Verify the requested result and protected data separately. Compare the same poses and views, inspect actual captures, recalculate affected bounds, validate save/reopen, then finish through mdlxl_review. Report the checks performed and remaining game tests.`;
+Verify the requested result and protected data separately. Compare the same poses and views, inspect actual captures, recalculate affected bounds, validate save/reopen, and finish through mdlxl_review when the user asked for a check; scale all of this to the request. Report the checks performed and remaining game tests.`;
 
 // The handbook guides a request touches, most relevant first (at most two), so
 // the job carries them instead of a pointer the AI rarely follows.
 const GUIDE_WORDS = [
-  ['WC3-EDITING-OPTIMIZATION.md', /\b(optimi|file\s*size|size\b|smaller|over.key|key.*reduc|reduc.*key)/gi],
+  ['WC3-EDITING-OPTIMIZATION.md', /\b(optimi|file\s*size|size\b|smaller|kb\b|bytes|over.key|key.*reduc|reduc.*key)/gi],
   ['WC3-EDITING-NODES-BINDING.md', /\b(bind|binding|bound|weight|skin|rig|bone|bones|pivot|clip|clipping|deform|warp|tear|seam|joint|hierarchy|attach)/gi],
   ['WC3-EDITING-ANIMATION.md', /\b(animat|walk|attack|stand|death|spell|keyframe|key|retime|pose|sequence|motion|move|swing|lunge|sway|loop|frame)/gi],
-  ['WC3-EDITING-GEOMETRY.md', /\b(vertex|vertices|mesh|geoset|weld|normal|shape|extrude|mirror|split|merge|triangle|poly|smooth|gap|hole)/gi],
+  ['WC3-EDITING-GEOMETRY.md', /\b(vertex|vertices|mesh|geoset|weld|normal|shape|extrude|mirror|split|merge|triangle|polygon|poly|smooth|gap|hole|sanity|cut\b|clipboard)/gi],
   ['WC3-EDITING-UV-MATERIALS.md', /\b(uv|texture|material|colou?r|alpha|team|layer|transparen|visibility|paint|shading)/gi],
   ['WC3-EDITING-EMITTERS.md', /\b(particle|emitter|ribbon|glow|light|event|sound|trail|effect)/gi],
-  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay)/gi],
+  ['WC3-EDITING-GAME-INTEGRATION.md', /\b(collision|portrait|attachment point|export|release|game|bounds|extent|corpse|decay|death|sanity|import)/gi],
 ];
 export function guidesForRequest(text) {
   return GUIDE_WORDS.map(([guide, words]) => [guide, (String(text).match(words) || []).length])
@@ -383,12 +439,30 @@ export function guidesForRequest(text) {
     .map(([guide]) => guide);
 }
 
+// Animation craft: how good Warcraft III motion is made and judged. Sent with
+// requests that involve animation, whether or not the handbook is on.
+export const AI_ANIMATION_CRAFT = `Animation craft for this job:
+- Animate with the kit, never your own engine: kit = await api.module('ai-anim-kit'); kit.kitHelp() lists its methods. Do not write quaternion, IK, pose-solver, spring, clipping or key-reduction code in scripts. rig = kit.kitRig(model) (chains, held weapons, mount); key poses = rig.pose(name, ms).copy() changed with turn, move, aim, reach, hold, plant; clip = kit.animate(rig, { sequence, length, keys: [{ ms, pose }], each, follow, timing }); clip.check({ clipping: true }); clip.write(model) writes only that clip with few keys and replaces a same-named sequence in place.
+- Finish each animation the same way: key poses, animate, check, write, then a mdlxl_capture filmstrip of it. Never delete or clear an existing animation before its replacement is written.
+- Judge motion in the animated model, never by numbers alone, and make the change visible when the clip plays. Your senses: mdlxl_sample at chosen frames or as a whole-clip sweep (worst clip and frame), motion compared with the original or a donor (mdlxl_versions, or ai-motion-compare in a script on references["version:NAME"].model), and mdlxl_capture of the changed part at several frames of the clip.
+- Nothing clips at any moment, also between keys: check fast parts densely (about every 5 ms). No jitter, snaps or abnormal bends of arms, hands or knees; watch rotations that wrap the long way round, above all at a clip's ends and loop seam.
+- Joints hold: arms stay inside their shoulder sockets. Armour on a limb follows that limb about its joint with most of its swing (a pauldron about 70% of the upper arm's swing); a nearly frozen piece looks wrong.
+- Planted feet do not slide or shuffle; a step is a clean lift and set-down. Hips and knees keep moving; no part of the body stays static while the rest acts.
+- Cloth such as cloaks moves like the model's own hand-keyed cloth (a few broad keyed swings following the body), not like simulated cloth.
+- Attacks: a wide, level arc with real reach, hands in front of the chest; the wind-up flows out of the guard without a pause, the strike is fast, the follow-through finishes low, then a short hold and recovery.
+- A rider acts with and against the mount's motion; never let a body sit rigidly on what carries it.
+- Warcraft III style is snappy: a few strong key poses; quick anticipation, fast action, short hold, recover. The snap comes from timing, not from the curve type: native clips use about 6 to 7 keys per track, about 130 ms apart, mostly Hermite; the median native attack strikes at about 40% of the clip and lands at about 50% (mdlxl_sample style compares a clip with that native band and with a donor). Never bake a key per frame. Many evenly spaced keys with eased curves read floaty; AnimXL output is dense smooth Bezier, so reduce it to a few strong keys afterwards or keep the original keys.
+- Keep the file small: drop keys that change nothing; when precision trades against size, report both in numbers (bytes, largest pose difference).
+- When asked to make or re-make an animation, author new motion on this model's own rig; copy another model's animation only when asked. Do not play it safe: animate boldly and well.`;
+const ANIMATION_WORDS = /\b(animat|walk|attack|stand\b|death|dies\b|spell|swing|strike|slash|lunge|sway|idle|gallop|trot|gait|stride|keyframe|keys\b|re-?key|retim|timing|motion|pose|posing|sequence|loop|clips?\b|snapp|floaty|jitter|rider)/i;
+export const animationRequest = text => ANIMATION_WORDS.test(String(text || ''));
+
 // Look first, then change once: an editing job records its plan before the
 // first edit. Handled by the AI service, never by the editor or MCP clients.
 export const AI_PLAN_TOOL = {
   name: 'mdlxl_plan',
   description:
-    'Record the plan for this job before its first edit; edits are refused until it exists. Include concrete completion checks. Calling it again replaces the plan when evidence changes the approach. An optional read-only helper investigates independently; incorporate its report before editing. The plan itself does not edit the model.',
+    'Optional: record a plan when the user asks for a plan or options. Edits never wait for it. Include concrete completion checks. Calling it again replaces the plan when evidence changes the approach. An optional read-only helper investigates independently; incorporate its report before editing. The plan itself does not edit the model.',
   inputSchema: {
     ...object({
       target,
@@ -426,18 +500,59 @@ export const AI_JOB_TOOLS = AI_TOOLS.map(tool => {
   } };
 });
 export const AI_WORKSPACE_TOOL = tool('workspace',
-  'A local JavaScript workspace. While off, only offer is available. Use offer once when reusable scripts or comparing candidates can speed up this particular job. Supply a brief, specific reason and respect the user’s answer. When enabled: write saves text or a JS function body, list shows files, read pages through text. run executes a saved JS file in the built-in sandbox with model, selection, context, references, api, log and files (a map of filename to text). Return JSON; output stores that value locally for later calls. To isolate part of the original marked selection, return a map of vertex ID arrays by zero-based geoset and save it to a .json output. preview shows only its complete faces at the current pose, without changing the editor; select applies it to the captured tab and reports the actual selected count. Scratch files are cleared when the request ends. No installed programs required.', {
-    action: { enum: ['offer', 'list', 'write', 'read', 'run', 'preview', 'select'] },
-    reason: { type: 'string', maxLength: 400, description: 'offer: explain in the user’s language what repeated work JavaScript can speed up here.' },
-    file: string('Plain lower-case .js, .txt or .json filename in this job.'), text: string('write: file contents.'),
+  'JavaScript files in this chat\'s work folder, run in MDLxL\'s built-in sandbox (no installed programs needed). write saves text or a JS function body, list shows the folder\'s .js, .json and .txt files, read pages through text. run executes a saved JS file with model, selection, context, references, api, log and files (a map of filename to text). Return JSON; output stores that value as a .json file for later calls. To isolate part of the original marked selection, return a map of vertex ID arrays by zero-based geoset and save it to a .json output. preview shows only its complete faces at the current pose, without changing the editor; select applies it to the captured tab and reports the actual selected count. The files stay for the whole chat.', {
+    action: { enum: ['list', 'write', 'read', 'run', 'preview', 'select'] },
+    file: string('Plain lower-case .js, .txt or .json filename in the work folder.'), text: string('write: file contents.'),
     output: string('run: optional .json result filename.'), offset: { type: 'integer', minimum: 0 }, view: views,
   }, ['action'], false);
 export const AI_JOB_CHECKPOINT = tool('job_checkpoint',
-  'Record a completed phase with evidence and remaining work. Use after a representative candidate check and before full verification. This does not verify the model or authorize new work.', {
+  'Optional in a long job: record a completed phase with evidence and remaining work, so Resume can continue from it. This does not verify the model or authorize new work.', {
     phase: { enum: ['candidate', 'verify'] },
     evidence: string('Concise measured/visible findings, exact affected parts and where the retained baseline is.'),
     remaining: { type: 'array', maxItems: 20, items: string('Specific remaining operation or failed check. Empty when no work remains.') },
   }, ['phase', 'evidence', 'remaining']);
+
+// The chat's own computer. API connections get these tools, run by MDLxL in the
+// chat's work folder; Claude Code and Codex use their own shell and file tools there.
+const computerTool = (name, description, properties, required, extra = {}) => ({
+  name,
+  description,
+  inputSchema: { type: 'object', properties, required },
+  annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  computer: true,
+  ...extra,
+});
+const viewImage = computerTool('view_image', 'Look at one PNG, JPEG or WebP picture file, for example one a script saved with mdlxl.capture. Only pictures you open enter the conversation.', { path: string('Picture path, relative to the work folder or absolute.') }, ['path']);
+// Anthropic's own bash and text editor tools: the models are trained on them, so the
+// request names only their type; the schemas below check the calls MDLxL runs.
+export const AI_COMPUTER_TOOLS_ANTHROPIC = [
+  computerTool('bash', 'Run a command in the chat\'s work folder.', {
+    command: string('The command.'), restart: { type: 'boolean' }, timeout: { type: 'number', minimum: 1, maximum: 600 },
+  }, [], { anthropicType: 'bash_20250124' }),
+  computerTool('str_replace_based_edit_tool', 'View, create and edit files in the chat\'s work folder.', {
+    command: { enum: ['view', 'create', 'str_replace', 'insert'] }, path: string('File path.'), file_text: { type: 'string' },
+    old_str: { type: 'string' }, new_str: { type: 'string' }, insert_line: { type: 'integer', minimum: 0 }, insert_text: { type: 'string' },
+    view_range: { type: 'array', items: { type: 'integer' } },
+  }, ['command', 'path'], { anthropicType: 'text_editor_20250728' }),
+  viewImage,
+];
+export const AI_COMPUTER_TOOLS_FUNCTIONS = [
+  computerTool('shell', 'Run a command in the chat\'s work folder (Windows PowerShell on Windows; Python is `python`, Node.js is `node`). Returns the output (long output keeps its start and end) and the exit code when it is not 0. Each command starts in the work folder; the default time limit is 120 s.', {
+    command: string('The command or script.'), timeout: { type: 'number', minimum: 1, maximum: 600, description: 'Seconds before the command is stopped (default 120).' },
+  }, ['command']),
+  computerTool('read_file', 'Read a text file with line numbers, or list a folder.', {
+    path: string('Path, relative to the work folder or absolute.'), offset: { type: 'integer', minimum: 1, description: 'First line (1-based).' }, limit: { type: 'integer', minimum: 1, description: 'Number of lines.' },
+  }, ['path']),
+  computerTool('write_file', 'Create or replace a file in the work folder.', { path: string('Path inside the work folder.'), text: string('The whole file text.') }, ['path', 'text']),
+  computerTool('edit_file', 'Replace one exact piece of text in a work-folder file; it must match exactly once.', {
+    path: string('Path inside the work folder.'), old_text: string('Exact text to replace.'), new_text: string('Replacement text.'),
+  }, ['path', 'old_text', 'new_text']),
+  viewImage,
+];
+export const AI_COMPUTER = `Your own computer for this chat: a work folder that is the current folder of your shell and file tools. Its files stay for every later prompt of this chat and are deleted with the chat. The shell is real (on Windows MDLxL's own shell tool runs PowerShell); Python 3 is \`python\` (install packages with \`python -m pip install --user <name>\`; numpy may be missing) and Node.js is \`node\`. Work as on your own computer: write scripts as files, run them, fix and rerun them, and keep reusable code in files instead of sending it again.
+Drive MDLxL from scripts without a round trip: \`import mdlxl\` (mdlxl.py) or \`import * as mdlxl from './mdlxl.mjs'\` in the work folder. call(tool, args) calls any mdlxl_* tool on this job's model (the target is filled in) and returns its result; context(), script(code, ...), capture(name, ...), export_model(path) / exportModel and apply_file(path, label) / applyFile are shortcuts. Edits made from scripts are normal edits with Undo. capture saves PNG files in pictures/ and returns their paths; pictures taken by scripts are not shown to you, so open only the ones you need (view_image, or your own file reader). A script can try, measure and picture many candidates in a loop and print a short summary.
+Model files: mdlxl_document export writes the model to a work-folder file (.mdl text or .mdx); mdlxl_document apply puts an MDL or MDX file back onto the model as one Undo step with the usual change report.
+For posing and writing keys, the animation kit (api.module('ai-anim-kit') in mdlxl_script) is still the fastest way.`;
 
 // The outside check: a separate AI call that never saw the editing AI's reasoning
 // judges the result from the owner's request, the keep list and the pictures.

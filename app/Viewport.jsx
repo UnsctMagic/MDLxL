@@ -50,6 +50,8 @@ import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 import { gamePathKey as normalizedPath } from '../src/game-path.js';
 import { clayColors } from '../src/forge-clay.js';
+import { needsFit } from './ai-watch.js';
+import { createReplayStage } from './ai-replay-stage.js';
 const selectionArray = selection => Array.from(selection || []);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
@@ -216,9 +218,11 @@ export default function Viewport({ children, ...inputProps }) {
     }
     state.resize = resize;
     const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(host.current); resize();
-    state.fit = (selectionOnly = false) => {
+    state.fit = (selectionOnly = false, points = null) => {
       const bounds = new THREE.Box3();
       const p = latest.current;
+      // View AI work: frame these model-space points (the part the AI works on).
+      for (let i = 0; points && i + 2 < points.length; i += 3) bounds.expandByPoint(new THREE.Vector3(points[i], points[i + 1], points[i + 2]));
       if (selectionOnly) {
         const active = editableGeosets(p);
         for (const [key, indices] of Object.entries(selections(p))) {
@@ -534,6 +538,7 @@ export default function Viewport({ children, ...inputProps }) {
       if (p.transformMode === 'select' || p.transformMode === 'cut' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const animated = p.vertexPreviewSequence != null;
       const posedEditing = animated || state.nodes.some(node => node.Flags & 120);
+      replayStage.settle();
       if (!animated && posedEditing) applyPreviewPose(p, camera);
       const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3();
       const editedPose = animated ? {} : null, visiblePivot = new THREE.Vector3(), vertex = new THREE.Vector3();
@@ -905,6 +910,13 @@ export default function Viewport({ children, ...inputProps }) {
     }
     state.cancelNormalizer = () => { if (down?.action === 'normalizer') cancelGesture(); };
     const frameModel = event => { cancelGesture(); state.fit(event.detail?.selection === true); };
+    // View AI work: bring the part the AI works on back into view when most of it is off screen;
+    // never during the user's own drag. Only the editor's own viewport (aiFollow) listens.
+    const aiFollow = event => {
+      const points = event.detail?.rest, view = state.camera || camera;
+      if (!latest.current.aiFollow || down || !needsFit(points, p => new THREE.Vector3(p[0], p[1], p[2]).project(view).toArray())) return;
+      state.fit(false, points); invalidate();
+    };
     const viewCamera = event => { cancelGesture(); if (quad) activatePane(panes.find(pane => pane.id === 'perspective')); if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.camera = camera; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
@@ -949,13 +961,60 @@ export default function Viewport({ children, ...inputProps }) {
     const contextMenu = event => event.preventDefault();
     const pointerLeave = event => { if (!down) { const pane = quad ? panes.find(pane => pane.surface === event.currentTarget) : singlePane; if (pane?.hoverAxis) { pane.hoverAxis = null; invalidate(); } hoverFrame.cancel(); hoverMove = null; clearHoveredGeoset(); partHover=null; if (state.cut.hover) { state.cut.hover = null; invalidate(); } latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
-    window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
+    window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('mdlxl-ai-follow', aiFollow); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
     window.addEventListener('mdlxl-window-key',claimWindowKey);
     const stopPressLost = onMousePressLost(() => { if (down) cancelGesture(); });
     const unwatchContext = watchContextLoss(renderer.domElement, () => { state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); });
 
     let callbackTime = performance.now();
+    // View AI work: a finished AI step replays here, in this view's own frame.
+    const replayPoint = new THREE.Vector3(), replayWritten = new Set();
+    const replayPosition = (entry, rest) => {
+      const position = entry.geometry.attributes.position;
+      if (state.matrices) skinGeoset(rest === entry.geoset.Vertices ? entry.geoset : { ...entry.geoset, Vertices: rest }, state.matrices, position.array);
+      else position.array.set(rest);
+      position.needsUpdate = true; updateWideWireGeometry(entry);
+    };
+    const replayView = (pane, view) => {
+      const scale = renderer.domElement.width / Math.max(1, viewportHost.clientWidth), rect = quad && pane.rect ? pane.rect : { left: 0, top: 0, width: viewportHost.clientWidth, height: viewportHost.clientHeight };
+      const x = rect.left * scale, y = rect.top * scale, width = rect.width * scale, height = rect.height * scale;
+      view.updateMatrixWorld();
+      return { x, y, width, height, key: view.matrixWorldInverse.elements.join() + '|' + view.projectionMatrix.elements.join() + '|' + width + 'x' + height,
+        project(px, py, pz, out) { replayPoint.set(px, py, pz).project(view); if (!(replayPoint.z >= -1 && replayPoint.z <= 1)) return false; out[0] = x + (replayPoint.x + 1) * width / 2; out[1] = y + (1 - replayPoint.y) * height / 2; return true; } };
+    };
+    const replayStage = createReplayStage({
+      kind: 'editor', host: viewportHost,
+      target: () => ({ documentId: latest.current.aiFollow ? latest.current.aiDocument : null, revision: latest.current.revision }),
+      size: () => ({ width: renderer.domElement.width, height: renderer.domElement.height }),
+      source: () => { if (state.disposed || !state.scheduler) return null; render(performance.now(), 0); return renderer.domElement; },
+      viewports: () => quad ? panes.slice(1).map(pane => replayView(pane, pane === boundPane ? camera : pane.camera)) : [replayView(singlePane, camera)],
+      geometry: {
+        count: () => state.entries.length,
+        length: index => state.entries[index]?.geometry.attributes.position.array.length ?? -1,
+        write(index, rest) { const entry = state.entries[index]; if (!entry) return false; replayPosition(entry, rest); replayWritten.add(index); return true; },
+        uv(index, sets) {
+          const entry = state.entries[index]; if (!entry) return false;
+          for (const [layerIndex, mesh] of entry.meshes.entries()) {
+            const set = sets[entry.layers[layerIndex].CoordId || 0] || sets[0], uv = mesh.geometry.attributes.uv;
+            if (set && uv.array.length === set.length) { uv.array.set(set); uv.needsUpdate = true; }
+          }
+          replayWritten.add(index); return true;
+        },
+        restore() {
+          for (const index of replayWritten) {
+            const entry = state.entries[index]; if (!entry) continue;
+            if (entry.geometry.attributes.position.array.length === entry.geoset.Vertices.length) replayPosition(entry, entry.geoset.Vertices);
+            for (const mesh of entry.meshes) { const uv = mesh.geometry.attributes.uv; if (mesh.userData.baseUV?.length === uv.array.length) { uv.array.set(mesh.userData.baseUV); uv.needsUpdate = true; } }
+          }
+          replayWritten.clear(); state.dirty = true; state.scheduler?.invalidate();
+        },
+      },
+      displayed: (index, rest) => { const entry = state.entries[index]; return !entry ? null : !rest ? entry.geometry.attributes.position.array : state.matrices ? skinGeoset({ ...entry.geoset, Vertices: rest }, state.matrices) : rest; },
+      nodePoint: (id, at) => { const matrix = id != null && state.matrices?.get(id); return matrix ? replayPoint.fromArray(at).applyMatrix4(matrix).toArray() : at; },
+      blocked: () => !!(state.drag || state.nodeDrag),
+      invalidate: () => state.scheduler?.invalidate(),
+    });
     function render(now, delta) {
       const visible = quad ? panes.slice(1) : [singlePane];
       renderer.setScissorTest(quad);
@@ -968,6 +1027,7 @@ export default function Viewport({ children, ...inputProps }) {
       }
       bindPane(activePane);
       syncAnimatedBillboards(latest.current);
+      replayStage.end();
     }
     function renderPane(now, delta) {
       if (state.disposed) return;
@@ -1004,6 +1064,7 @@ export default function Viewport({ children, ...inputProps }) {
         applyPreviewPose(p, camera, poseSequence, frame, globalTime);
         state.sampledFrame = frame; state.sampledSequence = poseSequence; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
       }
+      replayStage.begin(now);
       const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []);
       const liveDepthBounds = [];
       for (let index = 0; index < state.entries.length; index++) {
@@ -1223,7 +1284,7 @@ export default function Viewport({ children, ...inputProps }) {
     state.scheduler = createRenderScheduler({ render,
       continuous: () => {
         const p = latest.current, sequence = p.model?.Sequences?.[p.sequenceIndex];
-        return p.playing && p.sequenceIndex >= 0 && !(sequence?.NonLooping && state.frame >= sequence.Interval?.[1]);
+        return replayStage.active() || p.playing && p.sequenceIndex >= 0 && !(sequence?.NonLooping && state.frame >= sequence.Interval?.[1]);
       },
       paused: () => latest.current.suspended || (document.hidden && graphicsOptions(latest.current.preferences).pauseWhenHidden),
       maxFps: () => graphicsOptions(latest.current.preferences).maxFps,
@@ -1279,9 +1340,9 @@ export default function Viewport({ children, ...inputProps }) {
         // Quad panes own their cameras. Other editors inherit the single view.
         latest.current.cameraHandoff.current = rememberPane(singlePane);
       }
-      state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
+      state.disposed = true; sketch.dispose(); transformFrame.cancel(); partsFrame.cancel(); anchorFrame.cancel(); hoverFrame.cancel(); cameraReport.cancel(); replayStage.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();
-      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
+      window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-ai-follow', aiFollow); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       stopPressLost(); window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };

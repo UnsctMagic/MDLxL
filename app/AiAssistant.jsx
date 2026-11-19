@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUp,
   BookOpen,
-  FolderCode,
   Brain,
   Globe,
   Check,
@@ -17,6 +16,7 @@ import {
   Paperclip,
   MoveUpRight,
   PenLine,
+  ScanEye,
   Pause,
   Pin,
   Settings2,
@@ -120,6 +120,8 @@ const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
 const WEB_TIP =
   'Web research: lets the AI search the web and read pages, such as XGM tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
+const WATCH_TIP =
+  "View AI work: while the AI works, shows its model tab and follows the animation, frame, view and part it works on. Off keeps your own view.";
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
   ['summary', 'Keep a summary', 'Keep a short note of what was done; delete the chats.'],
@@ -143,7 +145,7 @@ const storedWidth = () => {
 // changes on every playback tick; FrameLabel follows that on its own.
 function headerKey(bridge) {
   const { time, ...summary } = bridge.summary();
-  return JSON.stringify([summary, bridge.references(), getLanguage()]);
+  return JSON.stringify([summary, bridge.references(), getLanguage(), !!bridge.forkedDraft(summary.documentId)]);
 }
 function FrameLabel({ bridge }) {
   return useSyncExternalStore(bridge.subscribe, () => Math.round(bridge.summary().time));
@@ -199,8 +201,18 @@ function AiAssistant({ bridge, visUI }) {
     input = useRef(),
     pinned = useRef(true),
     rekeying = useRef(Promise.resolve()),
-    activeId = useRef(id);
+    activeId = useRef(id),
+    streamed = useRef({ events: [], frame: 0, timer: 0 });
   activeId.current = id;
+  // Events still waiting for the next frame are already in a transcript loaded from
+  // disk, and belong to no fresh chat: replacing the thread drops them.
+  function dropStreamed() {
+    const stream = streamed.current;
+    cancelAnimationFrame(stream.frame);
+    clearTimeout(stream.timer);
+    stream.frame = stream.timer = 0;
+    stream.events.length = 0;
+  }
   useEffect(() => {
     if (!window.desktop?.aiStatus) return;
     window.desktop
@@ -212,11 +224,22 @@ function AiAssistant({ bridge, visUI }) {
         setConnected(true);
       })
       .catch(reason => setError(reason.message));
-    return window.desktop.onAiEvent(event => {
+    // Streamed events reach the thread at most once per display frame (or 100 ms when
+    // the window is not drawing), so a reply that streams fast never keeps the console,
+    // and its Stop button, too busy to answer a click.
+    const stream = streamed.current;
+    const flush = () => {
+      cancelAnimationFrame(stream.frame);
+      clearTimeout(stream.timer);
+      stream.frame = stream.timer = 0;
+      const events = stream.events.splice(0).filter(event => !event.id || event.id === activeId.current);
+      if (events.length) setMessages(previous => events.reduce((list, event) => applyAiEvent(list, event), previous));
+    };
+    const unsubscribe = window.desktop.onAiEvent(event => {
       // Setting changes matter whichever chat is showing.
-      if (event.type === 'local-workspace') setSettings(previous => ({ ...previous, localWorkspace: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
+      if (event.type === 'watch-ai') setSettings(previous => ({ ...previous, watchAi: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
@@ -224,7 +247,13 @@ function AiAssistant({ bridge, visUI }) {
       // A chat's events stream into its thread by the same rules main saves them
       // with: what the AI says, thinks and does, in the order it happens. An error
       // without a chat is about the app, not a reply, so it stays in the banner.
-      if (event.id || event.type !== 'error') setMessages(previous => applyAiEvent(previous, event));
+      if (event.id || event.type !== 'error') {
+        stream.events.push(event);
+        if (!stream.frame) {
+          stream.frame = requestAnimationFrame(flush);
+          stream.timer = setTimeout(flush, 100);
+        }
+      }
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       if (event.type === 'compaction')
         setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
@@ -250,8 +279,14 @@ function AiAssistant({ bridge, visUI }) {
         if (event.task?.status === 'running') setStatus(phases[event.task.phase] || 'Working on the model');
       }
     });
+    return () => {
+      unsubscribe?.();
+      dropStreamed();
+    };
   }, []);
   useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
+  // View AI work follows the AI only while the console is open with the switch on.
+  useEffect(() => bridge.setWatching(open && !!settings.watchAi), [bridge, open, settings.watchAi]);
   const summaryNow = open ? bridge.summary() : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
   // Right after a tab switch the console still holds the previous model's chat until
@@ -297,6 +332,7 @@ function AiAssistant({ bridge, visUI }) {
       .then(([transcript, info]) => {
         if (!live) return;
         pinned.current = true;
+        dropStreamed();
         setMessages(transcript);
         setTask(info);
       })
@@ -426,6 +462,7 @@ function AiAssistant({ bridge, visUI }) {
       if (activeId.current !== id) return;
       setOrg({ ...value, modelKey: org.modelKey });
       setView(value.id);
+      dropStreamed();
       setMessages([]);
       setTask(null);
       setStatus('');
@@ -443,6 +480,12 @@ function AiAssistant({ bridge, visUI }) {
       setError(reason.message);
     }
   }
+  // Stop acts on the press itself and stops every job this chat shows as working.
+  function stopJob() {
+    setStatus('Stopping…');
+    for (const chat of new Set([sendingId, ...running.map(job => job.id)]))
+      if (ours(chat)) window.desktop.aiCancel(chat)?.catch?.(() => {});
+  }
   // While the AI works, a message steers the running task instead of starting a new one.
   async function steer() {
     const text = prompt.trim();
@@ -450,7 +493,10 @@ function AiAssistant({ bridge, visUI }) {
     setError('');
     try {
       const result = await window.desktop.aiSteer({ id, text, annotations: bridge.annotations() });
-      if (result.queued) setPrompt('');
+      if (result.stopped) {
+        setPrompt('');
+        stopJob();
+      } else if (result.queued) setPrompt('');
       else setStatus('The AI is busy with another chat. Send this when it finishes.');
     } catch (reason) {
       setError(reason.message);
@@ -498,7 +544,7 @@ function AiAssistant({ bridge, visUI }) {
           Object.assign(context, bridge.context(context.target, fresh.id));
           if (activeId.current === id) {
             activeId.current = sending;
-            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setMessages([]);
+            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); dropStreamed(); setMessages([]);
           }
         }
       }
@@ -532,7 +578,10 @@ function AiAssistant({ bridge, visUI }) {
           updateSendingDraft({ prompt: text, images: attached });
         }
         const transcript = await window.desktop.aiTranscript(sending);
-        if (activeId.current === sending) setMessages(transcript);
+        if (activeId.current === sending) {
+          dropStreamed();
+          setMessages(transcript);
+        }
       }
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
@@ -743,23 +792,23 @@ function AiAssistant({ bridge, visUI }) {
                 type="button"
                 role="switch"
                 className="ai-icon-button ai-switch"
-                aria-label="Local workspace" data-hotkey="local-workspace"
-                aria-checked={!!settings.localWorkspace}
-                title="Lets the AI run local analysis scripts, keep scratch files and preview a selection on its own. Applies from the next request."
-                onClick={() => action(async () => setSettings(await window.desktop.aiLocalWorkspace(!settings.localWorkspace)))}
-              >
-                <FolderCode size={15} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                role="switch"
-                className="ai-icon-button ai-switch"
                 aria-label="Web research" data-hotkey="web-research"
                 aria-checked={!!settings.webResearch}
                 title={WEB_TIP}
                 onClick={() => action(async () => setSettings(await window.desktop.aiWebResearch(!settings.webResearch)))}
               >
                 <Globe size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-switch"
+                aria-label="View AI work" data-hotkey="watch"
+                aria-checked={!!settings.watchAi}
+                title={WATCH_TIP}
+                onClick={() => action(async () => setSettings(await window.desktop.aiWatchAi(!settings.watchAi)))}
+              >
+                <ScanEye size={15} aria-hidden="true" />
               </button>
               <span className="ai-heading-gap" />
               <button
@@ -896,6 +945,7 @@ function AiAssistant({ bridge, visUI }) {
                         <article key={index} className={'ai-message ai-role-' + message.role}>
                           {message.role === 'assistant' ? (
                             <AssistantMessage
+                              onFlash={geoset => bridge.flashGeoset(geoset)}
                               message={message}
                               live={live && index === messages.length - 1}
                             />
@@ -925,6 +975,12 @@ function AiAssistant({ bridge, visUI }) {
                           {status}
                         </div>
                       )}
+                      {summary && bridge.forkedDraft(summary.documentId) && (
+                        <div className="ai-watch-fork" role="group" aria-label="AI private copy">
+                          <span>You changed the model, so the AI works on a private copy.</span>
+                          <button type="button" title="Open the AI's copy as its own model tab and watch the work there." onClick={() => bridge.openForkedDraft(summary.documentId)}>Open as new model</button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="ai-empty">
@@ -950,7 +1006,7 @@ function AiAssistant({ bridge, visUI }) {
                 {native && signedIn !== null && !signedIn && (
                   <div className="ai-account" role="status">
                     {provider.ownSignIn
-                      ? 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in. Your prompt has been kept.'
+                      ? 'Sign in to ' + provider.label + ' in your own terminal with: ' + (provider.signInHint || 'claude auth login') + '. Then press Check sign-in. Your prompt has been kept.'
                       : 'Sign in to connect your AI. Your prompt has been kept.'}
                   </div>
                 )}
@@ -1199,7 +1255,9 @@ function AiAssistant({ bridge, visUI }) {
                         )}
                       </span>
                       {busy && (
-                        <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop" onClick={() => window.desktop.aiCancel(id)}>
+                        <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop"
+                          onPointerDown={event => { if (event.button === 0) stopJob(); }}
+                          onClick={event => { if (!event.detail) stopJob(); }}>
                           <Square size={11} aria-hidden="true" />
                           <span className="sr-only">Stop</span>
                         </button>

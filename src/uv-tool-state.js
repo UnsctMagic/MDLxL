@@ -17,5 +17,6 @@ export function uvToolState({ readOnly = false, selectionCount = 0, draftCount =
     straighten: editable && selected > 1,
     mirrorCopy: editable && selected > 0 && (Number(eligibleCount) || 0) > selected,
     relax: editable && triangles > 0,
+    fit: editable && triangles > 0,
   };
 }

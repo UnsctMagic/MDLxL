@@ -1,5 +1,6 @@
 // Loaded ONLY in a disposable sandboxed renderer. The editor's CSP stays strict.
 import { aiFunctionCards } from '../src/ai-capabilities.js';
+import { buildAiScript, cloneSafeAiValue } from '../src/ai-model.js';
 const modules = import.meta.glob(['../src/*.js', '!../src/cli.js']);
 const sources = import.meta.glob(['../src/*.js', '!../src/cli.js'], { query: '?raw', import: 'default' });
 const names = Object.keys(modules)
@@ -48,27 +49,37 @@ window.aiSandbox.onRun(async payload => {
     };
     const { model, selection, context, references, code, before } = payload,
       assets = [];
-    const value = await new AsyncFunction(
-      'model',
-      'selection',
-      'context',
-      'references',
-      'api',
-      'assets',
-      'before',
-      'files',
-      'log',
-      '"use strict";\n' + code,
-    )(model, selection, context, references, api, assets, before, payload.workspaceFiles, (...values) => {
-      if (logs.length < 100)
-        logs.push(
-          values
-            .map(v => (typeof v === 'string' ? v : JSON.stringify(v)))
-            .join(' ')
-            .slice(0, 10000),
-        );
-    });
+    const raw = await buildAiScript(code)(
+      model,
+      selection,
+      context,
+      references,
+      api,
+      assets,
+      before,
+      payload.workspaceFiles,
+      (...values) => {
+        if (logs.length < 100)
+          logs.push(
+            values
+              .map(v => {
+                if (typeof v === 'string') return v;
+                try {
+                  return JSON.stringify(v) ?? String(v);
+                } catch {
+                  return String(v);
+                }
+              })
+              .join(' ')
+              .slice(0, 10000),
+          );
+      },
+      {},
+    );
+    const { value, replaced } = cloneSafeAiValue(raw);
+    if (replaced.length) logs.push('Returned value had parts that cannot be sent back, shown as text instead: ' + replaced.join('; '));
     window.aiSandbox.finish({ model, selection, assets, value, logs, ...(before ? { before } : {}) });
+
   } catch (error) {
     window.aiSandbox.finish({ error: String(error.message || error) });
   }

@@ -1,4 +1,8 @@
-import { EditorDocument } from '../src/editor-document.js';
+import { EditorDocument, openDocument } from '../src/editor-document.js';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import { applyMeshAction } from '../src/mesh-actions.js';
+import { separateGeosetsByLoosePart } from '../src/geoset-operations.js';
 import { prepareModelSave } from '../src/save-target.js';
 // An AI task works on its own model tab while the user works on another one:
 // edits, Undo, selection, views and pictures go to the task's tab; steps that
@@ -173,10 +177,12 @@ test('pictures of a model that is not showing are drawn off-screen and the scree
   assert.equal(one.image, 'data:image/png;base64,offscreen');
   await bridge.call('mdlxl_view', { target, view: 'front', frame: 250 });
   const many = await bridge.call('mdlxl_capture', { target, samples: [{ view: 'left' }, { frame: 500 }] });
+  // No animation is drawn and labelled as the bind pose (the preview used to play sequence 0 instead).
   assert.deepEqual(
     many.images.map(i => i.label),
-    ['left; sequence -1; frame 250', 'front; sequence -1; frame 500'],
+    ['left; bind pose (no animation); 12 triangles drawn', 'front; bind pose (no animation); 12 triangles drawn'],
   );
+  assert.ok(app.renders.slice(1).every(spec => spec.restPose === true));
   assert.ok(app.renders.every(spec => spec.documentId === 'A.mdx'));
   assert.equal(app.liveCaptures, 0);
   assert.equal(app.liveViews.length, 0, 'the view on screen was not changed');
@@ -202,7 +208,8 @@ test('a close-up sample frames the marked vertices; other samples frame the whol
   assert.match(shots.images[0].label, /close-up of the marked vertices/);
   const vertices = a.doc.model.Geosets[0].Vertices;
   assert.deepEqual(Array.from(app.renders[0].focus), Array.from(vertices.subarray(0, 6)), 'the two marked vertices');
-  assert.equal(app.renders[1].focus, null);
+  // The whole model is framed on the posed points the preview draws (it used to pass null and fit the rest-pose bounds).
+  assert.deepEqual(Array.from(app.renders[1].focus), Array.from(vertices));
   await bridge.call('mdlxl_select', { target, vertices: {} });
   await assert.rejects(bridge.call('mdlxl_capture', { target, samples: [{ fit: 'selection' }] }), /mark them with select/);
 });
@@ -435,4 +442,101 @@ test('AI validation reports actual save-verification loss in the other format', 
     assert.equal(results[1].format, 'mdl');
     assert.match(results[1].error, /Save verification failed: .*Info\.AnimationFile/);
   } finally { globalThis.Worker = previous; }
+});
+// Owner, 18 Nov 2026: "every tool works on the hidden copy too". Mesh tools, selection
+// and view commands run on the task's own model while the user is on another tab,
+// without waiting for that tab and without touching the tab on screen.
+test('mesh tools, selection and view commands run on a model tab that is not showing', async () => {
+  const { a, b, app, bridge, show } = editor();
+  const { target } = bridge.context();
+  show(b);
+  const before = a.doc.model.Geosets[0].Vertices.length / 3,
+    owner = structuredClone(b.doc.model.Geosets[0].Vertices);
+  let settled = false;
+  const welded = bridge.call('mdlxl_command', { target, id: 'Weld' }).then(value => ((settled = true), value));
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(settled, true, 'the mesh tool did not wait for the user to come back');
+  assert.equal((await welded).invoked, 'Weld');
+  assert.equal(a.doc.model.Geosets[0].Vertices.length / 3, before - 1, 'two marked vertices became one');
+  assert.equal(a.doc._historyStore.undoEntries.at(-1).label, 'Weld', 'one Undo step on the task model');
+  assert.deepEqual(b.doc.model.Geosets[0].Vertices, owner, "the user's tab is untouched");
+  assert.equal(app.commands.length, 0, 'no command ran on the tab on screen');
+  // Selection and view commands act on the task's own selection and view.
+  await bridge.call('mdlxl_command', { target, id: 'selectAll' });
+  assert.equal((await bridge.call('mdlxl_context', { target })).selection[0].length, before - 1);
+  await bridge.call('mdlxl_command', { target, id: 'clear' });
+  assert.deepEqual((await bridge.call('mdlxl_context', { target })).selection, {});
+  await bridge.call('mdlxl_command', { target, id: 'front' });
+  assert.equal((await bridge.call('mdlxl_context', { target })).view, 'front');
+  assert.equal(app.liveViews.length, 0, 'the view on screen was not changed');
+  // A mesh tool with nothing marked says what to do instead of guessing.
+  await assert.rejects(bridge.call('mdlxl_command', { target, id: 'Extrude' }), /Mark the vertices first/);
+  assert.equal(app.active, b, 'the tab on screen never changed');
+});
+
+// Round 2, stream R: the sidebar's geoset operations and Cut, and the mesh tools' optional numbers, also run
+// on a model tab that is not showing, each as one Undo step with the selection following the change.
+const footmanPath = createRequire(import.meta.url)('./helpers/fixtures.cjs').fixturePath('citadel-footman');
+test('geoset operations, Cut and the tool options run on a hidden tab as one Undo step each', { skip: !footmanPath || !fs.existsSync(footmanPath) }, async () => {
+  const { a, b, app, bridge, show } = editor();
+  const open = () => openDocument(fs.readFileSync(footmanPath), 'Footman.mdx');
+  a.doc = open();
+  const all = gi => Array.from({ length: a.doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i);
+  a.viewState.selectable = new Set(a.doc.model.Geosets.map((_, gi) => gi));
+  a.viewState.selection = { 0: all(0).slice(0, 12) };
+  a.viewState.activeGeoset = 0;
+  // A target for the task's tab, taken while it shows (the user's own changes of selection or model make an older one stale).
+  const fresh = () => { show(a); const { target } = bridge.context(); show(b); return target; };
+  fresh();
+  const owner = structuredClone(b.doc.model.Geosets[0].Vertices), steps = () => a.doc._historyStore.undoEntries.length, last = () => a.doc._historyStore.undoEntries.at(-1).label;
+  // Optional numbers: Extrude distance, Mirror pivot, Rotate normals angle (compared with the same call on a copy).
+  for (const [id, options, extra] of [['Extrude', { distance: 30 }, { distance: 30 }], ['Mirror', { pivot: [5, 6, 7] }, { pivot: [5, 6, 7] }], ['Rotate normals', { normalAngle: 30 }, { angle: 30 }]]) {
+    const expected = open().model, before = steps();
+    applyMeshAction(expected, id, { 0: a.viewState.selection[0] }, { axis: 2, ...options });
+    await bridge.call('mdlxl_command', { target: fresh(), id, ...extra });
+    assert.equal(steps(), before + 1, id + ': one Undo step');
+    assert.equal(last(), id);
+    assert.deepEqual(Array.from(a.doc.model.Geosets[0].Vertices), Array.from(expected.Geosets[0].Vertices), id + ' with its number');
+    await bridge.call('mdlxl_command', { target: fresh(), id: 'undo' });
+    a.viewState.selection = { 0: all(0).slice(0, 12) };
+  }
+  await assert.rejects(bridge.call('mdlxl_command', { target: fresh(), id: 'Extrude', distance: 'far' }), /distance must be a number/);
+  // Separate by loose parts: the same model result as the editor's code, new geosets checked, one Undo step.
+  a.doc = open(); a.viewState.selectable = new Set([0, 1, 2, 3, 4]); a.viewState.selection = { 0: all(0), 1: all(1) };
+  const expected = open().model, parts = separateGeosetsByLoosePart(expected, { 0: all(0), 1: all(1) }), before = steps();
+  await bridge.call('mdlxl_command', { target: fresh(), id: 'Separate by loose parts' });
+  assert.equal(a.doc._historyStore.undoEntries.length, before + 1);
+  assert.equal(last(), 'Seperate by Loose parts');
+  assert.equal(a.doc.model.Geosets.length, expected.Geosets.length);
+  assert.ok(parts.parts > 1 && a.viewState.selectable.has(parts.geosetIndices[0]), 'the new geosets are checked');
+  // Delete free vertices: an unused point goes, vertex numbers shift, one step.
+  const g = a.doc.model.Geosets[0], n = g.Vertices.length / 3, grow = (data, stride) => { const out = new data.constructor(data.length + stride); out.set(data); return out; };
+  a.doc.apply('Add a free point', ['Geosets'], m => { const x = m.Geosets[0]; x.Vertices = grow(x.Vertices, 3); x.Normals = grow(x.Normals, 3); x.VertexGroup = grow(x.VertexGroup, 1); x.TVertices = x.TVertices.map(uv => grow(uv, 2)); });
+  a.viewState.selectable = new Set([0]);
+  await bridge.call('mdlxl_command', { target: fresh(), id: 'Delete free vertices' });
+  assert.equal(a.doc.model.Geosets[0].Vertices.length / 3, n);
+  assert.equal(last(), 'Delete free vertices');
+  // Nuclear Weld on marked vertices of the same spot.
+  a.viewState.selectable = new Set([0, 1, 2, 3, 4, 5]); a.viewState.selection = { 0: all(0) };
+  const welded = a.doc.model.Geosets[0].Vertices.length / 3;
+  await bridge.call('mdlxl_command', { target: fresh(), id: 'Nuclear Weld' });
+  assert.ok(a.doc.model.Geosets[0].Vertices.length / 3 < welded);
+  assert.equal(last(), 'Nuclear Weld');
+  // Cut: a new point on a triangle's line, selected afterwards.
+  const [p, q, r] = a.doc.model.Geosets[0].Faces, vertices = a.doc.model.Geosets[0].Vertices.length / 3;
+  await bridge.call('mdlxl_command', { target: fresh(), id: 'Cut', cut: { geosetIndex: 0, start: p, a: q, b: r, t: .5 } });
+  assert.ok(a.doc.model.Geosets[0].Vertices.length / 3 > vertices);
+  assert.equal(last(), 'Cut');
+  assert.ok(a.viewState.selection[0].length >= 1, 'the new point is marked');
+  await assert.rejects(bridge.call('mdlxl_command', { target: fresh(), id: 'Cut' }), /Cut needs/);
+  // Needs marked vertices, like the buttons.
+  a.viewState.selection = {};
+  await assert.rejects(bridge.call('mdlxl_command', { target: fresh(), id: 'Nuclear Weld' }), /Mark the vertices first/);
+  // Undo walks back one step on the task's model; the tab on screen never changed.
+  const total = steps();
+  await bridge.call('mdlxl_command', { target: fresh(), id: 'undo' });
+  assert.equal(steps(), total - 1);
+  assert.deepEqual(b.doc.model.Geosets[0].Vertices, owner, "the user's tab is untouched");
+  assert.equal(app.commands.length, 0, 'no command ran on the tab on screen');
+  assert.equal(app.active, b);
 });

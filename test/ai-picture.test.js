@@ -1,0 +1,271 @@
+// The AI's off-screen pictures (mdlxl_capture samples): what the hidden preview is asked to draw,
+// the pose it draws and how the framed points sit in the picture.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
+import { previewPresentationProps } from '../app/preview-presentation.js';
+import { VIEW_PRESETS, orthographicHalfHeight, perspectiveFitDistance } from '../app/viewport-math.js';
+import { aiPictureProps, checkPictureOptions, concatPoints, drawnGeosets, filmstripFrames, filmstripLayout, frameCaption, frameExactly, motionTrails, trailNodeIds, picturePose, PICTURE_OVERLAYS, posedPoints, pointsBox, PICTURE_FILL } from '../src/ai-picture.js';
+import { AI_TOOLS } from '../src/ai-tools.js';
+const { validateArguments } = createRequire(import.meta.url)('../electron/ai-mcp.cjs');
+const captureSchema = AI_TOOLS.find(t => t.name === 'mdlxl_capture').inputSchema;
+import { sampleAiModel } from '../src/ai-sampling.js';
+import { allNodes, sampleNodeMatrices, worldPivot } from '../src/animation.js';
+import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
+
+const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const loadMdx = name => {
+  const b = fs.readFileSync(fixturePath(name));
+  return parseCompatibleMdx(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+};
+const missing = name => (fs.existsSync(fixturePath(name) || '') ? false : `test model not on this machine: ${name}`);
+
+// What the hidden preview finally draws: the AI job's props after the preview presentation.
+const drawn = (job, options = {}) => previewPresentationProps(aiPictureProps({ model: { Geosets: [] }, ...job }, { preferences: { graphics: {} }, ...options }));
+
+test('a wireframe picture reaches the preview as wireframe: mesh lines drawn, surface skipped', () => {
+  const wire = drawn({ renderMode: 'wireframe' });
+  assert.equal(wire.mode, 'wireframe', 'GamePreview skips the surface only in wireframe mode');
+  assert.equal(wire.overlays.wires, true, 'the mesh lines are drawn');
+  const textured = drawn({ renderMode: 'textured' });
+  assert.equal(textured.mode, 'textured');
+  assert.equal(textured.overlays.wires, false, 'an ordinary picture has no mesh lines');
+});
+
+test('a plain picture reaches the preview as the untextured Surface View', () => {
+  // The Warcraft preview adapter shades every first layer in one grey when mode is 'solid'.
+  const plain = drawn({ renderMode: 'solid' });
+  assert.equal(plain.mode, 'solid');
+  assert.equal(plain.overlays.wires, false);
+});
+
+test('only the geosets a picture shows are drawn: the hidden ones reach the preview', () => {
+  const only = drawn({ hiddenGeosets: [0, 2, 3] });
+  assert.deepEqual([...only.hiddenGeosets], [0, 2, 3], 'geosets: [1] must not draw the whole model');
+  // Ordinary previews still ignore the editor's hidden geosets.
+  assert.equal(previewPresentationProps({ presentation: 'preview', preferences: { graphics: {} }, hiddenGeosets: [1] }).hiddenGeosets, undefined);
+});
+
+test('a picture without an animation draws the bind pose, where its framed points are', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), pose = picturePose(model, { sequence: -1, frame: 1234 });
+  assert.equal(pose.bind, true);
+  assert.equal(drawn({ sequence: -1, restPose: pose.bind }).restPose, true, 'the preview must not play sequence 0 instead');
+  const points = posedPoints(pose, { 0: [0, 5] });
+  assert.deepEqual(Array.from(points), [...model.Geosets[0].Vertices.subarray(0, 3), ...model.Geosets[0].Vertices.subarray(15, 18)]);
+});
+
+test('framed points cover every vertex of a geoset, posed exactly as sampling poses it', { skip: missing('forge-hd-footman') }, () => {
+  const model = loadMdx('forge-hd-footman'),
+    walk = model.Sequences.findIndex(s => /^walk/i.test(s.Name)),
+    [start, end] = model.Sequences[walk].Interval,
+    frame = Math.round((start + end) / 2),
+    big = model.Geosets.reduce((best, g, i) => (g.Vertices.length > model.Geosets[best].Vertices.length ? i : best), 0),
+    count = model.Geosets[big].Vertices.length / 3;
+  assert.ok(count > 1000, 'a geoset larger than one sampling page');
+  const pose = picturePose(model, { sequence: walk, frame }),
+    points = posedPoints(pose, { [big]: true }),
+    box = pointsBox(points),
+    sampled = sampleAiModel(model, { frame, sequence: walk, selectedNodeIds: [] }, { frames: [frame], geosetIds: [big], vertices: {} }).samples[0].geosets[0].bounds;
+  assert.equal(points.length / 3, new Set(model.Geosets[big].Faces).size, 'every vertex a triangle uses');
+  for (let k = 0; k < 3; k++) {
+    assert.ok(Math.abs(box.center[k] - box.half[k] - sampled.min[k]) < 1e-3, `min ${k}: ${box.center[k] - box.half[k]} vs ${sampled.min[k]}`);
+    assert.ok(Math.abs(box.center[k] + box.half[k] - sampled.max[k]) < 1e-3, `max ${k}: ${box.center[k] + box.half[k]} vs ${sampled.max[k]}`);
+  }
+  // A frame past the end is drawn at the end, and the picture says the frame it drew.
+  assert.equal(picturePose(model, { sequence: walk, frame: end + 5000 }).frame, end);
+});
+
+test('geosets faded out by their geoset animation are not counted as drawn', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'),
+    decay = model.Sequences.findIndex(s => /decay bone/i.test(s.Name)),
+    pose = picturePose(model, { sequence: decay, frame: model.Sequences[decay].Interval[0] }),
+    faded = model.Geosets.map((_, i) => i).filter(i => !drawnGeosets(pose).includes(i));
+  assert.ok(faded.length > 0, 'Decay Bone hides the flesh');
+  assert.ok(drawnGeosets(pose, [0]).every(g => g !== 0), 'hidden geosets stay out');
+});
+
+// A stand-in for the hidden GamePreview's capture API with its fit rules: the camera looks at the
+// box centre and sizes the view from 0.75 of the box diagonal, in the preset's direction. Its clip
+// planes are stale (the preview sets them only when it draws), so every point reads as out of depth.
+function previewStandIn(view, { width = 768, height = 576, radius = 60 } = {}) {
+  const aspect = width / height,
+    perspective = new PerspectiveCamera(42, aspect, 0.2, 50),
+    ortho = new OrthographicCamera(-1, 1, 1, -1, 0.2, 50),
+    target = new Vector3(),
+    camera = view === 'perspective' ? perspective : ortho;
+  perspective.up.set(0, 0, 1);
+  const direction = new Vector3(...(VIEW_PRESETS[view]?.direction || [1, -1.5, 0.9])).normalize();
+  if (VIEW_PRESETS[view]) ortho.up.fromArray(VIEW_PRESETS[view].up);
+  else ortho.up.set(0, 0, 1);
+  const place = r => {
+    if (camera === perspective) perspective.position.copy(target).addScaledVector(direction, perspectiveFitDistance(r, 42, aspect));
+    else {
+      const half = orthographicHalfHeight(radius, aspect);
+      Object.assign(ortho, { left: -half * aspect, right: half * aspect, top: half, bottom: -half, zoom: Math.max(1, radius) / r });
+      ortho.position.copy(target).addScaledVector(direction, radius * 4);
+    }
+    camera.lookAt(target);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+  };
+  return {
+    fit(points) {
+      const box = pointsBox(points);
+      target.fromArray(box.center);
+      place(Math.max(1, radius * 0.04, Math.hypot(...box.half) * 2 * 0.75));
+    },
+    focusPoint(values) {
+      const next = new Vector3().fromArray(values);
+      camera.position.add(next.clone().sub(target));
+      target.copy(next);
+      camera.updateMatrixWorld();
+    },
+    project(points) {
+      const out = new Float32Array(points.length), point = new Vector3();
+      for (let i = 0; i < points.length; i += 3) {
+        point.set(points[i], points[i + 1], points[i + 2]).project(camera);
+        out[i] = ((point.x + 1) / 2) * width;
+        out[i + 1] = ((1 - point.y) / 2) * height;
+        out[i + 2] = point.z >= -1 && point.z <= 1 ? 1 : 0;
+      }
+      return out;
+    },
+  };
+}
+
+test('framed points end up centred and filling the picture in every view preset', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), pose = picturePose(model, { sequence: -1 }),
+    // The shield alone sits well off the model's centre: a close-up of it must not park in a corner.
+    shield = posedPoints(pose, { 1: true }),
+    body = posedPoints(pose, new Map(drawnGeosets(pose).map(g => [g, true])));
+  for (const points of [body, shield])
+    for (const view of ['front', 'back', 'left', 'right', 'top', 'bottom', 'perspective']) {
+      const placed = frameExactly(previewStandIn(view), points);
+      assert.ok(Math.abs(placed.dx) < 1 && Math.abs(placed.dy) < 1, `${view}: centre off by ${placed.dx}, ${placed.dy} px`);
+      assert.ok(Math.abs(placed.fill - PICTURE_FILL) < 0.01, `${view}: fills ${placed.fill}`);
+      assert.ok(placed.minX >= 0 && placed.maxX <= 768 && placed.minY >= 0 && placed.maxY <= 576, `${view}: fully visible`);
+      // Zoom crops into the same centre (perspective moves closer, so near parts grow a little more).
+      const zoomed = frameExactly(previewStandIn(view), points, { zoom: 2 }), slack = view === 'perspective' ? 0.08 : 0.003;
+      assert.ok(Math.abs(zoomed.dx) < 768 * slack && Math.abs(zoomed.dy) < 576 * slack && Math.abs(zoomed.fill - 2 * PICTURE_FILL) < (view === 'perspective' ? 0.2 : 0.02), `${view} zoom 2: ${JSON.stringify(zoomed)}`);
+    }
+});
+
+test('a filmstrip spreads its frames over the whole animation, both ends included', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), walk = model.Sequences.findIndex(s => s.Name === 'Walk'),
+    interval = picturePose(model, { sequence: walk }).interval, frames = filmstripFrames(interval, 6);
+  assert.deepEqual([frames[0], frames.at(-1)], [model.Sequences[walk].Interval[0], model.Sequences[walk].Interval[1]]);
+  assert.equal(frames.length, 6);
+  assert.ok(frames.every((f, i) => !i || f > frames[i - 1]), 'in time order');
+  assert.equal(filmstripFrames(picturePose(model, { sequence: -1 }).interval, 6), null, 'the bind pose has no animation to spread');
+  assert.equal(frameCaption(frames[3], interval), `${frames[3]} (60%)`);
+  // One framing for every frame: the walk's points over all frames contain each frame's points.
+  const each = frames.map(frame => posedPoints(picturePose(model, { sequence: walk, frame }), { 0: true })), all = pointsBox(concatPoints(each));
+  for (const points of each) {
+    const box = pointsBox(points);
+    for (let k = 0; k < 3; k++) assert.ok(box.center[k] - box.half[k] >= all.center[k] - all.half[k] - 1e-4 && box.center[k] + box.half[k] <= all.center[k] + all.half[k] + 1e-4);
+  }
+});
+
+test('filmstrip cells are 4:3, at most four in a row and fit one picture', () => {
+  for (let count = 2; count <= 12; count++) {
+    const layout = filmstripLayout(count);
+    assert.ok(layout.columns <= 4 && layout.columns * layout.rows >= count && (layout.columns - 1) * layout.rows < count + layout.rows);
+    assert.ok(layout.width <= 1536 && layout.cellWidth * 3 === layout.cellHeight * 4, `${count}: ${JSON.stringify(layout)}`);
+    assert.equal(new Set(layout.cells.map(c => c.x + ',' + c.y)).size, count, 'no two cells overlap');
+  }
+  assert.deepEqual([filmstripLayout(6).columns, filmstripLayout(6).rows], [3, 2]);
+});
+
+test('the capture tool takes a filmstrip of 2 to 12 frames and refuses one without room for its frames', () => {
+  validateArguments(captureSchema, { target: 't', samples: [{ sequence: 6, filmstrip: 6 }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ filmstrip: 13 }] }), /out of range/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 1.5 }, {}), /2 to 12/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 4, frame: 10 }, {}), /drop frame/);
+  assert.throws(() => checkPictureOptions({ filmstrip: 4, uv: true }, {}), /drop uv/);
+});
+
+test('a trail follows the node through the animation and marks the keys of the node and its parents', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman'), attack = model.Sequences.findIndex(s => s.Name === 'Attack - 1'),
+    pose = picturePose(model, { sequence: attack }), [start, end] = model.Sequences[attack].Interval;
+  // The sword grip sits under the arm: names match without case.
+  const ids = trailNodeIds(model, ['weapon ref', 38]);
+  assert.deepEqual(ids, [43, 38]);
+  const [weapon, hand] = motionTrails(pose, ids);
+  assert.equal(weapon.name, 'Weapon Ref');
+  assert.deepEqual([weapon.frames[0], weapon.frames.at(-1)], [start, end]);
+  // Every point is where the preview would put the node at that frame.
+  weapon.frames.forEach((frame, i) => assert.deepEqual(weapon.points[i], worldPivot(model, 43, sampleNodeMatrices(model, frame, attack), allNodes(model).find(n => n.ObjectId === 43)).toArray()));
+  // Keys: frames inside the attack where the node or one of its parents is keyed, with the node's position there.
+  const keyed = new Set();
+  for (let id = 43; id != null && id >= 0; id = allNodes(model).find(n => n.ObjectId === id)?.Parent)
+    for (const p of ['Translation', 'Rotation', 'Scaling']) for (const key of allNodes(model).find(n => n.ObjectId === id)[p]?.Keys || []) if (key.Frame >= start && key.Frame <= end) keyed.add(key.Frame);
+  assert.deepEqual(weapon.keys.map(k => k.frame), [...keyed].sort((a, b) => a - b));
+  assert.ok(weapon.keys.length >= 3, 'an attack has keys');
+  const k = weapon.keys[1];
+  assert.deepEqual(k.point, worldPivot(model, 43, sampleNodeMatrices(model, k.frame, attack), allNodes(model).find(n => n.ObjectId === 43)).toArray());
+  // The sword tip swings: a long path and a high peak inside the attack; the numbers agree with the points.
+  let length = 0;
+  for (let i = 1; i < weapon.points.length; i++) length += Math.hypot(...weapon.points[i].map((v, j) => v - weapon.points[i - 1][j]));
+  assert.ok(Math.abs(weapon.length - length) < 1e-6 && weapon.length > 20);
+  assert.ok(weapon.peakSpeed > 0 && weapon.peakFrame >= start && weapon.peakFrame <= end);
+  assert.ok(hand.points.length === weapon.points.length);
+  assert.deepEqual(motionTrails(picturePose(model, { sequence: -1 }), ids), [], 'the bind pose has no path');
+  assert.throws(() => trailNodeIds(model, ['No Such Bone']), /No node "No Such Bone"/);
+  assert.deepEqual(trailNodeIds(model, ['foot left ref']), [40], 'the stored name ends with a space');
+  assert.throws(() => checkPictureOptions({ trails: ['Weapon Ref'], uv: true }, model), /drop uv/);
+  validateArguments(captureSchema, { target: 't', samples: [{ sequence: 4, trails: [43, 'Bone_Hand_R'] }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ trails: [1, 2, 3, 4, 5, 6, 7, 8, 9] }] }), /number of items/);
+});
+
+test('pictures replay particles and ribbons from the animation start, whatever the user preference', () => {
+  const effects = { Geosets: [], ParticleEmitters2: [{ ObjectId: 0 }], RibbonEmitters: [] }, off = { graphics: { particles: false } };
+  const shown = drawn({ model: effects, sequence: 2, frame: 500 }, { preferences: off });
+  assert.equal(shown.showParticles, true, 'the Graphics particles preference must not blind the AI');
+  assert.equal(shown.particleAuthoring, true, 'the editor replay that builds the effect up to the frame');
+  const hidden = drawn({ model: effects, sequence: 2, particles: false }, { preferences: off });
+  assert.equal(hidden.showParticles, false);
+  assert.equal(hidden.particleAuthoring, false);
+  assert.equal(drawn({ model: effects, restPose: true }).particleAuthoring, false, 'the bind pose has no animation to replay');
+  assert.equal(drawn({ model: { Geosets: [] }, sequence: 2 }).particleAuthoring, false, 'nothing to replay');
+  // The workspace candidate preview turns them off as before.
+  assert.equal(drawn({ model: effects, sequence: 2, showParticles: false }).showParticles, false);
+  validateArguments(captureSchema, { target: 't', samples: [{ particles: false }] });
+});
+
+test('sample overlays, team colour and a model camera reach the preview', { skip: missing('footman') }, () => {
+  const model = loadMdx('footman');
+  model.Cameras = [{ Name: 'Portrait', Position: new Float32Array([100, 0, 80]), TargetPosition: new Float32Array([0, 0, 60]), FieldOfView: 0.7, NearClip: 1, FarClip: 1000 }];
+  const plain = drawn({ model, sequence: 2 });
+  for (const key of ['bones', 'attachments', 'normals', 'cameras', 'wires']) assert.equal(plain.overlays[key], false, key);
+  assert.equal(plain.showCollisionSpheres, false);
+  assert.equal(plain.portraitMode, undefined);
+  const all = drawn({ model, sequence: 2, overlays: { bones: true, attachments: true, labels: true, normals: true, collision: true, cameras: true, wires: true } });
+  assert.equal(all.showSkeleton, true, 'bones draw the skeleton');
+  assert.equal(all.overlays.skeleton, true, 'with its lines');
+  assert.equal(all.overlays.attachments, true);
+  assert.equal(all.showNormals, true);
+  assert.equal(all.showCameras, true);
+  assert.equal(all.overlays.wires, true);
+  assert.equal(all.mode, 'textured', 'wires over the surface, not a wireframe');
+  assert.equal(all.showCollisionSpheres, true);
+  assert.equal(all.markersOnTop, true, 'joints inside the body still show');
+  assert.ok(all.nodeLabels.has(42), 'Hand Right Ref gets its name');
+  assert.equal(drawn({ model, teamColor: '#0042ff' }).teamColor, '#0042ff');
+  assert.equal(drawn({ model }, { teamColor: '#ff0303' }).teamColor, '#ff0303', 'otherwise the editor\'s colour');
+  const portrait = drawn({ model, sequence: 2, camera: 0 });
+  assert.equal(portrait.portraitMode, true);
+  assert.equal(portrait.portraitCameraIndex, 0);
+  assert.equal(portrait.showcasePortraitFrame, false, 'no Human UI frame needed');
+  assert.equal(drawn({ model, sequence: 2, camera: 0, view: 'front' }).view, 'perspective', 'a preset view would detach the portrait from its camera');
+  // The tool and the checks agree on what a sample may ask for.
+  const sample = captureSchema.properties.samples.items.properties;
+  assert.deepEqual(Object.keys(sample.overlays.properties).sort(), [...PICTURE_OVERLAYS].sort());
+  validateArguments(captureSchema, { target: 't', samples: [{ overlays: { bones: true, labels: true }, teamColor: '#0042ff', camera: 0 }] });
+  assert.throws(() => validateArguments(captureSchema, { target: 't', samples: [{ overlays: { skeleton: true } }] }), /Unknown argument/);
+  assert.throws(() => checkPictureOptions({ overlays: { bones: 'yes' } }, model), /true or false/);
+  assert.throws(() => checkPictureOptions({ teamColor: 'blue' }, model), /#0042ff/);
+  assert.throws(() => checkPictureOptions({ camera: 1 }, model), /one of this model's 1 cameras/);
+  checkPictureOptions({ camera: 0, overlays: { bones: true }, teamColor: '#00ff00' }, model);
+});

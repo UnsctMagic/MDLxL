@@ -55,7 +55,9 @@ function recordFailures(task, checks, fingerprint) {
   }
   for (const check of checks || []) if (check.passed === true && typeof check.name === 'string') delete failures[check.name.slice(0, 200)];
   const repeated = Object.entries(failures).filter(([,v]) => v.count >= 2).map(([name]) => name);
+  // An advisory note only: it never blocks an edit, and a passing check clears it.
   if (repeated.length) task.replanRequired = repeated.join('; ');
+  else delete task.replanRequired;
   return task.replanRequired;
 }
 function checkpointNote(task) {
