@@ -833,3 +833,21 @@ Attack - 1 -0.02..0.02, Death -0.06..0.14; body moved -0.33..0.16 hip heights; ~
 
 `TestBuilds\transplant-review-feet`: **Feet down, body dips** (TEST TRANSPLANT 09: body height follows the
 donor's lowest foot, the totem root moves with it). Goes into the engine default with straight shin.
+
+### Owner's pick: feet down is the default (19 Nov 2026)
+
+Commit 54d148bb: `feet: 'down'` (default; `'free'` is the option) moves the body joint and every parentless donor joint
+(the totem root) together so the lower foot is as high above the ground as the Tauren's, times travel. The height is
+added onto their existing translation keys: breakpoints are their own key frames plus halves only where the change
+bends by over 0.01 hip heights; Bezier/Hermite curves are split exactly, control points lifted linearly. Tests 26 pass
+(P5 back to 0.06 hip heights, new P11: totem root and hammer against the body unchanged within 0.01); fail first
+(`out/transfer-probe/feet-fail-first.py`): feet free fails P5, P11; totem left fails P11; curves not split fails P11;
+control points not lifted fails P5. 81 retarget/window pass; `baseline-compare r v` 0 differ.
+`TEST TRANSPLANT 10.mdx` (`make-transplant-10.mjs`): 0 validation errors, 259 KB (09: 375, 08: 251), 241 keys each
+on Root and the totem root (09: 4,322; 08: 190 and 79). Lower foot (hip heights), 10 vs 09: Walk -0.01..0.03 vs
+-0.02..0.03, Attack - 1 -0.02..0.01 vs -0.02..0.05, Attack Slam -0.06..0.01 vs -0.05..0.01, Death -0.05..0.16 vs
+-0.06..0.15, stands within 0.01. Body dip/rise as 09 (Walk -0.33..0.04, Attack - 1 -0.21..0.08, Attack Slam
+-0.22..0.15). Hammer-to-hand change against 08: 0.000 in every animation (09: up to 1.68 in Attack - 1).
+Sweep 561 x 3: all built, 0 threw, 32 not valid as before, 0 over 256 groups, 0 coincident mismatch; Tauren Walk foot
+within 0.1 hip heights 99% (v1 91%, straight without feet down 12%); seconds per body with the Tauren 0.72 median
+(was 0.16; the per-moment foot sampling), Grunt and Footman 0.24 / 0.23.
