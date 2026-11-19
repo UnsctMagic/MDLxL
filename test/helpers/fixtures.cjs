@@ -58,6 +58,7 @@ const FIXTURES = {
   'transfer-villager': ['MDLXL_TRANSFER_VILLAGER', testModel('corpus-sd/critters__villagerman.mdx')],
   'transfer-red-dragon': ['MDLXL_TRANSFER_RED_DRAGON', testModel('corpus-sd/creeps__reddragon.mdx')], // the root scales to zero in Death: the whole body goes
   'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
+  'transfer-corrupted-ent': ['MDLXL_TRANSFER_CORRUPTED_ENT', testModel('corpus-sd/creeps__corruptedent.mdx')], // all its skin is on joints outside the read body that follow the body's joints
   'transfer-gargoyle': ['MDLXL_TRANSFER_GARGOYLE', testModel('corpus-sd/undead__gargoyle.mdx')], // its body joint Bone_Root hangs under Dummy01, a parentless joint
   'transfer-naga': ['MDLXL_TRANSFER_NAGA', testModel('corpus-sd/naga__nagamyrmidon.mdx')], // no legs: a snake tail under the body
   'transfer-felhound': ['MDLXL_TRANSFER_FELHOUND', testModel('corpus-sd/demon__felhound.mdx')], // the node named Body is a still skin bone beside the legs' driver
