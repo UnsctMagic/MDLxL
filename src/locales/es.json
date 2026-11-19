@@ -8878,12 +8878,15 @@
   "The donor's body was not recognised: {0}": "No se reconoció el cuerpo del donante: {0}",
   "The donor has no animations.": "El donante no tiene animaciones.",
   "The bodies could not be paired: {0}": "No se pudieron emparejar los cuerpos: {0}",
-  "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.": "El donante no tiene {0} que dar al de este modelo: va sobre el cuerpo del donante sin moverse por sí mismo.",
   "A geoset needs {0} bone groups after the transplant; the format holds 256.": "Un geoset necesita {0} grupos de huesos tras el trasplante; el formato admite 256.",
   "The open model has bind poses (Reforged skinning); they are left out of the result.": "El modelo abierto tiene poses de enlace (skinning de Reforged); se dejan fuera del resultado.",
-  "The result's body was not recognised: {0}": "No se reconoció el cuerpo del resultado: {0}",
   "Whole skeleton": "Esqueleto entero",
   "Pick parts": "Elegir partes",
   "Takes movement from the donor part by part onto this model's own bones.": "Toma el movimiento del donante parte por parte en los huesos propios de este modelo.",
-  "Building…": "Construyendo…"
+  "Building…": "Construyendo…",
+  "{0}% of the body follows the donor.": "El {0} % del cuerpo sigue al donante.",
+  "The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.": "Los dos modelos se apoyan en un número distinto de patas: las caderas y las piernas de este modelo van sobre el cuerpo del donante sin moverse por sí mismas.",
+  "No counterpart in the donor: {0}. They ride the donor's body without moving by themselves.": "Sin equivalente en el donante: {0}. Van sobre el cuerpo del donante sin moverse por sí mismos.",
+  "Sized by the bodies' overall size: one of them does not stand on legs.": "Escalado por el tamaño total de los cuerpos: uno de ellos no se apoya en piernas.",
+  "The result's legs were not read: its height was not settled.": "No se leyeron las piernas del resultado: su altura no se ajustó."
 }

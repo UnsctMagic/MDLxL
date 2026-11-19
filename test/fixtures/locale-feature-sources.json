@@ -1929,14 +1929,17 @@
     "The donor's body was not recognised: {0}",
     "The donor has no animations.",
     "The bodies could not be paired: {0}",
-    "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.",
     "A geoset needs {0} bone groups after the transplant; the format holds 256.",
     "The open model has bind poses (Reforged skinning); they are left out of the result.",
-    "The result's body was not recognised: {0}",
     "Whole skeleton",
     "Pick parts",
     "Takes movement from the donor part by part onto this model's own bones.",
-    "Building…"
+    "Building…",
+    "{0}% of the body follows the donor.",
+    "The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.",
+    "No counterpart in the donor: {0}. They ride the donor's body without moving by themselves.",
+    "Sized by the bodies' overall size: one of them does not stand on legs.",
+    "The result's legs were not read: its height was not settled."
   ],
   "paint": [
     "Citadel Paint",

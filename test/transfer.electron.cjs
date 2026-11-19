@@ -1485,8 +1485,12 @@ async function transplantStory() {
       const poor = await ready('the Magnataur result', t => t.fit === 'poor');
       await settings().locator('.xf-poor').waitFor({ timeout: 30000 });
       assert.match(await settings().locator('.xf-poor').innerText(), /Poor fit[\s\S]+\w/, 'transplant: the poor-fit line shows with a reason');
+      // One share line first, then at most three more sentences (docs/agent-tasks/xfer-transplant-fixes.md, Poor fit).
+      assert.match(poor.transplant.reasons[0] || '', /^\d+% of the body follows the donor\.$/, 'transplant: the poor fit starts with the share line');
+      assert.ok(poor.transplant.reasons.length <= 4, `transplant: at most 4 sentences under Poor fit (${poor.transplant.reasons.length})`);
+      assert.equal(await settings().locator('.xf-poor .xf-reason').count(), poor.transplant.reasons.length, 'transplant: every sentence is shown');
       assert.equal(await button().isEnabled(), true, 'transplant: a poor fit can still be transplanted');
-      results.checks.push(`transplant: the Kurgan on the Magnataur shows "Poor fit" with ${poor.transplant.reasons.length} reason(s); Transplant stays enabled`);
+      results.checks.push(`transplant: the Kurgan on the Magnataur shows "Poor fit" with a share line and ${poor.transplant.reasons.length} sentence(s) in all (at most 4); Transplant stays enabled`);
     }
     await s.openDonor(tauren);
     await ready('the Tauren result', t => t.fit === 'good');

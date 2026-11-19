@@ -8868,12 +8868,15 @@
   "The donor's body was not recognised: {0}": "Тело донора не распознано: {0}",
   "The donor has no animations.": "У донора нет анимаций.",
   "The bodies could not be paired: {0}": "Тела не удалось сопоставить: {0}",
-  "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.": "У донора нет части «{0}» для этой модели: она едет на теле донора, не двигаясь сама.",
   "A geoset needs {0} bone groups after the transplant; the format holds 256.": "Геосету после пересадки нужно {0} групп костей; формат вмещает 256.",
   "The open model has bind poses (Reforged skinning); they are left out of the result.": "У открытой модели есть позы привязки (скиннинг Reforged); в результат они не входят.",
-  "The result's body was not recognised: {0}": "Тело результата не распознано: {0}",
   "Whole skeleton": "Весь скелет",
   "Pick parts": "Выбор частей",
   "Takes movement from the donor part by part onto this model's own bones.": "Переносит движение донора часть за частью на собственные кости этой модели.",
-  "Building…": "Сборка…"
+  "Building…": "Сборка…",
+  "{0}% of the body follows the donor.": "{0}% тела следует за донором.",
+  "The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.": "Модели стоят на разном числе ног: бёдра и ноги этой модели едут на теле донора, не двигаясь сами.",
+  "No counterpart in the donor: {0}. They ride the donor's body without moving by themselves.": "Нет соответствия у донора: {0}. Они едут на теле донора, не двигаясь сами.",
+  "Sized by the bodies' overall size: one of them does not stand on legs.": "Размер взят по общим размерам тел: одно из них не стоит на ногах.",
+  "The result's legs were not read: its height was not settled.": "Ноги результата не распознаны: его высота не выровнена."
 }

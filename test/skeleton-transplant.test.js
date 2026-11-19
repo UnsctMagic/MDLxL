@@ -417,7 +417,7 @@ test('T10 poor fit: a four-legged donor is named a poor fit with the reason, and
   assert.equal(result.report.fit, 'poor');
   assert.ok(result.report.reasons.some(reason => /legs/.test(reason)), result.report.reasons.join(' | '));
   structural(result);
-  assert.equal(transplant('transfer-kurgan', 'transfer-tauren').report.reasons.length, 0, 'the owner\'s pair has no reason to be called poor');
+  assert.equal(transplant('transfer-kurgan', 'transfer-tauren').report.fit, 'good', 'the owner\'s pair is not called poor');
 });
 
 // ------------------------------------------------------------------ (d) engine fixes from the failure sweep (19 Nov 2026)
@@ -544,4 +544,97 @@ test('D2 one joint carries the height: Footman on the Gargoyle, feet down change
   const keys = (model, name) => JSON.stringify(allNodes(model).find(n => n.Name.trim() === name)?.Translation?.Keys ?? null, (key, value) => ArrayBuffer.isView(value) ? Array.from(value) : value);
   assert.notEqual(keys(down, 'Dummy01'), keys(free, 'Dummy01'), 'feet down moves Dummy01');
   assert.equal(keys(down, 'Bone_Root'), keys(free, 'Bone_Root'), 'Bone_Root, under Dummy01, is not moved again');
+});
+
+// ------------------------------------------------------------------ package B: size from the bodies, Poor fit
+// docs/agent-tasks/xfer-transplant-fixes.md, "Package B".
+/** Box of the skinned mesh at one moment (or the bind pose without `index`): { size: [x, y, z] }. */
+function skinnedBox(model, index = null, frame = 0) {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  const matrices = index == null ? null : sampleNodeMatrices(model, frame, index);
+  for (const geoset of model.Geosets) {
+    const points = matrices ? skinGeoset(geoset, matrices) : geoset.Vertices;
+    for (let i = 0; i + 2 < points.length; i += 3) for (let a = 0; a < 3; a++) if (Number.isFinite(points[i + a])) { lo[a] = Math.min(lo[a], points[i + a]); hi[a] = Math.max(hi[a], points[i + a]); }
+  }
+  return { size: hi.map((x, a) => x - lo[a]) };
+}
+const plainStand = model => { const index = model.Sequences.findIndex(s => /^stand$/i.test(String(s.Name).trim())); return index >= 0 ? index : standSequenceIndex(model); };
+const momentsOf = (model, index, samples = 12) => { const [a, b] = model.Sequences[index].Interval; return Array.from({ length: samples + 1 }, (_, i) => Math.round(a + (b - a) * i / samples)); };
+
+test('Z1 Kurgan on the Naga: a sane size, finite numbers, a mesh no bigger than twice its own', { skip: missing('transfer-kurgan', 'transfer-naga') }, () => {
+  const { own, model, report } = transplant('transfer-kurgan', 'transfer-naga');
+  assert.ok(report.counts.sizeRatio > 0.5 && report.counts.sizeRatio < 0.7, `size ${report.counts.sizeRatio} (was 42,222)`);
+  for (const node of allNodes(model)) assert.ok(Array.from(node.PivotPoint).every(x => Number.isFinite(x) && Math.abs(x) < 1e4), `pivot of ${node.Name}`);
+  for (const node of allNodes(model)) for (const p of ['Translation', 'Rotation', 'Scaling']) for (const key of node[p]?.Keys || []) assert.ok(Array.from(key.Vector).every(x => Number.isFinite(x) && Math.abs(x) < 1e4), `${node.Name}.${p} at ${key.Frame}`);
+  const bind = skinnedBox(own).size, stand = plainStand(model);
+  for (const frame of momentsOf(model, stand)) { const box = skinnedBox(model, stand, frame).size; box.forEach((x, a) => assert.ok(x <= 2 * bind[a], `Stand at ${frame}: axis ${a} ${x.toFixed(0)} against the Kurgan's ${bind[a].toFixed(0)}`)); }
+});
+test('Z2 Naga on the Footman: a sane size, the mesh does not collapse', { skip: missing('transfer-naga', 'transfer-footman') }, () => {
+  const { own, model, report } = transplant('transfer-naga', 'transfer-footman');
+  assert.ok(report.counts.sizeRatio > 1.7 && report.counts.sizeRatio < 2.2, `size ${report.counts.sizeRatio} (was 0.00002)`);
+  const bind = skinnedBox(own).size, longest = bind.indexOf(Math.max(...bind)), stand = plainStand(model);
+  for (const frame of momentsOf(model, stand)) assert.ok(skinnedBox(model, stand, frame).size[longest] >= 0.5 * bind[longest], `Stand at ${frame}`);
+});
+test('Z3 Footman on the Spider and on the Felhound: sizes from the bodies', { skip: missing('transfer-footman', 'transfer-spider', 'transfer-felhound') }, () => {
+  const spider = transplant('transfer-footman', 'transfer-spider').report.counts.sizeRatio, felhound = transplant('transfer-footman', 'transfer-felhound').report.counts.sizeRatio;
+  assert.ok(spider > 0.4 && spider < 0.8, `Spider ${spider} (was 29.1)`);
+  assert.ok(felhound > 0.9 && felhound < 1.4, `Felhound ${felhound} (was 41,382)`);
+});
+test('Z4 Kurgan on the Tauren and Footman on the Grunt are untouched: size and travel as before', { skip: missing('transfer-kurgan', 'transfer-tauren', 'transfer-footman', 'transfer-grunt') }, () => {
+  // Values from the parent commit 595082ae.
+  for (const [a, b, size, travel] of [['transfer-kurgan', 'transfer-tauren', 0.8168622801719114, 0.7236860984815916], ['transfer-footman', 'transfer-grunt', 0.8781792505979258, 0.9126946621011351]]) {
+    const { counts } = transplant(a, b).report;
+    assert.ok(Math.abs(counts.sizeRatio - size) < 1e-12 && Math.abs(counts.travel - travel) < 1e-12, `${a} on ${b}: ${counts.sizeRatio}, ${counts.travel}`);
+  }
+});
+test('F1 Kurgan on the Tauren and Footman on the Grunt are good fits', { skip: missing('transfer-kurgan', 'transfer-tauren', 'transfer-footman', 'transfer-grunt') }, () => {
+  for (const [a, b] of [['transfer-kurgan', 'transfer-tauren'], ['transfer-footman', 'transfer-grunt']]) {
+    const { report } = transplant(a, b);
+    assert.equal(report.fit, 'good', report.reasons.join(' | '));
+    assert.ok(report.follows >= 0.99, `${a}: ${report.follows}`);
+    assert.deepEqual(report.still, []);
+  }
+});
+test('F2 the share is the skin on paired parts: Kurgan on the Naga, hips and legs ride still', { skip: missing('transfer-kurgan', 'transfer-naga') }, () => {
+  const { own, report } = transplant('transfer-kurgan', 'transfer-naga');
+  for (const key of ['hips', 'legL', 'legR']) assert.ok(report.still.includes(key), `${key} rides still: ${report.still}`);
+  assert.equal(report.fit, 'poor');
+  // The share computed here: each vertex's bones in equal shares, by the part their nearest part joint belongs to.
+  clearTransferCache(own);
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), partOf = new Map(), nodes = byId(own);
+  for (const part of Object.values(rig.parts)) for (const id of part.joints) partOf.set(id, part.key);
+  const partAbove = id => { for (let at = id; at != null && at !== -1; at = nodes.get(at)?.Parent) if (partOf.has(at)) return partOf.get(at); return null; };
+  let body = 0, still = 0;
+  for (const geoset of own.Geosets) for (let v = 0; v < geoset.Vertices.length / 3; v++) {
+    const group = Array.from(geoset.Groups[geoset.VertexGroup[v]] || []);
+    for (const id of group) { const key = partAbove(id); if (key == null) continue; body += 1 / group.length; if (report.still.includes(key)) still += 1 / group.length; }
+  }
+  assert.ok(Math.abs(report.follows - (1 - still / body)) < 0.01, `follows ${report.follows}, by the parts ${1 - still / body}`);
+});
+test('F3 one share line, one sentence per cause: Kurgan on the Magnataur', { skip: missing('transfer-kurgan', 'transfer-magnataur') }, () => {
+  const { report } = transplant('transfer-kurgan', 'transfer-magnataur', { extents: false });
+  assert.equal(report.fit, 'poor');
+  assert.match(report.reasons[0], /^\d+% of the body follows the donor\.$/);
+  assert.equal(report.reasons.filter(reason => reason.startsWith('The two models stand on a different number of legs')).length, 1, report.reasons.join(' | '));
+  assert.ok(!report.reasons.some(reason => reason.includes('to give this model\'s')), report.reasons.join(' | '));
+  assert.ok(report.reasons.length <= 4, report.reasons.join(' | '));
+});
+test('F4 bind poses alone are a note, not a poor fit: a Footman with a bind pose on the Grunt', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const own = load('transfer-footman');
+  own.BindPoses = [{ Matrices: [new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])] }];
+  const { report } = transplantSkeleton(own, load('transfer-grunt'), { extents: false });
+  assert.equal(report.fit, 'good', report.reasons.join(' | '));
+  assert.ok(report.notes.includes('The open model has bind poses (Reforged skinning); they are left out of the result.'), report.notes.join(' | '));
+});
+test('F5 a tail alone is not a poor fit: Tauren on the Footman', { skip: missing('transfer-tauren', 'transfer-footman') }, () => {
+  const { report } = transplant('transfer-tauren', 'transfer-footman');
+  assert.deepEqual(report.still, ['tail']);
+  assert.equal(report.fit, 'good', report.reasons.join(' | '));
+  assert.ok(report.follows < 1, `follows ${report.follows}`);
+});
+test('F6 under half: Footman on the Wisp is a poor fit and is still made', { skip: missing('transfer-footman', 'transfer-wisp') }, () => {
+  const result = transplant('transfer-footman', 'transfer-wisp');
+  assert.ok(result.report.follows < 0.5, `follows ${result.report.follows}`);
+  assert.equal(result.report.fit, 'poor');
+  structural(result);
 });

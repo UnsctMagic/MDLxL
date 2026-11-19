@@ -8774,12 +8774,15 @@
   "The donor's body was not recognised: {0}": "未能识别来源的身体：{0}",
   "The donor has no animations.": "来源没有动画。",
   "The bodies could not be paired: {0}": "无法配对两个身体：{0}",
-  "The donor has no {0} to give this model's: it rides the donor's body without moving by itself.": "来源没有可给此模型的{0}：它随来源的身体移动，自身不动。",
   "A geoset needs {0} bone groups after the transplant; the format holds 256.": "移植后某个几何体需要 {0} 个骨骼组；格式最多 256 个。",
   "The open model has bind poses (Reforged skinning); they are left out of the result.": "打开的模型有绑定姿势（重制版蒙皮）；结果中不包含它们。",
-  "The result's body was not recognised: {0}": "未能识别结果的身体：{0}",
   "Whole skeleton": "整个骨架",
   "Pick parts": "选择部位",
   "Takes movement from the donor part by part onto this model's own bones.": "将来源的动作逐部位应用到此模型自身的骨骼上。",
-  "Building…": "正在生成…"
+  "Building…": "正在生成…",
+  "{0}% of the body follows the donor.": "{0}% 的身体跟随来源。",
+  "The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.": "两个模型的腿数不同：此模型的臀部和腿随来源的身体移动，自身不动。",
+  "No counterpart in the donor: {0}. They ride the donor's body without moving by themselves.": "来源中没有对应部位：{0}。它们随来源的身体移动，自身不动。",
+  "Sized by the bodies' overall size: one of them does not stand on legs.": "按身体的整体大小缩放：其中一个不是用腿站立的。",
+  "The result's legs were not read: its height was not settled.": "未能读取结果的腿：其高度未调整。"
 }

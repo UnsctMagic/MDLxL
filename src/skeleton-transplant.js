@@ -43,7 +43,7 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
-  transferPartLabel, transferRig, transferWholeBody,
+  rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
 } from './anim-transfer.js';
 
 const JOINT_KEYS = ['Bones', 'Helpers'];
@@ -267,7 +267,8 @@ function holdExtents(M) {
 
 /** The open model's mesh on the donor's skeleton with the donor's animations.
  * -> { model, report } where model is a new model object (the caller swaps it in as one undo
- * step) and report = { fit: 'good' | 'poor', reasons: [...], converted: [part keys],
+ * step) and report = { fit: 'good' | 'poor', reasons: [...], follows: share of the body skin that follows the donor,
+ * still: [own part keys none of whose joints got a donor joint], notes: [...], converted: [part keys],
  * extras: [{ id, name, vertices, kept }], mirrorOffer: boolean, counts: {...},
  * ownNodes: { [own ObjectId]: ObjectId in the result }, donorNodes: { [donor ObjectId]: ObjectId in the result } }.
  * `keep`: ObjectIds of own extras (their top bone, as `report.extras` lists them) whose bone stays.
@@ -279,7 +280,9 @@ function holdExtents(M) {
  * moves the body (and the donor joints that hang from nothing) up or down so the lower foot is as high above the
  * ground as the donor's, times the travel ratio (owner's pick, TEST TRANSPLANT 09); 'free' leaves the height as the keys give it. */
 export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down' } = {}) {
-  const reasons = [], keepSet = new Set(keep.map(Number));
+  // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
+  // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
+  const hard = [], notes = [], keepSet = new Set(keep.map(Number));
   // ------------------------------------------------------------ read both bodies
   const ownStand = standSequenceIndex(model);
   const rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined });
@@ -290,33 +293,28 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }) : rigA0;
   // The donor's node data in this model's format (materials and versioned fields).
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
-  if (!rigB.ok) reasons.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
-  if (!rigA.ok) reasons.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
-  if (!(D.Sequences || []).some(s => s.Interval)) reasons.push('The donor has no animations.');
+  if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
+  if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
+  if (!(D.Sequences || []).some(s => s.Interval)) hard.push('The donor has no animations.');
 
   const ownNodes = allNodes(model), ownById = new Map(ownNodes.map(n => [n.ObjectId, n])), treeB = nodeIndex(model, ownNodes);
   const donorNodes = allNodes(D), donorById = new Map(donorNodes.map(n => [n.ObjectId, n])), treeA = nodeIndex(D, donorNodes);
   const pB = id => v3(nodePivot(model, ownById.get(id), id)), pA = id => v3(nodePivot(D, donorById.get(id), id));
-  const size = rigB.ok && rigA.ok ? rigB.hipHeight / rigA.hipHeight : 1;
+  const size = rigB.ok && rigA.ok ? rigSizeRatio(rigB, rigA) : 1;
   const hipB = rigB.ok ? bindHipCentre(model, rigB) : new Vector3(), hipA = rigA.ok ? bindHipCentre(D, rigA) : new Vector3();
   const groundB = new Vector3(hipB.x, hipB.y, 0), groundA = new Vector3(hipA.x, hipA.y, 0);
 
   // ------------------------------------------------------------ pairing (the engine's own)
   let entries = [];
   const whole = rigB.ok && rigA.ok ? transferWholeBody(rigB, rigA) : { parts: [], reason: null };
-  if (whole.reason) reasons.push(whole.reason);
   if (rigB.ok && rigA.ok && ownStand >= 0 && donorStand0 >= 0 && whole.parts.length) {
     const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
     try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], probe: ({ entries: found }) => { entries = found; } }); }
-    catch (error) { reasons.push(`The bodies could not be paired: ${error.message}`); }
+    catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
   }
-  // An arm, leg or wing the donor has no counterpart for makes a poor fit; a tail only rides still.
+  // Limbs the donor has no counterpart for (Poor fit reads `still` below).
   const ridesStill = [];
-  for (const [key, part] of Object.entries(rigB.parts || {})) {
-    if (part.kind !== 'limb' || entries.some(entry => entry.key === key)) continue;
-    ridesStill.push(key);
-    if (part.limbKind !== 'tail') reasons.push(`The donor has no ${transferPartLabel(key).toLowerCase()} to give this model's: it rides the donor's body without moving by itself.`);
-  }
+  for (const [key, part] of Object.entries(rigB.parts || {})) if (part.kind === 'limb' && !entries.some(entry => entry.key === key)) ridesStill.push(key);
 
   const jointTarget = new Map();   // own part joint -> donor joint id
   const pairedOwn = new Map();     // donor joint id -> own joint whose pivot it takes
@@ -350,6 +348,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     if (hangs) { const b = own.indexOf(carrier(rigB, hangs)), a = theirs.indexOf(carrier(rigA, hangs)); if (b >= 0 && a >= 0) { kB = b; kA = a; } }
     trunkMap(own, theirs, kB, kA).forEach((j, i) => { const target = theirs[j]; jointTarget.set(own[i], target); if (!pairedOwn.has(target) || i === kB) pairedOwn.set(target, own[i]); });
   }
+  // Poor fit: how much of the body moves as the donor's same part (docs/agent-tasks/xfer-transplant-fixes.md).
+  const still = Object.values(rigB.parts || {}).filter(part => !part.joints.some(id => jointTarget.has(id))).map(part => part.key);
 
   // ------------------------------------------------------------ own nodes: what stays, where skin goes
   const partJoint = id => ownPartOf.has(id);
@@ -413,6 +413,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     resolved.set(id, result);
     return result;
   };
+  // The share of the body skin that follows: skin whose bone hangs under a joint of a part that got a donor joint, weighted
+  // as the file binds it (HD: each bone's weight; classic: equal shares of a group). Skin that keeps its own bone is not counted.
+  let counted = 0, following = 0;
+  if (rigB.ok && rigA.ok) for (const geoset of model.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const hd = skin?.length >= (v + 1) * 8, group = hd ? null : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      const bound = hd ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => [skin[v * 8 + i], skin[v * 8 + 4 + i] / 255]) : group.map(id => [id, 1 / group.length]);
+      for (const [id, w] of bound) {
+        if (targetOf(id).own != null) continue;
+        const joint = treeB.ancestors(id, true).find(partJoint);
+        if (joint == null) continue;
+        counted += w;
+        if (!still.includes(ownPartOf.get(joint))) following += w;
+      }
+    }
+  }
+  const follows = rigB.ok && rigA.ok && counted > 0 ? following / counted : 0;
 
   const offset = Math.max(-1, ...ownNodes.map(n => n.ObjectId)) + 1, newId = id => id + offset;
   const skinTarget = id => { const t = targetOf(id); return t.own != null ? t.own : newId(t.donor); };
@@ -591,7 +609,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     for (let j = 0; j + 1 < joints.length; j++) { own.push(placed.get(joints[j + 1]).clone().sub(placed.get(joints[j]))); theirs.push(pA(joints[j + 1]).sub(pA(joints[j]))); along.push(chordOf.get(joints[j]) ?? theirs[j]); }
     return { own, donor: theirs, along };
   });
-  const travel = rigB.ok && rigA.ok ? legTravelRatio(legStretches, size, 1e-3 * rigA.hipHeight) : size;
+  const travel = rigB.ok && rigA.ok && rigB.hipMeasured && rigA.hipMeasured ? legTravelRatio(legStretches, size, 1e-3 * rigA.hipHeight) : size;
   const trunkJoint = id => { const key = partOfDonor.get(id); return key != null && rigA.parts[key]?.kind === 'trunk'; };
   const correctionOf = id => {
     if (correction.has(id)) return correction.get(id);
@@ -866,12 +884,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       vertexGroup.push(index.get(key));
       for (const t of targets) skinned.add(t);
     }
-    if (groups.length > 256) reasons.push(`A geoset needs ${groups.length} bone groups after the transplant; the format holds 256.`);
+    if (groups.length > 256) hard.push(`A geoset needs ${groups.length} bone groups after the transplant; the format holds 256.`);
     geoset.Groups = groups;
     geoset.VertexGroup = like(geoset.VertexGroup || new Uint8Array(count), vertexGroup);
     geoset.TotalGroupsCount = groups.reduce((sum, group) => sum + group.length, 0);
   }
-  if ((M.BindPoses || []).length) { reasons.push('The open model has bind poses (Reforged skinning); they are left out of the result.'); M.BindPoses = []; }
+  if ((M.BindPoses || []).length) { notes.push('The open model has bind poses (Reforged skinning); they are left out of the result.'); M.BindPoses = []; }
+  if (rigB.ok && rigA.ok && !(rigB.hipMeasured && rigA.hipMeasured)) notes.push("Sized by the bodies' overall size: one of them does not stand on legs.");
   // A donor helper that carries skin becomes a bone; a still donor joint with no skin, keys or children goes.
   const hasKeys = node => ['Translation', 'Rotation', 'Scaling'].some(p => node[p]?.Keys?.length);
   for (const [joint, bone] of carriers) if (bone !== joint && skinned.has(newId(bone))) skinCounts.carriers++;
@@ -911,7 +930,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const convertedKeys = [];
   // Donor joints that hang from nothing (a thrown weapon's root) settle onto the ground with the body.
   const loose = Object.values(donorMap).filter(id => { const n = M.Nodes[id]; return JOINT_KEYS.some(k => M[k].includes(n)) && (n.Parent == null || n.Parent === -1); });
-  if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigA, remap, offset, reasons, loose);
+  if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigA, remap, offset, notes, loose);
   if (rigB.ok && rigA.ok && feet !== 'free') feetDown(M, D, rigB, rigA, loose, travel);
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
@@ -937,17 +956,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Safety net: nothing that is not a finite number leaves the engine; what was held is said in the report.
   orderKeys(M);
   const held = holdNonFinite(M, model);
-  if (held.vertices || held.pivots || held.keys) reasons.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
+  if (held.vertices || held.pivots || held.keys) notes.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
 
-  const fit = reasons.length ? 'poor' : 'good';
+  // Poor fit (docs/agent-tasks/xfer-transplant-fixes.md): a hard reason, the hips or an arm, leg or wing riding still, or
+  // under half of the body following. One share line, one sentence per cause, then the hard reasons and the notes.
+  const fit = hard.length || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
+  if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  const listed = still.filter(key => !(whole.reason && (key === 'hips' || /^leg/.test(key))));
+  if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
+  reasons.push(...hard, ...notes);
   const extrasOut = [...extras.values()].map(({ bones, ...rest }) => rest);
   return {
     model: M,
     report: {
-      fit, reasons, converted: convertedKeys, extras: extrasOut, mirrorOffer,
+      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
@@ -1102,11 +1128,11 @@ function addHeight(M, node, interval, frames, values) {
 }
 
 /** No converted limb: only the ground is settled (feet of the open model's proportions in the donor's stance). */
-function settleFeet(M, rigB, rigA, remap, offset, reasons, loose = []) {
+function settleFeet(M, rigB, rigA, remap, offset, notes, loose = []) {
   const stand = standSequenceIndex(M);
   clearTransferCache(M);
   const rigM = transferRig(M, { sequence: stand >= 0 ? stand : undefined });
-  if (!rigM.ok) { reasons.push(`The result's body was not recognised: ${rigM.problems.join(' ')}`); return; }
+  if (!rigM.ok) { notes.push("The result's legs were not read: its height was not settled."); return; }
   const { mover, line } = bodyMover(M, rigM.body, loose);
   shiftBody(M, mover, groundShift(M, rigM, rigB), loose.filter(id => !line.has(id)));
   void rigA; void remap; void offset;
