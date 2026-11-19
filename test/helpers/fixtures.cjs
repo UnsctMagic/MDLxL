@@ -34,6 +34,9 @@ const FIXTURES = {
   'sd-chaos-orc': ['MDLXL_SD_CHAOS_ORC', testModel('corpus-sd/critters__chaosspaceorc.mdx')], // a keyed light, attachments, an emitter, SND/FPT/SPL and an odd SPN event
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  'uv-fit-nurgle': ['MDLXL_UV_FIT_NURGLE', testModel('uv-fit-layout/WH_WOC_KnightNurgleHeavy06.mdx')], // geoset 46: two UV rings folded on one patch
+  'uv-fit-archer': ['MDLXL_UV_FIT_ARCHER', testModel('uv-fit-layout/Bretonnian_Archer.mdx')], // geoset 11: three quads on one UV spot
+  'uv-fit-orc': ['MDLXL_UV_FIT_ORC', testModel('uv-fit-layout/Greenskin_Orc1.mdx')], // geoset 5: a folded piece and two mirrored quads
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
 

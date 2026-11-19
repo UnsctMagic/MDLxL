@@ -27,5 +27,9 @@
 .uv-tab-window>header{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;height:29px;padding:0 4px 0 8px;border-bottom:1px solid var(--ui-border,#777);background:var(--ui-panel,#d4d0c8)}.uv-tab-window>header{height:auto;min-height:29px}.uv-tab-window-buttons{display:flex;flex:none;gap:3px}.uv-tab-window-buttons button{min-width:25px;height:23px;padding:0 5px}.uv-tab-window-body{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}.uv-tab-window-body[hidden]{display:none}.uv-tab-window.expanded{inset:0;width:100%;height:100%}.uv-tab-window.minimized{top:auto;right:auto;bottom:0;left:0;width:250px;height:30px;box-shadow:none}
 .uv-grid-toolbar{flex-wrap:wrap}
 
+/* A tool row holds every button added to it: the row keeps the grid's width and its buttons shrink to fit (owner, 17 Nov 2026). */
+.uv-tool-row{grid-column:1/-1;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px}.uv-tool-row .uv-tool.classic-tool{min-height:32px;padding:3px}
 .uv-toolbox{container-type:inline-size}
 @container(max-width:650px){.uv-tool-grid{grid-template-columns:repeat(3,minmax(54px,1fr))}.uv-fold-control{grid-column:span 2;grid-row:auto}}
+/* Fit marking: the caption's place while an area is marked, wrapping onto a second line when narrow. */
+.uv-fit-bar{position:absolute;left:7px;right:7px;bottom:6px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 6px;background:#111d;color:#fff;font-size:11px}.uv-fit-bar button{min-height:22px;padding:2px 8px;font-size:11px}.uv-fit-bar button[aria-pressed=true]{outline:2px solid #ffe664;outline-offset:-2px}.uv-fit-bar label{display:flex;align-items:center;gap:4px}.uv-fit-bar span{flex:1 1 220px;min-width:0}
