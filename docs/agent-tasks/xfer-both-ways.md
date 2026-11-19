@@ -1129,3 +1129,38 @@ pictures by `out/compare-sheet-gore2/death-shot.cjs`, which scrubs the sheet's o
   differ, fingerprint `postT2` 2,950 must-be-identical 0 differ (118 Ogre runs as before). Hidden click run: every
   check passed; its last check fails only because the owner's real answers file already exists. Pictures
   `out/compare-sheet-gore2/v3-case2-*.png`: lying at the end of the Death, same size as the Grunt, nothing in Decay Bone.
+
+### The living body dies: default, build 27 (19 Nov 2026)
+
+Owner on the gore2 sheet: Ogre, Ghoul (`ghoul-grunt-2`) and Skeleton Warrior all "Looks right", then "GO".
+
+- `src/skeleton-transplant.js`: in the donor's Death and Decay every keyed own geoset shows as the own Stand shows it
+  (`holdShowing`): the living body dies with the donor, death-only meshes (corpse copies, gut piles) stay hidden, and
+  nothing shows where the donor hides its own body (its biggest geoset shown in its Stand). The `deathBody` option
+  and "Corpse follows" are removed (it differed only at the hands); twin chains are again only the everyday ones.
+  Not covered: a geoset with no visibility keys stays shown everywhere, as before (no keys are added to the model).
+- Tests G1-G5 (`test/skeleton-transplant.test.js`): G3 Ghoul and G4 Skeleton Warrior show the living body and hide
+  the corpse through the Grunt's Death, G5 nothing in the Grunt's Decay Bone; all three fail on b155b3f0.
+  skeleton-transplant + transplant-skin 51/51, anim-transfer + transfer-window 89/89, baseline `z3` vs `y` 0 differ.
+- Fingerprint (`postT2` -> `postL`, `fix-design/fingerprint-postL-changes.txt`): 2,940 of 3,068 runs change, 128
+  identical. Bytes change for every own model with keyed geosets (Death/Decay keys rewritten); the visible change
+  (`gore2/who-changes.mjs`): every sweep own model but three has death-only meshes or a living body its own
+  Death/Decay hides (most SD models swap to a bone pile in Decay Bone), so nearly every pair shows differently in
+  the donor's Death/Decay. Unchanged: Archmage (no keyed geosets), Kurgan and Lord of Change (nothing death-only).
+- Failure sweep (`failure-sweep/rows27-*`, `analysis27.txt`, 2 idle shards), window default against build 26:
+
+  | Window default | Build 26 | Now |
+  | --- | --- | --- |
+  | fine / broken / doubtful | 866 / 102 / 625 | **875 / 58 / 660** |
+  | flung vertices (old measure) | 74 | 40 |
+  | mesh vanishes (old measure) | 28 | 18 |
+  | new: flung on donor bones | 8 | 9 (+Ghoul on the Wyvern and the Blood Dragon Nightmare, -2 gone) |
+  | floats / sinks (old measures, donor motion) | 257 / 395 | 265 / 397 (all new ones the Ogre in Decay on fliers, Hydra, Penguin: his body now shows there) |
+  | feet off target | 5 | 5 |
+  | said good but broken | 27 | 16 |
+
+  (The first two shards were started without `PREFIX` and overwrote the 12-shard run's `rows-0/1.jsonl`;
+  `analysis.txt` from that run is kept.)
+- Package `TestBuilds\transfer-xl-27` (TEMP on D:); `transfer` harness hidden with the sweep: 70 checks, 151 controls,
+  passed. Launcher `_START HERE\7 TRANSPLANT - in the XFER window.cmd` opens build 27 on `TEST TRANSPLANT 12.mdx`
+  (Kurgan copy).
