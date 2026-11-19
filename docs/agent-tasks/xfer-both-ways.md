@@ -927,3 +927,42 @@ refitted particle tracks left with no keys (`refitTracks`), old; donor weapon bo
 singular inverse -> NaN weapon (new in v2); joint ancestor not yet placed (`placeFrom`), old; weapon vanishes
 when the donor hides its weapon bone in Death (new in v2). The poor-fit label does not predict breakage.
 Owner asked for a report, not a fix; nothing changed.
+
+## Engine fixes for classes 2,3,4,5,8: result (builder: Claude Opus, 19 Nov 2026)
+
+Only `src/skeleton-transplant.js` changed (no size/scale or poor-fit logic touched). Scripts and data in
+`out/transfer-probe/engine-fixes/`.
+- **Class 2** (own track left with no keys, the preview threw "reading 'Vector'"): `refitTracks` never leaves a
+  track empty. A node's move goes (rest); any other track holds, in every animation, what the renderer showed with
+  no key (`HELD`: rate 0, visibility/alpha/colour 1, a ribbon unseen), else its first value. Looks the same as before.
+- **Class 3** (Khorne knight's `Axe` scaled to zero -> singular inverse -> NaN weapon): a donor weapon bone whose own
+  chain (the bones the hand does not hang from) is scaled to nothing at the reference moment, or carries no donor
+  skin and is scaled to nothing in most animations, is not the weapon bone; the donor's weapon hand is tried next,
+  else the weapon stays on the hand it pairs with. `report.weapon.note` says "The donor hides its weapon bone (...)".
+  Every inverse is guarded (`safeInverse`): weapon re-placement falls back to the hand (`holdWeaponOnHand`), the
+  extra bake and the weapon attachment keep their place.
+- **Class 4** (joint ancestor not placed: the Hermit Crab's root hangs from its Origin Ref): `ensurePlaced` places a
+  non-joint ancestor first, from its own parent.
+- **Class 5**: where a weapon bone the donor keeps scales to nothing in some animations only, the result's copy keeps
+  its reference size there (`decollapse`): the weapon stays with the hand. The sweep's 90 pairs (dragons) were the
+  whole body going: the root scales to zero in Death; after the change all 180 runs hide the weapon only together
+  with the joint it hangs from (`class5-check.mjs`), as the donor does. The sweep's check does not compare with the
+  hand, so it still lists them.
+- **Class 8** (HD donor: animations out of time order, two on one interval): constant tracks and new translation
+  tracks get one key per distinct start in time order; `feetDown` lifts a shared interval once (it lifted it twice);
+  `orderKeys` sorts and de-duplicates any track left out of order.
+- **Safety net**: `holdNonFinite` before extents (vertex -> own bind place, pivot -> parent's, node key -> rest, other
+  key -> last good value) and `holdExtents` after; anything held adds the reason "Parts of the result were not a
+  number (...): they are held at rest." (new sentence, not yet in the locale catalogs.)
+
+Proof:
+- New tests C2, C3, C4, C5 (synthetic Death collapse on the Grunt's axe bone), C8, C9 (NaN donor key) fail on the old
+  engine and pass; C5 Red Dragon is a guard (passes before and after). New fixture keys `transfer-hermit-crab`,
+  `transfer-villager`, `transfer-red-dragon`. skeleton-transplant + transplant-skin 33/33, anim-transfer +
+  transfer-window 83/83, `baseline.mjs w` vs `v`: 32 compared, 0 differ.
+- Affected pairs rerun (244 pairs, 488 runs, 2 idle processes): class 2 246 -> 0, class 3 14 -> 0, class 4 26 -> 0,
+  class 8 8 -> 0, class 5 180 listed by the sweep -> 0 hidden apart from the body. The 286 runs that threw now build
+  (67 with no problem; the rest show the size-ratio classes, the designer's work). Runs that built before only lost
+  problems.
+- 100 previously fine pairs (`fine-pairs.json`, `hash-fine.mjs`, `diffall.mjs`): 53 identical; 47 differ only in tracks
+  that had zero keys and now hold the renderer's no-key value or were removed (node moves): same picture.

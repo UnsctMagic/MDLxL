@@ -143,8 +143,126 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
       copyBodyAnimation(holderOf([copy]), plan.clock, plan.start, plan.length);
       keys.push(...copy[name].Keys.filter(key => key.Frame >= plan.start && key.Frame <= plan.start + plan.length));
     }
+    if (!keys.length && track.Keys.length) { holdTrack(entry, track, ownSequences[ownStand]?.Interval, globalSequences, newSequences); continue; }
     track.Keys = keys.sort((a, b) => a.Frame - b.Frame);
   }
+}
+
+/** What the renderer shows for a track with no key in the playing animation (war3-model's defaults). */
+const HELD = { EmissionRate: [0], Visibility: [1], Alpha: [1], Color: [1, 1, 1], Rotation: [0], Intensity: [0], AmbIntensity: [0] };
+/** A refitted track that got no key in any new animation (its own animations have no counterpart in the donor's):
+ * the preview reads a track's first key, so it is never left empty (failure sweep class 2). It shows what it showed
+ * with no key: a node's move goes (its rest); anything else holds, in every animation, the value the renderer shows
+ * where a track has no key (an effect's rate 0, a visibility, alpha or colour 1, a ribbon unseen), else its first value. */
+function holdTrack(entry, track, stand, globalSequences, newSequences) {
+  const { owner, property, quaternion } = entry;
+  if (owner.ObjectId != null && ['Translation', 'Rotation', 'Scaling'].includes(property)) { delete owner[property]; return; }
+  void stand; void globalSequences; void quaternion;
+  let value = HELD[property] ?? null;
+  if (property === 'Visibility' && ('HeightAbove' in owner || 'HeightBelow' in owner)) value = [0];
+  const template = track.Keys[0].Vector;
+  if (value == null) value = Array.from(template);
+  track.LineType = 0;
+  track.Keys = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: like(template, [].concat(value)) }));
+}
+
+/** Keys in time order with no two on one frame (failure sweep class 8: a donor whose animation list is out of time
+ * order, or whose animations share an interval, got per-animation keys in list order and twice). Only a track out of
+ * order is touched. */
+function orderKeys(M) {
+  const visit = track => {
+    const keys = track.Keys;
+    if (!Array.isArray(keys) || keys.every((key, i) => i === 0 || key.Frame > keys[i - 1].Frame)) return;
+    const list = [...keys].sort((a, b) => a.Frame - b.Frame);
+    track.Keys = list.filter((key, i) => i === 0 || key.Frame !== list[i - 1].Frame);
+  };
+  for (const key of [...NODE_KEYS, 'GeosetAnims', 'Materials', 'TextureAnims', 'Cameras']) for (const owner of M[key] || []) visitTracks(owner, visit, { skip: ['Interval', 'Anims'] });
+}
+
+/** The weapon's vertices and attachments go back onto the hand they were baked onto (ids of the result). */
+function holdWeaponOnHand(weapon, vertices, moves) {
+  for (const [geoset, v, hand] of vertices) {
+    const count = geoset.Vertices.length / 3, weights = geoset.SkinWeights;
+    if (weights?.length >= count * 8) for (let i = 0; i < 4; i++) if (weights[v * 8 + i] === weapon && weights[v * 8 + 4 + i] > 0) weights[v * 8 + i] = hand;
+    const group = geoset.Groups?.[geoset.VertexGroup?.[v]];
+    if (!group) continue;
+    const bones = [...new Set(Array.from(group, id => id === weapon ? hand : id))].sort((a, b) => a - b), key = bones.join(',');
+    let index = geoset.Groups.findIndex(g => Array.from(g).join(',') === key);
+    if (index < 0) index = geoset.Groups.push(bones) - 1;
+    geoset.VertexGroup[v] = index;
+    geoset.TotalGroupsCount = geoset.Groups.reduce((sum, g) => sum + g.length, 0);
+  }
+  for (const [node, hand] of moves) node.Parent = hand;
+}
+
+/** A matrix's inverse, or null when it has none (a node scaled to nothing) or holds a number that is not finite. */
+function safeInverse(matrix) {
+  if (!matrix) return null;
+  const det = matrix.determinant();
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+  const inverse = matrix.clone().invert();
+  return inverse.elements.every(Number.isFinite) ? inverse : null;
+}
+
+/** Safety net: no vertex, normal, pivot, key or extent of the result is left not finite. A bad vertex goes back to
+ * the open model's bind place, a pivot to its parent's, a node's key to rest (no move, no turn, full size), any other
+ * key to the track's last good value. -> counts of what was held. */
+function holdNonFinite(M, source) {
+  const ok = Number.isFinite, held = { vertices: 0, pivots: 0, keys: 0 };
+  (M.Geosets || []).forEach((geoset, g) => {
+    for (const name of ['Vertices', 'Normals']) {
+      const a = geoset[name], b = source.Geosets?.[g]?.[name];
+      if (!a) continue;
+      for (let i = 0; i + 2 < a.length; i += 3) {
+        if (ok(a[i]) && ok(a[i + 1]) && ok(a[i + 2])) continue;
+        const rest = b && ok(b[i]) && ok(b[i + 1]) && ok(b[i + 2]) ? [b[i], b[i + 1], b[i + 2]] : name === 'Normals' ? [0, 0, 1] : [0, 0, 0];
+        a[i] = rest[0]; a[i + 1] = rest[1]; a[i + 2] = rest[2];
+        if (name === 'Vertices') held.vertices++;
+      }
+    }
+  });
+  const nodes = allNodes(M), byId = new Map(nodes.map(node => [node.ObjectId, node]));
+  const finite = v => v == null || (typeof v === 'number' ? ok(v) : Array.from(v).every(ok));
+  for (const node of nodes) if (node.PivotPoint && !finite(node.PivotPoint)) {
+    let rest = [0, 0, 0];
+    for (let at = byId.get(node.Parent); at; at = byId.get(at.Parent)) if (finite(at.PivotPoint)) { rest = Array.from(at.PivotPoint); break; }
+    node.PivotPoint = new Float32Array(rest);
+    held.pivots++;
+  }
+  const visit = (track, { owner, property }) => {
+    let last = null;
+    for (const key of track.Keys) {
+      if ([key.Vector, key.InTan, key.OutTan].every(finite)) { last = key.Vector; continue; }
+      const size = key.Vector?.length ?? 1;
+      const rest = owner?.ObjectId != null && property === 'Rotation' ? [0, 0, 0, 1] : owner?.ObjectId != null && property === 'Scaling' ? [1, 1, 1] : owner?.ObjectId != null && property === 'Translation' ? [0, 0, 0] : last ? Array.from(last) : new Array(size).fill(0);
+      const template = key.Vector ?? new Float32Array(size);
+      key.Vector = like(template, rest);
+      if (key.InTan) key.InTan = like(template, rest);
+      if (key.OutTan) key.OutTan = like(template, rest);
+      last = key.Vector;
+      held.keys++;
+    }
+  };
+  for (const key of [...NODE_KEYS, 'GeosetAnims', 'Materials', 'TextureAnims', 'Cameras']) for (const owner of M[key] || []) visitTracks(owner, visit, { skip: ['Interval', 'Anims'] });
+  return held;
+}
+
+/** Extents that are not finite (from motion that was not) become the bind box of the result's vertices. */
+function holdExtents(M) {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const geoset of M.Geosets || []) for (let i = 0; i < (geoset.Vertices?.length || 0); i++) { const c = i % 3, v = geoset.Vertices[i]; if (v < lo[c]) lo[c] = v; if (v > hi[c]) hi[c] = v; }
+  if (!Number.isFinite(lo[0])) { lo.fill(0); hi.fill(0); }
+  const radius = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2;
+  let held = 0;
+  for (const box of [...(M.Sequences || []), ...(M.Geosets || []), ...(M.Geosets || []).flatMap(geoset => geoset.Anims || [])]) {
+    const bad = ['MinimumExtent', 'MaximumExtent'].some(name => box[name] && !Array.from(box[name]).every(Number.isFinite)) || (box.BoundsRadius != null && !Number.isFinite(box.BoundsRadius));
+    if (!bad) continue;
+    if (box.MinimumExtent) box.MinimumExtent = like(box.MinimumExtent, lo);
+    if (box.MaximumExtent) box.MaximumExtent = like(box.MaximumExtent, hi);
+    if (box.BoundsRadius != null) box.BoundsRadius = radius;
+    held++;
+  }
+  return held;
 }
 
 /** The open model's mesh on the donor's skeleton with the donor's animations.
@@ -335,13 +453,58 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   for (const extra of extras.values()) if (ownWeaponHand != null && targetOf(extra.id).via === ownWeaponHand) weaponExtras.add(extra.id);
   for (const point of ownWeaponPoints) { const top = point.Parent != null ? extraOf(point.Parent) : null; if (top != null) weaponExtras.add(top); }
   const weaponVia = [...weaponExtras].map(id => targetOf(id).via).find(id => id != null) ?? ownWeaponHand;
-  let donorWeapon = null, weaponSkip = null;
+  // Vertices of the donor's own skin per donor node.
+  const donorSkin = new Map();
+  for (const geoset of D.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const bones = weights?.length >= count * 8 ? [0, 1, 2, 3].filter(i => weights[v * 8 + 4 + i] > 0).map(i => weights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      for (const id of new Set(bones)) donorSkin.set(id, (donorSkin.get(id) || 0) + 1);
+    }
+  }
+  // A donor weapon bone that the donor scales to nothing (failure sweep classes 3 and 5). Only the bones between it and
+  // the hand count (the weapon bone and those above it the hand does not hang from): where the whole body goes, the
+  // weapon goes with it. Such a bone is not the weapon bone when it is scaled to nothing at the reference moment (the
+  // first frame of the Stand), or carries no donor skin and is scaled to nothing in most animations (a hidden spare,
+  // the Khorne knight's Axe). Else it is, and in the result it keeps its reference size where the donor hides it: the
+  // weapon stays with the hand there.
+  const donorStandD = standSequenceIndex(D), donorIntervals = (D.Sequences || []).map((s, i) => s.Interval ? i : -1).filter(i => i >= 0);
+  const scaleAt = (id, sequence) => {
+    const track = donorById.get(id)?.Scaling, interval = D.Sequences?.[sequence]?.Interval;
+    if (!track?.Keys?.length || !interval || isGlobalTrack(track, D)) return [1, 1, 1];
+    return sampleTrack(track, interval[0], { interval, globalSequences: D.GlobalSequences, fallback: [1, 1, 1] });
+  };
+  const collapsed = value => Array.from(value).some(x => Math.abs(x) < 1e-3);
+  const weaponUse = (bone, hand) => {
+    const handLine = new Set(hand != null ? treeA.ancestors(hand, true) : []);
+    const chain = treeA.ancestors(bone, true).filter(id => !handLine.has(id)).filter(id => {
+      const track = donorById.get(id)?.Scaling;
+      return track?.Keys?.length && !isGlobalTrack(track, D) && track.Keys.some(key => collapsed(key.Vector));
+    });
+    if (!chain.length) return { ok: true, chain };
+    if (donorStandD >= 0 && chain.some(id => collapsed(scaleAt(id, donorStandD)))) return { ok: false };
+    const skinned = [...donorSkin].some(([id, count]) => count > 0 && treeA.ancestors(id, true).includes(bone));
+    const hidden = donorIntervals.filter(i => chain.some(id => collapsed(scaleAt(id, i)))).length;
+    if (!skinned && hidden * 2 > donorIntervals.length) return { ok: false };
+    return { ok: true, chain };
+  };
+  const decollapse = new Map(); // donor node -> its scale at the reference moment, for keys that scale it to nothing
+  let donorWeapon = null, weaponSkip = null, weaponChain = [];
   {
     const point = (D.Attachments || []).find(node => isWeaponPoint(node) && node.Parent != null && node.Parent !== -1);
-    let bone = point ? treeA.ancestors(point.ObjectId).find(id => isDonorJoint(id)) ?? null : null;
-    if (bone == null) bone = Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null;
+    const handTarget = weaponVia != null ? targetOf(weaponVia) : null, handId = handTarget?.donor ?? null;
+    let bone = point ? treeA.ancestors(point.ObjectId).find(id => isDonorJoint(id)) ?? null : null, use = null;
+    const check = id => {
+      if (id == null || handId == null) return id;
+      const result = weaponUse(id, handId);
+      if (!result.ok) { weaponSkip = `The donor hides its weapon bone (${donorById.get(id)?.Name}): the weapon stays in the hand.`; return null; }
+      use = result;
+      return id;
+    };
+    bone = check(bone);
+    if (bone == null) bone = check(Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null);
     if (bone != null && (!keepDonor.has(bone) || !isDonorJoint(bone))) bone = null;
-    const handTarget = weaponVia != null ? targetOf(weaponVia) : null;
+    weaponChain = bone != null && use ? use.chain : [];
     const ownArm = weaponVia != null ? ownPartOf.get(weaponVia) : null;
     const pairedArm = ownArm != null ? limbEntries.find(entry => entry.key === ownArm)?.theirs.key ?? null : null;
     const armOf = id => { for (const at of treeA.ancestors(id, true)) { const key = partOfDonor.get(at); if (key != null && rigA.parts[key]?.limbKind === 'arm') return key; } return null; };
@@ -353,6 +516,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   }
   // Where the weapon's skin goes: the donor's weapon bone, else (unchanged) the hand it pairs with.
   const weaponRides = donorWeapon != null && weaponExtras.size > 0 && [...weaponExtras].some(id => !keepSet.has(id));
+  if (weaponRides) for (const id of weaponChain) decollapse.set(id, Array.from(scaleAt(id, donorStandD >= 0 ? donorStandD : donorIntervals[0])));
 
   const placed = new Map(), correction = new Map();
   const byDepth = [...keepDonor].sort((a, b) => treeA.depth(a) - treeA.depth(b));
@@ -360,12 +524,23 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   for (const [donorId, ownId] of pairedOwn) if (keepDonor.has(donorId)) placed.set(donorId, pB(ownId));
   const pairedBelow = id => { const found = []; const walk = at => { for (const child of treeA.children.get(at) || []) { if (!keepDonor.has(child.ObjectId)) continue; if (pairedOwn.has(child.ObjectId)) found.push(child.ObjectId); else walk(child.ObjectId); } }; walk(id); return found; };
   const placeFrom = (anchorPlace, anchorDonor, id, turn = null) => { const offset = pA(id).sub(pA(anchorDonor)).multiplyScalar(size); return anchorPlace.clone().add(turn ? offset.applyQuaternion(inv(turn)) : offset); };
+  // A donor joint can hang from a node that is not a joint (the Hermit Crab's root hangs from its Origin Ref): that
+  // node is placed first, from its own parent as the other nodes are (failure sweep class 4).
+  const ensurePlaced = id => {
+    if (placed.has(id)) return;
+    if (isDonorJoint(id)) { placeJoint(id); return; }
+    const parent = donorParent(id);
+    if (parent?.own != null) placed.set(id, placeFrom(pB(parent.own), parent.from, id));
+    else if (parent?.donor != null) { ensurePlaced(parent.donor); placed.set(id, placeFrom(placed.get(parent.donor), parent.donor, id)); }
+    else placed.set(id, groundB.clone().add(pA(id).sub(groundA).multiplyScalar(size)));
+  };
   const placeJoint = id => {
     if (placed.has(id)) return;
     const parent = donorParent(id);
     const below = pairedBelow(id);
     if (parent?.own != null) { placed.set(id, placeFrom(pB(parent.own), parent.from, id)); return; }
     const ancestor = parent?.donor;
+    if (ancestor != null) ensurePlaced(ancestor);
     if (ancestor != null && below.length === 1) {
       // On this model's line between the joint above and the paired joint below, at the donor's share of that path.
       const q = below[0], path = [q]; for (let at = treeA.parentOf(q); at != null && at !== id; at = treeA.parentOf(at)) path.unshift(at);
@@ -425,7 +600,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     correction.set(id, value);
     return value;
   };
-  for (const id of byDepth) if (!isDonorJoint(id)) {
+  for (const id of byDepth) if (!isDonorJoint(id) && !placed.has(id)) {
     const parent = donorParent(id);
     if (parent?.own != null) placed.set(id, placeFrom(pB(parent.own), parent.from, id));
     else if (parent?.donor != null) placed.set(id, placeFrom(placed.get(parent.donor), parent.donor, id, correctionOf(parent.donor)));
@@ -460,7 +635,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const newSequences = structuredClone(D.Sequences || []).filter(s => s.Interval);
   for (const sequence of newSequences) sequence.MoveSpeed = (Number(sequence.MoveSpeed) || 0) * travel;
   // A track holding one value in every animation (a joint kept still, a constant correction).
-  const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: newSequences.map(sequence => ({ Frame: sequence.Interval[0], Vector: like(template ?? new Float32Array(value.length), value) })) });
+  // One key per distinct start, in time order (an HD donor lists its animations out of time order, two on one interval).
+  const starts = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
+  const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: starts.map(frame => ({ Frame: frame, Vector: like(template ?? new Float32Array(value.length), value) })) });
   const isDefault = (property, value) => property === 'Rotation' ? near(new Quaternion().fromArray(value).normalize(), 1e-7) : property === 'Scaling' ? value.every(v => Math.abs(v - 1) < 1e-7) : value.every(v => Math.abs(v) < 1e-7);
   for (const node of ownNodes) {
     if (!ownKeep.has(node.ObjectId)) continue;
@@ -505,7 +682,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     if (onWeapon && weaponRides) { copy.Parent = newId(donorWeapon); if (!mine || via == null) return; }
     else if (mine && via != null) copy.Parent = skinTarget(via);
     else return;
-    const p = v3(nodePivot(model, mine, mine.ObjectId)).applyMatrix4(ownRef.get(mine.ObjectId) || new Matrix4()).applyMatrix4((ownRef.get(via) || new Matrix4()).clone().invert());
+    const back = safeInverse(ownRef.get(via) || new Matrix4());
+    if (!back) return;
+    const p = v3(nodePivot(model, mine, mine.ObjectId)).applyMatrix4(ownRef.get(mine.ObjectId) || new Matrix4()).applyMatrix4(back);
     copy.PivotPoint = new Float32Array(p.toArray());
     delete copy.Translation; delete copy.Rotation; delete copy.Scaling;
     if (copy.Parent === newId(donorWeapon) && skinTarget(via) !== copy.Parent) weaponMoves.push([copy, skinTarget(via)]);
@@ -528,6 +707,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       else track.GlobalSeqId = null;
     });
     if (copy.GlobalSeqId === NO_LENGTH) copy.GlobalSeqId = null;
+    // Where the donor hides its weapon by scaling it to nothing, the weapon keeps its reference size (in the hand).
+    if (decollapse.has(id) && copy.Scaling?.Keys) {
+      const rest = decollapse.get(id);
+      for (const k of copy.Scaling.Keys) if (collapsed(k.Vector)) {
+        k.Vector = like(k.Vector, rest);
+        if (k.InTan) k.InTan = like(k.Vector, copy.Scaling.LineType === 3 ? rest : [0, 0, 0]);
+        if (k.OutTan) k.OutTan = like(k.Vector, copy.Scaling.LineType === 3 ? rest : [0, 0, 0]);
+      }
+    }
     // Rotation: q' = C(parent)^-1 q C(self), per key and tangent; constant where the donor has no key.
     const fixed = pre.clone().multiply(ownTurn);
     if (copy.Rotation?.Keys) {
@@ -569,14 +757,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const weaponBones = new Set(weaponRides ? [...weaponExtras].filter(id => !keepSet.has(id)).flatMap(id => extras.get(id).bones.filter(bone => weaponPiece(bone, id))) : []);
   const weaponVertices = []; // [geoset, vertex, the hand the weapon was baked onto] to re-place on the weapon bone
   // ---- skin on the donor's bones (contract 4.3, 4.4)
-  const donorSkin = new Map();
-  for (const geoset of D.Geosets || []) {
-    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
-    for (let v = 0; v < count; v++) {
-      const bones = weights?.length >= count * 8 ? [0, 1, 2, 3].filter(i => weights[v * 8 + 4 + i] > 0).map(i => weights[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
-      for (const id of new Set(bones)) donorSkin.set(id, (donorSkin.get(id) || 0) + 1);
-    }
-  }
   const carriers = donorSkinCarriers({ donor: D, donorPartJoints, treeA, skinCount: donorSkin });
   const carrierOf = id => keepDonor.has(carriers.get(id)) ? carriers.get(id) : id;
   // An extra (moves by itself) is decided once, by the centroid of its vertices in the bind pose, with no band.
@@ -629,7 +809,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     return perBone.map(({ id, items }) => ({ id, targets: items.map(item => [resultId(item), 1 / items.length]) }));
   };
   const skinned = new Set(), inverseRef = new Map();
-  const refInverse = id => { if (!inverseRef.has(id)) inverseRef.set(id, (ownRef.get(id) || new Matrix4()).clone().invert()); return inverseRef.get(id); };
+  const refInverse = id => { if (!inverseRef.has(id)) inverseRef.set(id, safeInverse(ownRef.get(id) || new Matrix4())); return inverseRef.get(id); };
   let baked = 0;
   for (const geoset of M.Geosets || []) {
     const count = (geoset.Vertices?.length || 0) / 3;
@@ -639,7 +819,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       const vias = new Set(bones.map(viaOf));
       if (vias.size !== 1) return;
       const via = [...vias][0];
-      if (via == null) return;
+      if (via == null || !refInverse(via)) return;
       const p = new Vector3(), n = new Vector3(), at = v3(geoset.Vertices.subarray(v * 3, v * 3 + 3)), normal = v3(geoset.Normals?.subarray(v * 3, v * 3 + 3) || [0, 0, 1]);
       for (const id of bones) { const m = ownRef.get(id) || new Matrix4(); p.add(at.clone().applyMatrix4(m)); n.add(normal.clone().transformDirection(m)); }
       p.divideScalar(bones.length).applyMatrix4(refInverse(via));
@@ -736,8 +916,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
   const resultStand = standSequenceIndex(M);
+  let weaponHeld = false;
   if ((weaponVertices.length || weaponMoves.length) && resultStand >= 0) {
-    const m = sampleNodeMatrices(M, M.Sequences[resultStand].Interval[0], resultStand), toWeapon = m.get(remap.get(newId(donorWeapon))).clone().invert(), turns = new Map();
+    const m = sampleNodeMatrices(M, M.Sequences[resultStand].Interval[0], resultStand), toWeapon = safeInverse(m.get(remap.get(newId(donorWeapon)))), turns = new Map();
+    // The weapon bone has no inverse there (scaled to nothing, or not finite): the weapon stays on the hand it was baked onto.
+    if (!toWeapon) {
+      weaponHeld = true;
+      holdWeaponOnHand(remap.get(newId(donorWeapon)), weaponVertices.map(([geoset, v, hand]) => [geoset, v, remap.get(hand)]), weaponMoves.map(([node, hand]) => [node, remap.get(hand)]));
+      weaponSkip = "The donor's weapon bone is scaled to nothing at the reference moment: the weapon stays in the hand.";
+    } else {
     const turnFrom = hand => { const id = remap.get(hand); if (!turns.has(id)) turns.set(id, toWeapon.clone().multiply(m.get(id))); return turns.get(id); };
     for (const [geoset, v, hand] of weaponVertices) {
       const t = turnFrom(hand);
@@ -745,8 +932,14 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       if (geoset.Normals?.length === geoset.Vertices.length) geoset.Normals.set(v3(geoset.Normals.subarray(v * 3, v * 3 + 3)).transformDirection(t).toArray(), v * 3);
     }
     for (const [node, hand] of weaponMoves) node.PivotPoint.set(v3(node.PivotPoint).applyMatrix4(turnFrom(hand)).toArray());
+    }
   }
+  // Safety net: nothing that is not a finite number leaves the engine; what was held is said in the report.
+  orderKeys(M);
+  const held = holdNonFinite(M, model);
+  if (held.vertices || held.pivots || held.keys) reasons.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
+  holdExtents(M);
   updateCounts(M);
 
   const fit = reasons.length ? 'poor' : 'good';
@@ -755,7 +948,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     model: M,
     report: {
       fit, reasons, converted: convertedKeys, extras: extrasOut, mirrorOffer,
-      weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
+      weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
         ownJointsKept: Object.keys(ownMap).filter(id => JOINT_KEYS.some(k => (model[k] || []).includes(ownById.get(Number(id))))).length,
@@ -792,7 +985,7 @@ function shiftNode(M, id, dz) {
       node.Translation.Keys.push(k);
     }
     node.Translation.Keys.sort((a, b) => a.Frame - b.Frame);
-  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: M.Sequences.map(sequence => ({ Frame: sequence.Interval[0], Vector: new Float32Array(shift.toArray()) })) };
+  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: [...new Set(M.Sequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: new Float32Array(shift.toArray()) })) };
 }
 /** Feet down (owner's pick, 19 Nov 2026): per moment, the body joint and every parentless donor joint move up or down
  * by the same amount so the lower foot stands as high above the ground as the donor's lower foot, times `travel`.
@@ -811,10 +1004,12 @@ function feetDown(M, D, rigB, rigA, loose, travel) {
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval), donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
   const lowest = (model, byId, feet, ground, sequence, frame) => { const m = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => v3(nodePivot(model, byId(id), id)).applyMatrix4(m.get(id)).z)) - ground; };
   const tolerance = 0.01 * rigB.hipHeight;
+  const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {
     const [a, z] = sequence.Interval || [];
     const donorIndex = D.Sequences.indexOf(donorSequences[index]);
-    if (!(z > a) || donorIndex < 0) return;
+    if (!(z > a) || donorIndex < 0 || done.has(`${a},${z}`)) return;
+    done.add(`${a},${z}`);
     const cache = new Map();
     const change = frame => {
       if (!cache.has(frame)) cache.set(frame, lowest(D, id => donorById.get(id), feetA, rigA.ground, donorIndex, frame) * travel - lowest(M, id => M.Nodes[id], feetM, rigB.ground, index, frame));

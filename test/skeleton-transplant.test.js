@@ -419,3 +419,103 @@ test('T10 poor fit: a four-legged donor is named a poor fit with the reason, and
   structural(result);
   assert.equal(transplant('transfer-kurgan', 'transfer-tauren').report.reasons.length, 0, 'the owner\'s pair has no reason to be called poor');
 });
+
+// ------------------------------------------------------------------ (d) engine fixes from the failure sweep (19 Nov 2026)
+// out/transfer-probe/failure-sweep/analysis.txt: classes 2, 3, 4, 5 and 8. A poor fit still gives a usable model.
+/** Every track of the result's nodes and timed parts: [where, track]. */
+function tracksOf(model) {
+  const found = [];
+  for (const key of ['Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'Lights', 'GeosetAnims', 'Materials', 'TextureAnims', 'Cameras']) {
+    (model[key] || []).forEach((owner, i) => {
+      for (const [property, value] of Object.entries(owner)) {
+        if (Array.isArray(value?.Keys)) found.push([`${key}[${i}] ${owner.Name || ''}.${property}`, value]);
+        else if (Array.isArray(value)) value.forEach((layer, j) => { for (const [p, t] of Object.entries(layer || {})) if (Array.isArray(t?.Keys)) found.push([`${key}[${i}].${property}[${j}].${p}`, t]); });
+      }
+    });
+  }
+  return found;
+}
+/** Non-finite numbers anywhere the renderer reads: bind vertices, normals, pivots, keys. */
+function nonFinite(model) {
+  const bad = [], finite = v => v == null || (typeof v === 'number' ? Number.isFinite(v) : Array.from(v).every(Number.isFinite));
+  model.Geosets.forEach((geoset, g) => { for (const name of ['Vertices', 'Normals']) if (geoset[name] && !finite(geoset[name])) bad.push(`geoset ${g} ${name}`); });
+  for (const node of allNodes(model)) if (!finite(node.PivotPoint)) bad.push(`pivot of ${node.Name}`);
+  for (const [where, track] of tracksOf(model)) if (!track.Keys.every(key => [key.Vector, key.InTan, key.OutTan].every(finite))) bad.push(where);
+  return bad;
+}
+const det3 = m => { const e = m.elements; return e[0] * (e[5] * e[10] - e[9] * e[6]) - e[4] * (e[1] * e[10] - e[9] * e[2]) + e[8] * (e[1] * e[6] - e[5] * e[2]); };
+/** Moments where the weapon bone of the result is collapsed (scaled to nothing) while the joint it hangs from is not. */
+function weaponHiddenAlone({ model, report }, samples = 12) {
+  const bone = report.weapon?.bone, found = [];
+  if (bone == null) return found;
+  const parent = model.Nodes[bone].Parent;
+  for (const [index, frame] of moments(model, samples, /portrait/i)) {
+    const m = sampleNodeMatrices(model, frame, index), w = Math.abs(det3(m.get(bone))), h = parent != null && parent !== -1 ? Math.abs(det3(m.get(parent))) : 1;
+    if (w < 1e-9 && h > 1e-9) found.push(`${model.Sequences[index].Name} @${frame}`);
+  }
+  return found;
+}
+
+test('C2 Tauren on the Grunt: none of the Tauren\'s own effect tracks is left without keys (the preview reads its first key)', { skip: missing('transfer-tauren', 'transfer-grunt') }, () => {
+  const result = transplant('transfer-tauren', 'transfer-grunt');
+  assert.deepEqual(tracksOf(result.model).filter(([, track]) => !track.Keys.length).map(([where]) => where), []);
+  structural(result);
+  // The Tauren's dust effects are keyed only in its own Attack Slam, which the Grunt has no animation of: they stay off.
+  for (const emitter of result.model.ParticleEmitters2 || []) if (emitter.EmissionRate?.Keys) assert.ok(emitter.EmissionRate.Keys.every(key => key.Vector[0] === 0), `${emitter.Name} stays off`);
+});
+
+test('C3 Kurgan on the Khorne knight, mirrored: the knight\'s Axe bone is scaled to nothing, so the hammer stays in the hand; every number is finite', { skip: missing('transfer-kurgan', 'transfer-khorne-knight') }, () => {
+  const result = transplant('transfer-kurgan', 'transfer-khorne-knight', { mirror: true });
+  assert.deepEqual(nonFinite(result.model), []);
+  const axe = donorWeaponBone(result.donor);
+  assert.notEqual(result.report.weapon.bone, result.report.donorNodes[axe], 'the hidden Axe bone is not the weapon bone');
+  assert.match(result.report.weapon.note || '', /hides/i);
+  assert.deepEqual(weaponHiddenAlone(result), []);
+  structural(result);
+});
+
+test('C4 Dryad on the Hermit Crab: a joint that hangs from an attachment is placed (the crab\'s root hangs from Origin Ref)', { skip: missing('transfer-dryad', 'transfer-hermit-crab') }, () => {
+  const result = transplant('transfer-dryad', 'transfer-hermit-crab', { extents: false });
+  assert.deepEqual(nonFinite(result.model), []);
+  const root = [...result.donor.Bones, ...result.donor.Helpers].find(bone => result.donor.Attachments.some(a => a.ObjectId === bone.Parent));
+  assert.ok(root && result.report.donorNodes[root.ObjectId] != null, 'the crab\'s root is in the result');
+  structural(result);
+});
+
+test('C5 weapon bone scaled to nothing in one animation: the weapon stays with the hand there and moves as before elsewhere', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const own = load('transfer-footman'), donor = load('transfer-grunt'), axe = donorWeaponBone(donor), node = donor.Nodes[axe];
+  const death = donor.Sequences.find(s => /^death/i.test(s.Name)), [a, z] = death.Interval;
+  const keys = (node.Scaling?.Keys || []).filter(key => key.Frame < a || key.Frame > z);
+  keys.push({ Frame: a, Vector: new Float32Array([1, 1, 1]) }, { Frame: Math.round(a + (z - a) / 3), Vector: new Float32Array([0, 0, 0]) }, { Frame: z, Vector: new Float32Array([0, 0, 0]) });
+  node.Scaling = { LineType: 1, GlobalSeqId: null, Keys: keys.sort((x, y) => x.Frame - y.Frame) };
+  const result = { own, donor, ...transplantSkeleton(own, donor, { extents: false }) };
+  assert.equal(result.report.weapon.bone, result.report.donorNodes[axe], 'the axe bone still carries the sword');
+  assert.deepEqual(weaponHiddenAlone(result), []);
+  // Outside Death the sword moves exactly as without the change.
+  const plain = transplant('transfer-footman', 'transfer-grunt', { extents: false }), bone = result.report.weapon.bone;
+  for (const [index, frame] of moments(result.model, 6)) {
+    if (result.model.Sequences[index].Name === death.Name) continue;
+    const m1 = sampleNodeMatrices(result.model, frame, index).get(bone), m2 = sampleNodeMatrices(plain.model, frame, index).get(plain.report.weapon.bone);
+    assert.ok(m1.elements.every((x, i) => Math.abs(x - m2.elements[i]) < 1e-4), `${result.model.Sequences[index].Name} @${frame}: the sword moves as before`);
+  }
+});
+
+test('C5 Footman on the Red Dragon: the weapon goes only where the whole dragon goes (its root scales to nothing in Death)', { skip: missing('transfer-footman', 'transfer-red-dragon') }, () => {
+  assert.deepEqual(weaponHiddenAlone(transplant('transfer-footman', 'transfer-red-dragon', { extents: false })), []);
+});
+
+test('C8 Villager on the HD Footman: keys in time order, none two on one frame, though two animations share an interval and the list is out of time order', { skip: missing('transfer-villager', 'forge-hd-footman') }, () => {
+  const result = transplant('transfer-villager', 'forge-hd-footman', { extents: false });
+  const bad = tracksOf(result.model).filter(([, track]) => track.Keys.some((key, i) => i && !(key.Frame > track.Keys[i - 1].Frame))).map(([where]) => where);
+  assert.deepEqual(bad, []);
+  assert.deepEqual(validateModel(result.model).filter(d => d.code === 'KEYFRAME_ORDER').map(d => d.message), []);
+});
+
+test('C9 safety net: a donor key that is not a number never reaches the result; the report says what was held', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const own = load('transfer-footman'), donor = load('transfer-grunt');
+  const nodes = allNodes(donor), bone = nodes.find(b => b.Rotation?.Keys?.length > 2 && nodes.some(c => c.Parent === b.ObjectId));
+  bone.Rotation.Keys[1].Vector = new Float32Array([NaN, 0, 0, 1]);
+  const { model, report } = transplantSkeleton(own, donor, { extents: false });
+  assert.deepEqual(nonFinite(model), []);
+  assert.ok(report.reasons.some(reason => /not a number/i.test(reason)), report.reasons.join(' | '));
+});
