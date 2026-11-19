@@ -90,7 +90,7 @@ export function createAiReplay({ now = () => performance.now(), setTimer = (fn, 
     get active() {
       return !!current;
     },
-    // The marker and glow take the AI head's eye colour (app/ThumperHead.jsx).
+    // The marker and glow colour (Thumper red unless something sets another).
     get color() {
       return color;
     },
