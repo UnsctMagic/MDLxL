@@ -812,3 +812,19 @@ Sheet: build 22, `TestBuilds\transplant-review-v2\cases.json`, answers in `answe
   must switch to the straight-shin variant; 06's folded shin becomes the alternative (or goes).
 - Next: make straight shin the default (rerun the gates and the sweep), then the transplant window
   entry, concept with the owner first (talk only until "go").
+
+### Owner's pick: straight shin is the default (19 Nov 2026)
+
+Side-by-side sheet: New (v2) over Old; legs = straight shin (07) over folded at the hock (06). Commit 83da5ce3:
+`legs: 'straight'` is the default, `legs: 'folded'` stays as an option (off). Tests 25 pass (P10 new, fails on the
+folded default; P1 checks only the legs' thighs, P4 leaves out the two shin stretches, P5's foot-height bound is now a
+0.4 hip-height guard, all for straight shins). 81 retarget/window pass; `baseline-compare r u` 0 differ.
+`TEST TRANSPLANT 08.mdx` (default) is byte-identical to 07 (0 difference in pivots, joints, vertices, skin).
+Sweep: 561 x 3 all built, 0 threw, 32 not valid as before, 0 over 256 groups, 0 coincident mismatch; with the
+Tauren, Walk foot within 0.1 hip heights 12% (folded 89%, v1 91%), median 0.4; transplanted limb parts within 10
+degrees 87% (folded 98%: the shins now follow the chord, not each stretch). Kurgan feet as 07: Walk -0.03..0.34,
+Attack Slam -0.21..0.20, Death -0.18..0.32 hip heights.
+Proposed, not built (`out/transfer-probe/feet-fix-probe.mjs`): the body joint's height follows the Tauren's lower
+foot (times travel), keyed every 33 ms; the shin is not bent. On 08: Walk -0.01..0.04, Attack Slam -0.05..0.01,
+Attack - 1 -0.02..0.02, Death -0.06..0.14; body moved -0.33..0.16 hip heights; ~4,300 height keys (100 ms keys:
+1,434, Attack - 1 up to 0.12). A real build must also move loose donor joints (the totem root) with the body.
