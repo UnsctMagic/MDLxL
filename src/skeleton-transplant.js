@@ -1310,7 +1310,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // once its bind pose is the donor's posture (the Ghoul's corpse skeleton instead of its body).
   const rigM = rigB.ok && rigA.ok ? mappedRig(M, rigA, id => remap.get(newId(id))) : { ok: false };
   if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigM, notes, loose);
-  if (rigB.ok && rigA.ok && feet !== 'free') feetDown(M, D, rigB, rigA, rigM, loose, travel);
+  // Feet down where the legs pair; else (G1) this model's own soles go down as the donor stands or hovers.
+  let ground = null;
+  if (rigB.ok && rigA.ok && feet !== 'free') {
+    const hasLegs = rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg');
+    if (!whole.reason && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
+    else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel);
+  }
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
   const resultStand = standSequenceIndex(M);
@@ -1355,7 +1361,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, mirrorOffer, twins: twin.size,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
-        sequences: M.Sequences.length, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
+        sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,
         ownJointsKept: Object.keys(ownMap).filter(id => JOINT_KEYS.some(k => (model[k] || []).includes(ownById.get(Number(id))))).length,
         attachments: (M.Attachments || []).length, events: (M.EventObjects || []).length, emitters: EFFECT_KEYS.reduce((n, k) => n + (M[k] || []).length, 0),
         vertices: (M.Geosets || []).reduce((n, g) => n + g.Vertices.length / 3, 0), bakedVertices: baked, sizeRatio: size, travel, ridesStill, skin: skinCounts, posture,
@@ -1414,20 +1420,93 @@ function feetDown(M, D, rigB, rigA, rigM, loose, travel) {
   const legsOf = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
   const feetM = legsOf(rigM), feetA = legsOf(rigA);
   if (!feetM.length || !feetA.length) return;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const lowest = (model, byId, feet, ground, sequence, frame) => { const m = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => v3(nodePivot(model, byId(id), id)).applyMatrix4(m.get(id)).z)) - ground; };
+  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) =>
+    frame => lowest(D, id => donorById.get(id), feetA, rigA.ground, donorIndex, frame) * travel - lowest(M, id => M.Nodes[id], feetM, rigB.ground, index, frame));
+}
+/** Soles down (G1, xfer-overnight.md): the legs are not paired (another number of legs, or one model has none), so the
+ * result has no feet of the donor's to stand on. Per moment the body moves so this model's own sole stands as the donor
+ * does: with a legged donor, as high above the ground as the donor's lower foot (times `travel`) plus where the sole
+ * stands in this model's own Stand; with a legless donor (a Naga, a hovering Banshee), at its own Stand height plus the
+ * donor body joint's rise from its Stand (times `travel`), so a flying donor's model flies.
+ * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights. */
+function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
+  clearTransferCache(M);
+  if (!rigM.ok) return null;
+  const ownStand = standSequenceIndex(model), donorStand = standSequenceIndex(D);
+  if (ownStand < 0 || donorStand < 0) return null;
+  // The vertices that make the sole: the living body (geosets the own Stand shows), the legs' skin when it has legs.
+  const ownNodes = allNodes(model), treeB = nodeIndex(model, ownNodes), legJoint = new Set();
+  for (const part of Object.values(rigB.parts || {})) if (part.limbKind === 'leg') for (const id of part.joints) legJoint.add(id);
+  const onLeg = new Map(), isLeg = id => { if (!onLeg.has(id)) onLeg.set(id, treeB.ancestors(id, true).some(a => legJoint.has(a))); return onLeg.get(id); };
+  const stand = model.Sequences[ownStand];
+  const shows = index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || isGlobalTrack(alpha, model) || sampleShows(model, alpha, stand); };
+  const legs = [], all = [];
+  (model.Geosets || []).forEach((geoset, g) => {
+    if (!shows(g)) return;
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const bones = skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      all.push([g, v]);
+      if (legJoint.size && bones.some(isLeg)) legs.push([g, v]);
+    }
+  });
+  const useLegs = legs.length > 0, pool = useLegs ? legs : all;
+  if (!pool.length) return null;
+  const at = (target, [g, v], m) => {
+    const geoset = target.Geosets[g], skin = geoset.SkinWeights, x = geoset.Vertices[v * 3], y = geoset.Vertices[v * 3 + 1], z = geoset.Vertices[v * 3 + 2];
+    const hd = skin?.length >= (v + 1) * 8, group = hd ? [0, 1, 2, 3].map(i => skin[v * 8 + i]) : geoset.Groups?.[geoset.VertexGroup?.[v]] || [];
+    let sum = 0, total = 0;
+    group.forEach((id, i) => { const w = hd ? skin[v * 8 + 4 + i] / 255 : 1, e = m.get(id)?.elements; if (!w) return; sum += (e ? e[2] * x + e[6] * y + e[10] * z + e[14] : z) * w; total += w; });
+    return total > 0 ? sum / total : z;
+  };
+  const soleOf = (target, sample, m) => {
+    const heights = sample.map(item => at(target, item, m)).filter(Number.isFinite);
+    if (!heights.length) return null;
+    if (useLegs) return Math.min(...heights);
+    heights.sort((x, y) => x - y);
+    return heights[Math.floor(0.02 * (heights.length - 1))];
+  };
+  // At most 1,500 vertices: the lowest 500 in the own Stand and an even share of the rest.
+  const own0 = sampleNodeMatrices(model, stand.Interval[0], ownStand);
+  let sample = pool;
+  if (pool.length > 1500 && useLegs) {
+    const ranked = pool.map(item => [item, at(model, item, own0)]).sort((x, y) => x[1] - y[1]);
+    sample = [...ranked.slice(0, 500).map(([item]) => item), ...ranked.slice(500).filter((_, i) => i % Math.ceil((ranked.length - 500) / 1000) === 0).map(([item]) => item)];
+  } else if (pool.length > 1500) sample = pool.filter((_, i) => i % Math.ceil(pool.length / 1500) === 0);
+  const ownSole = soleOf(model, sample, own0);
+  if (ownSole == null) return null;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const feetA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg').map(part => part.marker).filter(id => donorById.has(id));
+  const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
+  const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
+  if (!feetA.length && donorBody == null) return null;
+  const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
+  const donorRise = feetA.length
+    ? (donorIndex, frame) => { const m = sampleNodeMatrices(D, frame, donorIndex); return Math.min(...feetA.map(id => pivotZ(id, m))) - rigA.ground; }
+    : (donorIndex, frame) => pivotZ(donorBody, sampleNodeMatrices(D, frame, donorIndex)) - bodyRest;
+  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) => frame => {
+    const sole = soleOf(M, sample, sampleNodeMatrices(M, frame, index));
+    return sole == null ? 0 : ownSole + donorRise(donorIndex, frame) * travel - sole;
+  });
+  return feetA.length ? 'soles' : 'hover';
+}
+/** The body joint (and the parentless donor joints) move up or down per moment by `changeOf(index, donorIndex)(frame)`
+ * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
+function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
   const { mover, line } = bodyMover(M, rigM.body, loose);
   const movers = [...new Set([mover, ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
-  const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval), donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
-  const lowest = (model, byId, feet, ground, sequence, frame) => { const m = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => v3(nodePivot(model, byId(id), id)).applyMatrix4(m.get(id)).z)) - ground; };
-  const tolerance = 0.01 * rigB.hipHeight;
+  const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval);
   const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {
     const [a, z] = sequence.Interval || [];
     const donorIndex = D.Sequences.indexOf(donorSequences[index]);
     if (!(z > a) || donorIndex < 0 || done.has(`${a},${z}`)) return;
     done.add(`${a},${z}`);
-    const cache = new Map();
+    const cache = new Map(), measure = changeOf(index, donorIndex);
     const change = frame => {
-      if (!cache.has(frame)) cache.set(frame, lowest(D, id => donorById.get(id), feetA, rigA.ground, donorIndex, frame) * travel - lowest(M, id => M.Nodes[id], feetM, rigB.ground, index, frame));
+      if (!cache.has(frame)) cache.set(frame, measure(frame));
       return cache.get(frame);
     };
     // Breakpoints: every mover's key frames inside the animation and its ends; then halves wherever the straight
