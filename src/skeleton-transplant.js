@@ -432,7 +432,8 @@ function donorBodyAlpha(D) {
  * geoset hidden in the Stand):
  * - when the death body hangs on joints that twin the living ones (pivots within `TWIN_NEAR` hip heights, each under its
  *   parent's twin; at least `TWIN_DEATH_SHARE` of its vertices), the living joints move as their twins do in that
- *   animation (each pivot where its twin's goes, turned as it turns; baked every 33 ms and at the twins' keys) and the
+ *   animation (each pivot where its twin's goes, turned as it turns; keyed at the joints' own keys and wherever a
+ *   straight line between keys would miss, down to 33 ms) and the
  *   living body shows where either shows;
  * - otherwise, in a Death (not Decay or Dissipate), the living body shows where either shows (it follows the living joints).
  * `D` (the engine's own copy of the donor) is changed in place. -> [{ sequence, twin, joints }] */
@@ -488,15 +489,14 @@ function donorDeathSwap(D, rigA) {
       // Each living joint's world placement: its twin's where it has one, else carried by its parent (own local motion).
       const order = [...livingJoints].filter(isJoint).sort((x, y) => tree.ancestors(x).length - tree.ancestors(y).length);
       const livingTwin = new Map(); for (const [c, l] of twin) if (!livingTwin.has(l)) livingTwin.set(l, c);
-      const frames = new Set([a, b]);
-      for (let f = a; f < b; f += 33) frames.add(Math.round(f));
-      for (const c of twin.keys()) for (const p of ['Translation', 'Rotation', 'Scaling']) for (const k of byId.get(c)?.[p]?.Keys || []) if (k.Frame > a && k.Frame < b) frames.add(k.Frame);
-      const sorted = [...frames].sort((x, y) => x - y);
-      const writes = new Map(); // living joint -> [{ frame, t, r, s }]
       const skip = l => { const c = livingTwin.get(l); return c == null || (!hasKeys(l) && !hasKeys(c) && (tree.parentOf(l) ?? null) === (tree.parentOf(c) == null ? null : livingJoints.has(tree.parentOf(c)) ? tree.parentOf(c) : twin.get(tree.parentOf(c)) ?? -2)); };
       const global = l => ['Translation', 'Rotation', 'Scaling'].some(p => byId.get(l)?.[p]?.Keys?.length && isGlobalTrack(byId.get(l)[p], D));
-      for (const frame of sorted) {
-        const W = sampleNodeMatrices(D, frame, si), placed = new Map();
+      const written = order.filter(l => !skip(l) && !global(l));
+      const cache = new Map();
+      // The local placement (t, r, s as node keys) of every written joint at a frame.
+      const localsAt = frame => {
+        if (cache.has(frame)) return cache.get(frame);
+        const W = sampleNodeMatrices(D, frame, si), placed = new Map(), out = new Map();
         for (const l of order) {
           const parent = tree.parentOf(l), P = parent != null && byId.has(parent) ? placed.get(parent) ?? W.get(parent) : null;
           const c = livingTwin.get(l);
@@ -505,22 +505,54 @@ function donorDeathSwap(D, rigA) {
           else placed.set(l, P ? P.clone().multiply(safeInverse(W.get(parent)) ?? new Matrix4()).multiply(W.get(l)) : W.get(l).clone());
           if (skip(l) || global(l)) continue;
           const local = (P ? safeInverse(P) ?? new Matrix4() : new Matrix4()).multiply(placed.get(l));
-          const pos = new Vector3(), r = new Quaternion(), s = new Vector3();
-          local.decompose(pos, r, s);
-          const p = pivot(l), t = pos.sub(p).add(p.clone().multiply(s).applyQuaternion(r));
-          if (!writes.has(l)) writes.set(l, []);
-          writes.get(l).push({ frame, t, r, s });
+          const pos = new Vector3(), r = new Quaternion(), sc = new Vector3();
+          local.decompose(pos, r, sc);
+          const p = pivot(l);
+          out.set(l, { t: pos.sub(p).add(p.clone().multiply(sc).applyQuaternion(r)), r, s: sc });
         }
-      }
-      for (const [l, list] of writes) {
-        const node = byId.get(l);
-        for (let i = 1; i < list.length; i++) if (list[i].r.dot(list[i - 1].r) < 0) list[i].r.set(-list[i].r.x, -list[i].r.y, -list[i].r.z, -list[i].r.w);
+        cache.set(frame, out);
+        return out;
+      };
+      // Breakpoints, per joint: the ends and every key of its twin and its parent's twin inside; halves wherever a straight
+      // line between two breakpoints misses it by more than 0.01 hip heights or a degree (down to 33 ms), as feet down does.
+      const tolT = 0.01 * rigA.hipHeight, tolR = Math.PI / 180, twinOfLiving = l => livingTwin.get(l);
+      const framesOf = l => {
+        const ends = new Set([a, b]);
+        for (const id of [twinOfLiving(l), twinOfLiving(tree.parentOf(l))]) if (id != null) for (const p of ['Translation', 'Rotation', 'Scaling']) for (const k of byId.get(id)?.[p]?.Keys || []) if (k.Frame > a && k.Frame < b) ends.add(k.Frame);
+        const sorted = [...ends].sort((x, y) => x - y), frames = [sorted[0]];
+        const misses = (f0, f1, f) => {
+          const u = (f - f0) / (f1 - f0), p = localsAt(f0).get(l), q = localsAt(f1).get(l), x = localsAt(f).get(l);
+          return x.t.distanceTo(p.t.clone().lerp(q.t, u)) > tolT || x.r.angleTo(p.r.clone().slerp(q.r, u)) > tolR || x.s.distanceTo(p.s.clone().lerp(q.s, u)) > 0.01;
+        };
+        const refine = (f0, f1) => {
+          if (f1 - f0 <= 33 || ![0.25, 0.5, 0.75].some(share => misses(f0, f1, Math.round(f0 + (f1 - f0) * share)))) return;
+          const mid = Math.round((f0 + f1) / 2);
+          refine(f0, mid); frames.push(mid); refine(mid, f1);
+        };
+        for (let i = 1; i < sorted.length; i++) { refine(sorted[i - 1], sorted[i]); frames.push(sorted[i]); }
+        return frames;
+      };
+      for (const l of written) {
+        const node = byId.get(l), list = framesOf(l).map(frame => ({ frame, ...localsAt(frame).get(l) }));
+        for (let i = 1; i < list.length; i++) if (list[i].r.dot(list[i - 1].r) < 0) list[i].r = list[i].r.clone().set(-list[i].r.x, -list[i].r.y, -list[i].r.z, -list[i].r.w);
         const scaled = node.Scaling?.Keys?.length || list.some(k => Math.abs(k.s.x - 1) + Math.abs(k.s.y - 1) + Math.abs(k.s.z - 1) > 1e-3);
         for (const [property, get, size] of [['Translation', k => k.t.toArray(), 3], ['Rotation', k => k.r.toArray(), 4], ...(scaled ? [['Scaling', k => k.s.toArray(), 3]] : [])]) {
           if (!node[property]?.Keys) node[property] = { LineType: 1, GlobalSeqId: null, Keys: [] };
           const track = node[property], type = track.LineType, template = track.Keys[0]?.Vector ?? new Float32Array(size);
-          const rest = track.Keys.filter(k => k.Frame < a || k.Frame > b);
-          const fresh = list.map(k => { const vector = like(template, get(k)), key = { Frame: k.frame, Vector: vector }; if (type >= 2) { const tan = property === 'Rotation' || type === 3 ? vector : like(template, new Array(size).fill(0)); key.InTan = tan; key.OutTan = tan; } return key; });
+          const values = list.map(get), rest = track.Keys.filter(k => k.Frame < a || k.Frame > b);
+          // Tangents that make every LineType move straight between the keys (a rotation's tangent is its own value).
+          const fresh = list.map((k, i) => {
+            const v = values[i], key = { Frame: k.frame, Vector: like(template, v) };
+            if (type >= 2) {
+              if (property === 'Rotation') { key.InTan = like(template, v); key.OutTan = like(template, v); }
+              else {
+                const prev = values[i - 1] ?? v, next = values[i + 1] ?? v;
+                key.InTan = like(template, type === 3 ? v.map((x, j) => x - (x - prev[j]) / 3) : v.map((x, j) => x - prev[j]));
+                key.OutTan = like(template, type === 3 ? v.map((x, j) => x + (next[j] - x) / 3) : v.map((x, j) => next[j] - x));
+              }
+            }
+            return key;
+          });
           track.Keys = [...rest, ...fresh].sort((x, y) => x.Frame - y.Frame);
         }
         moved++;
