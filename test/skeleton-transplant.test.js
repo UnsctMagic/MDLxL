@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import { Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { validateModel } from '../src/editor-document.js';
@@ -95,50 +95,136 @@ test('T2 Footman on the Grunt: every transplanted arm and leg part points as the
   const transplanted = Object.entries(worst).filter(([, v]) => v.kind === 'transplanted');
   assert.ok(transplanted.length >= 3, `three or more limbs are transplanted (${Object.keys(worst)})`);
   for (const [key, v] of transplanted) for (const role of ['upper', 'lower']) assert.ok(v[role] < 10, `${key}: the ${role} part is up to ${v[role].toFixed(1)} degrees from the Grunt's`);
-  // The Footman's right arm ends at an attachment, where the Grunt has a hand joint: it is converted.
-  assert.deepEqual(result.report.converted, ['armR']);
+  // v2 item 4: no limb is converted. The Footman's right arm ends at an attachment, where the Grunt has a hand
+  // joint: the Grunt's forearm sits inside the Footman's arm and takes the skin past its plane (P7).
+  assert.deepEqual(result.report.converted, []);
+});
+
+test('P7 Footman on the Grunt: the shield arm\'s 20 vertices past the Grunt\'s forearm plane are on the Grunt\'s forearm bone', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const { donor, model, report } = transplant('transfer-footman', 'transfer-grunt');
+  const rigG = transferRig(donor, { sequence: standSequenceIndex(donor) }), forearm = rigG.parts.armR.joints[1];
+  const carrier = donor.Bones.find(bone => bone.Parent === forearm && !rigG.parts.armR.joints.includes(bone.ObjectId)), there = report.donorNodes[carrier.ObjectId];
+  let on = 0;
+  for (const geoset of model.Geosets) for (let v = 0; v < geoset.VertexGroup.length; v++) if (geoset.Groups[geoset.VertexGroup[v]].includes(there)) on++;
+  assert.equal(on, 20, `${on} vertices on ${carrier.Name}`);
+  assert.equal(report.counts.skin.moved, 20);
+});
+
+test('P9 Footman on the Grunt: the hand mesh stays on the hand, only the weapon pieces ride the Grunt\'s weapon bone', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-grunt');
+  // The Footman's hand mesh: the still skinned bone right under its weapon hand that carries the sword's bones.
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) }), hand = Object.values(rig.parts).find(part => part.weapon).marker;
+  const mesh = own.Bones.find(bone => bone.Parent === hand && own.Bones.some(child => child.Parent === bone.ObjectId));
+  // The sword: the bone the Footman's Weapon Ref hangs from (it moves by itself) and the bones under it.
+  const top = donorWeaponBone(own), under = id => { for (let at = id; at != null && at !== -1; at = own.Nodes[at]?.Parent ?? null) if (at === top) return true; return false; };
+  const sword = own.Bones.map(bone => bone.ObjectId).filter(under);
+  const weaponBone = report.donorNodes[donorWeaponBone(donor)];
+  assert.equal(report.weapon?.rides, true);
+  assert.equal(report.weapon.bone, weaponBone);
+  let meshVertices = 0, swordVertices = 0;
+  own.Geosets.forEach((geoset, g) => { for (let v = 0; v < geoset.VertexGroup.length; v++) {
+    const bones = Array.from(geoset.Groups[geoset.VertexGroup[v]]), result = Array.from(model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]);
+    if (bones.length === 1 && bones[0] === mesh.ObjectId) { meshVertices++; assert.ok(!result.includes(weaponBone), `hand mesh vertex ${v} is not on the weapon bone`); }
+    if (bones.length && bones.every(id => sword.includes(id))) { swordVertices++; assert.deepEqual(result, [weaponBone], `sword vertex ${v} rides the weapon bone`); }
+  } });
+  assert.ok(meshVertices >= 10 && swordVertices >= 10, `hand mesh ${meshVertices}, sword ${swordVertices} vertices`);
 });
 
 // ------------------------------------------------------------------ (b) the owner's pair: the Kurgan on the Tauren
-test('T4 Kurgan on the Tauren: a valid model with exactly the Tauren\'s animations; arms and legs are the Tauren\'s own bones and point as its do', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
-  const result = transplant('transfer-kurgan', 'transfer-tauren');
+// v2 item 4 (contract docs/agent-tasks/xfer-transplant-v2-skin.md): T4 and T5 are replaced by P1 to P6.
+/** Every donor animation but decay and portrait, at `samples + 1` moments: [index, frame]. */
+const moments = (model, samples = 8, skip = /decay|portrait/i) => model.Sequences.flatMap((sequence, index) => skip.test(sequence.Name) ? [] : Array.from({ length: samples + 1 }, (_, i) => [index, Math.round(sequence.Interval[0] + (sequence.Interval[1] - sequence.Interval[0]) * i / samples)]));
+const turn = matrix => { const q = new Quaternion(); matrix.decompose(new Vector3(), q, new Vector3()); return q; };
+const degrees = (q1, q2) => q1.angleTo(q2) * 180 / Math.PI;
+
+test('P1 Kurgan on the Tauren: nothing converted, the Tauren\'s own leg bones, every vertex on a bone of the result, none on the Kurgan\'s body', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const result = transplant('transfer-kurgan', 'transfer-tauren'), { own, donor, model, report } = result;
   structural(result);
-  assert.equal(result.report.fit, 'good', result.report.reasons.join(' '));
-  // v2 (owner, 19 Nov 2026): a transplant is 100% the donor's skeleton. The legs are no longer converted.
-  assert.deepEqual(result.report.converted, [], 'no limb keeps its own joints');
-  const worst = limbAngles(result, result.donor);
-  for (const key of ['armL', 'armR', 'legL', 'legR']) {
-    assert.equal(worst[key]?.kind, 'transplanted', `${key} is transplanted`);
-    for (const role of ['upper', 'lower']) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
+  assert.equal(report.fit, 'good', report.reasons.join(' '));
+  assert.deepEqual(report.converted, [], 'no limb keeps its own joints');
+  const rig = transferRig(own, { sequence: standSequenceIndex(own) });
+  for (const key of ['legL', 'legR']) for (const id of rig.parts[key].joints) assert.equal(report.ownNodes[id], undefined, `${own.Nodes[id].Name} is not in the result`);
+  const bones = new Set(model.Bones.map(n => n.ObjectId)), ownIds = new Map(Object.entries(report.ownNodes).map(([o, r]) => [r, Number(o)]));
+  const bodyJoint = id => { for (let at = id; at != null && at !== -1; at = own.Nodes[at]?.Parent ?? null) if (Object.values(rig.parts).some(part => part.joints.includes(at))) return true; return false; };
+  for (const geoset of model.Geosets) for (let v = 0; v < geoset.VertexGroup.length; v++) for (const id of geoset.Groups[geoset.VertexGroup[v]]) {
+    assert.ok(bones.has(id), `${model.Nodes[id].Name} carries skin and is a bone`);
+    if (ownIds.has(id)) assert.ok(!bodyJoint(ownIds.get(id)), `${model.Nodes[id].Name} is the Kurgan's own and carries skin`);
   }
-  // Every joint of the Tauren's legs, the hock included, is in the result and carries the Kurgan's leg skin.
-  const rigT = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) }), carried = new Set();
-  for (const geoset of result.model.Geosets) for (const group of geoset.Groups) for (const id of group) carried.add(id);
-  for (const key of ['legL', 'legR']) for (const id of rigT.parts[key].joints) {
-    const there = result.report.donorNodes[id];
-    assert.ok(there != null, `${result.donor.Nodes[id].Name} is in the result`);
-    assert.ok(carried.has(there), `${result.donor.Nodes[id].Name} carries skin`);
-  }
+  const worst = limbAngles(result, donor);
+  for (const key of ['armL', 'armR', 'legL', 'legR']) for (const role of ['upper', 'lower']) assert.ok(worst[key][role] < 10, `${key}: the ${role} part is up to ${worst[key][role].toFixed(1)} degrees from the Tauren's`);
 });
 
-test('T5 Kurgan on the Tauren: the Tauren\'s feet stand on the Kurgan\'s ground in the Stand; in Walk a foot stays near it', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
-  // v2: the legs are the Tauren's bones with its motion, so nothing plants the feet (v1's converted legs did).
-  // The ground is settled in the result's reference moment; in Walk the lower foot is measured as in R13 and
-  // must stay within a fifth of hip height (measured 7.7 of 42 on 19 Nov 2026: the Kurgan's legs, bent at the
-  // Tauren's angles, reach less far). A plain regression guard, not a feet-kept-down claim.
-  const { own, donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren');
+test('P2 Kurgan on the Tauren: the skin lands on the Tauren\'s skin bones (neck 14, lower shins 10 each; 34 moved, 1 blended)', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const { donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren');
+  const count = new Map();
+  for (const geoset of model.Geosets) for (let v = 0; v < geoset.VertexGroup.length; v++) for (const id of geoset.Groups[geoset.VertexGroup[v]]) count.set(model.Nodes[id].Name, (count.get(model.Nodes[id].Name) || 0) + 1);
+  assert.deepEqual(['Geo_Neck', 'Geo_lowershinL', 'Geo_lowershinR'].map(name => count.get(name) || 0), [14, 10, 10]);
+  assert.equal(report.counts.skin.moved, 34); assert.equal(report.counts.skin.blended, 1);
+  const geo = donor.Bones.filter(n => /^Geo_/.test(n.Name)).map(n => n.Name).filter(name => count.get(name) > 0);
+  assert.equal(geo.length, 18, `Geo_ bones with skin: ${geo.join(', ')}`);
+  assert.ok(model.Geosets.every(geoset => geoset.Groups.length <= 14), `groups per geoset ${model.Geosets.map(g => g.Groups.length)}`);
+});
+
+test('P3 Kurgan on the Tauren: at least 44 of the Tauren\'s 50 bones and helpers are in the result', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const { donor, model } = transplant('transfer-kurgan', 'transfer-tauren');
+  const names = new Set([...model.Bones, ...model.Helpers].map(n => n.Name)), theirs = [...donor.Bones, ...donor.Helpers].map(n => n.Name);
+  assert.ok(theirs.filter(name => names.has(name)).length >= 44, `${theirs.filter(name => names.has(name)).length}; missing ${theirs.filter(name => !names.has(name))}`);
+});
+
+test('P4 Kurgan on the Tauren: every limb stretch points as the Tauren\'s, every trunk stretch keeps a constant angle, trunk joints turn as the Tauren\'s', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const { donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nD = byId(donor), nM = byId(model);
+  const rigT = transferRig(donor, { sequence: standSequenceIndex(donor) }), map = report.donorNodes;
+  const limbs = [], trunk = [], turning = [];
+  const partJoints = new Set(Object.values(rigT.parts).flatMap(part => part.joints));
+  for (const part of Object.values(rigT.parts)) {
+    if (part.kind === 'limb' && part.limbKind !== 'tail') part.joints.forEach((id, i) => { if (i + 1 < part.joints.length) limbs.push([id, part.joints[i + 1]]); });
+    if (part.kind === 'trunk') for (const id of part.joints) {
+      turning.push(id);
+      for (const child of donor.Bones.filter(b => b.Parent === id && !partJoints.has(b.ObjectId)).map(b => b.ObjectId)) if (map[child] != null) turning.push(child);
+      for (const child of [...donor.Bones, ...donor.Helpers].filter(n => n.Parent === id && partJoints.has(n.ObjectId)).map(n => n.ObjectId)) trunk.push([id, child]);
+    }
+  }
+  const spread = new Map(trunk.map(pair => [pair.join(), [Infinity, -Infinity]]));
+  let limbWorst = { d: 0 }, turnWorst = { d: 0 };
+  for (const [index, frame] of moments(model)) {
+    const mm = sampleNodeMatrices(model, frame, index), md = sampleNodeMatrices(donor, frame, index);
+    const stretch = (pair, m, nodes, model_, ids) => at(model_, nodes, m, ids(pair[1])).sub(at(model_, nodes, m, ids(pair[0])));
+    for (const pair of limbs) { const d = stretch(pair, mm, nM, model, id => map[id]).angleTo(stretch(pair, md, nD, donor, id => id)) * 180 / Math.PI; if (d > limbWorst.d) limbWorst = { d, pair }; }
+    for (const pair of trunk) { const d = stretch(pair, mm, nM, model, id => map[id]).angleTo(stretch(pair, md, nD, donor, id => id)) * 180 / Math.PI, range = spread.get(pair.join()); range[0] = Math.min(range[0], d); range[1] = Math.max(range[1], d); }
+    for (const id of turning) { const d = degrees(turn(mm.get(map[id])), turn(md.get(id))); if (d > turnWorst.d) turnWorst = { d, id }; }
+  }
+  assert.ok(limbWorst.d < 1, `limb stretch ${limbWorst.pair?.map(id => donor.Nodes[id].Name).join(' > ')} is up to ${limbWorst.d.toFixed(2)} degrees from the Tauren's`);
+  for (const [key, [lo, hi]] of spread) assert.ok(hi - lo <= 1, `trunk stretch ${key.split(',').map(id => donor.Nodes[id].Name).join(' > ')} varies by ${(hi - lo).toFixed(2)} degrees (${lo.toFixed(0)} to ${hi.toFixed(0)})`);
+  assert.ok(turnWorst.d < 0.5, `${turnWorst.id != null ? donor.Nodes[turnWorst.id].Name : ''} turns up to ${turnWorst.d.toFixed(2)} degrees off the Tauren's`);
+});
+
+test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay on the ground in every animation but Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const { own, donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nM = byId(model);
   const rig = transferRig(own, { sequence: standSequenceIndex(own) }), rigT = transferRig(donor, { sequence: standSequenceIndex(donor) });
-  const walk = model.Sequences.findIndex(s => /^walk$/i.test(s.Name)), stand = standSequenceIndex(model), nM = byId(model);
-  const feet = ['legL', 'legR'].map(key => report.donorNodes[rigT.parts[key].marker]);
+  const theirs = ['legL', 'legR'].map(key => rigT.parts[key].marker), feet = theirs.map(id => report.donorNodes[id]);
   assert.ok(feet.every(id => id != null), 'the Tauren\'s feet are in the result');
-  const lower = (sequence, frame) => { const mm = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => at(model, nM, mm, id).z)) - rig.ground; };
-  const standing = lower(stand, model.Sequences[stand].Interval[0]);
-  assert.ok(Math.abs(standing) < 0.05 * rig.hipHeight, `in the Stand the lower foot is ${standing.toFixed(1)} from the Kurgan's standing height`);
-  const [a, b] = model.Sequences[walk].Interval;
-  let worst = -Infinity;
-  for (let i = 0; i <= 40; i++) worst = Math.max(worst, lower(walk, Math.round(a + (b - a) * i / 40)));
-  assert.ok(worst < 0.2 * rig.hipHeight, `in Walk the lower foot gets ${worst.toFixed(1)} above its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
-  assert.ok(worst > -0.1 * rig.hipHeight, `in Walk the lower foot sinks ${(-worst).toFixed(1)} below its standing height`);
+  let worstTurn = 0;
+  const range = new Map();
+  for (const [index, frame] of moments(model, 40, /decay|portrait/i)) {
+    const mm = sampleNodeMatrices(model, frame, index), md = sampleNodeMatrices(donor, frame, index);
+    feet.forEach((id, i) => { worstTurn = Math.max(worstTurn, degrees(turn(mm.get(id)), turn(md.get(theirs[i])))); });
+    const h = Math.min(...feet.map(id => at(model, nM, mm, id).z)) - rig.ground, name = model.Sequences[index].Name;
+    const r = range.get(name) || [Infinity, -Infinity]; range.set(name, [Math.min(r[0], h), Math.max(r[1], h)]);
+  }
+  assert.ok(worstTurn < 0.5, `a foot turns up to ${worstTurn.toFixed(2)} degrees off the Tauren's`);
+  for (const [name, [lo, hi]] of range) if (!/death/i.test(name)) assert.ok(Math.max(-lo, hi) < 0.06 * rig.hipHeight, `${name}: the lower foot goes ${lo.toFixed(1)} to ${hi.toFixed(1)} from its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
+});
+
+test('P6 Kurgan on the Tauren and Footman on the Grunt: vertices in one place with the same bones get the same bones; none over four', { skip: missing('transfer-kurgan', 'transfer-tauren', 'transfer-footman', 'transfer-grunt') }, () => {
+  for (const [a, b] of [['transfer-kurgan', 'transfer-tauren'], ['transfer-footman', 'transfer-grunt']]) {
+    const { own, model } = transplant(a, b), seen = new Map();
+    own.Geosets.forEach((geoset, g) => { for (let v = 0; v < geoset.VertexGroup.length; v++) {
+      const group = Array.from(model.Geosets[g].Groups[model.Geosets[g].VertexGroup[v]]);
+      assert.ok(group.length <= 4, `${a}: vertex ${v} has ${group.length} bones`);
+      const key = `${g}|${Array.from(geoset.Vertices.subarray(v * 3, v * 3 + 3)).map(x => x.toFixed(4))}|${Array.from(geoset.Groups[geoset.VertexGroup[v]]).sort()}`;
+      if (seen.has(key)) assert.deepEqual(group, seen.get(key), `${a}: coincident vertex ${v}`); else seen.set(key, group);
+    } });
+  }
 });
 
 /** Largest distance, through three moments of every animation, between where the hammer's vertices sit
