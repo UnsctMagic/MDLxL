@@ -157,8 +157,10 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
  * `emitters`: the donor's particle effects, ribbons and lights. `mirror`: true takes the donor
  * reflected, left and right exchanged (`report.mirrorOffer` says when its weapon is in the other hand).
  * `extents` (default true): per-animation extents from the sampled motion. `legs`: 'straight' (default) keeps a
- * straight shin along the donor's knee-to-foot chord; 'folded' bends it where the donor's bends. */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight' } = {}) {
+ * straight shin along the donor's knee-to-foot chord; 'folded' bends it where the donor's bends. `feet`: 'down' (default)
+ * moves the body (and the donor joints that hang from nothing) up or down so the lower foot is as high above the
+ * ground as the donor's, times the travel ratio (owner's pick, TEST TRANSPLANT 09); 'free' leaves the height as the keys give it. */
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down' } = {}) {
   const reasons = [], keepSet = new Set(keep.map(Number));
   // ------------------------------------------------------------ read both bodies
   const ownStand = standSequenceIndex(model);
@@ -730,6 +732,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Donor joints that hang from nothing (a thrown weapon's root) settle onto the ground with the body.
   const loose = Object.values(donorMap).filter(id => { const n = M.Nodes[id]; return JOINT_KEYS.some(k => M[k].includes(n)) && (n.Parent == null || n.Parent === -1); });
   if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigA, remap, offset, reasons, loose);
+  if (rigB.ok && rigA.ok && feet !== 'free') feetDown(M, D, rigB, rigA, loose, travel);
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
   const resultStand = standSequenceIndex(M);
@@ -791,6 +794,106 @@ function shiftNode(M, id, dz) {
     node.Translation.Keys.sort((a, b) => a.Frame - b.Frame);
   } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: M.Sequences.map(sequence => ({ Frame: sequence.Interval[0], Vector: new Float32Array(shift.toArray()) })) };
 }
+/** Feet down (owner's pick, 19 Nov 2026): per moment, the body joint and every parentless donor joint move up or down
+ * by the same amount so the lower foot stands as high above the ground as the donor's lower foot, times `travel`.
+ * The change is added onto their existing translation keys, linear in time between shared breakpoints (their own
+ * key frames, more only where the change bends); curves are split exactly (de Casteljau), so how the totem root
+ * moves against the body is unchanged. */
+function feetDown(M, D, rigB, rigA, loose, travel) {
+  const stand = standSequenceIndex(M);
+  clearTransferCache(M);
+  const rigM = transferRig(M, { sequence: stand >= 0 ? stand : undefined });
+  if (!rigM.ok) return;
+  const legsOf = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  const feetM = legsOf(rigM), feetA = legsOf(rigA);
+  if (!feetM.length || !feetA.length) return;
+  const movers = [...new Set([rigM.body, ...loose])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+  const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval), donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const lowest = (model, byId, feet, ground, sequence, frame) => { const m = sampleNodeMatrices(model, frame, sequence); return Math.min(...feet.map(id => v3(nodePivot(model, byId(id), id)).applyMatrix4(m.get(id)).z)) - ground; };
+  const tolerance = 0.01 * rigB.hipHeight;
+  M.Sequences.forEach((sequence, index) => {
+    const [a, z] = sequence.Interval || [];
+    const donorIndex = D.Sequences.indexOf(donorSequences[index]);
+    if (!(z > a) || donorIndex < 0) return;
+    const cache = new Map();
+    const change = frame => {
+      if (!cache.has(frame)) cache.set(frame, lowest(D, id => donorById.get(id), feetA, rigA.ground, donorIndex, frame) * travel - lowest(M, id => M.Nodes[id], feetM, rigB.ground, index, frame));
+      return cache.get(frame);
+    };
+    // Breakpoints: every mover's key frames inside the animation and its ends; then halves wherever the straight
+    // line between two breakpoints misses the change by more than a hundredth of hip height (down to 16 ms).
+    const ends = new Set([a, z]);
+    for (const node of movers) for (const key of node.Translation?.Keys || []) if (key.Frame > a && key.Frame < z) ends.add(key.Frame);
+    const sorted = [...ends].sort((x, y) => x - y), frames = [sorted[0]];
+    const refine = (f0, f1) => {
+      if (f1 - f0 <= 16) return;
+      const misses = [0.25, 0.5, 0.75].some(share => { const f = Math.round(f0 + (f1 - f0) * share); return Math.abs(change(f) - (change(f0) + (change(f1) - change(f0)) * (f - f0) / (f1 - f0))) > tolerance; });
+      if (!misses) return;
+      const mid = Math.round((f0 + f1) / 2);
+      refine(f0, mid); frames.push(mid); refine(mid, f1);
+    };
+    for (let i = 1; i < sorted.length; i++) { refine(sorted[i - 1], sorted[i]); frames.push(sorted[i]); }
+    const values = frames.map(change);
+    for (const node of movers) addHeight(M, node, sequence.Interval, frames, values);
+  });
+  clearTransferCache(M);
+}
+/** Add a height that is linear between `frames` (`values` there; all inside `interval`) onto a node's translation keys
+ * in that interval. Keys are added only at those frames, splitting curves exactly. */
+function addHeight(M, node, interval, frames, values) {
+  const [a, z] = interval;
+  if (!node.Translation?.Keys?.length) node.Translation = { LineType: 1, GlobalSeqId: null, Keys: [] };
+  const track = node.Translation, type = track.LineType, curved = type === 2 || type === 3;
+  const template = track.Keys[0]?.Vector ?? new Float32Array(3);
+  const sample = frame => sampleTrack(track, frame, { interval, globalSequences: M.GlobalSequences, fallback: [0, 0, 0] });
+  const outside = track.Keys.filter(key => key.Frame < a || key.Frame > z);
+  let keys = track.Keys.filter(key => key.Frame >= a && key.Frame <= z).map(key => ({ ...key }));
+  // Bezier control points of a segment; Hermite tangents (per segment) converted to them and back.
+  const controls = (k0, k1) => type === 3 ? [v3(k0.Vector), v3(k0.OutTan), v3(k1.InTan), v3(k1.Vector)] : [v3(k0.Vector), v3(k0.Vector).addScaledVector(v3(k0.OutTan), 1 / 3), v3(k1.Vector).addScaledVector(v3(k1.InTan), -1 / 3), v3(k1.Vector)];
+  const asOut = (p0, p1) => type === 3 ? p1 : p1.clone().sub(p0).multiplyScalar(3), asIn = (p2, p3) => type === 3 ? p2 : p3.clone().sub(p2).multiplyScalar(3);
+  const flat = vector => like(template, type === 3 ? vector : [0, 0, 0]);
+  // 1. A key at every breakpoint, the curve unchanged.
+  for (const frame of frames) {
+    if (keys.some(key => key.Frame === frame)) continue;
+    const right = keys.findIndex(key => key.Frame > frame);
+    if (right <= 0 || !curved || !keys[right - 1].OutTan || !keys[right].InTan) {
+      // Outside the keyed span (held value), a linear or stepped track, or a curve without tangents.
+      const vector = like(template, sample(frame)), key = { Frame: frame, Vector: vector };
+      if (curved) {
+        key.InTan = flat(vector); key.OutTan = flat(vector);
+        // The held value stays held: the neighbour's tangent toward the new key was unused, now flat.
+        if (right === 0) keys[0].InTan = flat(keys[0].Vector);
+        if (right < 0 && keys.length) keys[keys.length - 1].OutTan = flat(keys[keys.length - 1].Vector);
+      }
+      keys.push(key); keys.sort((x, y) => x.Frame - y.Frame);
+      continue;
+    }
+    const k0 = keys[right - 1], k1 = keys[right], s = (frame - k0.Frame) / (k1.Frame - k0.Frame), [p0, p1, p2, p3] = controls(k0, k1);
+    const p01 = p0.clone().lerp(p1, s), p12 = p1.clone().lerp(p2, s), p23 = p2.clone().lerp(p3, s), p012 = p01.clone().lerp(p12, s), p123 = p12.clone().lerp(p23, s), p = p012.clone().lerp(p123, s);
+    const key = { Frame: frame, Vector: like(template, p.toArray()) };
+    k0.OutTan = like(template, asOut(p0, p01).toArray()); key.InTan = like(template, asIn(p012, p).toArray());
+    key.OutTan = like(template, asOut(p, p123).toArray()); k1.InTan = like(template, asIn(p23, p3).toArray());
+    keys.splice(right, 0, key);
+  }
+  // 2. The height, linear between breakpoints, onto values and onto each segment's control points.
+  const heightAt = frame => {
+    const i = frames.findIndex(f => f >= frame);
+    if (i < 0) return values[values.length - 1];
+    if (frames[i] === frame || i === 0) return values[i];
+    return values[i - 1] + (values[i] - values[i - 1]) * (frame - frames[i - 1]) / (frames[i] - frames[i - 1]);
+  };
+  const lift = (vector, dz) => like(vector, [vector[0], vector[1], vector[2] + dz]);
+  const tangents = keys.map(key => ({ in: key.InTan, out: key.OutTan }));
+  keys.forEach((key, i) => {
+    const d0 = heightAt(key.Frame), next = keys[i + 1], previous = keys[i - 1];
+    key.Vector = lift(key.Vector, d0);
+    if (!curved) return;
+    if (tangents[i].out) key.OutTan = next ? (type === 3 ? lift(tangents[i].out, d0 + (heightAt(next.Frame) - d0) / 3) : lift(tangents[i].out, heightAt(next.Frame) - d0)) : (type === 3 ? lift(tangents[i].out, d0) : tangents[i].out);
+    if (tangents[i].in) key.InTan = previous ? (type === 3 ? lift(tangents[i].in, heightAt(previous.Frame) + 2 * (d0 - heightAt(previous.Frame)) / 3) : lift(tangents[i].in, d0 - heightAt(previous.Frame))) : (type === 3 ? lift(tangents[i].in, d0) : tangents[i].in);
+  });
+  track.Keys = [...outside, ...keys].sort((x, y) => x.Frame - y.Frame);
+}
+
 /** No converted limb: only the ground is settled (feet of the open model's proportions in the donor's stance). */
 function settleFeet(M, rigB, rigA, remap, offset, reasons, loose = []) {
   const stand = standSequenceIndex(M);

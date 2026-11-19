@@ -200,7 +200,7 @@ test('P4 Kurgan on the Tauren: every limb stretch but the shin points as the Tau
   assert.ok(turnWorst.d < 0.5, `${turnWorst.id != null ? donor.Nodes[turnWorst.id].Name : ''} turns up to ${turnWorst.d.toFixed(2)} degrees off the Tauren's`);
 });
 
-test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay within 0.4 hip heights of the ground in every animation but Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay on the ground (within 0.06 hip heights) in every animation but Death', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const { own, donor, model, report } = transplant('transfer-kurgan', 'transfer-tauren'), nM = byId(model);
   const rig = transferRig(own, { sequence: standSequenceIndex(own) }), rigT = transferRig(donor, { sequence: standSequenceIndex(donor) });
   const theirs = ['legL', 'legR'].map(key => rigT.parts[key].marker), feet = theirs.map(id => report.donorNodes[id]);
@@ -214,9 +214,8 @@ test('P5 Kurgan on the Tauren: the feet turn as the Tauren\'s and stay within 0.
     const r = range.get(name) || [Infinity, -Infinity]; range.set(name, [Math.min(r[0], h), Math.max(r[1], h)]);
   }
   assert.ok(worstTurn < 0.5, `a foot turns up to ${worstTurn.toFixed(2)} degrees off the Tauren's`);
-  // Straight shins reach farther than the Tauren's folded ones, so feet float and sink with its knee bend (owner saw
-  // TEST TRANSPLANT 07, up to 0.34 hip heights). A regression guard, not a feet-down claim (folded legs: 0.06).
-  for (const [name, [lo, hi]] of range) if (!/death/i.test(name)) assert.ok(Math.max(-lo, hi) < 0.4 * rig.hipHeight, `${name}: the lower foot goes ${lo.toFixed(1)} to ${hi.toFixed(1)} from its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
+  // Feet down (owner's pick, TEST TRANSPLANT 09): the body moves so the lower foot is as high as the Tauren's.
+  for (const [name, [lo, hi]] of range) if (!/death/i.test(name)) assert.ok(Math.max(-lo, hi) < 0.06 * rig.hipHeight, `${name}: the lower foot goes ${lo.toFixed(1)} to ${hi.toFixed(1)} from its standing height (hip height ${rig.hipHeight.toFixed(0)})`);
 });
 
 test('P6 Kurgan on the Tauren and Footman on the Grunt: vertices in one place with the same bones get the same bones; none over four', { skip: missing('transfer-kurgan', 'transfer-tauren', 'transfer-footman', 'transfer-grunt') }, () => {
@@ -255,6 +254,25 @@ test('P10 Kurgan on the Tauren: the shin stays straight (owner\'s pick) and foll
   assert.ok(straight.chord < 3, `the knee-to-foot line is ${straight.chord.toFixed(1)} degrees off the Tauren's (median)`);
   const folded = shins(transplant('transfer-kurgan', 'transfer-tauren', { legs: 'folded', extents: false }));
   assert.ok(folded.rest > 60, `legs: 'folded' bends the shin at the hock (${folded.rest.toFixed(0)} degrees)`);
+});
+
+test('P11 feet down moves the body and the totem root together: the totem and the hammer move against the body exactly as with feet free', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
+  const down = transplant('transfer-kurgan', 'transfer-tauren'), free = transplant('transfer-kurgan', 'transfer-tauren', { feet: 'free' });
+  const named = (model, name) => allNodes(model).find(n => n.Name.trim() === name).ObjectId;
+  const { g, list } = hammerVertices(down);
+  const centre = (model, m) => { const v = skinGeoset(model.Geosets[g], m), c = new Vector3(); for (const i of list) c.add(new Vector3(v[i * 3], v[i * 3 + 1], v[i * 3 + 2])); return c.divideScalar(list.length); };
+  let apart = 0, hammer = 0, moved = 0;
+  for (const [index, frame] of moments(down.model, 24)) {
+    const md = sampleNodeMatrices(down.model, frame, index), mf = sampleNodeMatrices(free.model, frame, index), nd = byId(down.model), nf = byId(free.model);
+    const rel = (model, nodes, m, a, b) => at(model, nodes, m, named(model, a)).sub(at(model, nodes, m, named(model, b)));
+    apart = Math.max(apart, rel(down.model, nd, md, 'Bone_Totum', 'Root').distanceTo(rel(free.model, nf, mf, 'Bone_Totum', 'Root')));
+    const hd = centre(down.model, md).sub(at(down.model, nd, md, named(down.model, 'Bone_HandR'))), hf = centre(free.model, mf).sub(at(free.model, nf, mf, named(free.model, 'Bone_HandR')));
+    hammer = Math.max(hammer, hd.distanceTo(hf));
+    moved = Math.max(moved, Math.abs(at(down.model, nd, md, named(down.model, 'Root')).z - at(free.model, nf, mf, named(free.model, 'Root')).z));
+  }
+  assert.ok(moved > 2, `feet down moves the body (up to ${moved.toFixed(1)})`);
+  assert.ok(apart < 0.01, `the totem root against the body differs by up to ${apart.toFixed(3)}`);
+  assert.ok(hammer < 0.01, `the hammer against the hand differs by up to ${hammer.toFixed(3)}`);
 });
 
 /** Largest distance, through three moments of every animation, between where the hammer's vertices sit
