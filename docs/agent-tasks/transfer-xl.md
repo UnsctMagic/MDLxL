@@ -886,8 +886,9 @@ answers file are unchanged.
   the Tauren's `Bone_FootL` and a transplant's `RLF` both light up; drawn with GamePreview `overlayPaths`
   (path over the window, a dot at the current time; `jointPath` gained an optional range, default
   unchanged). "Not in this model" shows only when none of the look's bones is in that view. Framing:
-  each view on the middle of its own marks, at a distance of the same share of its own size (rig hip
-  height, else a third of the mesh diagonal; the largest share any view's marks need, at least 0.3), so
+  each view on the middle of its own marks, at a distance of the same share of its own size (mean rig arm and
+  leg length, which does not follow the pose, else a third of the rest mesh height; build 21 used the hip
+  height, which framed a transplant standing lower closer than its old version; the largest share any view's marks need, at least 0.3), so
   the same part shows at the same size everywhere and Flip lines up on the bones. Pressed while active;
   a second click or Esc leaves it (speed back, cameras kept). Mouse rotation keeps working.
 - Flip: one large place for two variants (two selects, default the case's `flip`, else the first two),
@@ -925,7 +926,18 @@ answers file are unchanged.
   middle 8.7 above the right collar in Stand (the totem root 11.3); shoulder plate rides
   Bone_ClavicalL, belt Bone_Pelvis; the totem leaves the hand in Death (203.6 beyond its held 20.9),
   Attack Slam 48.4, Stand Victory 22.2.
-- Tests: `test/transfer-picks.test.js` 8 (file variants, looks, flip, answers read; recipe cases
+- Second review file (transplant v2, 19 Nov): `TestBuilds\transplant-review-v2\cases.json` from
+  `out/transfer-probe/look-list-v2.mjs` (every mesh vertex of 01, 06, 07 skinned, body place taken out by each
+  one's `Bone_Pelvis`, grouped by the 06 rig part it hangs on; feet against standing height; triangle edges
+  against the rest mesh). Case 1 "Old transplant or new transplant: which moves more like the Tauren?"
+  (Tauren / Old 01 / New 06; 01 vs 06 up to 233.9 at the hammer in Death, neck and head 33.9 Death, right
+  leg 27.1 Attack Slam, left leg 25.4 Walk, chest 4.2, arms 0.0). Case 2 "Legs: which looks right?" (Tauren /
+  Bent like the Tauren 06 / Straight shin 07; legs 16.4 apart, feet 13.1 in Walk, 8.2 Attack Slam, 8.7 Death).
+  Stretch check: 06 has 37 edges over 2x their rest length (01: 29; the Kurgan's own animations: 41); 23 of
+  them are over 2x in 01 too (worst 6.89x forearm to chest in Attack Slam, the Kurgan's own animations
+  6.74x); new in 06: neck to chest 4.28x at the end of Death (01 1.79x), shin to hoof 2.19x in Walk (01
+  1.48x), both inside existing looks. Looks have no camera direction, so "the shin side-on" is a close look
+  the owner turns himself. Build 22 (framing size change), launchers 7 and `7 TRANSPLANT v2`.- Tests: `test/transfer-picks.test.js` 8 (file variants, looks, flip, answers read; recipe cases
   unchanged; each malformed field named; bones found by role). Hidden smoke on the package
   (`out/compare-sheet/compare-run.cjs`, answers to a scratch copy): window title names the model, every
   animation, look, Flip control and answer clicked once, one viewing direction, no "Not in this model",

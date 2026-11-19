@@ -15,14 +15,15 @@ const FLIP_MS = 500;
 // The Transfer rig of a model (roles of its joints), read once per model object.
 const rigs = new WeakMap();
 const rigOf = model => { if (!rigs.has(model)) { let rig = null; try { rig = transferRig(model); } catch { rig = null; } rigs.set(model, rig); } return rigs.get(model); };
-// A model's own size for framing: its hip height, else a third of its rest mesh's diagonal.
+// A model's own size for framing: the mean length of its arms and legs in the Transfer rig (does not change
+// with the pose; the rig's hip height does, so a transplant standing lower would be framed closer than its
+// old version), else a third of its rest mesh's height.
 function modelSize(model) {
-  const hip = rigOf(model)?.hipHeight;
-  if (hip > 0) return hip;
-  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  for (const geoset of model.Geosets || []) for (let i = 0; i < geoset.Vertices.length; i++) { min[i % 3] = Math.min(min[i % 3], geoset.Vertices[i]); max[i % 3] = Math.max(max[i % 3], geoset.Vertices[i]); }
-  const diagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
-  return Number.isFinite(diagonal) && diagonal > 0 ? diagonal / 3 : 1;
+  const limbs = Object.values(rigOf(model)?.parts || {}).filter(part => /^(arm|leg)[LR]$/.test(part.key) && part.length > 0);
+  if (limbs.length) return limbs.reduce((sum, part) => sum + part.length, 0) / limbs.length;
+  let low = Infinity, high = -Infinity;
+  for (const geoset of model.Geosets || []) for (let i = 2; i < geoset.Vertices.length; i += 3) { low = Math.min(low, geoset.Vertices[i]); high = Math.max(high, geoset.Vertices[i]); }
+  return high > low ? (high - low) / 3 : 1;
 }
 
 /**
