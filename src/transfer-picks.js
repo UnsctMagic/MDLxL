@@ -1,7 +1,11 @@
 // The Transfer pick sheet (test builds only): the cases file, the shuffled letters and the answers.
 // Contract: docs/agent-tasks/transfer-xl.md "Pick sheet as built".
 
+import { allNodes } from './animation.js';
+
 export const LETTERS = ['A', 'B', 'C', 'D'];
+/** Viewing speeds a look may ask for: the strip's own list, so its menu always shows the value. */
+export const LOOK_SPEEDS = [25, 50, 100, 200];
 const ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\\\[^\\]|\/)/;
 const MODEL_FILE = /\.(?:mdx|mdl)$/i;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
@@ -110,6 +114,36 @@ function compareFields(item, where, kind, variantIds) {
     return { id: answer.id, label: answer.label.trim() };
   });
   return { sequences: [...sequences], looks: parsedLooks, flip: flip && [...flip], choices };
+}
+
+/**
+ * The nodes a look marks in each view. A bone a view has by name is used as is; otherwise its role in
+ * the Transfer rig of a view that has it (part key and place along the part, the end kept as the end)
+ * finds the joint of the same role in this view (the Tauren's `Bone_FootL` and a transplant's `RLF`
+ * both end the left leg). `entries`: [{ id, model, rig }] with `rig` from `transferRig` (or null).
+ * Returns { [id]: { ids, missing } }; `missing` names the bones found neither way.
+ */
+export function lookNodes(entries, bones) {
+  const name = value => String(value ?? '').trim();
+  const nodeNamed = (model, wanted) => allNodes(model).find(node => name(node.Name) === name(wanted));
+  const roles = new Map();
+  for (const bone of bones) for (const { model, rig } of entries) {
+    const node = nodeNamed(model, bone), part = node && Object.values(rig?.parts || {}).find(entry => entry.joints?.includes(node.ObjectId));
+    if (part) { roles.set(bone, { key: part.key, at: part.joints.indexOf(node.ObjectId), length: part.joints.length }); break; }
+  }
+  return Object.fromEntries(entries.map(({ id, model, rig }) => {
+    const ids = [], missing = [];
+    for (const bone of bones) {
+      const node = nodeNamed(model, bone), role = roles.get(bone), part = role && rig?.parts?.[role.key];
+      let found = node?.ObjectId;
+      if (found == null && part?.joints?.length) {
+        const last = part.joints.length - 1;
+        found = part.joints[role.at === role.length - 1 ? last : Math.min(last, Math.round(role.at / Math.max(1, role.length - 1) * last))];
+      }
+      if (found == null) missing.push(bone); else if (!ids.includes(found)) ids.push(found);
+    }
+    return [id, { ids, missing }];
+  }));
 }
 
 /** Answers already written: an object of case id → answer. A missing or unreadable file is no answers. */

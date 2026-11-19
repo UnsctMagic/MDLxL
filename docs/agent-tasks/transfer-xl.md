@@ -868,24 +868,31 @@ answers file are unchanged.
   case's order (A, B, C as listed); recipe letters stay shuffled. Optional per case: `sequences`
   (animation names for the Animation row; default the names every view has), `looks` (`[{ label,
   sequence, from, to, bones: [names], speed? }]`; `from`/`to` in ms from the animation's start, `to` after
-  `from`; `speed` 1-400 percent, default 25; a look's `sequence` must be in `sequences` when that is
-  given), `flip` (two variant ids of the case), `answers` (2-6 `{ id, label }` buttons, parsed as
-  `choices`). `looks` and `sequences` need file variants. Recipe cases read exactly as before.
+  `from`; `speed` one of the strip's 25, 50, 100, 200 (`LOOK_SPEEDS`), default 25; a look's `sequence`
+  must be in `sequences` when that is given), `flip` (two variant ids of the case), `answers` (2-6
+  `{ id, label }` buttons, parsed as `choices`). `looks` and `sequences` need file variants. Recipe cases
+  read exactly as before. `hint` is the line under the title (use it for a plain fact).
 - Views: file views play their own animation chosen by name (exact, else ignoring case); a view without
   it says `No "<name>" animation in this model.` One clock = time from the animation's start; each view
-  plays it inside its own interval; the first playing view reports it. One `compareCamera`.
+  plays it inside its own interval; the first playing view reports it.
+- Camera: recipe cases (one model) share the whole camera (`compareCamera`). File cases share only the
+  viewing direction (`turnCamera`, as Transfer's two views): a drag turns every view together, each view
+  keeps its own target and distance, so models of different sizes are framed alike.
 - Animation row: one button per name, switches every view.
-- Look row: one click switches every view to the look's animation, loops only `from..to`
-  (GamePreview `playbackRange`), sets the speed (25% default), frames the camera close on the marked
-  bones (`captureApi.fit` on their paths; framed on the case's `flip` pair, or Flip's current pair, else
-  every view, because one camera cannot frame a big donor and a small result close at once) and marks
-  each bone the view has by name with GamePreview `overlayPaths` (its path over the window, a dot at
-  the current time; `jointPath` in `src/transfer-window.js` gained an optional range, default
-  unchanged). Bones a view lacks are named in a small "Not in this model" note. Pressed while active; a
-  second click or Esc leaves it (speed back, camera kept). Mouse rotation keeps working.
+- Look row (at most 6, one row): one click switches every view to the look's animation, loops only
+  `from..to` (GamePreview `playbackRange`), sets the speed, marks the look's bones and frames each view
+  on its own marks. Marks: `lookNodes` (`src/transfer-picks.js`): a bone by name, else by its role in the
+  Transfer rig (`transferRig` part and place along it, the end kept as the end) of a view that has it, so
+  the Tauren's `Bone_FootL` and a transplant's `RLF` both light up; drawn with GamePreview `overlayPaths`
+  (path over the window, a dot at the current time; `jointPath` gained an optional range, default
+  unchanged). "Not in this model" shows only when none of the look's bones is in that view. Framing:
+  each view on the middle of its own marks, at a distance of the same share of its own size (rig hip
+  height, else a third of the mesh diagonal; the largest share any view's marks need, at least 0.3), so
+  the same part shows at the same size everywhere and Flip lines up on the bones. Pressed while active;
+  a second click or Esc leaves it (speed back, cameras kept). Mouse rotation keeps working.
 - Flip: one large place for two variants (two selects, default the case's `flip`, else the first two),
-  stacked on the same camera and clock; the others are suspended. "Hold to swap" (pointer) or holding
-  F shows the second; "Every 0.5 s" swaps by itself.
+  stacked; the others are suspended; turning Flip on or off frames an active look again. "Hold to swap"
+  (pointer) or holding F shows the second; "Every 0.5 s" swaps by itself.
 - Answer buttons replace "Pick A", "No difference" and "None looks right"; the click writes
   `{ pick: <answer id>, letters, at }` as before. Letter keys do not pick on such cases.
 - English only (`translate="no"`), no hotkey ids, theme variables; clock updates come from GamePreview
@@ -896,22 +903,27 @@ answers file are unchanged.
   shared by name (feet also through their attachment's parent), 01 vs 02 position difference, donor vs
   01 motion difference (each from its own start, donor scaled by the hip-height ratio); extras by their
   skinned vertices. Windows: around the peak while above half of it, padded 100 ms, at least 400 ms.
+  Case looks: the director's known differences first, each taking up to two overlapping top windows of
+  the same animation (left and right of a part folded, "hands"), the rest filling up to 6.
 - First review file: `TestBuilds\transplant-review\cases.json` (answers `answers.json` beside it), three
-  cases on the Tauren, 01 and 02: transplant (14 looks; Good / Needs work), extras onto the donor
-  (Shoulder plate, Belt; Yes / No), weapon stays in the hand (Death, Attack Slam, Stand Victory; Yes /
-  No). Measured: 01 and 02 move the same (hammer 0.0 apart: the kept bone stays still on the hand; the
-  Kurgan's own hammer turns up to 110 degrees against its hand in its attacks, gone in both); lower foot
-  2.4 above standing in Walk, 12.3 in Death; arm bones 20.8 to 22.3 degrees from the Tauren's in Stand;
-  stretches neck to head 139, root to chest 71, chest to left collar 44 degrees; hammer middle 8.7
-  above the right collar in Stand (the totem root 11.3); shoulder plate rides Bone_ClavicalL, belt
-  Bone_Pelvis; the totem leaves the hand in Death (203.6 beyond its held 20.9), Attack Slam 48.4, Stand
-  Victory 22.2.
-- Tests: `test/transfer-picks.test.js` 7 (3 new: file variants, looks, flip, answers read; recipe cases
-  unchanged; each malformed field named). Hidden smoke on the package (`out/compare-sheet/compare-run.cjs`,
-  answers to a scratch copy): every animation, look, Flip control and answer clicked once, no page or
-  console errors, pictures in `out/compare-sheet/`. Build `TestBuilds\transfer-xl-20`, launcher
-  `_START HERE\7 TRANSPLANT - compare side by side.cmd`.
-
+  cases on the Tauren, 01 and 02. Case 1 line: "01 and 02 move the same; only the hammer's bone
+  differs."; Flip Tauren vs 01; looks Hammer, hands — Attack Slam; Feet — Walk; Feet, head — Death;
+  Arms — Stand 1; Neck, chest, collar — Stand 1; Hammer — Stand 1; Good / Needs work. Case 2 extras
+  (Shoulder plate, Belt — Death; Yes / No). Case 3 weapon stays in the hand (Death, Attack Slam, Stand
+  Victory; Yes / No). Measured: 01 and 02 move the same (hammer 0.0 apart: the kept bone stays still on
+  the hand; the Kurgan's own hammer turns up to 110 degrees against its hand in its attacks, gone in
+  both); lower foot 2.4 above standing in Walk, 12.3 in Death; arm bones 20.8 to 22.3 degrees from the
+  Tauren's in Stand; stretches neck to head 139, root to chest 71, chest to left collar 44 degrees; hammer
+  middle 8.7 above the right collar in Stand (the totem root 11.3); shoulder plate rides
+  Bone_ClavicalL, belt Bone_Pelvis; the totem leaves the hand in Death (203.6 beyond its held 20.9),
+  Attack Slam 48.4, Stand Victory 22.2.
+- Tests: `test/transfer-picks.test.js` 8 (file variants, looks, flip, answers read; recipe cases
+  unchanged; each malformed field named; bones found by role). Hidden smoke on the package
+  (`out/compare-sheet/compare-run.cjs`, answers to a scratch copy): window title names the model, every
+  animation, look, Flip control and answer clicked once, one viewing direction, no "Not in this model",
+  no page or console errors, pictures in `out/compare-sheet/`. Build `TestBuilds\transfer-xl-21`,
+  launcher `_START HERE\7 TRANSPLANT - compare side by side.cmd`. Not done: zoom (wheel) is per view in
+  file cases, only turning is shared.
 ## Round 7: four improvements (owner "Go, top four", 16 Nov 2026)
 
 Owner: "How much more powerful can you make it without changing it much? e.g improving algorithms,

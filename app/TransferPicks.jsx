@@ -4,15 +4,26 @@ import TransferViewStrip from './TransferViewStrip.jsx';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { useEditorArea } from './editor-area.js';
 import { readPreviewModel } from './transfer-files.js';
-import { allNodes } from '../src/animation.js';
-import { buildTransfer, transferPreviewModel } from '../src/anim-transfer.js';
+import { buildTransfer, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker } from '../src/transfer-window.js';
-import { caseLetters, firstOpenCase, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
+import { caseLetters, firstOpenCase, lookNodes, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 const FLIP_MS = 500;
+// The Transfer rig of a model (roles of its joints), read once per model object.
+const rigs = new WeakMap();
+const rigOf = model => { if (!rigs.has(model)) { let rig = null; try { rig = transferRig(model); } catch { rig = null; } rigs.set(model, rig); } return rigs.get(model); };
+// A model's own size for framing: its hip height, else a third of its rest mesh's diagonal.
+function modelSize(model) {
+  const hip = rigOf(model)?.hipHeight;
+  if (hip > 0) return hip;
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const geoset of model.Geosets || []) for (let i = 0; i < geoset.Vertices.length; i++) { min[i % 3] = Math.min(min[i % 3], geoset.Vertices[i]); max[i % 3] = Math.max(max[i % 3], geoset.Vertices[i]); }
+  const diagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+  return Number.isFinite(diagonal) && diagonal > 0 ? diagonal / 3 : 1;
+}
 
 /**
  * The Transfer pick sheet and compare sheet, for test builds only: started with
@@ -125,6 +136,9 @@ function PickSheet({ sheet, teamColor, onClose }) {
 
   // One camera and one clock for every view of a case. The clock is the time from the animation's
   // start; each view plays it inside its own animation. The first playing view reports it.
+  // File cases (models of different sizes) share only the viewing direction (turnCamera): each view keeps
+  // its own target and distance, so each frames the same body part at its own size. Recipe cases (one
+  // model) share the whole camera.
   const camera = useMemo(() => ({ saved: null, listeners: new Set() }), [item?.id]);
   const [clock, setClock] = useState(0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const reporter = views.find(view => view.preview && active(view) && (!flip || view.id === pair[0])) || views.find(view => view.preview && active(view));
@@ -150,32 +164,46 @@ function PickSheet({ sheet, teamColor, onClose }) {
     setLookIndex(at); setAnimation(next.sequence); setSpeed(next.speed); setClock(next.from); setPlaying(true); frameLook.current = true;
   };
   const chooseAnimation = name => { if (look) leaveLook(); setAnimation(name); setClock(0); };
+  // The look's bones in each view: by name, else by their role in the Transfer rig (lookNodes).
   const paths = useMemo(() => {
     if (!look) return {};
-    const out = {};
-    for (const view of views) {
-      if (!view.preview) continue;
-      const { model, sequenceIndex } = view.preview, start = view.interval[0], nodes = allNodes(model), found = [], missing = [];
-      for (const name of look.bones) {
-        const node = nodes.find(entry => trimmed(entry.Name) === trimmed(name));
-        if (!node) { missing.push(name); continue; }
-        const path = jointPath(model, sequenceIndex, node.ObjectId, 1000 / 30, [start + look.from, start + look.to]);
+    const shown = views.filter(view => view.preview), out = {};
+    const marks = lookNodes(shown.map(view => ({ id: view.id, model: view.preview.model, rig: fileCase ? rigOf(view.preview.model) : null })), look.bones);
+    for (const view of shown) {
+      const { model, sequenceIndex } = view.preview, start = view.interval[0], found = [];
+      for (const id of marks[view.id].ids) {
+        const path = jointPath(model, sequenceIndex, id, 1000 / 30, [start + look.from, start + look.to]);
         if (path.points.length > 1) found.push(path);
       }
-      out[view.id] = { found, missing };
+      out[view.id] = { found, none: !marks[view.id].ids.length };
     }
     return out;
   }, [look, views]);
+  // Framing a look. File cases: every view on its own marked bones, at a distance scaled to its own
+  // model's size (the largest share of size any view's marks need), so the same part shows at the same
+  // size in every view and Flip lines up on the bones. Recipe cases: the shared camera on all marks.
   useEffect(() => {
     if (!frameLook.current || !look) return;
-    // Framed on the two compared views (Flip's pair, or the case's "flip"), else on all: one camera
-    // cannot frame a big donor and a small result close at once.
-    const framed = flip ? pair : item.flip || Object.keys(paths);
-    const marked = framed.filter(id => paths[id]?.found.length), api = capture();
-    const points = (marked.length ? marked : Object.keys(paths)).flatMap(id => paths[id].found.flatMap(path => path.points.flat()));
-    if (!api || !points.length) return;
-    frameLook.current = false; api.fit(points);
-  }, [paths, look, captureTick]);
+    const marked = views.filter(view => paths[view.id]?.found.length);
+    if (!marked.length) return;
+    if (!fileCase) {
+      const api = capture(); if (!api) return;
+      frameLook.current = false; api.fit(marked.flatMap(view => paths[view.id].found.flatMap(path => path.points.flat()))); return;
+    }
+    if (marked.some(view => !captures.current.get(view.id))) return;
+    const frames = marked.map(view => {
+      const points = paths[view.id].found.flatMap(path => path.points), size = modelSize(view.preview.model);
+      const center = [0, 1, 2].map(axis => points.reduce((sum, point) => sum + point[axis], 0) / points.length);
+      const reach = Math.max(...points.map(point => Math.hypot(point[0] - center[0], point[1] - center[1], point[2] - center[2])));
+      return { view, center, size, share: reach / size };
+    });
+    const share = Math.max(.3, ...frames.map(frame => frame.share));
+    frameLook.current = false;
+    for (const { view, center, size } of frames) {
+      const r = share * size;
+      // Two points 2r apart: GamePreview frames a radius of 1.5 r around their middle.
+      captures.current.get(view.id).fit([center[0] - r, center[1], center[2], center[0] + r, center[1], center[2]]);
+    }  }, [paths, look, captureTick, flip]);
 
   const answer = async pick => {
     if (!item) return;
@@ -229,7 +257,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
           {item.looks.map((entry, at) => <button key={at} className="xp-look" aria-pressed={lookIndex === at} title="Plays only this moment, slowly, close up, with these bones marked. Click again or press Esc to leave." onClick={() => enterLook(at)}>{entry.label}</button>)}
         </div>}
         <div className="xp-row" role="group" aria-label="Flip">
-          <button aria-pressed={flip} disabled={views.filter(view => view.preview).length < 2} title="Shows two views in one place, on the same camera and moment, so a small difference jumps out." onClick={() => { setFlip(value => !value); setSecond(false); }}>Flip</button>
+          <button aria-pressed={flip} disabled={views.filter(view => view.preview).length < 2} title="Shows two views in one place, on the same camera and moment, so a small difference jumps out." onClick={() => { setFlip(value => !value); setSecond(false); if (look) frameLook.current = true; }}>Flip</button>
           {flip && <>
             {[0, 1].map(slot => <select key={slot} aria-label={slot ? 'Second view' : 'First view'} value={pair[slot] || ''} onChange={event => setPair(old => { const next = [...old]; next[slot] = event.target.value; if (next[0] === next[1]) next[1 - slot] = old[slot]; return next; })}>
               {views.filter(view => view.preview).map(view => <option key={view.id} value={view.id}>{view.label ? `${view.letter} ${view.label}` : view.letter}</option>)}
@@ -247,20 +275,20 @@ function PickSheet({ sheet, teamColor, onClose }) {
                 <div className="xf-preview">
                   <span className="xp-letter" aria-hidden="true">{view.letter}</span>
                   {view.label && <span className="xp-label">{view.label}</span>}
-                  {marked?.missing.length > 0 && <span className="xp-missing">{`Not in this model: ${marked.missing.join(', ')}`}</span>}
+                  {marked?.none && <span className="xp-missing">Not in this model</span>}
                   {view.preview ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                     <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView
                       model={view.preview.model} revision={`${item.id}|${view.id}`} textureAssets={view.assets} modelPath={view.path} teamColor={teamColor}
                       sequenceIndex={view.preview.sequenceIndex} time={time} onTimeChange={view === reporter ? onReport : undefined} playing={playing} playbackSpeed={speed} loop
                       playbackRange={look ? [start + look.from, start + look.to] : undefined} overlayPaths={overlay} suspended={!on}
-                      compareCamera={camera} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
+                      compareCamera={fileCase ? undefined : camera} turnCamera={fileCase ? camera : undefined} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
                   </Suspense> : <div className="xp-failed" role="status">{view.error}</div>}
                 </div>
                 {!choices.length && <button className="xp-pick" aria-pressed={picked === view.id} disabled={!view.preview} onClick={() => answer(view.id)}>{`Pick ${view.letter}`}</button>}
               </section>;
             })}
         </div>
-        <TransferViewStrip plain name="Views" playing={playing} onPlay={() => setPlaying(value => !value)} playTitle="Play or pause every view." onReset={() => capture()?.resetView()}
+        <TransferViewStrip plain name="Views" playing={playing} onPlay={() => setPlaying(value => !value)} playTitle="Play or pause every view." onReset={() => { if (fileCase) for (const view of views) captures.current.get(view.id)?.resetView(); else capture()?.resetView(); }}
           interval={[0, Math.max(1, duration)]} time={clock} onSeek={value => { setPlaying(false); setClock(value); }} speed={speed} onSpeed={setSpeed} disabled={!reporter}/>
         {problem && <p className="xp-problem" role="alert">{problem}</p>}
         <div className="xp-footer">

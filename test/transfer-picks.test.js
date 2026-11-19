@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { caseLetters, firstOpenCase, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
+import { caseLetters, firstOpenCase, lookNodes, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
 
 const recipe = (amount = 1) => ({ base: { sequence: 0 }, length: null, sources: {}, parts: { armL: { source: 'd0', sequence: 2, amount, future: { kept: true } } } });
 const sheet = (change = data => data) => JSON.stringify(change({
@@ -93,6 +93,18 @@ test('a malformed compare case names what is wrong', () => {
   fails(data => { data.cases[0].answers[1].id = 'good'; return data; }, /answer 2: the id is used twice/);
   fails(data => { data.cases[0].answers[1].label = ' '; return data; }, /answer 2: "label" is missing/);
   assert.throws(() => parseCases(sheet(data => { data.cases[0].looks = [{ label: 'x', sequence: 'Walk', from: 0, to: 1, bones: ['a'] }]; return data; })), /"looks" and "sequences" need file variants/);
+});
+
+test('a look\'s bones light up by role in a model that names them differently', () => {
+  const node = (ObjectId, Name) => ({ ObjectId, Name });
+  const donor = { Bones: [node(0, 'Bone_UpperlegL'), node(1, 'Bone_Leg2L'), node(2, 'Bone_Leg3L'), node(3, 'Bone_FootL'), node(4, 'Bone_Totum')] };
+  const result = { Bones: [node(10, 'RL1'), node(11, 'RL2'), node(12, 'RLF'), node(13, 'Wep')] };
+  const rigs = { donor: { parts: { legL: { key: 'legL', joints: [0, 1, 2, 3] } } }, result: { parts: { legL: { key: 'legL', joints: [10, 11, 12] } } } };
+  const found = lookNodes([{ id: 'donor', model: donor, rig: rigs.donor }, { id: 'result', model: result, rig: rigs.result }], ['Bone_FootL', 'LLF', 'Wep']);
+  assert.deepEqual(found.donor, { ids: [3], missing: ['LLF', 'Wep'] }, 'the foot by name; nothing else of the look is in the donor');
+  assert.deepEqual(found.result, { ids: [12, 13], missing: ['LLF'] }, 'the donor foot found as the end of the same leg, the hammer by name');
+  const none = lookNodes([{ id: 'result', model: result, rig: rigs.result }], ['Bone_Head']);
+  assert.deepEqual(none.result, { ids: [], missing: ['Bone_Head'] });
 });
 
 test('answers resume at the first unanswered case', () => {
