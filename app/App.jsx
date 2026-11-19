@@ -2083,7 +2083,7 @@ export default function App() {
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={bitReplacement?.original.id || session.id}
         onSelectParts={forgePicking?.select} forgeGeometryPreview={!!forgePreview} editHandles={forgePreview?.editHandles} onStartPartDrag={forgePreview?.onStartPartDrag} onCancelPartDrag={forgePreview?.cancel}
-        hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
+        hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow aiDocument={session.id} model={forgePreview?.model || normalizerModel || previewModel} revision={revision} selectedGeoset={activeGeoset}
         selectedVertices={forgePreview?.model?.forgeSelection?.[activeGeoset] || validSelection[activeGeoset] || []}
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={forgePreview ? {...validSelection,...forgePreview.model.forgeSelection} : validSelection}
         onSelectionChange={next => {if(forgePreview){forgePreview.cancel();return;}setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, model));}}
@@ -2119,7 +2119,7 @@ export default function App() {
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
         mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={showAxes} workplane={workplane}
         onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
-        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow
+        overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={aiFlash ?? highlightedFromSelection} aiFollow aiDocument={session.id}
         onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying} onEditPause={holdForEdit}

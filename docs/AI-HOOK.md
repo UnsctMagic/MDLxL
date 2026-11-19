@@ -89,6 +89,21 @@ your own selection or animation changes do not send the job to a private copy; i
 you edit the model and it does, the chat offers **Open as new model** right away so
 you can watch it there. Off, nothing on screen follows the AI.
 
+With the switch on, each finished AI step also **replays** in the editor's own view:
+a short animation (about half a second to a second) from the model before the step
+to the model after it. Moved vertices glide to their new place, a new part grows in,
+a removed part shrinks and fades, new texture pixels sweep in like a brush pass,
+materials and colours crossfade, UVs slide, new animation keys pop onto the timeline
+and the changed span plays once with its bones softly lit, emitters start up or fade
+out. A small marker hovers where the AI works and the changed part glows softly. The replay is display only: the model, Undo, saves
+and the AI's own pictures already hold the final result, the AI never waits for it,
+a newer step replaces a replay still running, and your camera stays yours (mouse
+rotation works throughout; your own drag ends the replay's hold on the mesh at once).
+Planning is in [ai-replay.js](../src/ai-replay.js), the clock in
+[app/ai-replay.js](../app/ai-replay.js) and each view's share in
+[ai-replay-stage.js](../app/ai-replay-stage.js); it draws inside the view's own frame
+(at most once per display frame, nothing when no replay runs).
+
 Provider warnings/errors, connection failures, usage-limit updates, model
 switches and plans stay in chat after later activity. Click a notice to read its
 details or use its dismiss button.

@@ -64,6 +64,9 @@ import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
 import { screenEngineHint } from '../src/ai-screen-names.js';
 import { createWatchFollower, spreadVertices, tabToShow, watchLook, watchTargetRule } from './ai-watch.js';
+import { aiReplay } from './ai-replay.js';
+import { forgetReplayPictures } from './ai-replay-stage.js';
+import { centerOf } from '../src/ai-replay.js';
 import { MESH_ACTIONS, GEOSET_ACTIONS, CUT_ACTION, applyMeshAction, applyGeosetAction, applyCut, remapGeosetSet, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -292,8 +295,31 @@ export class AiEditorBridge {
     if (this.watch === !!on) return;
     this.watch = !!on;
     this.watchState.shown = null;
-    if (!on) this.follower.cancel();
+    if (!on) {
+      this.follower.cancel();
+      aiReplay.stop();
+    }
     this.editorChanged();
+  }
+  // View AI work replay: before an edit on the model tab on screen, the views keep their
+  // picture and the model's state is remembered; after it, the step replays from that
+  // state to the new one. Display only, and the AI's call never waits for it.
+  armReplay(env) {
+    if (!env?.live) return null;
+    try {
+      return { token: aiReplay.arm(env.session.id, env.doc.revision), documentId: env.session.id, revision: env.doc.revision, before: structuredClone(env.doc.model) };
+    } catch {
+      return null;
+    }
+  }
+  playReplay(armed, env, result) {
+    try {
+      if (!this.watch || !env?.live || env.session.id !== armed.documentId || env.doc.revision === armed.revision) return aiReplay.disarm(armed.token);
+      const s = this.state();
+      aiReplay.play(armed.token, armed.before, env.doc.model, { documentId: armed.documentId, revision: env.doc.revision, assets: result?.assets, sequence: s.globalSeqId == null ? s.sequence : -1 });
+    } catch {
+      aiReplay.disarm(armed.token);
+    }
   }
   watching() {
     return this.watch;
@@ -334,10 +360,10 @@ export class AiEditorBridge {
     const spread = spreadVertices(marks);
     if (!Object.keys(spread).length) return;
     const sequence = s.globalSeqId == null ? s.sequence : -1;
-    host.followFit({
-      posed: markedPositions(model, spread, sequence, s.globalSeqId, s.time),
-      rest: markedPositions(model, spread, -1, null, 0),
-    });
+    const posed = markedPositions(model, spread, sequence, s.globalSeqId, s.time), rest = markedPositions(model, spread, -1, null, 0);
+    host.followFit({ posed, rest });
+    // The marker hovers over the part the AI just looked at.
+    if (rest?.length >= 3) aiReplay.look(documentId, s.doc.revision, centerOf(rest), posed?.length >= 3 ? centerOf(posed) : null);
   }
   // An edit step's changed part, flashed on the model on screen with the geoset highlight.
   flashGeoset(index) {
@@ -457,6 +483,7 @@ export class AiEditorBridge {
     return { ...context, embeddedJob: true };
   }
   closeDocument(documentId) {
+    forgetReplayPictures(documentId);
     for (const [id, target] of this.targets) if (target.documentId === documentId) {
       if (target.job?.draft) this.host().dropAiDraft(target.job.draft);
       this.targets.delete(id);
@@ -672,6 +699,8 @@ export class AiEditorBridge {
     const key = (args.target && this.targets.get(args.target)?.documentId) || '',
       run = async () => {
       if (options.signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
+      // A picture or a click on the live editor sees the real model, never a replay in flight.
+      if (this.watch && (name === 'mdlxl_capture' || name === 'mdlxl_ui')) aiReplay.stop();
       const display = (name === 'mdlxl_command' && AI_DISPLAY_COMMANDS.has(args.id)) || (name === 'mdlxl_view' && !args.mode);
       if (display && name === 'mdlxl_command' && this.env(this.targets.get(args.target)).live === false)
         throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
@@ -681,7 +710,7 @@ export class AiEditorBridge {
         await this.waitForTarget(args.target, options);
         if (target?.job?.draft) throw Error(screenOnly(name, args));
       }
-      let review, revision, paint;
+      let review, revision, paint, replay;
       const target = args.target && this.targets.get(args.target),
         current = () => {
           try {
@@ -705,11 +734,13 @@ export class AiEditorBridge {
           if (options.signal.aborted) cancel();
         }) : null;
         const liveBefore = this.watch ? current()?.live : undefined;
+        replay = liveBefore && aiToolEditsModel(name, args) ? this.armReplay(current()) : null;
         const operation = this.dispatch(name, args, options);
         result = await (cancelled ? Promise.race([operation, cancelled]) : operation);
         if (this.watch) this.follow(name, args, result, liveBefore);
         return result;
       } finally {
+        if (replay) this.playReplay(replay, current(), result);
         if (cancel) options.signal.removeEventListener('abort', cancel);
         const env = review && current();
         if (env && (env.doc.revision !== revision || env.session.paintWorkingRevision !== paint))
