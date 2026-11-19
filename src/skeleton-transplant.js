@@ -8,12 +8,11 @@
 //    buildTransfer's probe). Trunk joints pair by what hangs from them: the donor joint the legs
 //    hang from takes the open model's hips, the one the arms hang from its chest, the deepest
 //    head joint its head.
-// 2. Legs are always transplanted (v2, owner 19 Nov 2026): a donor leg joint no own joint takes (a
-//    hock) sits on this model's leg between its neighbours, and the own stretch's skin is split
-//    between the donor joints along it. An arm whose donor counterpart has a joint inside it that
-//    no joint here takes (a hand the model lacks) is converted: it keeps its own joints and the
-//    retargeting engine drives them in every donor animation (Pose = Theirs). Every other paired
-//    limb is transplanted: the donor's joints are fitted into this model's joints.
+// 2. No limb is converted (v2, owner 19 Nov 2026; skin contract): a donor joint no own joint takes
+//    (a neck, a hock, a forearm) sits on this model's line between its neighbours and takes the
+//    skin past its plane (src/transplant-skin.js). Skin goes onto the donor bone that carries
+//    that joint's skin in the donor; a leg's foot is not corrected; the body's travel is scaled
+//    by the fitted legs.
 // 3. Donor joints sit on this model's joints (paired), on this model's line between its
 //    neighbours (a donor collar or neck it lacks), or at the donor's offset scaled by the size
 //    ratio (a tail, a weapon root).
