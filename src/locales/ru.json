@@ -8874,5 +8874,6 @@
   "The result's body was not recognised: {0}": "Тело результата не распознано: {0}",
   "Whole skeleton": "Весь скелет",
   "Pick parts": "Выбор частей",
-  "Takes movement from the donor part by part onto this model's own bones.": "Переносит движение донора часть за частью на собственные кости этой модели."
+  "Takes movement from the donor part by part onto this model's own bones.": "Переносит движение донора часть за частью на собственные кости этой модели.",
+  "Building…": "Сборка…"
 }

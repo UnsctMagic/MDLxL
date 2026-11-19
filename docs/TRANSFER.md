@@ -58,12 +58,13 @@ camera stays. Retarget keeps its taken parts while Transplant is shown.
 | Control | What it does |
 | --- | --- |
 | From, Animations, donor view | As in Retarget: choose the donor and the animation to look at. Mirror on the donor caption swaps the donor's left and right (on by itself when the two models hold their weapon in opposite hands). Part handles and Both / Rider / Mount are not shown. |
-| Result view | The open model transplanted onto the donor, playing the donor view's animation. Its dropdown chooses the same animation for both views. Turning one view turns the other; a changed setting rebuilds the result without moving the camera. |
+| Result view | The open model transplanted onto the donor, playing the donor view's animation. Its dropdown chooses the same animation for both views. Turning one view turns the other. The result is built in the background, so the window keeps answering: while it builds, the view keeps the last result (camera unchanged) and says Building…; a newer setting replaces a build still running. |
 | Poor fit | Shown only when the bodies fit badly (different number of legs, an arm or wing the donor lacks, an unrecognised body), with the reason. Transplant still works. |
 | Sounds | The donor's sounds and footprints. On at first; off keeps this model's own, fitted to the new animations. |
 | Effects | The donor's particle effects, ribbons and lights. Off at first. |
 | Keep | One box per loose piece of the model (a belt, a weapon). On: the piece stays on its own bone instead of the donor's. Off at first. |
-| Transplant / Cancel | Transplant makes the open model the result, in place (no new tab), as one Undo step. The window stays open and says Transplanted. Cancel closes. |
+| Transplant / Cancel | Transplant makes the open model the result, in place (no new tab), as one Undo step. The window stays open and says Transplanted; Transplant is then off until a setting or the donor changes (or Undo restores the model). Cancel closes. |
+| Ctrl+Z / Ctrl+Y | Do nothing inside the window in Transplant mode (its settings have no Undo); the editor's Undo removes an applied Transplant. |
 
 ## A rider on a mount
 

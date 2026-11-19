@@ -8884,5 +8884,6 @@
   "The result's body was not recognised: {0}": "No se reconoció el cuerpo del resultado: {0}",
   "Whole skeleton": "Esqueleto entero",
   "Pick parts": "Elegir partes",
-  "Takes movement from the donor part by part onto this model's own bones.": "Toma el movimiento del donante parte por parte en los huesos propios de este modelo."
+  "Takes movement from the donor part by part onto this model's own bones.": "Toma el movimiento del donante parte por parte en los huesos propios de este modelo.",
+  "Building…": "Construyendo…"
 }

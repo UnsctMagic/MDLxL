@@ -1,7 +1,7 @@
 // Transfer (XFER) acceptance with real mouse input on the app: docs/agent-tasks/transfer-xl.md "Window acceptance"
 // and "Round 2". Disposable profile and model copies under out/; never opens or replaces a user profile. Run it hidden:
 // MDLXL_PLAYWRIGHT_MODULE=<playwright-core> MDLXL_TEST_EXE=<MDLxL.exe> node test/transfer.electron.cjs
-// MDLXL_TRANSFER_SWEEP=1 adds a click-through of every control; MDLXL_TRANSFER_ONLY=B,A,fx,sweep,unreadable,trials picks parts.
+// MDLXL_TRANSFER_SWEEP=1 adds a click-through of every control; MDLXL_TRANSFER_ONLY=B,A,fx,sweep,unreadable,trials,freeze picks parts.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath, testModel } = require('./helpers/fixtures.cjs');
@@ -1552,6 +1552,71 @@ async function transplantStory() {
   } finally { await s.close(); }
 }
 
+// A transplant builds off the main thread (app/transplant.worker.js): while the Lord of Change goes onto the
+// HD Footman's skeleton (the HD Footman opens read-only, so it is the donor; ~6 s of engine work), a click on
+// another control answers within 200 ms, the longest main-thread task stays short, and the result view keeps
+// the last result.
+async function freezeStory() {
+  const have = key => { const file = fixturePath(key); return !!file && fs.existsSync(file); };
+  const [ownKey, donorKey] = have('transfer-lord-of-change') && have('forge-hd-footman') ? ['transfer-lord-of-change', 'forge-hd-footman'] : ['transfer-kurgan', 'transfer-tauren'];
+  if (!have(ownKey) || !have(donorKey)) { results.checks.push('freeze: neither the Lord of Change with the HD Footman nor the Kurgan with the Tauren is on this machine, skipped'); return; }
+  const own = copyModel(ownKey, 'TEST TRANSPLANT FREEZE 01.mdx'), donor = copyModel(donorKey, 'freeze donor.mdx'), file = fixturePath(donorKey);
+  const s = await session(own, 'freeze'), { page, dialog } = s;
+  const state = () => page.evaluate(() => window.__mdlxl.transfer()?.transplant || null);
+  try {
+    await openTransfer(s, 'transplant');
+    await page.evaluate(() => { const p = window.__xfPerf = { long: [] }; try { new PerformanceObserver(list => { for (const e of list.getEntries()) p.long.push([e.startTime, e.duration]); }).observe({ type: 'longtask' }); } catch {} });
+    const loaded = Date.now();
+    await s.openDonor(donor);
+    const opened = await page.evaluate(() => { const p = window.__xfPerf, before = p.long; p.long = []; return Math.round(Math.max(0, ...before.map(e => e[1]))); });
+    // Clicks on the donor view's Play/Pause while the transplant builds: each answers within 200 ms.
+    const play = s.view('Donor').locator('.xs-strip').getByRole('button', { name: /Pause|Play/ }), answers = [];
+    for (let i = 0; i < 3; i++) {
+      const before = await play.innerText(), t0 = Date.now();
+      await play.click();
+      await page.waitForFunction(([text]) => { const b = [...document.querySelectorAll('[role="dialog"][aria-label="Transfer"] section[aria-label="Donor"] .xs-strip button')].find(x => /Pause|Play/.test(x.innerText)); return b && b.innerText !== text; }, [before], { timeout: 60000 });
+      answers.push({ ms: Date.now() - t0, building: !!(await state())?.building });
+      await page.waitForTimeout(150);
+    }
+    const during = answers.filter(a => a.building);
+    const longSoFar = await page.evaluate(() => Math.round(Math.max(0, ...window.__xfPerf.long.map(e => e[1]))));
+    assert.ok(during.length > 0, `freeze: the clicks came while the transplant was building (${JSON.stringify(answers)}; longest main-thread task ${Math.max(opened, longSoFar)} ms)`);
+    assert.ok(Math.max(...during.map(a => a.ms)) < 200, `freeze: a click answers within 200 ms while the transplant builds (${JSON.stringify(answers)})`);
+    assert.equal(await dialog.locator('[data-transplant-view] .xf-placeholder').innerText(), 'Building…', 'freeze: the result view says Building… before the first result');
+    let ready = null;
+    for (const end = Date.now() + 180000; Date.now() < end && !ready?.ready; await new Promise(r => setTimeout(r, 200))) ready = await state();
+    assert.ok(ready?.ready, `freeze: the transplant finishes (${JSON.stringify(ready)?.slice(0, 300)})`);
+    const built = Date.now() - loaded, long = await page.evaluate(() => window.__xfPerf.long);
+    const longest = Math.round(Math.max(0, ...long.map(e => e[1])));
+    // A setting change keeps the last result on screen with Building… and the camera where it is.
+    const camera = async () => (await s.probe('Result')).camera.object.matrix.map(v => Math.round(v * 1000) / 1000).join(',');
+    await page.waitForTimeout(500); const before = await camera();
+    const firstLong = await page.evaluate(() => { const p = window.__xfPerf, all = p.long; p.long = []; return all.map(e => Math.round(e[1])).filter(d => d > 100); });
+    await dialog.locator('aside[aria-label="Transplant"]').getByLabel('Sounds').click();
+    await dialog.locator('[data-transplant-building]').waitFor({ timeout: 10000 });
+    assert.equal(await dialog.locator('[data-transplant-view] .game-preview-root').count(), 1, 'freeze: the last result stays on screen while a setting rebuilds');
+    // A newer setting supersedes the running build: only the newest options arrive.
+    await dialog.locator('aside[aria-label="Transplant"]').getByLabel('Sounds').click();
+    for (const end = Date.now() + 180000; Date.now() < end; await new Promise(r => setTimeout(r, 200))) { ready = await state(); if (ready?.ready) break; }
+    assert.ok(ready?.ready && ready.options.events === true, 'freeze: the newest setting (Sounds back on) is the one built');
+    assert.equal(await camera(), before, 'freeze: rebuilding keeps the result camera');
+    await page.waitForTimeout(1000);
+    const rebuildLong = await page.evaluate(() => window.__xfPerf.long.map(e => Math.round(e[1])).filter(d => d > 100));
+    // Window Ctrl+Z in Transplant mode does nothing; Transplant applies once.
+    await dialog.locator('button[data-hotkey="transfer:transplant"]').click();
+    await dialog.getByText('Transplanted', { exact: true }).waitFor({ timeout: 120000 });
+    await page.waitForTimeout(3000);
+    assert.equal(await dialog.locator('button[data-hotkey="transfer:transplant"]').isDisabled(), true, 'freeze: Transplant stays off after it was applied');
+    const sounds = await dialog.locator('aside[aria-label="Transplant"]').getByLabel('Sounds').isChecked(), revision = await page.evaluate(() => window.__mdlxl.document().revision);
+    await dialog.locator('aside[aria-label="Transplant"]').getByLabel('Sounds').focus(); await page.keyboard.press('Control+Z'); await page.waitForTimeout(500);
+    assert.equal(await dialog.locator('aside[aria-label="Transplant"]').getByLabel('Sounds').isChecked(), sounds, 'freeze: window Ctrl+Z in Transplant mode changes no setting');
+    assert.equal(await page.evaluate(() => window.__mdlxl.document().revision), revision, 'freeze: window Ctrl+Z in Transplant mode leaves the model as it is');
+    assert.equal(await dialog.getByText('Transplanted', { exact: true }).count(), 1, 'freeze: still Transplanted after Ctrl+Z');
+    results.checks.push(`freeze: ${ownKey} onto ${donorKey} (${path.basename(file)}) built in ${(built / 1000).toFixed(1)} s with the window answering: clicks ${answers.map(a => a.ms + ' ms' + (a.building ? '' : ' (built)')).join(', ')}; longest main-thread task ${longest} ms after the donor opened (${opened} ms while it opened; tasks over 100 ms until the first result: ${JSON.stringify(firstLong)}, over two rebuilds: ${JSON.stringify(rebuildLong)}); a setting change keeps the last result and camera with Building…, the newer setting wins; Transplant applies once; window Ctrl+Z does nothing in Transplant mode`);
+    await s.noCrash('freeze');
+  } finally { await s.close(); }
+}
+
 // Director trials: whole body onto very different rigs, caught mid-movement.
 async function trials() {
   const footman = copyModel('transfer-footman', 'footman donor 3.mdx'), grunt = copyModel('transfer-grunt', 'grunt donor 3.mdx');
@@ -1582,9 +1647,9 @@ async function trials() {
 (async () => {
   fs.mkdirSync(shots, { recursive: true }); fs.mkdirSync(shots3, { recursive: true }); fs.mkdirSync(shots4, { recursive: true }); fs.mkdirSync(shotsF, { recursive: true }); fs.mkdirSync(shots5, { recursive: true }); fs.mkdirSync(shots7, { recursive: true }); fs.mkdirSync(shots7b, { recursive: true }); fs.mkdirSync(shots8, { recursive: true });
   let failed = null;
-  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'set', 'transplant', 'fx', 'sweep', 'unreadable', 'trials'];
+  const all = ['B', 'A', 'all', 'mix', 'aim', 'weapon', 'setup', 'dark', 'sweep34', 'views', 'round7', 'riders', 'features', 'set', 'transplant', 'freeze', 'fx', 'sweep', 'unreadable', 'trials'];
   const only = process.env.MDLXL_TRANSFER_ONLY ? process.env.MDLXL_TRANSFER_ONLY.split(',') : all.filter(name => name !== 'sweep' || process.env.MDLXL_TRANSFER_SWEEP);
-  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['set', setStory], ['transplant', transplantStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
+  for (const [name, run] of [['B', storyB], ['A', storyA], ['all', storyAll], ['mix', mix], ['aim', aimStory], ['weapon', weaponStory], ['setup', setupStory], ['dark', darkStory], ['sweep34', sweep34], ['views', viewsStory], ['round7', round7Story], ['riders', ridersStory], ['features', featuresStory], ['set', setStory], ['transplant', transplantStory], ['freeze', freezeStory], ['fx', fx], ['sweep', sweep], ['unreadable', unreadable], ['trials', trials]]) {
     if (!only.includes(name)) continue;
     try { await run(); } catch (error) { failed ||= error; results.errors.push(`${name}: ${error.stack || error.message}`); console.error(name, error); }
   }

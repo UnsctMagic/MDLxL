@@ -8780,5 +8780,6 @@
   "The result's body was not recognised: {0}": "未能识别结果的身体：{0}",
   "Whole skeleton": "整个骨架",
   "Pick parts": "选择部位",
-  "Takes movement from the donor part by part onto this model's own bones.": "将来源的动作逐部位应用到此模型自身的骨骼上。"
+  "Takes movement from the donor part by part onto this model's own bones.": "将来源的动作逐部位应用到此模型自身的骨骼上。",
+  "Building…": "正在生成…"
 }

@@ -19,6 +19,7 @@ import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { createTransplantBuilder } from './transplant-builder.js';
 import { replaceModelContents, transplantOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
@@ -590,29 +591,36 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
 
   // Transplant mode: the open model's mesh on the donor's skeleton with the donor's animations
   // (src/skeleton-transplant.js, engine defaults). The result view plays it with the donor view's
-  // animation; Transplant swaps it into the open model as one Undo step. Built after a paint, so the
-  // last result stays on screen (and the camera where it is) while a setting rebuilds it.
+  // animation; Transplant swaps it into the open model as one Undo step. Built in a worker
+  // (app/transplant.worker.js, the engine and its per-animation extents), so the window never waits:
+  // the last result stays on screen (and the camera where it is) with "Building…" while a setting
+  // rebuilds it, and a newer setting stops the build still running (app/transplant-builder.js).
   const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [] });
   const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
   const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
   const tpOptions = useMemo(() => transplantOptions({ ...tpSettings, mirror: donorMirror }), [tpSettings, donorMirror]);
   const tpSettingsKey = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpOptions)}` : null;
-  // After Transplant the result view shows the open model itself, until a setting, the donor or the model changes.
-  const tpShowsModel = !!tpApplied && tpApplied.revision === doc.revision && tpApplied.key === tpSettingsKey;
+  // After Transplant the result view shows the open model itself (and Transplant is off), until a
+  // setting, the donor or the model changes. A setting is what the user set: Mirror's automatic
+  // choice reads the open model, which the transplant itself changed, so it does not count.
+  const tpChoice = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpSettings)}|${recipe.sources?.[tpDonor.id]?.mirror ?? ''}` : null;
+  const tpShowsModel = !!tpApplied && tpApplied.revision === doc.revision && tpApplied.choice === tpChoice;
   const tpKey = tpSettingsKey && rigB.ok && !tpShowsModel ? `${tpSettingsKey}|${doc.revision}` : null;
+  const tpBuilder = useRef(null), tpResult = useRef(null);
+  tpResult.current = next => setTpBuilt(next);
+  tpBuilder.current ||= createTransplantBuilder({
+    spawn: () => new Worker(new URL('./transplant.worker.js', import.meta.url), { type: 'module' }),
+    buildHere: request => transplantSkeleton(request.model, request.donor, request.options),
+    onResult: next => tpResult.current(next),
+  });
+  useEffect(() => () => tpBuilder.current.dispose(), []);
   useEffect(() => {
-    if (!tpKey || tpBuilt?.key === tpKey) return;
-    let gone = false;
-    const from = tpDonor.model, options = tpOptions, key = tpKey;
-    const timer = setTimeout(() => {
-      let next;
-      try { const out = transplantSkeleton(model, from, options); next = { key, model: out.model, report: out.report }; }
-      catch (error) { next = { key, error: error.message }; }
-      if (!gone) setTpBuilt(next);
-    }, 30);
-    return () => { gone = true; clearTimeout(timer); };
+    if (!tpKey) { tpBuilder.current.cancel(); return; }
+    if (tpBuilt?.key === tpKey) return;
+    tpBuilder.current.request({ key: tpKey, model, modelKey: `${doc.revision}`, donor: tpDonor.model, donorKey: `${tpDonor.id}|${tpDonor.revision}`, options: tpOptions });
   }, [tpKey]);
   const tpReady = !!tpKey && tpBuilt?.key === tpKey && !!tpBuilt.model;
+  const tpBuilding = !!tpKey && tpBuilt?.key !== tpKey;
   const tpShown = !tpDonor ? null : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
   // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
   const tpReport = tpShown?.report || null;
@@ -626,19 +634,21 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const keepExtra = (id, on) => setTpSettings(old => ({ ...old, keep: on ? [...old.keep.filter(item => item !== id), id] : old.keep.filter(item => item !== id) }));
   const transplantNow = () => {
     if (!tpReady || doc.readOnly || tpWorking) return;
-    const made = tpBuilt, key = tpSettingsKey;
+    const made = tpBuilt, choice = tpChoice;
     setTpWorking(true);
     requestAnimationFrame(() => setTimeout(() => {
       try {
         const staged = structuredClone(made.model);
         const result = edit('Transplant', TRANSPLANT_SECTIONS, m => { replaceModelContents(m, staged); });
         clearTransferCache(model);
-        if (result !== false) setTpApplied({ revision: doc.revision, key, report: made.report });
+        // doc.revision is read after the edit: the result view then shows the model itself and
+        // Transplant stays off until a setting, the donor or the model changes.
+        if (result !== false) setTpApplied({ revision: doc.revision, choice, report: made.report });
       } finally { setTpWorking(false); }
     }, 0));
   };
 
-  useWindowHotkeys('transfer', windowCommandActions('transfer', 'Transfer', {undo: () => stepHistory(false), redo: () => stepHistory(true), play: () => (transplanting ? setTpPlaying : setPlaying)(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
+  useWindowHotkeys('transfer', windowCommandActions('transfer', 'Transfer', {undo: () => { if (!transplanting) stepHistory(false); }, redo: () => { if (!transplanting) stepHistory(true); }, play: () => (transplanting ? setTpPlaying : setPlaying)(v => !v)}).map(action => ({...action, allowInInput: action.bindingCommand !== 'play'})));
   useEffect(() => { dialog.current?.focus(); }, []);
 
   const sourceRows = [
@@ -689,7 +699,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, 5);
   // The parts list names a part's clips in order: "Attack - 1, then Attack - 2".
   const chainName = part => partClips(part).map((clip, i) => i === 0 || clip.source !== part.source ? clipName(clip) : sequenceName(modelOf(clip.source), clip.sequence)).reduce((a, b) => translate('{0}, then {1}').replace('{0}', () => a).replace('{1}', () => b));
-  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
+  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, building: tpBuilding, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
   const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
   const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
@@ -739,9 +749,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
                     cleanAnimationPreview emptyDragRotates transformMode="select" onCaptureReady={onResultCapture}/>
-                </Suspense> : <div className="xf-placeholder">{tpDonor ? 'Loading preview…' : 'Choose a model under From.'}</div>}
+                </Suspense> : <div className="xf-placeholder">{!tpDonor ? 'Choose a model under From.' : tpBuilding ? 'Building…' : 'Loading preview…'}</div>}
                 {tpDonor && tpBuilt?.key === tpKey && tpBuilt.error && <div className="xf-overlay-note" role="status">{tpBuilt.error}</div>}
-                {tpDonor && tpKey && tpShown && !tpReady && !tpBuilt?.error && <div className="xf-overlay-note xf-message" role="status">Loading preview…</div>}
+                {tpDonor && tpShown && tpBuilding && <div className="xf-overlay-note xf-message" role="status" data-transplant-building="">Building…</div>}
               </div>
               <TransferViewStrip name="Result view" playing={tpPlaying} onPlay={() => setTpPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
                 interval={tpInterval || null} time={tpTime} onSeek={value => { setTpPlaying(false); setTpTime(value); }} speed={tpSpeed} onSpeed={setTpSpeed}
