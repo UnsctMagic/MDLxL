@@ -1261,3 +1261,59 @@ Open points and risks:
   Footman's tabard stretches). The Kurgan's neck band turns 139 degrees into the Tauren's (the head hangs forward of the hump).
 - The Tauren's hump is mesh, not skeleton: its trunk line leans only 18 degrees, so the Kurgan changes little there.
 - Riders as donors are mixed (above). Legless donors keep this model's trunk line.
+
+## Weapon thrown or dropped as a loose copy (builder: Claude Opus, 20 Nov 2026)
+
+Owner on the floor sheet, case 1 (Kurgan on the Grunt, mirrored), 15:05: "Non are correct - the grunt throws his weapon,
+the kurgans weapon is welded to his hand." Standing rule (19 Nov): the model's weapon rides the donor's weapon bone,
+including where the donor throws or lets go of it.
+
+Cause: the Grunt never moves its weapon bone out of the hand. In Stand Victory (and Death, Decay Flesh) it hides the axe
+in its hand (`Grunt2_08Axe`, geoset 7) and shows a loose copy on a root bone (`Grunt2_15AxeFree`, geoset 3) that flies
+up and comes back. The hammer rode `Grunt2_08Axe` correctly, so it stayed in the hand. Not mirroring, not W1/HP1.
+
+Fix (commits 1fdc91ce + dd67bd8f, `donorWeaponSwap` in `src/skeleton-transplant.js`, on the engine's donor copy after the death
+swap; `report.weaponSwap`): where a loose copy shows and the held weapon is hidden, the held weapon's bone takes the
+copy's motion (placed by the two pieces' relation at a swap moment where they match within 0.25 weapon lengths: per
+stretch its own swap when it matches, else the best of all; scaled moments are no swap). Keys are baked down to 8 ms
+where a straight line misses (a thrown axe spins), with a key just before and at each switch so the held keys go on
+unchanged. Variants: a weapon in the hand's own skin hands over to the copy's bone, hung from the hand; a weapon
+attachment hung from the hand is re-hung from the held weapon's own bone (Centaur, Dryad); another weapon in the same
+hand (Arthas's hammer in Stand Fourth/Fifth, sword hidden) is followed by its grip. Only for a model whose rig reads a
+weapon (dd67bd8f, WS4): the Murloc's Weapon Ref hangs from its hand mesh, which then rode the Clanrat's planted sword into
+the ground. Donors without such a copy are untouched (the donor copy is not changed at all).
+
+Donors (all 653 sweep models scanned, `out/transfer-probe/overnight/weapon-throw/donors-final.txt`): 16. Grunt, Chaos
+Grunt (Stand Victory throw, Death, Decay Flesh); Headhunter and v1, Centaur, Centaur Khan, Centaur Archer (other arm for
+most models), Dryad, the three herrdave Halberdiers (Estalian, Reikland, Reikland Old), gluma Ungor spear and bow,
+Clanrat 29 (also Stand Channel) (Death, Decay); Shoveler (Attack - 2 shows a second pickaxe); Arthas with sword (hammer
+in Stand Fourth/Fifth, let fall in Fifth). Left out: gluma Stormvermin 7 (its dropped halberd appears 0.37 weapon lengths
+from the held one, no seamless swap anywhere), Arthas's falling Frostmourne (never in his hand).
+
+Measured (Kurgan on the Grunt, mirrored; farthest the weapon goes from the hand, in arm lengths): Stand Victory axe
+4.39, hammer 0.47 -> 3.66; Death axe 3.34, hammer -> 3.72; Stand - 1 unchanged. Identity (donor on itself), the result's
+held weapon against the donor's shown copy: Grunt 0.12-0.13 hip heights (the two meshes' centres differ by 0.117),
+Centaur 0.01, Headhunter 0.13, Dryad 0.14 (`weapon-throw/identity.mjs`, `identity-final.txt`).
+
+Tests WS1 (Kurgan on Grunt), WS2 (Kurgan on Dryad), WS3 (Kurgan on Arthas, new fixture key `transfer-arthas-sword`)
+fail on 0dea1622 and pass; WS4 (Murloc on the Headhunter keeps the spear's own keys) fails on 1fdc91ce. HP2 and C5 now leave out the thrown/dropped stretches (the spear's/axe's keys are the
+copy's there). skeleton-transplant 95/95, transfer-window 29/29, transplant-skin/extras/builder, anim-transfer,
+transfer-picks pass. Panel (ruler v9, `panel-ws1.json` vs `panel-r4hb.json`): 50/11 = 50/11, 0 worse, 0 better.
+`anim-transfer.js` untouched, so the retarget baseline cannot change. Humanoid sk1000 (ruler v10 frozen
+`humanoid/r4/ruler-v10-final`, with the v9 verdict): the 62 pairs on the 16 donors against `rows-fe04c3fd-v10.jsonl`:
+0 ok->bad, 2 bad->ok (Pikeman on Arthas, Greenskin Orc on Clanrat 29), 52 -> 54 ok under both rulers
+(`weapon-throw/sk-ws4-compare.txt`); the other 938 cannot change (donor copy untouched; 40 sampled pairs built
+byte-identical with fe04c3fd, `weapon-throw/same.txt`).
+
+Floor sheet rebuilt (`floor-choice/eng` = dd67bd8f, same file names): 01 Kurgan on the Grunt, all three views throw and
+drop the hammer (weapon bone up to 79 units from the hand in Stand Victory, 82 in Death; was 9); 03 Pikeman on Arthas,
+the pike goes with the hammer Arthas lets fall at the end of Stand Fifth (128 units). The floor options ignore a weapon
+that has left the hand (in a copy stretch and a quarter height farther from the hand than at rest). 02 and 04 unchanged
+(Ghoul and Murloc donors have no copy). Before: `floor-choice/before-ws1/`.
+
+Sheet view sizes (owner: "Now" tiny, "Bend arm" big): no absurd extents. Now/Lift/Bend of every case have identical
+model and animation extents, bind bounds and rig limb sizes. Each view frames its own posed mesh once its first frame
+is drawn (`GamePreview` `fitBox`, `TransferPicks` file cases), filling the pane with whatever pose that view loaded in:
+the views load at different moments of the playing animation and Bend's raised arm makes its box taller, so the zoom
+differs per view (seen in `floor-choice/shots/02-0-views.png`). Looks frame by one share of each model's limb size, so
+those agree. A fix belongs in `TransferPicks.jsx` (frame file-case views on load by the same shared share), not done.
