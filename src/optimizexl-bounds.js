@@ -9,7 +9,9 @@ export function invalidBoundsTargets(model){
  model.Sequences.forEach((s,sequence)=>{if(invalid(s))targets.push({path:['Sequences',sequence],sequence,label:s.Name,hivePath:`/Sequence ${sequence} -`});});
  model.Geosets.forEach((g,geoset)=>{
   if(invalid(g))targets.push({path:['Geosets',geoset],geoset,label:`Geoset ${geoset+1}`,hivePath:`/Geoset ${geoset}/Extent`});
-  if((g.Anims?.length||0)!==model.Sequences.length){
+  // An empty table is a state (geoset animation bounds left out, as on some
+  // Blizzard units), not a broken one; Calculate extents offers both choices.
+  if(g.Anims?.length&&g.Anims.length!==model.Sequences.length){
    // An extent record has no sequence identity. After a table-size mismatch,
    // keeping a prefix or copying a neighbor can assign bounds to the wrong
    // animation. Rebuild this entire table; it also owns its invalid records.

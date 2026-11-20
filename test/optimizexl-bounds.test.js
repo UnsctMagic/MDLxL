@@ -33,7 +33,7 @@ function tableFixture(counts=[1,3,2],intervals=[[100,200],[400,500]]){
  });return doc;
 }
 
-for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations from current animated geometry`,()=>{
+for(const count of [1,3,5])test(`rebuild ${count} extents for two animations from current animated geometry`,()=>{
  const source=tableFixture([count,2]).serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
  assert.equal(fix.targets.length,1);assert.ok(fix.targets[0].sequenceExtents);
  const findings=hive(source).findings.filter(f=>f.message.startsWith('Number of sequence extents'));
@@ -55,6 +55,20 @@ for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations f
    assert.deepEqual(renderer.rendererData.nodes.filter(Boolean).map(n=>n.matrix),other.rendererData.nodes.filter(Boolean).map(n=>n.matrix));
   }
  }
+ assert.deepEqual(strip(after),strip(before));
+});
+
+// An empty table is a state (geoset animation bounds left out), not damage: no target, Hive's finding is only a note.
+test('a geoset with no extent records is not broken; Full fills it in from the geoset that has a complete table',()=>{
+ const source=tableFixture([0,2]).serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
+ assert.equal(fix.targets.length,0);assert.equal(fix.choice,'full');
+ const findings=hive(source).findings.filter(f=>f.message.startsWith('Number of sequence extents'));
+ assert.equal(findings.length,1);
+ const [note]=classifyHiveFindings(findings,[fix]);assert.equal(note.status,'note');assert.equal(note.fixId,undefined);
+ const bytes=runOptimizeStage(source,'sanity',{},fix).bytes,after=openDocument(bytes,'x.mdx').model;
+ assert.equal(after.Geosets[0].Anims.length,2);assert.equal(after.Geosets[1].Anims.length,2);
+ assert.ok(!hive(bytes).findings.some(f=>f.message.startsWith('Number of sequence extents')));
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));
  assert.deepEqual(strip(after),strip(before));
 });
 

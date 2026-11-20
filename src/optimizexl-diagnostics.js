@@ -44,6 +44,8 @@ export function classifyHiveFindings(findings,proposals=[]){
     else if(/^This sequence starts before sequence \d+ "/.test(message)){kind='sequenceTimeline';owner='sanity';}
     else if(/^Number of sequence extents \(\d+\) does not match the number of sequences \(\d+\)$/.test(message)){kind='sequenceExtents';owner='sanity';}
     else if(message==='There are no vertices attached to this bone'){kind='unskinnedBone';}
+    // No geoset animation bounds at all is a state, not damage: say so, offer no repair.
+    if(kind==='sequenceExtents'&&/^Number of sequence extents \(0\)/.test(message))return {...f,kind,owner,status:'note',reason:'Geoset animation bounds are left out here. Calculate extents with Full adds them.'};
     const rules=CHECKER_RULES.find(([pattern])=>pattern.test(message))?.slice(1)||[],repair=proposals.find(p=>p.kind==='checker'&&rules.includes(p.rule));
     const location=hiveTrackPath(f.path);
     const proposal=proposals.find(p=>p.kind==='splineResample'&&kind==='redundantTracks'&&location===p.path?.join('.')&&p.noticed.includes(frame))||proposals.find(p=>f.type!=='unused'&&/extent|radius/i.test(message)&&p.targets?.some(t=>t.sequenceExtents?(kind==='sequenceExtents'&&(f.path||'')===t.hivePath)||(f.path||'').startsWith(t.hivePath+'/Extent'):(f.path||'').startsWith(t.hivePath))||
