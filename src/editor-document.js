@@ -26,6 +26,7 @@ import {fxData,readFxData,writeFxData,isFxChunk} from './global-animation-data.j
 import { GEOSET_TABS_KEY, GEOSET_TAB_KEY, geosetTabsData, normalizeGeosetTabs, readGeosetTabs, writeGeosetTabs, isGeosetTabsChunk } from './geoset-tabs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, stripAnimationSpeed, isAnimationSpeedChunk } from './animation-speed.js';
 import { FORGE_ITEM_KEY, NO_MATERIAL } from './forge-clay.js';
+import { keepsGeosetAnimationBounds } from './sequence-editor.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new Float32Array([x, y, z]);
 const clone = (value) => structuredClone(value);
@@ -1170,6 +1171,8 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   }
   maps.geosets = new Map(); maps.geosetAnims = new Map();
   const createdNodes = new Set(), createdGeosets = new Set(), selections = new Map();
+  // A destination that keeps no geoset animation bounds gets none with pasted geosets.
+  const keepBounds = keepsGeosetAnimationBounds(target);
   for (const id of neededNodes) {
     if (reuseExisting) {
       const destinationId = existingNodeMap?.get(id) ?? id;
@@ -1225,6 +1228,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
       maps.geosets.set(index, destination);
       selections.set(destination, [...(selections.get(destination) || []), ...added]);
     } else {
+      if (!keepBounds) g.Anims = [];
       const added = target.Geosets.push(g) - 1;
       maps.geosets.set(index, added); createdGeosets.add(index);
       selections.set(added, Array.from({ length: g.Vertices.length / 3 }, (_, vertex) => vertex));

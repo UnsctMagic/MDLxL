@@ -1,5 +1,5 @@
 import { isTeamGlowLayer } from './texture-references.js';
-import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence, isPortraitSequence } from './sequence-editor.js';
+import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence, isPortraitSequence, keepsGeosetAnimationBounds } from './sequence-editor.js';
 import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset } from './animation.js';
 import { createRigNode } from './bone-tools.js';
 import { deleteGeoset } from './editor-document.js';
@@ -178,7 +178,7 @@ export function autoCorpse(model, options={}) {
   if(!deaths.length)throw Error('Auto Corpse needs a Death animation.');
   const originals=allNodes(model).filter(n=>!generated(n)),generatedIds=new Set(allNodes(model).filter(generated).map(n=>n.ObjectId));
   for(let i=model.Geosets.length-1;i>=0;i--)if(model.Geosets[i].Groups?.length&&model.Geosets[i].Groups.every(g=>g.length&&g.every(id=>generatedIds.has(id))))deleteGeoset(model,i);
-  const originalGeosetCount=model.Geosets.length;
+  const originalGeosetCount=model.Geosets.length,keepBounds=keepsGeosetAnimationBounds(model);
   const oldCorpses=new Set(model.Geosets.map((g,i)=>corpseTexture(model,g)?i:-1).filter(i=>i>=0));
   const nonDecay=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>!isDecaySequence(s)&&!isDeathSequence(s)&&!isDissipateSequence(s));
   // Custom corpse textures are recognized by their actual visibility, not a
@@ -288,7 +288,7 @@ export function autoCorpse(model, options={}) {
     decayExtents(model,pair,{flesh:[...pair.body,id],bone:[id]});
     results.push({pieces:pair.geometry.pieces,outline:pair.geometry.outline,sizeCenter:pair.geometry.sizeCenter,span:pair.geometry.span,death:pair.death,deathName:pair.deathName,flesh:pair.flesh,bone:pair.bone,sourceFrame:pair.geometry.frame,corpseGeoset:id,bodyGeosets:pair.body,sourceBodyGeosets:pair.geometry.bodyIds,sinkDistance:sink,parts:pair.geometry.parts,ground:pair.geometry.ground});
   }
-  for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
+  for(const g of model.Geosets.slice(originalGeosetCount))g.Anims=!keepBounds?[]:model.Sequences.map(s=>({MinimumExtent:new Float32Array(s.MinimumExtent),MaximumExtent:new Float32Array(s.MaximumExtent),BoundsRadius:s.BoundsRadius}));
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds
   // only when a geoset already uses the per-sequence extent convention.
   // A body geoset's new Decay Flesh slot covers the body lying and sinking.

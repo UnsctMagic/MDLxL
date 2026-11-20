@@ -17,7 +17,7 @@ import {emptyParticleModel} from './particle-recipes.js';
 import {createResourceImporter} from './model-import.js';
 import {addParticles} from './visual-effect-composition.js';
 import {particleBurstTrack} from './particle-sweep.js';
-import {deleteGlobalSequence} from './sequence-editor.js';
+import {deleteGlobalSequence,keepsGeosetAnimationBounds} from './sequence-editor.js';
 import {gamePathKey,effectPicturePath} from './game-path.js';
 import {attackContact} from './fx-attack-contact.js';
 import {vertexBoneWeights} from './part-bones.js';
@@ -1505,7 +1505,8 @@ function quadBounds(c,g,points,reach){
  const reachOf=list=>{const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const p of list)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],p[a]-reach);hi[a]=Math.max(hi[a],p[a]+reach);}return [lo,hi];};
  const [lo,hi]=reachOf(points);
  Object.assign(g,geosetBounds(Float32Array.from([...lo,...hi])));
- g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
+ // A model that keeps no geoset animation bounds gets none for its cards either.
+ g.Anims=!keepsGeosetAnimationBounds(m)?[]:(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
   // A sequence without usable bounds of its own (missing, or the empty ±3.4e38 box some files store) takes the cards' bounds.
   if(!own?.MinimumExtent||!own?.MaximumExtent||![0,1,2].every(k=>Math.abs(own.MinimumExtent[k])<1e7&&Math.abs(own.MaximumExtent[k])<1e7&&own.MinimumExtent[k]<=own.MaximumExtent[k]))return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
 }
