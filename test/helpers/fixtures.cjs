@@ -47,6 +47,10 @@ const FIXTURES = {
   'transfer-dreadlord': ['MDLXL_TRANSFER_DREADLORD', testModel('corpus-sd/undead__herodreadlord.mdx')], // its only Cinematic animation is a death (Cinematic death)
   'transfer-aspiring-hero': ['MDLXL_TRANSFER_ASPIRING_HERO', testModel('transfer-humanoid/WH_WOC_AspiringHero01.mdx')],
   'transfer-satyr': ['MDLXL_TRANSFER_SATYR', testModel('corpus-sd/creeps__satyr.mdx')], // all trunk skin on Bone_Chest, whose pivot sits at hip height: it bows from the hips
+  'transfer-zombie-dragon': ['MDLXL_TRANSFER_ZOMBIE_DRAGON', testModel('transfer-crosskind/WH_VC_ZombieDragon02.mdx')], // two legs, two wings, no arms: its body lies level
+  'transfer-chaos-dragon-rider': ['MDLXL_TRANSFER_CHAOS_DRAGON_RIDER', testModel('fx-performance/ChaosDragonSkeleton_08.mdx')], // a rider on a dragon read as one body: dragon legs, rider arms, the rider's hips rock by position keys
+  'transfer-skeleton-mage': ['MDLXL_TRANSFER_SKELETON_MAGE', testModel('corpus-sd/undead__skeletonmage.mdx')], // straight legs slanted back: the thigh points nearer a digitigrade donor's hock than its knee
+  'transfer-brown-wolf': ['MDLXL_TRANSFER_BROWN_WOLF', testModel('corpus-sd/critters__brownwolf.mdx')], // a wolf whose back slopes otherwise than the Dire Wolf's
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones
