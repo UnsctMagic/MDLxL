@@ -1742,9 +1742,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
 
   // Poor fit (docs/agent-tasks/xfer-transplant-fixes.md): a hard reason, the hips or an arm, leg or wing riding still, or
   // under half of the body following. One share line, one sentence per cause, then the hard reasons and the notes.
-  const fit = hard.length || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  // Also a body plan this model cannot follow on as many legs (overnight cross-kind class U): the donor carries its head on
+  // an upper body of its own (a chest with two arms: a centaur, the Lobstrokk, the Crypt Fiend) and this model has neither
+  // chest nor arms (a wolf, a hydra): its head follows the donor's head with nothing under it (a Dire Wolf's on the
+  // Lobstrokk 66 deg off).
+  const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
+  const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
+  const fit = hard.length || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
   if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");
   const listed = still.filter(key => !(whole.reason && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
   reasons.push(...hard, ...notes);

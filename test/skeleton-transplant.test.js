@@ -1314,3 +1314,10 @@ test('K3 Skeleton Mage on the Lord of Change: his knee takes the donor\'s knee, 
   }
 });
 
+
+test('U1 Dire Wolf on the Lobstrokk (four legs under an upright upper body with claws): a poor fit that says why, its head follows the donor\'s head with no upper body under it; on the Brown Wolf it is a good fit', { skip: missing('transfer-direwolf', 'transfer-lobstrokk', 'transfer-brown-wolf') }, () => {
+  const { report } = transplant('transfer-direwolf', 'transfer-lobstrokk');
+  assert.equal(report.fit, 'poor');
+  assert.ok(report.reasons.some(reason => /upper body/.test(reason)), report.reasons.join(' | '));
+  assert.equal(transplant('transfer-direwolf', 'transfer-brown-wolf').report.fit, 'good');
+});
