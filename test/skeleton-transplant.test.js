@@ -1576,3 +1576,23 @@ test('HG1 a donor read as one creature keeps its trunk moves at one ratio: the F
     }
   }
 });
+
+test('WH1 Kodo Beast on the Khorne Knight: the kodo\'s head is no weapon (its Weapon Ref hangs from the kodo\'s head, which butts): none of its head and jaw skin rides a joint of the knight\'s arms (taken as the weapon, its whole head, 178 vertices, hung from the knight\'s left hand; on the Undivided Knight it swung into the ground in Attack - 1, sinks 0.33 of its height)', { skip: missing('sd-orc-kodo', 'transfer-khorne-knight') }, () => {
+  const { own, donor, model, report } = transplant('sd-orc-kodo', 'transfer-khorne-knight');
+  const ownNodes = byId(own), headTop = allNodes(own).find(node => node.Name === 'Bone Koto Neck01').ObjectId;
+  const tree = nodeIndex(own, allNodes(own)), under = id => tree.ancestors(id, true).includes(headTop);
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const armJoints = new Set(['armL', 'armR'].flatMap(key => rig.parts[key]?.joints || []).map(id => report.donorNodes[id]));
+  const resultTree = nodeIndex(model, allNodes(model)), onArm = id => resultTree.ancestors(id, true).some(a => armJoints.has(a));
+  let head = 0, inHand = 0;
+  own.Geosets.forEach((geoset, gi) => {
+    for (let v = 0; v < geoset.Vertices.length / 3; v++) {
+      if (!vertexBones(geoset, v).some(under)) continue;
+      head++;
+      if (vertexBones(model.Geosets[gi], v).some(onArm)) inHand++;
+    }
+  });
+  assert.ok(head > 100, `the kodo's head carries ${head} vertices`);
+  assert.equal(inHand, 0, `${inHand} of the kodo's ${head} head vertices hang from the knight's arms`);
+  assert.ok(!(report.weapon?.extras || []).includes(headTop), `the kodo's neck is listed as the weapon (${JSON.stringify(report.weapon)})`);
+});

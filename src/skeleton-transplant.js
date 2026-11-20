@@ -1133,7 +1133,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const extraOf = id => { for (const at of treeB.ancestors(id, true)) if (extras.has(at)) return at; return null; };
   const weaponExtras = new Set();
   for (const extra of extras.values()) if (ownWeaponHand != null && targetOf(extra.id).via === ownWeaponHand) weaponExtras.add(extra.id);
-  for (const point of ownWeaponPoints) { const top = point.Parent != null ? extraOf(point.Parent) : null; if (top != null) weaponExtras.add(top); }
+  // A weapon attachment counts only where an arm holds it: the Kodo Beast's `Weapon Ref` sits on the kodo's head (it
+  // butts with it), so its head and neck are no weapon to put in a rider's hand (WH1).
+  const onArm = id => { const key = id != null ? ownPartOf.get(id) : null; return key != null && rigB.parts[key]?.limbKind === 'arm'; };
+  for (const point of ownWeaponPoints) { const top = point.Parent != null ? extraOf(point.Parent) : null; if (top != null && onArm(targetOf(top).via)) weaponExtras.add(top); }
   const weaponVia = [...weaponExtras].map(id => targetOf(id).via).find(id => id != null) ?? ownWeaponHand;
   // Vertices of the donor's own skin per donor node.
   const donorSkin = new Map();
