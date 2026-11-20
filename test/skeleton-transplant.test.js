@@ -1321,3 +1321,20 @@ test('U1 Dire Wolf on the Lobstrokk (four legs under an upright upper body with 
   assert.ok(report.reasons.some(reason => /upper body/.test(reason)), report.reasons.join(' | '));
   assert.equal(transplant('transfer-direwolf', 'transfer-brown-wolf').report.fit, 'good');
 });
+
+
+test('K6 Magnataur on the Chaos Dragon Skeleton (four legs on two: the legs do not pair): its body stays one piece in every animation, under 2% of it over 3 of its heights from the body\'s middle (the rider\'s trunk moves, mapped onto a trunk line through the donor\'s own leg offsets, threw a quarter of it away in Death)', { skip: missing('transfer-magnataur', 'transfer-chaos-dragon-rider') }, () => {
+  const { own, model } = transplant('transfer-magnataur', 'transfer-chaos-dragon-rider');
+  const height = skinnedBox(own).size[2];
+  model.Sequences.forEach((sequence, index) => {
+    if (/decay|portrait/i.test(sequence.Name)) return;
+    for (const frame of momentsOf(model, index, 6)) {
+      const matrices = sampleNodeMatrices(model, frame, index), points = model.Geosets.flatMap(geoset => Array.from(skinGeoset(geoset, matrices)));
+      const middle = [0, 1, 2].map(a => { const values = points.filter((_, i) => i % 3 === a).sort((x, y) => x - y); return values[values.length >> 1]; });
+      let far = 0;
+      for (let i = 0; i + 2 < points.length; i += 3) if (Math.hypot(points[i] - middle[0], points[i + 1] - middle[1], points[i + 2] - middle[2]) > 3 * height) far++;
+      const share = far / (points.length / 3);
+      assert.ok(share < 0.02, `${sequence.Name} at ${frame}: ${(100 * share).toFixed(0)}% of the body is over 3 heights from its middle`);
+    }
+  });
+});

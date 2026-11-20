@@ -1229,8 +1229,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // between them) sit in this model's trunk where they sit in the donor's, measured on the trunk itself (hip centre to
       // shoulder centre, shoulder width), and this model's trunk skin is shared between them where the donor's own skin
       // is (`trunkSkin`, used by the skin below). Needs legs and two arms; else the trunk keeps this model's joints.
+      // Trunk moves by the trunk map (K1) only where the legs pair: on another number of legs the donor's legs are not this
+      // model's, its hip centre is the donor's offsets, and the Chaos Dragon's rider moves flung a Magnataur's skin apart.
       const sideB = sideOf(id => placed.get(id)), sideA = sideOf(pA);
-      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 });
+      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason });
     }
     // A winged donor with no arms (its forelimbs are its wings: the Zombie Dragon) standing on as many legs as this model:
     // its trunk line runs from the hip centre to the wing roots, this model's from its hip centre to its own shoulders
