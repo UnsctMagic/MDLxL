@@ -35,7 +35,12 @@ result vs donor (reflected when Mirror is on), every animation but Portrait, 12 
 `report.donorNodes`. The yardstick always reads bodies with the frozen engine copy `base/src` (df9c4059), so a new
 engine is measured with the same ruler. Rigs are read as the transplant reads them (`transplantReading`, copied into
 look.mjs from 7f2c3454: the Ghoul's forearm ends at `Bone_Hand_R`, not the parked `Wrist1`). Ruler v3 (20 Nov, Y1-Y3,
-T1, Ghoul forearm, neckless neck); v2 kept in `analysis/look-before-y1y3.mjs`.
+T1, Ghoul forearm, neckless neck); v2 kept in `analysis/look-before-y1y3.mjs`. Ruler v4 (20 Nov 01:00, v3 kept in
+`analysis/look-v3.mjs`): (a) feet-off-target reads only legs that carry skin; a side with none left (G1 soles down) reads
+its lowest visible mesh point above its own Stand floor, median over the frames; (b) a donor death animation that hides
+its living body on a twin corpse skeleton is read on the corpse joints (`donorTwins`, the engine's twin rule copied);
+(c) bind reach ignores geosets hidden in every animation; (d) the torso capsule radius ignores vertices that reach a
+trunk joint through a joint with keys of its own (the Knight's horse neck and head). Examples: `v4/check.mjs`.
 - `pose`: angle of each segment (neck, arm/leg/tail/wing upper, lower, endN) result vs donor in the body frame
   (pelvis origin, up pelvis->chest, across right->left). Bad when median > 15 deg or p90 > 30 (neck 35/55). Donors with
   no neck joint: `neck` = the head joint's turn (the donor's bind chest->head line turned by the head joint) in the body
@@ -90,6 +95,12 @@ node run.mjs stop   --out sweep-<name>          # each shard ends after its curr
 node summary.mjs    --out sweep-<name> [--sample]                  # -> <sweep>/summary.txt (summary-sample.txt)
 ```
 Baseline: `node run.mjs launch --out sweep-base --engine base/src/skeleton-transplant.js` (running since 23:09).
+CURRENT sweep (01:02): `sweep-v2` = engine 15ea8d63 frozen in `eng-v2/` (`eng-v2/REV.txt`), ruler v4, 651 models
+(SD 398 + LPW 134 recursive + Downloads 119), 423,801 pairs, 14 shards. `sweep-base` is stopped (56,606 rows = the
+'before', ruler v1). Compare: `node --max-old-space-size=3072 compare-sweeps.mjs [--a sweep-base] [--b sweep-v2]`
+(-> `compare-sweep-base-sweep-v2.txt`; verdict matrix, per class flagged/gone/new, by set, examples; engine AND ruler differ).
+Idle priority: `os.constants.priority.PRIORITY_LOWEST` does not exist in Node 22 (it is `PRIORITY_LOW` = 19), so until
+01:05 shard/gate/models never set Idle (sweep-v2 was set Idle by hand; shard.mjs fixed for any resume).
 Rows: `<sweep>/rows-<k>.jsonl`, logs `log-<k>.txt`. Resume = `launch` again (done pairs are skipped). Per-pair
 timeout 180 s (row `timeout`, worker restarted), worker crash -> row `crash`. A new engine needs a new `--out`.
 
@@ -129,3 +140,32 @@ timeout 180 s (row `timeout`, worker restarted), worker crash -> row `crash`. A 
 - 00:40 donor corpse swap (e795111e + a485ffce, tests C1 x3 fail on 35b7614b: 0% shown / root>head 158 deg off the corpse): where a donor death-kind animation hides its living body and shows a death body on a twin skeleton (pivots within 0.03 hip heights under the parent's twin, chain of 2+, 90% of its vertices) the living joints take the twins' world placement (pivots on the twins', baked every 33 ms) and the living body shows where either shows; no twin: in a Death the body stays visible on the living joints until the death body vanishes (Skeleton Warrior: it stands still, flag for the owner); Decay without a twin unchanged (G5). `report.deathSwap`. Berserker/Kurgan/Footman on the Ghoul: visible all through Death, joints on the corpse's. Q1/Q4 now read the Ghoul's visible joints in Death (trunk line slack 6 deg, Footman 5.4). Tests 65/65 + 89/89, baseline 0 differ. Panel corpse: 7 "worse", all Ghoul donors (incl. Ghoul on Ghoul), pose p90 against the Ghoul's HIDDEN living joints = YARDSTICK FALSE ALARM: `corpse/deathpose.mjs` (`deathpose.txt`), Death, every segment with a <name>01 twin: against the visible corpse p90 72 -> 0.1-1.3 deg, against the hidden joints 0-1 -> 72. Yardstick worker: read the donor's visible (twin corpse) joints where its living body is hidden. First version had a false twin (Gargoyle's one statue bone; Doom Guard on Gargoyle tail p90 16.3 -> 18.7), fixed by the chain rule.
 - 00:49 engine worker: T1 cbc39957 (test N1 fails on a485ffce with "Geoset 0 references missing node NaN."): a model or donor with no bones or helpers throws "The donor has no skeleton to transplant onto (it has no bones or helpers)." / "This model has no skeleton to transplant ..." before anything is read; the window shows thrown text; look.mjs scores Footman on Plague Cloud `no-rig`. Panel t1 vs corpse: 0 worse, 0 better (GATE PASSES). Corpse swap size fix 82a73f98: baking every 33 ms over the Ghoul's 60 s Decay Flesh made Berserker on the Ghoul 3.2 MB (was 258 KB); now per joint at its twin's keys + halves where a straight line misses by 0.01 hip heights / 1 degree: 297 KB; panel corpse2 vs t1: 0 worse, 4 better (GATE PASSES); visible-corpse p90 still 0.6-1.3 deg (`corpse/deathpose2.txt`). Tests 66/66 + 89/89, baseline z3 vs c5 0 differ after every step. Trials `TestBuilds\test-models\TEST POSTURE 01-04 AFTER2.mdx` (82a73f98, `posture/make-posture-trials-after2.mjs`, `trials-after2.txt`; validated, reopened, 0 errors; its Death numbers for 01/03 are read on the Ghoul's hidden living joints, see deathpose). Open: yardstick false alarms (feet-off-target on skinless donor legs; Ghoul Death pose against hidden joints); no-twin Death (Skeleton Warrior as donor) now stands still visible until its bone pile vanishes, as ordered: owner to judge; Footman on the Ghoul trunk line up to 5.4 deg off the corpse (separate corpse waist root).
 - 00:50 main-line done (merge geoset, G1, corpse swap, T1; all 'worse' = yardstick). Started Opus: merge extras + yardstick v4 + launch sweep-v2 (647 models, 14 shards) and stop sweep-base. Next: R1 recogniser legs + rider pose worker after the merge.
+- 00:54 nudge: checked sweeps; merge/yardstick-v4/sweep-v2 worker running.
+- 00:54 R1 legs + rider pose worker started on claude/xfer-r1.
+- 01:12 merge/yardstick/sweep worker (Opus): (1) merged claude/xfer-extras 676d6814 into transfer-xl = 15ea8d63 (one
+  conflict, the report line: kept `riders` and `deathSwap`). Tests 159/159 (skeleton-transplant + skin + extras 70,
+  anim-transfer + transfer-window 89), retarget baseline z3 vs m1 32 trials 0 differ. (2) Ruler v4 (see How to run).
+  Pure ruler effect on the same engine (15ea8d63, `panel-head3.json` ruler v3 vs `panel-head4.json` ruler v4,
+  `v4/cmp-head3-head4.txt`): ok 25 -> 37; flags gone: (a) feet-off-target on Kurgan/Felhound, Archmage/Paladin,
+  Centaur/Footman, Footman/Centaur, Rat/Dire Wolf, Necrarch/Footman, Dire Wolf/Tauren; (b) Ghoul donors' Death pose:
+  Ghoul on Ghoul p90 106.6 -> 0, Berserker 03/04, Kurgan, Grunt, Footman, Graveguard on the Ghoul p90 70-112 -> 1-10;
+  (c) Villager Man on Footman reach legs 0.45/0.48 -> ok; (d) Khorne Knight Axe on Knight ok (hand-inside stays
+  negative). Still flagged (real): Shade on Footman (floats + feet 0.35 hip heights by mesh), Green Dragon on Frost Wyrm
+  0.35 and Bones on Green Dragon 0.36 (feet by mesh, for the owner's eye), Gargoyle on Doom Guard (leg pose 33 deg +
+  sinks), Wyvern Rider on Gryphon Rider (pose, plus a NEW feet 0.17: only skinned legs compared now), Footman on Ghoul
+  sinks 0.32; base engine under v4 (`panel-base4.json` 4 ok / 57) keeps the Ghoul pairs bad (corpse unswapped). The 10
+  "worse" of head3->head4 are inside excess shifts that stay negative or under 0.25 (capsule radius without the
+  horse neck), none flagged except the Wyvern feet. Panel ruler v4: base3 engine (df9c4059) 4 ok / 57 look-bad; head
+  15ea8d63 37 ok / 24 look-bad. Identity calibration v4 on 15ea8d63 (`analysis/calib-head4`): 95/100 ok (v3 geoset
+  engine 93); left: Beastmaster + Pit Lord flung-vertices, Dragonhawk + Vulture sinks, Ridden Hippogryph leg.end7 pose.
+  (3) sweep-v2 launched 01:02: `mkdir eng-v2 && git -C ../../.. archive 15ea8d63 src app/classic-gestures.js
+  docs/AI-SD-STUDY-DATA.json | tar -x -C eng-v2`, `node run.mjs init --out sweep-v2 --shards 14` (651 models: sd 398,
+  lpw 134, dl 119; all readable; 423,801 pairs, sample 4,000 over 196 strata), `node run.mjs stop --out sweep-base`
+  (stopped at 56,606 rows), `node run.mjs launch --out sweep-v2 --engine eng-v2/src/skeleton-transplant.js`. Shards were
+  at Normal priority (PRIORITY_LOWEST is undefined in Node 22; fixed to PRIORITY_LOW in shard/gate/models.mjs), set to
+  Idle by hand: 28 processes Idle; shard parents are gone (WMI launcher), they outlive this session. Status 01:11:
+  done 4,270 / 423,801 (1.01%), sample 3,645/4,000, 8.2 pairs/s, ETA 14.2 h, 14/14 shards alive. compare-sweeps (01:09,
+  407 common pairs, `compare-sweep-base-sweep-v2.txt`): ok 86 -> 140, look-bad 271 -> 184, broken 24 -> 9, no-rig 26 ->
+  74 (all Plague Cloud / Plague Cloud Target, T1: base v1 scored them ok/look-bad); per class gone/new: geoset 117 -> 0,
+  posture 108 -> 50, pose 155 -> 99, inside 65 -> 15, hand-inside 48 -> 17, mesh-vanishes 11 -> 0, flung 13 -> 8,
+  collapse 10 -> 3, ground 112 -> 116 (43 gone, 47 new: next look).
