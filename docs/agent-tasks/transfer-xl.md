@@ -902,6 +902,14 @@ answers file are unchanged.
   part not given keeps its value): the comment is written as it is typed, the grade on click, which moves
   on; Back shows both. A case with only a comment is still open (`firstOpenCase`). Letter keys do not pick;
   keys typed in the box stay in the box. Writes are queued, one after another.
+  First grade set (20 Nov, build 30, engine `claude/xfer-bend` 245aed29): `TestBuilds\transplant-grade\cases.json`,
+  40 random ordered pairs (seed 20261120, mulberry32; own != donor; the 662 of the overnight sweep's 664 models
+  whose skeleton is read; no other filter), results `TestBuilds\test-models\grade\GRADE <NN>.mdx` built and
+  saved as the window does (window Mirror, default options, the document's own save) with `GRADE <NN>
+  DONOR.mdx` (mirrored when Mirror is on); LowPolyWorks textures copied beside them. Our ruler v10 verdict
+  per case is only in the hidden `grade-our-verdicts.json` beside the cases (29 ok, 10 look-bad, 1 broken),
+  for calibration against the owner's grades. Scripts (untracked): xfer-bend `out/grade/build-grade.mjs`,
+  `copy-textures.mjs`.
 - English only (`translate="no"`), no hotkey ids, theme variables; clock updates come from GamePreview
   (at most every 32 ms), scrubbing through the strip's frame coalescer.
 - Where to look is computed: `out/transfer-probe/look-list.mjs [--cases <file>]` (untracked, `out/`)
