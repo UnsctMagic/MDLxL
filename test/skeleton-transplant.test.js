@@ -1394,6 +1394,22 @@ for (const [own, name, before] of [['forge-hd-footman', 'HD Footman', 43], ['tra
   });
 }
 
+test('HP1 Murloc on the LowPolyWorks Ogre: in Death the club the Ogre throws from its hand flies as far for the Murloc\'s size as for the Ogre\'s (its moves at the leg-travel ratio, 1.2 for a body ratio of 0.68, threw it 3.3 Murloc heights where the Ogre\'s lands 1.9 Ogre heights out)', { skip: missing('transfer-murloc', 'transfer-ogre-twin') }, () => {
+  const { donor, model, report } = transplant('transfer-murloc', 'transfer-ogre-twin');
+  const nD = byId(donor), nM = byId(model);
+  const club = allNodes(donor).find(node => node.Name === 'Cylinder03').ObjectId, body = transferRig(donor, { sequence: standSequenceIndex(donor) }).body;
+  const iD = donor.Sequences.findIndex(s => s.Name === 'Death'), iM = model.Sequences.findIndex(s => s.Name === 'Death');
+  const size = report.counts.sizeRatio;
+  let worst = 1;
+  for (let k = 0; k <= 12; k++) {
+    const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+    const mD = sampleNodeMatrices(donor, Math.round(a + k / 12 * (b - a)), iD), mM = sampleNodeMatrices(model, Math.round(c + k / 12 * (d - c)), iM);
+    const theirs = at(donor, nD, mD, club).distanceTo(at(donor, nD, mD, body)), mine = at(model, nM, mM, report.donorNodes[club]).distanceTo(at(model, nM, mM, report.donorNodes[body]));
+    if (theirs * size > 1e-3) worst = Math.max(worst, mine / (theirs * size), (theirs * size) / Math.max(1e-6, mine));
+  }
+  assert.ok(worst < 1.3, `the club flies up to ${worst.toFixed(2)}x as far (for its size) as the Ogre's`);
+});
+
 test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
   const { own, donor, model, report } = transplant('sd-orc-wolfrider', 'transfer-khorne-knight');
   const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), ownRig = transferRig(own, { sequence: standSequenceIndex(own) });

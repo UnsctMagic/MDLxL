@@ -644,6 +644,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const coverOf = new Map();       // dropped donor joint -> own joint that covers it
   const converted = [], transplanted = [], partOfDonor = new Map();
   for (const part of Object.values(rigA.parts || {})) for (const id of part.joints) partOfDonor.set(id, part.key);
+  // The part a donor joint belongs to, or that of the part joint it twins (a second chain whose pivots sit on the part's, as
+  // the LowPolyWorks Ogre's off-hand arm: root, chest and arm again, within TWIN_NEAR hip heights).
+  const partJoints = [...partOfDonor.keys()].map(id => [id, pA(id)]);
+  const partOrTwin = id => { if (partOfDonor.has(id)) return partOfDonor.get(id); const p = pA(id); const hit = partJoints.find(([, q]) => q.distanceTo(p) < TWIN_NEAR * rigA.hipHeight); return hit ? partOfDonor.get(hit[0]) : null; };
+  const heldBy = id => { for (const at of treeA.ancestors(id)) { const key = partOrTwin(at); if (key != null) return rigA.parts[key]?.limbKind === 'arm'; } return false; };
   const ownPartOf = new Map();
   for (const part of Object.values(rigB.parts || {})) for (const id of part.joints) ownPartOf.set(id, part.key);
   const trunkEntries = entries.filter(entry => entry.own.kind === 'trunk' && entry.clipIndex === 0);
@@ -1462,8 +1467,14 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // line turned 13 deg, 36 in Attack - 2.
     const rootOnTrunk = trunkScale && count(rigA, 'leg') === 2 && parentId != null && rigA.parts[partOfDonor.get(id)]?.limbKind === 'arm' && trunkJoint(parentId);
     const lengthA = sameLimb ? pA(id).distanceTo(pA(parentId)) : 0;
+    // A thing the donor holds (a joint of no part, not twinning one, whose nearest part joint above it, or joint twinning one,
+    // is an arm's: a club in the hand, also on the Ogre's off-hand twin arm) moves
+    // by the body ratio: where the donor throws it, it lands as far for this body as for the donor's (humanoid r4: at the
+    // leg-travel ratio, 1.2 for a body ratio of 0.68, the Murloc threw the LowPolyWorks Ogre's club 3.3 of its heights
+    // where the Ogre's lands 1.9 of its own).
+    const held = partOrTwin(id) == null && heldBy(id);
     const scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA
-      : rootOnTrunk ? Math.min(Math.max(travel, Math.min(trunkScale.s1, trunkScale.s2)), Math.max(trunkScale.s1, trunkScale.s2)) : travel;
+      : rootOnTrunk ? Math.min(Math.max(travel, Math.min(trunkScale.s1, trunkScale.s2)), Math.max(trunkScale.s1, trunkScale.s2)) : held ? size : travel;
     // A trunk joint the donor's trunk was fitted into this trunk with (fitTrunk), below the top hips joint (which carries
     // the body's travel) and under another such joint: its move is mapped as its place was, the donor's trunk frame
     // scaled (length and depth by the trunk length ratio, across by the shoulder width ratio), so the trunk bends as the
