@@ -1826,6 +1826,17 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // skin above them (a hand mesh carrying the weapon) is the hand's and stays with it.
   const weaponPiece = (id, top) => { for (const at of treeB.ancestors(id, true)) { if (moves(at)) return true; if (at === top) return false; } return false; };
   const weaponBones = new Set(weaponRides ? [...weaponExtras].filter(id => !keepSet.has(id)).flatMap(id => detachedWeapons.has(id) ? [id] : extras.get(id).bones.filter(bone => weaponPiece(bone, id))) : []);
+  // A bow's moving string tips and its still grip form one weapon. On a
+  // non-archery donor the entire assembly below the bow's Weapon Ref carrier
+  // takes the same swing or throw. Its parent is the archer's hand mesh.
+  const hasArrow = (bones, weights) => bones.some(n => /arrow/i.test(n.Name) && weights.get(n.ObjectId) > 0);
+  if (weaponRides && hasArrow(model.Bones,ownVertexCount) && !hasArrow(D.Bones,donorSkin)) {
+    for (const point of ownWeaponPoints) {
+      const grip = point.Parent, top = extraOf(grip);
+      if (top == null || top === grip || !weaponExtras.has(top) || keepSet.has(top) || partJoint(grip)) continue;
+      for (const id of extras.get(top).bones) if (treeB.isAncestor(id,grip)) weaponBones.add(id);
+    }
+  }
   const weaponVertices = []; // [geoset, vertex, the hand the weapon was baked onto] to re-place on the weapon bone
   // ---- skin on the donor's bones (contract 4.3, 4.4)
   const carriers = donorSkinCarriers({ donor: D, donorPartJoints, treeA, skinCount: donorSkin });
