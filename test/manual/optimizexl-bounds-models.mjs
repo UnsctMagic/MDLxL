@@ -21,7 +21,7 @@ for(const path of process.argv.slice(2)){
  const candidate=runOptimizeStage(source,'sanity',{choice:'full'},fix).bytes,after=openDocument(candidate,'after.mdx').model,clean=hive(candidate);
  const originalChunks=chunks(source),candidateChunks=chunks(candidate);assert.deepEqual([...candidateChunks.keys()],[...originalChunks.keys()]);for(const [name,data]of originalChunks)if(name!=='GEOS')assert.deepEqual(candidateChunks.get(name),data,`${name} must stay byte-identical`);
  assert.deepEqual(clean.findings,check.findings.filter(f=>!f.message.startsWith('Number of sequence extents')),'Other diagnostics, including protected turns, stay unchanged');
- assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'&&!f.optional));
  assert.deepEqual(runOptimizeStage(source,'sanity',{}, {kind:'batch',stage:'sanity',entries:[{fix,settings:{choice:'full'}}]}).bytes,candidate);
  const a=new ModelRenderer(structuredClone(before)),b=new ModelRenderer(structuredClone(after));let poses=0;
  for(let si=0;si<before.Sequences.length;si++){

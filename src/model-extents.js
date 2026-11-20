@@ -125,13 +125,20 @@ export function boundsProposals(model) {
   // A rig the renderer cannot build (a missing parent, say) is left to its own
   // repair first; the extents finding returns on the next scan.
   try { differs = extentsDiffer(model); } catch { if (!targets.length) return []; }
-  if (!targets.length && !differs) return [];
+  // Classic/SD only: Full keeps every box, Necessary only leaves out the geoset animation bounds.
+  const offered = offersNecessaryExtents(model), bytes = offered ? geosetAnimationBoundsBytes(model) : 0, kb = (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0);
+  const options = [['full', 'Full'], ['necessary', bytes ? `Necessary only (saves ${kb} KB)` : 'Necessary only']];
+  if (!targets.length && !differs) {
+    // Extents are right: only the size saving is left. It is optional, so Fix
+    // everything, Select all, the stage star and the clean state ignore it.
+    if (!bytes) return [];
+    return [{ id: 'extents', kind: 'bounds', optional: true, targets, sequence: 0, frame: model.Sequences[0]?.Interval[0] || 0,
+      choiceLabel: 'Geoset animation bounds', choice: 'necessary', choices: options, label: `Geoset animation bounds (saves ${kb} KB)`,
+      detail: 'The extents are already right. Necessary only leaves out the geoset animation bounds to make the file smaller; model and animation boxes stay the same. Fix everything skips this.' }];
+  }
   const sequence = targets.find(t => t.sequence != null)?.sequence ?? 0;
   const left = [...extentsExclusions(model).keys()].map(i => i + 1);
-  // Classic/SD only: Full keeps every box, Necessary only leaves out the geoset animation bounds.
-  const bytes = geosetAnimationBoundsBytes(model), kb = (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0);
-  const choices = offersNecessaryExtents(model) ? { choiceLabel: 'Geoset animation bounds', choice: defaultExtentsChoice(model),
-    choices: [['full', 'Full'], ['necessary', bytes ? `Necessary only (saves ${kb} KB)` : 'Necessary only']] } : {};
+  const choices = offered ? { choiceLabel: 'Geoset animation bounds', choice: defaultExtentsChoice(model), choices: options } : {};
   return [{ id: 'extents', kind: 'bounds', targets, sequence, frame: model.Sequences[sequence]?.Interval[0] || 0, ...choices,
     label: targets.length ? `Calculate extents (${targets.length} broken)` : 'Calculate extents',
     detail: left.length ? `Rebuild the model, animation and geoset extents from the model and its sampled animation. They set the health bar height, the click area and when the unit is hidden at the screen edge. Hero glow, portrait backgrounds and glowing effect meshes (geosets ${left.join(', ')}) are left out. Meshes, keys and visibility stay unchanged.`

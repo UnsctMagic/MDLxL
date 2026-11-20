@@ -166,7 +166,7 @@ function fixAll(m){
  for(let pass=0;pass<12;pass++){
   // Spline resampling only clears notices and rewrites whole tracks; after
   // other key repairs it can turn a pose (Rifleman's root in Death). Hand-pick it.
-  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!['skinCollapse','splineResample'].includes(f.kind));
+  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!f.optional&&!['skinCollapse','splineResample'].includes(f.kind));
   // Structural checker repairs can renumber nodes and geosets, which moves
   // key-level findings. Apply them alone, then scan again.
   const checker=list.filter(f=>f.kind==='checker'&&!tried.has(json([f.id,f.items])));

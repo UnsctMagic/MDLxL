@@ -22,7 +22,8 @@ test('hero glow and effect planes stay out of model and animation extents', () =
   assert.ok(top(model.Geosets[4]) > 0);
   for (const geoset of model.Geosets) assert.equal(geoset.Anims.length, model.Sequences.length);
   assert.equal(extentsDiffer(model), false);
-  assert.deepEqual(boundsProposals(model), []);
+  // Only the optional size saving (Necessary only) may remain once the extents are right.
+  assert.deepEqual(boundsProposals(model).filter(f => !f.optional), []);
 });
 
 test('portrait-only geosets are left out; a model of only effects keeps everything', () => {

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { openDocument } from '../src/editor-document.js';
 import { runOptimizeStage, sanityProposals } from '../src/optimizexl.js';
+import { stageAvailability } from '../src/optimizexl-availability.js';
 import { invalidBoundsTargets } from '../src/optimizexl-bounds.js';
 import { defaultExtentsChoice, extentsDiffer, geosetAnimationBoundsBytes, offersNecessaryExtents, boundsProposals } from '../src/model-extents.js';
 import { geosetAlphaTrack, geosetVisibleIn } from '../src/geoset-extras.js';
@@ -161,4 +162,64 @@ test('after Necessary only the model is not offered Calculate extents again', ()
     assert.equal(defaultExtentsChoice(after), 'necessary', name);
     assert.equal(extentsDiffer(after), false, name);
   }
+});
+
+test('fine extents with tables offer only an optional size saving', async () => {
+  const bytes = archnathid(), original = modelOf(bytes);
+  // Counter-case: with broken targets the finding is a real repair, not optional, and defaults to Full.
+  const broken = boundsFix(original);
+  assert.ok(broken.targets.length > 0);
+  assert.ok(!broken.optional);
+  assert.equal(broken.choice, 'full');
+
+  // Extents calculated with Full: everything is right, only the 10 boxes per geoset are left to save.
+  const fine = apply(bytes, { choice: 'full' }, broken).bytes, fineModel = modelOf(fine);
+  const saved = geosetAnimationBoundsBytes(fineModel);
+  assert.equal(saved, 1960);
+  for (const geoset of fineModel.Geosets) assert.equal(geoset.Anims.length, 10);
+  const optionalFindings = [boundsProposals(fineModel), sanityProposals(fineModel).filter(f => f.kind === 'bounds')];
+  for (const found of optionalFindings) {
+    assert.equal(found.length, 1);
+    const [fix] = found;
+    assert.equal(fix.optional, true);
+    assert.equal(fix.targets.length, 0);
+    assert.equal(fix.choice, 'necessary');
+    assert.equal(fix.choiceLabel, 'Geoset animation bounds');
+    assert.deepEqual(fix.choices, [['full', 'Full'], ['necessary', `Necessary only (saves ${kb(saved)} KB)`]]);
+    assert.equal(fix.label, 'Geoset animation bounds (saves 1.9 KB)');
+  }
+
+  // Fix everything skips it: boxes stay as they were (key repairs may still run, so only the box fields are compared).
+  const everything = runOptimizeStage(fine, 'sanity', {}, { kind: 'fixAll', stage: 'sanity' }), everythingModel = modelOf(everything.bytes);
+  assert.equal(everythingModel.Geosets.length, fineModel.Geosets.length);
+  for (const geoset of everythingModel.Geosets) assert.equal(geoset.Anims.length, 10);
+  assert.deepEqual(everythingModel.Info, fineModel.Info);
+  assert.deepEqual(everythingModel.Sequences, fineModel.Sequences);
+  everythingModel.Geosets.forEach((geoset, index) => {
+    for (const field of EXTENT_FIELDS) assert.deepEqual(geoset[field], fineModel.Geosets[index][field], `geoset ${index} ${field}`);
+  });
+
+  // The Wisp (corpus-sd800) has nothing else to repair once its extents are calculated: the saving is all that is left.
+  const wisp = read('corpus-sd800/nightelf__wisp.mdx'), wispFix = boundsFix(modelOf(wisp));
+  assert.ok(wispFix && !wispFix.optional);
+  const settled = apply(wisp, { choice: 'full' }, wispFix).bytes;
+  const left = sanityProposals(modelOf(settled)).filter(f => !f.inspectionOnly);
+  assert.deepEqual(left.map(f => [f.kind, f.optional]), [['bounds', true]], 'only the optional saving is left');
+  const finished = runOptimizeStage(settled, 'sanity', {}, { kind: 'fixAll', stage: 'sanity' });
+  assert.equal(sha(finished.bytes), sha(settled), 'Fix everything leaves the model byte for byte');
+  // The Insanity FIxer is the first stage; stop after it.
+  const sanityAvailability = async source => { for await (const result of stageAvailability(new Uint8Array(source))) if (result.stage === 'sanity') return result; };
+  const quiet = await sanityAvailability(settled);
+  assert.equal(quiet.error, undefined);
+  assert.equal(quiet.hasChanges, false, 'the optional saving does not star the stage');
+  assert.equal((await sanityAvailability(wisp)).hasChanges, true, 'a real extents repair still does');
+
+  // Choosing it empties every geoset's boxes, and nothing is offered afterwards.
+  const optionalFix = boundsProposals(fineModel)[0];
+  const necessary = apply(fine, { choice: 'necessary' }, optionalFix), after = modelOf(necessary.bytes);
+  assert.equal(after.Geosets.length, fineModel.Geosets.length);
+  for (const geoset of after.Geosets) assert.equal(geoset.Anims.length, 0);
+  assert.equal(fine.length - necessary.afterBytes, saved);
+  assert.ok(!sanityProposals(after).some(f => f.kind === 'bounds'), 'nothing offered after Necessary only');
+  assert.ok(!boundsProposals(after).length);
 });

@@ -61,6 +61,15 @@ Updated: 2026-11-20
 
 ## Changes and verification
 
+- Optional saving (coordinator follow-up, 20 Nov): when extents are right but tables remain on a Classic/SD
+  model, `boundsProposals` returns the same `extents` finding with `optional: true`, label
+  "Geoset animation bounds (saves N KB)", Necessary only chosen. `fixAll`, `stageAvailability`, Select all
+  (`app/OptimizeXLFixSelection.jsx`), the Fix everything button and `sanityClean` ignore it; the finding list
+  and savings panel still show when only it remains. ChaosDragon_13: main and this branch both open with
+  "Calculate extents (2 broken)" (main: Full only); after Full, main shows nothing and this branch shows
+  "Geoset animation bounds (saves 57 KB)"; Fix everything keeps the tables; Necessary only gives 856,706 bytes
+  and no further finding.
+
 - Numbers: ChaosDragonSkeleton_13 label "Necessary only (saves 55 KB)": 913,182 → 856,706 bytes
   (56,476 B = 65 full + 2 one-record tables); Full output 914,862 (the 2 partial tables refilled).
   ChaosDragonSkeleton_08 "saves 48 KB": 779,944 → 730,468 (49,476 B = 57 × 31 × 28). Info and Sequences
@@ -79,7 +88,4 @@ Updated: 2026-11-20
 
 - Combine with the other agent's refill branch, build, and hand the owner a test build with
   `TEST GEOSET BOUNDS 01.mdx` (a ChaosDragon copy).
-- Open question for the owner: the choice appears only when Calculate extents is proposed (some box
-  off or broken). A model whose boxes are already right shows no finding, so Necessary only cannot be
-  picked there.
 - On completion: mark completed with the merge revision and remove the README row.
