@@ -47,6 +47,10 @@ const FIXTURES = {
   'transfer-dreadlord': ['MDLXL_TRANSFER_DREADLORD', testModel('corpus-sd/undead__herodreadlord.mdx')], // its only Cinematic animation is a death (Cinematic death)
   'transfer-aspiring-hero': ['MDLXL_TRANSFER_ASPIRING_HERO', testModel('transfer-humanoid/WH_WOC_AspiringHero01.mdx')],
   'transfer-satyr': ['MDLXL_TRANSFER_SATYR', testModel('corpus-sd/creeps__satyr.mdx')], // all trunk skin on Bone_Chest, whose pivot sits at hip height: it bows from the hips
+  'transfer-eredar-warlock': ['MDLXL_TRANSFER_EREDAR_WARLOCK', testModel('corpus-sd/demon__eredarwarlock.mdx')], // ground ring on three unparented roots that only scale, by keys of its own (not global)
+  'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
+  'transfer-ogre-armored': ['MDLXL_TRANSFER_OGRE_ARMORED', testModel('corpus-sd/creeps__ogreoneheadedarmored.mdx')],
+  'transfer-kiljaeden-cin': ['MDLXL_TRANSFER_KILJAEDEN_CIN', testModel('corpus-sd/demon__kiljaedencin.mdx')], // body joint Bone_Root bobs by position keys on a global sequence
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones

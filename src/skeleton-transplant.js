@@ -791,7 +791,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       }
       return worst;
     };
+    // A joint that only grows and shrinks in place (no position or turn keys on it or on any joint above it: the Eredar
+    // Warlock's ground ring on three roots that scale by keys of their own) never goes anywhere in its own model: it stays
+    // in the world. Read by drift its pulse looked like moving, so it rode the body (Dissipate: the ring stood up with the
+    // Chaos Blademaster's turning hips and flew 6 heights into the sky).
+    const turnsOrMoves = id => treeB.ancestors(id, true).some(at => ['Translation', 'Rotation'].some(property => ownById.get(at)?.[property]?.Keys?.length));
     for (const [id, points] of skinOf) {
+      if (!turnsOrMoves(id)) continue;
       const centre = points.reduce((s, p) => s.add(p), new Vector3()).divideScalar(points.length);
       const probe = [centre, points.reduce((far, p) => p.distanceTo(centre) > far.distanceTo(centre) ? p : far, centre)];
       // Where it shows and is not scaled to nothing.
@@ -1751,9 +1757,28 @@ function bodyMover(M, body, loose = []) {
   if (!line.some(id => id !== body && loose.includes(id))) return { mover: body, line: new Set([body]) };
   return { mover: line.find(free) ?? body, line: new Set(line) };
 }
+/** The nodes that carry a height for `ids`: each one, unless it moves by position keys on a global sequence (they take no
+ * keys per animation: Kil'jaeden's cinematic body joint bobs on one) and carries no skin, then the nodes hanging from it,
+ * which moves all it holds. Others are returned as they are. */
+function heightCarriers(M, ids) {
+  const skinned = new Set();
+  for (const geoset of M.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) for (const id of skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || [])) skinned.add(id);
+  }
+  const out = new Set(), seen = new Set();
+  const visit = id => {
+    if (seen.has(id)) return; seen.add(id);
+    const node = M.Nodes[id];
+    if (!node || !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)) || skinned.has(id)) { out.add(id); return; }
+    for (const child of M.Nodes) if (child && child.Parent === id && child.ObjectId !== id) visit(child.ObjectId);
+  };
+  for (const id of ids) visit(id);
+  return [...out];
+}
 function shiftBody(M, body, dz, loose = []) {
   if (Math.abs(dz) < 1e-3) return;
-  for (const id of new Set([body, ...loose])) shiftNode(M, id, dz);
+  for (const id of new Set([...heightCarriers(M, [body]), ...loose])) shiftNode(M, id, dz);
   clearTransferCache(M);
 }
 function shiftNode(M, id, dz) {
@@ -1876,7 +1901,7 @@ function soleReader(model, rig, standIndex) {
  * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
 function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
   const { mover, line } = bodyMover(M, rigM.body, loose);
-  const movers = [...new Set([mover, ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+  const movers = [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval);
   const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {

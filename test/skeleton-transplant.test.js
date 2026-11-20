@@ -1155,3 +1155,37 @@ test('H4 Dread Lord on the Aspiring Hero: in the donor\'s Cinematic Walk he show
   const extra = [...mine].filter(g => !walking.has(g));
   assert.deepEqual(extra, [], `geosets shown in Cinematic Walk but not in his Walk: ${extra.join(', ')}`);
 });
+
+test('H5 Eredar Warlock on the Chaos Blademaster: through the Blademaster\'s Dissipate its ground ring stays on the ground where its own Stand holds it (the ring\'s three roots only scale, by keys of their own; it rode the body, stood up and flew 6 heights into the sky with it)', { skip: missing('transfer-eredar-warlock', 'transfer-chaos-blademaster') }, () => {
+  const { own, model, report } = transplant('transfer-eredar-warlock', 'transfer-chaos-blademaster');
+  const nodes = byId(own), still = id => { const n = nodes.get(id); return n && (n.Parent == null || n.Parent < 0) && !n.Translation?.Keys?.length && !n.Rotation?.Keys?.length; };
+  const ring = verticesOn(own, still);
+  assert.ok(ring.length >= 8, `${ring.length} ring vertices`);
+  const H = Math.max(...own.Geosets.flatMap(g => Array.from({ length: g.Vertices.length / 3 }, (_, v) => g.Vertices[v * 3 + 2])));
+  const bind = ring.reduce((p, [g, v]) => p.add(new Vector3(...own.Geosets[g].Vertices.slice(v * 3, v * 3 + 3))), new Vector3()).divideScalar(ring.length);
+  const index = model.Sequences.findIndex(s => s.Name === 'Dissipate');
+  assert.ok(index >= 0);
+  const [a, b] = model.Sequences[index].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 12; k++) worst = Math.max(worst, centroidAt(model, ring, index, Math.round(a + k / 12 * (b - a))).distanceTo(bind) / H);
+  assert.ok(worst < 0.1, `the ring's centre is up to ${worst.toFixed(2)} heights from where it lies (riders: ${JSON.stringify(report.riders.map(r => r.name + '>' + r.joint))})`);
+});
+
+test('H6 armored Ogre on Kil\'jaeden (cinematic): through his Attack - 1 the Ogre\'s lower foot stands as high above the ground as Kil\'jaeden\'s, times the travel ratio (his body joint bobs by position keys on a global sequence, which take no height keys: the height was never set and the feet stood 0.1 hip heights too high)', { skip: missing('transfer-ogre-armored', 'transfer-kiljaeden-cin') }, () => {
+  const { own, donor, model, report } = transplant('transfer-ogre-armored', 'transfer-kiljaeden-cin');
+  assert.equal(report.counts.ground, 'feet');
+  const read = m => transplantReading(transferRig(m, { sequence: standSequenceIndex(m) }), m);
+  const rigB = read(own), rigA = read(donor), travel = report.counts.travel;
+  const feet = rig => Object.values(rig.parts).filter(p => p.limbKind === 'leg').map(p => p.marker);
+  const nM = byId(model), nD = byId(donor);
+  const lowest = (m, nodes, index, frame, ids) => { const mats = sampleNodeMatrices(m, frame, index); return Math.min(...ids.map(id => at(m, nodes, mats, id).z)); };
+  const iM = model.Sequences.findIndex(s => s.Name === 'Attack - 1'), iD = donor.Sequences.findIndex(s => s.Name === 'Attack - 1');
+  const [a, b] = model.Sequences[iM].Interval, [c, d] = donor.Sequences[iD].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 12; k++) {
+    const mine = lowest(model, nM, iM, Math.round(a + k / 12 * (b - a)), feet(rigA).map(id => report.donorNodes[id])) - rigB.ground;
+    const theirs = (lowest(donor, nD, iD, Math.round(c + k / 12 * (d - c)), feet(rigA)) - rigA.ground) * travel;
+    worst = Math.max(worst, Math.abs(mine - theirs) / rigB.hipHeight);
+  }
+  assert.ok(worst < 0.03, `the lower foot is up to ${worst.toFixed(3)} hip heights off Kil'jaeden's`);
+});
