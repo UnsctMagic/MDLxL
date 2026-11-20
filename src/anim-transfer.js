@@ -1233,15 +1233,26 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     const root = arm.entry.own.joints[0];
     if (arm.clear && arm.lift[k] > 1e-6 && arm.axis[k]) tools.setWorld(root, axisAngle(arm.axis[k], arm.lift[k]).multiply(rotationOf(tools.world(root))));
   };
+  // The gripping arm is placed by the solve, which keeps the arm's twist and the plane its elbow bends in from the pose
+  // it starts from. Started from the transferred pose, which can point 90 degrees and more away from the grip and turn
+  // fast, the elbow folded the other way from one moment to the next (Hellscream taking the Archnathid's attack:
+  // its bend plane 131 degrees in one 33 ms step). It starts from its own solve of the moment before (the hand keeps
+  // its own turn); a looping result first solves its last moments so its start continues from its end.
   const gripArm = (arm, state, tools, base, over) => {
+    if (arm.grip && !state) arm.grip.last = null;
     if (!arm.grip || !state) return;
     const { entry } = arm, { world, parentRot } = tools;
     const handWorld = world(entry.own.marker), hand = v3(nodePivot(recipient, byIdB.get(arm.grip.part.marker), arm.grip.part.marker)).applyMatrix4(world(arm.grip.part.marker));
     // Out of the arm's reach, the hand slides along the shaft to the nearest point it reaches.
     const shoulder = v3(nodePivot(recipient, byIdB.get(arm.grip.joints[0]), arm.grip.joints[0])).applyMatrix4(world(arm.grip.joints[0]));
     const shaft = v3(entry.own.weapon.tip).sub(v3(entry.own.weapon.butt)).applyQuaternion(rotationOf(handWorld)).normalize();
-    const target = slideInReach(arm.grip.point.clone().applyMatrix4(handWorld), shaft, shoulder, arm.grip.reach * 0.98);
+    // Too near the shoulder (the shaft passing through it), it slides out to GRIP_NEAR of the reach: folding the arm
+    // up to there bent every joint to the limit and the elbow turned over from one moment to the next.
+    const target = slideOutOfShoulder(slideInReach(arm.grip.point.clone().applyMatrix4(handWorld), shaft, shoulder, arm.grip.reach * 0.98), shaft, shoulder, arm.grip.reach * GRIP_NEAR);
+    // (Weighed by the grip: as the clip fades out, the start eases back to the transferred pose the arm then keeps.)
+    if (arm.grip.last) { const end = arm.grip.joints.at(-1), held = rotationOf(world(end)), w = Math.min(1, state.w); arm.grip.joints.slice(0, -1).forEach((id, i) => tools.setWorld(id, slerpW(rotationOf(world(id)), arm.grip.last[i], w))); tools.setWorld(end, held); }
     solveLimb(recipient, arm.grip.joints, hand.lerp(target, Math.min(1, state.w)), { world, over, base, parentRot });
+    arm.grip.last = arm.grip.joints.map(id => rotationOf(world(id)));
   };
   // Arm guard, per sample, on the pose as it will be after the weapon lift: how
   // far the arm must turn at its shoulder to come out of the trunk. Only a point
@@ -1288,16 +1299,20 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
 
   // Pass 2, per sample: lift the weapon arm, put the other hand back on its grip,
   // and record the driven joints.
-  for (let k = 0; k < n; k++) {
-    const { base, over, states } = poses[k], { world, parentRot, setWorld } = poseTools(base, over);
-    const tools = { world, parentRot, setWorld };
-    // With a guard: every lift, then the guards, then the grips (the order the guard measured).
-    // Without one: each weapon arm's lift and grip together, as before.
+  // With a guard: every lift, then the guards, then the grips (the order the guard measured).
+  // Without one: each weapon arm's lift and grip together, as before.
+  const placeArms = (k, base, over, states) => {
+    const tools = poseTools(base, over);
     if (guards.length) {
       for (const arm of weaponArms) liftArm(arm, k, tools);
       for (const guard of guards) guardArm(guard, k, active(guard.entries, states), tools);
       for (const arm of weaponArms) gripArm(arm, active(arm.entries, states), tools, base, over);
     } else for (const arm of weaponArms) { liftArm(arm, k, tools); gripArm(arm, active(arm.entries, states), tools, base, over); }
+    return tools;
+  };
+  if (!nonLooping && weaponArms.some(arm => arm.grip)) for (let k = Math.max(1, n - 6); k < n; k++) placeArms(k, poses[k].base, new Map(poses[k].over), poses[k].states);
+  for (let k = 0; k < n; k++) {
+    const { base, over, states } = poses[k], { world, parentRot, setWorld } = placeArms(k, base, over, states);
     const blendLocal = (id, local, w) => { const own = base.local.get(id); if (own.r.dot(local) < 0) local.set(-local.x, -local.y, -local.z, -local.w); over.set(id, { t: own.t, r: slerpW(own.r, local, w), s: own.s }); };
     for (const item of looseChains) {
       const state = active(item.entries, states);
@@ -1847,6 +1862,15 @@ function aimEase(clock, t) {
 
 /** The point on the line `point + s * along` nearest `point` (smallest |s|) that
  * lies within `reach` of `centre`; the line's closest point when none does. */
+/** The point slid along `along` (unit) to the nearest place at least `near` from `centre`. */
+function slideOutOfShoulder(point, along, centre, near) {
+  const offset = point.clone().sub(centre), b = offset.dot(along), c = offset.lengthSq() - near * near;
+  if (c >= 0) return point;
+  const root = Math.sqrt(b * b - c), s = Math.abs(-b - root) < Math.abs(-b + root) ? -b - root : -b + root;
+  return point.clone().addScaledVector(along, s);
+}
+// The gripping hand stays at least this share of its arm's length from the arm's first joint.
+const GRIP_NEAR = 0.35;
 function slideInReach(point, along, centre, reach) {
   const offset = point.clone().sub(centre), b = offset.dot(along), c = offset.lengthSq() - reach * reach;
   if (c <= 0) return point;

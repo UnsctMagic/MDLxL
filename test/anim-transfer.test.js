@@ -1239,3 +1239,22 @@ test('P1 weapon above the ground: the lift does not swing the arm the other way 
   const under = Math.max(...built.times.map((_, k) => rig.floor - lowest(k)));
   assert.ok(under < 0.05 * rig.hipHeight, `the axe goes ${under.toFixed(1)} under the floor`);
 });
+test('G1 both hands on the weapon: the gripping arm does not turn over from one moment to the next (the Kurgan taking the Grunt\'s attack)', { skip: missing('transfer-kurgan', 'transfer-grunt') }, () => {
+  // The gripping arm's solve started from the transferred pose, which can point far from the grip and turn fast; with
+  // the handle passing through the shoulder it folded every joint to the limit. The Kurgan's left arm turned 135
+  // degrees in one 33 ms step and its elbow's bend plane 128.
+  const kurgan = load('transfer-kurgan'), grunt = load('transfer-grunt'), stand = seqMatch(kurgan, /^stand/i), attack = seq(grunt, 'Attack - 1');
+  const rig = transferRig(kurgan, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(grunt, { sequence: attack }));
+  const weapon = Object.values(rig.parts).find(part => part.weapon?.grip), arm = weapon && rig.parts[weapon.weapon.grip.arm];
+  assert.ok(arm, 'the Kurgan holds its hammer with both hands');
+  const built = buildTransfer(kurgan, new Map([['g', grunt]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'g', attack) });
+  let turn = 0, plane = 0, at = 0, prev = null;
+  built.times.forEach((t, k) => {
+    const m = builtMatrices(kurgan, built, stand, k), p = arm.joints.slice(-3).map(id => pivotAt(kurgan, m, id)), q = rotOf(m.get(arm.joints[0]));
+    const normal = p[1].clone().sub(p[0]).cross(p[2].clone().sub(p[1]));
+    if (prev) { const d = angle(q, prev.q); if (d > turn) { turn = d; at = t; } if (normal.length() > 1e-6 && prev.normal.length() > 1e-6) plane = Math.max(plane, normal.angleTo(prev.normal) * 180 / Math.PI); }
+    prev = { q, normal };
+  });
+  assert.ok(turn < 90, `the gripping arm turns ${turn.toFixed(1)} degrees in one 33 ms step at ${at} ms`);
+  assert.ok(plane < 90, `its elbow's bend plane turns ${plane.toFixed(1)} degrees in one 33 ms step`);
+});
