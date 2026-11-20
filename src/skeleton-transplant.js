@@ -50,6 +50,7 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { bendArmsAboveFloor } from './transplant-floor.js';
+import { fitHeadSkin } from './transplant-head.js';
 import { detachedGrip, transplantPropVisibility } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
 import {
@@ -2084,6 +2085,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The result's body is the donor's, read through the id map: reading the result again can pick another skeleton
   // once its bind pose is the donor's posture (the Ghoul's corpse skeleton instead of its body).
   const rigM = rigB.ok && rigA.ok ? mappedRig(M, rigA, id => remap.get(newId(id))) : { ok: false };
+  if (rigB.ok && rigA.ok && (donorActor === 'walker' || neckBend))
+    posture.face = fitHeadSkin(M,model,D,rigB,rigA,donorMap[rigA.parts.head?.marker]);
   if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigM, notes, loose);
   // Feet down where the legs pair; else (G1) this model's own soles go down as the donor stands or hovers.
   let ground = null;
