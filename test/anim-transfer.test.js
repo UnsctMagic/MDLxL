@@ -1394,3 +1394,13 @@ test('H7 the Witch Hunter\'s left arm is its two joints: ShoulderL > LowArmL to 
   const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
   assert.ok(!pose.chains.some(chain => nodeName(model, chain.root) === 'Bone_Chest'), 'no POSE limb starts at the chest');
 });
+
+test('HR1 the HD Forsaken Paladin\'s limbs are read through the joints that bend them: each leg hip > knee > foot (leg_*0_0 > leg_*0_2 > foot), each arm upper arm > elbow > wrist, both sides at the same joints, and no second limb from the foot and hand refs on its ankles and wrists (its last three joints have a stretch of nearly no length, 0.4 on a 37 leg: a leg was read from the ankle down, the hip and knee above it as a girdle, and the two legs paired at different joints)', { skip: missing('transfer-forsaken-paladin') }, () => {
+  const model = load('transfer-forsaken-paladin'), stand = Math.max(0, standSequenceIndex(model));
+  const pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand), name = id => String(nodeName(model, id)).trim();
+  const lines = pose.chains.map(chain => [chain.root, chain.middle, chain.end].map(name).join('>')).sort();
+  assert.deepEqual(lines, ['arm_L0_0_jnt>arm_L0_2_jnt>arm_L0_end_jnt', 'arm_R0_0_jnt>arm_R0_2_jnt>arm_R0_end_jnt', 'leg_L0_0_jnt>leg_L0_2_jnt>foot_L0_0_jnt', 'leg_R0_0_jnt>leg_R0_2_jnt>foot_R0_0_jnt']);
+  const rig = transferRig(model), legs = Object.values(rig.parts).filter(part => part.limbKind === 'leg');
+  assert.equal(legs.length, 2, 'two legs');
+  for (const leg of legs) assert.equal(name(leg.line[0]), name(leg.joints[0]), `the ${leg.key} line starts at its hip`);
+});
