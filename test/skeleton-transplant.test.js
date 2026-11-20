@@ -1245,3 +1245,15 @@ test('NK1 Headhunter (no neck joint) on the Gnoll: the head sits where the Gnoll
   }
   assert.ok(worst < 5, `the chest-to-head line is up to ${worst.toFixed(1)} deg off the Gnoll's`);
 });
+
+test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
+  const { own, donor, model, report } = transplant('sd-orc-wolfrider', 'transfer-khorne-knight');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), ownRig = transferRig(own, { sequence: standSequenceIndex(own) });
+  const rider = [rig.parts.chest.marker, rig.parts.head.marker, ...rig.parts.armL.joints, ...rig.parts.armR.joints];
+  const nD = byId(donor), nM = byId(model);
+  const iM = model.Sequences.findIndex(s => s.Name === 'Death'), iD = donor.Sequences.findIndex(s => s.Name === 'Death');
+  const lowest = (m, nodes, index, idOf) => { const mats = sampleNodeMatrices(m, m.Sequences[index].Interval[1], index); return Math.min(...rider.map(id => at(m, nodes, mats, idOf(id)).z)); };
+  const theirs = (lowest(donor, nD, iD, id => id) - rig.ground) / rig.hipHeight, mine = (lowest(model, nM, iM, id => report.donorNodes[id]) - ownRig.ground) / ownRig.hipHeight;
+  assert.ok(theirs < 0.15, `the knight's rider ends ${theirs.toFixed(2)} hip heights above the ground`);
+  assert.ok(mine < 0.2, `the orc ends ${mine.toFixed(2)} hip heights above the ground (the knight's rider ${theirs.toFixed(2)})`);
+});

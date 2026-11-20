@@ -1695,6 +1695,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const shortLegs = [rigB, rigA].some(rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg' && part.short));
     if (!whole.reason && !shortLegs && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
     else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel);
+    // A rider on a root of its own comes down to the ground where the donor's does (riderDown).
+    if (ground === 'feet') riderDown(M, D, rigA, rigB, id => remap.get(newId(id)), treeA, 0.01 * rigB.hipHeight);
   }
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
@@ -1908,11 +1910,44 @@ function soleReader(model, rig, standIndex) {
   const middle = standSoles.length >> 1, standSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
   return { useLegs, sample, soleOf, standSole };
 }
+/** A rider on a root of its own (humanoid r3: the Warhammer Knights' rider hangs from a parentless twin of the horse's
+ * abdomen, so in Death it falls off onto the ground by its own position keys): those keys were scaled by the mount's
+ * travel, and a rider seated higher on its mount than the donor's (an orc on a wolf: 1.05 of the knight's height where
+ * the travel is 0.88) stopped a third of its height above the ground (Wolf Rider, Thrall, Far Seer on the Khorne Knight:
+ * every limb 30-50 deg off the knight's). Per moment the rider's root moves up or down so the rider's lowest joint stands
+ * as high above the ground as the donor rider's, times this rider's seat over the donor's (their lowest joints in their
+ * Stand), by how far the donor's rider has come down from its seat (none while seated, all of it on the ground), so a
+ * seated rider moves with its mount as before. -> true when done. */
+function riderDown(M, D, rigA, rigB, mapId, treeA, tolerance) {
+  clearTransferCache(M);
+  const chest = rigA.parts?.chest?.marker, top = id => treeA.ancestors(id, true).at(-1);
+  if (chest == null || rigA.body == null) return false;
+  // A mount stands on four legs (the HD Footman's upper body hangs from a root of its own too, beside its two legs: one body).
+  const root = top(chest), mover = mapId(root), legs = Object.values(rigA.parts).filter(part => part.limbKind === 'leg').length;
+  if (legs < 4 || root === top(rigA.body) || mover == null || !M.Nodes[mover] || (M.Nodes[mover].Parent != null && M.Nodes[mover].Parent !== -1)) return false;
+  const body = new Set(treeA.ancestors(rigA.body, true));
+  const pairs = Object.values(rigA.parts).flatMap(part => part.joints).filter(id => !body.has(id) && treeA.ancestors(id, true).includes(root)).map(id => [id, mapId(id)]).filter(([, r]) => r != null && M.Nodes[r]);
+  const donorStand = standSequenceIndex(D), resultStand = standSequenceIndex(M);
+  if (!pairs.length || donorStand < 0 || resultStand < 0) return false;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const low = (model, nodeOf, ids, index, frame) => { const m = sampleNodeMatrices(model, frame, index); return Math.min(...ids.map(id => v3(nodePivot(model, nodeOf(id), id)).applyMatrix4(m.get(id)).z)); };
+  const donorLow = (index, frame) => low(D, id => donorById.get(id), pairs.map(([d]) => d), index, frame) - rigA.ground;
+  const resultLow = (index, frame) => low(M, id => M.Nodes[id], pairs.map(([, r]) => r), index, frame) - rigB.ground;
+  const seat = (model, index, of) => { const [a, z] = model.Sequences[index].Interval, list = Array.from({ length: 12 }, (_, k) => of(index, Math.round(a + k / 11 * (z - a)))).sort((x, y) => x - y); return (list[5] + list[6]) / 2; };
+  const donorSeat = seat(D, donorStand, donorLow), resultSeat = seat(M, resultStand, resultLow);
+  if (!(donorSeat > tolerance) || !(resultSeat > tolerance)) return false;
+  const ratio = resultSeat / donorSeat;
+  heightPerMoment(M, D, null, [], tolerance, (index, donorIndex) => frame => {
+    const theirs = donorLow(donorIndex, frame), down = Math.min(1, Math.max(0, 1 - theirs / donorSeat));
+    return down > 0 ? down * (theirs * ratio - resultLow(index, frame)) : 0;
+  }, [mover]);
+  return true;
+}
 /** The body joint (and the parentless donor joints) move up or down per moment by `changeOf(index, donorIndex)(frame)`
- * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
-function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
-  const { mover, line } = bodyMover(M, rigM.body, loose);
-  const movers = [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+ * in every animation, added onto their keys linear between breakpoints (see `feetDown`). `only`: these nodes instead. */
+function heightPerMoment(M, D, rigM, loose, tolerance, changeOf, only = null) {
+  const { mover, line } = only ? { mover: null, line: new Set() } : bodyMover(M, rigM.body, loose);
+  const movers = (only ?? [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])]).map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval);
   const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {
