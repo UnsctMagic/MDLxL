@@ -1903,9 +1903,29 @@ function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
 }
 /** Add a height that is linear between `frames` (`values` there; all inside `interval`) onto a node's translation keys
  * in that interval. Keys are added only at those frames, splitting curves exactly. */
+/** A stepped (DontInterp) track as linear keys that hold the same values: inside each animation every key's value is keyed
+ * again one millisecond before the next key. */
+function unstep(M, track) {
+  const keys = [...track.Keys].sort((x, y) => x.Frame - y.Frame), added = [];
+  for (const sequence of M.Sequences || []) {
+    const [a, z] = sequence.Interval || [];
+    if (!(z >= a)) continue;
+    const inside = keys.filter(key => key.Frame >= a && key.Frame <= z);
+    for (let i = 0; i + 1 < inside.length; i++) {
+      const hold = inside[i + 1].Frame - 1;
+      if (hold > inside[i].Frame && !keys.some(key => key.Frame === hold) && !added.some(key => key.Frame === hold)) added.push({ Frame: hold, Vector: like(inside[i].Vector, Array.from(inside[i].Vector)) });
+    }
+  }
+  track.Keys = [...keys, ...added].sort((x, y) => x.Frame - y.Frame);
+  track.LineType = 1;
+}
 function addHeight(M, node, interval, frames, values) {
   const [a, z] = interval;
   if (!node.Translation?.Keys?.length) node.Translation = { LineType: 1, GlobalSeqId: null, Keys: [] };
+  // Stepped keys (DontInterp: the HD Forsaken Paladin's body joint) hold each value to the next key, so a height added onto
+  // them held between keys too (0.13 hip heights off between his 30-60 ms keys). They become linear keys that hold the same:
+  // each value is keyed again just before the next key of its animation, so the body moves exactly as before.
+  if (node.Translation.LineType === 0) unstep(M, node.Translation);
   const track = node.Translation, type = track.LineType, curved = type === 2 || type === 3;
   const template = track.Keys[0]?.Vector ?? new Float32Array(3);
   const sample = frame => sampleTrack(track, frame, { interval, globalSequences: M.GlobalSequences, fallback: [0, 0, 0] });

@@ -1190,3 +1190,22 @@ test('H6 armored Ogre on Kil\'jaeden (cinematic): through his Attack - 1 the Ogr
   }
   assert.ok(worst < 0.03, `the lower foot is up to ${worst.toFixed(3)} hip heights off Kil'jaeden's`);
 });
+
+test('H8 Forest Troll Shadow Priest on the HD Forsaken Paladin: through the Paladin\'s Base the lower foot stands as high above the ground as his, times the travel ratio, at every moment, not only at his body keys (his body joint moves by stepped keys, so the height added onto them held between keys: 0.13 hip heights off)', { skip: missing('transfer-troll-priest', 'transfer-forsaken-paladin') }, () => {
+  const { own, donor, model, report } = transplant('transfer-troll-priest', 'transfer-forsaken-paladin');
+  assert.equal(report.counts.ground, 'feet');
+  const read = m => transplantReading(transferRig(m, { sequence: standSequenceIndex(m) }), m);
+  const rigB = read(own), rigA = read(donor), travel = report.counts.travel;
+  const feet = Object.values(rigA.parts).filter(p => p.limbKind === 'leg').map(p => p.marker);
+  const nM = byId(model), nD = byId(donor);
+  const lowest = (m, nodes, index, frame, ids) => { const mats = sampleNodeMatrices(m, frame, index); return Math.min(...ids.map(id => at(m, nodes, mats, id).z)); };
+  const iM = model.Sequences.findIndex(s => s.Name === 'Base'), iD = donor.Sequences.findIndex(s => s.Name === 'Base');
+  const [a, b] = model.Sequences[iM].Interval, [c, d] = donor.Sequences[iD].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 48; k++) {
+    const mine = lowest(model, nM, iM, Math.round(a + k / 48 * (b - a)), feet.map(id => report.donorNodes[id])) - rigB.ground;
+    const theirs = (lowest(donor, nD, iD, Math.round(c + k / 48 * (d - c)), feet) - rigA.ground) * travel;
+    worst = Math.max(worst, Math.abs(mine - theirs) / rigB.hipHeight);
+  }
+  assert.ok(worst < 0.03, `the lower foot is up to ${worst.toFixed(3)} hip heights off the Paladin's`);
+});
