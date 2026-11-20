@@ -258,3 +258,23 @@ timeout 180 s (row `timeout`, worker restarted), worker crash -> row `crash`. A 
   35.6 -> 43.1 (R1, untraced); Kurgan on Felhound inside +0.05, Infernal on Grunt +0.03 (under threshold). Faerie Dragon
   with the merged engine: on Footman sinks 0.61 (its armL, body dip; old engine floated 0.59 + feet 1.7 under one reader),
   on Baron leg.upper 18.7 + posture -14 (rider class). C: 8.7 GB free at 02:40 (was 15.7 at 02:25): REPORTED, sweep not touched.
+- 02:47 row 10 (Opus) e01028cb: `limbPairing` scores a left/right pair of limbs together (this limb + the other side's
+  limb and the donor limb it takes from, same joints in the same roles: lower SUM wins) and a leg's bend goes to the
+  donor leg's knee (first joint below its top bending > 10 deg at rest) where the donor leg has more joints, unless the
+  thigh points > 20 deg further off there. Tests R10 x2 fail on bb2e891f (Footman thigh 32 deg off the LoC hip-to-knee;
+  LoC donor legs 0.33 hip from mirrored) and pass. Before/after (ruler v6, `rb/rows.mjs`, `rb/pairs.json`): Bandit Spear
+  Thrower on P26 thigh 31.7 -> 0.1, shin 20.7 -> 2.1 (ok); Tuskar Ranged on P14_1 29.9 -> 1.2 / 22.9 -> 2.2 (left: sinks 0.29,
+  body dip); Headhunter on P21 24.2 -> 0.5 / 27.2 -> 2.3 (ok, its knee took the HIP before); GUO on P7 30.6 -> 1.7 /
+  33.9 -> 2.3 (ok); Steam Tank on P13 39.3 -> 7.5 / 25.5 -> 9.1 (floats 0.56 stays); 4 other LoC pairs unchanged.
+  Retarget: baseline z3 vs rb1 0 differ; R1 fingerprints 5 of 1192 differ, all left/right fixes (`rb/retarget-5-pairing.txt`:
+  Footman taking the Walk of Nether Dragon/Phoenix/Faerie Dragon: right upper arm now follows the donor's line to its third
+  wing joint as the left does; Zergling: left arm pairs as the right; HD Forsaken Paladin: right knee on the knee joint
+  as the left). Panel v6 bb2e891f -> e01028cb: 0 worse, 1 better (Wolf Rider on Knight legs 11.5 -> 2.9) GATE PASSES.
+- 02:47 short-legged donors 5dd104fb (from the merge gate's real Footman/Sheep on Rat): R1 puts short donor legs in soles
+  mode but read the donor's rise from its stub end joints (the rat's shins: up to 0.4 rat hips off its paws in its hopping
+  Walk); `solesDown` now reads such a donor's sole as the own one (`soleReader`, shared). Test S4 fails on e01028cb (0.24
+  hip median) and passes; 183/183 + 89/89 AnimXL/Attachemator/Corpse; baseline 0 differ. Panel v6: 0 worse, 2 better
+  (Footman on Rat, Sheep on Rat -> ok): 49 ok / 12 (head before merge 48/13 under v6, 43/18 read with the new rigs).
+  Left real vs before the merge (all known): Rat on Dire Wolf sinks 0.43 and Wyvern Rider on Gryphon Rider sinks 0.27
+  (body dips, row 3 / G-OPT, owner), Dire Wolf on Tauren neck 35.6 -> 43.1 (R1, untraced), Kurgan on Felhound inside +0.05
+  (under threshold). C: 8.7 GB, steady since 02:40.
