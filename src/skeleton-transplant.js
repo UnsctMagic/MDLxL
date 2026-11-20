@@ -1163,6 +1163,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // head joint keeps the donor's turn as it is (as a foot does). Places and bend points stay this model's.
   const posture = { spine: null, neck: null };
   let trunkSkin = null;
+  // This trunk over the donor's (fitTrunk): s1 its length (hip centre to shoulder centre), s2 its shoulder width.
+  let trunkScale = null;
   /** The donor's trunk in this model's trunk. Frames: origin the hip centre, first axis to the shoulder centre (its length
    * scales heights and depths), second the shoulder line (its width scales widths). Each donor trunk joint is placed at its
    * donor coordinates in this model's frame and turns with the trunk. The donor's own trunk skin, read along its first
@@ -1179,6 +1181,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const eps = 1e-3 * rigB.hipHeight, epsA = 1e-3 * rigA.hipHeight;
     if (fB.length < eps || fA.length < epsA || fB.width < eps || fA.width < epsA) return null;
     const s1 = fB.length / fA.length, s2 = fB.width / fA.width;
+    trunkScale = { s1, s2 };
     // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint.
     const top = rigA.parts.hips?.joints?.[0] ?? rigA.body, chain = new Set(trunkJoints);
     for (const id of rigA.parts.chest?.joints || []) {
@@ -1379,7 +1382,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const parentId = parent?.donor;
     // (A limb, or the neck and head: so the neck too keeps pointing as the donor's when its head moves.)
     const sameLimb = parentId != null && partOfDonor.has(id) && partOfDonor.get(id) === partOfDonor.get(parentId) && (!trunkJoint(id) || partOfDonor.get(id) === 'head');
-    const lengthA = sameLimb ? pA(id).distanceTo(pA(parentId)) : 0, scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA : travel;
+    // An arm's first joint on a trunk joint (a shoulder; legs carry the body's travel, tails and cloth hang): its move is
+    // scaled by the travel ratio held within the trunk's own ratios (fitTrunk: trunk length and shoulder width, this model's
+    // over the donor's), so a shrug moves it as far for this trunk as the donor's. The Kobold pulls its right shoulder in by
+    // 7.4 in Stand -1; at the travel ratio, 2.5, the Forest Troll's (trunk ratios 1.0-1.5) went in 18.2 and its shoulder
+    // line turned 13 deg, 36 in Attack - 2.
+    const rootOnTrunk = trunkScale && count(rigA, 'leg') === 2 && parentId != null && rigA.parts[partOfDonor.get(id)]?.limbKind === 'arm' && trunkJoint(parentId);
+    const lengthA = sameLimb ? pA(id).distanceTo(pA(parentId)) : 0;
+    const scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA
+      : rootOnTrunk ? Math.min(Math.max(travel, Math.min(trunkScale.s1, trunkScale.s2)), Math.max(trunkScale.s1, trunkScale.s2)) : travel;
     if (copy.Translation?.Keys) {
       const move = v => v && like(v, new Vector3().fromArray(v).multiplyScalar(scale).toArray());
       for (const k of copy.Translation.Keys) { k.Vector = move(k.Vector); if (k.InTan) k.InTan = move(k.InTan); if (k.OutTan) k.OutTan = move(k.OutTan); }

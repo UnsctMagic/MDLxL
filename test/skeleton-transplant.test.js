@@ -1132,3 +1132,15 @@ test('T2 Ghoul on the Satyr: it bows as deep as the Satyr in Stand - 3 (the hips
   assert.ok(deepest > 45, `the Satyr bows ${deepest.toFixed(0)} deg in Stand - 3`);
   assert.ok(worst < 8, `the Ghoul's trunk line is up to ${worst.toFixed(1)} deg off the Satyr's in Stand - 3`);
 });
+
+test('T3 Forest Troll Trapper on the Kobold: its shoulders swing as the Kobold\'s do (the shoulder line within 6 deg of the Kobold\'s through Attack - 2; it was 36 deg off: the Kobold moves its shoulders by position keys, and those were scaled by the whole-body travel ratio, 2.5, far over this trunk\'s own length and width ratios)', { skip: missing('transfer-troll-trapper', 'transfer-kobold') }, () => {
+  const { donor, model, report } = transplant('transfer-troll-trapper', 'transfer-kobold');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const left = rig.parts.armL.joints[0], right = rig.parts.armR.joints[0];
+  const line = (m, index, frame, idOf) => { const mats = sampleNodeMatrices(m, frame, index), at = id => { const r = idOf(id); return new Vector3(...nodePivot(m, m.Nodes[r], r)).applyMatrix4(mats.get(r)); }; return at(left).sub(at(right)).normalize(); };
+  const iD = donor.Sequences.findIndex(s => s.Name === 'Attack - 2'), iM = model.Sequences.findIndex(s => s.Name === 'Attack - 2');
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 12; k++) worst = Math.max(worst, line(donor, iD, Math.round(a + k / 12 * (b - a)), id => id).angleTo(line(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id])) * 180 / Math.PI);
+  assert.ok(worst < 6, `the shoulder line is up to ${worst.toFixed(1)} deg off the Kobold's in Attack - 2`);
+});
