@@ -35,7 +35,7 @@ const files=[...tree(src),...tree(here),...manifests];
 const sourceHashes=Object.fromEntries(files.map(f=>[f,hashFile(f)]));
 const inputFiles=[...new Set(pairs.flatMap(p=>[p.own.file,p.donor.file]).filter(Boolean))].sort(),inputHashes=Object.fromEntries(inputFiles.map(f=>[f,hashFile(f)]));
 const fingerprint=crypto.createHash('sha256').update(JSON.stringify({set,engine,sourceHashes,inputHashes})).digest('hex');
-const engineFingerprint=crypto.createHash('sha256').update(JSON.stringify({engine, sources:Object.fromEntries(tree(src).map(f=>[f,hashFile(f)])), inputHashes})).digest('hex');
+const engineFingerprint=crypto.createHash('sha256').update(JSON.stringify({cacheSchema:2, engine, sources:Object.fromEntries(tree(src).map(f=>[f,hashFile(f)])), inputHashes})).digest('hex');
 const cacheDir=path.join(path.dirname(output),'grade-reports-'+engineFingerprint);
 if(set==='grades')fs.mkdirSync(cacheDir,{recursive:true});
 const meta=output+'.meta.json', info={schema:1,set,engine,ruler,fingerprint,sourceHashes,inputHashes,pairs:pairs.length};
@@ -52,9 +52,37 @@ for(let index=0;index<pairs.length;index++){
  try{
   const own=model(p.own.file),donor=model(p.donor.file),rb=TW.rigFor(own,first(own)),ra=TW.rigFor(donor,first(donor)),mirror=!!(ra?.weaponSide&&rb?.weaponSide&&ra.weaponSide!==rb.weaponSide);
   const opts=TW.transplantOptions({sounds:true,effects:false,keep:[],mirror});
-  const cached=path.join(cacheDir,p.id+'.bin');let made;
-  if(set==='grades'&&fs.existsSync(cached)){const record=v8.deserialize(fs.readFileSync(cached));if(record.mirror!==mirror||record.originalResultHash!==hashFile(p.originalResult)||record.originalDonorHash!==hashFile(p.originalDonor))throw Error('Cached report or original bytes changed');made={model:record.matchesOriginal?model(p.originalResult):ED.openDocument(new Uint8Array(record.resultBytes),'candidate.mdx').model,report:record.report};}
-  else{made=ST.transplantSkeleton(structuredClone(own),structuredClone(donor),opts);if(set==='grades'){const sections=['Sequences','Geosets','GeosetAnims','Materials','TextureAnims','Nodes','Bones','Helpers','Attachments','Lights','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','EventObjects','CollisionShapes','Cameras','Info','GlobalSequences','Textures','PivotPoints','BindPoses'];const doc=ED.openDocument(new Uint8Array(fs.readFileSync(p.own.file)),path.basename(p.own.file));doc.apply('Transplant',sections,m=>TW.replaceModelContents(m,structuredClone(made.model)));const generated=Buffer.from(doc.serialize('mdx')),orig=fs.readFileSync(p.originalResult);const matchesOriginal=generated.equals(orig);const donorBytes=mirror?(()=>{const d=ED.openDocument(new Uint8Array(fs.readFileSync(p.donor.file)),path.basename(p.donor.file));d.apply('Transplant',sections,m=>TW.replaceModelContents(m,ST.mirrorModel(structuredClone(donor))));return Buffer.from(d.serialize('mdx'))})():fs.readFileSync(p.donor.file);const donorMatchesOriginal=donorBytes.equals(fs.readFileSync(p.originalDonor));fs.writeFileSync(cached,v8.serialize({mirror,report:made.report,matchesOriginal,donorMatchesOriginal,resultBytes:matchesOriginal?null:generated,originalResultHash:hashFile(p.originalResult),originalDonorHash:hashFile(p.originalDonor)}),{flag:'wx'});}}
+  const cached = path.join(cacheDir,p.id+'.bin');
+  let made;
+  if (set === 'grades' && fs.existsSync(cached)) {
+    const record = v8.deserialize(fs.readFileSync(cached));
+    if (record.mirror !== mirror || record.originalResultHash !== hashFile(p.originalResult) ||
+        record.originalDonorHash !== hashFile(p.originalDonor)) throw Error('Cached original bytes changed');
+    // The report uses the in-memory result IDs. MDX serialization can renumber those nodes.
+    made = {model:record.model,report:record.report};
+  } else {
+    made = ST.transplantSkeleton(structuredClone(own),structuredClone(donor),opts);
+    if (set === 'grades') {
+      const sections = ['Sequences','Geosets','GeosetAnims','Materials','TextureAnims','Nodes','Bones','Helpers','Attachments','Lights','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','EventObjects','CollisionShapes','Cameras','Info','GlobalSequences','Textures','PivotPoints','BindPoses'];
+      const bytes = (file,mdl) => {
+        const doc = ED.openDocument(new Uint8Array(fs.readFileSync(file)),path.basename(file));
+        doc.apply('Transplant',sections,m=>TW.replaceModelContents(m,structuredClone(mdl)));
+        return Buffer.from(doc.serialize('mdx'));
+      };
+      const generated = bytes(p.own.file,made.model);
+      const matchesOriginal = generated.equals(fs.readFileSync(p.originalResult));
+      const donorBytes = mirror ? bytes(p.donor.file,ST.mirrorModel(structuredClone(donor))) : fs.readFileSync(p.donor.file);
+      const record = {model:made.model,report:made.report,mirror,matchesOriginal,
+        donorMatchesOriginal:donorBytes.equals(fs.readFileSync(p.originalDonor)),
+        resultBytes:matchesOriginal ? null : generated,
+        originalResultHash:hashFile(p.originalResult),originalDonorHash:hashFile(p.originalDonor)};
+      const partial = cached+'.'+process.pid+'.tmp';
+      fs.writeFileSync(partial,v8.serialize(record));
+      try { fs.linkSync(partial,cached); }
+      catch (e) { if (e.code !== 'EEXIST') throw e; }
+      finally { fs.unlinkSync(partial); }
+    }
+  }
   const displayed=mirror?ST.mirrorModel(structuredClone(donor)):structuredClone(donor);
   const judged=await R.gradeMotion(own,displayed,made.model,made.report);
   if(!judged||!['good','mixed','bad'].includes(judged.verdict)||!Array.isArray(judged.reasons))throw Error('Invalid ruler result');
@@ -62,8 +90,3 @@ for(let index=0;index<pairs.length;index++){
  }catch(e){Object.assign(row,{verdict:'error',error:String(e?.stack||e)});}
  row.ms=Date.now()-t;fs.appendFileSync(output,JSON.stringify(row)+'\n');if((index+1)%20===0||index+1===pairs.length)console.log(`${index+1}/${pairs.length} ${row.verdict}`);
 }
-
-
-
-
-
