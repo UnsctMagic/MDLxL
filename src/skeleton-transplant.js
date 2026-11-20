@@ -566,6 +566,7 @@ function donorDeathSwap(D, rigA) {
  * still: [own part keys none of whose joints got a donor joint], notes: [...], converted: [part keys],
  * extras: [{ id, name, vertices, kept, follows: the donor joint whose chain it rides, else null }],
  * riders: [{ id, name, joint, vertices, drift, follows }] (own skin outside the body and the part joint it rides), mirrorOffer: boolean, counts: {...},
+ * actor: how the donor was read ('both', or 'walker': a rider-on-mount donor read as its mount alone),
  * ownNodes: { [own ObjectId]: ObjectId in the result }, donorNodes: { [donor ObjectId]: ObjectId in the result } }.
  * `keep`: ObjectIds of own extras (their top bone, as `report.extras` lists them) whose bone stays.
  * `events`: the donor's sounds and footprints (else the model's own, fitted to the new animations).
@@ -588,15 +589,26 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (jointless(model)) throw new Error('This model has no skeleton to transplant (it has no bones or helpers).');
   const ownStand = standSequenceIndex(model);
   let rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined });
-  const donorStand0 = standSequenceIndex(donor), rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined });
+  const donorStand0 = standSequenceIndex(donor);
+  let rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined });
+  // A donor that is two creatures (a rider on a mount) taken by a model that is one creature with no arms, standing on as
+  // many legs as the mount: the donor is read as its mount alone (the walker reading), so a wolf on the Knight takes the
+  // horse's body. Read together, the horse's legs carried the rider's trunk: the wolf's back rose as the rider sits.
+  const legPairs = rig => { const legs = Object.keys(rig.parts || {}).filter(key => /^leg/.test(key)); return Math.max(legs.filter(key => /^legL/.test(key)).length, legs.filter(key => /^legR/.test(key)).length); };
+  let donorActor = 'both';
+  if (rigB.ok && rigA0.ok && rigA0.actors?.length > 1 && !(rigB.actors?.length > 1) && !Object.values(rigB.parts || {}).some(part => part.limbKind === 'arm')) {
+    const walker = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: 'walker' });
+    if (walker !== rigA0 && walker.ok && legPairs(walker) > 0 && legPairs(walker) === legPairs(rigB)) { rigA0 = walker; donorActor = 'walker'; notes.push("The donor is a rider on a mount: this model takes the mount's body; the rider's motion is left out."); }
+  }
   const mirrorOffer = !!(rigB.ok && rigA0.ok && rigA0.weaponSide && rigB.weaponSide && rigA0.weaponSide !== rigB.weaponSide);
   const reflected = mirror === true ? mirrorModel(donor) : donor;
   if (mirror === true) clearTransferCache(reflected);
-  let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }) : rigA0;
+  let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor }) : rigA0;
   // The donor's node data in this model's format (materials and versioned fields).
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
   // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
   const deathSwap = donorDeathSwap(D, rigA);
+  const swapSpans = [...deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval), ...(D.Sequences || []).filter(sequence => /birth|death|decay|dissipate/i.test(sequence.Name || '')).map(sequence => sequence.Interval)].filter(Boolean);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
   if (!(D.Sequences || []).some(s => s.Interval)) hard.push('The donor has no animations.');
@@ -612,7 +624,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   let entries = [];
   const whole = rigB.ok && rigA.ok ? transferWholeBody(rigB, rigA) : { parts: [], reason: null };
   if (rigB.ok && rigA.ok && ownStand >= 0 && donorStand0 >= 0 && whole.parts.length) {
-    const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
+    const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false, actor: donorActor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
     try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], kneeToKnee: true, probe: ({ entries: found }) => { entries = found; } }); }
     catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
   }
@@ -1149,7 +1161,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
    * axis, gives each skinned trunk joint a level (the median of its vertices); this model's trunk vertices go to the joint
    * whose level span holds them, both joints within SKIN_BAND of a span's width from the line between two.
    * -> { levels: [{ id, at }], bounds, band, at(point) } or null. */
-  const fitTrunk = ({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints }) => {
+  const fitTrunk = ({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves = false }) => {
     const frame = (h, s, side) => {
       const e1 = s.clone().sub(h), length = e1.length(); e1.normalize();
       const e2 = side.clone().addScaledVector(e1, -side.dot(e1)), width = e2.length(); e2.normalize();
@@ -1159,7 +1171,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const eps = 1e-3 * rigB.hipHeight, epsA = 1e-3 * rigA.hipHeight;
     if (fB.length < eps || fA.length < epsA || fB.width < eps || fA.width < epsA) return null;
     const s1 = fB.length / fA.length, s2 = fB.width / fA.width;
-    trunkScale = { s1, s2 };
     // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint.
     const top = rigA.parts.hips?.joints?.[0] ?? rigA.body, chain = new Set(trunkJoints);
     for (const id of rigA.parts.chest?.joints || []) {
@@ -1167,6 +1178,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       if (!line.includes(top)) continue;
       for (const a of line) { if (keepDonor.has(a) && isDonorJoint(a) && placed.has(a)) chain.add(a); if (a === top) break; }
     }
+    trunkScale = { s1, s2, axes: [fA.e1, fA.e2, fA.e3], chain, moves };
     // Levels from the donor's own skin (geosets its Stand shows).
     const stand = donorStandD >= 0 ? D.Sequences[donorStandD] : null, owners = new Map();
     const ownerOf = bone => {
@@ -1212,7 +1224,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const angle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
     // The upper end of the trunk line: the shoulders; a body with no arms, its head joint.
     const topB = shoulderB ?? (headAt != null ? placed.get(headAt) : null), topA = shoulderA ?? (headAt != null ? pA(headAt) : null);
-    if (bipeds && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    // A four-legged donor whose arms hang from no chest (forelimbs or wings read as arms on the body itself: the dragons,
+    // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
+    // those arms: there a Spirit Pig on the Bronze Dragon Whelp leant 35 deg off it and a Knight on the Green Dragon 53.
+    const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
+    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
@@ -1220,8 +1237,41 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // between them) sit in this model's trunk where they sit in the donor's, measured on the trunk itself (hip centre to
       // shoulder centre, shoulder width), and this model's trunk skin is shared between them where the donor's own skin
       // is (`trunkSkin`, used by the skin below). Needs legs and two arms; else the trunk keeps this model's joints.
+      // Trunk moves by the trunk map (K1) only where the legs pair: on another number of legs the donor's legs are not this
+      // model's, its hip centre is the donor's offsets, and the Chaos Dragon's rider moves flung a Magnataur's skin apart.
       const sideB = sideOf(id => placed.get(id)), sideA = sideOf(pA);
-      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints });
+      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason });
+    }
+    // A winged donor with no arms (its forelimbs are its wings: the Zombie Dragon) standing on as many legs as this model:
+    // its trunk line runs from the hip centre to the wing roots, this model's from its hip centre to its own shoulders
+    // (both where the forelimbs start), so the trunk takes the donor's posture as above. A Ghoul on the Zombie Dragon kept
+    // its own upright trunk on the dragon's legs, 58 deg off the dragon's level body.
+    const wingL = rigA.parts.wingL?.joints?.[0], wingR = rigA.parts.wingR?.joints?.[0], ownArmL = rigB.parts.armL?.joints?.[0], ownArmR = rigB.parts.armR?.joints?.[0];
+    if (!bipeds && !whole.reason && count(rigA, 'arm') === 0 && legRoots.length >= 2 && wingL != null && wingR != null && ownArmL != null && ownArmR != null && trunkJoints.length && hipB) {
+      const wingsA = pA(wingL).add(pA(wingR)).multiplyScalar(0.5), armsB = pB(ownArmL).add(pB(ownArmR)).multiplyScalar(0.5);
+      const acrossA = pA(wingL).sub(pA(wingR)), acrossB = pB(ownArmL).sub(pB(ownArmR));
+      if (armsB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+        const spine = alignFrames(armsB.clone().sub(hipB), wingsA.clone().sub(hipA), acrossB, acrossA);
+        for (const id of trunkJoints) correction.set(id, spine.clone());
+        posture.spine = angle(spine);
+        trunkSkin = fitTrunk({ hipB, hipA, shoulderB: armsB, shoulderA: wingsA, sideB: acrossB, sideA: acrossA, spine, trunkJoints, moves: legRoots.length === 2 });
+      }
+    }
+    // A donor on two pairs of legs with no two arms (a wolf, a horse read alone) taken by a model on two pairs: its trunk
+    // line runs from one pair's centre (legL, legR) to the other's (legL2, legR2), read on the same donor joints in both
+    // bodies, so the trunk takes the donor's posture and the donor's trunk joints sit along this trunk where they sit along
+    // the donor's (fitTrunk). Paired by order, the Dire Wolf's two hips joints both sat on the Brown Wolf's centre joint
+    // and its back stood 11 deg off the Dire Wolf's.
+    if (byLegPairs && posture.spine == null) {
+      const centre = (ids, from) => from(ids[0]).clone().add(from(ids[1])).multiplyScalar(0.5);
+      const [backB, frontB] = pairs.map(ids => centre(ids, id => placed.get(id))), [backA, frontA] = pairs.map(ids => centre(ids, pA));
+      const acrossB = placed.get(pairs[0][0]).clone().sub(placed.get(pairs[0][1])), acrossA = pA(pairs[0][0]).sub(pA(pairs[0][1]));
+      if (frontB.distanceTo(backB) > 1e-3 * rigB.hipHeight && frontA.distanceTo(backA) > 1e-3 * rigA.hipHeight) {
+        const spine = alignFrames(frontB.clone().sub(backB), frontA.clone().sub(backA), acrossB, acrossA);
+        for (const id of trunkJoints) correction.set(id, spine.clone());
+        posture.spine = angle(spine);
+        trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints, moves: true });
+      }
     }
     // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).
     const neckJoints = headAt != null ? headJoints.slice(0, headJoints.indexOf(headAt)) : [];
@@ -1401,9 +1451,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const lengthA = sameLimb ? pA(id).distanceTo(pA(parentId)) : 0;
     const scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA
       : rootOnTrunk ? Math.min(Math.max(travel, Math.min(trunkScale.s1, trunkScale.s2)), Math.max(trunkScale.s1, trunkScale.s2)) : travel;
+    // A trunk joint the donor's trunk was fitted into this trunk with (fitTrunk), below the top hips joint (which carries
+    // the body's travel) and under another such joint: its move is mapped as its place was, the donor's trunk frame
+    // scaled (length and depth by the trunk length ratio, across by the shoulder width ratio), so the trunk bends as the
+    // donor's does. Only where the trunk line is read from one pair of legs (a body on two legs, or the two pairs of a
+    // four-legged body without arms): a hip centre over four legs with arms above (a centaur, the Dragonspawn) keeps the
+    // travel ratio (its own legs do not stand where the map puts the donor's: the Dragonspawn's Death, whose upper body moves
+    // 171 from its hips, then turned the Bronze Dragon Whelp's trunk the other way). At the travel ratio the Chaos Dragon's
+    // rider (hip moves 91 for an offset of 52, trunk ratio 0.14, travel 0.46) rocked the skink's trunk 98 deg forward where
+    // the donor's is 54. Not in an animation where the body comes apart or together (Birth, Death, Decay, Dissipate: the
+    // Rock Golem's chest flies 71 into place from an offset of 1.3, and on the trunk ratio a Handgunner's trunk line turned
+    // 164 deg off the golem's for a moment) nor where the living joints were put on a death body's twins (donorDeathSwap):
+    // those moves stay at the travel ratio, as the legs' do.
+    const trunkMove = trunkScale?.moves && parentId != null && trunkScale.chain.has(id) && trunkScale.chain.has(parentId) && !(rigA.parts.hips?.joints || []).includes(id)
+      ? v => { const [e1, e2, e3] = trunkScale.axes; return new Vector3().addScaledVector(e1, trunkScale.s1 * v.dot(e1)).addScaledVector(e2, trunkScale.s2 * v.dot(e2)).addScaledVector(e3, trunkScale.s1 * v.dot(e3)); }
+      : null;
     if (copy.Translation?.Keys) {
-      const move = v => v && like(v, new Vector3().fromArray(v).multiplyScalar(scale).toArray());
-      for (const k of copy.Translation.Keys) { k.Vector = move(k.Vector); if (k.InTan) k.InTan = move(k.InTan); if (k.OutTan) k.OutTan = move(k.OutTan); }
+      const move = (v, mapped) => v && like(v, (mapped ? trunkMove(new Vector3().fromArray(v)) : new Vector3().fromArray(v).multiplyScalar(scale)).toArray());
+      for (const k of copy.Translation.Keys) { const mapped = !!trunkMove && !swapSpans.some(([a, b]) => k.Frame >= a && k.Frame <= b); k.Vector = move(k.Vector, mapped); if (k.InTan) k.InTan = move(k.InTan, mapped); if (k.OutTan) k.OutTan = move(k.OutTan, mapped); }
     }
     if (importer && key === 'ParticleEmitters2' && copy.TextureID != null && copy.TextureID !== -1) copy.TextureID = importer.textureRef(node.TextureID);
     if (importer && key === 'RibbonEmitters') copy.MaterialID = importer.materialRef(node.MaterialID);
@@ -1729,9 +1794,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
 
   // Poor fit (docs/agent-tasks/xfer-transplant-fixes.md): a hard reason, the hips or an arm, leg or wing riding still, or
   // under half of the body following. One share line, one sentence per cause, then the hard reasons and the notes.
-  const fit = hard.length || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  // Also a body plan this model cannot follow on as many legs (overnight cross-kind class U): the donor carries its head on
+  // an upper body of its own (a chest with two arms: a centaur, the Lobstrokk, the Crypt Fiend) and this model has neither
+  // chest nor arms (a wolf, a hydra): its head follows the donor's head with nothing under it (a Dire Wolf's on the
+  // Lobstrokk 66 deg off).
+  const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
+  const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
+  const fit = hard.length || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
   if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");
   const listed = still.filter(key => !(whole.reason && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
   reasons.push(...hard, ...notes);
@@ -1739,7 +1811,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap,
+      fit, reasons, follows, still, notes, actor: donorActor, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,

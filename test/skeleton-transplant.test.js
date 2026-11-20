@@ -1157,6 +1157,73 @@ test('H4 Dread Lord on the Aspiring Hero: in the donor\'s Cinematic Walk he show
   assert.deepEqual(extra, [], `geosets shown in Cinematic Walk but not in his Walk: ${extra.join(', ')}`);
 });
 
+/** The trunk line's angle from straight up (degrees) through one animation, donor and result side by side: from the hip
+ * centre (first leg joints) to the centre of the first joints of `tops` (donor joint ids), at 13 moments. */
+function trunkPitches({ donor, model, report }, name, tops) {
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const legs = Object.values(rig.parts).filter(part => part.limbKind === 'leg').map(part => part.joints[0]);
+  const pitch = (m, index, frame, idOf) => {
+    const mats = sampleNodeMatrices(m, frame, index);
+    const centre = ids => ids.map(id => { const r = idOf(id); return new Vector3(...nodePivot(m, m.Nodes[r], r)).applyMatrix4(mats.get(r)); }).reduce((s, p) => s.add(p), new Vector3()).divideScalar(ids.length);
+    const line = centre(tops(rig)).sub(centre(legs));
+    return Math.atan2(Math.hypot(line.x, line.y), line.z) * 180 / Math.PI;
+  };
+  const iD = donor.Sequences.findIndex(s => s.Name === name), iM = model.Sequences.findIndex(s => s.Name === name);
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  return Array.from({ length: 13 }, (_, k) => [pitch(donor, iD, Math.round(a + k / 12 * (b - a)), id => id), pitch(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id])]);
+}
+
+test('K1 Footman on the Chaos Dragon Skeleton (a rider on a dragon, read as one body): his trunk leans as the donor\'s through Walk and Stand (the hip-to-shoulder line within 5 deg; it was up to 50 deg further forward: the rider\'s hips rock by position keys, which were scaled by the leg travel ratio, 0.46, on a trunk fitted at 0.14 of the donor\'s)', { skip: missing('transfer-footman', 'transfer-chaos-dragon-rider') }, () => {
+  const result = transplant('transfer-footman', 'transfer-chaos-dragon-rider');
+  for (const name of ['Walk', 'Stand - 1', 'Attack - 1']) {
+    const lines = trunkPitches(result, name, rig => [rig.parts.armL.joints[0], rig.parts.armR.joints[0]]);
+    const worst = Math.max(...lines.map(([theirs, mine]) => Math.abs(mine - theirs)));
+    assert.ok(worst < 5, `${name}: the Footman's trunk line is up to ${worst.toFixed(1)} deg off the donor's`);
+  }
+});
+
+test('K2 Ghoul on the Zombie Dragon (two legs, two wings, no arms): he takes the dragon\'s level body, his hip-to-shoulder line along its hip-to-wing line within 5 deg through Stand and Walk (he kept his own trunk, up to 59 deg off)', { skip: missing('transfer-ghoul', 'transfer-zombie-dragon') }, () => {
+  const result = transplant('transfer-ghoul', 'transfer-zombie-dragon');
+  const wings = rig => [rig.parts.wingL.joints[0], rig.parts.wingR.joints[0]];
+  for (const name of result.donor.Sequences.map(s => s.Name).filter(n => /^(stand|walk)/i.test(n)).slice(0, 2)) {
+    const lines = trunkPitches(result, name, wings);
+    assert.ok(lines.every(([theirs]) => theirs > 80), `${name}: the dragon's body lies level (${lines[0][0].toFixed(0)} deg from up)`);
+    const worst = Math.max(...lines.map(([theirs, mine]) => Math.abs(mine - theirs)));
+    assert.ok(worst < 5, `${name}: the Ghoul's trunk line is up to ${worst.toFixed(1)} deg off the dragon's`);
+  }
+  assert.equal(result.report.fit, 'poor', 'his arms have no counterpart: still a poor fit');
+});
+
+/** The angle (degrees) between the result's and the donor's line from one leg pair's centre (legL, legR) to the other's
+ * (legL2, legR2) through one animation, worst of 13 moments. `rig` is the donor's reading the transplant used. */
+function legPairLine({ donor, model, report }, rig, name) {
+  const pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(key => rig.parts[key].joints[0]));
+  const line = (m, index, frame, idOf) => {
+    const mats = sampleNodeMatrices(m, frame, index), point = id => { const r = idOf(id); return new Vector3(...nodePivot(m, m.Nodes[r], r)).applyMatrix4(mats.get(r)); };
+    const [back, front] = pairs.map(ids => point(ids[0]).add(point(ids[1])).multiplyScalar(0.5));
+    return front.sub(back);
+  };
+  const iD = donor.Sequences.findIndex(s => s.Name === name), iM = model.Sequences.findIndex(s => s.Name === name);
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 12; k++) worst = Math.max(worst, line(donor, iD, Math.round(a + k / 12 * (b - a)), id => id).angleTo(line(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id])) * 180 / Math.PI);
+  return worst;
+}
+
+test('K4 Brown Wolf on the Knight (a rider on a horse): the wolf takes the horse\'s body alone, its back along the horse\'s through Walk, Stand -1 and Attack -1 (within 3 deg; read with the rider, the horse\'s legs carried the rider\'s trunk and the wolf\'s back stood 26 deg off the horse\'s)', { skip: missing('transfer-brown-wolf', 'transfer-knight') }, () => {
+  const result = transplant('transfer-brown-wolf', 'transfer-knight');
+  assert.equal(result.report.actor, 'walker');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor), actor: 'walker' });
+  for (const name of ['Walk', 'Stand -1', 'Attack -1']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the wolf's back is up to ${worst.toFixed(1)} deg off the horse's`); }
+  assert.ok(result.report.notes.some(note => /rider on a mount/.test(note)), 'the report says the rider is left out');
+});
+
+test('K5 Brown Wolf on the Dire Wolf: its back takes the Dire Wolf\'s slope through Walk and Stand (within 3 deg; paired by order the Dire Wolf\'s two hips joints sat on one joint of the Brown Wolf and its back stood up to 13 deg off)', { skip: missing('transfer-brown-wolf', 'transfer-direwolf') }, () => {
+  const result = transplant('transfer-brown-wolf', 'transfer-direwolf');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  for (const name of ['Walk', 'Stand']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the Brown Wolf's back is up to ${worst.toFixed(1)} deg off the Dire Wolf's`); }
+});
+
 test('H5 Eredar Warlock on the Chaos Blademaster: through the Blademaster\'s Dissipate its ground ring stays on the ground where its own Stand holds it (the ring\'s three roots only scale, by keys of their own; it rode the body, stood up and flew 6 heights into the sky with it)', { skip: missing('transfer-eredar-warlock', 'transfer-chaos-blademaster') }, () => {
   const { own, model, report } = transplant('transfer-eredar-warlock', 'transfer-chaos-blademaster');
   const nodes = byId(own), still = id => { const n = nodes.get(id); return n && (n.Parent == null || n.Parent < 0) && !n.Translation?.Keys?.length && !n.Rotation?.Keys?.length; };
@@ -1225,6 +1292,65 @@ test('H9 Skeleton Orc on the Tauren: its knee takes the Tauren\'s knee, so throu
     }
   }
   assert.ok(worst < 5, `a thigh is up to ${worst.toFixed(1)} deg off the Tauren's`);
+});
+
+test('K3 Skeleton Mage on the Lord of Change: his knee takes the donor\'s knee, so his thigh points as the donor\'s (within 5 deg through Stand and Walk; his straight slanted leg pointed nearer the hock at rest, his knee took it and the thigh ran hip to hock, 32 deg off)', { skip: missing('transfer-skeleton-mage', 'transfer-lord-of-change') }, () => {
+  const { donor, model, report } = transplant('transfer-skeleton-mage', 'transfer-lord-of-change');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), nM = byId(model), nD = byId(donor);
+  for (const key of ['legL', 'legR']) {
+    const [hip, knee] = rig.parts[key].joints;
+    assert.ok(rig.parts[key].joints.length >= 4, `the donor's ${key} has a hock`);
+    for (const name of ['Stand', 'Walk']) {
+      const iD = donor.Sequences.findIndex(s => s.Name === name), iM = model.Sequences.findIndex(s => s.Name === name);
+      let worst = 0;
+      for (let k = 0; k <= 8; k++) {
+        const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+        const mD = sampleNodeMatrices(donor, Math.round(a + k / 8 * (b - a)), iD), mM = sampleNodeMatrices(model, Math.round(c + k / 8 * (d - c)), iM);
+        const theirs = at(donor, nD, mD, knee).sub(at(donor, nD, mD, hip)), mine = at(model, nM, mM, report.donorNodes[knee]).sub(at(model, nM, mM, report.donorNodes[hip]));
+        worst = Math.max(worst, mine.angleTo(theirs) * 180 / Math.PI);
+      }
+      assert.ok(worst < 5, `${key} ${name}: the thigh is up to ${worst.toFixed(1)} deg off the donor's`);
+    }
+  }
+});
+
+
+test('U1 Dire Wolf on the Lobstrokk (four legs under an upright upper body with claws): a poor fit that says why, its head follows the donor\'s head with no upper body under it; on the Brown Wolf it is a good fit', { skip: missing('transfer-direwolf', 'transfer-lobstrokk', 'transfer-brown-wolf') }, () => {
+  const { report } = transplant('transfer-direwolf', 'transfer-lobstrokk');
+  assert.equal(report.fit, 'poor');
+  assert.ok(report.reasons.some(reason => /upper body/.test(reason)), report.reasons.join(' | '));
+  assert.equal(transplant('transfer-direwolf', 'transfer-brown-wolf').report.fit, 'good');
+});
+
+
+test('K6 Magnataur on the Chaos Dragon Skeleton (four legs on two: the legs do not pair): its body stays one piece in every animation, under 2% of it over 3 of its heights from the body\'s middle (the rider\'s trunk moves, mapped onto a trunk line through the donor\'s own leg offsets, threw a quarter of it away in Death)', { skip: missing('transfer-magnataur', 'transfer-chaos-dragon-rider') }, () => {
+  const { own, model } = transplant('transfer-magnataur', 'transfer-chaos-dragon-rider');
+  const height = skinnedBox(own).size[2];
+  model.Sequences.forEach((sequence, index) => {
+    if (/decay|portrait/i.test(sequence.Name)) return;
+    for (const frame of momentsOf(model, index, 6)) {
+      const matrices = sampleNodeMatrices(model, frame, index), points = model.Geosets.flatMap(geoset => Array.from(skinGeoset(geoset, matrices)));
+      const middle = [0, 1, 2].map(a => { const values = points.filter((_, i) => i % 3 === a).sort((x, y) => x - y); return values[values.length >> 1]; });
+      let far = 0;
+      for (let i = 0; i + 2 < points.length; i += 3) if (Math.hypot(points[i] - middle[0], points[i + 1] - middle[1], points[i + 2] - middle[2]) > 3 * height) far++;
+      const share = far / (points.length / 3);
+      assert.ok(share < 0.02, `${sequence.Name} at ${frame}: ${(100 * share).toFixed(0)}% of the body is over 3 heights from its middle`);
+    }
+  });
+});
+
+test('K7 Footman on the Rock Golem: through the golem\'s Birth, whose chest flies 71 into place from an offset of 1.3, his trunk line stays within 20 deg of the golem\'s (with the trunk-ratio moves it went up to 42 deg off)', { skip: missing('transfer-footman', 'transfer-rock-golem') }, () => {
+  const result = transplant('transfer-footman', 'transfer-rock-golem');
+  const lines = trunkPitches(result, 'Birth', rig => [rig.parts.armL.joints[0], rig.parts.armR.joints[0]]);
+  const off = ([theirs, mine]) => { const d = Math.abs(mine - theirs) % 360; return Math.min(d, 360 - d); };
+  const worst = Math.max(...lines.slice(1, -1).map(off));
+  assert.ok(worst < 20, `Birth: the Footman's trunk line is up to ${worst.toFixed(1)} deg off the golem's`);
+});
+
+test('K8 Spirit Pig on the Bronze Dragon Whelp (four legs, its wings read as arms on the body, no chest): the pig\'s back takes the whelp\'s through Walk, Stand - 1 and Attack 1 (within 3 deg; from the hip centre of four legs to the wing roots it leant 35 deg off)', { skip: missing('transfer-spirit-pig', 'transfer-bronze-whelp') }, () => {
+  const result = transplant('transfer-spirit-pig', 'transfer-bronze-whelp');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  for (const name of ['Walk', 'Stand - 1', 'Attack 1']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the pig's back is up to ${worst.toFixed(1)} deg off the whelp's`); }
 });
 
 test('NK1 Headhunter (no neck joint) on the Gnoll: the head sits where the Gnoll\'s sits from its chest, so through Stand, Walk and Attack the chest-to-head line points within 5 deg of the Gnoll\'s (it stayed over his own chest, up to 44 deg off: the Gnoll\'s head juts forward and down)', { skip: missing('transfer-headhunter', 'transfer-gnoll') }, () => {
