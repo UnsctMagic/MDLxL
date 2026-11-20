@@ -1711,7 +1711,7 @@ export function transferAim(recipient, sources, recipe, partKey, time, point, { 
 
 /** Recipient joint i -> donor joint index: one to one when counts match, else
  * nearest arc-length fraction along the reference pose (first and last fixed). */
-function jointMap(ownPath, theirPath, ownCount, theirCount) {
+export function jointMap(ownPath, theirPath, ownCount, theirCount) {
   if (ownCount === theirCount) return Array.from({ length: ownCount }, (_, i) => i);
   const own = ownPath, theirs = theirPath;
   const fractions = points => {

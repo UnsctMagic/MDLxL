@@ -53,7 +53,7 @@ import { bendArmsAboveFloor } from './transplant-floor.js';
 import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
-  rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
+  jointMap, rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
 } from './anim-transfer.js';
 
 const JOINT_KEYS = ['Bones', 'Helpers'];
@@ -874,6 +874,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   rigA = duplicateGaitChains(D,rigA,entries,gaitSources);
   const donorNodes = allNodes(D), donorById = new Map(donorNodes.map(n => [n.ObjectId, n])), treeA = nodeIndex(D, donorNodes);
   const pA = id => v3(nodePivot(D, donorById.get(id), id));
+  // Harpies have hands and a separate wing branch below each elbow. When a bird
+  // takes that wing, follow the joints carrying its feathers past the elbow.
+  for (const wing of Object.values(rigB.parts || {}).filter(p => p.limbKind === 'wing')) {
+    const arm = rigA.parts['arm' + wing.side];
+    if (!arm || rigA.parts[wing.key] || rigB.parts['arm' + wing.side]) continue;
+    const root = arm.joints[0];
+    const featherParents = new Set((D.Bones || []).filter(n => /wing/i.test(n.Name) &&
+      treeA.isAncestor(n.ObjectId, root)).map(n => n.Parent));
+    const tip = [...featherParents].sort((a,b) => treeA.depth(b) - treeA.depth(a))[0];
+    if (tip == null || arm.joints.includes(tip)) continue;
+    const path = treeA.ancestors(tip, true).reverse();
+    const joints = path.slice(path.indexOf(root));
+    if (joints.filter(id => featherParents.has(id) && !arm.joints.includes(id)).length < 2) continue;
+    const theirs = { ...arm, key:wing.key, limbKind:'wing', joints, line:joints, marker:tip, tip:null, weapon:null };
+    entries.push({key:wing.key, own:wing, theirs, clipIndex:0,
+      map:jointMap(wing.joints.map(pB), joints.map(pA), wing.joints.length, joints.length)});
+    rigA = Object.assign(Object.create(rigA), {parts:{...rigA.parts,[wing.key]:theirs}});
+  }
   // Limbs the donor has no counterpart for (Poor fit reads `still` below).
   const ridesStill = [];
   for (const [key, part] of Object.entries(rigB.parts || {})) if (part.kind === 'limb' && !entries.some(entry => entry.key === key)) ridesStill.push(key);
