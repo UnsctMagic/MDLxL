@@ -51,7 +51,8 @@ const FIXTURES = {
   'transfer-chaos-dragon-rider': ['MDLXL_TRANSFER_CHAOS_DRAGON_RIDER', testModel('fx-performance/ChaosDragonSkeleton_08.mdx')], // a rider on a dragon read as one body: dragon legs, rider arms, the rider's hips rock by position keys
   'transfer-skeleton-mage': ['MDLXL_TRANSFER_SKELETON_MAGE', testModel('corpus-sd/undead__skeletonmage.mdx')], // straight legs slanted back: the thigh points nearer a digitigrade donor's hock than its knee
   'transfer-brown-wolf': ['MDLXL_TRANSFER_BROWN_WOLF', testModel('corpus-sd/critters__brownwolf.mdx')], // a wolf whose back slopes otherwise than the Dire Wolf's
-  'transfer-lobstrokk': ['MDLXL_TRANSFER_LOBSTROKK', testModel('corpus-sd/creeps__lobstrokkgreen.mdx')], // four legs under an upright upper body with two claws
+  'transfer-rock-golem': ['MDLXL_TRANSFER_ROCK_GOLEM', testModel('corpus-sd/creeps__rockgolem.mdx')], // its chest flies 71 into place in Birth from an offset of 1.3
+  'transfer-lobstrokk':['MDLXL_TRANSFER_LOBSTROKK', testModel('corpus-sd/creeps__lobstrokkgreen.mdx')], // four legs under an upright upper body with two claws
   'transfer-eredar-warlock': ['MDLXL_TRANSFER_EREDAR_WARLOCK', testModel('corpus-sd/demon__eredarwarlock.mdx')], // ground ring on three unparented roots that only scale, by keys of its own (not global)
   'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
   'transfer-ogre-armored': ['MDLXL_TRANSFER_OGRE_ARMORED', testModel('corpus-sd/creeps__ogreoneheadedarmored.mdx')],

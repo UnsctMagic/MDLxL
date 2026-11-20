@@ -1338,3 +1338,11 @@ test('K6 Magnataur on the Chaos Dragon Skeleton (four legs on two: the legs do n
     }
   });
 });
+
+test('K7 Footman on the Rock Golem: through the golem\'s Birth, whose chest flies 71 into place from an offset of 1.3, his trunk line stays within 20 deg of the golem\'s (with the trunk-ratio moves it went up to 42 deg off)', { skip: missing('transfer-footman', 'transfer-rock-golem') }, () => {
+  const result = transplant('transfer-footman', 'transfer-rock-golem');
+  const lines = trunkPitches(result, 'Birth', rig => [rig.parts.armL.joints[0], rig.parts.armR.joints[0]]);
+  const off = ([theirs, mine]) => { const d = Math.abs(mine - theirs) % 360; return Math.min(d, 360 - d); };
+  const worst = Math.max(...lines.slice(1, -1).map(off));
+  assert.ok(worst < 20, `Birth: the Footman's trunk line is up to ${worst.toFixed(1)} deg off the golem's`);
+});

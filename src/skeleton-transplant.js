@@ -608,7 +608,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
   // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
   const deathSwap = donorDeathSwap(D, rigA);
-  const swapSpans = deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval).filter(Boolean);
+  const swapSpans = [...deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval), ...(D.Sequences || []).filter(sequence => /birth|death|decay|dissipate/i.test(sequence.Name || '')).map(sequence => sequence.Interval)].filter(Boolean);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
   if (!(D.Sequences || []).some(s => s.Interval)) hard.push('The donor has no animations.');
@@ -1420,8 +1420,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // travel ratio (its own legs do not stand where the map puts the donor's: the Dragonspawn's Death, whose upper body moves
     // 171 from its hips, then turned the Bronze Dragon Whelp's trunk the other way). At the travel ratio the Chaos Dragon's
     // rider (hip moves 91 for an offset of 52, trunk ratio 0.14, travel 0.46) rocked the skink's trunk 98 deg forward where
-    // the donor's is 54. Not in an animation where the living joints were put on a death body's twins (donorDeathSwap):
-    // those moves stay at the travel ratio, as the swap made them.
+    // the donor's is 54. Not in an animation where the body comes apart or together (Birth, Death, Decay, Dissipate: the
+    // Rock Golem's chest flies 71 into place from an offset of 1.3, and on the trunk ratio a Handgunner's trunk line turned
+    // 164 deg off the golem's for a moment) nor where the living joints were put on a death body's twins (donorDeathSwap):
+    // those moves stay at the travel ratio, as the legs' do.
     const trunkMove = trunkScale?.moves && parentId != null && trunkScale.chain.has(id) && trunkScale.chain.has(parentId) && !(rigA.parts.hips?.joints || []).includes(id)
       ? v => { const [e1, e2, e3] = trunkScale.axes; return new Vector3().addScaledVector(e1, trunkScale.s1 * v.dot(e1)).addScaledVector(e2, trunkScale.s2 * v.dot(e2)).addScaledVector(e3, trunkScale.s1 * v.dot(e3)); }
       : null;
