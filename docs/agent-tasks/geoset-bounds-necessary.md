@@ -1,6 +1,6 @@
 # OptimizeXL: Necessary only geoset animation bounds
 
-Status: ready for review (local branch, not online)
+Status: completed — merged in PR #691 (c92a5bd0), 20 Nov 2026
 Owner / consolidator: Claude Code (Opus); tests and corpus diff by Sonnet/Haiku workers
 Updated: 2026-11-20
 
