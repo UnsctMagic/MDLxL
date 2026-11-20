@@ -981,7 +981,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       // attack reads) and off for a looping one (a stand keeps its own grip).
       entry, entries: sameKey(entry), clear: entry.part.clear !== false,
       grip: other ? { part: other, point: v3(detected?.point ?? entry.own.weapon.butt), joints: other.joints.filter(id => !isGlobalTrack(byIdB.get(id)?.Rotation, recipient)), reach: chainLength(other.joints.map(id => worldPos(recipient, refB, id))) } : null,
-      need: new Float64Array(n), axis: [],
+      need: new Float64Array(n), axis: [], shape: [],
     };
   });
   for (const arm of weaponArms) if (arm.grip) for (const id of arm.grip.joints) if (!tracks.has(id)) { tracks.set(id, { Rotation: new Float32Array(n * 4) }); driven.push(id); }
@@ -1206,14 +1206,25 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         setWorld(end, qPow(arc(axis, target), aim * aimEase(entry.clock, t) * Math.min(1, state.w)).multiply(hand));
       }
       const { entry } = arm;
-      if (arm.clear && !entry.skip.has(entry.own.joints[0])) [arm.need[k], arm.axis[k]] = weaponLift(recipient, entry.own, rigB.floor, world);
+      if (arm.clear && !entry.skip.has(entry.own.joints[0])) [arm.need[k], arm.axis[k], arm.shape[k]] = weaponLift(recipient, entry.own, rigB.floor, world);
     }
     poses[k] = { base, over, states };
   }
 
   // The lift eases in and out: the largest need within 80 ms either side, a
   // limit on how fast it may change, then a 60 ms blur.
-  for (const arm of weaponArms) if (arm.clear) arm.lift = smoothLift(arm.need, times, !nonLooping);
+  // The axis a lift turns about follows the weapon's lowest point, which can be the other end of the weapon a sample
+  // later (a staff across the floor, an arm turned by Point weapon like theirs): turning about each sample's own axis
+  // swung the arm one way and back in one frame (109 degrees a step, Flame Lord taking a Baron's Spell). Each sample
+  // turns about its own axis and those around it (within 120 ms) weighed by their needs, and its need is measured
+  // again about that axis, so the weapon still clears the floor wherever a turn about it can.
+  for (const arm of weaponArms) if (arm.clear) {
+    if (arm.need.some(v => v > 0)) {
+      arm.axis = liftAxes(arm.need, arm.axis, times, !nonLooping);
+      arm.need = Float64Array.from(arm.need, (_, k) => arm.shape[k] ? liftAbout(arm.shape[k], rigB.floor, arm.axis[k]) : 0);
+    }
+    arm.lift = smoothLift(arm.need, times, !nonLooping);
+  }
   const liftArm = (arm, k, tools) => {
     const root = arm.entry.own.joints[0];
     if (arm.clear && arm.lift[k] > 1e-6 && arm.axis[k]) tools.setWorld(root, axisAngle(arm.axis[k], arm.lift[k]).multiply(rotationOf(tools.world(root))));
@@ -1749,8 +1760,14 @@ function weaponLift(model, part, floor, world) {
   const lowest = points.reduce((a, b) => b.z < a.z ? b : a);
   const flat = lowest.clone().setZ(0);
   const axis = flat.lengthSq() > 1e-8 ? flat.normalize().cross(UP).normalize() : new Vector3(0, 1, 0);
-  const heightAt = angle => { const q = axisAngle(axis, angle); return Math.min(...points.map(p => p.clone().applyQuaternion(q).z)) + root.z; };
-  if (heightAt(0) >= floor) return [0, axis];
+  const shape = { points, z: root.z };
+  return [liftAbout(shape, floor, axis), axis, shape];
+}
+/** How far (radians) the weapon of `shape` (outline points about the arm's root, the root's height) must turn up about
+ * `axis` so that no point of it is below the floor. */
+function liftAbout({ points, z }, floor, axis) {
+  const heightAt = angle => { const q = axisAngle(axis, angle); return Math.min(...points.map(p => p.clone().applyQuaternion(q).z)) + z; };
+  if (heightAt(0) >= floor) return 0;
   let lo = 0, hi = Math.PI / 2;
   if (heightAt(hi) < floor) {
     // A quarter turn does not clear the floor either (a long weapon whose other end comes down as the
@@ -1761,14 +1778,23 @@ function weaponLift(model, part, floor, world) {
     let best = 0, bestHeight = heightAt(0);
     for (let a = step; a < hi - 1e-9; a += step) {
       const h = heightAt(a);
-      if (h >= floor) { lo = a - step; hi = a; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; } return [hi, axis]; }
+      if (h >= floor) { lo = a - step; hi = a; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; } return hi; }
       if (h > bestHeight + 1e-6) { best = a; bestHeight = h; }
     }
     if (heightAt(hi) > bestHeight + 1e-6) best = hi;
-    return [best, axis];
+    return best;
   }
   for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; }
-  return [hi, axis];
+  return hi;
+}
+function liftAxes(need, axis, times, looping) {
+  const n = need.length, first = times[0], span = times[n - 1] - first;
+  const gap = (a, b) => { const d = Math.abs(times[a] - times[b]); return looping && span > 0 ? Math.min(d, span - d) : d; };
+  return Array.from({ length: n }, (_, k) => {
+    const sum = new Vector3();
+    for (let j = 0; j < n; j++) { const g = gap(j, k); if (g <= 120 && need[j] > 0 && axis[j]) sum.addScaledVector(axis[j], need[j] * (1 - g / 150)); }
+    return sum.lengthSq() > 1e-12 ? sum.normalize() : axis[k];
+  });
 }
 /** Lift over time. A result that plays once starts and ends in the model's own
  * stance: the lift is the bare need at the first and last sample, and rises (and

@@ -620,7 +620,9 @@ test('R7 avoid: the Abomination\'s arms come out of its chest', { skip: missing(
   const abom = load('transfer-abomination'), hunter = load('transfer-demon-hunter'), sources = new Map([['d', hunter]]), rig = transferRig(abom), attack = sequenceLike(hunter, /^attack/i);
   const recipe = extra => ({ base: { sequence: sequenceLike(abom, /^stand/i) }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(hunter, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'd', sequence: attack, ...extra }])) });
   const off = XFER.transferDiagnostics(abom, sources, recipe({})), on = XFER.transferDiagnostics(abom, sources, recipe({ avoid: 1 }));
-  assert.ok(off.arms.armL.deficit > 0.1 && off.arms.armR.deficit > 0.05, `the arms start inside (${off.arms.armL.deficit.toFixed(2)}, ${off.arms.armR.deficit.toFixed(2)})`);
+  // The left arm starts inside. The right (weapon) arm was inside only because the weapon lift turned it into the chest
+  // (0.12 of a body radius; unlifted -0.01): since P1 the lift no longer does, so it starts out (-0.04).
+  assert.ok(off.arms.armL.deficit > 0.1 && off.arms.armR.deficit < 0.05, `the left arm starts inside, the right one out (${off.arms.armL.deficit.toFixed(2)}, ${off.arms.armR.deficit.toFixed(2)})`);
   for (const key of ['armL', 'armR']) assert.ok(on.arms[key].deficit <= 0.04, `${key} is out (${on.arms[key].deficit.toFixed(2)} of a body radius still inside)`);
 });
 
@@ -1220,4 +1222,20 @@ test('D1 hips held down for a planted foot stay down when no donor foot is on th
   assert.ok(worst < 0.25 * rig.hipHeight, `the Footman's body jumps ${worst.toFixed(1)} in one 33 ms step at ${at} ms (hip height ${rig.hipHeight.toFixed(1)})`);
   // A looping walk: the end meets the start.
   assert.ok(Math.abs(heights.at(-1) - heights[0]) < 0.1 * rig.hipHeight, `the walk's seam opens by ${Math.abs(heights.at(-1) - heights[0]).toFixed(1)}`);
+});
+test('P1 weapon above the ground: the lift does not swing the arm the other way for a frame (Hellscream taking the Archnathid\'s attack)', { skip: missing('transfer-hellscream', 'transfer-archnathid') }, () => {
+  // The axis a lift turns about followed each sample's lowest weapon point; when that is the other end of the axe a
+  // sample later, the weapon arm swung one way and back: 127 degrees in one 33 ms step. Both hands off, so the lift alone moves it.
+  const orc = fresh('transfer-hellscream'), bug = load('transfer-archnathid'), stand = seqMatch(orc, /^stand/i), attack = seq(bug, 'Attack -2');
+  const rig = transferRig(orc, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(bug, { sequence: attack }));
+  const arm = rig.parts.armR;
+  assert.ok(arm?.weapon && parts.includes('armR'), 'the weapon arm is taken');
+  const built = buildTransfer(orc, new Map([['b', bug]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'b', attack, { grip: false }) });
+  let worst = 0, at = 0, prev = null;
+  built.times.forEach((t, k) => { const q = rotOf(builtMatrices(orc, built, stand, k).get(arm.joints[0])); if (prev) { const d = angle(q, prev); if (d > worst) { worst = d; at = t; } } prev = q; });
+  assert.ok(worst < 60, `the weapon arm turns ${worst.toFixed(1)} degrees in one 33 ms step at ${at} ms`);
+  // and the axe still stays above the floor wherever the lift reaches it
+  const lowest = k => Math.min(...arm.weapon.outline.map(p => new Vector3(...p).applyMatrix4(builtMatrices(orc, built, stand, k).get(arm.marker)).z));
+  const under = Math.max(...built.times.map((_, k) => rig.floor - lowest(k)));
+  assert.ok(under < 0.05 * rig.hipHeight, `the axe goes ${under.toFixed(1)} under the floor`);
 });

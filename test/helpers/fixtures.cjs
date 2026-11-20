@@ -59,6 +59,8 @@ const FIXTURES = {
   'transfer-red-dragon': ['MDLXL_TRANSFER_RED_DRAGON', testModel('corpus-sd/creeps__reddragon.mdx')], // the root scales to zero in Death: the whole body goes
   'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
   'transfer-shadow-hunter': ['MDLXL_TRANSFER_SHADOW_HUNTER', testModel('corpus-sd/orc__heroshadowhunter.mdx')], // its Walk has moments with both feet up while its hips stand far higher than in its Stand
+  'transfer-hellscream': ['MDLXL_TRANSFER_HELLSCREAM', testModel('corpus-sd/orc__hellscream.mdx')], // two-handed axe on the right arm
+  'transfer-archnathid': ['MDLXL_TRANSFER_ARCHNATHID', testModel('corpus-sd/creeps__archnathidgreen.mdx')], // claws on a collar joint, anchored on a helper, no chest part
   'transfer-corrupted-ent': ['MDLXL_TRANSFER_CORRUPTED_ENT', testModel('corpus-sd/creeps__corruptedent.mdx')], // all its skin is on joints outside the read body that follow the body's joints
   'transfer-gargoyle': ['MDLXL_TRANSFER_GARGOYLE', testModel('corpus-sd/undead__gargoyle.mdx')], // its body joint Bone_Root hangs under Dummy01, a parentless joint
   'transfer-naga': ['MDLXL_TRANSFER_NAGA', testModel('corpus-sd/naga__nagamyrmidon.mdx')], // no legs: a snake tail under the body
