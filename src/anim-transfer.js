@@ -999,6 +999,40 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     for (const item of [...looseFollowers, ...looseChains]) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
   }
   const chainIds = new Set(looseChains.map(item => item.id));
+  // Joints outside every part that the donor has too: a weapon, a shield, a wheel or a pad of the same name, on a
+  // parent of the same name, hanging from the part the donor's hangs from and in the same place on it (within a tenth
+  // of the hip height). They take the donor joint's own turn against its parent, so a model taking its own attack, or
+  // one of its family's, swings its sword and shield and spins its wheels as there. Before, they kept the body
+  // animation (a Footman given its own Attack - 1 whole: shield 39, sword 22 degrees off). A feature switch or the
+  // part's follow, where they move a joint, still decide for it.
+  const shared = [];
+  {
+    const handled = new Set([...tracks.keys()]), partOfB = new Map();
+    for (const part of Object.values(rigB.parts)) for (const id of part.joints) partOfB.set(id, part);
+    const upTo = (tree, of, id) => tree.ancestors(id).find(a => of.has(a));
+    const pin = (model, info, a, b) => v3(nodePivot(model, info.byId.get(a), a)).sub(v3(nodePivot(model, info.byId.get(b), b)));
+    for (const entry of drivenOrder.filter(firstOfKey)) {
+      const infoA = modelInfo(entry.donor), partOfA = new Map(), nameA = new Map();
+      for (const part of Object.values(entry.rigA.parts)) for (const id of part.joints) partOfA.set(id, part);
+      for (const id of infoA.joints) { if (partOfA.has(id)) continue; const parent = infoA.tree.parentOf(id), key = infoA.byId.get(id).Name + '|' + (parent == null ? '' : infoA.byId.get(parent)?.Name); nameA.set(key, nameA.has(key) ? null : id); }
+      for (const id of infoB.joints) {
+        if (partOfB.has(id) || handled.has(id) || isGlobalTrack(byIdB.get(id)?.Rotation, recipient)) continue;
+        const up = upTo(infoB.tree, partOfB, id); if (up == null || partOfB.get(up) !== entry.own) continue;
+        const parent = infoB.tree.parentOf(id), theirs = nameA.get(byIdB.get(id).Name + '|' + (parent == null ? '' : byIdB.get(parent)?.Name));
+        if (theirs == null) continue;
+        const upA = upTo(infoA.tree, partOfA, theirs); if (upA == null || partOfA.get(upA) !== entry.theirs) continue;
+        // Only where something turns: the donor's joint has keys in its animation, or this one in the body animation.
+        const keyed = (model, node, interval) => !!node?.Rotation?.Keys && keysInInterval(node.Rotation, interval).length > 0;
+        if (!keyed(entry.donor, infoA.byId.get(theirs), entry.seq.Interval) && !keyed(recipient, byIdB.get(id), baseSeq.Interval)) continue;
+        if (pin(recipient, infoB, id, up).distanceTo(entry.convertV(pin(entry.donor, infoA, theirs, upA)).multiplyScalar(entry.scale)) > 0.1 * rigB.hipHeight) continue;
+        shared.push({ id, theirs, key: entry.key });
+        handled.add(id);
+      }
+    }
+    for (const item of shared) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
+  }
+  const sharedOf = new Map();
+  for (const item of shared) sharedOf.set(item.key, [...(sharedOf.get(item.key) || []), item]);
   const refTurnInv = new Map(), refInvOf = id => { if (!refTurnInv.has(id)) refTurnInv.set(id, inv(worldRot(refB, id))); return refTurnInv.get(id); };
   // Arms kept out of the body (recipe `avoid`): the trunk's hips, chest and head.
   const pointOf = (id, world) => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id));
@@ -1068,6 +1102,15 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         const delta = entry.frame && entry.own.kind === 'limb' ? mul(inv(entry.toTheirs[i]), turned, entry.toTheirs[i]) : turned;
         setRotation(id, mul(frameB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
+      // Shared joints hanging from this part (a waist under the hips, a sword under the hand), set before the parts
+      // below them read their parents.
+      for (const item of sharedOf.get(entry.key) || []) {
+        const local = donorSample.local.get(item.theirs)?.r, own = base.local.get(item.id);
+        if (!local || !own) continue;
+        const to = entry.mirror ? mirrorQ(local) : local.clone(), from = over.get(item.id)?.r || own.r;
+        if (from.dot(to) < 0) to.set(-to.x, -to.y, -to.z, -to.w);
+        over.set(item.id, { t: over.get(item.id)?.t || own.t, r: slerpW(from, to, w), s: own.s });
+      }
       // Shift: how far the donor part's first joint sits from where riding its anchor would put
       // it, compared with the reference pose, scaled to this model and added to its own joint.
       if (entry.shifts) {
@@ -1376,7 +1419,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
     amount: Math.max(0, Math.min(1.5, part.amount ?? 1)), blend: Math.max(0, part.blend ?? 150),
     // Off unless the recipe asks: stay in the model's own range, loose joints follow, arm kept out of the body.
     range: share(part.range), follow: share(part.follow), avoid: share(part.avoid), hang: share(part.hang), frame: share(part.frame) > 0, toTheirs,
-    scale: sizeRatio(rigB, rigA), convert, convertV, map, chordEnds, chordRef, spread, align, match, stance,
+    scale: sizeRatio(rigB, rigA), convert, convertV, mirror, map, chordEnds, chordRef, spread, align, match, stance,
     offset, offsetAt,
     refAnchorA: theirs.anchor == null ? null : inv(worldRot(refA, theirs.anchor)),
     refAnchorB: own.anchor == null ? null : inv(worldRot(refB, own.anchor)),

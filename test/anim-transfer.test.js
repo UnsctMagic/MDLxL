@@ -1174,3 +1174,20 @@ test('C1 a keyed camera roll is copied into the new animation as a roll, not as 
     assert.ok(Number.isFinite(k[field][0]), `camera roll key at ${k.Frame}: ${field} ${k[field][0]}`);
   }
 });
+test('L1 joints outside every part that the donor has too take its turn: the Footman given its own attack swings its sword and shield', { skip: missing('transfer-footman') }, () => {
+  // The Footman's shield (handle, Box04) and sword (Box03, Cone11) are joints of their own under the hands, keyed in
+  // Attack - 1. Taken whole from itself over its Stand, they kept the Stand's turn: 39 and 22 degrees off its own attack.
+  const foot = fresh('transfer-footman'), donor = fresh('transfer-footman'), stand = seqMatch(foot, /^stand/i), attack = seq(donor, 'Attack - 1');
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(donor, { sequence: attack }));
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'd', attack) };
+  const { sequenceIndex } = applyTransfer(foot, buildTransfer(foot, new Map([['d', donor]]), recipe), recipe, {});
+  const [a] = foot.Sequences[sequenceIndex].Interval, [b, e] = donor.Sequences[attack].Interval, nodes = allNodes(foot);
+  const local = (model, si, frame, id) => { const m = sampleNodeMatrices(model, frame, si), node = nodes.find(n => n.ObjectId === id); return rotOf(m.get(node.Parent).clone().invert().multiply(m.get(id))); };
+  const joints = ['handle', 'Box04', 'Box03', 'Cone11'].map(name => nodes.find(n => n.Name === name)).filter(Boolean);
+  assert.equal(joints.length, 4, 'the Footman has its sword and shield joints');
+  for (const node of joints) {
+    let worst = 0;
+    for (let f = b; f <= e; f += 100) worst = Math.max(worst, angle(local(foot, sequenceIndex, a + f - b, node.ObjectId), local(donor, attack, f, node.ObjectId)));
+    assert.ok(worst < 1, `${node.Name} turns ${worst.toFixed(1)} degrees away from the Footman's own Attack - 1`);
+  }
+});
