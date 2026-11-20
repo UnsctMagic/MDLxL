@@ -2177,6 +2177,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   orderKeys(M);
   const held = holdNonFinite(M, model);
   if (held.vertices || held.pivots || held.keys) notes.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
+  let bowHands = null;
+  if (bowBones.size && independentWeapon && !weaponHeld && !weaponSwap.length && weaponVia != null) {
+    const arms = Object.values(rigA.parts).filter(p=>p.limbKind==='arm' && donorMap[p.marker]!=null)
+      .map(p=>({id:p.marker,result:donorMap[p.marker],own:limbEntries.find(e=>e.theirs.marker===p.marker)?.own.marker}));
+    bowHands = fitIndependentBowGrip({model:M,own:model,donor:D,ownStand,stand:resultStand,ownBones:bowBones,
+      ownHand:weaponVia,preferred:targetOf(weaponVia).donor,arms,donorWeapon,resultWeapon:donorMap[donorWeapon],ownTree:treeB,donorTree:treeA,hipHeight:rigA.hipHeight});
+  }
   // Arms above the floor: the model's longer arm, weapon or shield turns up at the shoulder where it would dip (feet planted).
   let bend = [];
   if (floor === 'bend' && rigB.ok && rigA.ok && ground) {
@@ -2186,15 +2193,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     for (const g of model.Geosets || []) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); }
     bend = bendArmsAboveFloor(M, {
       ownHeight: hi - lo, arms: parts.filter(part => /^arm/.test(part.key)).map(mapped), legs: parts.filter(part => /^leg/.test(part.key)).map(mapped),
-      weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap },
+      weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap, ...(bowHands ? {hands:bowHands} : {}) },
       donor: { model: D, arms: parts.filter(part => /^arm/.test(part.key)).map(own), legs: parts.filter(part => /^leg/.test(part.key)).map(own), weapon: donorWeapon ?? null, size },
     });
-  }
-  if (bowBones.size && independentWeapon && !weaponHeld && !weaponSwap.length && weaponVia != null) {
-    const arms = Object.values(rigA.parts).filter(p=>p.limbKind==='arm' && donorMap[p.marker]!=null)
-      .map(p=>({id:p.marker,result:donorMap[p.marker]}));
-    fitIndependentBowGrip({model:M,own:model,donor:D,ownStand,stand:resultStand,ownBones:bowBones,
-      ownHand:weaponVia,preferred:targetOf(weaponVia).donor,arms,donorWeapon,resultWeapon:donorMap[donorWeapon],size,hipHeight:rigA.hipHeight});
   }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
@@ -2208,10 +2209,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Lobstrokk 66 deg off).
   const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
   const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
-  const fit = hard.length || livingForm || whole.reason || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  const changingBowHands = new Set((bowHands?.Keys || []).map(k=>k.Vector[0]).filter(id=>id>=0)).size > 1;
+  const fit = hard.length || changingBowHands || livingForm || whole.reason || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
   if (gaitSources.size) reasons.push("The two models stand on a different number of legs. The model steps with the donor's gait, but their stances differ.");
   else if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  if (changingBowHands) reasons.push("The donor swings its weapon between both hands. This model carries a bow with a single grip.");
   if (livingForm) reasons.push("Most of the model's visible standing form is rigid. It follows the donor's body as one piece.");
   if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");
   const listed = still.filter(key => !(whole.reason && !gaitSources.size && (key === 'hips' || /^leg/.test(key))));

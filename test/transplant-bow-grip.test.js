@@ -1,5 +1,4 @@
-// Physical fixture: TC Attack - 1 midpoint still contacts the axe shaft with
-// its left palm. The Archer's actual bow grip must stay near that mapped palm.
+// Compare the material bow grip with the palms that actually contact the donor shaft.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,6 +11,7 @@ import { vertexBones } from '../src/part-bones.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { solidContactFaces, posedContactFaces, surfaceGap, pointToContactSurface } from './helpers/transplant-contact.js';
 const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const files = ['nightelf__archer', 'orc__herotaurenchieftain'].map(n => testModel('corpus-sd/' + n + '.mdx'));
 const point = (model, id, matrices) => new Vector3().fromArray(nodePivot(model, allNodes(model).find(n => n.ObjectId === id), id)).applyMatrix4(matrices.get(id));
@@ -31,24 +31,46 @@ function closestGrip(model, root, hand, matrices) {
   }
   return best;
 }
-test('Archer bow grip switches palms with the Tauren shaft through both attacks', { skip: files.some(f => !fs.existsSync(f)) ? 'private SD grip fixtures unavailable' : false }, () => {
+
+function contactFixture() {
   const [own, donor] = files.map(f => openDocument(new Uint8Array(fs.readFileSync(f)), f).model);
-  const ownRig = transferRig(own), donorRig = transferRig(donor), arm = Object.values(ownRig.parts).find(p => p.weapon);
+  const ownRig = transferRig(own), donorRig = transferRig(donor), sourceArm = Object.values(ownRig.parts).find(p => p.weapon);
+  const ownRoot = own.Attachments.find(n => /^weapon ref$/i.test(n.Name)).Parent, donorRoot = donor.Attachments.find(n => /^weapon ref$/i.test(n.Name)).Parent;
   const stand = standSequenceIndex(own), reference = sampleNodeMatrices(own, own.Sequences[stand].Interval[0], stand);
-  const ownRoot = own.Attachments.find(n => /^weapon ref$/i.test(n.Name)).Parent;
-  const grip = closestGrip(own, ownRoot, point(own, arm.marker, reference), reference);
-  assert.ok(grip && grip.gap / ownRig.hipHeight < 0.05, 'the source bow physically contacts its source hand');
-  const { model, report } = transplantSkeleton(own, donor, { mirror: false });
-  const donorRoot = donor.Attachments.find(n => /^weapon ref$/i.test(n.Name)).Parent;
-  for (const [attack,side] of [['Attack - 1','armL'],['Attack - 2','armR']]) {
-    const sequence = donor.Sequences.findIndex(s => s.Name.trim() === attack);
-    const interval = donor.Sequences[sequence].Interval, frame = (interval[0] + interval[1]) / 2;
-    const donorMatrices = sampleNodeMatrices(donor, frame, sequence), hand = donorRig.parts[side].marker;
-    const contact = closestGrip(donor, donorRoot, point(donor, hand, donorMatrices), donorMatrices);
-    assert.ok(contact && contact.gap / donorRig.hipHeight < 0.06, 'the donor is holding the weapon at this exact frame');
-    const matrices = sampleNodeMatrices(model, frame, sequence), vertices = skinGeoset(model.Geosets[grip.gi], matrices);
-    const actual = grip.indices.reduce((p, vi, i) => p.addScaledVector(new Vector3().fromArray(vertices, vi * 3), grip.bary[i]), new Vector3());
-    const gap = actual.distanceTo(point(model, report.donorNodes[hand], matrices));
-    assert.ok(gap / ownRig.hipHeight < 0.12, `${attack} bow grip is ${gap.toFixed(2)} units from the donor's holding palm`);
+  const grip = closestGrip(own, ownRoot, point(own, sourceArm.marker, reference), reference);
+  assert.ok(grip && grip.gap / ownRig.hipHeight < 0.05);
+  const ownHands = {}, donorHands = {};
+  for (const side of ['armL', 'armR']) {
+    ownHands[side] = solidContactFaces(own, ownRig.parts[side].marker, { hand: true, excludeRoot: ownRoot });
+    donorHands[side] = solidContactFaces(donor, donorRig.parts[side].marker, { hand: true, excludeRoot: donorRoot });
   }
+  const shaft = solidContactFaces(donor, donorRoot), made = transplantSkeleton(own, donor, { mirror: false });
+  assert.equal(new Set(shaft.flatMap(f => f.ids.map(i => f.gi + ':' + i))).size, 16);
+  return { own, donor, ownRig, donorRig, grip, ownHands, donorHands, shaft, ...made };
+}
+function contactAt(fixture, frame, si) {
+  const { donor, model, grip } = fixture, dm = sampleNodeMatrices(donor, frame, si), mm = sampleNodeMatrices(model, frame, si);
+  const shaft = posedContactFaces(donor, dm, fixture.shaft), skin = skinGeoset(model.Geosets[grip.gi], mm);
+  const actual = grip.indices.reduce((p, vi, i) => p.addScaledVector(new Vector3().fromArray(skin, vi * 3), grip.bary[i]), new Vector3());
+  return { frame, resultGrip: actual.toArray(), hands: ['armL', 'armR'].map(side => ({
+    side, donorSurfaceGap: surfaceGap(posedContactFaces(donor, dm, fixture.donorHands[side]), shaft),
+    resultFitError: pointToContactSurface(actual, posedContactFaces(model, mm, fixture.ownHands[side])),
+  })) };
+}
+test('Archer bow grip follows actual shaft-contact palms including exclusive switches', { skip: files.some(f => !fs.existsSync(f)) ? 'private SD grip fixtures unavailable' : false }, () => {
+  const fixture = contactFixture();
+  for (const [name, expected] of [['Attack - 1', ['armL', 'armR']], ['Attack - 2', ['armR']], ['Stand - 2', ['armL']]]) {
+    const si = fixture.donor.Sequences.findIndex(s => s.Name.trim() === name), interval = fixture.donor.Sequences[si].Interval;
+    const contact = contactAt(fixture, (interval[0] + interval[1]) / 2, si);
+    const holding = contact.hands.filter(h => h.donorSurfaceGap < 0.001);
+    assert.deepEqual(holding.map(h => h.side), expected, name + ' actual donor hand-surface fixture');
+    assert.ok(Math.min(...holding.map(h => h.resultFitError)) / fixture.ownRig.hipHeight < 0.08, name + ' loses the actual corresponding holding palm: ' + JSON.stringify(contact));
+  }
+});
+test('Archer keeps the continuously holding Tauren right palm through early Attack 2', { skip: files.some(f => !fs.existsSync(f)) ? 'private SD grip fixtures unavailable' : false }, () => {
+  const fixture = contactFixture(), si = fixture.donor.Sequences.findIndex(s => s.Name.trim() === 'Attack - 2'), start = fixture.donor.Sequences[si].Interval[0];
+  const records = Array.from({ length: 41 }, (_, i) => contactAt(fixture, start + i * 5, si));
+  assert.ok(records.every(r => r.hands.find(h => h.side === 'armR').donorSurfaceGap < 0.001), 'the actual donor right-hand surface stays on its shaft throughout the interval');
+  const worst = records.reduce((a, b) => a.hands[1].resultFitError > b.hands[1].resultFitError ? a : b);
+  assert.ok(worst.hands[1].resultFitError / fixture.ownRig.hipHeight < 0.08, 'the grip leaves the actual continuously holding palm: ' + JSON.stringify(worst));
 });

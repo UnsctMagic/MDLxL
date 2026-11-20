@@ -10,7 +10,7 @@
 // donor depth and resampled the whole dipping animation; here only the windows around the turned moments get new keys.
 // Pure module: changes the result model it is given (rotation keys of an arm's first joint in the dipping animations).
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { TRANSFORM_DEFAULTS, allNodes, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { TRANSFORM_DEFAULTS, allNodes, inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
 import { standSequenceIndex } from './sequence-editor.js';
 
@@ -166,15 +166,15 @@ function floorOf(model, info, legIds, stand) {
   return zs.length ? zs[zs.length >> 1] : null;
 }
 
-/** Rewrite a node's Rotation in ONE sequence, only in windows around the frames `turns` (frame -> turn of the value)
+/** Rewrite a transform track in ONE sequence, only in windows around the frames `turns` (frame -> turn of the value)
  * changes. A window runs from the track's own key before the sample ahead of the first turned frame to its own key after
  * the sample behind the last one; inside it the track is sampled at `frames` (and its own keys), each sample a straight
  * (slerp) step to the next. Its two end keys keep their value and their tangent on the outer side, so the motion outside
  * every window, and in every other sequence, stays exactly the donor's; the track keeps its interpolation type. */
-function rewriteRotation(model, node, si, frames, turns) {
-  const old = isTrack(node.Rotation) ? node.Rotation : null;
+function rewriteTrack(model, node, si, frames, turns, property = 'Rotation') {
+  const old = isTrack(node[property]) ? node[property] : null;
   const s = model.Sequences[si], [a, z] = s.Interval;
-  const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS.Rotation, quaternion: true }));
+  const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }));
   const own = new Map(); if (old) for (const key of old.Keys) if (key.Frame >= a && key.Frame <= z) own.set(key.Frame, key);
   const ownFrames = [...own.keys()].sort((x, y) => x - y);
   const fr = [...new Set([...frames.map(Math.round), ...ownFrames, a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
@@ -204,8 +204,51 @@ function rewriteRotation(model, node, si, frames, turns) {
   const others = old ? old.Keys.filter(k => !windows.some(([p, q]) => k.Frame >= p && k.Frame <= q)) : [];
   const keys = [...others, ...mine].sort((x, y) => x.Frame - y.Frame);
   if (old) old.Keys = keys;
-  else node.Rotation = { Keys: keys, LineType: 1, GlobalSeqId: null };
+  else node[property] = { Keys: keys, LineType: 1, GlobalSeqId: null };
   return windows;
+}
+
+// An independent weapon has no shoulder in its parent chain. Apply the same
+// world-space shoulder turn to the held weapon, including its grip, only in
+// the corrected windows. Its existing keys elsewhere still carry the donor.
+function carryHeldWeapon(M, original, boneId, arms, handAt, plans) {
+  const bone = M.Nodes[boneId], pivot = v3(nodePivot(M,bone));
+  for (const si of new Set(plans.map(p=>p.si))) {
+    const seq = M.Sequences[si], [a,b] = seq.Interval;
+    const affected = plans.filter(p=>p.si===si), frames = new Set([a,b]);
+    for (const plan of affected) {
+      for (const f of plan.frames) frames.add(f);
+      for (const k of M.Nodes[plan.arm.joint].Rotation.Keys)
+        if (k.Frame>=a && k.Frame<=b) frames.add(k.Frame);
+    }
+    for (const track of [bone.Translation,bone.Rotation])
+      for (const k of track?.Keys || []) if (k.Frame>=a && k.Frame<=b) frames.add(k.Frame);
+    const angles = new Map(), offsets = new Map();
+    for (const frame of frames) {
+      const hand = handAt(si,frame), arm = arms.find(x=>x.hand===hand);
+      if (!arm || !affected.some(plan=>plan.arm.joint===arm.joint)) continue;
+      const before = sampleNodeMatrices(original,frame,si), after = sampleNodeMatrices(M,frame,si);
+      const from = before.get(arm.joint), to = after.get(arm.joint);
+      if (Math.abs(from.determinant())<1e-8 || from.elements.every((v,i)=>Math.abs(v-to.elements[i])<1e-8)) continue;
+      const desired = to.clone().multiply(from.clone().invert()).multiply(before.get(boneId));
+      const parent = after.get(bone.Parent);
+      if (parent) {
+        const basis = inheritedParentMatrix(parent,bone.Flags);
+        if (Math.abs(basis.determinant())<1e-8) continue;
+        desired.premultiply(basis.clone().invert());
+      }
+      if (Math.abs(desired.determinant())<1e-8) continue;
+      const position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
+      desired.decompose(position,rotation,scale);
+      const offset = position.sub(pivot).add(pivot.clone().multiply(scale).applyQuaternion(rotation));
+      angles.set(frame,()=>rotation.toArray());
+      offsets.set(frame,()=>offset.toArray());
+    }
+    if (angles.size) {
+      rewriteTrack(M,bone,si,[...frames],angles,'Rotation');
+      rewriteTrack(M,bone,si,[...frames],offsets,'Translation');
+    }
+  }
 }
 
 /**
@@ -232,6 +275,7 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   const floor = floorOf(M, info, legIds, stand);
   if (floor == null) return out;
   const swap = weapon.swap || [];
+  const handAt = (si,f) => weapon.hands ? sampleTrack(weapon.hands,f,{interval:M.Sequences[si].Interval,fallback:-1}) : -1;
   // The donor's own arms under the donor's floor at the same moment (by arm key), in this model's size.
   let donorDip = () => 0;
   const D = donor?.model, dStand = D ? standSequenceIndex(D) : -1;
@@ -249,7 +293,8 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
       const id = `${di}|${f}|${key}`;
       if (!cache.has(id)) {
         const loose = dLoose(s, f);
-        const lo = lowest(dInfo, sampleNodeMatrices(D, f, di), dInfo.visibleIn(di), di, f, (x, v) => x.bones[v].some(b => ids.has(b)) && !(loose && x.bones[v].some(b => dWeapon.has(b))));
+        const fitsBow = weapon.hands && arms.some(arm=>arm.key===key && arm.hand===handAt(si,f));
+        const lo = lowest(dInfo, sampleNodeMatrices(D, f, di), dInfo.visibleIn(di), di, f, (x, v) => x.bones[v].some(b => ids.has(b) || fitsBow && b===donor.weapon) && !(loose && x.bones[v].some(b => dWeapon.has(b))));
         cache.set(id, Number.isFinite(lo.minZ) ? Math.max(0, dFloor - lo.minZ) * donor.size : 0);
       }
       return cache.get(id);
@@ -288,13 +333,19 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
     const solve = (f, previous = null) => {
       const mats = sampleNodeMatrices(M, f, si), keep = held(si, f, mats);
       const lo = lowest(info, mats, vis, si, f, keep);
-      const row = { f, sinks: floor - lo.minZ - tol > 0, bend: {} };
+      const grippingHand = handAt(si,f);
+      const row = { f, sinks: floor - lo.minZ > (grippingHand>=0 ? 0 : tol), bend: {} };
       if (!row.sinks) return row;
       for (const arm of free) {
-        const inArm = (x, v) => x.bones[v].some(b => arm.ids.has(b));
+        const holdsBow = arm.hand===grippingHand;
+        // Aim the interpolated independent-weapon track at the actual floor.
+        // The ordinary clearance tolerance includes error between sample times.
+        const clearance = holdsBow ? 0 : tol;
+        const carried = id => arm.ids.has(id) || holdsBow && id===weapon.bone;
+        const inArm = (x, v) => x.bones[v].some(carried);
         const a0 = lowest(info, mats, vis, si, f, held(si, f, mats, inArm));
-        if (!(a0.minZ < floor - tol)) continue;
-        const level = floor - tol - donorDip(si, f, arm.key);
+        if (!(a0.minZ < floor - clearance)) continue;
+        const level = floor - clearance - donorDip(si, f, arm.key);
         if (!(a0.minZ < level)) continue;
         const s0 = pivotAt(mats, arm.joint);
         const hand = pivotAt(mats, arm.hand).sub(s0);
@@ -315,7 +366,7 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
               const world = local.clone().applyMatrix4(matrix);
               z += w * world.z;
               total += w;
-              if (arm.ids.has(id)) relative.addScaledVector(world.sub(s0), w);
+              if (carried(id)) relative.addScaledVector(world.sub(s0), w);
             });
             if (!total) continue;
             relative.divideScalar(total);
@@ -382,11 +433,13 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
     }
   });
   // Every turn is measured on the result as the donor moves it; the keys change only now.
+  const beforeBend = weapon.hands && plans.length ? structuredClone(M) : null;
   for (const { si, arm, frames, at } of plans) {
     const node = info.byId.get(arm.joint);
     const turns = new Map([...at].map(([f, b]) => [f, v => new Quaternion().setFromAxisAngle(v3(b.axisL), b.th).multiply(new Quaternion().fromArray(v)).normalize().toArray()]));
-    const start = M.Sequences[si].Interval[0], windows = rewriteRotation(M, node, si, frames, turns);
+    const start = M.Sequences[si].Interval[0], windows = rewriteTrack(M, node, si, frames, turns);
     out.push({ sequence: M.Sequences[si].Name, arm: arm.key, joint: arm.joint, frames: at.size, turn: Math.max(...[...at.values()].map(b => b.th)) * DEG, spans: windows.map(([p, q]) => [p - start, q - start]) });
   }
+  if (beforeBend) carryHeldWeapon(M,beforeBend,weapon.bone,arms,handAt,plans);
   return out;
 }
