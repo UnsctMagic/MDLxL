@@ -1073,3 +1073,17 @@ test('V3 White Wolf on the Far Seer: every key is on a signed 32-bit frame in ti
   assert.deepEqual(newErrors(result), [], 'no error the wolf or the Far Seer does not have itself');
   assert.ok(result.model.Sequences.some(s => s.Name === 'nothing'), "the donor's animation list is kept as it is");
 });
+
+test('R10 the two legs pair alike: on the Lord of Change the Footman\'s and the Bandit\'s donor legs mirror each other joint by joint', { skip: missing('transfer-footman', 'sd-bandit', 'transfer-lord-of-change') }, () => {
+  // XFER row 10: scored leg by leg, a near tie put one knee on the donor's knee and the other on its hock.
+  for (const key of ['transfer-footman', 'sd-bandit']) {
+    const own = load(key), donor = load('transfer-lord-of-change');
+    const { model, report } = transplantSkeleton(own, donor);
+    const hip = transferRig(own).hipHeight, at = name => { const d = allNodes(donor).find(n => n.Name === name); const r = model.Nodes[report.donorNodes[d.ObjectId]]; return new Vector3(...nodePivot(model, r, r.ObjectId)); };
+    // Each joint from its own leg's top (the Bandit stands off the middle line), the right side mirrored.
+    for (const joint of ['B_Leg_2_', 'B_Leg_3_', 'B_Foot_']) {
+      const left = at(joint + 'L').sub(at('B_Leg_1_L')), right = at(joint + 'R').sub(at('B_Leg_1_R')).multiply(new Vector3(1, -1, 1));
+      assert.ok(left.distanceTo(right) < 0.05 * hip, `${key}: ${joint}L and ${joint}R are ${(left.distanceTo(right) / hip).toFixed(2)} hip heights from mirrored`);
+    }
+  }
+});

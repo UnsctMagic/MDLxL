@@ -1315,7 +1315,9 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   // so a two-joint forearm still maps to the recipient's forearm.
   // Arms and legs pair by role, read in the rest pose (see limbPairing); other parts by distance.
   const infoA = modelInfo(donor), infoB = modelInfo(recipient);
-  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine);
+  // The limb on the other side and the donor limb it takes from pair together with this one (see limbPairing).
+  const partner = own.kind === 'limb' && swapSide(key) !== key ? { own: rigB.parts[swapSide(key)], theirs: rigA.parts[swapSide(theirs.key)] } : null;
+  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner);
   const map = pairing ? pairing.map : jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
   // A joint that follows the donor's line across several donor joints: the two ends of that line, and the line in the reference pose.
   const chordEnds = map.map((j, i) => pairing && j >= 0 && pairing.until[i] > j + 1 && pairing.until[i] < pairing.ids.length ? [theirs.joints[j], pairing.ids[pairing.until[i]]] : null);
@@ -1613,11 +1615,20 @@ function jointMap(ownPath, theirPath, ownCount, theirCount) {
  *   With the same number of joints the rest pair in order. Otherwise every way of pairing the
  *   joints in order is tried, and the one whose stretches point most alike in the rest pose wins
  *   (the place along the limb settles limbs that hang straight).
+ * - The two limbs of a left/right pair are paired together (`partner`: this model's limb on the other
+ *   side and the donor limb it takes from): every way is scored on both and the lower sum wins, so
+ *   the two legs of one model never pair differently (a near tie flipped one knee onto the donor's
+ *   hock, XFER row 10, Lord of Change donors).
+ * - A leg's bend goes to the donor leg's knee (its first joint below the top that bends in the rest
+ *   pose) where the donor's leg has more joints, unless the stretch above the bend points over 20
+ *   degrees further off there than at the best other joint: the straight-shin rule then straightens
+ *   the donor's hock, not its knee.
  * `until[i]` indexes `ids` (the donor's joints, then its end point if that is an attachment): the
  * donor joint or point where the stretch joint i takes ends. More than one on from `map[i]` means
  * joint i follows the donor's line across those joints, not one donor bone.
  * Returns null when either limb's top and end are not known: the caller pairs by distance. */
-function limbPairing(own, theirs, rest, onLine) {
+const KNEE_BEND = 10, KNEE_MARGIN = 20;
+function limbPairing(own, theirs, rest, onLine, partner = null) {
   if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
   const read = (part, at, name) => {
     const line = part.line || [];
@@ -1641,24 +1652,51 @@ function limbPairing(own, theirs, rest, onLine) {
   let pick = Array.from({ length: p }, (_, t) => Math.min(t, q - 1));
   if (p > 1 && q > 1 && (p !== q || pinned && pick[b.bend] !== a.bend)) {
     const lengths = points => points.slice(1).map((point, i) => point.distanceTo(points[i])), total = list => list.reduce((sum, value) => sum + value, 0) || 1;
-    const lenB = lengths(B), sumB = total(lenB), placeB = lenB.reduce((list, value) => [...list, list.at(-1) + value / sumB], [0]);
-    const lenA = lengths(A), sumA = total(lenA), placeA = lenA.reduce((list, value) => [...list, list.at(-1) + value / sumA], [0]);
-    const cost = f => {
-      let sum = 0;
-      for (let t = 0; t < p - 1; t++) {
-        let next = q - 1; for (let u = t + 1; u < p - 1; u++) if (f[u] > f[t]) { next = f[u]; break; }
-        sum += lenB[t] / sumB * B[t + 1].clone().sub(B[t]).angleTo(A[next].clone().sub(A[f[t]])) / DEG;
-        if (t) sum += 60 * Math.abs(placeB[t] - placeA[f[t]]);
+    // The cost of one way of pairing (f: donor joint per joint here, counted from each limb's first) on one pair of limbs.
+    const scorer = (B, A) => {
+      const lenB = lengths(B), sumB = total(lenB), placeB = lenB.reduce((list, value) => [...list, list.at(-1) + value / sumB], [0]);
+      const lenA = lengths(A), sumA = total(lenA), placeA = lenA.reduce((list, value) => [...list, list.at(-1) + value / sumA], [0]);
+      return f => {
+        let sum = 0;
+        for (let t = 0; t < p - 1; t++) {
+          let next = q - 1; for (let u = t + 1; u < p - 1; u++) if (f[u] > f[t]) { next = f[u]; break; }
+          sum += lenB[t] / sumB * B[t + 1].clone().sub(B[t]).angleTo(A[next].clone().sub(A[f[t]])) / DEG;
+          if (t) sum += 60 * Math.abs(placeB[t] - placeA[f[t]]);
+        }
+        return sum;
+      };
+    };
+    // The donor leg's knee: its first joint below the top whose rest pose bends (-1: none, or not a leg with more joints).
+    const kneeOf = A => { for (let j = 1; j < q - 1; j++) if (A[j].clone().sub(A[j - 1]).angleTo(A[j + 1].clone().sub(A[j])) / DEG > KNEE_BEND) return j; return -1; };
+    const kneeRule = own.limbKind === 'leg' && b.bend > 0 && b.bend < p - 1 && !pinned && q > p;
+    const sides = [{ B, A, cost: scorer(B, A), knee: kneeRule ? kneeOf(A) : -1 }];
+    // The other side's pair of limbs, read the same way; only when it has the same joints in the same roles.
+    if (partner?.own && partner?.theirs && partner.own !== own && partner.theirs !== theirs && partner.own.limbKind === own.limbKind && partner.theirs.limbKind === theirs.limbKind) {
+      const pb = read(partner.own, rest.own, rest.ownName), pa = read(partner.theirs, rest.theirs, rest.theirName);
+      if (pb && pa && pb.ids.length === n && pa.ids.length === m && pb.start === sB && pa.start === sA && pb.bend === b.bend && pa.bend === a.bend) {
+        const PB = pb.points.slice(sB), PA = pa.points.slice(sA), knee = kneeRule ? kneeOf(PA) : -1;
+        if (knee === sides[0].knee) sides.push({ B: PB, A: PA, cost: scorer(PB, PA), knee });
       }
-      return sum;
+    }
+    const cost = f => sides.reduce((sum, side) => sum + side.cost(f), 0);
+    const search = keep => {
+      let best = Infinity, found = null;
+      const walk = f => {
+        if (f.length === p - 1) { if (!keep(f)) return; const value = cost(f); if (value < best - 1e-9) { best = value; found = [...f, q - 1]; } return; }
+        // Bend with bend; what lies above this limb's bend stays above the donor's.
+        for (let j = f.at(-1); j <= q - 2; j++) if (!pinned || (f.length < b.bend ? j < a.bend : f.length > b.bend || j === a.bend)) walk([...f, j]);
+      };
+      walk([0]);
+      return found;
     };
-    let best = Infinity;
-    const walk = f => {
-      if (f.length === p - 1) { const value = cost(f); if (value < best - 1e-9) { best = value; pick = [...f, q - 1]; } return; }
-      // Bend with bend; what lies above this limb's bend stays above the donor's.
-      for (let j = f.at(-1); j <= q - 2; j++) if (!pinned || (f.length < b.bend ? j < a.bend : f.length > b.bend || j === a.bend)) walk([...f, j]);
-    };
-    walk([0]);
+    pick = search(() => true) || pick;
+    const knee = sides[0].knee;
+    if (knee > 0 && pick[b.bend] !== knee) {
+      const atKnee = search(f => f[b.bend] === knee);
+      // The stretch above the bend (top -> bend here, top -> the paired joint there), worst over both sides.
+      const thigh = f => Math.max(...sides.map(side => side.B[b.bend].clone().sub(side.B[0]).angleTo(side.A[f[b.bend]].clone().sub(side.A[0])) / DEG));
+      if (atKnee && thigh(atKnee) <= thigh(pick) + KNEE_MARGIN) pick = atKnee;
+    }
   }
   for (let t = 0; t < p; t++) map[sB + t] = sA + pick[t];
   for (let t = 0; t < p; t++) { let next = m - 1; for (let u = t + 1; u < p; u++) if (pick[u] > pick[t]) { next = sA + pick[u]; break; } until[sB + t] = t === p - 1 ? m : Math.max(next, map[sB + t] + 1); }

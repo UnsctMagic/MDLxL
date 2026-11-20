@@ -1180,3 +1180,19 @@ test('L4 a limb starts below the joint its twin hangs from too: the Wyvern Rider
   assert.equal(names('armL'), 'Bone09>Bone10');
   assert.equal(names('chest'), 'Bone_chest');
 });
+
+test('R10 legs pair as a left/right pair, the bend with the donor\'s knee: the Footman taking the Lord of Change\'s stand bends both knees at its knees', { skip: missing('transfer-footman', 'transfer-lord-of-change') }, () => {
+  // The Lord of Change's legs have a hock (hip, knee, hock, foot); the Footman's have three joints. Scored leg by
+  // leg, a near tie paired the Footman's left knee with the hock and its right knee with the knee (XFER row 10).
+  const foot = load('transfer-footman'), loc = load('transfer-lord-of-change'), stand = seqMatch(foot, /^stand/i), theirs = seqMatch(loc, /^stand/i);
+  const rig = transferRig(foot, { sequence: stand }), rigT = transferRig(loc, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  const built = buildTransfer(foot, new Map([['loc', loc]]), { base: { sequence: stand }, length: null, sources: { loc: { mirror: false } }, parts: take(rig, parts, 'loc', theirs, { match: 1, plant: false, grip: false, clear: false }) });
+  const point = (model, matrices) => { const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])); return id => new Vector3(...nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); };
+  const mine = point(foot, builtMatrices(foot, built, stand, 0)), their = point(loc, sampleNodeMatrices(loc, loc.Sequences[theirs].Interval[0], theirs));
+  const apart = (a, b, c, d) => mine(b).sub(mine(a)).angleTo(their(d).sub(their(c))) * 180 / Math.PI;
+  for (const key of ['legL', 'legR']) {
+    const own = rig.parts[key].joints, donor = rigT.parts[key].joints;
+    assert.deepEqual([own.length, donor.length], [3, 4]);
+    assert.ok(apart(own[0], own[1], donor[0], donor[1]) < 10, `${key}: the thigh is ${apart(own[0], own[1], donor[0], donor[1]).toFixed(0)} degrees from the Lord of Change's hip-to-knee`);
+  }
+});
