@@ -1391,3 +1391,11 @@ test('A1 Timber Wolf on Undead Arthas (a horse whose back legs and tail hang fro
   const worst = Object.fromEntries(['Walk', 'Stand -1', 'Attack -1', 'Stand Ready'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
   assert.ok(Object.values(worst).every(value => value < 6), `the wolf's back is off the horse's by up to ${JSON.stringify(worst)} deg`);
 });
+
+test('WG2 Bronze Dragon Whelp on the Dragonspawn (four legs each; the whelp has wings and no arms, the dragonspawn two arms on an upright chest): the whelp\'s back takes the dragonspawn\'s: within 8 deg through the stands and Walk, within 15 through Walk Fast and the attacks, where the dragonspawn\'s front and back pelvis joints turn on the whelp\'s proportions (its trunk line ran from its hips to the dragonspawn\'s shoulders placed in a body with no arms: 57-70 deg off)', { skip: missing('transfer-bronze-whelp', 'transfer-dragonspawn') }, () => {
+  const result = transplant('transfer-bronze-whelp', 'transfer-dragonspawn');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  const names = result.model.Sequences.map(s => s.Name).filter(name => /^(stand|walk|attack)/i.test(name) && result.donor.Sequences.some(s => s.Name === name));
+  const worst = Object.fromEntries(names.map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(names.length >= 3 && Object.entries(worst).every(([name, value]) => value < (/^attack/i.test(name) || /fast/i.test(name) ? 15 : 8)), `the whelp's back is off the dragonspawn's by up to ${JSON.stringify(worst)} deg`);
+});
