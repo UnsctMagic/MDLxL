@@ -126,6 +126,7 @@ const FIXTURES = {
   'transfer-graveguard-03': ['MDLXL_TRANSFER_GRAVEGUARD_03', testModel('graveguard/WH_VC_Graveguard03.mdx')],
   'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
   'transfer-arthas-sword': ['MDLXL_TRANSFER_ARTHAS_SWORD', testModel('corpus-sd/human__arthaswithsword.mdx')], // Stand Fourth/Fifth: a hammer in the sword hand (sword hidden), let fall in Fifth
+  'transfer-pikeman': ['MDLXL_TRANSFER_PIKEMAN', testModel('transfer-humanoid/Bretonnian_Pikeman.mdx')], // LowPolyWorks pikeman: a pike far longer than Arthas's sword (dips under the floor on him)
   'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)
   'transfer-demonette': ['MDLXL_TRANSFER_DEMONETTE', testModel('transfer-humanoid/WH_DOC_Demonette02.mdx')], // a neck joint whose run is 12% of its chest-to-head distance (the Gnoll's 59%)

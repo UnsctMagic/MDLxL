@@ -49,6 +49,7 @@ import { updateCounts } from './editor-document.js';
 import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
+import { bendArmsAboveFloor } from './transplant-floor.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
   rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
@@ -806,8 +807,11 @@ export function donorWeaponSwap(D, rigA) {
  * straight shin along the donor's knee-to-foot chord; 'folded' bends it where the donor's bends. `feet`: 'down' (default)
  * moves the body (and the donor joints that hang from nothing) up or down so the lower foot is as high above the
  * ground as the donor's, times the travel ratio (owner's pick, TEST TRANSPLANT 09); 'free' leaves the height as the keys give it.
+ * `floor`: 'bend' (default, owner's pick 20 Nov 2026) turns an arm up at its first joint, only in the moments its mesh (hand,
+ * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
+ * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down' } = {}) {
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend' } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -2070,6 +2074,19 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   orderKeys(M);
   const held = holdNonFinite(M, model);
   if (held.vertices || held.pivots || held.keys) notes.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
+  // Arms above the floor: the model's longer arm, weapon or shield turns up at the shoulder where it would dip (feet planted).
+  let bend = [];
+  if (floor === 'bend' && rigB.ok && rigA.ok && ground) {
+    const mapped = part => ({ key: part.key, joints: part.joints.map(id => remap.get(newId(id))).filter(id => id != null && M.Nodes[id]) });
+    const parts = Object.values(rigA.parts || {}), own = part => ({ key: part.key, joints: part.joints });
+    let lo = Infinity, hi = -Infinity;
+    for (const g of model.Geosets || []) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); }
+    bend = bendArmsAboveFloor(M, {
+      ownHeight: hi - lo, arms: parts.filter(part => /^arm/.test(part.key)).map(mapped), legs: parts.filter(part => /^leg/.test(part.key)).map(mapped),
+      weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap },
+      donor: { model: D, arms: parts.filter(part => /^arm/.test(part.key)).map(own), legs: parts.filter(part => /^leg/.test(part.key)).map(own), weapon: donorWeapon ?? null, size },
+    });
+  }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
@@ -2093,7 +2110,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, actor: donorActor, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap, weaponSwap,
+      fit, reasons, follows, still, notes, actor: donorActor, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap, weaponSwap, bend,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,

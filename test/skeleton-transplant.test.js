@@ -484,7 +484,8 @@ test('T8 sounds and effects: the donor\'s by default, the model\'s own sounds wh
 test('T9 mirror: offered when the donor holds its weapon in the other hand; taken, the arms follow the donor reflected', { skip: missing('transfer-kurgan', 'transfer-grunt', 'transfer-tauren') }, () => {
   const plain = transplant('transfer-kurgan', 'transfer-grunt', { extents: false });
   assert.equal(plain.report.mirrorOffer, true, 'the Kurgan holds the hammer in one hand, the Grunt its axe in the other');
-  const mirrored = transplant('transfer-kurgan', 'transfer-grunt', { mirror: true, extents: false });
+  // the donor's pose as it is: the floor turn (FB1) turns an arm only where it would dip, every other moment is this one
+  const mirrored = transplant('transfer-kurgan', 'transfer-grunt', { mirror: true, extents: false, floor: 'free' });
   structural(mirrored);
   const reflected = limbAngles(mirrored, mirrorModel(mirrored.donor)), straight = limbAngles(mirrored, mirrored.donor);
   for (const key of ['armL', 'armR']) for (const role of ['upper', 'lower']) assert.ok(reflected[key][role] < 10, `${key}: the ${role} part is up to ${reflected[key][role].toFixed(1)} degrees from the Grunt's, reflected`);
@@ -901,7 +902,8 @@ function assertPosture(result, label) {
 }
 
 test('Q1 Berserker on the Ghoul: hunched like the Ghoul, arms hanging at its sides: every stretch, the trunk and the neck point as the Ghoul\'s in Stand, Walk, Attack and Death', { skip: missing('transfer-berserker', 'transfer-ghoul') }, () => {
-  const result = transplant('transfer-berserker', 'transfer-ghoul');
+  // the donor's pose as it is: in the Ghoul's Stand his longer arms reach under the floor and turn up there (FB1)
+  const result = transplant('transfer-berserker', 'transfer-ghoul', { floor: 'free' });
   structural(result);
   assertPosture(result, 'Berserker on the Ghoul');
   // The hunch is real: the trunk turned forward by far more than a little.
@@ -926,7 +928,8 @@ test('Q3 the donor\'s keys are the donor\'s: no rotation key of a donor joint ca
 });
 
 test('Q4 Footman on the Ghoul: the arm ends at the Ghoul\'s moving hand, not at its still forearm skin bone (Wrist1)', { skip: missing('transfer-footman', 'transfer-ghoul') }, () => {
-  const result = transplant('transfer-footman', 'transfer-ghoul'), { donor } = result;
+  // the donor's pose as it is: in the Ghoul's Stand his shield reaches under the floor and the arm turns up there (FB1)
+  const result = transplant('transfer-footman', 'transfer-ghoul', { floor: 'free' }), { donor } = result;
   const raw = transferRig(donor, { sequence: standSequenceIndex(donor) }), read = transplantReading(raw, donor);
   for (const key of ['armL', 'armR']) {
     // R2: the shared reading ends the arm at the hand (anim-transfer endAtMovingJoints); the transplant reads it as it is.
@@ -1576,3 +1579,92 @@ test('HG1 a donor read as one creature keeps its trunk moves at one ratio: the F
     }
   }
 });
+
+
+/** Floor checks (owner's floor choice, 20 Nov: "Bend arm"). A model's floor is its own ground: the median lowest point of
+ * the skin its legs carry through its Stand. `armDips(model, rig, map, height, skip)`: per animation with ground and per
+ * moment (60 a second), how deep the lowest shown point its arms carry (hand, weapon, shield) is under that floor, in
+ * `height`s; `skip(sequence, frame)` gives bones whose skin does not count then (a weapon the donor has let go of). */
+const NO_GROUND = /death|decay|dissipate|birth|portrait|morph|sleep|swim|cinematic/i;
+const subtree = (model, ids) => {
+  const tree = nodeIndex(model, allNodes(model)), out = new Set(ids), stack = [...ids];
+  while (stack.length) for (const child of tree.children.get(stack.pop()) || []) if (!out.has(child.ObjectId)) { out.add(child.ObjectId); stack.push(child.ObjectId); }
+  return out;
+};
+const bindHeight = model => { let lo = Infinity, hi = -Infinity; for (const g of model.Geosets) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); } return hi - lo; };
+function armDips(model, rig, map, height, skip = () => null) {
+  const limbs = kind => subtree(model, Object.values(rig.parts).filter(p => p.limbKind === kind).map(p => map(p.joints[0])));
+  const arms = limbs('arm'), legs = limbs('leg'), bones = model.Geosets.map(g => Array.from({ length: g.Vertices.length / 3 }, (_, v) => vertexBones(g, v)));
+  const alpha = gi => (model.GeosetAnims || []).find(a => a.GeosetId === gi)?.Alpha;
+  const lowest = (frame, index, keep) => {
+    const m = sampleNodeMatrices(model, frame, index), s = model.Sequences[index];
+    let min = Infinity;
+    model.Geosets.forEach((g, gi) => {
+      const a = alpha(gi), shown = a == null || typeof a === 'number' ? (a ?? 1) > 0.001 : sampleTrack(a, frame, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001;
+      if (!shown) return;
+      const p = skinGeoset(g, m);
+      for (let v = 0; v < p.length / 3; v++) if (keep(bones[gi][v])) min = Math.min(min, p[v * 3 + 2]);
+    });
+    return min;
+  };
+  const stand = standSequenceIndex(model), [s0, s1] = model.Sequences[stand].Interval, zs = [];
+  for (let t = s0; t <= s1; t += 1000 / 30) zs.push(lowest(Math.round(t), stand, list => list.some(b => legs.has(b))));
+  zs.sort((a, b) => a - b);
+  const floor = zs[zs.length >> 1], dips = new Map();
+  model.Sequences.forEach((sequence, index) => {
+    if (NO_GROUND.test(sequence.Name) || !sequence.Interval) return;
+    const [a, b] = sequence.Interval, at = new Map();
+    for (let t = a; t <= b; t += 1000 / 60) {
+      const f = Math.round(t), off = skip(sequence, f);
+      at.set(f, Math.max(0, (floor - lowest(f, index, list => list.some(x => arms.has(x)) && !(off && list.some(x => off.has(x))))) / height));
+    }
+    dips.set(`${sequence.Name}|${a}`, at);
+  });
+  return dips;
+}
+/** The deepest a result's arms go under its floor beyond what the donor's own arms do at the same moment (in its size). */
+function floorExcess({ own, donor, model, report }, mirror) {
+  const D = mirror ? mirrorModel(donor) : donor;
+  clearTransferCache(D);
+  const rig = transferRig(D, { sequence: standSequenceIndex(D) }), H = bindHeight(own), size = report.counts.sizeRatio;
+  const thrown = (sequence, frame) => (report.weaponSwap || []).some(item => item.sequence === sequence.Name && item.spans.some(([p, q]) => frame - sequence.Interval[0] >= p && frame - sequence.Interval[0] <= q));
+  const weapon = report.weapon?.bone != null ? subtree(model, [report.weapon.bone]) : null;
+  const theirs = armDips(D, rig, id => id, H / size), mine = armDips(model, rig, id => report.donorNodes[id], H, (s, f) => weapon && thrown(s, f) ? weapon : null);
+  let worst = { excess: 0 };
+  for (const [key, at] of mine) for (const [f, dip] of at) {
+    const excess = dip - (theirs.get(key)?.get(f) ?? 0);
+    if (excess > worst.excess) worst = { excess, dip, sequence: key.split('|')[0], frame: f - Number(key.split('|')[1]) };
+  }
+  return worst;
+}
+const FLOOR_PAIRS = [
+  ['transfer-kurgan', 'transfer-grunt', 'his hammer'],
+  ['transfer-footman', 'transfer-ghoul', 'his shield'],
+  ['transfer-pikeman', 'transfer-arthas-sword', 'his pike'],
+  ['transfer-grunt', 'transfer-murloc', 'his arm'],
+];
+for (const [ownKey, donorKey, what] of FLOOR_PAIRS) {
+  test(`FB1 ${ownKey.replace('transfer-', '')} on the ${donorKey.replace('transfer-', '')} (floor choice, owner 20 Nov: "Bend arm"): where ${what} would go under the floor deeper than the donor's own arm goes, the arm turns up at the shoulder, so no arm, hand, weapon or shield goes more than 0.04 of his height deeper (as the donor moves it, over 0.1 deeper); his feet and every joint outside the turned arm stay exactly the donor's, and outside the turned stretches every joint does`, { skip: missing(ownKey, donorKey) }, t => {
+    const probe = transplant(ownKey, donorKey, { floor: 'free' }), mirror = probe.report.mirrorOffer || null;
+    const free = mirror ? transplant(ownKey, donorKey, { mirror, floor: 'free' }) : probe, bent = transplant(ownKey, donorKey, mirror ? { mirror } : {});
+    const before = floorExcess(free, mirror), after = floorExcess(bent, mirror);
+    t.diagnostic(`deeper than the donor's arm: ${before.excess.toFixed(3)} H (${before.sequence} ${before.frame}) -> ${after.excess.toFixed(3)} H (${after.sequence ?? '-'} ${after.frame ?? ''}); turned: ${(bent.report.bend || []).map(b => `${b.sequence} ${b.arm} ${b.turn.toFixed(0)} deg`).join(', ')}`);
+    assert.ok(before.excess > 0.1, `as the donor moves it, ${what} goes at most ${before.excess.toFixed(2)} H deeper than the donor's arm (${before.sequence} ${before.frame})`);
+    assert.ok(after.excess <= 0.04, `${what} still goes ${after.excess.toFixed(2)} of his height deeper under the floor than the donor's arm in ${after.sequence} at ${after.frame} (as the donor moves it ${before.excess.toFixed(2)} in ${before.sequence} at ${before.frame})`);
+    assert.ok(bent.report.bend?.length > 0, 'the result says where an arm turned');
+    // every joint but the turned arm's in every frame, every joint outside the turned stretches: the donor's, to the bit
+    const nodes = allNodes(bent.model), turned = subtree(bent.model, bent.report.bend.map(item => item.joint));
+    bent.model.Sequences.forEach((sequence, index) => {
+      const [a, b] = sequence.Interval, spans = bent.report.bend.filter(item => item.sequence === sequence.Name).flatMap(item => item.spans);
+      for (let t = a; t <= b; t += 1000 / 30) {
+        const f = Math.round(t), inside = spans.some(([p, q]) => f - a >= p && f - a <= q);
+        const m0 = sampleNodeMatrices(free.model, f, index), m1 = sampleNodeMatrices(bent.model, f, index);
+        for (const node of nodes) {
+          if (inside && turned.has(node.ObjectId)) continue;
+          const e0 = m0.get(node.ObjectId).elements, e1 = m1.get(node.ObjectId).elements;
+          assert.ok(e0.every((x, i) => x === e1[i]), `${node.Name} moved in ${sequence.Name} at ${f - a} (${inside ? 'outside the turned arm' : 'outside the turned stretches'})`);
+        }
+      }
+    });
+  });
+}
