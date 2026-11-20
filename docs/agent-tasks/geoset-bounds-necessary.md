@@ -84,8 +84,28 @@ Updated: 2026-11-20
   of the new strings ("Geoset animation bounds", "Necessary only (saves {0} KB)", tooltip, note) are
   not in the locale catalogs yet.
 
+## Tools stop refilling tables (merged from `claude/geoset-bounds-no-filler`, 26360268)
+
+- One rule: `keepsGeosetAnimationBounds(model, ignore)` in `src/sequence-editor.js`. No animations or no
+  geosets → true (a new model still gets tables). Otherwise true only when some geoset has a non-empty
+  `Anims`. It decides only for geosets without a table; existing tables stay in step, empty ones stay empty.
+  `fillSequenceExtents` takes `keep`; tools adding several geosets decide once before adding.
+- Follow it: createSequence / animation copy, Forge (`addForgeGeosets`), Collect Bit (`collectPart`), Bit save
+  (`selectPartAnimations`) and import (`commitPart`), Glow Up new glows, portrait background, Auto Corpse
+  (291), `recalculatePortraitExtents`, `importGeosets` paste, FX card geosets (`quadBounds`). Unchanged:
+  geoset merge, delete/reorder animation, demo model.
+- Models that keep tables still get copies of the geoset box for new geosets: Hive count stays clean, often
+  exact for unmoving bones, and sampling real boxes costs 3.8 s per click on ChaosDragon_13 (0.31 s Footman).
+- Deliberate change: on mixed models (some geosets without a table, as in six Blizzard models such as
+  Shandris) the empty geoset now stays empty instead of getting a 1–15 record table that OptimizeXL flags.
+- Tests: `test/geoset-animation-bounds.test.js` (48) + `test/sequence-editor.test.js`: 63 pass; emptied-model
+  cases fail on main. Consumer diff (12 tools × 388 models): every full-table model identical to main.
+- Left as before: paste from a model with a different animation count brings a wrong-length table; Glow Up's
+  adjust path rewrites tables with copies; some tools (box, new geoset, Auto Corpse geometry, FX geosets)
+  create geosets without tables on full-table models.
+
 ## Blockers and next action
 
-- Combine with the other agent's refill branch, build, and hand the owner a test build with
+- Combined locally (05463f4d). Build, and hand the owner a test build with
   `TEST GEOSET BOUNDS 01.mdx` (a ChaosDragon copy).
 - On completion: mark completed with the merge revision and remove the README row.
