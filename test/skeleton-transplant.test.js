@@ -1410,6 +1410,17 @@ test('HP1 Murloc on the LowPolyWorks Ogre: in Death the club the Ogre throws fro
   assert.ok(worst < 1.3, `the club flies up to ${worst.toFixed(2)}x as far (for its size) as the Ogre's`);
 });
 
+test(`HP2 Graveguard on the Headhunter: the spear the Headhunter slides down its hand in Attack Range moves in the Graveguard's hand by his arm's stretch over the Headhunter's arm (1.13), as the hand does (by the body ratio, 1.42, his weapon went into the ground: sinks 0.25 of his height; by the leg travel, 0.71, it moved half as far as his arm)`, { skip: missing('transfer-graveguard-03', 'transfer-headhunter') }, () => {
+  const { own, donor, model, report } = transplant('transfer-graveguard-03', 'transfer-headhunter');
+  const armLength = (m, joints) => { const nodes = byId(m); let sum = 0; for (let i = 1; i < joints.length; i++) sum += new Vector3().fromArray(nodePivot(m, nodes.get(joints[i]), joints[i])).distanceTo(new Vector3().fromArray(nodePivot(m, nodes.get(joints[i - 1]), joints[i - 1]))); return sum; };
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), arm = rig.parts.armR.joints;
+  const ratio = armLength(model, arm.map(id => report.donorNodes[id])) / armLength(donor, arm);
+  const spear = allNodes(donor).find(node => node.Name === 'Spear01'), mine = byId(model).get(report.donorNodes[spear.ObjectId]);
+  const moves = node => node.Translation.Keys.map(k => Math.hypot(...k.Vector));
+  const theirs = moves(spear), ours = moves(mine);
+  theirs.forEach((d, k) => { if (d > 1e-3) assert.ok(Math.abs(ours[k] / d / ratio - 1) < 0.02, `key ${k}: the spear moves ${(ours[k] / d).toFixed(2)}x the Headhunter's, his arm is ${ratio.toFixed(2)}x`); });
+});
+
 test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
   const { own, donor, model, report } = transplant('sd-orc-wolfrider', 'transfer-khorne-knight');
   const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), ownRig = transferRig(own, { sequence: standSequenceIndex(own) });
