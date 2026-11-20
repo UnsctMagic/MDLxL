@@ -22,6 +22,79 @@ const NO_GROUND = /death|decay|dissipate|birth|portrait|morph|sleep|swim|cinemat
 const isTrack = t => t && typeof t === 'object' && Array.isArray(t.Keys);
 const v3 = value => new Vector3().fromArray(value);
 
+// For a horizontal rotation through theta, each skinned point imposes an arc
+// of allowed shoulder axes. Intersect the arcs, then refine the first angle
+// that clears every point. Switching between hand and weapon-tip axes at an
+// integer-degree tie used to swing the hand abruptly during an idle animation.
+function floorTurn(points, level, preferred, previous = null, maxChange = Math.PI) {
+  const tau = 2 * Math.PI;
+  const wrap = a => (a % tau + tau) % tau;
+  const aim = wrap(preferred);
+  function axisAt(theta, height) {
+    const sin = Math.sin(theta), change = Math.cos(theta) - 1;
+    let allowed = [[0,tau]];
+    if (previous != null && maxChange < Math.PI) {
+      const start = wrap(previous-maxChange), end = wrap(previous+maxChange);
+      allowed = start <= end ? [[start,end]] : [[0,end],[start,tau]];
+    }
+    for (const p of points) {
+      const need = height - p.z - p.dz * change, reach = p.radius * sin;
+      if (need > reach + 1e-8) return null;
+      if (need <= -reach || reach < 1e-10) continue;
+      const half = Math.acos(Math.min(1,need/reach));
+      const a = wrap(p.axis-half), b = wrap(p.axis+half);
+      const arcs = a <= b ? [[a,b]] : [[0,b],[a,tau]];
+      const next = [];
+      for (const [lo,hi] of allowed) for (const [x,y] of arcs) {
+        if (Math.max(lo,x) <= Math.min(hi,y)) next.push([Math.max(lo,x),Math.min(hi,y)]);
+      }
+      if (!next.length) return null;
+      allowed = next;
+    }
+    let best = null, distance = Infinity;
+    for (const [lo,hi] of allowed) for (const target of [aim-tau,aim,aim+tau]) {
+      const a = Math.max(lo,Math.min(hi,target)), d = Math.abs(target-a);
+      if (d < distance) { best = a; distance = d; }
+    }
+    return best;
+  }
+  let bestHeight = -Infinity, angle = 0, axisAngle = aim;
+  for (let deg=1; deg<=90; deg++) {
+    let hi = deg / DEG, lo = (deg-1) / DEG;
+    let a = axisAt(hi,level);
+    if (a !== null) {
+      for (let i=0; i<6; i++) {
+        const mid = (lo+hi)/2, at = axisAt(mid,level);
+        if (at === null) lo = mid;
+        else { hi = mid; a = at; }
+      }
+      return {axis:new Vector3(Math.cos(a),Math.sin(a),0), th:hi};
+    }
+  }
+  if (previous != null) return floorTurn(points,level,preferred);
+  for (let deg=1; deg<=90; deg++) {
+    const hi = deg / DEG;
+    // When no turn clears, retain the best attainable height. The rotation
+    // with the hand's raising axis supplies a lower bound at this angle.
+    const sin = Math.sin(hi), change = Math.cos(hi)-1;
+    let low = Infinity, high = Infinity;
+    for (const p of points) {
+      const base = p.z+p.dz*change, r = p.radius*sin;
+      low = Math.min(low,base+r*Math.cos(aim-p.axis));
+      high = Math.min(high,base+r);
+    }
+    if (high <= bestHeight) continue;
+    let direction = aim;
+    for (let i=0; i<8; i++) {
+      const mid=(low+high)/2, at=axisAt(hi,mid);
+      if (at === null) high=mid;
+      else {low=mid; direction=at;}
+    }
+    if (low > bestHeight) {bestHeight=low; angle=hi; axisAngle=direction;}
+  }
+  return {axis:new Vector3(Math.cos(axisAngle),Math.sin(axisAngle),0),th:angle};
+}
+
 /** Frames of a sequence every STEP ms, the last frame included. */
 function framesOf(sequence) { const [a, z] = sequence.Interval, out = []; for (let t = a; t < z; t += STEP) out.push(Math.round(t)); out.push(z); return [...new Set(out)]; }
 
@@ -212,7 +285,7 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
     const coarseSet = new Set(framesOf(s));
     for (const id of [...roots, ...free.map(arm => arm.joint)]) for (const p of ['Translation', 'Rotation']) for (const k of info.byId.get(id)?.[p]?.Keys || []) if (k.Frame >= a && k.Frame <= z) coarseSet.add(k.Frame);
     const coarse = [...coarseSet].sort((x, y) => x - y);
-    const solve = f => {
+    const solve = (f, previous = null) => {
       const mats = sampleNodeMatrices(M, f, si), keep = held(si, f, mats);
       const lo = lowest(info, mats, vis, si, f, keep);
       const row = { f, sinks: floor - lo.minZ - tol > 0, bend: {} };
@@ -224,53 +297,84 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
         const level = floor - tol - donorDip(si, f, arm.key);
         if (!(a0.minZ < level)) continue;
         const s0 = pivotAt(mats, arm.joint);
-        const verts = [];
-        for (const x of info.geos) { if (!vis[x.gi] || !x.n || info.alphaAt(x, si, f) <= 0.001) continue; for (let v = 0; v < x.n; v++) if (inArm(x, v)) verts.push({ x, v, w: x.weights[v] }); }
-        const p = new Vector3(), acc = new Vector3();
-        const armMin = R => {
-          let mz = Infinity;
-          for (const { x, v, w } of verts) {
-            acc.set(0, 0, 0); let tot = 0;
-            x.bones[v].forEach((b, i) => { const m = mats.get(b); if (!m) return; const wt = w ? w[i] : 1; p.fromArray(x.g.Vertices, v * 3).applyMatrix4(m); if (R && arm.ids.has(b)) p.applyMatrix4(R); acc.addScaledVector(p, wt); tot += wt; });
-            if (tot) mz = Math.min(mz, acc.z / tot);
+        const hand = pivotAt(mats, arm.hand).sub(s0);
+        const preferred = Math.atan2(-hand.x, hand.y);
+        const points = [];
+        const included = held(si, f, mats, inArm);
+        for (const geo of info.geos) {
+          if (!vis[geo.gi] || !geo.n || info.alphaAt(geo, si, f) <= 0.001) continue;
+          for (let v = 0; v < geo.n; v++) {
+            if (!included(geo, v)) continue;
+            const local = new Vector3().fromArray(geo.g.Vertices, v * 3);
+            const relative = new Vector3();
+            let z = 0, total = 0;
+            geo.bones[v].forEach((id,i) => {
+              const matrix = mats.get(id);
+              if (!matrix) return;
+              const w = geo.weights[v]?.[i] ?? 1;
+              const world = local.clone().applyMatrix4(matrix);
+              z += w * world.z;
+              total += w;
+              if (arm.ids.has(id)) relative.addScaledVector(world.sub(s0), w);
+            });
+            if (!total) continue;
+            relative.divideScalar(total);
+            points.push({z:z/total, dz:relative.z, radius:Math.hypot(relative.x,relative.y),
+              axis:Math.atan2(-relative.x,relative.y)});
           }
-          return mz;
-        };
-        const turn = (axis, th) => new Matrix4().makeTranslation(s0.x, s0.y, s0.z).multiply(new Matrix4().makeRotationAxis(axis, th)).multiply(new Matrix4().makeTranslation(-s0.x, -s0.y, -s0.z));
-        // smallest turn that clears: the horizontal axes that raise the lowest arm point and the hand, either way round,
-        // in 1 deg steps up to 90 (the most raising turn when none clears)
-        const hand = pivotAt(mats, arm.hand), axes = [];
-        for (const pt of [v3(a0.at.p), hand]) { const ax = pt.clone().sub(s0).cross(new Vector3(0, 0, 1)); if (ax.length() > 1e-6) { ax.normalize(); axes.push(ax, ax.clone().negate()); } }
-        if (!axes.length) axes.push(new Vector3(1, 0, 0), new Vector3(-1, 0, 0));
-        let best = null, fallbackBest = null;
-        for (const axis of axes) for (let deg = 1; deg <= 90; deg++) {
-          const mz = armMin(turn(axis, deg / DEG));
-          if (!fallbackBest || mz > fallbackBest.mz) fallbackBest = { axis, th: deg / DEG, mz };
-          if (mz >= level) { if (!best || deg / DEG < best.th) best = { axis, th: deg / DEG }; break; }
-          if (best && deg / DEG >= best.th) break;
         }
-        const { axis, th } = best || fallbackBest;
-        // the turn in the joint's parent frame (the parent's turn, its scale dropped)
         const parent = info.byId.get(arm.joint).Parent, PM = parent != null && mats.get(parent) ? mats.get(parent) : new Matrix4();
+        const parentTurn = new Matrix4().extractRotation(PM);
+        const prev = previous?.bend?.[arm.key];
+        const axisBefore = prev ? v3(prev.axisL).transformDirection(parentTurn) : null;
+        // Opposite sides of a nearly vertical weapon can clear at the same
+        // angle. Continue the preceding correction through these poses. The
+        // cap applies only to the additional axis in the moving parent frame.
+        const prior = axisBefore ? Math.atan2(axisBefore.y,axisBefore.x) : null;
+        const maxChange = previous ? Math.min(Math.PI,(f-previous.f)*0.25/DEG) : Math.PI;
+        const {axis, th} = floorTurn(points,level,preferred,prior,maxChange);
+        // the turn in the joint's parent frame (the parent's turn, its scale dropped)
         const axisL = axis.clone().applyMatrix4(new Matrix4().extractRotation(PM).invert()).normalize();
         row.bend[arm.key] = { th, axisL: axisL.toArray() };
       }
       return row;
     };
     const dipping = r => r.sinks || Object.keys(r.bend).length;
-    const first = coarse.map(solve);
+    const first = coarse.map(f => solve(f));
     if (!first.some(dipping)) return;
     // dense samples (every ~8 ms) between the neighbours of every dipping sample: the swing into a dip is fast
     const dense = new Set(coarse);
     first.forEach((r, i) => { if (!dipping(r)) return; const a0 = coarse[Math.max(0, i - 1)], z0 = coarse[Math.min(coarse.length - 1, i + 1)]; for (let t = a0; t <= z0; t += DENSE) dense.add(Math.round(t)); });
     const frames = [...dense].sort((x, y) => x - y);
     const known = new Map(coarse.map((f, i) => [f, first[i]]));
-    let rows = frames.map(f => known.get(f) || solve(f));
-    // each turn held one sample either side, so the line between two keys never dips into the floor
-    rows = rows.map((r, i) => {
-      const nb = [rows[i - 1], r, rows[i + 1]].filter(Boolean), bend = { ...r.bend };
-      for (const x of nb) for (const [k, b] of Object.entries(x.bend)) if (!bend[k] || b.th > bend[k].th) bend[k] = x === r ? b : { ...b, axisL: (r.bend[k] || b).axisL };
-      return { f: r.f, bend };
+    let rows = [];
+    for (const f of frames) {
+      const previous = rows.at(-1);
+      rows.push(previous && Object.keys(previous.bend).length ? solve(f,previous) : known.get(f) || solve(f));
+    }
+    // Hold clearance for a fixed duration. A donor key can be only one
+    // millisecond from a regular sample: borrowing the next sample's turn
+    // directly squeezed an eight-ms correction into that one millisecond.
+    rows = rows.map((r,i) => {
+      const bend = { ...r.bend };
+      const consider = (key, th, source) => {
+        if (th > (bend[key]?.th ?? 0)) bend[key] = {th,axisL:r.bend[key]?.axisL ?? source.axisL};
+      };
+      for (const step of [-1,1]) {
+        const end = r.f + step*DENSE;
+        let inside = r;
+        for (let j=i+step; j>=0 && j<rows.length; j+=step) {
+          const edge = rows[j];
+          const fraction = Math.min(1,(end-inside.f)/(edge.f-inside.f));
+          for (const key of new Set([...Object.keys(inside.bend),...Object.keys(edge.bend)])) {
+            const a = inside.bend[key], b = edge.bend[key];
+            consider(key,(a?.th ?? 0)*(1-fraction)+(b?.th ?? 0)*fraction,b ?? a);
+          }
+          if ((edge.f-end)*step >= 0) break;
+          inside = edge;
+        }
+      }
+      return {f:r.f,bend};
     });
     for (const arm of free) {
       const at = new Map(rows.filter(r => r.bend[arm.key]).map(r => [r.f, r.bend[arm.key]]));
