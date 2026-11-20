@@ -1162,18 +1162,19 @@ export default function GamePreview(inputProps) {
     }
     // fitBox="rest" (Transfer compare sheet): the box around the mesh in its rest pose, with the geosets
     // shown at the start of the chosen animation. It does not depend on the moment the view first draws,
-    // so views of one model frame alike however their animations have moved on.
+    // so views of one model frame alike however their animations have moved on. The whole box (its corners,
+    // with a margin) is framed, since the animation reaches past the rest pose: crouches, lunges, the floor.
     function restBox() {
-      const p = latest.current, hidden = new Set(p.hiddenGeosets || []), box = new THREE.Box3(), points = [];
+      const p = latest.current, hidden = new Set(p.hiddenGeosets || []), box = new THREE.Box3();
       const sequence = ownedModel.Sequences?.[p.sequenceIndex], frame = sequence?.Interval?.[0] ?? 0;
-      const step = Math.max(1, Math.ceil(ownedModel.Geosets.reduce((sum, geoset) => sum + geoset.Vertices.length / 3, 0) / 4000));
       ownedModel.Geosets.forEach((geoset, index) => {
         const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
         if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, frame, sequence ? p.sequenceIndex : -1, frame)[3] > .001)) return;
-        for (let i = 0, n = 0; i + 2 < geoset.Vertices.length; i += 3, n++) { box.expandByPoint(point.fromArray(geoset.Vertices, i)); if (n % step === 0) points.push(point.clone()); }
+        for (let i = 0; i + 2 < geoset.Vertices.length; i += 3) box.expandByPoint(point.fromArray(geoset.Vertices, i));
       });
       if (box.isEmpty()) return null;
-      const result = [box.min.clone(), box.max.clone()]; result.points = points; return result;
+      const size = box.getSize(new THREE.Vector3()); box.expandByScalar(.1 * Math.max(size.x, size.y, size.z));
+      return [box.min.clone(), box.max.clone()];
     }
     // Where the selection is in the current pose: the selected vertices, or else
     // the selected bones and nodes. Model-space points [x,y,z,...].
