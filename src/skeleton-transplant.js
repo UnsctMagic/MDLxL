@@ -1221,7 +1221,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const angle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
     // The upper end of the trunk line: the shoulders; a body with no arms, its head joint.
     const topB = shoulderB ?? (headAt != null ? placed.get(headAt) : null), topA = shoulderA ?? (headAt != null ? pA(headAt) : null);
-    if (bipeds && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    // A four-legged donor whose arms hang from no chest (forelimbs or wings read as arms on the body itself: the dragons,
+    // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
+    // those arms: there a Spirit Pig on the Bronze Dragon Whelp leant 35 deg off it and a Knight on the Green Dragon 53.
+    const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
+    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
@@ -1254,8 +1259,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // bodies, so the trunk takes the donor's posture and the donor's trunk joints sit along this trunk where they sit along
     // the donor's (fitTrunk). Paired by order, the Dire Wolf's two hips joints both sat on the Brown Wolf's centre joint
     // and its back stood 11 deg off the Dire Wolf's.
-    const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
-    if (!bipeds && posture.spine == null && !whole.reason && count(rigA, 'leg') === 4 && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length) {
+    if (byLegPairs && posture.spine == null) {
       const centre = (ids, from) => from(ids[0]).clone().add(from(ids[1])).multiplyScalar(0.5);
       const [backB, frontB] = pairs.map(ids => centre(ids, id => placed.get(id))), [backA, frontA] = pairs.map(ids => centre(ids, pA));
       const acrossB = placed.get(pairs[0][0]).clone().sub(placed.get(pairs[0][1])), acrossA = pA(pairs[0][0]).sub(pA(pairs[0][1]));

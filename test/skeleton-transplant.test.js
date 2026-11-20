@@ -1346,3 +1346,9 @@ test('K7 Footman on the Rock Golem: through the golem\'s Birth, whose chest flie
   const worst = Math.max(...lines.slice(1, -1).map(off));
   assert.ok(worst < 20, `Birth: the Footman's trunk line is up to ${worst.toFixed(1)} deg off the golem's`);
 });
+
+test('K8 Spirit Pig on the Bronze Dragon Whelp (four legs, its wings read as arms on the body, no chest): the pig\'s back takes the whelp\'s through Walk, Stand - 1 and Attack 1 (within 3 deg; from the hip centre of four legs to the wing roots it leant 35 deg off)', { skip: missing('transfer-spirit-pig', 'transfer-bronze-whelp') }, () => {
+  const result = transplant('transfer-spirit-pig', 'transfer-bronze-whelp');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  for (const name of ['Walk', 'Stand - 1', 'Attack 1']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the pig's back is up to ${worst.toFixed(1)} deg off the whelp's`); }
+});
