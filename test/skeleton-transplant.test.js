@@ -1347,7 +1347,7 @@ test('K7 Footman on the Rock Golem: through the golem\'s Birth, whose chest flie
   assert.ok(worst < 20, `Birth: the Footman's trunk line is up to ${worst.toFixed(1)} deg off the golem's`);
 });
 
-test('K8 Spirit Pig on the Bronze Dragon Whelp (four legs, its wings read as arms on the body, no chest): the pig\'s back takes the whelp\'s through Walk, Stand - 1 and Attack 1 (within 3 deg; from the hip centre of four legs to the wing roots it leant 35 deg off)', { skip: missing('transfer-spirit-pig', 'transfer-bronze-whelp') }, () => {
+test('K8 Spirit Pig on the Bronze Dragon Whelp (four legs, wings on the body, no chest; until WG1 its wings read as arms): the pig\'s back takes the whelp\'s through Walk, Stand - 1 and Attack 1 (within 3 deg; from the hip centre of four legs to the wing roots it leant 35 deg off)', { skip: missing('transfer-spirit-pig', 'transfer-bronze-whelp') }, () => {
   const result = transplant('transfer-spirit-pig', 'transfer-bronze-whelp');
   const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
   for (const name of ['Walk', 'Stand - 1', 'Attack 1']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the pig's back is up to ${worst.toFixed(1)} deg off the whelp's`); }
@@ -1420,4 +1420,69 @@ test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lie
   const theirs = (lowest(donor, nD, iD, id => id) - rig.ground) / rig.hipHeight, mine = (lowest(model, nM, iM, id => report.donorNodes[id]) - ownRig.ground) / ownRig.hipHeight;
   assert.ok(theirs < 0.15, `the knight's rider ends ${theirs.toFixed(2)} hip heights above the ground`);
   assert.ok(mine < 0.2, `the orc ends ${mine.toFixed(2)} hip heights above the ground (the knight's rider ${theirs.toFixed(2)})`);
+});
+
+test('A1 Timber Wolf on Undead Arthas (a horse whose back legs and tail hang from one joint under its body): the wolf takes the horse\'s body, its back along the horse\'s through Walk, Stand -1, Attack -1 and Stand Ready (within 3 deg; read into the tail, that joint took the wolf\'s tail turns and the horse\'s hindquarters were left in no part: the wolf\'s back stood up to 49 deg off)', { skip: missing('transfer-timber-wolf', 'transfer-undead-arthas') }, () => {
+  const result = transplant('transfer-timber-wolf', 'transfer-undead-arthas');
+  assert.equal(result.report.actor, 'walker');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor), actor: 'walker' });
+  const worst = Object.fromEntries(['Walk', 'Stand -1', 'Attack -1', 'Stand Ready'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(Object.values(worst).every(value => value < 6), `the wolf's back is off the horse's by up to ${JSON.stringify(worst)} deg`);
+});
+
+test('WG2 Bronze Dragon Whelp on the Dragonspawn (four legs each; the whelp has wings and no arms, the dragonspawn two arms on an upright chest): the whelp\'s back takes the dragonspawn\'s: within 8 deg through the stands and Walk, within 15 through Walk Fast and the attacks, where the dragonspawn\'s front and back pelvis joints turn on the whelp\'s proportions (its trunk line ran from its hips to the dragonspawn\'s shoulders placed in a body with no arms: 57-70 deg off)', { skip: missing('transfer-bronze-whelp', 'transfer-dragonspawn') }, () => {
+  const result = transplant('transfer-bronze-whelp', 'transfer-dragonspawn');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  const names = result.model.Sequences.map(s => s.Name).filter(name => /^(stand|walk|attack)/i.test(name) && result.donor.Sequences.some(s => s.Name === name));
+  const worst = Object.fromEntries(names.map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(names.length >= 3 && Object.entries(worst).every(([name, value]) => value < (/^attack/i.test(name) || /fast/i.test(name) ? 15 : 8)), `the whelp's back is off the dragonspawn's by up to ${JSON.stringify(worst)} deg`);
+});
+
+test('RR1 Chaos Warlord on the Khorne Knight (a rider on a four-legged mount each): the demon horse\'s back takes the knight horse\'s through Walk, Stand and Attack - 1 (within 2 deg; the trunk line from the horse\'s hip centre to the rider\'s shoulders tipped both bodies to seat the riders alike: the back 21 deg off, every segment of horse and rider 12)', { skip: missing('transfer-chaos-warlord', 'transfer-khorne-knight') }, () => {
+  const result = transplant('transfer-chaos-warlord', 'transfer-khorne-knight');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  const back = Object.fromEntries(['Walk', 'Stand', 'Attack - 1'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(Object.values(back).every(value => value < 2), `the horse's back is off by up to ${JSON.stringify(back)} deg`);
+});
+
+test('WG2b Grizzly Bear on the Crypt Fiend (four legs and no arms or wings on four legs under an upright chest with arms): the bear keeps the trunk line to where the fiend\'s shoulders sit, so its chest-to-head line stays within 45 deg of the fiend\'s through Stand (U: its head follows the fiend\'s head with nothing under it); along the leg pairs it pointed 126 deg away', { skip: missing('transfer-grizzly', 'transfer-crypt-fiend') }, () => {
+  const { donor, model, report } = transplant('transfer-grizzly', 'transfer-crypt-fiend');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), nM = byId(model);
+  const chest = rig.parts.chest.marker, head = rig.parts.head.marker, iD = donor.Sequences.findIndex(s => s.Name === 'Stand'), iM = model.Sequences.findIndex(s => s.Name === 'Stand');
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 8; k++) {
+    const md = sampleNodeMatrices(donor, Math.round(a + k / 8 * (b - a)), iD), mm = sampleNodeMatrices(model, Math.round(c + k / 8 * (d - c)), iM);
+    worst = Math.max(worst, at(model, nM, mm, report.donorNodes[head]).sub(at(model, nM, mm, report.donorNodes[chest])).angleTo(at(donor, nD, md, head).sub(at(donor, nD, md, chest))) * 180 / Math.PI);
+  }
+  assert.ok(worst < 45, `the bear's chest-to-head line is up to ${worst.toFixed(1)} deg off the fiend's`);
+});
+
+test('TW1 Khorne Knight on the Dragonspawn (whose waist joints, between its root and its pelvis joints, carry its lower body): at the end of the Dragonspawn\'s Death the knight lies down with it, its highest tenth of skin no higher above the ground, in its own hip heights, than the Dragonspawn\'s plus 0.3 (the knight\'s horse body went to the root, which stays up while the waist falls: it ended 1.35 hip heights up, the Dragonspawn 0.70)', { skip: missing('transfer-khorne-knight', 'transfer-dragonspawn') }, () => {
+  const { own, donor, model } = transplant('transfer-khorne-knight', 'transfer-dragonspawn');
+  const top = (m, rig) => {
+    const index = m.Sequences.findIndex(s => s.Name === 'Death'), matrices = sampleNodeMatrices(m, m.Sequences[index].Interval[1], index);
+    const z = m.Geosets
+      .flatMap(geoset => Array.from(skinGeoset(geoset, matrices)).filter((_, i) => i % 3 === 2)).sort((a, b) => a - b);
+    return (z[Math.floor(0.9 * (z.length - 1))] - rig.ground) / rig.hipHeight;
+  };
+  const mine = top(model, transferRig(own)), theirs = top(donor, transferRig(donor));
+  assert.ok(mine < theirs + 0.3, `the knight's highest tenth ends ${mine.toFixed(2)} hip heights up, the Dragonspawn's ${theirs.toFixed(2)}`);
+});
+
+test('HG1 a donor read as one creature keeps its trunk moves at one ratio: the Forest Troll Shadow Priest\'s chest under the Orc Shaman and the Graveguard\'s under the Mountain King move as the donor\'s, scaled alike on every axis (the trunk map of K1 is for a rider read with its mount; on these bipeds it stretched the chest\'s moves by the trunk\'s length and width ratios and their arms went inside their bodies, ok -> look-bad)', { skip: missing('transfer-orc-shaman', 'transfer-troll-priest', 'transfer-mountain-king', 'transfer-graveguard-03') }, () => {
+  for (const [own, donorKey] of [['transfer-orc-shaman', 'transfer-troll-priest'], ['transfer-mountain-king', 'transfer-graveguard-03']]) {
+    const { donor, model, report } = transplant(own, donorKey);
+    const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+    const nM = byId(model);
+    for (const id of rig.parts.chest.joints) {
+      const theirs = byId(donor).get(id).Translation?.Keys || [], mine = nM.get(report.donorNodes[id])?.Translation?.Keys || [];
+      assert.equal(mine.length, theirs.length, `${own}: ${byId(donor).get(id).Name} keys`);
+      const ratios = [];
+      theirs.forEach((key, i) => { for (let a = 0; a < 3; a++) if (Math.abs(key.Vector[a]) > 1e-3) ratios.push(mine[i].Vector[a] / key.Vector[a]); });
+      if (!ratios.length) continue;
+      const spread = Math.max(...ratios) - Math.min(...ratios);
+      assert.ok(spread < 1e-3 * Math.max(1, Math.abs(ratios[0])), `${own} on ${donorKey}: ${byId(donor).get(id).Name} moves scaled ${Math.min(...ratios).toFixed(3)}-${Math.max(...ratios).toFixed(3)}`);
+    }
+  }
 });

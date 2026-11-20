@@ -403,8 +403,10 @@ function readRig(model, info, skeleton, wanted = 'both') {
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
     const path = [];
     // Never through a joint that also carries the trunk, an arm or a wing (the Far Seer's wolf waist carries its tail and the
-    // rider's waist and chest: read into the tail, every donor tail took the wolf's back).
-    const carriesOther = at => at !== id && ([...trunkIds].some(t => tree.isAncestor(t, at)) || limbs.some(limb => (limb.kind === 'arm' || limb.kind === 'wing') && tree.isAncestor(limb.joints[0], at)));
+    // rider's waist and chest: read into the tail, every donor tail took the wolf's back), nor through one that carries a leg
+    // (cross-kind r2 A1: Undead Arthas's horse hangs its back legs and its tail from Bone Hor11; read into the tail, it took the
+    // donor tail's turns with the hindquarters on it, and a wolf taking the horse stood its back up to 71 deg off).
+    const carriesOther = at => at !== id && ([...trunkIds].some(t => tree.isAncestor(t, at)) || limbs.some(limb => limb.kind !== 'tail' && tree.isAncestor(limb.joints[0], at)));
     for (let at = id; at != null && joints.has(at) && !trunkIds.has(at) && !carriesOther(at); at = tree.parentOf(at)) path.unshift(at);
     if (path.length && !limbs.some(limb => limb.joints.some(j => path.includes(j)))) limbs.push({ kind: 'tail', joints: path, tip: null });
   }

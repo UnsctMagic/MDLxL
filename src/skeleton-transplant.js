@@ -1181,9 +1181,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const eps = 1e-3 * rigB.hipHeight, epsA = 1e-3 * rigA.hipHeight;
     if (fB.length < eps || fA.length < epsA || fB.width < eps || fA.width < epsA) return null;
     const s1 = fB.length / fA.length, s2 = fB.width / fA.width;
-    // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint.
+    // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint, and between the other
+    // hips joints and the top one (cross-kind r2 TW1: the Dragonspawn's waist joints carry its lower body's skin between its
+    // root and its pelvis joints; left out, that skin read as the root's, and a Baron's horse body bound to the root stayed
+    // up while the Dragonspawn's body fell in its Death).
     const top = rigA.parts.hips?.joints?.[0] ?? rigA.body, chain = new Set(trunkJoints);
-    for (const id of rigA.parts.chest?.joints || []) {
+    for (const id of [...(rigA.parts.hips?.joints || []).slice(1), ...(rigA.parts.chest?.joints || [])]) {
       const line = treeA.ancestors(id);
       if (!line.includes(top)) continue;
       for (const a of line) { if (keepDonor.has(a) && isDonorJoint(a) && placed.has(a)) chain.add(a); if (a === top) break; }
@@ -1238,7 +1241,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
     // those arms: there a Spirit Pig on the Bronze Dragon Whelp leant 35 deg off it and a Knight on the Green Dragon 53.
     const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
-    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    // So does any four-legged donor taken by a winged model with no two arms (cross-kind r2 WG2): the donor's shoulders have
+    // nothing to sit on here, and a Bronze Dragon Whelp (wings, no arms) on the Dragonspawn leant 57-70 deg off its back. A
+    // model with neither keeps the shoulder line (WG2b): its head follows the donor's head on an upper body it lacks (U), and
+    // along the leg pairs a Grizzly Bear's head pointed 126 deg away from the Crypt Fiend's.
+    // And a rider on a four-legged mount taken by a rider on one (cross-kind r2 RR1): each mount's back is the line between
+    // its leg pairs; from the hip centre to the rider's shoulders, the whole of both bodies tipped to seat the riders alike
+    // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
+    // then takes the donor rider's lean on its own (below).
+    const riders = rigA.actors?.length > 1 && rigB.actors?.length > 1 && count(rigB, 'leg') === 4;
+    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
     if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
@@ -1249,8 +1261,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // is (`trunkSkin`, used by the skin below). Needs legs and two arms; else the trunk keeps this model's joints.
       // Trunk moves by the trunk map (K1) only where the legs pair: on another number of legs the donor's legs are not this
       // model's, its hip centre is the donor's offsets, and the Chaos Dragon's rider moves flung a Magnataur's skin apart.
+      // And only for a donor read as two creatures (a rider with its mount, cross-kind r2 HG1): a one-creature biped keeps the
+      // travel ratio the humanoid rounds were measured on; on the trunk map the Orc Shaman's and the Mountain King's arms went
+      // into their bodies under the Forest Troll Shadow Priest and the Graveguard.
       const sideB = sideOf(id => placed.get(id)), sideA = sideOf(pA);
-      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason });
+      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason && rigA.actors?.length > 1 });
     }
     // A winged donor with no arms (its forelimbs are its wings: the Zombie Dragon) standing on as many legs as this model:
     // its trunk line runs from the hip centre to the wing roots, this model's from its hip centre to its own shoulders
@@ -1281,6 +1296,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         for (const id of trunkJoints) correction.set(id, spine.clone());
         posture.spine = angle(spine);
         trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints, moves: true });
+        // A rider on a rider (RR1): the rider's chest joints turn so the line from the chest's first joint to the middle of
+        // the shoulders lies along the donor rider's.
+        const chestIds = (rigA.parts.chest?.joints || []).filter(id => placed.has(id));
+        if (riders && chestIds.length && shoulderB && shoulderA && sideOf(pA)) {
+          const leanB = shoulderB.clone().sub(placed.get(chestIds[0])), leanA = shoulderA.clone().sub(pA(chestIds[0]));
+          if (leanB.length() > 1e-3 * rigB.hipHeight && leanA.length() > 1e-3 * rigA.hipHeight) {
+            const lean = alignFrames(leanB, leanA, sideOf(id => placed.get(id)), sideOf(pA));
+            for (const id of chestIds) correction.set(id, lean.clone());
+          }
+        }
       }
     }
     // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).

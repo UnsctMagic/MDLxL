@@ -2,7 +2,8 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, NODE_COLLECTION_KEYS, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
-import { poseRecognitionEvidence, inferPoseBranches, poseLimbOrCloth, poseNameConflicts, posePartGaps, poseExcludedBranchName } from './pose-recognition.js';
+import { poseRecognitionEvidence, inferPoseBranches, poseLimbOrCloth, poseNameConflicts, posePartGaps, poseExcludedBranchName, poseSkinFlatness } from './pose-recognition.js';
+import { nameRegion } from './rig-names.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
@@ -380,6 +381,21 @@ function readPoseRig(model, clues, evidence, cloth = null) {
     for (const chain of armEnds) {
       const end = byId.get(chain.end), peers = children.get(end.Parent) || [];
       if (peers.filter(peer => v3(peer.PivotPoint).distanceTo(v3(end.PivotPoint)) < .01).length >= 3) chain.label = 'Wing';
+    }
+    // Cross-kind r2 WG1: an arm whose skin is a sheet (`poseSkinFlatness` under .3) and whose joints carry no arm, hand or
+    // leg name is a wing when a second clue agrees: a wing name on its joints or on the skin carriers that hang from them (the
+    // SD dragons' WingL_/WingR_ meshes on unnamed Bone18-23), or the joint it hangs from also carries a leg (a wing joins
+    // the body where the legs do, an arm joins a chest: the Frost Wyrm, the war eagle). Read as arms, a dragon's wings took
+    // a biped's arm motion and gave a four-legged donor arms on no chest. Over 651 models: 36 chains, every one a wing.
+    if (clues) for (const chain of armEnds) {
+      if (chain.label) continue;
+      const ids = poseChainIds(chain);
+      if (ids.some(id => ['arm', 'leg'].includes(nameRegion(byId.get(id)?.Name)))) continue;
+      const flat = poseSkinFlatness(model, evidence, ids);
+      if (!(flat != null && flat < .3)) continue;
+      const named = ids.some(id => poseNodeRole(byId.get(id)) === 'Wing') || transforms.some(node => ids.includes(node.Parent) && !ids.includes(node.ObjectId) && poseNodeRole(node) === 'Wing');
+      const parent = tree.parentOf(chain.root), withLegs = parent != null && chains.some(other => other.kind === 'leg' && other.label !== 'Wing' && descendantOf(other.root, parent));
+      if (named || withLegs) chain.label = 'Wing';
     }
     // A long, unbranched rear spine opposite the chest is a tail. Skin child
     // pivots are ignored; helpers with their own joints define the articulation.
