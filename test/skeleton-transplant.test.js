@@ -1108,3 +1108,27 @@ test('S4 Footman on the Rat (short legs, no foot joint): through the rat\'s hopp
   const offs = Array.from({ length: 13 }, (_, k) => { const frame = Math.round(a + k / 12 * (b - a)); return Math.abs((mine.at(model, index, frame) - mine.usual) - (rat.at(donor, index, frame) - rat.usual) * report.counts.travel) / mine.hip; }).sort((x, y) => x - y);
   assert.ok(offs[6] < 0.1, `Walk: his sole is a median ${offs[6].toFixed(2)} hip heights off the rat's paws (worst ${offs.at(-1).toFixed(2)})`);
 });
+
+test('T2 Ghoul on the Satyr: it bows as deep as the Satyr in Stand - 3 (the hips-to-shoulders line within 8 deg of the Satyr\'s at every moment; it bowed 24 instead of 61 deg: the Satyr\'s trunk skin is all on one joint, so its chest joint stayed at the Ghoul\'s own chest, half way up, instead of at hip height where the Satyr bends)', { skip: missing('transfer-ghoul', 'transfer-satyr') }, () => {
+  const { donor, model, report } = transplant('transfer-ghoul', 'transfer-satyr');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const roots = kind => Object.values(rig.parts).filter(part => part.limbKind === kind).map(part => part.joints[0]);
+  const legs = roots('leg'), arms = roots('arm');
+  assert.equal(legs.length, 2); assert.equal(arms.length, 2);
+  /** The angle of the line from the hip centre (first leg joints) to the shoulder centre (first arm joints) from straight up. */
+  const pitch = (m, index, frame, idOf) => {
+    const mats = sampleNodeMatrices(m, frame, index);
+    const centre = ids => ids.map(id => { const r = idOf(id); return new Vector3(...nodePivot(m, m.Nodes[r], r)).applyMatrix4(mats.get(r)); }).reduce((s, p) => s.add(p), new Vector3()).divideScalar(ids.length);
+    const line = centre(arms).sub(centre(legs));
+    return Math.atan2(Math.hypot(line.x, line.y), line.z) * 180 / Math.PI;
+  };
+  const iD = donor.Sequences.findIndex(s => s.Name === 'Stand - 3'), iM = model.Sequences.findIndex(s => s.Name === 'Stand - 3');
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0, deepest = 0;
+  for (let k = 0; k <= 12; k++) {
+    const theirs = pitch(donor, iD, Math.round(a + k / 12 * (b - a)), id => id), mine = pitch(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id]);
+    worst = Math.max(worst, Math.abs(mine - theirs)); deepest = Math.max(deepest, theirs);
+  }
+  assert.ok(deepest > 45, `the Satyr bows ${deepest.toFixed(0)} deg in Stand - 3`);
+  assert.ok(worst < 8, `the Ghoul's trunk line is up to ${worst.toFixed(1)} deg off the Satyr's in Stand - 3`);
+});

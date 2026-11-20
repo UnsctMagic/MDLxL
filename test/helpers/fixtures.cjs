@@ -42,6 +42,7 @@ const FIXTURES = {
   'transfer-sorceress': ['MDLXL_TRANSFER_SORCERESS', testModel('corpus-sd/human__sorceress.mdx')],
   'transfer-knight': ['MDLXL_TRANSFER_KNIGHT', testModel('corpus-sd/human__knight.mdx')], // rider on a horse: three leg pairs
   'transfer-ghoul': ['MDLXL_TRANSFER_GHOUL', testModel('corpus-sd/undead__ghoul.mdx')], // long toes skinned to Foot1/Foot2 under the foot joints
+  'transfer-satyr': ['MDLXL_TRANSFER_SATYR', testModel('corpus-sd/creeps__satyr.mdx')], // all trunk skin on Bone_Chest, whose pivot sits at hip height: it bows from the hips
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones

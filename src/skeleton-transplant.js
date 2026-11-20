@@ -1205,13 +1205,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     });
     const median = list => { const s = [...list].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
     const levels = [...values].filter(([, list]) => list.length >= 3).map(([id, list]) => ({ id, at: median(list) })).sort((a, b) => a.at - b.at || a.id - b.id);
-    // One skinned trunk joint: nothing to share; the trunk keeps this model's joints.
-    if (levels.length < 2) return null;
+    // The donor's trunk joints sit where the donor's sit in this trunk, so it bends where the donor bends, also when only one
+    // of them carries skin (the Satyr's trunk skin is all on its chest, whose pivot sits at hip height: it bows from the hips;
+    // its chest joint stayed at the Ghoul's own chest, half way up, and the Ghoul bowed 24 deg where the Satyr bows 61).
+    // The skin is then not shared out: one skinned trunk joint, nothing to share.
     for (const id of chain) {
       const d = pA(id).sub(fA.h);
       placed.set(id, fB.h.clone().addScaledVector(fB.e1, s1 * d.dot(fA.e1)).addScaledVector(fB.e2, s2 * d.dot(fA.e2)).addScaledVector(fB.e3, s1 * d.dot(fA.e3)));
       correction.set(id, spine.clone());
     }
+    if (levels.length < 2) return null;
     const bounds = levels.slice(1).map((level, i) => (levels[i].at + level.at) / 2);
     const band = levels.slice(1).map((level, i) => SKIN_BAND * (level.at - levels[i].at));
     return { levels, bounds, band, chain, at: point => point.clone().sub(fB.h).dot(fB.e1) / fB.length };
