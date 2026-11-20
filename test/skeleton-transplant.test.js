@@ -854,10 +854,11 @@ test('Q4 Footman on the Ghoul: the arm ends at the Ghoul\'s moving hand, not at 
   const result = transplant('transfer-footman', 'transfer-ghoul'), { donor } = result;
   const raw = transferRig(donor, { sequence: standSequenceIndex(donor) }), read = transplantReading(raw, donor);
   for (const key of ['armL', 'armR']) {
-    assert.match(donor.Nodes[raw.parts[key].marker].Name, /^Wrist/, `POSE reads ${key} to the forearm skin bone`);
+    // R2: the shared reading ends the arm at the hand (anim-transfer endAtMovingJoints); the transplant reads it as it is.
+    assert.match(donor.Nodes[raw.parts[key].marker].Name, /^Bone_Hand_/, `the shared reading ends ${key} at the hand`);
     assert.match(donor.Nodes[read.parts[key].marker].Name, /^Bone_Hand_/, `the transplant reads ${key} to the hand`);
   }
-  assert.equal(transferRig(donor, { sequence: standSequenceIndex(donor) }), raw, 'the shared reading is unchanged');
+  assert.equal(read, raw, 'the transplant reads the shared reading as it is');
   assertPosture(result, 'Footman on the Ghoul');
 });
 test('Q5 Grunt on the Ghoul: the feet stay on the Ghoul\'s ground in every animation but Death (the result\'s legs are read as the donor\'s, not from the re-posed result, which reads the Ghoul\'s corpse skeleton)', { skip: missing('transfer-grunt', 'transfer-ghoul') }, () => {
