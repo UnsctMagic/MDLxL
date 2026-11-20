@@ -10,7 +10,7 @@ import { selectedVertexCenter } from './bone-tools.js';
 import { updateBounds } from './mesh-tools.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
-import { createSequence, fillSequenceExtents, setSequenceName } from './sequence-editor.js';
+import { createSequence, fillSequenceExtents, keepsGeosetAnimationBounds, setSequenceName } from './sequence-editor.js';
 import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
 import { fixPlainTrackValues, plainTrackValues } from './plain-track-values.js';
 import { createVisibilityGeosetAnimation, ensureGeosetAnimation, hasGeosetColorTrack } from './geoset-animation-defaults.js';
@@ -47,7 +47,9 @@ export function collectPart(source, selection) {
   model.Sequences = structuredClone(source.Sequences || []);
   const bone = ensureDummyBone(model, { weighted: captured.indices.some(index => captured.model.Geosets[index].SkinWeights?.length) });
   importGeosets(model, captured.model, captured.indices, null, { rigidNode: bone.ObjectId });
-  for (const geoset of model.Geosets) fillSequenceExtents(model, geoset);
+  // A Bit keeps geoset animation bounds only when its donor does.
+  const keep = keepsGeosetAnimationBounds(source);
+  for (const geoset of model.Geosets) fillSequenceExtents(model, geoset, { keep });
   return model;
 }
 
@@ -86,7 +88,8 @@ export function selectPartAnimations(source, animations = null) {
     if (isGlobalTrack(track)) return;
     track.Keys = track.Keys.filter(key => model.Sequences.some(sequence => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]));
   });
-  for (const geoset of model.Geosets) geoset.Anims = animations.map(({ sequenceIndex }) => structuredClone(geoset.Anims?.[sequenceIndex] || { MinimumExtent: geoset.MinimumExtent, MaximumExtent: geoset.MaximumExtent, BoundsRadius: geoset.BoundsRadius }));
+  const keep = keepsGeosetAnimationBounds(source);
+  for (const geoset of model.Geosets) geoset.Anims = !keep ? [] : animations.map(({ sequenceIndex }) => structuredClone(geoset.Anims?.[sequenceIndex] || { MinimumExtent: geoset.MinimumExtent, MaximumExtent: geoset.MaximumExtent, BoundsRadius: geoset.BoundsRadius }));
   return model;
 }
 
@@ -200,6 +203,7 @@ export function commitPart(target, source, { animations = null, look = null, rep
   // Classic geometry and diffuse materials); the target keeps its format.
   source = adaptPasteFormat(source, target.Version);
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Parts with bind-pose matrices require baking before import.');
+  const keep = keepsGeosetAnimationBounds(target);
   const next = structuredClone(target), staged = look ? partLook(source, look) : selectPartAnimations(source, animations);
   const donors = replacement ? replacementVertices(target, replacement) : null;
   const replacedMaterials = new Set(donors?.map(vertex => vertex.materialId));
@@ -283,7 +287,7 @@ export function commitPart(target, source, { animations = null, look = null, rep
   const imported = new Set([...maps.textureAnims.values()].map(index => next.TextureAnims[index]));
   fixPlainTrackValues(next, plainTrackValues(next).filter(item => imported.has(item.owner)));
   recalculateExtents(next);
-  for (const index of geosetIndices) fillSequenceExtents(next, next.Geosets[index]);
+  for (const index of geosetIndices) fillSequenceExtents(next, next.Geosets[index], { keep });
   if (next.Info) Object.assign(next.Info, { NumGeosets: next.Geosets.length, NumGeosetAnims: next.GeosetAnims.length, NumBones: next.Bones.length });
   Object.assign(target, next);
   const boneIds = replacement ? [...new Set(donors.flatMap(vertex => vertex.group))] : [bone.ObjectId];
