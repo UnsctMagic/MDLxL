@@ -11,13 +11,14 @@ export function rigidLivingForm(model, standIndex, outside) {
   const skin = new Map(), visibility = new Map();
   let visibleCount = 0, alternateCount = 0;
   for (const [gi,geo] of model.Geosets.entries()) {
-    if (hasOnlyAdditiveLayers(geosetMaterialLayers(model,geo))) continue;
+    const overlay = hasOnlyAdditiveLayers(geosetMaterialLayers(model,geo));
     const alpha = geosetAlphaTrack(model,gi), show = geosetVisibleIn(model,alpha,stand);
     const other = geosetVisibleIn(model,alpha,alternate);
     const count = geo.Vertices.length/3;
-    if (show) visibleCount += count;
+    if (show && !overlay) visibleCount += count;
     if (!alpha?.Keys?.length || isGlobalTrack(alpha,model) || show === other) continue;
     visibility.set(gi,show ? sampleTrack(alpha,stand.Interval[0],{interval:stand.Interval,fallback:1}) : 0);
+    if (overlay) continue;
     if (other) { alternateCount += count; continue; }
     for (let i=0; i<count; i++) {
       const ids = vertexBones(geo,i);

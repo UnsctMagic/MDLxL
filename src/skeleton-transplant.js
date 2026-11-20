@@ -52,6 +52,7 @@ import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { bendArmsAboveFloor } from './transplant-floor.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitHeadSkin } from './transplant-head.js';
+import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { detachedGrip, transplantPropVisibility } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
 import {
@@ -1052,7 +1053,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // Chaos Blademaster's turning hips and flew 6 heights into the sky).
     const turnsOrMoves = id => treeB.ancestors(id, true).some(at => ['Translation', 'Rotation'].some(property => ownById.get(at)?.[property]?.Keys?.length));
     for (const [id, points] of skinOf) {
-      if (id === livingForm?.carrier && rigB.body != null && !keepSet.has(id)) {
+      if (livingForm && treeB.isAncestor(id,livingForm.carrier) && rigB.body != null && !keepSet.has(id)) {
         rideOf.set(id,rigB.body);
         ridersOut.push({id,name:ownById.get(id)?.Name,joint:ownById.get(rigB.body)?.Name,vertices:points.length,drift:null});
         continue;
@@ -1072,7 +1073,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       const bodyDrift = drift(id, body, probe, samples);
       let joint = body, least = bodyDrift;
       for (const at of [WORLD, ...parts.filter(at => at !== body)]) { const d = drift(id, at, probe, samples); if (d <= FOLLOW_SHARE * bodyDrift && d < least - 1e-6 * rigB.hipHeight) { least = d; joint = at; } }
-      const grip = detachedGrip(model, rigB, treeB, id, points, samples.filter(s =>
+      const alreadyOnArm = rigB.parts[ownPartOf.get(joint)]?.limbKind === 'arm';
+      const grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, samples.filter(s =>
         s.sequence === ownStand || /^walk/i.test(sequences[s.sequence]?.Name || '')));
       if (grip != null && !keepSet.has(id)) {
         joint = grip;
@@ -1240,7 +1242,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       const links = end < 0 ? chain : chain.slice(0, end);
       const ownLinks = [...weaponExtras].flatMap(id => extras.get(id)?.bones || [id])
         .filter(id => /weapon|flail|chain/i.test(ownById.get(id)?.Name || '') && moves(id));
-      if (links.length >= 3 && ownLinks.length <= 1) bone = links.at(-1);
+      if (links.length >= 3 && ownLinks.length <= 1) {
+        const proximal = links.at(-1);
+        // An independent flail chain starts at the far end of the handle.
+        // Its first pivot already swings away from the palm. The held handle
+        // and a rigid recipient weapon follow the actual striking hand.
+        bone = handId != null && !treeA.isAncestor(proximal,handId) ? handId : proximal;
+      }
     }
     bone = check(bone);
     if (bone == null) bone = check(Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null);
@@ -1830,11 +1838,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // non-archery donor the entire assembly below the bow's Weapon Ref carrier
   // takes the same swing or throw. Its parent is the archer's hand mesh.
   const hasArrow = (bones, weights) => bones.some(n => /arrow/i.test(n.Name) && weights.get(n.ObjectId) > 0);
+  const bowBones = new Set();
   if (weaponRides && hasArrow(model.Bones,ownVertexCount) && !hasArrow(D.Bones,donorSkin)) {
     for (const point of ownWeaponPoints) {
       const grip = point.Parent, top = extraOf(grip);
       if (top == null || top === grip || !weaponExtras.has(top) || keepSet.has(top) || partJoint(grip)) continue;
-      for (const id of extras.get(top).bones) if (treeB.isAncestor(id,grip)) weaponBones.add(id);
+      for (const id of extras.get(top).bones) if (treeB.isAncestor(id,grip)) { weaponBones.add(id); bowBones.add(id); }
     }
   }
   const weaponVertices = []; // [geoset, vertex, the hand the weapon was baked onto] to re-place on the weapon bone
@@ -1857,7 +1866,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // wrist. Skin mounted directly on that forearm (the Footman's shield) must
   // keep its forearm frame even when the donor also has an articulated hand.
   const forearmSkin = new Map();
-  for (const entry of limbEntries) {
+  const independentWeapon = weaponRides && !treeA.ancestors(donorWeapon,true)
+    .some(id => rigA.parts[partOfDonor.get(id)]?.limbKind === 'arm');
+  // This support wrist is posed independently of the donor's weapon. A shield
+  // strapped to its forearm should not follow that wrist to the gun. For a
+  // hand-held donor weapon retain the ordinary forearm-plane skin fitting.
+  for (const entry of limbEntries.filter(e => independentWeapon && e.key !== ownPartOf.get(weaponVia))) {
     const mine = entry.own, theirs = entry.theirs;
     const forearm = /forearm|lower.?arm|low.?arm|arm.?2/i;
     if (mine.limbKind !== 'arm' || !forearm.test(ownById.get(mine.marker)?.Name || '') ||
@@ -2175,6 +2189,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap },
       donor: { model: D, arms: parts.filter(part => /^arm/.test(part.key)).map(own), legs: parts.filter(part => /^leg/.test(part.key)).map(own), weapon: donorWeapon ?? null, size },
     });
+  }
+  if (bowBones.size && independentWeapon && !weaponHeld && !weaponSwap.length && weaponVia != null) {
+    const arms = Object.values(rigA.parts).filter(p=>p.limbKind==='arm' && donorMap[p.marker]!=null)
+      .map(p=>({id:p.marker,result:donorMap[p.marker]}));
+    fitIndependentBowGrip({model:M,own:model,donor:D,ownStand,stand:resultStand,ownBones:bowBones,
+      ownHand:weaponVia,preferred:targetOf(weaponVia).donor,arms,donorWeapon,resultWeapon:donorMap[donorWeapon],size,hipHeight:rigA.hipHeight});
   }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);

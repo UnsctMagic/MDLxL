@@ -1,12 +1,12 @@
 // Physical regression fixtures retain the exact original vertex memberships.
-// Fail-first evidence: out/astra-diagnosis/25-21-before.log and 14-solver-keys.json.
+// Covers missing living-form motion, wrist-mounted shields and idle shoulder flips.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { Quaternion, Vector3 } from 'three';
 import { openDocument } from '../src/editor-document.js';
-import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
+import { allNodes, nodePivot, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
 import { vertexBones } from '../src/part-bones.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
@@ -38,6 +38,30 @@ function under(model, id, root) {
 const span = points => Math.max(...points.flatMap(p => points.map(q => p.distanceTo(q))));
 const livingStatue = [16, 17, 19, 27];
 
+const polearm = ['transfer-astra-r1/stormvermin7.mdx','corpus-sd/creeps__razormane.mdx'];
+test('the rigid polearm grip stays in the striking hand through the jointed flail attack', {skip:absent(polearm)}, () => {
+  const {own,donor,model,report} = pair(polearm);
+  const ownRig = transferRig(own), arm = Object.values(ownRig.parts).find(p=>p.weapon);
+  const donorArm = transferRig(donor).parts[arm.key];
+  const palm = report.donorNodes[donorArm.marker], tree = new Map(allNodes(own).map(n=>[n.ObjectId,n]));
+  const seek = new Vector3().fromArray(nodePivot(own,tree.get(arm.marker),arm.marker));
+  let grip = null;
+  for (const [gi,g] of own.Geosets.entries()) for (let vi=0; vi<g.Vertices.length/3; vi++) {
+    const ids = vertexBones(g,vi);
+    if (!ids.length || !ids.every(id=>/^bone_weapon$/i.test(tree.get(id)?.Name))) continue;
+    const d = new Vector3().fromArray(g.Vertices,vi*3).distanceTo(seek);
+    if (!grip || d < grip.d) grip = {gi,vi,d};
+  }
+  assert.ok(grip && palm != null);
+  const si = model.Sequences.findIndex(s=>/^attack/i.test(s.Name)), [a,b]=model.Sequences[si].Interval;
+  const path = Array.from({length:33},(_,i)=>{
+    const matrices=sampleNodeMatrices(model,a+(b-a)*i/32,si);
+    return new Vector3().fromArray(skinGeoset(model.Geosets[grip.gi],matrices),grip.vi*3)
+      .applyMatrix4(matrices.get(palm).clone().invert());
+  });
+  assert.ok(span(path) < 0.01, 'the grip drifts '+span(path).toFixed(2)+' model units from its place in the palm');
+});
+
 test('the visible living statue skin follows the donor body', { skip: absent(statueNames) }, () => {
   const { own, donor, model, report } = pair(statueNames);
   const root = report.donorNodes[transferRig(donor).body];
@@ -65,7 +89,7 @@ test('ordinary donor Attack keeps the statue living Stand form', { skip: absent(
   for (let k = 0; k <= 16; k++) {
     const frame = a + (b - a) * k / 16;
     const shown = gi => sampleGeosetAnimation(model, gi, frame, si).alpha > 0.02;
-    assert.ok(livingStatue.every(shown) && !shown(0), `Attack phase ${k / 16} switches the living statue into its destroyer form`);
+    assert.ok([...livingStatue,18,28].every(shown) && !shown(0), `Attack phase ${k / 16} switches the living statue into its destroyer form`);
   }
 });
 
