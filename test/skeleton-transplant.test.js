@@ -444,6 +444,13 @@ test('WS3 Kurgan on Arthas: in Stand Fifth Arthas holds a hammer in the sword ha
   structural(result);
 });
 
+test('WS4 a model that holds no weapon (the Murloc: its Weapon Ref hangs from its hand mesh, which rides the weapon bone) does not take the Headhunter\'s spear drop: the spear bone keeps the Headhunter\'s keys and the hand stays a hand', { skip: missing('transfer-murloc', 'transfer-headhunter') }, () => {
+  const { donor, model, report } = transplant('transfer-murloc', 'transfer-headhunter', { extents: false });
+  assert.deepEqual(report.weaponSwap, []);
+  const spear = allNodes(donor).find(node => node.Name === 'Spear01'), mine = byId(model).get(report.donorNodes[spear.ObjectId]);
+  for (const property of ['Translation', 'Rotation']) assert.deepEqual(mine[property].Keys.map(k => k.Frame), spear[property].Keys.map(k => k.Frame), `${property}: the Headhunter's own keys`);
+});
+
 // ------------------------------------------------------------------ (c) keep, sounds and effects, mirror, poor fit
 test('T7 keep: with the hammer\'s bone in keep, that bone survives, still and in the hand', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const plain = transplant('transfer-kurgan', 'transfer-tauren'), hammer = [...plain.report.extras].sort((a, b) => b.vertices - a.vertices)[0];

@@ -839,7 +839,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
   const deathSwap = donorDeathSwap(D, rigA);
   // Where the donor throws or drops its weapon as a loose copy, its weapon bone goes with the copy (the model's weapon rides it).
-  const weaponSwap = donorWeaponSwap(D, rigA);
+  // Only for a model that holds a weapon (its rig reads one): the Murloc's Weapon Ref hangs from its hand mesh, which rides the
+  // weapon bone as its weapon, and went into the ground with the Clanrat's planted sword.
+  const weaponSwap = Object.values(rigB.parts || {}).some(part => part.weapon) ? donorWeaponSwap(D, rigA) : [];
   const swapSpans = [...deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval), ...(D.Sequences || []).filter(sequence => /birth|death|decay|dissipate/i.test(sequence.Name || '')).map(sequence => sequence.Interval)].filter(Boolean);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
