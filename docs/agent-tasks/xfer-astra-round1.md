@@ -99,7 +99,7 @@ The starting branch tip was `45b0f51b`. Its only change from `04b56bce` is this 
 |03 Stormvermin / Razormane|5|The feet stride and the body lunges. At 25% of Attack the whole polearm is clear of both hands. All 44 weapon vertices follow the last of three flail bones.|
 |04 Crypt Fiend / Night Elf Battleship|8|Both hold still in Stand and then roll and sink through Death. The donor supplies no walking legs. This old graded ship remains in calibration only.|
 |05 Priest / Lord of Change|8|The priest changes knees and leans into the donor's staff strike. No comparably large body fault was visible at the sampled phases.|
-|06 Thunder Lizard / Huntress|2|At mid-Walk the cat raises its muzzle while the lizard points its head into the ground. The selected donor head is the rider's 69. The cat's head is 48.|
+|06 Thunder Lizard / Huntress|2|At mid-Walk the cat raises its muzzle while the lizard points its head into the ground. The transplant selects the mount correctly (head 48 → 25). The result copies its head rotation within 0.000002°, but its skinned muzzle still faces away by a median 34.8° across Stand, Walk and Attack.|
 |07 Demonette / Dark Troll|8|The push-off changes feet, and the raised attack arm changes with the troll. The sampled motion reads clearly on the different limbs.|
 |08 Obsidian Statue / Cold One Rider|5|The pedestal remains rigid while the mount steps. Attack shows the other statue form lunging with the lance. The fault changes with the visible form.|
 |09 Tuskarr Ranged / Greenskin Orc|5|The stride and torso swing transfer. In Attack the tuskarr spear cuts out while the donor still holds its weapon. The 32 spear vertices keep the tuskarr's attack alpha.|
@@ -114,7 +114,7 @@ The starting branch tip was `45b0f51b`. Its only change from `04b56bce` is this 
 |18 Skink / Fire Pandaren|2|The spear stays across the shoulder as the hands swing. All 72 vertices of the separate spear mesh bind to the root.|
 |19 Orc Warlock / Wyvern Rider|7|The warlock tips forward with the rider in flight and its arms move through the attack. The old ground flag also counts the low staff.|
 |20 Reikland Handgunner / Naga|4|The naga drives forward on a flexing tail. The man's legs stay set underneath it and the rifle reaches down in Attack. The donor has no foot cycle to pair.|
-|21 Footman / Repeater Handgunner|3|The feet run, but the shield clings to the torso while the arms take the firing pose. All 26 shield vertices bind to the root.|
+|21 Footman / Repeater Handgunner|3|The feet run. During Attack 2 the visible shield covers the head and upper chest. Its 61 main-body vertices move onto Hand_R. A separate root-bound handle is hidden during this attack.|
 |22 Lord of Change / Warrior of Khorne|9|The run and change from guard into strike transfer. The grounded donor supplies no wingbeat.|
 |23 Golem Statue / Demonette|9|Alternating steps and the two-arm strike remain legible on the heavier geometry.|
 |24 Demonette / Elf Villager Woman|9|The donor keeps its hands together and its lower body largely concealed. The result follows its restrained pose.|
@@ -126,13 +126,25 @@ The starting branch tip was `45b0f51b`. Its only change from `04b56bce` is this 
 |30 Cold One Rider / Sea Turtle|0|The mount and rider move as one during the paddling cycle. All four donor legs have zero result leg skin.|
 |31 Centigor / Tuskar Lord|0|The tuskar alternates its legs. The centigor holds all four in one standing pose, even while its upper body attacks.|
 |32 Aspiring Champion / Zombie Dragon|8|The champion pitches into the dragon's flight and attack. Its leg skin does follow the two recognized donor legs. The donor's wings have no own equivalent.|
-|33 High Elf Archer / Headhunter|0|The archer crouches with the troll. Its bow stretches across the figure during the spear throw and the eight arrow vertices ride the pelvis mesh. Both rigs are bipeds.|
+|33 High Elf Archer / Headhunter|0|The archer crouches with the troll. Its bow stretches across the figure during the spear throw and the eight arrow vertices ride the pelvis mesh. Both rigs are bipeds. The textured Attack Range picture confirms the forward fold and bow over the back, although the feet reach below that picture.|
 |34 Ent / Bandit Lord|7|The ent's arms and torso follow the rider while its feet remain planted through the horse's stride. The same 22 original foot vertices move less than 0.000002 model units in torso space. The owner still accepted this pair.|
 |35 Lord of Change / Demonette|8|The long-legged run and reaching attack follow the donor. Wings stay with the body of a donor that has no wingbeat.|
 |36 Kobold Geomancer / Paladin|9|The kobold crouches, steps and swings its staff with the paladin's hammer.|
 |37 Demonette / Gor|9|The stride and both arm positions in the attack follow the Gor. The older ruler's arm-angle flag did not correspond to a large visible failure here.|
 |38 Human Mage / Furbolg|9|The mage takes the hunched walk and the shift into the attack on its own proportions.|
-|39 Archer / Tauren Chieftain|0|The drawn bow cuts across the character in Attack and a separate prop moves away from the hands. The arrow mesh rides the pelvis. A head pivot alone cannot verify the facing of the face.|
+|39 Archer / Tauren Chieftain|0|The drawn bow cuts across the character in Attack and a separate prop moves away from the hands. The arrow mesh rides the pelvis. The head basis follows the donor within 0.000002°, but the visible head's front axis differs by a median 46.0°. The textured attack picture clips the lowest part of the figure.|
 |40 Red Orc Warlock / Giant Sea Turtle|0|At each Walk Swim phase the turtle moves its feet, but the orc keeps the same crouch. Its skin never follows any of the four animated donor leg chains.|
 
 The owner approved three labels for this round: 0–4 bad (18), 5–6 mixed (6), 7–10 good (16). Original v10 called 12 bad pairs good, four good pairs bad, five mixed pairs bad and one mixed pair good. Its agreement is 18/34 decisive and 18/40 exact. The owner's scores are for the original saved models only.
+
+### Ruler calibration before any engine change
+
+The offline ruler in scripts/xfer-review/ruler.mjs measures skin in body coordinates, grip carriers, projectile and weapon visibility, head and back directions, wingbeats, and adjacent idle-arm samples. Its inputs are the original model, displayed donor, result geometry and transplant report. It receives no grade, case ID, file name or lookup table. R3 was frozen before changing the engine. This is accuracy on the calibration sample; the new blind sheet is the independent test.
+
+| Owner grade | Ruler good | Ruler mixed | Ruler bad |
+|---|---:|---:|---:|
+| Good, 7–10 | 15 | 0 | 1 |
+| Mixed, 5–6 | 1 | 4 | 1 |
+| Bad, 0–4 | 1 | 0 | 17 |
+
+Exact agreement is **36/40 (90%)**, including **32/34** decisive grades. Disagreements are 08 (owner mixed, ruler bad for frozen gait), 16 (mixed, ruler good), 21 (bad, ruler good despite the visible shield covering the head) and 34 (good, ruler bad for genuinely frozen feet). Diagnostic accuracy for an individual defect and agreement on the overall grade are separate measurements.
