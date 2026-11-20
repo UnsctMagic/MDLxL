@@ -26,7 +26,9 @@
 //    weapon (v2: the extras on the weapon hand and the one the model's weapon attachment hangs from) instead rides the donor's weapon bone (the
 //    joint its weapon attachment hangs from, else its weapon hand), from where the model holds it
 //    in the result's reference moment, unless that bone is on the donor's other arm or on no hand (a head, a leg,
-//    the body: then the weapon stays in the hand).
+//    the body: then the weapon stays in the hand). Where the donor throws or drops its weapon as a loose copy (the
+//    Grunt's Stand Victory), its weapon bone first takes the copy's motion there (`donorWeaponSwap`), so the
+//    model's weapon leaves the hand with it.
 // 5. The donor's keys are copied with its animation list, rotation keys as they are, position keys
 //    scaled (owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT"). The posture is the donor's:
 //    the bind pose is re-posed into the donor's rest posture on this model's proportions (each limb
@@ -38,7 +40,7 @@
 //    stay; what they key inside its own animations is fitted into the donor animation of the
 //    same kind (else its Stand).
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, visitTracks } from './animation.js';
+import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { SKIN_BAND, donorSkinCarriers, legTravelRatio, splitJoints, transplantRuns } from './transplant-skin.js';
 import { standSequenceIndex, fillSequenceExtents } from './sequence-editor.js';
@@ -565,6 +567,229 @@ function donorDeathSwap(D, rigA) {
   return done;
 }
 
+/** Donor weapon swap (owner 20 Nov 2026, the Kurgan on the Grunt: "the grunt throws his weapon, the kurgans weapon is
+ * welded to his hand"). A donor that throws, drops or puts down its weapon by hiding the weapon it holds and showing a loose
+ * copy instead (the Grunt's Stand Victory, Death and Decay Flesh: `Grunt2_08Axe` hidden, `Grunt2_15AxeFree` shown; the
+ * Headhunter's, Centaur's and Dryad's Death): where the copy shows and the held weapon is hidden, the held weapon's bone
+ * moves as the copy does, so whatever rides it (the model's weapon) is thrown, caught and dropped with the donor's. Each
+ * moment it is placed as the held weapon would sit to look like the copy: the copy's frame times the two frames' relation
+ * at a swap moment (where one takes over from the other; of all swaps, the one where the two pieces match best in place
+ * and size, within WEAPON_MATCH weapon lengths). Where the held weapon shows again, its own keys go on as before (a key
+ * just before and at each switch).
+ * - The held weapon: the geosets (each with WEAPON_SHARE of its vertices) skinned at or below the joint the transplant
+ *   reads the weapon from (its weapon attachment's joint, else its weapon hand); its bone is the one most of them hang on
+ *   alone. That bone is no part joint (it moves; the weapon attachment is hung from it when it hung elsewhere, so the
+ *   transplant reads the weapon from it), or it is the hand itself (the weapon in the hand's own skin): then the copy's
+ *   bone (`moves`) carries the weapon everywhere instead, hung from the hand where the weapon is held and moving as the
+ *   copy where the copy shows, and the weapon attachment hangs from it, where it sat.
+ * - A copy: a geoset hidden in the Stand, none of it skinned at or below that joint, WEAPON_SHARE of it on one bone of no
+ *   part with nothing of the living body at or below it, the size of the held weapon within 0.5x to 2x, shown in some
+ *   frame where every held weapon geoset is hidden. One that does not match the held weapon but hangs from the same hand
+ *   is another weapon held there (Arthas's hammer): in each animation the weapon takes its grip where it first shows.
+ * `D` (the engine's own copy of the donor) is changed in place. -> [{ sequence, copy (bone name), moves, spans: [[from, to]], miss }] */
+const WEAPON_SHARE = 0.9, WEAPON_MATCH = 0.25;
+export function donorWeaponSwap(D, rigA) {
+  const done = [], stand = standSequenceIndex(D);
+  if (!rigA.ok || stand < 0) return done;
+  const nodes = allNodes(D), byId = new Map(nodes.map(n => [n.ObjectId, n])), tree = nodeIndex(D, nodes);
+  const isJoint = id => JOINT_KEYS.some(k => (D[k] || []).includes(byId.get(id)));
+  const partJoints = new Set(Object.values(rigA.parts || {}).flatMap(part => part.joints || []));
+  // The joint the transplant reads the weapon from (its weapon attachment's joint, else its weapon hand); `point` is the
+  // weapon attachment it reads (with no joint above it, the first one).
+  const hung = (D.Attachments || []).find(node => /weapon/i.test(node?.Name || '') && node.Parent != null && node.Parent !== -1);
+  const point = hung ?? (D.Attachments || []).find(node => /weapon/i.test(node?.Name || ''));
+  const read = hung ? tree.ancestors(hung.ObjectId).find(isJoint) ?? null : Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null;
+  if (!point || read == null) return done;
+  const isHand = id => Object.values(rigA.parts || {}).some(part => part.limbKind === 'arm' && part.marker === id);
+  if (partJoints.has(read) && !isHand(read)) return done;
+  const subtree = top => new Set(nodes.map(n => n.ObjectId).filter(id => tree.ancestors(id, true).includes(top)));
+  const below = subtree(read), hand = tree.ancestors(read, true).find(isHand) ?? null;
+  const bonesOf = (geoset, v) => { const skin = geoset.SkinWeights; return skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []); };
+  const alphaOf = g => (D.GeosetAnims || []).find(item => item.GeosetId === g)?.Alpha;
+  const keyed = track => track?.Keys?.length && !isGlobalTrack(track, D);
+  const show = (track, sequence, frame) => !keyed(track) ? 1 : sampleTrack(track, frame, { interval: sequence.Interval, globalSequences: D.GlobalSequences, globalTime: 0, fallback: 1 });
+  const box = list => { const lo = new Vector3(Infinity, Infinity, Infinity), hi = new Vector3(-Infinity, -Infinity, -Infinity); for (const p of list) { lo.min(p); hi.max(p); } return { lo, hi, side: Math.max(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z) }; };
+  const standSequence = D.Sequences[stand];
+  const weaponGeosets = [], others = [], living = new Set();
+  (D.Geosets || []).forEach((geoset, g) => {
+    const count = geoset.Vertices?.length / 3 || 0;
+    if (!count) return;
+    let inside = 0, touches = false;
+    const shown = !keyed(alphaOf(g)) || sampleShows(D, alphaOf(g), standSequence);
+    for (let v = 0; v < count; v++) { const bones = bonesOf(geoset, v); if (bones.length && bones.every(id => below.has(id))) inside++; if (bones.some(id => below.has(id))) touches = true; if (shown) for (const id of bones) living.add(id); }
+    if (inside >= WEAPON_SHARE * count) weaponGeosets.push(g); else if (!touches) others.push(g);
+  });
+  if (!weaponGeosets.length || !weaponGeosets.every(g => keyed(alphaOf(g)))) return done;
+  // The held weapon's own bone: the one most of its vertices hang on alone (the Grunt's Grunt2_08Axe, the Centaur's Axe
+  // under its hand mesh); on the hand itself, the weapon is skinned on the hand.
+  const alone = new Map();
+  for (const g of weaponGeosets) { const geoset = D.Geosets[g]; for (let v = 0; v < geoset.Vertices.length / 3; v++) { const bones = bonesOf(geoset, v); if (bones.length === 1 && below.has(bones[0])) alone.set(bones[0], (alone.get(bones[0]) || 0) + 1); } }
+  const weapon = [...alone].sort((x, y) => y[1] - x[1] || x[0] - y[0])[0]?.[0] ?? null;
+  const onHand = weapon != null && isHand(weapon);
+  if (weapon == null || partJoints.has(weapon) && !onHand) return done;
+  const weaponNode = byId.get(weapon), global = node => ['Translation', 'Rotation', 'Scaling'].some(p => node?.[p]?.Keys?.length && isGlobalTrack(node[p], D));
+  if (global(weaponNode) || tree.parentOf(weapon) == null) return done;
+  // Shapes are compared on the vertices skinned at or below each one's bone (the held weapon's, the copy's): a spear with
+  // its feathers against the dropped spear with its own.
+  const skinnedUnder = (top, geosets) => { const under = subtree(top); return geosets.map(g => [g, Array.from({ length: D.Geosets[g].Vertices.length / 3 }, (_, v) => v).filter(v => { const bones = bonesOf(D.Geosets[g], v); return bones.length && bones.every(id => under.has(id)); })]).filter(([, list]) => list.length); };
+  const heldVertices = skinnedUnder(weapon, weaponGeosets);
+  const held = box(heldVertices.flatMap(([g, list]) => list.map(v => new Vector3().fromArray(D.Geosets[g].Vertices, v * 3))));
+  const copies = [];
+  for (const g of others) {
+    const alpha = alphaOf(g);
+    if (!keyed(alpha) || sampleShows(D, alpha, standSequence)) continue;
+    const geoset = D.Geosets[g], count = geoset.Vertices.length / 3, on = new Map();
+    for (let v = 0; v < count; v++) { const bones = bonesOf(geoset, v); if (bones.length === 1) on.set(bones[0], (on.get(bones[0]) || 0) + 1); }
+    const [carrier, share] = [...on].sort((x, y) => y[1] - x[1])[0] ?? [null, 0];
+    if (carrier == null || share < WEAPON_SHARE * count || partJoints.has(carrier) || global(byId.get(carrier))) continue;
+    // Nothing of the living body (the Stand's geosets, a part joint) hangs at or below the copy's bone.
+    const under = subtree(carrier);
+    if ([...under].some(id => living.has(id) || partJoints.has(id))) continue;
+    const shape = box(skinnedUnder(carrier, others).flatMap(([c, list]) => list.map(v => new Vector3().fromArray(D.Geosets[c].Vertices, v * 3))));
+    if (!(shape.side > 0.5 * held.side && shape.side < 2 * held.side)) continue;
+    if (!copies.some(copy => copy.carrier === carrier)) copies.push({ g, alpha, carrier, shape });
+  }
+  if (!copies.length) return done;
+  // Per animation, where each copy shows and every held weapon geoset is hidden: [[from, to]], `to` = the first frame the
+  // held weapon shows again (or the animation's end, held then).
+  const hiddenHeld = (sequence, frame) => weaponGeosets.every(g => show(alphaOf(g), sequence, frame) <= 0.001);
+  const spansOf = (copy, sequence) => {
+    const [a, b] = sequence.Interval, frames = new Set([a, b]);
+    for (let f = a; f < b; f += 33) frames.add(f);
+    for (const track of [copy.alpha, ...weaponGeosets.map(alphaOf)]) for (const k of track.Keys) if (k.Frame >= a && k.Frame <= b) { frames.add(k.Frame); if (k.Frame > a) frames.add(k.Frame - 1); }
+    const sorted = [...frames].sort((x, y) => x - y), spans = [];
+    let from = null;
+    for (const f of sorted) {
+      const on = hiddenHeld(sequence, f) && show(copy.alpha, sequence, f) > 0.001;
+      if (on && from == null) from = f;
+      if (!on && from != null) { spans.push([from, f]); from = null; }
+    }
+    if (from != null) spans.push([from, b]);
+    return spans;
+  };
+  const worlds = new Map(), worldAt = (si, frame) => { const key = `${si}:${frame}`; if (!worlds.has(key)) worlds.set(key, sampleNodeMatrices(D, frame, si)); return worlds.get(key); };
+  for (const copy of copies) {
+    const found = D.Sequences.map((sequence, si) => ({ si, sequence, spans: sequence.Interval ? spansOf(copy, sequence) : [] })).filter(item => item.spans.length);
+    if (!found.length) continue;
+    // The two frames' relation at a swap moment (copy -> held weapon bone) and how well the two pieces match there: the held
+    // weapon as posed there carried into the copy's bind frame against the copy's own box (both ends, in weapon lengths).
+    // Moments where either is scaled (shrunk away, grown) are no swap.
+    const relationAt = (si, at) => { const W = worldAt(si, at), copyFrame = W.get(copy.carrier), held0 = W.get(weapon), inverse = copyFrame && safeInverse(copyFrame); return inverse && held0 ? inverse.clone().multiply(held0) : null; };
+    const rigid = m => m && new Vector3().setFromMatrixScale(m).toArray().every(x => x > 0.5 && x < 2);
+    const candidates = [];
+    for (const { si, spans } of found) spans.forEach(([from, to], k) => {
+      for (const at of [from, to]) {
+        const W = worldAt(si, at), r = relationAt(si, at);
+        if (!r || !rigid(W.get(copy.carrier)) || !rigid(W.get(weapon))) continue;
+        const inverse = safeInverse(W.get(copy.carrier));
+        const posed = heldVertices.flatMap(([g, list]) => { const p = skinGeoset(D.Geosets[g], W); return list.map(v => new Vector3(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]).applyMatrix4(inverse)); });
+        const carried = box(posed), m = Math.max(carried.lo.distanceTo(copy.shape.lo), carried.hi.distanceTo(copy.shape.hi)) / Math.max(held.side, 1e-6);
+        candidates.push({ si, k, r, m });
+      }
+    });
+    const best = list => list.reduce((x, y) => !x || y.m < x.m ? y : x, null);
+    const top = best(candidates), relation = top?.r ?? null, miss = top?.m ?? Infinity;
+    // Another weapon held in the same hand (Arthas holds a hammer in his Stand Fourth and Fifth, the sword hidden, and lets it
+    // fall): not the same shape, so in each animation the weapon takes the other's grip where it first shows and goes with it.
+    const inHand = !onHand && hand != null && tree.ancestors(copy.carrier).includes(hand);
+    if (!relation || miss > WEAPON_MATCH && !inHand) continue;
+    // Each stretch the copy shows takes the relation of its own swap moments when they match (so a change in one animation
+    // leaves the others as they are), else the best of all; a weapon on the hand keeps one relation (it is held by it).
+    const spanRelation = (si, k, from) => {
+      if (onHand) return relation;
+      const own = best(candidates.filter(c => c.si === si && c.k === k && c.m <= WEAPON_MATCH));
+      return own?.r ?? (miss <= WEAPON_MATCH ? relation : relationAt(si, from) ?? relation);
+    };
+    // The node that moves: the weapon bone; on a hand, the copy's bone, hung from the hand.
+    const mover = onHand ? copy.carrier : weapon, moverNode = byId.get(mover);
+    const parent = onHand ? weapon : tree.parentOf(weapon), pivot = v3(nodePivot(D, moverNode, mover));
+    const toLocal = (P, target) => {
+      const m = (P ? safeInverse(P) ?? new Matrix4() : new Matrix4()).multiply(target);
+      const pos = new Vector3(), r = new Quaternion(), sc = new Vector3();
+      m.decompose(pos, r, sc);
+      return { t: pos.sub(pivot).add(pivot.clone().multiply(sc).applyQuaternion(r)), r, s: sc };
+    };
+    const local = (si, frame, r = relation) => { const W = worldAt(si, frame); return toLocal(W.get(parent), onHand ? W.get(copy.carrier) : W.get(copy.carrier).clone().multiply(r)); };
+    // On a hand, where the weapon is held the copy's bone sits where the held weapon is (the relation turned back).
+    const heldLocal = onHand ? toLocal(null, safeInverse(relation) ?? new Matrix4()) : null;
+    // The held weapon's own placement (its keys as they are), for the keys at the switches.
+    const own = (si, frame) => {
+      if (heldLocal) return { t: heldLocal.t.clone(), r: heldLocal.r.clone(), s: heldLocal.s.clone() };
+      const sequence = D.Sequences[si], opts = (fallback) => ({ interval: sequence.Interval, globalSequences: D.GlobalSequences, fallback });
+      const t = weaponNode.Translation?.Keys?.length ? sampleTrack(weaponNode.Translation, frame, opts([0, 0, 0])) : [0, 0, 0];
+      const r = weaponNode.Rotation?.Keys?.length ? sampleTrack(weaponNode.Rotation, frame, opts([0, 0, 0, 1])) : [0, 0, 0, 1];
+      const s = weaponNode.Scaling?.Keys?.length ? sampleTrack(weaponNode.Scaling, frame, opts([1, 1, 1])) : [1, 1, 1];
+      return { t: new Vector3().fromArray(Array.from(t)), r: new Quaternion().fromArray(Array.from(r)).normalize(), s: new Vector3().fromArray(Array.from(s)) };
+    };
+    const tolT = 0.01 * rigA.hipHeight, tolR = Math.PI / 180;
+    const writes = [];
+    // On a hand the copy's bone is held in every animation: its keys are all new (held at each animation's ends).
+    if (onHand) D.Sequences.forEach((sequence, si) => { if (sequence.Interval) for (const frame of new Set(sequence.Interval)) writes.push({ a: frame, b: frame, list: [{ frame, ...own(si, frame) }] }); });
+    for (const { si, sequence, spans } of found) {
+      const [a, b] = sequence.Interval;
+      for (const [k, [from, to]] of spans.entries()) {
+        const end = hiddenHeld(sequence, to) && to === b ? b : to - 1; // the last frame the copy carries the weapon
+        // Breakpoints: the ends and every key of the copy's carrier and the joints above it and the weapon bone; halves
+        // wherever a straight line between two breakpoints misses by more than 0.01 hip heights or a degree (down to 8 ms: a
+        // thrown weapon spins fast).
+        const ends = new Set([from, end]);
+        for (const id of new Set([...tree.ancestors(copy.carrier, true), ...tree.ancestors(parent, true)])) for (const p of ['Translation', 'Rotation', 'Scaling']) for (const k of byId.get(id)?.[p]?.Keys || []) if (k.Frame > from && k.Frame < end) ends.add(k.Frame);
+        const r = spanRelation(si, k, from);
+        const cache = new Map(), at = f => { if (!cache.has(f)) cache.set(f, local(si, f, r)); return cache.get(f); };
+        const sorted = [...ends].sort((x, y) => x - y), frames = [sorted[0]];
+        const misses = (f0, f1, f) => { const u = (f - f0) / (f1 - f0), p = at(f0), q = at(f1), x = at(f); return x.t.distanceTo(p.t.clone().lerp(q.t, u)) > tolT || x.r.angleTo(p.r.clone().slerp(q.r, u)) > tolR || x.s.distanceTo(p.s.clone().lerp(q.s, u)) > 0.01; };
+        const refine = (f0, f1) => { if (f1 - f0 <= 8 || ![0.25, 0.5, 0.75].some(share => misses(f0, f1, Math.round(f0 + (f1 - f0) * share)))) return; const mid = Math.round((f0 + f1) / 2); refine(f0, mid); frames.push(mid); refine(mid, f1); };
+        for (let i = 1; i < sorted.length; i++) { refine(sorted[i - 1], sorted[i]); frames.push(sorted[i]); }
+        const list = frames.map(frame => ({ frame, ...at(frame) }));
+        // Its own keys go on at the switches: a key just before the copy takes over and where the held weapon shows again.
+        const before = from > a ? { frame: from - 1, ...own(si, from - 1) } : null, after = end < b ? { frame: end + 1, ...own(si, end + 1) } : null;
+        writes.push({ a: before ? before.frame : from, b: after ? after.frame : end, list: [...(before ? [before] : []), ...list, ...(after ? [after] : [])] });
+      }
+    }
+    if (!writes.length) continue;
+    // Write the keys (sampled above from the donor as it was).
+    const scaled = !onHand && weaponNode.Scaling?.Keys?.length || writes.some(w => w.list.some(k => Math.abs(k.s.x - 1) + Math.abs(k.s.y - 1) + Math.abs(k.s.z - 1) > 1e-3));
+    if (onHand) for (const property of ['Translation', 'Rotation', 'Scaling']) delete moverNode[property];
+    for (const [property, get, size] of [['Translation', k => k.t.toArray(), 3], ['Rotation', k => k.r.toArray(), 4], ...(scaled ? [['Scaling', k => k.s.toArray(), 3]] : [])]) {
+      if (!moverNode[property]?.Keys) moverNode[property] = { LineType: 1, GlobalSeqId: null, Keys: [] };
+      const track = moverNode[property], type = track.LineType, template = track.Keys[0]?.Vector ?? new Float32Array(size);
+      let keys = track.Keys;
+      // A track with no key held its rest value everywhere: give the rest of every animation that value too.
+      if (!keys.length && !onHand) keys = D.Sequences.filter(s => s.Interval).flatMap(s => [s.Interval[0], s.Interval[1]]).map(frame => ({ Frame: frame, Vector: like(template, property === 'Rotation' ? [0, 0, 0, 1] : property === 'Scaling' ? [1, 1, 1] : [0, 0, 0]) }));
+      for (const w of writes) {
+        const list = w.list.map(k => ({ ...k, r: k.r.clone() }));
+        for (let i = 1; i < list.length; i++) if (list[i].r.dot(list[i - 1].r) < 0) list[i].r.set(-list[i].r.x, -list[i].r.y, -list[i].r.z, -list[i].r.w);
+        const values = list.map(get);
+        const fresh = list.map((k, i) => {
+          const v = values[i], key = { Frame: k.frame, Vector: like(template, v) };
+          if (type >= 2) {
+            if (property === 'Rotation') { key.InTan = like(template, v); key.OutTan = like(template, v); }
+            else {
+              const prev = values[i - 1] ?? v, next = values[i + 1] ?? v;
+              key.InTan = like(template, type === 3 ? v.map((x, j) => x - (x - prev[j]) / 3) : v.map((x, j) => x - prev[j]));
+              key.OutTan = like(template, type === 3 ? v.map((x, j) => x + (next[j] - x) / 3) : v.map((x, j) => next[j] - x));
+            }
+          }
+          return key;
+        });
+        keys = [...keys.filter(k => k.Frame < w.a || k.Frame > w.b), ...fresh];
+      }
+      track.Keys = keys.sort((x, y) => x.Frame - y.Frame);
+    }
+    if (onHand) {
+      // The copy's bone hangs from the hand and carries the weapon attachment, which stays where it was.
+      moverNode.Parent = weapon;
+      const at = v3(nodePivot(D, point, point.ObjectId)).applyMatrix4(relation);
+      point.Parent = mover;
+      point.PivotPoint = like(point.PivotPoint ?? [0, 0, 0], at.toArray());
+    } else if (read !== weapon) point.Parent = weapon; // the transplant reads the weapon from the held weapon's own bone
+    for (const { sequence, spans } of found) done.push({ sequence: sequence.Name, copy: byId.get(copy.carrier)?.Name, moves: moverNode.Name, spans: spans.map(([from, to]) => [from - sequence.Interval[0], to - sequence.Interval[0]]), miss: Math.round(miss * 100) / 100 });
+    break; // one copy carries the weapon
+  }
+  if (done.length) clearTransferCache(D);
+  return done;
+}
+
 /** The open model's mesh on the donor's skeleton with the donor's animations.
  * -> { model, report } where model is a new model object (the caller swaps it in as one undo
  * step) and report = { fit: 'good' | 'poor', reasons: [...], follows: share of the body skin that follows the donor,
@@ -613,6 +838,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
   // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
   const deathSwap = donorDeathSwap(D, rigA);
+  // Where the donor throws or drops its weapon as a loose copy, its weapon bone goes with the copy (the model's weapon rides it).
+  const weaponSwap = donorWeaponSwap(D, rigA);
   const swapSpans = [...deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval), ...(D.Sequences || []).filter(sequence => /birth|death|decay|dissipate/i.test(sequence.Name || '')).map(sequence => sequence.Interval)].filter(Boolean);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
@@ -1864,7 +2091,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   return {
     model: M,
     report: {
-      fit, reasons, follows, still, notes, actor: donorActor, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap,
+      fit, reasons, follows, still, notes, actor: donorActor, converted: convertedKeys, extras: extrasOut, riders: ridersOut.map(rider => ({ ...rider, follows: extraMatch.has(rider.id) ? donorById.get(extraMatch.get(rider.id))?.Name ?? null : null })), mirrorOffer, twins: twin.size, deathSwap, weaponSwap,
       weapon: { extras: [...weaponExtras], bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, rides: weaponRides && !weaponHeld, vertices: new Set(weaponVertices.map(([g, v]) => `${M.Geosets.indexOf(g)}:${v}`)).size, note: weaponSkip },
       counts: {
         sequences: M.Sequences.length, ground, donorJoints: [...M.Bones, ...M.Helpers].filter(n => !Object.values(ownMap).includes(n.ObjectId)).length,

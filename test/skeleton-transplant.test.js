@@ -378,6 +378,72 @@ test('T12 weapon side: on a donor whose weapon bone is on the other arm the hamm
   for (const v of list) assert.deepEqual(Array.from(mirrored.model.Geosets[g].Groups[mirrored.model.Geosets[g].VertexGroup[v]]), [mirrored.report.weapon.bone]);
 });
 
+/** Mirror as the window sets it: on when the two bodies hold their weapon in different hands. */
+const windowMirror = (ownKey, donorKey) => { const a = transferRig(load(donorKey)), b = transferRig(load(ownKey)); return !!(a.ok && b.ok && a.weaponSide && b.weaponSide && a.weaponSide !== b.weaponSide); };
+/** How far the weapon goes from its hand, per animation: the largest distance of the shown weapon's centre from the
+ * weapon hand in lengths of that arm (a held thing moves by its arm's stretch, HP1b). Donor: the geosets skinned at or
+ * below the named bones (held weapon and loose copy), as shown; result: the Kurgan's hammer. */
+function weaponReach(result, handName, weaponNames, names) {
+  const { donor, model, report } = result, nD = byId(donor);
+  const handD = allNodes(donor).find(n => n.Name === handName).ObjectId, handM = report.donorNodes[handD];
+  const arm = Object.values(transferRig(donor, { sequence: standSequenceIndex(donor) }).parts).find(part => part.joints.includes(handD)).joints;
+  const length = (m, joints) => { const nodes = byId(m); let sum = 0; for (let i = 1; i < joints.length; i++) sum += new Vector3().fromArray(nodePivot(m, nodes.get(joints[i]), joints[i])).distanceTo(new Vector3().fromArray(nodePivot(m, nodes.get(joints[i - 1]), joints[i - 1]))); return sum; };
+  const armD = length(donor, arm), armM = length(model, arm.map(id => report.donorNodes[id]));
+  const tops = new Set(weaponNames.map(name => allNodes(donor).find(n => n.Name === name).ObjectId));
+  const under = id => { for (let x = id; x != null && x !== -1; x = nD.get(x)?.Parent ?? null) if (tops.has(x)) return true; return false; };
+  const weapon = donor.Geosets.map((geoset, g) => [g, Array.from(geoset.VertexGroup, (group, v) => geoset.Groups[group].every(under) ? v : -1).filter(v => v >= 0)]).filter(([, l]) => l.length);
+  const { g: hammerGeoset, list } = hammerVertices(result);
+  const shown = (m, g, si, frame) => { const alpha = (m.GeosetAnims || []).find(a => a.GeosetId === g)?.Alpha; const s = m.Sequences[si]; return !alpha?.Keys?.length || sampleTrack(alpha, frame, { interval: s.Interval, globalSequences: m.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001; };
+  const reach = (m, si, frame, vertices, hand, size) => {
+    const matrices = sampleNodeMatrices(m, frame, si), centre = new Vector3(); let count = 0;
+    for (const [g, list] of vertices) { if (!shown(m, g, si, frame)) continue; const p = skinGeoset(m.Geosets[g], matrices); for (const v of list) { centre.add(new Vector3(p[v * 3], p[v * 3 + 1], p[v * 3 + 2])); count++; } }
+    return count ? centre.divideScalar(count).distanceTo(at(m, byId(m), matrices, hand)) / size : 0;
+  };
+  return Object.fromEntries(names.map(name => {
+    const iD = donor.Sequences.findIndex(s => s.Name === name), iM = model.Sequences.findIndex(s => s.Name === name);
+    const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+    let theirs = 0, mine = 0;
+    for (let k = 0; k <= 40; k++) {
+      theirs = Math.max(theirs, reach(donor, iD, Math.round(a + k / 40 * (b - a)), weapon, handD, armD));
+      mine = Math.max(mine, reach(model, iM, Math.round(c + k / 40 * (d - c)), [[hammerGeoset, list]], handM, armM));
+    }
+    return [name, { theirs, mine }];
+  }));
+}
+
+test('WS1 Kurgan on the Grunt, mirrored as the window sets it: where the Grunt throws its axe (Stand Victory) and drops it (Death), the hammer leaves the hand with it (owner 20 Nov 2026: "the grunt throws his weapon, the kurgans weapon is welded to his hand")', { skip: missing('transfer-kurgan', 'transfer-grunt') }, () => {
+  assert.equal(windowMirror('transfer-kurgan', 'transfer-grunt'), true);
+  const result = transplant('transfer-kurgan', 'transfer-grunt', { mirror: true, extents: false }), { report } = result;
+  // The Grunt hides the axe in its hand (Grunt2_08Axe) and shows a loose copy (Grunt2_15AxeFree) that flies up and comes back.
+  assert.deepEqual([...new Set((report.weaponSwap || []).map(item => item.copy))], ['Grunt2_15AxeFree']);
+  assert.ok(report.weaponSwap.some(item => item.sequence === 'Stand Victory'), JSON.stringify(report.weaponSwap));
+  const reach = weaponReach(result, 'Bone_Hand_L', ['Grunt2_08Axe', 'Grunt2_15AxeFree'], ['Stand Victory', 'Death', 'Stand - 1']);
+  for (const [name, { theirs, mine }] of Object.entries(reach)) {
+    if (name === 'Stand - 1') assert.ok(theirs < 2 && mine < 2, `${name}: held (axe ${theirs.toFixed(2)}, hammer ${mine.toFixed(2)} arm lengths from the hand)`);
+    else assert.ok(theirs > 3 && mine > 0.7 * theirs, `${name}: the Grunt's axe goes ${theirs.toFixed(2)} arm lengths from its hand, the hammer ${mine.toFixed(2)}`);
+  }
+  structural(result);
+});
+
+test('WS2 Kurgan on the Dryad (her Weapon Ref hangs from her hand, the spear from its own bone): where she drops the spear in Death, the hammer falls with it', { skip: missing('transfer-kurgan', 'transfer-dryad') }, () => {
+  const mirror = windowMirror('transfer-kurgan', 'transfer-dryad'), result = transplant('transfer-kurgan', 'transfer-dryad', { mirror: mirror || null, extents: false }), { report } = result;
+  assert.deepEqual([...new Set((report.weaponSwap || []).map(item => item.copy + '>' + item.moves))], ['deadspear>spear'], JSON.stringify(report.weaponSwap));
+  assert.equal(report.weapon.rides, true, report.weapon.note);
+  const reach = weaponReach(result, 'Bone_Hand_L', ['spear', 'deadspear'], ['Death', 'Stand']);
+  assert.ok(reach.Stand.mine < 2, `Stand: held (${reach.Stand.mine.toFixed(2)} arm lengths from the hand)`);
+  assert.ok(reach.Death.theirs > 2 && reach.Death.mine > 0.7 * reach.Death.theirs, `Death: the Dryad's spear goes ${reach.Death.theirs.toFixed(2)} arm lengths from her hand, the hammer ${reach.Death.mine.toFixed(2)}`);
+  structural(result);
+});
+
+test('WS3 Kurgan on Arthas: in Stand Fifth Arthas holds a hammer in the sword hand (the sword hidden) and lets it fall: the Kurgan\'s hammer goes with it; in Stand Fourth it stays in the hand', { skip: missing('transfer-kurgan', 'transfer-arthas-sword') }, () => {
+  const mirror = windowMirror('transfer-kurgan', 'transfer-arthas-sword'), result = transplant('transfer-kurgan', 'transfer-arthas-sword', { mirror: mirror || null, extents: false }), { report } = result;
+  assert.deepEqual([...new Set((report.weaponSwap || []).map(item => item.copy))], ['Arthas_Righthammer'], JSON.stringify(report.weaponSwap));
+  const reach = weaponReach(result, 'HandR', ['Sword', 'Arthas_Righthammer'], ['Stand Fifth', 'Stand Fourth', 'Stand - 1']);
+  assert.ok(reach['Stand Fourth'].mine < 2 && reach['Stand - 1'].mine < 2, JSON.stringify(reach));
+  assert.ok(reach['Stand Fifth'].theirs > 3 && reach['Stand Fifth'].mine > 0.7 * reach['Stand Fifth'].theirs, `Stand Fifth: the hammer Arthas lets fall goes ${reach['Stand Fifth'].theirs.toFixed(2)} arm lengths from his hand, the Kurgan's ${reach['Stand Fifth'].mine.toFixed(2)}`);
+  structural(result);
+});
+
 // ------------------------------------------------------------------ (c) keep, sounds and effects, mirror, poor fit
 test('T7 keep: with the hammer\'s bone in keep, that bone survives, still and in the hand', { skip: missing('transfer-kurgan', 'transfer-tauren') }, () => {
   const plain = transplant('transfer-kurgan', 'transfer-tauren'), hammer = [...plain.report.extras].sort((a, b) => b.vertices - a.vertices)[0];
@@ -498,10 +564,12 @@ test('C5 weapon bone scaled to nothing in one animation: the weapon stays with t
   const result = { own, donor, ...transplantSkeleton(own, donor, { extents: false }) };
   assert.equal(result.report.weapon.bone, result.report.donorNodes[axe], 'the axe bone still carries the sword');
   assert.deepEqual(weaponHiddenAlone(result), []);
-  // Outside Death the sword moves exactly as without the change.
+  // Outside Death the sword moves exactly as without the change, except where the Grunt throws its axe as a loose copy (WS1:
+  // the axe's relation to the copy is read where they swap, also in Death, which this change shrinks away).
   const plain = transplant('transfer-footman', 'transfer-grunt', { extents: false }), bone = result.report.weapon.bone;
+  const thrown = (sequence, frame) => (plain.report.weaponSwap || []).some(item => item.sequence === sequence.Name && item.spans.some(([a, b]) => frame >= sequence.Interval[0] + a - 1 && frame <= sequence.Interval[0] + b + 1));
   for (const [index, frame] of moments(result.model, 6)) {
-    if (result.model.Sequences[index].Name === death.Name) continue;
+    if (result.model.Sequences[index].Name === death.Name || thrown(result.model.Sequences[index], frame)) continue;
     const m1 = sampleNodeMatrices(result.model, frame, index).get(bone), m2 = sampleNodeMatrices(plain.model, frame, index).get(plain.report.weapon.bone);
     assert.ok(m1.elements.every((x, i) => Math.abs(x - m2.elements[i]) < 1e-4), `${result.model.Sequences[index].Name} @${frame}: the sword moves as before`);
   }
@@ -1416,9 +1484,13 @@ test(`HP2 Graveguard on the Headhunter: the spear the Headhunter slides down its
   const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), arm = rig.parts.armR.joints;
   const ratio = armLength(model, arm.map(id => report.donorNodes[id])) / armLength(donor, arm);
   const spear = allNodes(donor).find(node => node.Name === 'Spear01'), mine = byId(model).get(report.donorNodes[spear.ObjectId]);
-  const moves = node => node.Translation.Keys.map(k => Math.hypot(...k.Vector));
-  const theirs = moves(spear), ours = moves(mine);
-  theirs.forEach((d, k) => { if (d > 1e-3) assert.ok(Math.abs(ours[k] / d / ratio - 1) < 0.02, `key ${k}: the spear moves ${(ours[k] / d).toFixed(2)}x the Headhunter's, his arm is ${ratio.toFixed(2)}x`); });
+  // Where the Headhunter drops the spear in Death (WS: the spear's bone follows the dropped copy there), its keys are the copy's.
+  const dropped = (report.weaponSwap || []).flatMap(item => { const s = donor.Sequences.find(q => q.Name === item.sequence); return item.spans.map(([a, b]) => [s.Interval[0] + a - 1, s.Interval[0] + b + 1]); });
+  const keep = key => !dropped.some(([a, b]) => key.Frame >= a && key.Frame <= b);
+  const ours = new Map(mine.Translation.Keys.filter(keep).map(k => [k.Frame, Math.hypot(...k.Vector)]));
+  const theirs = spear.Translation.Keys.filter(keep);
+  assert.ok(theirs.length > 0 && theirs.every(k => ours.has(k.Frame)), 'every key of the Headhunter\'s spear outside the drop is in the result');
+  theirs.forEach(k => { const d = Math.hypot(...k.Vector); if (d > 1e-3) assert.ok(Math.abs(ours.get(k.Frame) / d / ratio - 1) < 0.02, `key at ${k.Frame}: the spear moves ${(ours.get(k.Frame) / d).toFixed(2)}x the Headhunter's, his arm is ${ratio.toFixed(2)}x`); });
 });
 
 test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
