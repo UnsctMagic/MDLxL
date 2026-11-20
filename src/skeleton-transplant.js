@@ -306,6 +306,11 @@ const EXTRA_NEAR = 0.1;
 /** Own skin outside the body rides a part joint (or stays still in the world) instead of the body joint when it drifts at most
  * this share as far against it as against the body joint, through the model's own everyday animations (class K1). */
 const FOLLOW_SHARE = 0.75;
+/** A neck counts as much shorter than the donor's when its share of the chest-to-head distance is under this share of the
+ * donor's; its head then goes where the donor's sits from its chest, as for a model with no neck. From the 162 necked-on-necked
+ * pairs of the humanoid set (humanoid r4): every same-kind pair whose neck pointed over 25 deg off the donor's has a ratio
+ * under 0.72 (Minotaur on the Gnoll 0.71, 32 deg); above 0.75 the old turn left at most 22 deg (Draenei on the Furbolg). */
+const SHORT_NECK = 0.75;
 const DEATH_KIND = /death|decay|dissipate/i, NOT_EVERYDAY = /death|decay|dissipate|portrait/i;
 /** Twin chains: own joints outside the recognised body whose pivots sit on body joints, each under its parent's twin, in
  * groups of two or more joints, whose skin shows in everyday animations and which move with their twins through the own
@@ -1306,7 +1311,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // its chest; it stayed over the model's chest, 36-50 deg off). The head goes along the donor's chest-to-head line at
     // this model's own distance from its chest; the neck turns with the chest and its skin follows the head by its share of
     // the way from the neck joint up to the head, so it stretches to the head; the head keeps its own turn (as before).
-    const neckless = posture.spine != null && neckJoints.length && ownChest != null && ownHead != null && placed.has(chestAt) && !neckJoints.some(id => pairedOwn.has(id));
+    // A model whose neck is much shorter than the donor's (humanoid r4, orchestrator 20 Nov 2026): its neck run (first neck
+    // joint to head) over its chest-to-head distance is under SHORT_NECK of the donor's, so turning its short neck to the
+    // donor's neck leaves the head over its own chest (Daemonette and HD Footman on the Gnoll: 39-46 deg off). Its head goes
+    // where the donor's head sits from its chest, as for a model with no neck.
+    const neckShare = (p, chest, neck0, head) => { const whole = p(head).distanceTo(p(chest)); return whole > 1e-9 ? p(head).distanceTo(p(neck0)) / whole : 1; };
+    const ownNeck0 = rigB.parts.head?.marker != null && (rigB.parts.head.joints || []).indexOf(rigB.parts.head.marker) > 0 ? rigB.parts.head.joints[0] : null;
+    const shortNeck = posture.spine != null && neckJoints.length && ownChest != null && ownHead != null && ownNeck0 != null && placed.has(chestAt)
+      && neckShare(pB, ownChest, ownNeck0, ownHead) < SHORT_NECK * neckShare(pA, chestAt, neckJoints[0], headAt);
+    const neckless = posture.spine != null && neckJoints.length && ownChest != null && ownHead != null && placed.has(chestAt) && (!neckJoints.some(id => pairedOwn.has(id)) || shortNeck);
     if (neckless) {
       const turn = correction.get(chestAt) ?? new Quaternion(), from = placed.get(chestAt), head = placed.get(headAt);
       const toward = pA(headAt).sub(pA(chestAt)), length = head.distanceTo(from);

@@ -127,6 +127,7 @@ const FIXTURES = {
   'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
   'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)
+  'transfer-demonette': ['MDLXL_TRANSFER_DEMONETTE', testModel('transfer-humanoid/WH_DOC_Demonette02.mdx')], // a neck joint whose run is 12% of its chest-to-head distance (the Gnoll's 59%)
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
