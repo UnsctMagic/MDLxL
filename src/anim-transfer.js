@@ -658,7 +658,10 @@ export function sameKindSequence(model, name) {
   const wanted = String(name || '').trim().toLowerCase(), word = firstWord(name);
   const exact = list.find(item => item.name.toLowerCase() === wanted);
   if (exact) return exact.index;
-  const same = list.filter(item => word && firstWord(item.name) === word);
+  // A dying animation is the same kind only of a dying one: "Cinematic Walk" is no "Cinematic death" (the Dread Lord's
+  // only Cinematic animation; taken as its kind, the transplant showed his corpse through the Aspiring Hero's walk).
+  const dying = text => /death|decay|dissipate/i.test(text);
+  const same = list.filter(item => word && firstWord(item.name) === word && (!dying(item.name) || dying(wanted)));
   return (same.find(item => /^[a-z]+(\s*-?\s*\d+)?$/i.test(item.name)) || same[0])?.index ?? null;
 }
 const percentile = (values, share) => { const sorted = [...values].sort((a, b) => a - b); return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))] : 0; };

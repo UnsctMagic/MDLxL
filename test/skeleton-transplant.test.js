@@ -1144,3 +1144,14 @@ test('T3 Forest Troll Trapper on the Kobold: its shoulders swing as the Kobold\'
   for (let k = 0; k <= 12; k++) worst = Math.max(worst, line(donor, iD, Math.round(a + k / 12 * (b - a)), id => id).angleTo(line(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id])) * 180 / Math.PI);
   assert.ok(worst < 6, `the shoulder line is up to ${worst.toFixed(1)} deg off the Kobold's in Attack - 2`);
 });
+
+test('H4 Dread Lord on the Aspiring Hero: in the donor\'s Cinematic Walk he shows what his Walk shows, never his corpse (the same-kind rule took his only Cinematic animation, "Cinematic death", and showed its corpse: 37% of his vertices)', { skip: missing('transfer-dreadlord', 'transfer-aspiring-hero') }, () => {
+  const { own, model } = transplant('transfer-dreadlord', 'transfer-aspiring-hero');
+  const index = model.Sequences.findIndex(s => s.Name === 'Cinematic Walk'), walk = own.Sequences.findIndex(s => s.Name === 'Walk');
+  assert.ok(index >= 0 && walk >= 0);
+  const [a, b] = model.Sequences[index].Interval, [c, d] = own.Sequences[walk].Interval;
+  const shown = (m, i, from, to) => new Set(m.Geosets.map((_, g) => g).filter(g => [0.25, 0.5, 0.75].some(t => geosetShown(m, g, i, Math.round(from + t * (to - from))))));
+  const mine = shown(model, index, a, b), walking = shown(own, walk, c, d);
+  const extra = [...mine].filter(g => !walking.has(g));
+  assert.deepEqual(extra, [], `geosets shown in Cinematic Walk but not in his Walk: ${extra.join(', ')}`);
+});
