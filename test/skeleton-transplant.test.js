@@ -1406,3 +1406,16 @@ test('RR1 Chaos Warlord on the Khorne Knight (a rider on a four-legged mount eac
   const back = Object.fromEntries(['Walk', 'Stand', 'Attack - 1'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
   assert.ok(Object.values(back).every(value => value < 2), `the horse's back is off by up to ${JSON.stringify(back)} deg`);
 });
+
+test('WG2b Grizzly Bear on the Crypt Fiend (four legs and no arms or wings on four legs under an upright chest with arms): the bear keeps the trunk line to where the fiend\'s shoulders sit, so its chest-to-head line stays within 45 deg of the fiend\'s through Stand (U: its head follows the fiend\'s head with nothing under it); along the leg pairs it pointed 126 deg away', { skip: missing('transfer-grizzly', 'transfer-crypt-fiend') }, () => {
+  const { donor, model, report } = transplant('transfer-grizzly', 'transfer-crypt-fiend');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), nM = byId(model);
+  const chest = rig.parts.chest.marker, head = rig.parts.head.marker, iD = donor.Sequences.findIndex(s => s.Name === 'Stand'), iM = model.Sequences.findIndex(s => s.Name === 'Stand');
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0;
+  for (let k = 0; k <= 8; k++) {
+    const md = sampleNodeMatrices(donor, Math.round(a + k / 8 * (b - a)), iD), mm = sampleNodeMatrices(model, Math.round(c + k / 8 * (d - c)), iM);
+    worst = Math.max(worst, at(model, nM, mm, report.donorNodes[head]).sub(at(model, nM, mm, report.donorNodes[chest])).angleTo(at(donor, nD, md, head).sub(at(donor, nD, md, chest))) * 180 / Math.PI);
+  }
+  assert.ok(worst < 45, `the bear's chest-to-head line is up to ${worst.toFixed(1)} deg off the fiend's`);
+});

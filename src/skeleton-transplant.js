@@ -1228,14 +1228,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
     // those arms: there a Spirit Pig on the Bronze Dragon Whelp leant 35 deg off it and a Knight on the Green Dragon 53.
     const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
-    // So does any four-legged donor taken by a model with no two arms (cross-kind r2 WG2): the donor's shoulders have nothing
-    // to sit on here, and a Bronze Dragon Whelp (wings, no arms) on the Dragonspawn leant 57-70 deg off its back.
+    // So does any four-legged donor taken by a winged model with no two arms (cross-kind r2 WG2): the donor's shoulders have
+    // nothing to sit on here, and a Bronze Dragon Whelp (wings, no arms) on the Dragonspawn leant 57-70 deg off its back. A
+    // model with neither keeps the shoulder line (WG2b): its head follows the donor's head on an upper body it lacks (U), and
+    // along the leg pairs a Grizzly Bear's head pointed 126 deg away from the Crypt Fiend's.
     // And a rider on a four-legged mount taken by a rider on one (cross-kind r2 RR1): each mount's back is the line between
     // its leg pairs; from the hip centre to the rider's shoulders, the whole of both bodies tipped to seat the riders alike
     // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
     // then takes the donor rider's lean on its own (below).
     const riders = rigA.actors?.length > 1 && rigB.actors?.length > 1 && count(rigB, 'leg') === 4;
-    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
     if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
