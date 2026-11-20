@@ -1160,6 +1160,21 @@ export default function GamePreview(inputProps) {
       if (box.isEmpty()) return null;
       const result = [box.min.clone(), box.max.clone()]; result.points = points; return result;
     }
+    // fitBox="rest" (Transfer compare sheet): the box around the mesh in its rest pose, with the geosets
+    // shown at the start of the chosen animation. It does not depend on the moment the view first draws,
+    // so views of one model frame alike however their animations have moved on.
+    function restBox() {
+      const p = latest.current, hidden = new Set(p.hiddenGeosets || []), box = new THREE.Box3(), points = [];
+      const sequence = ownedModel.Sequences?.[p.sequenceIndex], frame = sequence?.Interval?.[0] ?? 0;
+      const step = Math.max(1, Math.ceil(ownedModel.Geosets.reduce((sum, geoset) => sum + geoset.Vertices.length / 3, 0) / 4000));
+      ownedModel.Geosets.forEach((geoset, index) => {
+        const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+        if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, frame, sequence ? p.sequenceIndex : -1, frame)[3] > .001)) return;
+        for (let i = 0, n = 0; i + 2 < geoset.Vertices.length; i += 3, n++) { box.expandByPoint(point.fromArray(geoset.Vertices, i)); if (n % step === 0) points.push(point.clone()); }
+      });
+      if (box.isEmpty()) return null;
+      const result = [box.min.clone(), box.max.clone()]; result.points = points; return result;
+    }
     // Where the selection is in the current pose: the selected vertices, or else
     // the selected bones and nodes. Model-space points [x,y,z,...].
     function selectionPoints() {
@@ -1204,7 +1219,7 @@ export default function GamePreview(inputProps) {
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
       const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit());
-      const shared = latest.current.turnCamera?.saved, direction = shared ? new THREE.Vector3(...shared) : new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
+      const shared = latest.current.turnCamera?.saved, direction = shared ? new THREE.Vector3(...shared) : new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (latest.current.fitBox === 'rest' && restBox()) || (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
       const fitCenter = fitBox ? fitBox[0].clone().add(fitBox[1]).multiplyScalar(.5) : effect ? new THREE.Vector3(...effect.center) : center;
       perspective.position.copy(fitCenter).add(direction.multiplyScalar(fitBox ? boxFitDistance(fitBox, direction, width, height) : perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
       controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? (exact ? Math.max(1, radius) / focus.radius : Math.max(1, radius / focus.radius)) : 1; resize(); setView(latest.current.view || 'perspective');

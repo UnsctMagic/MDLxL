@@ -138,8 +138,9 @@ function PickSheet({ sheet, teamColor, onClose }) {
   // One camera and one clock for every view of a case. The clock is the time from the animation's
   // start; each view plays it inside its own animation. The first playing view reports it.
   // File cases (models of different sizes) share only the viewing direction (turnCamera): each view keeps
-  // its own target and distance, so each frames the same body part at its own size. Recipe cases (one
-  // model) share the whole camera.
+  // its own target and distance, so each frames the same body part at its own size. They open framed on
+  // their model's rest pose (fitBox="rest"), not on whatever pose is playing when each first draws, so
+  // views load at the same size. Recipe cases (one model) share the whole camera.
   const camera = useMemo(() => ({ saved: null, listeners: new Set() }), [item?.id]);
   const [clock, setClock] = useState(0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const reporter = views.find(view => view.preview && active(view) && (!flip || view.id === pair[0])) || views.find(view => view.preview && active(view));
@@ -278,7 +279,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
                   {view.label && <span className="xp-label">{view.label}</span>}
                   {marked?.none && <span className="xp-missing">Not in this model</span>}
                   {view.preview ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                    <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView
+                    <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox={fileCase ? 'rest' : true} showGrid={false} showAxes={false} preserveCameraView
                       model={view.preview.model} revision={`${item.id}|${view.id}`} textureAssets={view.assets} modelPath={view.path} teamColor={teamColor}
                       sequenceIndex={view.preview.sequenceIndex} time={time} onTimeChange={view === reporter ? onReport : undefined} playing={playing} playbackSpeed={speed} loop
                       playbackRange={look ? [start + look.from, start + look.to] : undefined} overlayPaths={overlay} suspended={!on}
