@@ -1087,3 +1087,24 @@ test('R10 the two legs pair alike: on the Lord of Change the Footman\'s and the 
     }
   }
 });
+
+test('S4 Footman on the Rat (short legs, no foot joint): through the rat\'s hopping Walk his soles rise and land as its paws do (they followed its shin joints, 0.2 hip heights off)', { skip: missing('transfer-footman', 'transfer-rat') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-rat');
+  assert.equal(report.counts.ground, 'soles');
+  /** The vertices a model's legs carry in its Stand, their lowest height at a moment, and where it usually is in its Stand. */
+  const soleOf = m => {
+    const stand = standSequenceIndex(m), rig = transplantReading(transferRig(m, { sequence: stand }), m), n = byId(m);
+    const legJoints = new Set(Object.values(rig.parts).filter(part => part.limbKind === 'leg').flatMap(part => part.joints));
+    const onLeg = id => { for (let x = id; x != null && x !== -1; x = n.get(x)?.Parent) if (legJoints.has(x)) return true; return false; };
+    const list = [];
+    for (const g of standLiving(m)) { const geoset = m.Geosets[g]; for (let v = 0; v < geoset.Vertices.length / 3; v++) if (vertexBones(geoset, v).some(onLeg)) list.push([g, v]); }
+    const at = (target, index, frame) => { const mats = sampleNodeMatrices(target, frame, index), cache = new Map(); let low = Infinity; for (const [g, v] of list) { if (!cache.has(g)) cache.set(g, skinGeoset(target.Geosets[g], mats)); low = Math.min(low, cache.get(g)[v * 3 + 2]); } return low; };
+    const [a, b] = m.Sequences[stand].Interval, soles = Array.from({ length: 12 }, (_, k) => at(m, stand, Math.round(a + k / 11 * (b - a)))).sort((x, y) => x - y);
+    return { list, at, usual: (soles[5] + soles[6]) / 2, hip: rig.hipHeight };
+  };
+  const mine = soleOf(own), rat = soleOf(donor);
+  assert.ok(mine.list.length > 10 && rat.list.length > 10, 'both have leg skin');
+  const index = model.Sequences.findIndex(s => /^walk/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
+  const offs = Array.from({ length: 13 }, (_, k) => { const frame = Math.round(a + k / 12 * (b - a)); return Math.abs((mine.at(model, index, frame) - mine.usual) - (rat.at(donor, index, frame) - rat.usual) * report.counts.travel) / mine.hip; }).sort((x, y) => x - y);
+  assert.ok(offs[6] < 0.1, `Walk: his sole is a median ${offs[6].toFixed(2)} hip heights off the rat's paws (worst ${offs.at(-1).toFixed(2)})`);
+});

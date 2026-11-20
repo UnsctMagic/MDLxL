@@ -1778,17 +1778,44 @@ function feetDown(M, D, rigB, rigA, rigM, loose, travel) {
  * does: with a legged donor, as high above the ground as the donor's lower foot (times `travel`) plus where the sole
  * stands in this model's own Stand; with a legless donor (a Naga, a hovering Banshee), at its own Stand height plus the
  * donor body joint's rise from its Stand (times `travel`), so a flying donor's model flies.
- * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights. */
+ * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights.
+ * A donor whose legs are short (one or two joints, R1: a rat's legs end at the shin) has no foot joint either: its rise
+ * is its own sole's (the same reading) above where that sole stands in its Stand. */
 function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
   clearTransferCache(M);
   if (!rigM.ok) return null;
   const ownStand = standSequenceIndex(model), donorStand = standSequenceIndex(D);
   if (ownStand < 0 || donorStand < 0) return null;
-  // The vertices that make the sole: the living body (geosets the own Stand shows), the legs' skin when it has legs.
+  const own = soleReader(model, rigB, ownStand);
+  if (!own) return null;
+  const { soleOf, sample, standSole: ownSole } = own;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const legsA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg');
+  const feetA = legsA.map(part => part.marker).filter(id => donorById.has(id));
+  const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
+  const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
+  if (!feetA.length && donorBody == null) return null;
+  const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
+  const donorSole = feetA.length && legsA.some(part => part.short) ? soleReader(D, rigA, donorStand) : null;
+  const donorRise = donorSole && donorSole.useLegs
+    ? (donorIndex, frame) => { const sole = donorSole.soleOf(D, donorSole.sample, sampleNodeMatrices(D, frame, donorIndex)); return sole == null ? 0 : sole - donorSole.standSole; }
+    : feetA.length
+      ? (donorIndex, frame) => { const m = sampleNodeMatrices(D, frame, donorIndex); return Math.min(...feetA.map(id => pivotZ(id, m))) - rigA.ground; }
+      : (donorIndex, frame) => pivotZ(donorBody, sampleNodeMatrices(D, frame, donorIndex)) - bodyRest;
+  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) => frame => {
+    const sole = soleOf(M, sample, sampleNodeMatrices(M, frame, index));
+    return sole == null ? 0 : ownSole + donorRise(donorIndex, frame) * travel - sole;
+  });
+  return feetA.length ? 'soles' : 'hover';
+}
+/** A model's sole (G1): the vertices that make it (the living body = the geosets its Stand shows; the legs' skin when it
+ * has legs), at most 1,500 of them, and where it stands in its Stand (median over twelve moments, G1b). `soleOf(target,
+ * sample, matrices)` reads the same vertices in `target` (the model itself, or a result with its geosets). */
+function soleReader(model, rig, standIndex) {
   const ownNodes = allNodes(model), treeB = nodeIndex(model, ownNodes), legJoint = new Set();
-  for (const part of Object.values(rigB.parts || {})) if (part.limbKind === 'leg') for (const id of part.joints) legJoint.add(id);
+  for (const part of Object.values(rig.parts || {})) if (part.limbKind === 'leg') for (const id of part.joints) legJoint.add(id);
   const onLeg = new Map(), isLeg = id => { if (!onLeg.has(id)) onLeg.set(id, treeB.ancestors(id, true).some(a => legJoint.has(a))); return onLeg.get(id); };
-  const stand = model.Sequences[ownStand];
+  const stand = model.Sequences[standIndex];
   const shows = index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || isGlobalTrack(alpha, model) || sampleShows(model, alpha, stand); };
   const legs = [], all = [];
   (model.Geosets || []).forEach((geoset, g) => {
@@ -1817,7 +1844,7 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
     return heights[Math.floor(0.02 * (heights.length - 1))];
   };
   // At most 1,500 vertices: the lowest 500 in the own Stand and an even share of the rest.
-  const own0 = sampleNodeMatrices(model, stand.Interval[0], ownStand);
+  const own0 = sampleNodeMatrices(model, stand.Interval[0], standIndex);
   let sample = pool;
   if (pool.length > 1500 && useLegs) {
     const ranked = pool.map(item => [item, at(model, item, own0)]).sort((x, y) => x[1] - y[1]);
@@ -1826,23 +1853,10 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
   // Where the sole stands in this model's own Stand: the median over twelve moments of it, not its first frame (G1b,
   // analysis-v2 class 6: the Faerie Dragon's dangling legs swing 1.3 hip heights through its Stand).
   const [standStart, standEnd] = stand.Interval;
-  const standSoles = Array.from({ length: 12 }, (_, k) => soleOf(model, sample, k ? sampleNodeMatrices(model, Math.round(standStart + k / 11 * (standEnd - standStart)), ownStand) : own0)).filter(Number.isFinite).sort((x, y) => x - y);
+  const standSoles = Array.from({ length: 12 }, (_, k) => soleOf(model, sample, k ? sampleNodeMatrices(model, Math.round(standStart + k / 11 * (standEnd - standStart)), standIndex) : own0)).filter(Number.isFinite).sort((x, y) => x - y);
   if (!standSoles.length) return null;
-  const middle = standSoles.length >> 1, ownSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
-  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
-  const feetA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg').map(part => part.marker).filter(id => donorById.has(id));
-  const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
-  const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
-  if (!feetA.length && donorBody == null) return null;
-  const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
-  const donorRise = feetA.length
-    ? (donorIndex, frame) => { const m = sampleNodeMatrices(D, frame, donorIndex); return Math.min(...feetA.map(id => pivotZ(id, m))) - rigA.ground; }
-    : (donorIndex, frame) => pivotZ(donorBody, sampleNodeMatrices(D, frame, donorIndex)) - bodyRest;
-  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) => frame => {
-    const sole = soleOf(M, sample, sampleNodeMatrices(M, frame, index));
-    return sole == null ? 0 : ownSole + donorRise(donorIndex, frame) * travel - sole;
-  });
-  return feetA.length ? 'soles' : 'hover';
+  const middle = standSoles.length >> 1, standSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
+  return { useLegs, sample, soleOf, standSole };
 }
 /** The body joint (and the parentless donor joints) move up or down per moment by `changeOf(index, donorIndex)(frame)`
  * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
