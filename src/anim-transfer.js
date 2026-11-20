@@ -402,7 +402,10 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
     const path = [];
-    for (let at = id; at != null && joints.has(at) && !trunkIds.has(at); at = tree.parentOf(at)) path.unshift(at);
+    // Never through a joint that also carries the trunk or another limb (the Far Seer's wolf waist carries its tail and the
+    // rider's waist and chest: read into the tail, every donor tail took the wolf's back).
+    const carriesOther = at => at !== id && ([...trunkIds].some(t => tree.isAncestor(t, at)) || limbs.some(limb => (limb.kind === 'arm' || limb.kind === 'wing') && tree.isAncestor(limb.joints[0], at)));
+    for (let at = id; at != null && joints.has(at) && !trunkIds.has(at) && !carriesOther(at); at = tree.parentOf(at)) path.unshift(at);
     if (path.length && !limbs.some(limb => limb.joints.some(j => path.includes(j)))) limbs.push({ kind: 'tail', joints: path, tip: null });
   }
   // Side is geometric: +Y of the body is left. Names are not trusted.

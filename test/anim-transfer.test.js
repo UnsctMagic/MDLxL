@@ -1196,3 +1196,13 @@ test('R10 legs pair as a left/right pair, the bend with the donor\'s knee: the F
     assert.ok(apart(own[0], own[1], donor[0], donor[1]) < 10, `${key}: the thigh is ${apart(own[0], own[1], donor[0], donor[1]).toFixed(0)} degrees from the Lord of Change's hip-to-knee`);
   }
 });
+
+test('H3 the Far Seer\'s tail is its tail: the wolf\'s waist, which carries the rider, stays out of it (a tail climbing to the trunk swallowed Bone Wolf Waist, so every other tail took the wolf\'s back)', { skip: missing('transfer-far-seer') }, () => {
+  const model = load('transfer-far-seer');
+  const rig = transferRig(model);
+  const name = new Map(allNodes(model).map(node => [node.ObjectId, node.Name]));
+  const tail = Object.values(rig.parts).find(part => part.limbKind === 'tail');
+  assert.ok(tail, 'a tail is read');
+  assert.equal(name.get(tail.joints[0]), 'Bone Tail 1');
+  assert.ok(!tail.joints.some(id => name.get(id) === 'Bone Wolf Waist'), `the tail holds ${tail.joints.map(id => name.get(id)).join(' > ')}`);
+});
