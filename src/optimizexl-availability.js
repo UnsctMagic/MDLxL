@@ -9,7 +9,7 @@ export async function* stageAvailability(bytes, excludedGeosets = []) {
   for (const { id: stage } of STAGES) {
     try {
       let hasChanges;
-      if (stage === 'sanity') hasChanges = sanityProposals(model).some(f=>!f.inspectionOnly);
+      if (stage === 'sanity') hasChanges = sanityProposals(model).some(f=>!f.inspectionOnly&&!f.optional);
       else if (stage === 'irregularities') hasChanges = findIrregularities(model).some(f => !f.inspectionOnly);
       else if (stage === 'spheres') {
         // A different preset is a choice, not evidence of a missing sphere.

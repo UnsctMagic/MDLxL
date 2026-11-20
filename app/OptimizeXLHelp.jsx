@@ -25,6 +25,7 @@ const explanations={
  'Size':'Scale all preset shapes together. It changes click/selection bounds, not the visible model.',
  'Add sphere':'Add one more collision sphere to this proposal. Adjust its position and radius, then review before approving.',
  'Static gravity':'Use one gravity value for this particle emitter in every animation. This clears the animated-gravity warning but can change particle motion.',
+ 'Geoset animation bounds':"Full keeps a box per animation on every geoset. Necessary only leaves those boxes out, as some Blizzard units do, and grows each geoset's own box to cover its animations. Model and animation boxes stay the same. Hive's validator warns once per geoset.",
  'Use the destination pose as the reference instead':'Reverse this endpoint repair: use the destination pose to correct the source endpoint. Interior animation keys remain.',
 };
 function explanation(label){

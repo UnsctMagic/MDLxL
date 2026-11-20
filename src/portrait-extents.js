@@ -4,8 +4,12 @@ import { createChanges } from './history-store.js';
 import { NODE_COLLECTION_KEYS } from './animation.js';
 
 /** Portrait edits move the rendered rig without moving its bind-pose vertices.
- * WC3 culls against sequence/geoset animation extents, so refresh those from
- * native animation samples. Keep model/mesh bounds and other sequences intact. */
+ * The animation (sequence) box is what the game is understood to cull and
+ * place the unit by, so refresh it from native animation samples, and each
+ * geoset's own box for that animation where the geoset keeps them. A geoset
+ * without them stays without: the game runs without them (owner's in-game
+ * test, 20 Nov 2026) and a model may leave them out (keepsGeosetAnimationBounds).
+ * Keep model/mesh bounds and other sequences intact. */
 export function recalculatePortraitExtents(model, indices = portraitSequenceIndices(model)) {
   if (!model.Geosets?.some(geoset => geoset.Vertices?.length) || !indices.length) return;
   const targets = [];
@@ -13,9 +17,8 @@ export function recalculatePortraitExtents(model, indices = portraitSequenceIndi
     if (!model.Sequences?.[sequence]) throw new Error('The portrait extent has no matching animation.');
     targets.push({ path: ['Sequences', sequence], sequence });
     model.Geosets.forEach((geoset, index) => {
-      // Keep entries aligned with sequence indices, including older files
-      // whose geoset animation extents were omitted.
-      geoset.Anims ||= [];
+      if (!geoset.Anims?.length) return;
+      // Keep entries aligned with sequence indices in a short table.
       while (geoset.Anims.length <= sequence) geoset.Anims.push({
         MinimumExtent: new Float32Array(geoset.MinimumExtent || [0, 0, 0]),
         MaximumExtent: new Float32Array(geoset.MaximumExtent || [0, 0, 0]),

@@ -158,7 +158,7 @@ export function sanityProposals(m){const findings=[];for(const [i,e]of m.Particl
  if(relocation>=0)existing.splice(relocation,0,...exact);else existing.push(...exact);
  // Extents come last so batches and Fix everything measure the repaired motion.
  return [...existing,...boundsProposals(m)];}
-export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
+export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'||f.kind==='bounds'&&f.choices?{choice:f.choice}:{};
 /** Apply every automatic repair, check again and repeat: one repair can expose
  * or enable another (sorted keys can then get opening keys, for example). */
 function fixAll(m){
@@ -166,7 +166,7 @@ function fixAll(m){
  for(let pass=0;pass<12;pass++){
   // Spline resampling only clears notices and rewrites whole tracks; after
   // other key repairs it can turn a pose (Rifleman's root in Death). Hand-pick it.
-  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!['skinCollapse','splineResample'].includes(f.kind));
+  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!f.optional&&!['skinCollapse','splineResample'].includes(f.kind));
   // Structural checker repairs can renumber nodes and geosets, which moves
   // key-level findings. Apply them alone, then scan again.
   const checker=list.filter(f=>f.kind==='checker'&&!tried.has(json([f.id,f.items])));
@@ -256,7 +256,8 @@ function applyRepair(m,fix,settings,evidenceModel=m){
  if(fix.kind==='bounds'){
   const current=scan(boundsProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
-  calculateExtents(m);return;
+  // Necessary only exists only where it is offered (Classic/SD with animations).
+  calculateExtents(m,{necessaryOnly:!!current.choices&&(settings.choice??current.choice)==='necessary'});return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
 function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset??1),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');

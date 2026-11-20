@@ -85,7 +85,7 @@ import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, p
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, emptyModel, openDocument, recalculateExtents } from '../src/editor-document.js';
 import { applyChanges, createChanges } from '../src/history-store.js';
-import { calculateExtents } from '../src/model-extents.js';
+import { calculateExtents, defaultExtentsChoice } from '../src/model-extents.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices, nuclearWeldVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
@@ -1037,7 +1037,7 @@ export default function App() {
       let extentChanges = [], extentWarning;
       if (calculateSaveExtents) {
         try {
-          if (staged.apply('Calculate extents', extentSections, model => { calculateExtents(model); })) {
+          if (staged.apply('Calculate extents', extentSections, model => { calculateExtents(model, { necessaryOnly: defaultExtentsChoice(model) === 'necessary' }); })) {
             const sections = model => Object.fromEntries(extentSections.map(key => [key, model[key]]));
             extentChanges = createChanges(sections(target.doc.model), sections(staged.model));
           }

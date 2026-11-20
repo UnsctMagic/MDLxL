@@ -22,7 +22,7 @@ test('invalid animated bounds repair survives save/reopen and contains moving ge
  const bytes=doc.serialize('mdx'),before=openDocument(bytes,'before.mdx').model,fix=sanityProposals(before).find(p=>p.kind==='bounds');assert.ok(fix);
  const after=openDocument(runOptimizeStage(bytes,'sanity',{},fix).bytes,'after.mdx').model;
  assert.ok(after.Sequences[0].MaximumExtent[0]>=Math.max(...before.Geosets[0].Vertices.filter((_,i)=>i%3===0))+100);
- assert.deepEqual(strip(after).Geosets,strip(before).Geosets);assert.deepEqual(after.Bones,before.Bones);assert.deepEqual(after.Sequences[0].Interval,before.Sequences[0].Interval);assert.equal(sanityProposals(after).filter(p=>p.kind==='bounds').length,0);
+ assert.deepEqual(strip(after).Geosets,strip(before).Geosets);assert.deepEqual(after.Bones,before.Bones);assert.deepEqual(after.Sequences[0].Interval,before.Sequences[0].Interval);assert.equal(sanityProposals(after).filter(p=>p.kind==='bounds'&&!p.optional).length,0);
 });
 
 function tableFixture(counts=[1,3,2],intervals=[[100,200],[400,500]]){
@@ -33,7 +33,7 @@ function tableFixture(counts=[1,3,2],intervals=[[100,200],[400,500]]){
  });return doc;
 }
 
-for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations from current animated geometry`,()=>{
+for(const count of [1,3,5])test(`rebuild ${count} extents for two animations from current animated geometry`,()=>{
  const source=tableFixture([count,2]).serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
  assert.equal(fix.targets.length,1);assert.ok(fix.targets[0].sequenceExtents);
  const findings=hive(source).findings.filter(f=>f.message.startsWith('Number of sequence extents'));
@@ -41,7 +41,7 @@ for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations f
  const bytes=runOptimizeStage(source,'sanity',{},fix).bytes,after=openDocument(bytes,'x.mdx').model;
  assert.equal(after.Geosets[0].Anims.length,2);assert.equal(after.Geosets[1].Anims.length,2);
  assert.ok(!hive(bytes).findings.some(f=>f.message.startsWith('Number of sequence extents')));
- assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'&&!f.optional));
  const renderer=new ModelRenderer(structuredClone(before));
  for(let si=0;si<2;si++){
   const e=after.Geosets[0].Anims[si],offset=si*200;
@@ -58,6 +58,20 @@ for(const count of [0,1,3,5])test(`rebuild ${count} extents for two animations f
  assert.deepEqual(strip(after),strip(before));
 });
 
+// An empty table is a state (geoset animation bounds left out), not damage: no target, Hive's finding is only a note.
+test('a geoset with no extent records is not broken; Full fills it in from the geoset that has a complete table',()=>{
+ const source=tableFixture([0,2]).serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
+ assert.equal(fix.targets.length,0);assert.equal(fix.choice,'full');
+ const findings=hive(source).findings.filter(f=>f.message.startsWith('Number of sequence extents'));
+ assert.equal(findings.length,1);
+ const [note]=classifyHiveFindings(findings,[fix]);assert.equal(note.status,'note');assert.equal(note.fixId,undefined);
+ const bytes=runOptimizeStage(source,'sanity',{},fix).bytes,after=openDocument(bytes,'x.mdx').model;
+ assert.equal(after.Geosets[0].Anims.length,2);assert.equal(after.Geosets[1].Anims.length,2);
+ assert.ok(!hive(bytes).findings.some(f=>f.message.startsWith('Number of sequence extents')));
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'&&!f.optional));
+ assert.deepEqual(strip(after),strip(before));
+});
+
 test('one bounds owner covers mismatched tables and invalid records without overlapping writes',()=>{
  const doc=tableFixture();doc.model.Geosets[0].Anims[0].BoundsRadius=-1;
  doc.model.Geosets[1].Anims[2].MinimumExtent[0]=Infinity;
@@ -66,12 +80,12 @@ test('one bounds owner covers mismatched tables and invalid records without over
  assert.deepEqual(fix.targets.map(t=>t.path),[['Geosets',0,'Anims'],['Geosets',1,'Anims'],['Geosets',2,'Anims',1]]);
  assert.ok(classifyHiveFindings(hive(source).findings,[fix]).filter(f=>/extent|radius/i.test(f.message)).every(f=>f.status==='preview'));
  const after=openDocument(runOptimizeStage(source,'sanity',{},fix).bytes,'x.mdx').model;
- assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'));assert.deepEqual(strip(after),strip(before));
+ assert.ok(!sanityProposals(after).some(f=>f.kind==='bounds'&&!f.optional));assert.deepEqual(strip(after),strip(before));
 });
 
 test('calculated extents are stable and models with no animations discard only stray extent records',()=>{
  const doc=tableFixture([2]);const loose=sanityProposals(doc.model).find(f=>f.kind==='bounds');assert.ok(loose);assert.equal(loose.targets.length,0);
- const fitted=openDocument(runOptimizeStage(doc.serialize('mdx'),'sanity',{},loose).bytes,'x.mdx').model;assert.ok(!sanityProposals(fitted).some(f=>f.kind==='bounds'));
+ const fitted=openDocument(runOptimizeStage(doc.serialize('mdx'),'sanity',{},loose).bytes,'x.mdx').model;assert.ok(!sanityProposals(fitted).some(f=>f.kind==='bounds'&&!f.optional));
  const empty=tableFixture([3],[]),source=empty.serialize('mdx'),before=openDocument(source,'x.mdx').model,fix=sanityProposals(before).find(f=>f.kind==='bounds');
  const after=openDocument(runOptimizeStage(source,'sanity',{},fix).bytes,'x.mdx').model;
  assert.deepEqual(after.Geosets[0].Anims,[]);assert.deepEqual(strip(after),strip(before));
@@ -101,12 +115,12 @@ test('table repair composes with opening, unused, exact redundant keys and timel
   assert.deepEqual(bytes,batch);
  }
  const checked=hive(batch);assert.deepEqual(checked.findings.filter(f=>/sequence extents|starts before|Missing opening|same value|not in any sequence/.test(f.message)),[]);
- const after=openDocument(batch,'x.mdx').model,remaining=sanityProposals(after).filter(f=>f.kind!=='checker');
+ const after=openDocument(batch,'x.mdx').model,remaining=sanityProposals(after).filter(f=>f.kind!=='checker'&&!f.optional);
  assert.deepEqual(remaining.map(f=>f.kind),['exactCleanup'],'old repairs finish first; only the newly enabled exact cleanup remains');
  assert.deepEqual(remaining[0].tracks.map(t=>[t.path.join('.'),t.mode,t.drop]),[['Bones.0.Scaling','static',true]]);
  const clean=openDocument(runOptimizeStage(batch,'sanity',{},remaining[0]).bytes,'clean.mdx').model;
  assert.equal(clean.Bones[0].Scaling,undefined,'the new pass removes only the now-constant identity scale');
  assert.deepEqual(clean.Bones[0].Translation,after.Bones[0].Translation);
  assert.deepEqual(clean.Sequences,after.Sequences);assert.deepEqual(clean.Geosets,after.Geosets);
- assert.deepEqual(sanityProposals(clean).filter(f=>f.kind!=='checker'),[]);
+ assert.deepEqual(sanityProposals(clean).filter(f=>f.kind!=='checker'&&!f.optional),[]);
 });
