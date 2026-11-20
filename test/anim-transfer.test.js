@@ -1208,3 +1208,16 @@ test('L1 a clip added after, from another donor, reads that donor\'s own joints 
     assert.ok(angle(mine, body) < 1, `at ${t} ms, in the Grunt's clip, the sword is ${angle(mine, body).toFixed(1)} degrees from the body animation`);
   });
 });
+test('D1 hips held down for a planted foot stay down when no donor foot is on the ground (the Footman taking the Shadow Hunter\'s Walk)', { skip: missing('transfer-footman', 'transfer-shadow-hunter') }, () => {
+  // The Shadow Hunter's hips stand far higher in its Walk than in its Stand; the Footman's hips come down for its
+  // planted feet. At the moments neither of the Shadow Hunter's feet is down they went back up: 50 -> 140 for one frame.
+  const foot = fresh('transfer-footman'), hunter = load('transfer-shadow-hunter'), stand = seqMatch(foot, /^stand/i), walk = seqMatch(hunter, /^walk$/i);
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(hunter, { sequence: walk }));
+  assert.ok(parts.includes('hips') && parts.includes('legL'), 'hips and legs are taken');
+  const built = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'h', walk) });
+  const heights = built.times.map((_, k) => pivotAt(foot, builtMatrices(foot, built, stand, k), rig.body).z);
+  const steps = heights.slice(1).map((z, k) => Math.abs(z - heights[k])), worst = Math.max(...steps), at = built.times[steps.indexOf(worst) + 1];
+  assert.ok(worst < 0.25 * rig.hipHeight, `the Footman's body jumps ${worst.toFixed(1)} in one 33 ms step at ${at} ms (hip height ${rig.hipHeight.toFixed(1)})`);
+  // A looping walk: the end meets the start.
+  assert.ok(Math.abs(heights.at(-1) - heights[0]) < 0.1 * rig.hipHeight, `the walk's seam opens by ${Math.abs(heights.at(-1) - heights[0]).toFixed(1)}`);
+});

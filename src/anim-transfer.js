@@ -1053,6 +1053,8 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   // Pass 1, per sample: the transfer itself, then the weapon's aim, then how far
   // the weapon arm must lift to keep the weapon above the floor.
   const poses = [];
+  // How far the hips came down for a planted foot at the last moment a donor foot stood on the ground (see below).
+  let heldDrop = 0;
   const poseTools = (base, over) => {
     const lookup = node => over.get(node.ObjectId) || base.local.get(node.ObjectId);
     const world = id => composeNodeMatrices(recipient, [id], lookup, byIdB).get(id);
@@ -1064,7 +1066,15 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     };
     return { world, parentRot, setWorld };
   };
-  for (let k = 0; k < n; k++) {
+  // A result that loops runs from the first moment a donor foot is down, round to the one before it, so the hips held
+  // down at the end of the cycle are the ones its start continues from (the seam stays closed).
+  let startAt = 0;
+  if (!nonLooping && moveBody && plantLegs.length && !options.times) {
+    const down = k => plantLegs.some(entry => { const { frame, w } = clockAt(entry.clock, times[k]); return w > 0 && worldPos(entry.donor, sampleAt(entry.donor, entry.sequence, frame), entry.theirs.marker).z <= entry.rigA.ground + 0.125 * entry.rigA.hipHeight; });
+    startAt = Math.max(0, times.findIndex((_, k) => down(k)));
+  }
+  for (let step = 0; step < n; step++) {
+    const k = (startAt + step) % n;
     const t = times[k], base = sampleAt(recipient, baseIndex, clockAt(baseClock, t).frame);
     const over = new Map(), { world, parentRot, setWorld } = poseTools(base, over);
     const setRotation = (id, worldRotation, w, limit = 0) => {
@@ -1157,9 +1167,13 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     // would run out of length. Such a foot is first brought within the stride native walks use (0.70 of the
     // leg's length from under the hip: 9 in 10 of 178 native two-leg walks stay under it), then the hips come
     // down as far as the leg needs. A foot the leg already reaches is left as it is.
-    if (moveBody && plants.some(plant => plant.grounded)) {
+    // Between such moments (no donor foot on the ground: the flight of a run, a hop) the hips stay as far down as at the
+    // last one. Before, they went back up by the whole drop for those moments: a Footman taking the Shadow Hunter's
+    // Walk leapt from 50 to 140 units for one frame four times a cycle.
+    if (moveBody && plants.length) {
       let drop = 0;
-      for (const plant of plants) {
+      if (!plants.some(plant => plant.grounded)) drop = heldDrop;
+      else for (const plant of plants) {
         const { target, joints, grounded, w } = plant;
         if (!grounded || joints.length < 2) continue;
         const points = joints.map(id => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id))), reach = 0.999 * chainLength(points); // the length solveLimb can give the leg
@@ -1168,6 +1182,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         if (flat > stride) { const pull = 1 - w * (1 - stride / flat); target.x = points[0].x + (target.x - points[0].x) * pull; target.y = points[0].y + (target.y - points[0].y) * pull; }
         drop = Math.max(drop, w * (points[0].z - target.z - Math.sqrt(reach * reach - stride * stride)));
       }
+      if (plants.some(plant => plant.grounded)) heldDrop = drop;
       if (drop > 1e-4) {
         const body = rigB.body, parent = infoB.tree.parentOf(body), linear = new Matrix3().setFromMatrix4(parent == null ? new Matrix4() : world(parent)).invert();
         const own = over.get(body) || base.local.get(body);
@@ -1193,7 +1208,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       const { entry } = arm;
       if (arm.clear && !entry.skip.has(entry.own.joints[0])) [arm.need[k], arm.axis[k]] = weaponLift(recipient, entry.own, rigB.floor, world);
     }
-    poses.push({ base, over, states });
+    poses[k] = { base, over, states };
   }
 
   // The lift eases in and out: the largest need within 80 ms either side, a
