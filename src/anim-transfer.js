@@ -1693,7 +1693,21 @@ function weaponLift(model, part, floor, world) {
   const heightAt = angle => { const q = axisAngle(axis, angle); return Math.min(...points.map(p => p.clone().applyQuaternion(q).z)) + root.z; };
   if (heightAt(0) >= floor) return [0, axis];
   let lo = 0, hi = Math.PI / 2;
-  if (heightAt(hi) < floor) return [hi, axis];
+  if (heightAt(hi) < floor) {
+    // A quarter turn does not clear the floor either (a long weapon whose other end comes down as the
+    // arm turns, or one that lies on the ground): the first turn up that clears it, searched from below,
+    // else the turn that brings the weapon highest, the smallest of equals. Before, this was always the
+    // full quarter turn, even where it brought the weapon no higher (an arm flung up in a Death).
+    const step = 3 * DEG;
+    let best = 0, bestHeight = heightAt(0);
+    for (let a = step; a < hi - 1e-9; a += step) {
+      const h = heightAt(a);
+      if (h >= floor) { lo = a - step; hi = a; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; } return [hi, axis]; }
+      if (h > bestHeight + 1e-6) { best = a; bestHeight = h; }
+    }
+    if (heightAt(hi) > bestHeight + 1e-6) best = hi;
+    return [best, axis];
+  }
   for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (heightAt(mid) >= floor) hi = mid; else lo = mid; }
   return [hi, axis];
 }
@@ -1987,7 +2001,9 @@ export function copyBodyAnimation(model, clock, start, length) {
     if (!track.Keys.every(key => outside(key.Frame))) track.Keys = track.Keys.filter(key => outside(key.Frame));
     const inside = keysInInterval(track, base.Interval);
     if (!inside.length) return;
-    const rotation = property === 'Rotation', template = inside[0], width = template.Vector?.length ?? 1;
+    // A camera's Rotation is its roll, one number: only a four-value Rotation is a quaternion.
+    const template = inside[0], width = template.Vector?.length ?? 1, rotation = property === 'Rotation' && width === 4;
+    if (property === 'Rotation' && !rotation) property = null;
     const keys = new Map(), sampleBase = f => sampleTrack(track, f, { interval: base.Interval, globalSequences: model.GlobalSequences, fallback: rotation ? [0, 0, 0, 1] : new Array(width).fill(0), quaternion: rotation });
     for (let m = 0; m < loops; m++) for (const key of inside) {
       const t = mapFrame(key.Frame, m);

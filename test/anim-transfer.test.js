@@ -1140,3 +1140,37 @@ test('S6 one mesh, no legs: the Wisp and the robed Necromancer get a size from t
   assert.equal(necro.hipMeasured, false);
   assert.ok(necro.hipHeight > 10, `Necromancer ${necro.hipHeight} (was 3.4)`);
 });
+
+// ---------------------------------------------------------------- overnight retarget sweep, 20 Nov 2026 (out/transfer-probe/overnight/retarget/classes.md)
+test('W1 weapon above the ground: where no turn clears the floor, the arm is not flung a quarter turn for nothing (the Khorne knight\'s own Death)', { skip: missing('transfer-khorne-knight') }, () => {
+  // The knight's axe lies on the ground in its own Death. Before, every sample whose weapon a quarter turn could not
+  // bring above the floor got exactly that quarter turn, also where it brought the axe no higher.
+  const knight = fresh('transfer-khorne-knight'), donor = fresh('transfer-khorne-knight'), death = seq(knight, 'Death');
+  const rig = transferRig(knight, { sequence: death }), { parts } = wholeBodyParts(rig, transferRig(donor, { sequence: death }));
+  const arm = Object.values(rig.parts).find(part => part.weapon && part.key === 'armR') || Object.values(rig.parts).find(part => part.weapon);
+  const build = clear => buildTransfer(knight, new Map([['d', donor]]), { base: { sequence: death }, length: null, sources: {}, parts: take(rig, parts, 'd', death, { clear }) });
+  const on = build(null), off = build(false);
+  const lowest = (built, k) => Math.min(...arm.weapon.outline.map(p => new Vector3(...p).applyMatrix4(builtMatrices(knight, built, death, k).get(arm.marker)).z));
+  let worst = null;
+  for (let k = 0; k < on.times.length; k++) {
+    const turn = angle(rotOf(builtMatrices(knight, on, death, k).get(arm.joints[0])), rotOf(builtMatrices(knight, off, death, k).get(arm.joints[0])));
+    if (turn > 85 && (!worst || turn > worst.turn)) worst = { turn, t: on.times[k], gain: lowest(on, k) - lowest(off, k) };
+  }
+  assert.ok(!worst, worst && `the weapon arm turns ${worst.turn.toFixed(1)} degrees at ${worst.t} ms (the axe comes ${worst.gain.toFixed(1)} higher; floor ${rig.floor.toFixed(1)})`);
+});
+test('C1 a keyed camera roll is copied into the new animation as a roll, not as a quaternion', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  // A camera's Rotation is one number (its roll). Copying the body animation read every track named Rotation as a
+  // quaternion: the new animation's camera keys got four values and tangents that are not numbers (other__orccar).
+  const foot = fresh('transfer-footman'), grunt = load('transfer-grunt'), stand = seqMatch(foot, /^stand/i), [a, b] = foot.Sequences[stand].Interval;
+  const key = (Frame, v) => ({ Frame, Vector: new Float32Array([v]), InTan: new Float32Array([v - 0.01]), OutTan: new Float32Array([v + 0.01]) });
+  foot.Cameras = [{ Name: 'Portrait', Position: new Float32Array([200, 0, 80]), FieldOfView: 0.7, FarClip: 1000, NearClip: 8, TargetPosition: new Float32Array([0, 0, 60]), Rotation: { LineType: 3, GlobalSeqId: null, Keys: [key(a, 0), key(Math.round((a + b) / 2), 0.2), key(b, 0)] } }];
+  const rig = transferRig(foot, { sequence: stand }), attack = seq(grunt, 'Attack - 1'), { parts } = wholeBodyParts(rig, transferRig(grunt, { sequence: attack }));
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'g', attack) };
+  const { sequenceIndex } = applyTransfer(foot, buildTransfer(foot, new Map([['g', grunt]]), recipe), recipe, {});
+  const [s, e] = foot.Sequences[sequenceIndex].Interval, keys = foot.Cameras[0].Rotation.Keys.filter(k => k.Frame >= s && k.Frame <= e);
+  assert.ok(keys.length >= 2, `the new animation has ${keys.length} camera roll keys`);
+  for (const k of keys) for (const field of ['Vector', 'InTan', 'OutTan']) {
+    assert.equal(k[field].length, 1, `camera roll key at ${k.Frame} has ${k[field].length} values in ${field}`);
+    assert.ok(Number.isFinite(k[field][0]), `camera roll key at ${k.Frame}: ${field} ${k[field][0]}`);
+  }
+});
