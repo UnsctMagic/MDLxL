@@ -129,7 +129,8 @@ function defaultSequence(model) {
 }
 function readPose(model) {
   const sequence = defaultSequence(model), frame = sequence >= 0 ? model.Sequences[sequence].Interval[0] : 0;
-  try { return { pose: suggestPoseRig(model, frame, Math.max(sequence, 0)) }; } catch (error) { return { error: `The rig could not be read: ${error.message}` }; }
+  // Short limbs (one or two joints, too short for a POSE handle) are limbs here like any chain.
+  try { const pose = suggestPoseRig(model, frame, Math.max(sequence, 0)); return { pose: pose.stubs ? { ...pose, chains: [...pose.chains, ...pose.stubs] } : pose }; } catch (error) { return { error: `The rig could not be read: ${error.message}` }; }
 }
 // POSE's chains as Transfer reads them. A chain the shared recogniser marks as hanging cloth
 // (`cloth`, see suggestPoseRig) is no limb: never an arm, never a part. For the search for a
@@ -234,7 +235,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   let body = pose.body != null && tree.root(pose.body) === skeleton ? pose.body : null;
   const own = pose.chains.filter(chain => skeletonRoot(model, info, chain.root) === skeleton);
   if (body == null && own.length) {
-    try { body = suggestPoseBody(model, own, tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
+    try { body = suggestPoseBody(model, own.filter(chain => !chain.short), tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
   }
   // A body that drives none of this skeleton's limbs only carries the name (a still skin bone called "Body" beside
   // the helper that moves the creature): the body is then the joint the legs hang from (the limbs, with no leg).
@@ -342,11 +343,13 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
   const seatedChains = seatTops.length ? seatLegs(seatTops).chains : [];
-  let actor = seatTops.length ? wanted : 'both';
+  // The recogniser's own upper body of this creature (a Reforged turret over its pelvis, `uppers`) is no rider.
+  const carried = seatTops.length > 0 && seatTops.every(top => (pose.uppers?.[body] || []).includes(tree.root(top)));
+  let actor = seatTops.length && !carried ? wanted : 'both';
   if (actor === 'seated') {
     // The seated creature read alone: its own body joint drives its limbs.
     let own = null;
-    try { own = suggestPoseBody(model, seatedChains, tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
+    try { own = suggestPoseBody(model, seatedChains.filter(chain => !chain.short), tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
     if (own != null && joints.has(own) && seatedId(own)) body = own; else actor = 'both';
   }
   const ridden = actor === 'both' ? seatedId : () => false;
@@ -394,7 +397,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     for (let parent = tree.parentOf(limb[0]); parent != null && joints.has(parent) && !trunkIds.has(parent) && chainsBelow(parent) === 1; parent = tree.parentOf(parent)) limb.unshift(parent);
     if (!limb.length) continue;
     const tip = chain.end !== endJoint ? pos(chain.end) : null;
-    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip, line: ids });
+    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip, line: ids, short: chain.short === true });
   }
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
@@ -430,6 +433,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
+    if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
   });
   // Which hand holds the weapon (automatic Mirror) stays a naming rule: a
   // geometric weapon is also found where no node is named (and none on a shield).
@@ -440,11 +444,15 @@ function readRig(model, info, skeleton, wanted = 'both') {
   if (!Object.keys(parts).length) return fail('No body parts were recognised on this model.');
   // Size (rules 1 to 4 of docs/agent-tasks/xfer-transplant-fixes.md). Read alone, a rider or its mount keeps the plain numbers.
   const plainReading = actor === 'both', extent = plainReading ? bodyExtent(model, ref, sequence) : { size: 0, floor: null };
-  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : extent.floor ?? Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
-  const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - ground > 1e-3 && hipCentre.z - ground >= HIP_MIN_SHARE * extent.size;
   const partJoints = new Set(Object.values(parts).flatMap(part => part.joints));
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
-  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - ground) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
+  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : extent.floor ?? Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
+  // The hip height of short legs (one or two joints, the last one above the floor) is measured down to their soles, else
+  // to their end references; `ground` stays the level of the leg ends, which the feet are placed by.
+  const footLevel = part => part.short ? part.sole?.level ?? part.tip?.z ?? pos(part.marker).z : pos(part.marker).z;
+  const floorLevel = legs.length ? Math.min(...legs.map(footLevel)) : ground;
+  const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - floorLevel > 1e-3 && hipCentre.z - floorLevel >= HIP_MIN_SHARE * extent.size;
+  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - floorLevel) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
   Object.defineProperty(rig, 'hipMeasured', { value: hipMeasured, enumerable: false });
   Object.defineProperty(rig, 'extent', { value: extent.size, enumerable: false });
@@ -453,7 +461,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   Object.defineProperty(rig, 'trunk', { value: shoulders.length === 2 ? shoulders[0].add(shoulders[1]).multiplyScalar(0.5).distanceTo(hipCentre) : 0, enumerable: false });
   // Which reading this is, and which the model offers (one creature: 'both' only).
   Object.defineProperty(rig, 'actor', { value: actor, enumerable: false });
-  Object.defineProperty(rig, 'actors', { value: seatTops.length ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
+  Object.defineProperty(rig, 'actors', { value: seatTops.length && !carried ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
   // The floor a weapon must stay above: the lowest foot vertex, else the ground.
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
@@ -1402,7 +1410,9 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   // so a two-joint forearm still maps to the recipient's forearm.
   // Arms and legs pair by role, read in the rest pose (see limbPairing); other parts by distance.
   const infoA = modelInfo(donor), infoB = modelInfo(recipient);
-  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine);
+  // The limb on the other side and the donor limb it takes from pair together with this one (see limbPairing).
+  const partner = own.kind === 'limb' && swapSide(key) !== key ? { own: rigB.parts[swapSide(key)], theirs: rigA.parts[swapSide(theirs.key)] } : null;
+  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner);
   const map = pairing ? pairing.map : jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
   // A joint that follows the donor's line across several donor joints: the two ends of that line, and the line in the reference pose.
   const chordEnds = map.map((j, i) => pairing && j >= 0 && pairing.until[i] > j + 1 && pairing.until[i] < pairing.ids.length ? [theirs.joints[j], pairing.ids[pairing.until[i]]] : null);
@@ -1700,11 +1710,20 @@ function jointMap(ownPath, theirPath, ownCount, theirCount) {
  *   With the same number of joints the rest pair in order. Otherwise every way of pairing the
  *   joints in order is tried, and the one whose stretches point most alike in the rest pose wins
  *   (the place along the limb settles limbs that hang straight).
+ * - The two limbs of a left/right pair are paired together (`partner`: this model's limb on the other
+ *   side and the donor limb it takes from): every way is scored on both and the lower sum wins, so
+ *   the two legs of one model never pair differently (a near tie flipped one knee onto the donor's
+ *   hock, XFER row 10, Lord of Change donors).
+ * - A leg's bend goes to the donor leg's knee (its first joint below the top that bends in the rest
+ *   pose) where the donor's leg has more joints, unless the stretch above the bend points over 20
+ *   degrees further off there than at the best other joint: the straight-shin rule then straightens
+ *   the donor's hock, not its knee.
  * `until[i]` indexes `ids` (the donor's joints, then its end point if that is an attachment): the
  * donor joint or point where the stretch joint i takes ends. More than one on from `map[i]` means
  * joint i follows the donor's line across those joints, not one donor bone.
  * Returns null when either limb's top and end are not known: the caller pairs by distance. */
-function limbPairing(own, theirs, rest, onLine) {
+const KNEE_BEND = 10, KNEE_MARGIN = 20;
+function limbPairing(own, theirs, rest, onLine, partner = null) {
   if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
   const read = (part, at, name) => {
     const line = part.line || [];
@@ -1728,24 +1747,51 @@ function limbPairing(own, theirs, rest, onLine) {
   let pick = Array.from({ length: p }, (_, t) => Math.min(t, q - 1));
   if (p > 1 && q > 1 && (p !== q || pinned && pick[b.bend] !== a.bend)) {
     const lengths = points => points.slice(1).map((point, i) => point.distanceTo(points[i])), total = list => list.reduce((sum, value) => sum + value, 0) || 1;
-    const lenB = lengths(B), sumB = total(lenB), placeB = lenB.reduce((list, value) => [...list, list.at(-1) + value / sumB], [0]);
-    const lenA = lengths(A), sumA = total(lenA), placeA = lenA.reduce((list, value) => [...list, list.at(-1) + value / sumA], [0]);
-    const cost = f => {
-      let sum = 0;
-      for (let t = 0; t < p - 1; t++) {
-        let next = q - 1; for (let u = t + 1; u < p - 1; u++) if (f[u] > f[t]) { next = f[u]; break; }
-        sum += lenB[t] / sumB * B[t + 1].clone().sub(B[t]).angleTo(A[next].clone().sub(A[f[t]])) / DEG;
-        if (t) sum += 60 * Math.abs(placeB[t] - placeA[f[t]]);
+    // The cost of one way of pairing (f: donor joint per joint here, counted from each limb's first) on one pair of limbs.
+    const scorer = (B, A) => {
+      const lenB = lengths(B), sumB = total(lenB), placeB = lenB.reduce((list, value) => [...list, list.at(-1) + value / sumB], [0]);
+      const lenA = lengths(A), sumA = total(lenA), placeA = lenA.reduce((list, value) => [...list, list.at(-1) + value / sumA], [0]);
+      return f => {
+        let sum = 0;
+        for (let t = 0; t < p - 1; t++) {
+          let next = q - 1; for (let u = t + 1; u < p - 1; u++) if (f[u] > f[t]) { next = f[u]; break; }
+          sum += lenB[t] / sumB * B[t + 1].clone().sub(B[t]).angleTo(A[next].clone().sub(A[f[t]])) / DEG;
+          if (t) sum += 60 * Math.abs(placeB[t] - placeA[f[t]]);
+        }
+        return sum;
+      };
+    };
+    // The donor leg's knee: its first joint below the top whose rest pose bends (-1: none, or not a leg with more joints).
+    const kneeOf = A => { for (let j = 1; j < q - 1; j++) if (A[j].clone().sub(A[j - 1]).angleTo(A[j + 1].clone().sub(A[j])) / DEG > KNEE_BEND) return j; return -1; };
+    const kneeRule = own.limbKind === 'leg' && b.bend > 0 && b.bend < p - 1 && !pinned && q > p;
+    const sides = [{ B, A, cost: scorer(B, A), knee: kneeRule ? kneeOf(A) : -1 }];
+    // The other side's pair of limbs, read the same way; only when it has the same joints in the same roles.
+    if (partner?.own && partner?.theirs && partner.own !== own && partner.theirs !== theirs && partner.own.limbKind === own.limbKind && partner.theirs.limbKind === theirs.limbKind) {
+      const pb = read(partner.own, rest.own, rest.ownName), pa = read(partner.theirs, rest.theirs, rest.theirName);
+      if (pb && pa && pb.ids.length === n && pa.ids.length === m && pb.start === sB && pa.start === sA && pb.bend === b.bend && pa.bend === a.bend) {
+        const PB = pb.points.slice(sB), PA = pa.points.slice(sA), knee = kneeRule ? kneeOf(PA) : -1;
+        if (knee === sides[0].knee) sides.push({ B: PB, A: PA, cost: scorer(PB, PA), knee });
       }
-      return sum;
+    }
+    const cost = f => sides.reduce((sum, side) => sum + side.cost(f), 0);
+    const search = keep => {
+      let best = Infinity, found = null;
+      const walk = f => {
+        if (f.length === p - 1) { if (!keep(f)) return; const value = cost(f); if (value < best - 1e-9) { best = value; found = [...f, q - 1]; } return; }
+        // Bend with bend; what lies above this limb's bend stays above the donor's.
+        for (let j = f.at(-1); j <= q - 2; j++) if (!pinned || (f.length < b.bend ? j < a.bend : f.length > b.bend || j === a.bend)) walk([...f, j]);
+      };
+      walk([0]);
+      return found;
     };
-    let best = Infinity;
-    const walk = f => {
-      if (f.length === p - 1) { const value = cost(f); if (value < best - 1e-9) { best = value; pick = [...f, q - 1]; } return; }
-      // Bend with bend; what lies above this limb's bend stays above the donor's.
-      for (let j = f.at(-1); j <= q - 2; j++) if (!pinned || (f.length < b.bend ? j < a.bend : f.length > b.bend || j === a.bend)) walk([...f, j]);
-    };
-    walk([0]);
+    pick = search(() => true) || pick;
+    const knee = sides[0].knee;
+    if (knee > 0 && pick[b.bend] !== knee) {
+      const atKnee = search(f => f[b.bend] === knee);
+      // The stretch above the bend (top -> bend here, top -> the paired joint there), worst over both sides.
+      const thigh = f => Math.max(...sides.map(side => side.B[b.bend].clone().sub(side.B[0]).angleTo(side.A[f[b.bend]].clone().sub(side.A[0])) / DEG));
+      if (atKnee && thigh(atKnee) <= thigh(pick) + KNEE_MARGIN) pick = atKnee;
+    }
   }
   for (let t = 0; t < p; t++) map[sB + t] = sA + pick[t];
   for (let t = 0; t < p; t++) { let next = m - 1; for (let u = t + 1; u < p; u++) if (pick[u] > pick[t]) { next = sA + pick[u]; break; } until[sB + t] = t === p - 1 ? m : Math.max(next, map[sB + t] + 1); }

@@ -1,5 +1,7 @@
 # XFER transplant overnight run (19 → 20 Nov 2026, 22:47 → 09:00)
 
+UPDATE 20 Nov ~02:30, owner: "dont stop at 9 either - keep going with this task until its finished or I say stop." The run has NO end time.
+
 Owner's orders (quoted, 19 Nov ~22:45): "A TRANSPLANT IS 100% A TRANSPLANT." Fix that, then "run tests ALL
 night ... EVERY single combination possible of EVERY model in SD wc3 PLUS every model in the low polyworks
 repo PLUS whatever you find in my downloads ... cheap workers to run the actual transfers, you will examine
@@ -169,3 +171,110 @@ timeout 180 s (row `timeout`, worker restarted), worker crash -> row `crash`. A 
   74 (all Plague Cloud / Plague Cloud Target, T1: base v1 scored them ok/look-bad); per class gone/new: geoset 117 -> 0,
   posture 108 -> 50, pose 155 -> 99, inside 65 -> 15, hand-inside 48 -> 17, mesh-vanishes 11 -> 0, flung 13 -> 8,
   collapse 10 -> 3, ground 112 -> 116 (43 gone, 47 new: next look).
+- 01:12 sweep-v2 running (651 models, 423,801 pairs, 14 shards, ~8.2/s -> ~55% by 09:00, stratified first). Panel head4 37 ok / 24 bad (base 4/57). NEXT at ~01:45 nudge: Opus analyst on sweep-v2 sample (ground 47 new, remaining pose/posture), then fix workers; merge claude/xfer-r1 when done.
+- 01:16 sweep-v2 sample done: ok 40.7% (base sample 16.7%), broken 1.1% (base 10.4%). Analyst v2 started on it.
+- 01:21 OWNER: 'use this run to also fix other things' -> 1 Retarget mode + 2 ANIM. Started Opus workers on claude/xfer-retarget and claude/anim-overnight (ANIM merges transfer-xl to run on transplant results).
+- 01:24 nudge: sweep-v2 checked; analyst v2, R1, Retarget, ANIM workers running.
+- 01:53 analyst v2 (Opus) on the sweep-v2 sample, POPULATION-weighted (the stratified sample over-weights rare kinds:
+  Plague Cloud x2 = 11.9% of the sample, 0.6% of pairs): v4 ok 46.7% / look-bad 49.5% / broken 3.1% / no-rig 0.6%.
+  `out/transfer-probe/overnight/analysis-v2/classes.md`. no-rig = only Plague Cloud + Plague Cloud Target (0 nodes,
+  0 vertices): correct, no unit. Proven yardstick false alarms -> **ruler v5 now installed as look.mjs** (v4 kept in
+  `analysis-v2/look-v4.mjs`; sweep-v2 keeps its frozen v4 in sweep-v2/code): sinks/floats against each model's own
+  Stand floor/sole (78 models stand below the origin: flyers, swimmers); feet-off-target mesh side reads the engine's G1
+  sole at the Stand's first frame (90% of feet flags: engine on its target, v4 read weapon tips/tails); hock legs read
+  as thigh + knee->foot (owner's straight shin: 33% of leg.lower/end2 weight, offsets = the donor's bind hock bend);
+  body frame/posture by hip/shoulder landmarks for biped trunks (55% of posture weight: chest pivots; Fire Pandaren on
+  Spanish Halberdier 35.7 -> 1.4 deg); flung ignores never-moving bones (hero glow left on the ground in Dissipate, as
+  the donor's own); segments pair by label (v4 compared nothing when a pelvis/chest was missing). Same engine, 180
+  population pairs: ok 47.2 -> 65.6%, feet-off 18.3 -> 3.9, leg.lower 16.7 -> 2.8, sinks 22.2 -> 16.1; panel 37 -> 48 ok
+  (`analysis-v2/panel-head5.json`). REAL, ranked: (1) body dips ~16%: weapon/arm tips/upright dragon bodies under the
+  ground while feet are right = 100% transplant on longer parts -> owner option G-OPT (opt-in lift, off by default);
+  (2) rider/mount + dragon posture ~6% (R1 rider pose); (3) inside on owns whose front legs/wings read as arms ~4% (R1);
+  (4) leg pairing knee<->hock flips L/R on Lord of Change donors ~1.5%, `limbPairing` anim-transfer.js 1612 -> R-B,
+  after R1 (same file, shared with retargeting: baseline must stay 0 differ); (5) odd-leg reads = R1 (5.7% of pairs touch
+  one); (6) G1 sole reference at Stand frame 0 (`solesDown` 1796, Faerie Dragon) small; (7) throws: Undead Car
+  keptExtra<->targetOf recursion (skeleton-transplant.js 728), Revenant Matrix undefined, Far Seer KEYFRAME_ORDER.
+  Parallel: G1b/G-OPT (skeleton-transplant ground functions) with R1; R-B after R1.
+- 01:54 nudge: sweep-v2 checked; workers running.
+- 01:54 analyst v2 done: ruler v5 live (weighted ok 46.7% under v4 -> ~65.6% under v5 on a 180-pair representative set; panel 48 ok). Started Opus: solesDown median + 3 throws on transfer-xl. Row 3 (own long weapon/arms under ground: opt-in lift) WAITS for owner. Row 10 (knee/hock L/R pairing) after R1.
+- 01:57 RETARGET worker (Opus, owner 01:20 "check and fix Retarget"): worktree `.claude/worktrees/xfer-retarget`, local
+  branch `claude/xfer-retarget` (from 5d3e5d7a). Yardstick `out/transfer-probe/overnight/retarget/rlook.mjs` (window
+  emulation: Take whole body Mine / Theirs, Add all; motion = own reference turned by the donor's turn, pose = direction vs
+  donor in anchor frames, mesh trunk posture, loose joints, pops, feet, travel, collapse, inside, broken); identity
+  calibration 100 models (`retarget/calib`); 3,000-pair sample running (`retarget/sample`, 3 shards Idle, engine frozen in
+  `retarget/eng-base`, yardstick frozen in `rt-code-s1/`). Commit 6bd4caff: camera roll keys written as quaternions in
+  every new animation (validate errors, other__orccar) and weapon lift = full quarter turn where none clears the floor
+  (arm pops 83-166 deg/step in Deaths). Tests C1/W1 fail first; 91/91; retarget baseline 0 differ.
+- 02:10 R1 worker (Opus): commit 0302dc4a on local claude/xfer-r1 (worktree .claude/worktrees/xfer-r1, from 15ea8d63; engine frozen in `overnight/eng-r1/`). Shared recogniser (pose-ik.js readPoseRig, clues on only; clues off identical for all 1243 models): legs read in mirrored pairs. A Hand ref above a named foot = forepaw; a Hand-ref paw mirrored by a leg, both standing, = leg (wolf rig front right: Dire/Timber/White/Spirit Wolf, Spirit Pig, Thrall, Far Seer, Snapdragon, Fel Stalker; bears' front left; Druid bear form); an unnamed twin of a named leg is a leg (Zergling, Felhound); a limb chain through the joint its mirrored twin also hangs from is re-read below it (pig/sheep/seal hips, wyvern/hippogryph/faerie dragon/Archimonde/Sargeras hips, Wyvern Rider + Archnathid family + Infernal chests); the SD numbered-helper extension no longer climbs through a shared hip; short legs (1-2 joints) as `stubs` (pig, Fel Boar, sheep, seal, rat, flying sheep; Arthas/DK/Malfurion seated riders gain their 2-joint legs); an HD hand on its last twist joint reads upper arm>forearm>hand; an arms-only turret root at a 2-leg pelvis root = one creature (HD Footman: body pelvis, real legs, `uppers`). Transfer: stubs are limbs, short legs' hip height to their soles. Transplant: short legs on either side stand by soles (G1). Proof: rig-dump 1207 models: 1102 same, 105 differ (all listed in out/transfer-probe/rigdiff-a5-compact.txt of the r1 worktree, each a model with a misread limb or a limb swallowing its shared hip/chest; no rider lost its two-creature reading); retarget fingerprints (r1-retarget.mjs: 398 SD x Grunt/Dire Wolf Walk + Footman x 398): 399/1192 differ = every Dire Wolf-donor row (the wolf now walks on 4 legs) + rows of the changed models only; baseline z3 32 trials 0 differ; riders gate 95 built 1 flag as before. Tests L1-L4 fail on 15ea8d63, pass; S3 Felhound 3->4 legs, S1 rat now soles measured on its legs (legs at rest in Attack Slam; old engine floated them 0.3-0.45 H), Bone Namer Archnathid Box23 -> Bone_Chest (it carries both arms). 176/176 transfer+transplant, 207/211 (3 skip, 1 fixed) POSE+Bone Namer, 89/89 AnimXL/Attachemator/Corpse.
+- 02:10 R1 panel (ruler-r1 = yardstick at 5d3e5d7a, head eng-5d3e5d7a vs eng-r1, panel-r1-prev.json / panel-r1.json / panel-compare-r1.txt): ok 37 -> 35, 7 better, 9 worse, GATE FAILS on paper. Better: Wyvern Rider on Gryphon Rider loses all 4 pose flags (arms 30, legs 22 deg), Dire Wolf on Tauren loses 7 pose flags, Felhound on Dire Wolf loses inside 0.563, Infernal on Grunt -> ok. Worse, with reasons: Footman HD on Grunt (feet-off 1.526) and Grunt on Footman HD (0.894) = YARDSTICK FALSE ALARM: the ruler reads rigs with base/src, where the HD Footman's legs are its forearm twists (own ground 56.5); real lowest points: old engine floated the HD Footman 6.0 above the donor's 0.3 and sank the Grunt to -10.7, new 0.4 vs 0.4 and -0.1 vs -0.1. Felhound on Dire Wolf feet-off 0.229 = ruler's 3-leg base reading: the engine now plants the lowest of 4 feet (front right included), the ruler's lowest of 3 differs in one Walk frame (8.7 vs 0.3), medians -1.3 vs -1.6. Wyvern on Gryphon feet-off 0.172->0.287 = ruler switches to mesh mode (base reading's legs carry no skin); result lowest now nearer the donor's (Stand -56.8 vs -70.2, was -52.6 vs -99.4). Sheep on Rat: new tail reach row = 0 (no short frame). Kurgan on Felhound inside +0.05, Infernal on Grunt inside +0.13 (both under threshold, unflagged; base ruler calls the Infernal's chest skin arm). REAL: Rat on Dire Wolf ok -> sinks 0.498 in Attack Slam: the rat's legs now stand at their Stand height all through (old floated them), its tail (longer than its height) follows the wolf's tail through the floor; size 0.434 -> 0.183 (the rat now has a measured hip). Dire Wolf on Tauren neck med 33.6 -> 43.6 (a quadruped on a biped; trunk fit lost the misread front-leg shoulder): not traced. Not fixed (owner/orchestrator call): Tauren leg.lower 56 / leg.end2 48 deg is constant over every own model and animation with feet on target = the straight-shin rule against the Tauren's 3-segment hoofed leg, segment by segment (no foot misplacement); Wolf Rider on Knight leg.lower 25 deg constant in every clip = wolf 3-joint legs on the horse's 4-joint legs, same kind; Kurgan on Khorne Knight Axe p90 33 comes only from Death and Decay Flesh, where every segment is off by the same ~35 deg for the whole clip = body-frame mismatch (likely the ruler's death-root joints), limbs fine elsewhere (med 1-7). Yardstick todo: read rigs with the engine under test (or R1) so HD/wolf/rat legs are the real ones.
+- 01:57 R1 done on claude/xfer-r1 0302dc4a: 105 misread rigs now read right (wolves, bears, pig, rat, HD Footman, wyverns...). Retarget changes only on those (399/1192 fingerprints, all Dire-Wolf-donor rows + changed models; 32-trial baseline 0 differ). Panel: 7 better / 9 worse (5 yardstick, Rat-on-DireWolf tail through floor = row-3 class, 2 untraced small). ACCEPTED: merge after the sole-median worker finishes; then yardstick reads rigs with the engine under test; then row 10 knee/hock pairing. FLAG FOR OWNER: biped taking a 4-legged walk in Retarget now gets only the head.
+- 02:40 sole-median + throws worker (Opus): commit 5f337969 on transfer-xl (skeleton-transplant.js only + tests + fixtures;
+  engine frozen in `overnight/eng-g2/`, head e14f4fdb in `eng-head/`). G1b: `solesDown` own sole = median over 12 moments
+  of the own Stand (was its first frame). Throws: `targetOf` cycle guard (Undead Car: skinned Bone_MasterRoot rides its
+  hips, the hips' anchor is it -> re-read from the joints above); the hands the weapon was baked onto stay through the
+  donor-bone prune (Revenant on Skink High Priest: Wrist1 lost all skin to the staff, then was pruned); no key at the start
+  of an animation that is not a signed 32-bit span (Far Seer "nothing" 4294967129..0). All 34 sweep-v2 throws/KEYFRAME_ORDER
+  rows now made, no new validate codes (`g2/rerun.mjs`). Tests S3, V1-V3 fail on e14f4fdb, pass; 74/74 transplant+skin+
+  extras, 89/89 anim-transfer+window, retarget baseline z3 vs g2 32 trials 0 differ. Gate `node gate.mjs g2 head g2`
+  (ruler v5): 48/13 both, 0 worse, 0 better -> PASSES (panel holds none of these pairs). Pair checks (`g2/look-*.txt`,
+  v5): Undead Car on Footman, Revenant on Skink broken -> ok; White Wolf on Far Seer broken -> look-bad (tail.upper 51 deg,
+  was hidden by the throw); Faerie Dragon on Footman / on Baron ok -> feet-off-target 0.945 = RULER FALSE ALARM: v5's
+  Y5f reads the sole against the Stand's FIRST frame, exactly the reference G1b replaced; 0.945 = the dragon's own
+  first-frame vs median sole gap (-0.40 vs -1.34 hip heights). By the median the result's sole is within 0.1 hip at every
+  Footman-on-its-feet moment (S3; head 0.99 off), and its mesh centre hovers nearer its own (own Stand 0.42-0.85 hip, head
+  2.1-2.6, now 1.2-1.7; `g2/hover.mjs`). Yardstick todo (v6): Y5f reference = median Stand sole, as the engine.
+- 02:14 sole median + 3 throws done (5f337969; 34 throwing sweep rows now build). Started Opus: merge R1 + ruler v6 (rigs read by engine under test, median sole) + row 10 knee/hock pairing. C: 15.8 GB (pagefile 12.8 GB grows with memory pressure; owner told; threshold 8 GB).
+- 02:21 OWNER TARGET: humanoid->humanoid (incl. riders like Wolf Rider orc <-> Knight) must work ~99%. sweep-v2 biped->biped now 57.9% ok / 8.2% broken (v4 ruler, pre-fixes). Started dedicated Opus humanoid worker (measure now, fix after the R1 merge, loop until 08:30 or >=99%).
+- 02:21 OWNER: humanoid worker does not stop until done (>=99% humanoid->humanoid), even past 09:00. The 09:00 report happens anyway; the work continues after it.
+- 02:22 OWNER: no stop at 09:00 - run until finished or he says stop. 09:00 is now a status report only; keep-awake extended.
+- 02:24 nudge: sweep-v2 alive; merge/R1/ruler-v6, humanoid, Retarget, ANIM workers running.
+- 02:38 RETARGET worker: local `claude/xfer-retarget` now 5c0a03e1 (5 commits on 5d3e5d7a, tests 95/95, each fails
+  first): 6bd4caff camera roll + lift never a useless quarter turn; cda7f1f0 + 389065fd joints outside every part that the
+  donor has too (same name, parent, place) take its turn, per clip (identity: Footman shield 39 -> 0, sword 22 -> 0, Ghoul
+  waist 59 -> 0; baseline walkattack: sword 22 -> 0); 2a2a9653 hips held down through moments with no donor foot down
+  (Footman/Grunt/Ghoul taking the Shadow Hunter's Walk leapt 50 -> 140-165 for a frame, now steady; baseline kurganwalk
+  largest body step 12.0 -> 7.7); 5c0a03e1 lift axis does not flip (pops 25 -> 10 of 30 rechecked pairs; baseline
+  pitlord/abom/locdeath/kurgan, weapon never under the floor, R7 premise updated with numbers). Sample 2,591/3,000.
+- 02:41 merge/ruler/row-10 worker (Opus): (1) merged claude/xfer-r1 0302dc4a into transfer-xl = bb2e891f (one conflict,
+  test/helpers/fixtures.cjs, both fixture sets kept; tonight's fixes intact). Tests 167/167 transplant+skin+extras+
+  anim-transfer+window, 13/13 picks+builder, 199/202 (3 skip) POSE+Bone Namer, 26/26 rig names/part bones/bone tools, 89/89
+  AnimXL+Attachemator+Auto Corpse; retarget baseline z3 vs m2 32 trials 0 differ; R1 fingerprints (`r1-retarget.mjs`, 1192
+  rows) identical to R1's own, 399 differ from before R1 exactly as R1 documented. (2) Ruler v6 = `look.mjs` (v5 kept in
+  `v6/look-v5.mjs`): (j) rigs (transferRig, transplantReading, mirrorModel) read with the ENGINE UNDER TEST (`loadEngine`
+  loads its anim-transfer.js; bodies still sampled with base/src; `LOOK_RIG_ENGINE=<engine>` reads rigs with another engine
+  for a like-with-like cross-check); (k) feet check sole reference = median Stand sole (G1b), not frame 0; (l) a side with
+  short legs (R1 `short`) reads its sole. Gate `gate.mjs v6m a4a41584 bb2e891f` (ruler-v6m): ok 48 -> 47, "14 worse"
+  on paper: 7 are only metrics measured now that were not before (rigs read with real legs; all under threshold, verdict
+  ok both: Dire Wolf/Felhound, Felhound/Dire Wolf, Tauren/Dire Wolf, Mammoth/Felhound, Footman HD/Grunt, Grunt/Footman HD,
+  Penguin/Penguin); R1's ruler false alarms CLEAR (Footman HD on Grunt, Grunt on Footman HD, Felhound on Dire Wolf feet,
+  Wyvern feet: all gone; Sheep on Rat tail reach row gone); Faerie Dragon feet false alarm CLEARS (on Footman and on Baron:
+  a4a41584 ok under v6, was feet-off 0.945). Cross-check with one reader (prev engine read with the merged engine's rigs,
+  `panel-v6m-prev-xr.json`): ok 43 -> 47 for the merge; the old engine was really bad on Grunt on Footman HD (posture 151 deg,
+  legs 138-162 deg: upside down) and Footman HD on Grunt (feet 1.1 hip), Rat/Tauren/Felhound on Dire Wolf feet 1.08/2.03/0.10;
+  all ok after the merge. Real, left: Footman on Rat 0.235 / Sheep on Rat 0.24 feet-off (R1: short donor legs go to
+  soles mode, but the donor's rise is read from its stub end joints, which run up to 0.4 rat hips off its paws in the
+  rat's hopping Walk: `rb/ratground.mjs`); Rat on Dire Wolf sinks 0.43 (accepted 01:57, body dip); Wyvern Rider on
+  Gryphon Rider 6 flags -> 1 (new sinks 0.27 = its armL under the floor in Attack, body dip); Dire Wolf on Tauren neck
+  35.6 -> 43.1 (R1, untraced); Kurgan on Felhound inside +0.05, Infernal on Grunt +0.03 (under threshold). Faerie Dragon
+  with the merged engine: on Footman sinks 0.61 (its armL, body dip; old engine floated 0.59 + feet 1.7 under one reader),
+  on Baron leg.upper 18.7 + posture -14 (rider class). C: 8.7 GB free at 02:40 (was 15.7 at 02:25): REPORTED, sweep not touched.
+- 02:47 row 10 (Opus) e01028cb: `limbPairing` scores a left/right pair of limbs together (this limb + the other side's
+  limb and the donor limb it takes from, same joints in the same roles: lower SUM wins) and a leg's bend goes to the
+  donor leg's knee (first joint below its top bending > 10 deg at rest) where the donor leg has more joints, unless the
+  thigh points > 20 deg further off there. Tests R10 x2 fail on bb2e891f (Footman thigh 32 deg off the LoC hip-to-knee;
+  LoC donor legs 0.33 hip from mirrored) and pass. Before/after (ruler v6, `rb/rows.mjs`, `rb/pairs.json`): Bandit Spear
+  Thrower on P26 thigh 31.7 -> 0.1, shin 20.7 -> 2.1 (ok); Tuskar Ranged on P14_1 29.9 -> 1.2 / 22.9 -> 2.2 (left: sinks 0.29,
+  body dip); Headhunter on P21 24.2 -> 0.5 / 27.2 -> 2.3 (ok, its knee took the HIP before); GUO on P7 30.6 -> 1.7 /
+  33.9 -> 2.3 (ok); Steam Tank on P13 39.3 -> 7.5 / 25.5 -> 9.1 (floats 0.56 stays); 4 other LoC pairs unchanged.
+  Retarget: baseline z3 vs rb1 0 differ; R1 fingerprints 5 of 1192 differ, all left/right fixes (`rb/retarget-5-pairing.txt`:
+  Footman taking the Walk of Nether Dragon/Phoenix/Faerie Dragon: right upper arm now follows the donor's line to its third
+  wing joint as the left does; Zergling: left arm pairs as the right; HD Forsaken Paladin: right knee on the knee joint
+  as the left). Panel v6 bb2e891f -> e01028cb: 0 worse, 1 better (Wolf Rider on Knight legs 11.5 -> 2.9) GATE PASSES.
+- 02:47 short-legged donors 5dd104fb (from the merge gate's real Footman/Sheep on Rat): R1 puts short donor legs in soles
+  mode but read the donor's rise from its stub end joints (the rat's shins: up to 0.4 rat hips off its paws in its hopping
+  Walk); `solesDown` now reads such a donor's sole as the own one (`soleReader`, shared). Test S4 fails on e01028cb (0.24
+  hip median) and passes; 183/183 + 89/89 AnimXL/Attachemator/Corpse; baseline 0 differ. Panel v6: 0 worse, 2 better
+  (Footman on Rat, Sheep on Rat -> ok): 49 ok / 12 (head before merge 48/13 under v6, 43/18 read with the new rigs).
+  Left real vs before the merge (all known): Rat on Dire Wolf sinks 0.43 and Wyvern Rider on Gryphon Rider sinks 0.27
+  (body dips, row 3 / G-OPT, owner), Dire Wolf on Tauren neck 35.6 -> 43.1 (R1, untraced), Kurgan on Felhound inside +0.05
+  (under threshold). C: 8.7 GB, steady since 02:40.

@@ -203,6 +203,9 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
   }
 }
 
+/** Whether a key may go at an animation's start: a signed 32-bit frame and an end not before it (the Far Seer's "nothing"
+ * runs from 4294967129 to 0: keys there broke the key order, KEYFRAME_ORDER, analysis-v2 class 8). */
+const keyable = sequence => Number.isInteger(sequence?.Interval?.[0]) && sequence.Interval[0] >= -2147483648 && sequence.Interval[0] <= 2147483647 && sequence.Interval[1] >= sequence.Interval[0];
 /** What the renderer shows for a track with no key in the playing animation (war3-model's defaults). */
 const HELD = { EmissionRate: [0], Visibility: [1], Alpha: [1], Color: [1, 1, 1], Rotation: [0], Intensity: [0], AmbIntensity: [0] };
 /** A refitted track that got no key in any new animation (its own animations have no counterpart in the donor's):
@@ -218,7 +221,7 @@ function holdTrack(entry, track, stand, globalSequences, newSequences) {
   const template = track.Keys[0].Vector;
   if (value == null) value = Array.from(template);
   track.LineType = 0;
-  track.Keys = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: like(template, [].concat(value)) }));
+  track.Keys = [...new Set(newSequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: like(template, [].concat(value)) }));
 }
 
 /** Keys in time order with no two on one frame (failure sweep class 8: a donor whose animation list is out of time
@@ -815,9 +818,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
   const resolved = new Map();
+  // A joint met again while its own target is being found (the Undead Car's master root rides its hips, and the hips'
+  // anchor is the master root: "Maximum call stack size exceeded") is read as the joints above it place it, not riding.
+  const resolving = new Set();
   const targetOf = id => {
     if (resolved.has(id)) return resolved.get(id);
+    const again = resolving.has(id);
+    resolving.add(id);
+    try { return findTarget(id, again); } finally { if (!again) resolving.delete(id); }
+  };
+  const findTarget = (id, again) => {
     let result;
+    if (again) {
+      // As a joint outside every part is placed (below), from the nearest joint above it not being resolved; not cached.
+      let up = treeB.ancestors(id).find(a => !resolving.has(a) && (partJoint(a) || keptOwn.has(a) || outsideKept.has(a) || twin.has(a) || extraMatch.has(a) || rideOf.has(a)));
+      if (up != null && twin.has(up) && !resolving.has(twin.get(up))) up = twin.get(up);
+      result = up != null ? { ...targetOf(up), via: extraMatch.has(up) ? null : rideOf.has(up) ? rideOf.get(up) : up } : { donor: fallbackDonor, via: null };
+      return result.own != null ? { own: result.own, via: null } : result;
+    }
     if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
     else if (rideOf.has(id)) result = { ...targetOf(rideOf.get(id)), via: rideOf.get(id) };
     else if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
@@ -1187,13 +1205,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     });
     const median = list => { const s = [...list].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
     const levels = [...values].filter(([, list]) => list.length >= 3).map(([id, list]) => ({ id, at: median(list) })).sort((a, b) => a.at - b.at || a.id - b.id);
-    // One skinned trunk joint: nothing to share; the trunk keeps this model's joints.
-    if (levels.length < 2) return null;
+    // The donor's trunk joints sit where the donor's sit in this trunk, so it bends where the donor bends, also when only one
+    // of them carries skin (the Satyr's trunk skin is all on its chest, whose pivot sits at hip height: it bows from the hips;
+    // its chest joint stayed at the Ghoul's own chest, half way up, and the Ghoul bowed 24 deg where the Satyr bows 61).
+    // The skin is then not shared out: one skinned trunk joint, nothing to share.
     for (const id of chain) {
       const d = pA(id).sub(fA.h);
       placed.set(id, fB.h.clone().addScaledVector(fB.e1, s1 * d.dot(fA.e1)).addScaledVector(fB.e2, s2 * d.dot(fA.e2)).addScaledVector(fB.e3, s1 * d.dot(fA.e3)));
       correction.set(id, spine.clone());
     }
+    if (levels.length < 2) return null;
     const bounds = levels.slice(1).map((level, i) => (levels[i].at + level.at) / 2);
     const band = levels.slice(1).map((level, i) => SKIN_BAND * (level.at - levels[i].at));
     return { levels, bounds, band, chain, at: point => point.clone().sub(fB.h).dot(fB.e1) / fB.length };
@@ -1273,7 +1294,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   for (const sequence of newSequences) sequence.MoveSpeed = (Number(sequence.MoveSpeed) || 0) * travel;
   // A track holding one value in every animation (a joint kept still, a constant correction).
   // One key per distinct start, in time order (an HD donor lists its animations out of time order, two on one interval).
-  const starts = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
+  const starts = [...new Set(newSequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
   const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: starts.map(frame => ({ Frame: frame, Vector: like(template ?? new Float32Array(value.length), value) })) });
   const isDefault = (property, value) => property === 'Rotation' ? near(new Quaternion().fromArray(value).normalize(), 1e-7) : property === 'Scaling' ? value.every(v => Math.abs(v - 1) < 1e-7) : value.every(v => Math.abs(v) < 1e-7);
   for (const node of ownNodes) {
@@ -1526,9 +1547,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     node.Flags = (node.Flags & ~TYPE_FLAGS) | BONE_FLAG; node.GeosetId = null; node.GeosetAnimId = null;
     M.Bones.push(node);
   }
+  // The hands the weapon was baked onto stay: the weapon is placed from them onto the weapon bone below, also where all
+  // their skin went with the weapon (Revenant on the Skink High Priest: Wrist1 went, "reading 'elements'" of undefined).
+  const weaponHands = new Set([...weaponVertices.map(([, , hand]) => hand), ...weaponMoves.map(([, hand]) => hand)]);
   for (let changed = true; changed;) {
     changed = false;
-    const parents = new Set(NODE_KEYS.flatMap(k => M[k]).map(n => n.Parent).filter(p => p != null && p !== -1));
+    const parents = new Set([...weaponHands, ...NODE_KEYS.flatMap(k => M[k]).map(n => n.Parent).filter(p => p != null && p !== -1)]);
     for (const key of JOINT_KEYS) {
       const before = M[key].length;
       // A donor bone exists to carry skin: without any here and with nothing hanging from it, it goes, keys or
@@ -1638,7 +1662,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   let ground = null;
   if (rigB.ok && rigA.ok && feet !== 'free') {
     const hasLegs = rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg');
-    if (!whole.reason && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
+    // Short legs on either side (one or two joints, R1: a rat's legs end at the shin, a pig's leg is one bone) have no foot joint to
+    // stand on: this model's own soles go down, as G1's.
+    const shortLegs = [rigB, rigA].some(rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg' && part.short));
+    if (!whole.reason && !shortLegs && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
     else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel);
   }
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
@@ -1725,13 +1752,13 @@ function shiftNode(M, id, dz) {
   const shift = new Vector3(0, 0, dz);
   if (node.Translation?.Keys?.length && !isGlobalTrack(node.Translation, M)) {
     for (const k of node.Translation.Keys) { k.Vector = like(k.Vector, new Vector3().fromArray(k.Vector).add(shift).toArray()); if (node.Translation.LineType === 3) { if (k.InTan) k.InTan = like(k.InTan, new Vector3().fromArray(k.InTan).add(shift).toArray()); if (k.OutTan) k.OutTan = like(k.OutTan, new Vector3().fromArray(k.OutTan).add(shift).toArray()); } }
-    for (const sequence of M.Sequences) if (!keysInInterval(node.Translation, sequence.Interval).length) {
+    for (const sequence of M.Sequences) if (keyable(sequence) && !keysInInterval(node.Translation, sequence.Interval).length) {
       const k = { Frame: sequence.Interval[0], Vector: like(node.Translation.Keys[0].Vector, shift.toArray()) };
       if (node.Translation.LineType >= 2) { k.InTan = like(k.Vector, [0, 0, 0]); k.OutTan = like(k.Vector, [0, 0, 0]); }
       node.Translation.Keys.push(k);
     }
     node.Translation.Keys.sort((a, b) => a.Frame - b.Frame);
-  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: [...new Set(M.Sequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: new Float32Array(shift.toArray()) })) };
+  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: [...new Set(M.Sequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: new Float32Array(shift.toArray()) })) };
 }
 /** Feet down (owner's pick, 19 Nov 2026): per moment, the body joint and every parentless donor joint move up or down
  * by the same amount so the lower foot stands as high above the ground as the donor's lower foot, times `travel`.
@@ -1754,17 +1781,44 @@ function feetDown(M, D, rigB, rigA, rigM, loose, travel) {
  * does: with a legged donor, as high above the ground as the donor's lower foot (times `travel`) plus where the sole
  * stands in this model's own Stand; with a legless donor (a Naga, a hovering Banshee), at its own Stand height plus the
  * donor body joint's rise from its Stand (times `travel`), so a flying donor's model flies.
- * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights. */
+ * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights.
+ * A donor whose legs are short (one or two joints, R1: a rat's legs end at the shin) has no foot joint either: its rise
+ * is its own sole's (the same reading) above where that sole stands in its Stand. */
 function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
   clearTransferCache(M);
   if (!rigM.ok) return null;
   const ownStand = standSequenceIndex(model), donorStand = standSequenceIndex(D);
   if (ownStand < 0 || donorStand < 0) return null;
-  // The vertices that make the sole: the living body (geosets the own Stand shows), the legs' skin when it has legs.
+  const own = soleReader(model, rigB, ownStand);
+  if (!own) return null;
+  const { soleOf, sample, standSole: ownSole } = own;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const legsA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg');
+  const feetA = legsA.map(part => part.marker).filter(id => donorById.has(id));
+  const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
+  const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
+  if (!feetA.length && donorBody == null) return null;
+  const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
+  const donorSole = feetA.length && legsA.some(part => part.short) ? soleReader(D, rigA, donorStand) : null;
+  const donorRise = donorSole && donorSole.useLegs
+    ? (donorIndex, frame) => { const sole = donorSole.soleOf(D, donorSole.sample, sampleNodeMatrices(D, frame, donorIndex)); return sole == null ? 0 : sole - donorSole.standSole; }
+    : feetA.length
+      ? (donorIndex, frame) => { const m = sampleNodeMatrices(D, frame, donorIndex); return Math.min(...feetA.map(id => pivotZ(id, m))) - rigA.ground; }
+      : (donorIndex, frame) => pivotZ(donorBody, sampleNodeMatrices(D, frame, donorIndex)) - bodyRest;
+  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) => frame => {
+    const sole = soleOf(M, sample, sampleNodeMatrices(M, frame, index));
+    return sole == null ? 0 : ownSole + donorRise(donorIndex, frame) * travel - sole;
+  });
+  return feetA.length ? 'soles' : 'hover';
+}
+/** A model's sole (G1): the vertices that make it (the living body = the geosets its Stand shows; the legs' skin when it
+ * has legs), at most 1,500 of them, and where it stands in its Stand (median over twelve moments, G1b). `soleOf(target,
+ * sample, matrices)` reads the same vertices in `target` (the model itself, or a result with its geosets). */
+function soleReader(model, rig, standIndex) {
   const ownNodes = allNodes(model), treeB = nodeIndex(model, ownNodes), legJoint = new Set();
-  for (const part of Object.values(rigB.parts || {})) if (part.limbKind === 'leg') for (const id of part.joints) legJoint.add(id);
+  for (const part of Object.values(rig.parts || {})) if (part.limbKind === 'leg') for (const id of part.joints) legJoint.add(id);
   const onLeg = new Map(), isLeg = id => { if (!onLeg.has(id)) onLeg.set(id, treeB.ancestors(id, true).some(a => legJoint.has(a))); return onLeg.get(id); };
-  const stand = model.Sequences[ownStand];
+  const stand = model.Sequences[standIndex];
   const shows = index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || isGlobalTrack(alpha, model) || sampleShows(model, alpha, stand); };
   const legs = [], all = [];
   (model.Geosets || []).forEach((geoset, g) => {
@@ -1793,28 +1847,19 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
     return heights[Math.floor(0.02 * (heights.length - 1))];
   };
   // At most 1,500 vertices: the lowest 500 in the own Stand and an even share of the rest.
-  const own0 = sampleNodeMatrices(model, stand.Interval[0], ownStand);
+  const own0 = sampleNodeMatrices(model, stand.Interval[0], standIndex);
   let sample = pool;
   if (pool.length > 1500 && useLegs) {
     const ranked = pool.map(item => [item, at(model, item, own0)]).sort((x, y) => x[1] - y[1]);
     sample = [...ranked.slice(0, 500).map(([item]) => item), ...ranked.slice(500).filter((_, i) => i % Math.ceil((ranked.length - 500) / 1000) === 0).map(([item]) => item)];
   } else if (pool.length > 1500) sample = pool.filter((_, i) => i % Math.ceil(pool.length / 1500) === 0);
-  const ownSole = soleOf(model, sample, own0);
-  if (ownSole == null) return null;
-  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
-  const feetA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg').map(part => part.marker).filter(id => donorById.has(id));
-  const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
-  const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
-  if (!feetA.length && donorBody == null) return null;
-  const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
-  const donorRise = feetA.length
-    ? (donorIndex, frame) => { const m = sampleNodeMatrices(D, frame, donorIndex); return Math.min(...feetA.map(id => pivotZ(id, m))) - rigA.ground; }
-    : (donorIndex, frame) => pivotZ(donorBody, sampleNodeMatrices(D, frame, donorIndex)) - bodyRest;
-  heightPerMoment(M, D, rigM, loose, 0.01 * rigB.hipHeight, (index, donorIndex) => frame => {
-    const sole = soleOf(M, sample, sampleNodeMatrices(M, frame, index));
-    return sole == null ? 0 : ownSole + donorRise(donorIndex, frame) * travel - sole;
-  });
-  return feetA.length ? 'soles' : 'hover';
+  // Where the sole stands in this model's own Stand: the median over twelve moments of it, not its first frame (G1b,
+  // analysis-v2 class 6: the Faerie Dragon's dangling legs swing 1.3 hip heights through its Stand).
+  const [standStart, standEnd] = stand.Interval;
+  const standSoles = Array.from({ length: 12 }, (_, k) => soleOf(model, sample, k ? sampleNodeMatrices(model, Math.round(standStart + k / 11 * (standEnd - standStart)), standIndex) : own0)).filter(Number.isFinite).sort((x, y) => x - y);
+  if (!standSoles.length) return null;
+  const middle = standSoles.length >> 1, standSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
+  return { useLegs, sample, soleOf, standSole };
 }
 /** The body joint (and the parentless donor joints) move up or down per moment by `changeOf(index, donorIndex)(frame)`
  * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */

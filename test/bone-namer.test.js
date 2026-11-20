@@ -642,8 +642,9 @@ test('rule 5: Archnathid - both arms end in Bone_Hand_*, although the right arm 
   assertGoodPlan(model, plan, 'archnathid');
   assert.ok(model.Attachments.some(node => node.Name.trim() === 'Hand Right Ref'), 'setup: the attachment exists');
   for (const node of model.Attachments) assert.equal(rowsById(plan).get(node.ObjectId), undefined, node.Name);
-  assertNames(model, plan, { 'Bone CLAW L': 'Bone_Hand_L', 'Bone CLAW R': 'Bone_Hand_R', 'Bone Arm L': 'Bone_Arm1_L', 'Bone Arm R': 'Bone_Arm1_R' }, 'archnathid');
-  assertKept(model, plan, ['Bone_Box23'], 'archnathid (hub above the right arm)');
+  // Bone_Box23 carries both arms: since R1 (xfer-overnight.md) the recogniser reads it as the chest, not as the left
+  // arm's first joint (before, it was kept as the hub above the right arm).
+  assertNames(model, plan, { 'Bone CLAW L': 'Bone_Hand_L', 'Bone CLAW R': 'Bone_Hand_R', 'Bone Arm L': 'Bone_Arm1_L', 'Bone Arm R': 'Bone_Arm1_R', Bone_Box23: 'Bone_Chest' }, 'archnathid');
 });
 
 test('rule 12: a limb end POSE grips by its skin is named Mesh_…, and POSE still grips that end after commit', { skip: missing('sd-bandit') }, () => {

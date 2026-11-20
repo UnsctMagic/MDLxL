@@ -1119,7 +1119,7 @@ test('S2 legs that do not stand are not a hip height: the Spider gets the stand-
 test('S3 the Felhound\'s body is the joint its legs hang from', { skip: missing('transfer-felhound') }, () => {
   const model = load('transfer-felhound'), rig = transferRig(model);
   assert.equal(nodeName(model, rig.body), 'Bone Center');
-  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 3, Object.keys(rig.parts).join(', '));
+  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 4, Object.keys(rig.parts).join(', ')); // 3 before R1 (front right leg unread)
   assert.equal(rig.hipMeasured, true);
   assert.ok(Math.abs(rig.hipHeight - 36.9) < 1, `hip height ${rig.hipHeight} (was 0.001)`);
 });
@@ -1270,4 +1270,60 @@ test('K1 a looping clip with the hips taken plays at its own speed: the result i
   // Arms only (the body animation carries the body): unchanged, the clip is fitted to the body animation as before.
   const arms = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, ['armL', 'armR'], 'h', walk) });
   assert.equal(arms.length, foot.Sequences[stand].Interval[1] - foot.Sequences[stand].Interval[0]);
+});
+
+// R1 (docs/agent-tasks/xfer-overnight.md): legs the shared recogniser missed or called arms.
+const legsBySide = rig => { const legs = Object.values(rig.parts).filter(part => part.limbKind === 'leg'); return { L: legs.filter(p => p.side === 'L').length, R: legs.filter(p => p.side === 'R').length, keys: Object.keys(rig.parts).join(', ') }; };
+test('L1 four-footed rigs read four legs, two each side: a paw holding a Hand ref, an unnamed twin of a named leg', { skip: missing('transfer-direwolf', 'transfer-zergling', 'transfer-felhound', 'transfer-grizzly', 'transfer-rabbit') }, () => {
+  for (const key of ['transfer-direwolf', 'transfer-zergling', 'transfer-felhound', 'transfer-grizzly', 'transfer-rabbit']) {
+    const model = load(key), rig = transferRig(model), legs = legsBySide(rig);
+    assert.deepEqual([legs.L, legs.R], [2, 2], `${key}: ${legs.keys}`);
+    const walkingArms = Object.values(rig.parts).filter(part => part.limbKind === 'arm' && part.joints.some(id => /leg|paw|foot/i.test(nodeName(model, id))));
+    assert.equal(walkingArms.length, 0, `${key}: a leg read as an arm: ${walkingArms.map(p => p.key)}`);
+    const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
+    assert.equal(pose.chains.filter(chain => chain.kind === 'leg' && chain.label !== 'Wing').length, 4, `${key}: POSE legs`);
+  }
+});
+test('L2 legs of one or two joints: the pig, the sheep, the seal and the rat read four legs', { skip: missing('transfer-pig', 'transfer-sheep', 'transfer-seal', 'transfer-rat') }, () => {
+  for (const key of ['transfer-pig', 'transfer-sheep', 'transfer-seal', 'transfer-rat']) {
+    const model = load(key), rig = transferRig(model), legs = legsBySide(rig);
+    assert.deepEqual([legs.L, legs.R], [2, 2], `${key}: ${legs.keys}`);
+    // A leg is its own joints, never the body or a joint another leg hangs from.
+    for (const part of Object.values(rig.parts).filter(p => p.limbKind === 'leg')) assert.ok(!part.joints.includes(rig.body), `${key} ${part.key} holds the body`);
+    const shared = Object.values(rig.parts).filter(p => p.limbKind === 'leg').flatMap(p => p.joints);
+    assert.equal(new Set(shared).size, shared.length, `${key}: a joint in two legs`);
+    assert.equal(rig.hipMeasured, true, key);
+  }
+});
+test('L3 the HD Footman: arms end at its hands, legs at its feet, one body', { skip: missing('forge-hd-footman') }, () => {
+  const model = load('forge-hd-footman'), rig = transferRig(model), names = key => rig.parts[key]?.joints.map(id => nodeName(model, id)) || [];
+  assert.ok(names('legL').includes('L_leg_02_bind_jnt') && names('legR').includes('R_leg_02_bind_jnt'), `legs ${names('legL')} | ${names('legR')}`);
+  assert.ok(names('armL').includes('bone_hand_left') && names('armR').includes('bone_hand_right'), `arms ${names('armL')} | ${names('armR')}`);
+  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 2, Object.keys(rig.parts).join(', '));
+  assert.ok(rig.parts.chest && rig.parts.head, Object.keys(rig.parts).join(', '));
+  assert.deepEqual(rig.actors, ['both'], 'one creature');
+});
+test('L4 a limb starts below the joint its twin hangs from too: the Wyvern Rider\'s legs leave the hip, its right arm the chest', { skip: missing('transfer-wyvern-rider') }, () => {
+  const model = load('transfer-wyvern-rider'), rig = transferRig(model), names = key => rig.parts[key]?.joints.map(id => nodeName(model, id)).join('>');
+  assert.equal(names('legL'), 'Bone25>Bone26>Bone27');
+  assert.equal(names('legR'), 'Bone28>Bone29>Bone30');
+  assert.equal(names('armR'), 'Bone07>Bone08');
+  assert.equal(names('armL'), 'Bone09>Bone10');
+  assert.equal(names('chest'), 'Bone_chest');
+});
+
+test('R10 legs pair as a left/right pair, the bend with the donor\'s knee: the Footman taking the Lord of Change\'s stand bends both knees at its knees', { skip: missing('transfer-footman', 'transfer-lord-of-change') }, () => {
+  // The Lord of Change's legs have a hock (hip, knee, hock, foot); the Footman's have three joints. Scored leg by
+  // leg, a near tie paired the Footman's left knee with the hock and its right knee with the knee (XFER row 10).
+  const foot = load('transfer-footman'), loc = load('transfer-lord-of-change'), stand = seqMatch(foot, /^stand/i), theirs = seqMatch(loc, /^stand/i);
+  const rig = transferRig(foot, { sequence: stand }), rigT = transferRig(loc, { sequence: theirs }), { parts } = wholeBodyParts(rig, rigT);
+  const built = buildTransfer(foot, new Map([['loc', loc]]), { base: { sequence: stand }, length: null, sources: { loc: { mirror: false } }, parts: take(rig, parts, 'loc', theirs, { match: 1, plant: false, grip: false, clear: false }) });
+  const point = (model, matrices) => { const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])); return id => new Vector3(...nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); };
+  const mine = point(foot, builtMatrices(foot, built, stand, 0)), their = point(loc, sampleNodeMatrices(loc, loc.Sequences[theirs].Interval[0], theirs));
+  const apart = (a, b, c, d) => mine(b).sub(mine(a)).angleTo(their(d).sub(their(c))) * 180 / Math.PI;
+  for (const key of ['legL', 'legR']) {
+    const own = rig.parts[key].joints, donor = rigT.parts[key].joints;
+    assert.deepEqual([own.length, donor.length], [3, 4]);
+    assert.ok(apart(own[0], own[1], donor[0], donor[1]) < 10, `${key}: the thigh is ${apart(own[0], own[1], donor[0], donor[1]).toFixed(0)} degrees from the Lord of Change's hip-to-knee`);
+  }
 });

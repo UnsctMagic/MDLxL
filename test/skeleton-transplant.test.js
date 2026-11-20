@@ -9,6 +9,8 @@ import { createRequire } from 'node:module';
 import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
+import { vertexBones } from '../src/part-bones.js';
+import { nodeIndex } from '../src/node-hierarchy.js';
 import { validateModel } from '../src/editor-document.js';
 import { clearTransferCache, transferRig } from '../src/anim-transfer.js';
 import { poseLimbStart } from '../src/pose-recognition.js';
@@ -929,19 +931,27 @@ const everydayMoments = (model, each) => model.Sequences.forEach((sequence, inde
 
 test('S1 Rat on the Dire Wolf: where the wolf stands on its feet the rat stands on the ground as in its own Stand (it floated half its height)', { skip: missing('transfer-rat', 'transfer-direwolf') }, () => {
   const { own, donor, model, report } = transplant('transfer-rat', 'transfer-direwolf');
+  // Since R1 the rat reads its four two-joint legs and the wolf its fourth leg: the legs pair, but the rat's legs end at
+  // the shin (no foot joint), so its soles go down. Measured on the rat's legs (its long tail follows the wolf's tail).
   assert.equal(report.counts.ground, 'soles');
-  const living = standLiving(own), stand = standSequenceIndex(own), rest = lowestOf(own, living, stand, own.Sequences[stand].Interval[0]), H = heightOf(own);
+  const living = standLiving(own), stand = standSequenceIndex(own), H = heightOf(own);
   const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), feet = Object.values(rigD.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  const rigO = transferRig(own, { sequence: stand }), legsOf = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').flatMap(part => part.joints);
+  const ownLegs = new Set(legsOf(rigO)), resultLegs = new Set(legsOf(rigD).map(id => report.donorNodes[id]).filter(id => id != null));
+  // Skin (any weight) on the leg joints or on the skin bones that hang from them.
+  const lowestOn = (m, joints, index, frame) => { const tree = nodeIndex(m), onLeg = id => [...joints].some(joint => tree.isAncestor(id, joint)), mats = sampleNodeMatrices(m, frame, index); let low = Infinity; for (const g of living) { const geoset = m.Geosets[g], p = skinGeoset(geoset, mats); for (let v = 0; v < p.length / 3; v++) if (vertexBones(geoset, v).some(onLeg)) low = Math.min(low, p[v * 3 + 2]); } return low; };
+  const rest = lowestOn(own, ownLegs, stand, own.Sequences[stand].Interval[0]);
+  assert.ok(Number.isFinite(rest), 'the rat has leg skin');
   let worst = { d: 0 }, checked = 0;
   everydayMoments(model, (sequence, index, frame) => {
     const md = sampleNodeMatrices(donor, frame, index);
     if (Math.min(...feet.map(id => at(donor, nD, md, id).z)) - rigD.ground > 0.05 * rigD.hipHeight) return; // the wolf's feet are off the ground
     checked++;
-    const d = Math.abs(lowestOf(model, living, index, frame) - rest);
+    const d = Math.abs(lowestOn(model, resultLegs, index, frame) - rest);
     if (d > worst.d) worst = { d, name: sequence.Name, frame };
   });
   assert.ok(checked > 20, `${checked} moments with the wolf on its feet`);
-  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the rat's lowest point is ${(worst.d / H).toFixed(2)} of its height off its own Stand's`);
+  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the rat's lowest foot is ${(worst.d / H).toFixed(2)} of its height off its own Stand's`);
 });
 
 test('S2 Footman on the Banshee (no legs, hovers): the Footman rises and falls with the Banshee\'s body from his own ground (he floated nearly his height)', { skip: missing('transfer-footman', 'transfer-banshee') }, () => {
@@ -996,4 +1006,129 @@ for (const [label, ownKey] of [['Berserker', 'transfer-berserker'], ['Kurgan', '
 test('N1 a model or donor with no bone or helper (Plague Cloud) is refused in plain words, not "Geoset 0 references missing node NaN"', { skip: missing('transfer-footman', 'transfer-plague-cloud') }, () => {
   assert.throws(() => transplantSkeleton(load('transfer-footman'), load('transfer-plague-cloud')), { message: /^The donor has no skeleton to transplant onto/ });
   assert.throws(() => transplantSkeleton(load('transfer-plague-cloud'), load('transfer-footman')), { message: /^This model has no skeleton to transplant/ });
+});
+
+// ------------------------------------------------------------------ G1b and the sweep-v2 throws (out/transfer-probe/overnight/analysis-v2/classes.md, rows 6 and 8)
+/** Error codes of the result that neither the open model nor the donor has itself. */
+const newErrors = ({ own, donor, model }) => { const codes = m => new Set(validateModel(m).filter(d => d.severity === 'error').map(d => d.code)), known = new Set([...codes(own), ...codes(donor)]); return [...codes(model)].filter(code => !known.has(code)); };
+const finite = model => model.Geosets.every(g => Array.from(g.Vertices).every(Number.isFinite)) && allNodes(model).every(n => Array.from(n.PivotPoint || [0, 0, 0]).every(Number.isFinite));
+const centreAgainst = (model, m, joint) => { const c = new Vector3(); let n = 0; for (const g of model.Geosets) { const p = skinGeoset(g, m); for (let i = 0; i < p.length; i += 3) { c.x += p[i]; c.y += p[i + 1]; c.z += p[i + 2]; n++; } } return c.divideScalar(n).sub(at(model, byId(model), m, joint)); };
+
+test('S3 Faerie Dragon on the Footman (legs do not pair): where the Footman stands on its feet, its sole is where it usually is in its own Stand, not where it is at the Stand\'s first frame (its dangling legs swing 1.3 hip heights)', { skip: missing('transfer-faerie-dragon', 'transfer-footman') }, () => {
+  const { own, donor, model, report } = transplant('transfer-faerie-dragon', 'transfer-footman');
+  assert.equal(report.counts.ground, 'soles');
+  const stand = standSequenceIndex(own), rigB = transplantReading(transferRig(own, { sequence: stand }), own), hip = rigB.hipHeight;
+  const legJoints = new Set(Object.values(rigB.parts).filter(part => part.limbKind === 'leg').flatMap(part => part.joints)), nB = byId(own);
+  const onLeg = id => { for (let x = id; x != null && x !== -1; x = nB.get(x)?.Parent) if (legJoints.has(x)) return true; return false; };
+  const sole = [];
+  for (const g of standLiving(own)) { const geoset = own.Geosets[g]; for (let v = 0; v < geoset.Vertices.length / 3; v++) if (Array.from(geoset.Groups[geoset.VertexGroup[v]] || []).some(onLeg)) sole.push([g, v]); }
+  assert.ok(sole.length > 10, `${sole.length} vertices on its legs`);
+  const soleAt = (target, index, frame) => { const m = sampleNodeMatrices(target, frame, index), cache = new Map(); let low = Infinity; for (const [g, v] of sole) { if (!cache.has(g)) cache.set(g, skinGeoset(target.Geosets[g], m)); low = Math.min(low, cache.get(g)[v * 3 + 2]); } return low; };
+  const [a, b] = own.Sequences[stand].Interval, standSoles = Array.from({ length: 12 }, (_, k) => soleAt(own, stand, Math.round(a + k / 11 * (b - a)))).sort((x, y) => x - y);
+  const usual = (standSoles[5] + standSoles[6]) / 2;
+  assert.ok(Math.abs(soleAt(own, stand, a) - usual) > 0.3 * hip, 'its first frame is not its usual sole (else this test proves nothing)');
+  const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), feet = Object.values(rigD.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  let worst = { d: 0 }, checked = 0;
+  everydayMoments(model, (sequence, index, frame) => {
+    const md = sampleNodeMatrices(donor, frame, index);
+    if (Math.min(...feet.map(id => at(donor, nD, md, id).z)) - rigD.ground > 0.05 * rigD.hipHeight) return; // the Footman's feet are off the ground
+    checked++;
+    const d = Math.abs(soleAt(model, index, frame) - usual);
+    if (d > worst.d) worst = { d, name: sequence.Name, frame };
+  });
+  assert.ok(checked > 20, `${checked} moments with the Footman on his feet`);
+  assert.ok(worst.d < 0.1 * hip, `${worst.name} ${worst.frame}: the dragon's sole is ${(worst.d / hip).toFixed(2)} hip heights off its usual Stand sole`);
+});
+
+test('V1 Undead Car on the Footman is made (it threw "Maximum call stack size exceeded": its skinned master root follows its hips, whose anchor it is)', { skip: missing('transfer-undead-car', 'transfer-footman') }, () => {
+  const result = transplant('transfer-undead-car', 'transfer-footman', { mirror: false }), { own, donor, model, report } = result;
+  assert.deepEqual(newErrors(result), [], 'no error the car or the Footman does not have itself');
+  assert.ok(finite(model), 'finite vertices and pivots');
+  assert.ok(report.riders.some(rider => rider.name === 'Bone_MasterRoot'), 'the car body rides its hips');
+  // Its body moves with the Footman's body joint: through the Walk its centre keeps one place against that joint.
+  const body = report.donorNodes[transferRig(donor, { sequence: standSequenceIndex(donor) }).body], hip = transferRig(own, { sequence: standSequenceIndex(own) }).hipHeight;
+  const index = model.Sequences.findIndex(s => /^walk/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
+  const offsets = Array.from({ length: 9 }, (_, k) => centreAgainst(model, sampleNodeMatrices(model, Math.round(a + k / 8 * (b - a)), index), body));
+  for (const o of offsets) assert.ok(o.distanceTo(offsets[0]) < 0.5 * hip, `the car's centre drifts ${(o.distanceTo(offsets[0]) / hip).toFixed(2)} hip heights against the Footman's body in Walk`);
+});
+
+test('V2 Revenant on the Skink High Priest is made with the weapon on the staff bone (it threw "reading elements of undefined": the hand Wrist1 went, all its skin on the weapon)', { skip: missing('transfer-revenant', 'transfer-skink-priest') }, () => {
+  const result = transplant('transfer-revenant', 'transfer-skink-priest', { mirror: false }), { own, donor, model, report } = result;
+  assert.deepEqual(newErrors(result), [], 'no error the Revenant or the Skink does not have itself');
+  assert.ok(finite(model), 'finite vertices and pivots');
+  assert.ok(report.weapon.rides && report.weapon.vertices > 0, 'the weapon rides the staff bone');
+  assert.equal(byId(model).get(report.weapon.bone)?.Name, 'bone_staff');
+  // Held in the hand: at the first frame of the Stand the weapon's nearest vertex is at the Skink's hand.
+  const wrist = allNodes(donor).find(n => n.Name === 'Wrist1').ObjectId, hand = report.donorNodes[wrist];
+  assert.ok(hand != null, 'the hand the weapon was baked onto is kept');
+  const stand = standSequenceIndex(model), m = sampleNodeMatrices(model, model.Sequences[stand].Interval[0], stand), handAt = at(model, byId(model), m, hand);
+  let near = Infinity;
+  for (const g of model.Geosets) { const p = skinGeoset(g, m); for (let v = 0; v < g.Vertices.length / 3; v++) if (Array.from(g.Groups[g.VertexGroup[v]] || []).includes(report.weapon.bone)) near = Math.min(near, handAt.distanceTo(new Vector3(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]))); }
+  const hip = transferRig(own, { sequence: standSequenceIndex(own) }).hipHeight;
+  assert.ok(near < 0.3 * hip, `the weapon's nearest vertex is ${(near / hip).toFixed(2)} hip heights from the hand`);
+});
+
+test('V3 White Wolf on the Far Seer: every key is on a signed 32-bit frame in time order (the Far Seer\'s animation "nothing" runs from 4294967129 to 0: KEYFRAME_ORDER)', { skip: missing('transfer-white-wolf', 'transfer-far-seer') }, () => {
+  const result = transplant('transfer-white-wolf', 'transfer-far-seer', { mirror: false });
+  assert.deepEqual(newErrors(result), [], 'no error the wolf or the Far Seer does not have itself');
+  assert.ok(result.model.Sequences.some(s => s.Name === 'nothing'), "the donor's animation list is kept as it is");
+});
+
+test('R10 the two legs pair alike: on the Lord of Change the Footman\'s and the Bandit\'s donor legs mirror each other joint by joint', { skip: missing('transfer-footman', 'sd-bandit', 'transfer-lord-of-change') }, () => {
+  // XFER row 10: scored leg by leg, a near tie put one knee on the donor's knee and the other on its hock.
+  for (const key of ['transfer-footman', 'sd-bandit']) {
+    const own = load(key), donor = load('transfer-lord-of-change');
+    const { model, report } = transplantSkeleton(own, donor);
+    const hip = transferRig(own).hipHeight, at = name => { const d = allNodes(donor).find(n => n.Name === name); const r = model.Nodes[report.donorNodes[d.ObjectId]]; return new Vector3(...nodePivot(model, r, r.ObjectId)); };
+    // Each joint from its own leg's top (the Bandit stands off the middle line), the right side mirrored.
+    for (const joint of ['B_Leg_2_', 'B_Leg_3_', 'B_Foot_']) {
+      const left = at(joint + 'L').sub(at('B_Leg_1_L')), right = at(joint + 'R').sub(at('B_Leg_1_R')).multiply(new Vector3(1, -1, 1));
+      assert.ok(left.distanceTo(right) < 0.05 * hip, `${key}: ${joint}L and ${joint}R are ${(left.distanceTo(right) / hip).toFixed(2)} hip heights from mirrored`);
+    }
+  }
+});
+
+test('S4 Footman on the Rat (short legs, no foot joint): through the rat\'s hopping Walk his soles rise and land as its paws do (they followed its shin joints, 0.2 hip heights off)', { skip: missing('transfer-footman', 'transfer-rat') }, () => {
+  const { own, donor, model, report } = transplant('transfer-footman', 'transfer-rat');
+  assert.equal(report.counts.ground, 'soles');
+  /** The vertices a model's legs carry in its Stand, their lowest height at a moment, and where it usually is in its Stand. */
+  const soleOf = m => {
+    const stand = standSequenceIndex(m), rig = transplantReading(transferRig(m, { sequence: stand }), m), n = byId(m);
+    const legJoints = new Set(Object.values(rig.parts).filter(part => part.limbKind === 'leg').flatMap(part => part.joints));
+    const onLeg = id => { for (let x = id; x != null && x !== -1; x = n.get(x)?.Parent) if (legJoints.has(x)) return true; return false; };
+    const list = [];
+    for (const g of standLiving(m)) { const geoset = m.Geosets[g]; for (let v = 0; v < geoset.Vertices.length / 3; v++) if (vertexBones(geoset, v).some(onLeg)) list.push([g, v]); }
+    const at = (target, index, frame) => { const mats = sampleNodeMatrices(target, frame, index), cache = new Map(); let low = Infinity; for (const [g, v] of list) { if (!cache.has(g)) cache.set(g, skinGeoset(target.Geosets[g], mats)); low = Math.min(low, cache.get(g)[v * 3 + 2]); } return low; };
+    const [a, b] = m.Sequences[stand].Interval, soles = Array.from({ length: 12 }, (_, k) => at(m, stand, Math.round(a + k / 11 * (b - a)))).sort((x, y) => x - y);
+    return { list, at, usual: (soles[5] + soles[6]) / 2, hip: rig.hipHeight };
+  };
+  const mine = soleOf(own), rat = soleOf(donor);
+  assert.ok(mine.list.length > 10 && rat.list.length > 10, 'both have leg skin');
+  const index = model.Sequences.findIndex(s => /^walk/i.test(s.Name)), [a, b] = model.Sequences[index].Interval;
+  const offs = Array.from({ length: 13 }, (_, k) => { const frame = Math.round(a + k / 12 * (b - a)); return Math.abs((mine.at(model, index, frame) - mine.usual) - (rat.at(donor, index, frame) - rat.usual) * report.counts.travel) / mine.hip; }).sort((x, y) => x - y);
+  assert.ok(offs[6] < 0.1, `Walk: his sole is a median ${offs[6].toFixed(2)} hip heights off the rat's paws (worst ${offs.at(-1).toFixed(2)})`);
+});
+
+test('T2 Ghoul on the Satyr: it bows as deep as the Satyr in Stand - 3 (the hips-to-shoulders line within 8 deg of the Satyr\'s at every moment; it bowed 24 instead of 61 deg: the Satyr\'s trunk skin is all on one joint, so its chest joint stayed at the Ghoul\'s own chest, half way up, instead of at hip height where the Satyr bends)', { skip: missing('transfer-ghoul', 'transfer-satyr') }, () => {
+  const { donor, model, report } = transplant('transfer-ghoul', 'transfer-satyr');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const roots = kind => Object.values(rig.parts).filter(part => part.limbKind === kind).map(part => part.joints[0]);
+  const legs = roots('leg'), arms = roots('arm');
+  assert.equal(legs.length, 2); assert.equal(arms.length, 2);
+  /** The angle of the line from the hip centre (first leg joints) to the shoulder centre (first arm joints) from straight up. */
+  const pitch = (m, index, frame, idOf) => {
+    const mats = sampleNodeMatrices(m, frame, index);
+    const centre = ids => ids.map(id => { const r = idOf(id); return new Vector3(...nodePivot(m, m.Nodes[r], r)).applyMatrix4(mats.get(r)); }).reduce((s, p) => s.add(p), new Vector3()).divideScalar(ids.length);
+    const line = centre(arms).sub(centre(legs));
+    return Math.atan2(Math.hypot(line.x, line.y), line.z) * 180 / Math.PI;
+  };
+  const iD = donor.Sequences.findIndex(s => s.Name === 'Stand - 3'), iM = model.Sequences.findIndex(s => s.Name === 'Stand - 3');
+  const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+  let worst = 0, deepest = 0;
+  for (let k = 0; k <= 12; k++) {
+    const theirs = pitch(donor, iD, Math.round(a + k / 12 * (b - a)), id => id), mine = pitch(model, iM, Math.round(c + k / 12 * (d - c)), id => report.donorNodes[id]);
+    worst = Math.max(worst, Math.abs(mine - theirs)); deepest = Math.max(deepest, theirs);
+  }
+  assert.ok(deepest > 45, `the Satyr bows ${deepest.toFixed(0)} deg in Stand - 3`);
+  assert.ok(worst < 8, `the Ghoul's trunk line is up to ${worst.toFixed(1)} deg off the Satyr's in Stand - 3`);
 });
