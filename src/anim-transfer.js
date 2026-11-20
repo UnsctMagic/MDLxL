@@ -433,7 +433,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     parts[key] = { key, kind: 'limb', side: limb.side, joints: limb.joints, anchor: nearestTrunk(limb.joints[0]), marker: last, length, weapon: limb.kind === 'arm' ? weaponShape(model, info, ref, last, length, named) : null };
     Object.defineProperty(parts[key], 'tip', { value: limb.tip, enumerable: false });
     // The joints the limb's own line runs through (its top, its bend, its end).
-    Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false });
+    Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false, writable: true });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
     if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
@@ -468,7 +468,33 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // The floor a weapon must stay above: the lowest foot vertex, else the ground.
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
+  endAtMovingJoints(info, parts, pos);
   return rig;
+}
+
+/** A limb whose last joint is a still skin carrier (no keys, no joint below it) beside one joint under the same parent
+ * that moves ends at the moving joint: the Ghoul's forearm skin bone `Wrist1` (pivot parked in its chest) beside its hand
+ * `Bone_Hand_R`, a murloc's or kobold's wrist mesh beside its hand, a tail's `Geo_Tail1` beside `Bone_Tail2`. POSE takes the
+ * first by its name, so the forearm would point into the chest. The numbers measured above (ground, soles, hip height,
+ * weapon) keep the joints they were measured on. Changes `parts` in place (R2: this was the transplant's own reading). */
+function endAtMovingJoints(info, parts, pos) {
+  const { byId, joints, nodes } = info;
+  const keyed = node => ['Translation', 'Rotation', 'Scaling'].some(property => node?.[property]?.Keys?.length);
+  const jointsUnder = id => nodes.filter(node => node.Parent === id && joints.has(node.ObjectId));
+  const used = new Set(Object.values(parts).flatMap(part => part.joints)), moved = [];
+  for (const part of Object.values(parts)) {
+    if (part.kind !== 'limb' || part.joints.length < 2) continue;
+    const endId = part.joints.at(-1), end = byId.get(endId), parent = part.joints.at(-2);
+    if (!end || end.Parent !== parent || keyed(end) || jointsUnder(endId).length) continue;
+    const moving = jointsUnder(parent).filter(node => node !== end && keyed(node) && !used.has(node.ObjectId));
+    if (moving.length === 1) moved.push([part, endId, moving[0].ObjectId]);
+  }
+  for (const [part, endId, id] of moved) {
+    part.joints = [...part.joints.slice(0, -1), id];
+    part.marker = id;
+    part.length = chainLength([...part.joints.map(pos), ...(part.tip ? [part.tip] : [])]);
+    if (part.line?.at(-1) === endId) part.line = [...part.line.slice(0, -1), id];
+  }
 }
 
 // A hip height counts as measured from this share of the body extent up; a body that does not

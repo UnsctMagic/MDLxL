@@ -83,34 +83,9 @@ export function mirrorModel(model) {
   return copy;
 }
 
-/** The transplant's reading of a rig. A limb whose last joint is a still skin carrier (no keys, no joint below it) next to
- * one joint that moves ends at the moving joint instead: the Ghoul's forearm skin bone `Wrist1` (pivot parked in its
- * chest) beside its hand `Bone_Hand_R`; POSE takes the first by its name, so the forearm would point into the chest. Retargeting
- * keeps the shared reading. -> the rig itself when nothing changes, else a copy with those parts copied. */
-export function transplantReading(rig, model) {
-  if (!rig?.ok) return rig;
-  const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
-  const isJoint = n => JOINT_KEYS.some(k => (model[k] || []).includes(n));
-  const keyed = n => ['Translation', 'Rotation', 'Scaling'].some(p => n?.[p]?.Keys?.length);
-  const used = new Set(Object.values(rig.parts).flatMap(part => part.joints));
-  let parts = null;
-  for (const [key, part] of Object.entries(rig.parts)) {
-    if (part.kind !== 'limb' || part.joints.length < 2) continue;
-    const end = byId.get(part.joints.at(-1)), parent = part.joints.at(-2);
-    if (!end || end.Parent !== parent || keyed(end) || nodes.some(n => n.Parent === end.ObjectId && isJoint(n))) continue;
-    const moving = nodes.filter(n => n.Parent === parent && n !== end && isJoint(n) && keyed(n) && !used.has(n.ObjectId));
-    if (moving.length !== 1) continue;
-    parts ||= { ...rig.parts };
-    const copy = Object.create(Object.getPrototypeOf(part), Object.getOwnPropertyDescriptors(part));
-    copy.joints = [...part.joints.slice(0, -1), moving[0].ObjectId];
-    copy.marker = moving[0].ObjectId;
-    parts[key] = copy;
-  }
-  if (!parts) return rig;
-  const copy = Object.create(Object.getPrototypeOf(rig), Object.getOwnPropertyDescriptors(rig));
-  copy.parts = parts;
-  return copy;
-}
+/** The transplant's reading of a rig is the shared one now: a limb that ends at a still skin carrier beside one joint that
+ * moves ends at the moving joint in every reading (anim-transfer.js `endAtMovingJoints`, R2). Kept for callers. */
+export function transplantReading(rig) { return rig; }
 
 /** The turn that lays `from` along `to` and then, about `to`, turns `side` (when given) as near `sideTo` as it can. */
 function alignFrames(from, to, side = null, sideTo = null) {
@@ -640,12 +615,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
     try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], probe: ({ entries: found }) => { entries = found; } }); }
     catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
-  }
-  // From here the transplant's own reading: a limb that ends at a still skin carrier ends at the joint beside it that moves.
-  rigB = transplantReading(rigB, model); rigA = transplantReading(rigA, D);
-  for (const entry of entries) {
-    if (rigB.parts?.[entry.own?.key]) entry.own = rigB.parts[entry.own.key];
-    if (rigA.parts?.[entry.theirs?.key]) entry.theirs = rigA.parts[entry.theirs.key];
   }
   // Limbs the donor has no counterpart for (Poor fit reads `still` below).
   const ridesStill = [];

@@ -221,6 +221,9 @@ function readPoseRig(model, clues, evidence, cloth = null) {
       if (chains.some(chain => descendantOf(node.ObjectId, chain.end))) continue;
       const chain = { ...(clues && straightLimb(model, node.ObjectId, tree, joints) || suggestPoseChain(model, node.ObjectId, tree)), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
       if (['Body','Pelvis'].includes(roleOf(byId.get(chain.root))) || roleOf(byId.get(chain.root)) === 'Chest' && /arm|thigh|leg1/i.test(byId.get(chain.middle)?.Name)) continue;
+      // A chain whose joints are all named a tail is that tail, not a leg: the Hydralisk rests on its tail and Blizzard put its
+      // footprint slots there (R2; read as a leg it was a one-legged creature standing on its tail).
+      if (clues && poseChainIds(chain).filter(id => joints.has(id)).every(id => poseNodeRole(byId.get(id)) === 'Tail')) continue;
       if (chains.some(existing => poseChainIds(chain).some(id => poseChainIds(existing).includes(id)))) continue;
       // Mapping is structural and must not lose a hoof at an authored scale key.
       // Some imports attach a rigid boot mesh straight to the shin and leave
@@ -472,15 +475,20 @@ function limbTwinsAndStubs(model, { chains, tree, evidence, transforms, roleOf, 
   const mirrorPath = chain => {
     const ids = own(poseChainIds(chain)), parent = byId.get(ids[0])?.Parent;
     if (parent == null || !byId.has(parent) || ids.length < 2) return null;
-    const span = lengthOf([...ids, ...(joints.has(chain.end) ? [] : [chain.end])]), origin = pivotOf(parent), path = [];
-    for (const [i, id] of ids.entries()) {
-      if (i && byId.get(id).Parent !== ids[i - 1]) return null;
-      const near = children(i ? path[i - 1] : parent).filter(node => joints.has(node.ObjectId) && node.ObjectId !== id)
-        .map(node => ({ id: node.ObjectId, error: mirrorSides(pivotOf(id), pivotOf(node.ObjectId), origin, span) }))
-        .filter(item => item.error < .25).sort((a, b) => a.error - b.error)[0];
-      if (!near) return null;
-      path.push(near.id);
-    }
+    const span = lengthOf([...ids, ...(joints.has(chain.end) ? [] : [chain.end])]), origin = pivotOf(parent);
+    if (ids.some((id, i) => i && byId.get(id).Parent !== ids[i - 1])) return null;
+    // Joint by joint, the nearest mirrored joint that lets the path go on: of two at one place (the Snapdragon's back left
+    // shin and its copy `ShinX`, only the copy carries the toe) the one with the rest of the limb below it (R2).
+    const walk = (i, from) => {
+      if (i === ids.length) return [];
+      const near = children(from).filter(node => joints.has(node.ObjectId) && node.ObjectId !== ids[i])
+        .map(node => ({ id: node.ObjectId, error: mirrorSides(pivotOf(ids[i]), pivotOf(node.ObjectId), origin, span) }))
+        .filter(item => item.error < .25).sort((a, b) => a.error - b.error);
+      for (const item of near) { const rest = walk(i + 1, item.id); if (rest) return [item.id, ...rest]; }
+      return null;
+    };
+    const path = walk(0, parent);
+    if (!path) return null;
     if (path.filter(id => evidence.moving(byId.get(id))).length < 2) return null;
     // Its end: the mirrored end reference when the limb ends at one, else its last joint.
     const tail = chain.end != null && !joints.has(chain.end) ? children(path.at(-1)).find(node => !joints.has(node.ObjectId) && mirrorSides(pivotOf(chain.end), pivotOf(node.ObjectId), origin, span) < .4) : null;
