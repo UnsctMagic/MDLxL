@@ -103,6 +103,8 @@ function compareFields(item, where, kind, variantIds) {
   if (flip != null && (!Array.isArray(flip) || flip.length !== 2 || flip[0] === flip[1] || !flip.every(id => variantIds.has(id)))) throw new Error(`${where}: "flip" must name two different variants of this case.`);
   const answers = item.answers ?? [];
   if (!Array.isArray(answers) || (answers.length && (answers.length < 2 || answers.length > 6))) throw new Error(`${where}: "answers" must be 2 to 6 buttons.`);
+  if (item.grade != null && typeof item.grade !== 'boolean') throw new Error(`${where}: "grade" must be true or false.`);
+  if (item.grade === true && answers.length) throw new Error(`${where}: "grade" and "answers" cannot be used together.`);
   const ids = new Set();
   const choices = answers.map((answer, a) => {
     const at = `${where}, answer ${a + 1}`;
@@ -113,7 +115,7 @@ function compareFields(item, where, kind, variantIds) {
     if (!text(answer.label)) throw new Error(`${at}: "label" is missing.`);
     return { id: answer.id, label: answer.label.trim() };
   });
-  return { sequences: [...sequences], looks: parsedLooks, flip: flip && [...flip], choices };
+  return { sequences: [...sequences], looks: parsedLooks, flip: flip && [...flip], choices, grade: item.grade === true };
 }
 
 /**
@@ -169,10 +171,21 @@ export function caseLetters(item) {
   return Object.fromEntries(ids.map((id, i) => [LETTERS[i], id]));
 }
 
-/** The first case without an answer, or cases.length when every case has one. */
+/** The first case without an answer (a grade case: without a grade), or cases.length when every case has one. */
 export function firstOpenCase(cases, answers) {
-  const index = cases.findIndex(item => !answers[item.id]);
+  const index = cases.findIndex(item => !answers[item.id] || (item.grade && !Number.isInteger(answers[item.id].grade)));
   return index < 0 ? cases.length : index;
+}
+
+/** The grade scale of a grade case: 0 (unacceptable) to 10 (perfect). */
+export const GRADES = Array.from({ length: 11 }, (_, i) => i);
+
+/** The answers with a grade case's grade and/or comment changed: { grade: 0-10 or null, comment, at }; the part not
+ * given keeps its saved value. */
+export function withGrade(answers, item, { grade, comment } = {}, at = new Date().toISOString()) {
+  if (grade !== undefined && grade !== null && !GRADES.includes(grade)) throw new Error('The grade must be a whole number from 0 to 10.');
+  const old = answers[item.id] || {};
+  return { ...answers, [item.id]: { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null, comment: comment !== undefined ? String(comment) : typeof old.comment === 'string' ? old.comment : '', at } };
 }
 
 /** The answers with one case answered: a variant id, 'same' or 'none'. */

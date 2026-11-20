@@ -145,6 +145,11 @@
 .resource-editor.transfer-picks .xf-window :is(.xp-pick,.xp-footer>button)[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
 .transfer-picks .xp-loading{position:static;grid-column:1/-1}
 .transfer-picks .xp-footer{display:flex;gap:7px;align-items:center}
+.transfer-picks .xp-grades{display:flex;flex-wrap:wrap;gap:4px}
+.resource-editor.transfer-picks .xf-window .xp-grades>button{min-width:34px;padding:5px 8px}
+.resource-editor.transfer-picks .xf-window .xp-grades>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-picks .xp-comment{display:flex;gap:6px;align-items:flex-start;color:var(--ui-text,#16191e)}
+.transfer-picks .xp-comment>textarea{flex:1;min-width:0;box-sizing:border-box;resize:vertical;min-height:44px}
 .transfer-picks .xp-message{flex:1;display:flex;flex-direction:column;gap:8px;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);grid-column:1/-1}
 .transfer-picks .xp-message p{margin:0}
 .transfer-picks .xp-path{color:var(--ui-muted,#444);overflow-wrap:anywhere}

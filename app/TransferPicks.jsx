@@ -6,7 +6,7 @@ import { useEditorArea } from './editor-area.js';
 import { readPreviewModel } from './transfer-files.js';
 import { buildTransfer, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker } from '../src/transfer-window.js';
-import { caseLetters, firstOpenCase, lookNodes, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
+import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
 
@@ -207,25 +207,50 @@ function PickSheet({ sheet, teamColor, onClose }) {
       captures.current.get(view.id).fit([center[0] - r, center[1], center[2], center[0] + r, center[1], center[2]]);
     }  }, [paths, look, captureTick, flip]);
 
+  // Writes go out one after another, so a comment typed fast never lands after a later grade.
+  const answersRef = useRef(answers), writing = useRef(Promise.resolve());
+  const write = next => {
+    const text = JSON.stringify(next, null, 2), run = writing.current.then(() => window.desktop.writeTransferPicks(sheet.answersPath, text));
+    writing.current = run.catch(() => {});
+    return run;
+  };
   const answer = async pick => {
     if (!item) return;
-    const next = withAnswer(answers, item, pick);
-    try { await window.desktop.writeTransferPicks(sheet.answersPath, JSON.stringify(next, null, 2)); }
+    const next = withAnswer(answersRef.current, item, pick);
+    try { await write(next); }
     catch (error) { setProblem(`The answer was not saved: ${error.message}`); return; }
-    setProblem(''); setAnswers(next); setIndex(i => i + 1);
+    answersRef.current = next; setProblem(''); setAnswers(next); setIndex(i => i + 1);
+  };
+  // Grade cases: the grade is saved on click and moves on; the comment is saved as it is typed.
+  const [comment, setComment] = useState('');
+  useEffect(() => { setComment(item ? answersRef.current[item.id]?.comment ?? '' : ''); }, [item?.id]);
+  const grade = async value => {
+    if (!item) return;
+    const next = withGrade(answersRef.current, item, { grade: value, comment });
+    try { await write(next); }
+    catch (error) { setProblem(`The grade was not saved: ${error.message}`); return; }
+    answersRef.current = next; setProblem(''); setAnswers(next); setIndex(i => i + 1);
+  };
+  const typeComment = text => {
+    setComment(text);
+    if (!item) return;
+    const next = withGrade(answersRef.current, item, { comment: text });
+    answersRef.current = next; setAnswers(next);
+    write(next).then(() => setProblem(''), error => setProblem(`The comment was not saved: ${error.message}`));
   };
   const back = () => { setProblem(''); setIndex(i => Math.max(0, i - 1)); };
   const picked = item ? answers[item.id]?.pick : null;
+  const graded = item?.grade ? answers[item.id]?.grade : null;
   const choices = item?.choices || [];
 
   useWindowKeyClaim(({ event, localWindow }) => {
     if (!dialog.current || !(localWindow === dialog.current || dialog.current.contains(event.target)) || event.ctrlKey || event.altKey || event.metaKey) return false;
-    if (event.target?.closest?.('select,input:not([type=range])')) return false;
+    if (event.target?.closest?.('select,textarea,input:not([type=range])')) return false;
     if (flip && (event.key === 'f' || event.key === 'F')) { if (!event.repeat) setSecond(true); return true; }
     if (event.repeat) return false;
     if (event.key === 'Escape' && look) { leaveLook(); return true; }
     if (event.key === ' ') { setPlaying(value => !value); return true; }
-    if (choices.length) return false;
+    if (choices.length || item?.grade) return false;
     const letter = event.key.length === 1 ? event.key.toUpperCase() : '';
     const view = views.find(entry => entry.letter === letter);
     if (!view?.preview) return false;
@@ -286,15 +311,20 @@ function PickSheet({ sheet, teamColor, onClose }) {
                       compareCamera={fileCase ? undefined : camera} turnCamera={fileCase ? camera : undefined} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
                   </Suspense> : <div className="xp-failed" role="status">{view.error}</div>}
                 </div>
-                {!choices.length && <button className="xp-pick" aria-pressed={picked === view.id} disabled={!view.preview} onClick={() => answer(view.id)}>{`Pick ${view.letter}`}</button>}
+                {!choices.length && !item.grade && <button className="xp-pick" aria-pressed={picked === view.id} disabled={!view.preview} onClick={() => answer(view.id)}>{`Pick ${view.letter}`}</button>}
               </section>;
             })}
         </div>
         <TransferViewStrip plain name="Views" playing={playing} onPlay={() => setPlaying(value => !value)} playTitle="Play or pause every view." onReset={() => { if (fileCase) for (const view of views) captures.current.get(view.id)?.resetView(); else capture()?.resetView(); }}
           interval={[0, Math.max(1, duration)]} time={clock} onSeek={value => { setPlaying(false); setClock(value); }} speed={speed} onSpeed={setSpeed} disabled={!reporter}/>
         {problem && <p className="xp-problem" role="alert">{problem}</p>}
+        {item.grade && <label className="xp-comment"><span className="xp-row-name">What is wrong</span>
+          <textarea rows={3} value={comment} onChange={event => typeComment(event.target.value)}/></label>}
         <div className="xp-footer">
-          {choices.length ? choices.map(choice => <button key={choice.id} className="xp-answer" aria-pressed={picked === choice.id} onClick={() => answer(choice.id)}>{choice.label}</button>)
+          {item.grade ? <div className="xp-grades" role="group" aria-label="Grade">
+            {GRADES.map(value => <button key={value} className="xp-answer" aria-pressed={graded === value} title={value === 0 ? 'Unacceptable' : value === 10 ? 'Perfect' : undefined} onClick={() => grade(value)}>{String(value)}</button>)}
+          </div>
+          : choices.length ? choices.map(choice => <button key={choice.id} className="xp-answer" aria-pressed={picked === choice.id} onClick={() => answer(choice.id)}>{choice.label}</button>)
             : <>
               <button aria-pressed={picked === 'same'} onClick={() => answer('same')}>No difference</button>
               <button aria-pressed={picked === 'none'} onClick={() => answer('none')}>None looks right</button>

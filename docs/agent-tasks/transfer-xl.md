@@ -896,6 +896,12 @@ answers file are unchanged.
   (pointer) or holding F shows the second; "Every 0.5 s" swaps by itself.
 - Answer buttons replace "Pick A", "No difference" and "None looks right"; the click writes
   `{ pick: <answer id>, letters, at }` as before. Letter keys do not pick on such cases.
+- Grade cases (20 Nov, owner's 40-transplant calibration): `grade: true` (not with `answers`) shows a
+  0-10 scale (11 buttons "0" ... "10"; tooltip "Unacceptable" on 0, "Perfect" on 10) and a "What is wrong"
+  comment box instead of picks. The answer is `{ grade: 0-10 or null, comment, at }` (`withGrade`, the
+  part not given keeps its value): the comment is written as it is typed, the grade on click, which moves
+  on; Back shows both. A case with only a comment is still open (`firstOpenCase`). Letter keys do not pick;
+  keys typed in the box stay in the box. Writes are queued, one after another.
 - English only (`translate="no"`), no hotkey ids, theme variables; clock updates come from GamePreview
   (at most every 32 ms), scrubbing through the strip's frame coalescer.
 - Where to look is computed: `out/transfer-probe/look-list.mjs [--cases <file>]` (untracked, `out/`)

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { caseLetters, firstOpenCase, lookNodes, parseAnswers, parseCases, withAnswer } from '../src/transfer-picks.js';
+import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 
 const recipe = (amount = 1) => ({ base: { sequence: 0 }, length: null, sources: {}, parts: { armL: { source: 'd0', sequence: 2, amount, future: { kept: true } } } });
 const sheet = (change = data => data) => JSON.stringify(change({
@@ -105,6 +105,35 @@ test('a look\'s bones light up by role in a model that names them differently', 
   assert.deepEqual(found.result, { ids: [12, 13], missing: ['LLF'] }, 'the donor foot found as the end of the same leg, the hammer by name');
   const none = lookNodes([{ id: 'result', model: result, rig: rigs.result }], ['Bone_Head']);
   assert.deepEqual(none.result, { ids: [], missing: ['Bone_Head'] });
+});
+
+// The grade sheet: a case with `grade: true` takes a 0-10 grade and a comment instead of picks.
+const graded = (change = data => data) => compare(data => { data.cases[0].grade = true; delete data.cases[0].answers; delete data.cases[0].flip; delete data.cases[0].looks; return change(data); });
+
+test('a grade case is read, and a malformed one names what is wrong', () => {
+  const [item] = parseCases(graded()).cases;
+  assert.equal(item.grade, true);
+  assert.deepEqual(item.choices, []);
+  assert.equal(parseCases(compare()).cases[0].grade, false, 'cases without "grade" are not graded');
+  assert.deepEqual(GRADES, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.throws(() => parseCases(graded(data => { data.cases[0].grade = 'yes'; return data; })), /Case 1 \(transplant\): "grade" must be true or false/);
+  assert.throws(() => parseCases(graded(data => { data.cases[0].answers = [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }]; return data; })), /Case 1 \(transplant\): "grade" and "answers" cannot be used together/);
+});
+
+test('a grade and its comment are saved together, each kept when the other changes', () => {
+  const { cases } = parseCases(graded(data => { data.cases.push({ ...data.cases[0], id: 'second' }); return data; }));
+  const [first] = cases;
+  const typed = withGrade({}, first, { comment: 'Arms go through the chest' }, 't1');
+  assert.deepEqual(typed.transplant, { grade: null, comment: 'Arms go through the chest', at: 't1' }, 'a comment before a grade');
+  assert.equal(firstOpenCase(cases, typed), 0, 'a comment alone does not finish a case');
+  const both = withGrade(typed, first, { grade: 3 }, 't2');
+  assert.deepEqual(both.transplant, { grade: 3, comment: 'Arms go through the chest', at: 't2' }, 'the grade keeps the comment');
+  assert.equal(firstOpenCase(cases, both), 1, 'a grade finishes the case');
+  assert.deepEqual(withGrade(both, first, { comment: '' }, 't3').transplant, { grade: 3, comment: '', at: 't3' }, 'the comment can be emptied, the grade stays');
+  assert.deepEqual(withGrade(both, first, { grade: 0 }, 't4').transplant.grade, 0, '0 is a grade');
+  assert.deepEqual(withGrade(both, first, { grade: 10 }, 't4').transplant.grade, 10);
+  for (const bad of [-1, 11, 2.5, '5']) assert.throws(() => withGrade({}, first, { grade: bad }), /grade must be a whole number from 0 to 10/);
+  assert.deepEqual(parseAnswers(JSON.stringify(both)), both);
 });
 
 test('answers resume at the first unanswered case', () => {
