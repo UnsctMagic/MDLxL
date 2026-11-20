@@ -73,6 +73,12 @@ const FIXTURES = {
   'transfer-direwolf': ['MDLXL_TRANSFER_DIREWOLF', testModel('corpus-sd/creeps__direwolf.mdx')], // read with three legs: no legs pair with a two- or no-legged model
   'transfer-banshee': ['MDLXL_TRANSFER_BANSHEE', testModel('corpus-sd/undead__banshee.mdx')], // no legs, hovers: its body rises and falls
   'transfer-plague-cloud': ['MDLXL_TRANSFER_PLAGUE_CLOUD', testModel('corpus-sd/undead__plaguecloud.mdx')], // an effect model: no bone or helper
+  'transfer-undead-car': ['MDLXL_TRANSFER_UNDEAD_CAR', testModel('corpus-sd/other__undeadcar.mdx')], // its skinned master root is the parent of its hips and follows them
+  'transfer-revenant': ['MDLXL_TRANSFER_REVENANT', testModel('corpus-sd/creeps__revenant.mdx')],
+  'transfer-skink-priest': ['MDLXL_TRANSFER_SKINK_PRIEST', testModel('transfer-throws/skink_high_priest_hero_swimless.mdx')], // a staff bone; the hand Wrist1 carries no skin
+  'transfer-far-seer': ['MDLXL_TRANSFER_FAR_SEER', testModel('corpus-sd/orc__herofarseer.mdx')], // an animation "nothing" from 4294967129 to 0
+  'transfer-white-wolf': ['MDLXL_TRANSFER_WHITE_WOLF', testModel('corpus-sd/creeps__whitewolf.mdx')],
+  'transfer-faerie-dragon': ['MDLXL_TRANSFER_FAERIE_DRAGON', testModel('corpus-sd/nightelf__faeriedragon.mdx')], // hovers; its dangling legs swing through its Stand
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };

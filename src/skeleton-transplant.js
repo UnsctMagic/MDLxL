@@ -203,6 +203,9 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
   }
 }
 
+/** Whether a key may go at an animation's start: a signed 32-bit frame and an end not before it (the Far Seer's "nothing"
+ * runs from 4294967129 to 0: keys there broke the key order, KEYFRAME_ORDER, analysis-v2 class 8). */
+const keyable = sequence => Number.isInteger(sequence?.Interval?.[0]) && sequence.Interval[0] >= -2147483648 && sequence.Interval[0] <= 2147483647 && sequence.Interval[1] >= sequence.Interval[0];
 /** What the renderer shows for a track with no key in the playing animation (war3-model's defaults). */
 const HELD = { EmissionRate: [0], Visibility: [1], Alpha: [1], Color: [1, 1, 1], Rotation: [0], Intensity: [0], AmbIntensity: [0] };
 /** A refitted track that got no key in any new animation (its own animations have no counterpart in the donor's):
@@ -218,7 +221,7 @@ function holdTrack(entry, track, stand, globalSequences, newSequences) {
   const template = track.Keys[0].Vector;
   if (value == null) value = Array.from(template);
   track.LineType = 0;
-  track.Keys = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: like(template, [].concat(value)) }));
+  track.Keys = [...new Set(newSequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: like(template, [].concat(value)) }));
 }
 
 /** Keys in time order with no two on one frame (failure sweep class 8: a donor whose animation list is out of time
@@ -815,9 +818,24 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
   const resolved = new Map();
+  // A joint met again while its own target is being found (the Undead Car's master root rides its hips, and the hips'
+  // anchor is the master root: "Maximum call stack size exceeded") is read as the joints above it place it, not riding.
+  const resolving = new Set();
   const targetOf = id => {
     if (resolved.has(id)) return resolved.get(id);
+    const again = resolving.has(id);
+    resolving.add(id);
+    try { return findTarget(id, again); } finally { if (!again) resolving.delete(id); }
+  };
+  const findTarget = (id, again) => {
     let result;
+    if (again) {
+      // As a joint outside every part is placed (below), from the nearest joint above it not being resolved; not cached.
+      let up = treeB.ancestors(id).find(a => !resolving.has(a) && (partJoint(a) || keptOwn.has(a) || outsideKept.has(a) || twin.has(a) || extraMatch.has(a) || rideOf.has(a)));
+      if (up != null && twin.has(up) && !resolving.has(twin.get(up))) up = twin.get(up);
+      result = up != null ? { ...targetOf(up), via: extraMatch.has(up) ? null : rideOf.has(up) ? rideOf.get(up) : up } : { donor: fallbackDonor, via: null };
+      return result.own != null ? { own: result.own, via: null } : result;
+    }
     if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
     else if (rideOf.has(id)) result = { ...targetOf(rideOf.get(id)), via: rideOf.get(id) };
     else if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
@@ -1273,7 +1291,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   for (const sequence of newSequences) sequence.MoveSpeed = (Number(sequence.MoveSpeed) || 0) * travel;
   // A track holding one value in every animation (a joint kept still, a constant correction).
   // One key per distinct start, in time order (an HD donor lists its animations out of time order, two on one interval).
-  const starts = [...new Set(newSequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
+  const starts = [...new Set(newSequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
   const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: starts.map(frame => ({ Frame: frame, Vector: like(template ?? new Float32Array(value.length), value) })) });
   const isDefault = (property, value) => property === 'Rotation' ? near(new Quaternion().fromArray(value).normalize(), 1e-7) : property === 'Scaling' ? value.every(v => Math.abs(v - 1) < 1e-7) : value.every(v => Math.abs(v) < 1e-7);
   for (const node of ownNodes) {
@@ -1526,9 +1544,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     node.Flags = (node.Flags & ~TYPE_FLAGS) | BONE_FLAG; node.GeosetId = null; node.GeosetAnimId = null;
     M.Bones.push(node);
   }
+  // The hands the weapon was baked onto stay: the weapon is placed from them onto the weapon bone below, also where all
+  // their skin went with the weapon (Revenant on the Skink High Priest: Wrist1 went, "reading 'elements'" of undefined).
+  const weaponHands = new Set([...weaponVertices.map(([, , hand]) => hand), ...weaponMoves.map(([, hand]) => hand)]);
   for (let changed = true; changed;) {
     changed = false;
-    const parents = new Set(NODE_KEYS.flatMap(k => M[k]).map(n => n.Parent).filter(p => p != null && p !== -1));
+    const parents = new Set([...weaponHands, ...NODE_KEYS.flatMap(k => M[k]).map(n => n.Parent).filter(p => p != null && p !== -1)]);
     for (const key of JOINT_KEYS) {
       const before = M[key].length;
       // A donor bone exists to carry skin: without any here and with nothing hanging from it, it goes, keys or
@@ -1725,13 +1746,13 @@ function shiftNode(M, id, dz) {
   const shift = new Vector3(0, 0, dz);
   if (node.Translation?.Keys?.length && !isGlobalTrack(node.Translation, M)) {
     for (const k of node.Translation.Keys) { k.Vector = like(k.Vector, new Vector3().fromArray(k.Vector).add(shift).toArray()); if (node.Translation.LineType === 3) { if (k.InTan) k.InTan = like(k.InTan, new Vector3().fromArray(k.InTan).add(shift).toArray()); if (k.OutTan) k.OutTan = like(k.OutTan, new Vector3().fromArray(k.OutTan).add(shift).toArray()); } }
-    for (const sequence of M.Sequences) if (!keysInInterval(node.Translation, sequence.Interval).length) {
+    for (const sequence of M.Sequences) if (keyable(sequence) && !keysInInterval(node.Translation, sequence.Interval).length) {
       const k = { Frame: sequence.Interval[0], Vector: like(node.Translation.Keys[0].Vector, shift.toArray()) };
       if (node.Translation.LineType >= 2) { k.InTan = like(k.Vector, [0, 0, 0]); k.OutTan = like(k.Vector, [0, 0, 0]); }
       node.Translation.Keys.push(k);
     }
     node.Translation.Keys.sort((a, b) => a.Frame - b.Frame);
-  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: [...new Set(M.Sequences.map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: new Float32Array(shift.toArray()) })) };
+  } else if (!node.Translation?.Keys) node.Translation = { LineType: 0, GlobalSeqId: null, Keys: [...new Set(M.Sequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b).map(frame => ({ Frame: frame, Vector: new Float32Array(shift.toArray()) })) };
 }
 /** Feet down (owner's pick, 19 Nov 2026): per moment, the body joint and every parentless donor joint move up or down
  * by the same amount so the lower foot stands as high above the ground as the donor's lower foot, times `travel`.
@@ -1799,8 +1820,12 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
     const ranked = pool.map(item => [item, at(model, item, own0)]).sort((x, y) => x[1] - y[1]);
     sample = [...ranked.slice(0, 500).map(([item]) => item), ...ranked.slice(500).filter((_, i) => i % Math.ceil((ranked.length - 500) / 1000) === 0).map(([item]) => item)];
   } else if (pool.length > 1500) sample = pool.filter((_, i) => i % Math.ceil(pool.length / 1500) === 0);
-  const ownSole = soleOf(model, sample, own0);
-  if (ownSole == null) return null;
+  // Where the sole stands in this model's own Stand: the median over twelve moments of it, not its first frame (G1b,
+  // analysis-v2 class 6: the Faerie Dragon's dangling legs swing 1.3 hip heights through its Stand).
+  const [standStart, standEnd] = stand.Interval;
+  const standSoles = Array.from({ length: 12 }, (_, k) => soleOf(model, sample, k ? sampleNodeMatrices(model, Math.round(standStart + k / 11 * (standEnd - standStart)), ownStand) : own0)).filter(Number.isFinite).sort((x, y) => x - y);
+  if (!standSoles.length) return null;
+  const middle = standSoles.length >> 1, ownSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
   const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
   const feetA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg').map(part => part.marker).filter(id => donorById.has(id));
   const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
