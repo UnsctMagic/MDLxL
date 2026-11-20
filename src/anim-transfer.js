@@ -433,7 +433,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     parts[key] = { key, kind: 'limb', side: limb.side, joints: limb.joints, anchor: nearestTrunk(limb.joints[0]), marker: last, length, weapon: limb.kind === 'arm' ? weaponShape(model, info, ref, last, length, named) : null };
     Object.defineProperty(parts[key], 'tip', { value: limb.tip, enumerable: false });
     // The joints the limb's own line runs through (its top, its bend, its end).
-    Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false });
+    Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false, writable: true });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
     if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
@@ -468,7 +468,33 @@ function readRig(model, info, skeleton, wanted = 'both') {
   // The floor a weapon must stay above: the lowest foot vertex, else the ground.
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
+  endAtMovingJoints(info, parts, pos);
   return rig;
+}
+
+/** A limb whose last joint is a still skin carrier (no keys, no joint below it) beside one joint under the same parent
+ * that moves ends at the moving joint: the Ghoul's forearm skin bone `Wrist1` (pivot parked in its chest) beside its hand
+ * `Bone_Hand_R`, a murloc's or kobold's wrist mesh beside its hand, a tail's `Geo_Tail1` beside `Bone_Tail2`. POSE takes the
+ * first by its name, so the forearm would point into the chest. The numbers measured above (ground, soles, hip height,
+ * weapon) keep the joints they were measured on. Changes `parts` in place (R2: this was the transplant's own reading). */
+function endAtMovingJoints(info, parts, pos) {
+  const { byId, joints, nodes } = info;
+  const keyed = node => ['Translation', 'Rotation', 'Scaling'].some(property => node?.[property]?.Keys?.length);
+  const jointsUnder = id => nodes.filter(node => node.Parent === id && joints.has(node.ObjectId));
+  const used = new Set(Object.values(parts).flatMap(part => part.joints)), moved = [];
+  for (const part of Object.values(parts)) {
+    if (part.kind !== 'limb' || part.joints.length < 2) continue;
+    const endId = part.joints.at(-1), end = byId.get(endId), parent = part.joints.at(-2);
+    if (!end || end.Parent !== parent || keyed(end) || jointsUnder(endId).length) continue;
+    const moving = jointsUnder(parent).filter(node => node !== end && keyed(node) && !used.has(node.ObjectId));
+    if (moving.length === 1) moved.push([part, endId, moving[0].ObjectId]);
+  }
+  for (const [part, endId, id] of moved) {
+    part.joints = [...part.joints.slice(0, -1), id];
+    part.marker = id;
+    part.length = chainLength([...part.joints.map(pos), ...(part.tip ? [part.tip] : [])]);
+    if (part.line?.at(-1) === endId) part.line = [...part.line.slice(0, -1), id];
+  }
 }
 
 // A hip height counts as measured from this share of the body extent up; a body that does not
@@ -913,7 +939,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     const from = part.from ?? (whole ? swapSide(key) : key), fromKey = part.flip ? swapSide(from) : from, theirs = rigA.parts[fromKey];
     const mirror = whole !== !!part.flip;
     if (!theirs) { problems.push(`${transferPartLabel(key)}: the donor has no ${transferPartLabel(fromKey).toLowerCase()}, so it keeps the body animation.`); continue; }
-    const entry = prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient });
+    const entry = prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient, kneeToKnee: !!options.kneeToKnee });
     entry.clipIndex = clipIndex;
     // The clip before this one in the same part hands over to it (see the hold in pass 1).
     const before = clipIndex ? taken.findLast(other => other.key === key) : null;
@@ -1383,7 +1409,7 @@ export function rigSizeRatio(rigB, rigA) {
   if (rigB.hipMeasured && rigA.hipMeasured) return rigB.hipHeight / rigA.hipHeight;
   return rigB.extent > 0 && rigA.extent > 0 ? rigB.extent / rigA.extent : rigB.hipHeight / rigA.hipHeight;
 }
-function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient }) {
+function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient, kneeToKnee = false }) {
   const refA = sampleAt(donor, rigA.reference.sequence, rigA.reference.frame);
   // Mirroring reflects the donor across the XZ plane; a facing difference over
   // 20 degrees turns the donor's motion by that yaw.
@@ -1418,7 +1444,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const infoA = modelInfo(donor), infoB = modelInfo(recipient);
   // The limb on the other side and the donor limb it takes from pair together with this one (see limbPairing).
   const partner = own.kind === 'limb' && swapSide(key) !== key ? { own: rigB.parts[swapSide(key)], theirs: rigA.parts[swapSide(theirs.key)] } : null;
-  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner);
+  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner, { kneeToKnee });
   const map = pairing ? pairing.map : jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
   // A joint that follows the donor's line across several donor joints: the two ends of that line, and the line in the reference pose.
   const chordEnds = map.map((j, i) => pairing && j >= 0 && pairing.until[i] > j + 1 && pairing.until[i] < pairing.ids.length ? [theirs.joints[j], pairing.ids[pairing.until[i]]] : null);
@@ -1729,7 +1755,7 @@ function jointMap(ownPath, theirPath, ownCount, theirCount) {
  * joint i follows the donor's line across those joints, not one donor bone.
  * Returns null when either limb's top and end are not known: the caller pairs by distance. */
 const KNEE_BEND = 10, KNEE_MARGIN = 20;
-function limbPairing(own, theirs, rest, onLine, partner = null) {
+function limbPairing(own, theirs, rest, onLine, partner = null, { kneeToKnee = false } = {}) {
   if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
   const read = (part, at, name) => {
     const line = part.line || [];
@@ -1796,7 +1822,9 @@ function limbPairing(own, theirs, rest, onLine, partner = null) {
       const atKnee = search(f => f[b.bend] === knee);
       // The stretch above the bend (top -> bend here, top -> the paired joint there), worst over both sides.
       const thigh = f => Math.max(...sides.map(side => side.B[b.bend].clone().sub(side.B[0]).angleTo(side.A[f[b.bend]].clone().sub(side.A[0])) / DEG));
-      if (atKnee && thigh(atKnee) <= thigh(pick) + KNEE_MARGIN) pick = atKnee;
+      // `kneeToKnee` (the transplant: its bind pose is re-posed into the donor's, so the rest directions do not matter): the
+      // bend always takes the knee (H9: the Skeleton Orc's straight thigh slants back, nearer the Tauren's hip-to-hock).
+      if (atKnee && (kneeToKnee || thigh(atKnee) <= thigh(pick) + KNEE_MARGIN)) pick = atKnee;
     }
   }
   for (let t = 0; t < p; t++) map[sB + t] = sA + pick[t];

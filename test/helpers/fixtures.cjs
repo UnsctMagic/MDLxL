@@ -51,6 +51,14 @@ const FIXTURES = {
   'transfer-chaos-dragon-rider': ['MDLXL_TRANSFER_CHAOS_DRAGON_RIDER', testModel('fx-performance/ChaosDragonSkeleton_08.mdx')], // a rider on a dragon read as one body: dragon legs, rider arms, the rider's hips rock by position keys
   'transfer-skeleton-mage': ['MDLXL_TRANSFER_SKELETON_MAGE', testModel('corpus-sd/undead__skeletonmage.mdx')], // straight legs slanted back: the thigh points nearer a digitigrade donor's hock than its knee
   'transfer-brown-wolf': ['MDLXL_TRANSFER_BROWN_WOLF', testModel('corpus-sd/critters__brownwolf.mdx')], // a wolf whose back slopes otherwise than the Dire Wolf's
+  'transfer-eredar-warlock': ['MDLXL_TRANSFER_EREDAR_WARLOCK', testModel('corpus-sd/demon__eredarwarlock.mdx')], // ground ring on three unparented roots that only scale, by keys of its own (not global)
+  'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
+  'transfer-ogre-armored': ['MDLXL_TRANSFER_OGRE_ARMORED', testModel('corpus-sd/creeps__ogreoneheadedarmored.mdx')],
+  'transfer-kiljaeden-cin': ['MDLXL_TRANSFER_KILJAEDEN_CIN', testModel('corpus-sd/demon__kiljaedencin.mdx')], // body joint Bone_Root bobs by position keys on a global sequence
+  'transfer-witch-hunter': ['MDLXL_TRANSFER_WITCH_HUNTER', testModel('transfer-humanoid/WarhammerWitchHunter.mdx')], // left arm of two joints (ShoulderL > LowArmL), its hand ref on the forearm
+  'transfer-troll-priest': ['MDLXL_TRANSFER_TROLL_PRIEST', testModel('corpus-sd/creeps__foresttrollshadowpriest.mdx')],
+  'transfer-forsaken-paladin': ['MDLXL_TRANSFER_FORSAKEN_PALADIN', testModel('corpus-sd/creeps__heroforsakenpaladin.mdx')], // HD: its body joint local_C0_0_jnt moves by stepped (DontInterp) position keys
+  'transfer-skeleton-orc': ['MDLXL_TRANSFER_SKELETON_ORC', testModel('corpus-sd/creeps__skeletonorc.mdx')], // straight legs slanting back: its thigh points nearer the Tauren's hip-to-hock than hip-to-knee
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones
@@ -98,6 +106,10 @@ const FIXTURES = {
   'transfer-sheep': ['MDLXL_TRANSFER_SHEEP', testModel('corpus-sd/critters__sheep.mdx')], // one bone per leg, Foot and Hand refs under them
   'transfer-wyvern-rider': ['MDLXL_TRANSFER_WYVERN_RIDER', testModel('corpus-sd/orc__wyvernrider.mdx')], // numbered joints: both legs and the tail hang from one hip joint, both arms from the chest
   'transfer-seal': ['MDLXL_TRANSFER_SEAL', testModel('corpus-sd/critters__seal.mdx')], // flippers of one and two bones; Hand Left Ref has no parent
+  'transfer-steamtank': ['MDLXL_TRANSFER_STEAMTANK', testModel('transfer-r2/SteamTank_Normal.mdx')], // a commander's arms hang down over the tank's wheels; no legs
+  'transfer-hydralisk': ['MDLXL_TRANSFER_HYDRALISK', testModel('corpus-sd/critters__hydralisk.mdx')], // rests on its tail: Foot refs on the tail joints
+  'transfer-snapdragon': ['MDLXL_TRANSFER_SNAPDRAGON', testModel('corpus-sd/naga__snapdragon.mdx')], // the back left shin has a copy at its place; only the copy carries the toe
+  'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };

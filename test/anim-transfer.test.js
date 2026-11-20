@@ -1337,3 +1337,60 @@ test('H3 the Far Seer\'s tail is its tail: the wolf\'s waist, which carries the 
   assert.equal(name.get(tail.joints[0]), 'Bone Tail 1');
   assert.ok(!tail.joints.some(id => name.get(id) === 'Bone Wolf Waist'), `the tail holds ${tail.joints.map(id => name.get(id)).join(' > ')}`);
 });
+
+test('RG1 the Ghoul\'s and the murloc\'s arms end at their moving hands, not at the still forearm skin bones parked in the chest', { skip: missing('transfer-ghoul', 'transfer-murloc') }, () => {
+  // Wrist1/Wrist2 carry the forearm skin, have no keys and sit in the chest at bind; Bone_Hand_R/L beside them move. Read as
+  // the arm's end, the forearm pointed from the elbow into the chest in Retarget (the transplant had its own reading for it).
+  for (const key of ['transfer-ghoul', 'transfer-murloc']) {
+    const model = load(key), rig = transferRig(model), names = part => rig.parts[part].joints.map(id => nodeName(model, id)).join('>');
+    assert.equal(names('armR'), 'Bone_Arm1_R>Bone_Arm2_R>Bone_Hand_R', key);
+    assert.equal(names('armL'), 'Bone_Arm1_L>Bone_Arm2_L>Bone_Hand_L', key);
+    assert.equal(nodeName(model, rig.parts.armR.marker), 'Bone_Hand_R', key);
+    assert.equal(nodeName(model, rig.parts.armR.line.at(-1)), 'Bone_Hand_R', `${key}: the arm's line ends at the hand`);
+  }
+});
+test('RG1 the Footman taking the Ghoul\'s Stand with Pose at Theirs lays its forearm along the Ghoul\'s elbow-to-hand line', { skip: missing('transfer-ghoul', 'transfer-footman') }, () => {
+  const foot = load('transfer-footman'), ghoul = load('transfer-ghoul'), stand = seqMatch(foot, /^stand/i), theirs = seqMatch(ghoul, /^stand/i);
+  const rig = transferRig(foot, { sequence: stand }), rigT = transferRig(ghoul, { sequence: theirs });
+  const built = buildTransfer(foot, new Map([['g', ghoul]]), { base: { sequence: stand }, length: null, sources: { g: { mirror: false } }, parts: take(rig, ['hips', 'chest', 'armL', 'armR'], 'g', theirs, { match: 1, plant: false, grip: false }) });
+  const point = (model, matrices) => { const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])); return id => new Vector3(...nodePivot(model, byId.get(id), id)).applyMatrix4(matrices.get(id)); };
+  const mine = point(foot, builtMatrices(foot, built, stand, 0)), their = point(ghoul, sampleNodeMatrices(ghoul, ghoul.Sequences[theirs].Interval[0], theirs));
+  const named = (model, name) => allNodes(model).find(node => node.Name === name).ObjectId;
+  for (const key of ['armL', 'armR']) {
+    const line = rig.parts[key].line, side = key.at(-1);
+    const forearm = mine(line.at(-1)).sub(mine(line.at(-2))), ghoulForearm = their(named(ghoul, `Bone_Hand_${side}`)).sub(their(named(ghoul, `Bone_Arm2_${side}`)));
+    const off = forearm.angleTo(ghoulForearm) * 180 / Math.PI;
+    assert.ok(off < 20, `${key}: the forearm is ${off.toFixed(0)} degrees from the Ghoul's elbow-to-hand line`);
+  }
+});
+test('RG2 the Steam Tank stands on no legs: its commander\'s arms hang down over the wheels and are arms', { skip: missing('transfer-steamtank') }, () => {
+  const model = load('transfer-steamtank'), rig = transferRig(model), names = part => rig.parts[part]?.joints.map(id => nodeName(model, id)).join('>');
+  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 0, Object.keys(rig.parts).join(', '));
+  assert.equal(names('armL'), 'Commander_L_Shoulder>Commander_L_Elbow>Baton');
+  assert.equal(names('armR'), 'Commander_R_Shoulder>Commander_R_Elbow>Pistol');
+  assert.equal(names('chest'), 'Commander_Chest');
+  const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
+  assert.equal(pose.chains.filter(chain => chain.kind === 'leg').length, 0, 'POSE legs');
+});
+test('RG3 the Hydralisk rests on its tail: the Foot refs Blizzard put on the tail make no leg', { skip: missing('transfer-hydralisk') }, () => {
+  const model = load('transfer-hydralisk'), rig = transferRig(model);
+  assert.equal(Object.values(rig.parts).filter(part => part.limbKind === 'leg').length, 0, Object.keys(rig.parts).join(', '));
+  assert.ok(rig.parts.armL && rig.parts.armR && rig.parts.chest && rig.parts.head, Object.keys(rig.parts).join(', '));
+  const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
+  assert.equal(pose.chains.filter(chain => chain.kind === 'leg').length, 0, 'POSE legs');
+});
+test('RG4 the Snapdragon reads four legs: of the back left shin and its copy at the same place, the copy that carries the toe', { skip: missing('transfer-snapdragon') }, () => {
+  const model = load('transfer-snapdragon'), rig = transferRig(model), legs = legsBySide(rig);
+  assert.deepEqual([legs.L, legs.R], [2, 2], legs.keys);
+  const back = Object.values(rig.parts).find(part => part.limbKind === 'leg' && part.joints.some(id => nodeName(model, id) === 'Bone Back L Leg'));
+  assert.equal(back.joints.map(id => nodeName(model, id)).join('>'), 'Bone Back L Leg>Bone Back L ShinX>Bone Object67');
+});
+test('H7 the Witch Hunter\'s left arm is its two joints: ShoulderL > LowArmL to the hand ref, and the chest stays the chest (the arm was read Bone_Chest > ShoulderL > LowArmL, so the rig had no chest)', { skip: missing('transfer-witch-hunter') }, () => {
+  const model = load('transfer-witch-hunter'), rig = transferRig(model), names = part => rig.parts[part]?.joints.map(id => nodeName(model, id)).join('>');
+  assert.equal(names('armL'), 'ShoulderL>LowArmL');
+  assert.equal(rig.parts.armL.line.map(id => String(nodeName(model, id)).trim()).join('>'), 'ShoulderL>LowArmL>Hand Left Ref', 'read as the Footman\'s right arm is: two joints, the line on to the hand ref');
+  assert.equal(names('armR'), 'ShoulderR>LowArmR>HandR');
+  assert.equal(names('chest'), 'Bone_Chest');
+  const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
+  assert.ok(!pose.chains.some(chain => nodeName(model, chain.root) === 'Bone_Chest'), 'no POSE limb starts at the chest');
+});

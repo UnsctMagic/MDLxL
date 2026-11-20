@@ -172,6 +172,17 @@ export function inferPoseBranches(evidence, roleOf, occupied, model = null, clue
     const start = pivot(evidence.byId.get(branch.ids[0])), end = pivot(evidence.byId.get(branch.ids.at(-1)));
     if (end.z > bottom + start.distanceTo(end) * .3) branch.kind = 'arm';
   }
+  // Hands that hang down are no feet: a branch that hangs from the joint its head or neck also hangs from (a chest), and
+  // ends higher above the lowest skinned joint of its skeleton than the branch is long, is an arm (R2: the Steam Tank
+  // commander's arms over the tank's wheels; a four-legged body's front legs reach its lowest joints and stay legs).
+  if (clues) for (const branch of result.filter(branch => branch.kind === 'leg')) {
+    const first = byId.get(branch.ids[0]), parent = byId.get(first?.Parent);
+    if (!parent || !(children.get(parent.ObjectId) || []).some(node => ['Head', 'Neck'].includes(roleOf(node)))) continue;
+    const top = rootOf(branch.ids[0]), skinned = nodes.filter(node => rootOf(node.ObjectId) === top && supported(node));
+    const bottom = Math.min(...skinned.map(node => pivot(node).z)), start = pivot(first), end = pivot(byId.get(branch.ids.at(-1)));
+    const length = branch.ids.slice(1).reduce((sum, id, i) => sum + pivot(byId.get(id)).distanceTo(pivot(byId.get(branch.ids[i]))), 0);
+    if (Number.isFinite(bottom) && end.z > bottom + Math.max(length, start.distanceTo(end))) branch.kind = 'arm';
+  }
   // A branch the names alone would have hidden, whose skin is a sheet, is a wing.
   if (model) for (const branch of isNew) if (branch.kind === 'arm') {
     const flat = poseSkinFlatness(model, evidence, branch.ids);

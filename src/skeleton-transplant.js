@@ -83,34 +83,9 @@ export function mirrorModel(model) {
   return copy;
 }
 
-/** The transplant's reading of a rig. A limb whose last joint is a still skin carrier (no keys, no joint below it) next to
- * one joint that moves ends at the moving joint instead: the Ghoul's forearm skin bone `Wrist1` (pivot parked in its
- * chest) beside its hand `Bone_Hand_R`; POSE takes the first by its name, so the forearm would point into the chest. Retargeting
- * keeps the shared reading. -> the rig itself when nothing changes, else a copy with those parts copied. */
-export function transplantReading(rig, model) {
-  if (!rig?.ok) return rig;
-  const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
-  const isJoint = n => JOINT_KEYS.some(k => (model[k] || []).includes(n));
-  const keyed = n => ['Translation', 'Rotation', 'Scaling'].some(p => n?.[p]?.Keys?.length);
-  const used = new Set(Object.values(rig.parts).flatMap(part => part.joints));
-  let parts = null;
-  for (const [key, part] of Object.entries(rig.parts)) {
-    if (part.kind !== 'limb' || part.joints.length < 2) continue;
-    const end = byId.get(part.joints.at(-1)), parent = part.joints.at(-2);
-    if (!end || end.Parent !== parent || keyed(end) || nodes.some(n => n.Parent === end.ObjectId && isJoint(n))) continue;
-    const moving = nodes.filter(n => n.Parent === parent && n !== end && isJoint(n) && keyed(n) && !used.has(n.ObjectId));
-    if (moving.length !== 1) continue;
-    parts ||= { ...rig.parts };
-    const copy = Object.create(Object.getPrototypeOf(part), Object.getOwnPropertyDescriptors(part));
-    copy.joints = [...part.joints.slice(0, -1), moving[0].ObjectId];
-    copy.marker = moving[0].ObjectId;
-    parts[key] = copy;
-  }
-  if (!parts) return rig;
-  const copy = Object.create(Object.getPrototypeOf(rig), Object.getOwnPropertyDescriptors(rig));
-  copy.parts = parts;
-  return copy;
-}
+/** The transplant's reading of a rig is the shared one now: a limb that ends at a still skin carrier beside one joint that
+ * moves ends at the moving joint in every reading (anim-transfer.js `endAtMovingJoints`, R2). Kept for callers. */
+export function transplantReading(rig) { return rig; }
 
 /** The turn that lays `from` along `to` and then, about `to`, turns `side` (when given) as near `sideTo` as it can. */
 function alignFrames(from, to, side = null, sideTo = null) {
@@ -650,14 +625,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const whole = rigB.ok && rigA.ok ? transferWholeBody(rigB, rigA) : { parts: [], reason: null };
   if (rigB.ok && rigA.ok && ownStand >= 0 && donorStand0 >= 0 && whole.parts.length) {
     const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false, actor: donorActor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
-    try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], probe: ({ entries: found }) => { entries = found; } }); }
+    try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], kneeToKnee: true, probe: ({ entries: found }) => { entries = found; } }); }
     catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
-  }
-  // From here the transplant's own reading: a limb that ends at a still skin carrier ends at the joint beside it that moves.
-  rigB = transplantReading(rigB, model); rigA = transplantReading(rigA, D);
-  for (const entry of entries) {
-    if (rigB.parts?.[entry.own?.key]) entry.own = rigB.parts[entry.own.key];
-    if (rigA.parts?.[entry.theirs?.key]) entry.theirs = rigA.parts[entry.theirs.key];
   }
   // Limbs the donor has no counterpart for (Poor fit reads `still` below).
   const ridesStill = [];
@@ -803,7 +772,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       }
       return worst;
     };
+    // A joint that only grows and shrinks in place (no position or turn keys on it or on any joint above it: the Eredar
+    // Warlock's ground ring on three roots that scale by keys of their own) never goes anywhere in its own model: it stays
+    // in the world. Read by drift its pulse looked like moving, so it rode the body (Dissipate: the ring stood up with the
+    // Chaos Blademaster's turning hips and flew 6 heights into the sky).
+    const turnsOrMoves = id => treeB.ancestors(id, true).some(at => ['Translation', 'Rotation'].some(property => ownById.get(at)?.[property]?.Keys?.length));
     for (const [id, points] of skinOf) {
+      if (!turnsOrMoves(id)) continue;
       const centre = points.reduce((s, p) => s.add(p), new Vector3()).divideScalar(points.length);
       const probe = [centre, points.reduce((far, p) => p.distanceTo(centre) > far.distanceTo(centre) ? p : far, centre)];
       // Where it shows and is not scaled to nothing.
@@ -1808,9 +1783,28 @@ function bodyMover(M, body, loose = []) {
   if (!line.some(id => id !== body && loose.includes(id))) return { mover: body, line: new Set([body]) };
   return { mover: line.find(free) ?? body, line: new Set(line) };
 }
+/** The nodes that carry a height for `ids`: each one, unless it moves by position keys on a global sequence (they take no
+ * keys per animation: Kil'jaeden's cinematic body joint bobs on one) and carries no skin, then the nodes hanging from it,
+ * which moves all it holds. Others are returned as they are. */
+function heightCarriers(M, ids) {
+  const skinned = new Set();
+  for (const geoset of M.Geosets || []) {
+    const count = (geoset.Vertices?.length || 0) / 3, skin = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) for (const id of skin?.length >= (v + 1) * 8 ? [0, 1, 2, 3].filter(i => skin[v * 8 + 4 + i] > 0).map(i => skin[v * 8 + i]) : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || [])) skinned.add(id);
+  }
+  const out = new Set(), seen = new Set();
+  const visit = id => {
+    if (seen.has(id)) return; seen.add(id);
+    const node = M.Nodes[id];
+    if (!node || !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)) || skinned.has(id)) { out.add(id); return; }
+    for (const child of M.Nodes) if (child && child.Parent === id && child.ObjectId !== id) visit(child.ObjectId);
+  };
+  for (const id of ids) visit(id);
+  return [...out];
+}
 function shiftBody(M, body, dz, loose = []) {
   if (Math.abs(dz) < 1e-3) return;
-  for (const id of new Set([body, ...loose])) shiftNode(M, id, dz);
+  for (const id of new Set([...heightCarriers(M, [body]), ...loose])) shiftNode(M, id, dz);
   clearTransferCache(M);
 }
 function shiftNode(M, id, dz) {
@@ -1933,7 +1927,7 @@ function soleReader(model, rig, standIndex) {
  * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
 function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
   const { mover, line } = bodyMover(M, rigM.body, loose);
-  const movers = [...new Set([mover, ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+  const movers = [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval);
   const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {
@@ -1966,9 +1960,29 @@ function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
 }
 /** Add a height that is linear between `frames` (`values` there; all inside `interval`) onto a node's translation keys
  * in that interval. Keys are added only at those frames, splitting curves exactly. */
+/** A stepped (DontInterp) track as linear keys that hold the same values: inside each animation every key's value is keyed
+ * again one millisecond before the next key. */
+function unstep(M, track) {
+  const keys = [...track.Keys].sort((x, y) => x.Frame - y.Frame), added = [];
+  for (const sequence of M.Sequences || []) {
+    const [a, z] = sequence.Interval || [];
+    if (!(z >= a)) continue;
+    const inside = keys.filter(key => key.Frame >= a && key.Frame <= z);
+    for (let i = 0; i + 1 < inside.length; i++) {
+      const hold = inside[i + 1].Frame - 1;
+      if (hold > inside[i].Frame && !keys.some(key => key.Frame === hold) && !added.some(key => key.Frame === hold)) added.push({ Frame: hold, Vector: like(inside[i].Vector, Array.from(inside[i].Vector)) });
+    }
+  }
+  track.Keys = [...keys, ...added].sort((x, y) => x.Frame - y.Frame);
+  track.LineType = 1;
+}
 function addHeight(M, node, interval, frames, values) {
   const [a, z] = interval;
   if (!node.Translation?.Keys?.length) node.Translation = { LineType: 1, GlobalSeqId: null, Keys: [] };
+  // Stepped keys (DontInterp: the HD Forsaken Paladin's body joint) hold each value to the next key, so a height added onto
+  // them held between keys too (0.13 hip heights off between his 30-60 ms keys). They become linear keys that hold the same:
+  // each value is keyed again just before the next key of its animation, so the body moves exactly as before.
+  if (node.Translation.LineType === 0) unstep(M, node.Translation);
   const track = node.Translation, type = track.LineType, curved = type === 2 || type === 3;
   const template = track.Keys[0]?.Vector ?? new Float32Array(3);
   const sample = frame => sampleTrack(track, frame, { interval, globalSequences: M.GlobalSequences, fallback: [0, 0, 0] });
