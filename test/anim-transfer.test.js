@@ -1258,3 +1258,16 @@ test('G1 both hands on the weapon: the gripping arm does not turn over from one 
   assert.ok(turn < 90, `the gripping arm turns ${turn.toFixed(1)} degrees in one 33 ms step at ${at} ms`);
   assert.ok(plane < 90, `its elbow's bend plane turns ${plane.toFixed(1)} degrees in one 33 ms step`);
 });
+test('K1 a looping clip with the hips taken plays at its own speed: the result is whole loops of it (the Footman taking the Shadow Hunter\'s Walk over its Stand)', { skip: missing('transfer-footman', 'transfer-shadow-hunter') }, () => {
+  // The result took the longer of the body animation and the clip and fitted the clip into it in whole loops: the
+  // Shadow Hunter's 800 ms walk over the Footman's 1,500 ms Stand played at 1.07 of its speed (over 1,167 ms at 0.69).
+  const foot = load('transfer-footman'), hunter = load('transfer-shadow-hunter'), stand = seqMatch(foot, /^stand/i), walk = seqMatch(hunter, /^walk$/i);
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(hunter, { sequence: walk }));
+  const built = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'h', walk) });
+  const clip = hunter.Sequences[walk].Interval[1] - hunter.Sequences[walk].Interval[0], loops = built.length / clip;
+  assert.ok(Math.abs(loops - Math.round(loops)) < 0.01, `the result is ${built.length} ms: ${loops.toFixed(3)} loops of the ${clip} ms walk`);
+  assert.equal(built.nonLooping, false);
+  // Arms only (the body animation carries the body): unchanged, the clip is fitted to the body animation as before.
+  const arms = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, ['armL', 'armR'], 'h', walk) });
+  assert.equal(arms.length, foot.Sequences[stand].Interval[1] - foot.Sequences[stand].Interval[0]);
+});

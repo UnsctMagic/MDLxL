@@ -932,6 +932,12 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     else if (takenOnce) length = Math.max(...taken.filter(e => !e.looping).map(e => e.start + e.length / e.speed));
     else if (baseSeq.NonLooping) length = baseLength;
     else length = Math.max(baseLength, ...taken.map(e => e.length / e.speed));
+    // When the hips are taken the whole body follows their clip: the result is a whole number of its loops (the
+    // nearest to the length above), so it plays at its own Speed and the body animation is fitted to it instead.
+    // Before, the clip was fitted to the body animation: the Shadow Hunter's 800 ms walk over a 1,167 ms Stand
+    // played at 0.69 of its speed, over the Footman's 1,500 ms Stand at 1.07.
+    const hipsClip = taken.find(e => e.key === 'hips' && e.clipIndex === 0);
+    if (!takenOnce && hipsClip?.looping && hipsClip.length > 0) { const period = hipsClip.length / hipsClip.speed; length = period * Math.max(1, Math.round(length / period)); }
   }
   length = Math.max(1, Math.round(length));
   const loopRate = (clipLength, speed) => takenOnce ? speed : Math.max(1, Math.round(length / (clipLength / speed))) * clipLength / length;
