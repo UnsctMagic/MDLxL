@@ -53,7 +53,7 @@ const FIXTURES = {
   'transfer-brown-wolf': ['MDLXL_TRANSFER_BROWN_WOLF', testModel('corpus-sd/critters__brownwolf.mdx')], // a wolf whose back slopes otherwise than the Dire Wolf's
   'transfer-rock-golem': ['MDLXL_TRANSFER_ROCK_GOLEM', testModel('corpus-sd/creeps__rockgolem.mdx')], // its chest flies 71 into place in Birth from an offset of 1.3
   'transfer-spirit-pig': ['MDLXL_TRANSFER_SPIRIT_PIG', testModel('corpus-sd/creeps__spiritpig.mdx')],
-  'transfer-bronze-whelp': ['MDLXL_TRANSFER_BRONZE_WHELP', testModel('corpus-sd/creeps__bronzedragonwelp.mdx')], // four legs, its wings read as arms on the body (no chest)
+  'transfer-bronze-whelp': ['MDLXL_TRANSFER_BRONZE_WHELP', testModel('corpus-sd/creeps__bronzedragonwelp.mdx')], // four legs, its wings on the body (no chest); read as arms until cross-kind r2 WG1
   'transfer-lobstrokk': ['MDLXL_TRANSFER_LOBSTROKK', testModel('corpus-sd/creeps__lobstrokkgreen.mdx')], // four legs under an upright upper body with two claws
   'transfer-eredar-warlock': ['MDLXL_TRANSFER_EREDAR_WARLOCK', testModel('corpus-sd/demon__eredarwarlock.mdx')], // ground ring on three unparented roots that only scale, by keys of its own (not global)
   'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
@@ -113,6 +113,12 @@ const FIXTURES = {
   'transfer-steamtank': ['MDLXL_TRANSFER_STEAMTANK', testModel('transfer-r2/SteamTank_Normal.mdx')], // a commander's arms hang down over the tank's wheels; no legs
   'transfer-hydralisk': ['MDLXL_TRANSFER_HYDRALISK', testModel('corpus-sd/critters__hydralisk.mdx')], // rests on its tail: Foot refs on the tail joints
   'transfer-snapdragon': ['MDLXL_TRANSFER_SNAPDRAGON', testModel('corpus-sd/naga__snapdragon.mdx')], // the back left shin has a copy at its place; only the copy carries the toe
+  'transfer-green-dragon': ['MDLXL_TRANSFER_GREEN_DRAGON', testModel('corpus-sd/creeps__greendragon.mdx')], // four legs; its wings hang from the body joint the legs hang from, unnamed joints with WingR_/WingL_ skin carriers
+  'transfer-frost-wyrm': ['MDLXL_TRANSFER_FROST_WYRM', testModel('corpus-sd/undead__frostwyrm.mdx')], // two legs; its wings are unnamed sheets on the body joint the legs hang from
+  'transfer-harpy': ['MDLXL_TRANSFER_HARPY', testModel('corpus-sd/creeps__harpy.mdx')], // feathered arms that end in named hands
+  'transfer-timber-wolf': ['MDLXL_TRANSFER_TIMBER_WOLF', testModel('corpus-sd/creeps__timberwolf.mdx')], // four legs, a tail on its waist
+  'transfer-undead-arthas': ['MDLXL_TRANSFER_UNDEAD_ARTHAS', testModel('corpus-sd/undead__undeadarthas.mdx')], // a rider on a horse whose back legs and tail hang from one joint (Bone Hor11) under the body
+  'transfer-dragonspawn': ['MDLXL_TRANSFER_DRAGONSPAWN', testModel('corpus-sd/creeps__dragonspawnblue.mdx')], // four legs and two arms on an upright chest
   'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
   'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)

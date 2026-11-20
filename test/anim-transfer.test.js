@@ -1337,6 +1337,20 @@ test('H3 the Far Seer\'s tail is its tail: the wolf\'s waist, which carries the 
   assert.equal(name.get(tail.joints[0]), 'Bone Tail 1');
   assert.ok(!tail.joints.some(id => name.get(id) === 'Bone Wolf Waist'), `the tail holds ${tail.joints.map(id => name.get(id)).join(' > ')}`);
 });
+
+// Cross-kind r2 WG1 (docs/agent-tasks/xfer-overnight.md): wings the shared recogniser read as arms.
+test('WG1 dragons\' wings are wings: the Green Dragon, the Bronze Whelp and the Frost Wyrm read two wings and no arms (a skin sheet on the joint the legs hang from, or one with wing-named skin); the Gargoyle\'s and the harpy\'s arms, which end in named hands, stay arms', { skip: missing('transfer-green-dragon', 'transfer-bronze-whelp', 'transfer-frost-wyrm', 'transfer-gargoyle', 'transfer-harpy', 'transfer-footman') }, () => {
+  const count = (rig, kind) => Object.values(rig.parts).filter(part => part.limbKind === kind).length;
+  for (const key of ['transfer-green-dragon', 'transfer-bronze-whelp', 'transfer-frost-wyrm']) {
+    const rig = transferRig(load(key));
+    assert.deepEqual([count(rig, 'wing'), count(rig, 'arm')], [2, 0], `${key}: ${Object.keys(rig.parts).join(', ')}`);
+    assert.ok(rig.parts.wingL && rig.parts.wingR, `${key}: ${Object.keys(rig.parts).join(', ')}`);
+  }
+  for (const key of ['transfer-gargoyle', 'transfer-harpy', 'transfer-footman']) {
+    const rig = transferRig(load(key));
+    assert.deepEqual([count(rig, 'arm'), count(rig, 'wing')], [2, 0], `${key}: ${Object.keys(rig.parts).join(', ')}`);
+  }
+});
 
 test('RG1 the Ghoul\'s and the murloc\'s arms end at their moving hands, not at the still forearm skin bones parked in the chest', { skip: missing('transfer-ghoul', 'transfer-murloc') }, () => {
   // Wrist1/Wrist2 carry the forearm skin, have no keys and sit in the chest at bind; Bone_Hand_R/L beside them move. Read as
