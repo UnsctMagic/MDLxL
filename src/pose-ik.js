@@ -188,6 +188,9 @@ function readPoseRig(model, clues, evidence, cloth = null) {
     // Keep an already named wrist/ankle in this branch. A ref can be mounted on
     // a forearm or weapon rather than on the anatomical end joint.
     if (transforms.some(node => evidence.moving(node) && rootOf(node) === rootOf(parent) && (poseNodeRole(node) === role || role === 'Foot' && poseNodeRole(node) === 'Hoof') && (descendantOf(node.ObjectId, parent.ObjectId) || descendantOf(parent.ObjectId, node.ObjectId)))) continue;
+    // A hand reference above a named foot marks a forepaw (Blizzard puts Hand refs on front paws for
+    // attack effects): the foot below names the limb.
+    if (clues && role === 'Hand' && transforms.some(node => evidence.moving(node) && ['Foot', 'Hoof'].includes(poseNodeRole(node)) && descendantOf(node.ObjectId, parent.ObjectId))) continue;
     const distance = node => v3(node.PivotPoint).distanceTo(v3(ref.PivotPoint));
     const next = (children.get(parent.ObjectId) || []).filter(node => evidence.moving(node) && (children.get(node.ObjectId) || []).length).sort((a,b) => distance(a) - distance(b))[0];
     const end = next && distance(next) < distance(parent) * .98 ? next : parent;
@@ -216,7 +219,7 @@ function readPoseRig(model, clues, evidence, cloth = null) {
     try {
       // Prefer the actual hand/hoof over its child attachment marker.
       if (chains.some(chain => descendantOf(node.ObjectId, chain.end))) continue;
-      const chain = { ...suggestPoseChain(model, node.ObjectId, tree), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
+      const chain = { ...(clues && straightLimb(model, node.ObjectId, tree, joints) || suggestPoseChain(model, node.ObjectId, tree)), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
       if (['Body','Pelvis'].includes(roleOf(byId.get(chain.root))) || roleOf(byId.get(chain.root)) === 'Chest' && /arm|thigh|leg1/i.test(byId.get(chain.middle)?.Name)) continue;
       if (chains.some(existing => poseChainIds(chain).some(id => poseChainIds(existing).includes(id)))) continue;
       // Mapping is structural and must not lose a hoof at an authored scale key.
@@ -238,6 +241,7 @@ function readPoseRig(model, clues, evidence, cloth = null) {
     const chain = { root: branch.ids[0], middle: branch.ids[1], end: branch.ids.at(-1), joints: branch.ids, kind: branch.kind, key: `limb:${branch.ids.at(-1)}`, ...(branch.label || horseLimb ? { label: branch.label || 'Hoof' } : {}) };
     try { validatePoseChain(model, chain, tree); chains.push(chain); branch.ids.forEach(id => occupied.add(id)); } catch { /* Unsupported native inheritance remains available through bone editing. */ }
   }
+  const stubs = clues ? limbTwinsAndStubs(model, { chains, tree, evidence, transforms, roleOf, ends: candidates, unavailable }) : [];
   // Hanging cloth is read as a plain bone chain from here on: no leg, and no arm that marks a chest.
   for (const chain of chains) if (cloth?.has(chain.key)) Object.assign(chain, { kind: 'arm', label: 'Chain', cloth: true });
   const bodies = transforms.filter(node => roleOf(node) === 'Body' && !/death|portrait/i.test(node.Name));
@@ -265,13 +269,27 @@ function readPoseRig(model, clues, evidence, cloth = null) {
   // silently dropping the first segment to force a two-bone template.
   for (const chain of chains) {
     const links = poseChainIds(chain).slice(); let parent = byId.get(byId.get(links[0])?.Parent);
-    while (parent && /^(?:bone|helper)(?:[ _-]*any)?[ _-]*[0-9]+$/i.test(parent.Name) && !['Body','Pelvis','Chest'].includes(roleOf(parent))) { links.unshift(parent.ObjectId); parent = byId.get(parent.Parent); }
+    // Never through a joint another limb also hangs from (a hip both legs hang from).
+    while (parent && /^(?:bone|helper)(?:[ _-]*any)?[ _-]*[0-9]+$/i.test(parent.Name) && !['Body','Pelvis','Chest'].includes(roleOf(parent))
+      && !(clues && chains.some(other => other !== chain && descendantOf(other.root, parent.ObjectId) && !descendantOf(other.root, links[0])))) { links.unshift(parent.ObjectId); parent = byId.get(parent.Parent); }
     if (links.length !== poseChainIds(chain).length) {
       const extended = { ...chain, root: links[0], middle: links[1], joints: links };
       try { validatePoseChain(model, extended, tree); if (links.slice(1).some((id, i) => v3(byId.get(id).PivotPoint).distanceTo(v3(byId.get(links[i]).PivotPoint)) < 1e-7)) throw new Error('Coincident joint'); Object.assign(chain,extended); } catch { /* Keep the already validated endpoint chain. */ }
     }
   }
   actors.sort((a,b) => b.span - a.span);
+  // An upper body with arms and no legs on a hierarchy root of its own, at the place of the root a pair of legs hangs
+  // from (a Reforged rig's turret over its pelvis), is one creature with those legs: they are its body, which carries it
+  // (`followers`, and `uppers` says it is that creature's own upper body, not a rider).
+  const carriedUpper = new Map();
+  if (clues) for (const upper of actors.slice()) {
+    if (upper.limbs.some(chain => chain.kind === 'leg') || !upper.limbs.some(chain => chain.kind === 'arm' && !chain.label)) continue;
+    const top = tree.root(upper.body), base = actors.find(other => other !== upper && tree.root(other.body) !== top && other.limbs.length === 2 && other.limbs.every(chain => chain.kind === 'leg' && !chain.label)
+      && v3(byId.get(tree.root(other.body)).PivotPoint).distanceTo(v3(byId.get(top).PivotPoint)) < other.span * .02);
+    if (!base) continue;
+    carriedUpper.set(base.body, [...(carriedUpper.get(base.body) || []), top]);
+    actors.splice(actors.indexOf(base), 1); actors.unshift(base);
+  }
   // Bodies come from their limbs; a name only suggests a part. A trunk part
   // belongs to a found body: it hangs from that body, or from a joint the body
   // rides on that moves or carries skin (a mount, a beast's root). A static,
@@ -335,6 +353,7 @@ function readPoseRig(model, clues, evidence, cloth = null) {
         bodies.some(rider => rider.ObjectId !== body && descendantOf(rider.ObjectId, node.ObjectId)));
       if (carried.length) followers[body] = carried.map(node => node.ObjectId);
     }
+    if (carriedUpper.has(body)) followers[body] = [...new Set([...(followers[body] || []), ...carriedUpper.get(body)])];
     // Detached reins are authored independently like the rider. Carry those
     // explicit accessories with the seat; unrelated effects/debris stay alone.
     if (Object.keys(carriers).length) for (const node of transforms) if (!byId.has(node.Parent) && /^(?:chain|reins?)[ _.-]/i.test(node.Name)) carriers[node.ObjectId] = seats[0].ObjectId;
@@ -379,7 +398,182 @@ function readPoseRig(model, clues, evidence, cloth = null) {
     .filter(node => !model.Geosets?.length || evidence.supported(node) && (roles[node.ObjectId] || /^bone[ _]/i.test(node.Name) || evidence.articulated(node) || !byId.has(node.Parent)))
     .filter(node => roleOf(node) !== 'Tail' || !(children.get(node.ObjectId) || []).some(child => roleOf(child) === 'Tail' && evidence.moving(child)))
     .map(node => node.ObjectId).filter(id => id !== body);
-  return { chains, body, nodes: controls, roles, inferred, followers, carriers, unavailable };
+  const uppers = carriedUpper.has(body) ? { [body]: carriedUpper.get(body) } : null;
+  return { chains, body, nodes: controls, roles, inferred, followers, carriers, unavailable, ...(stubs.length ? { stubs } : {}), ...(uppers ? { uppers } : {}) };
+}
+
+/** An end joint that sits on the joint above it (an HD hand on its last forearm twist joint) has no limb segment
+ * there: its limb is read through the joints that bend it, leaving out the ones at the same place and the twist
+ * joints on the straight line between their neighbours. Null for any other end (R1). */
+function straightLimb(model, endpoint, index, joints) {
+  const { byId } = index, at = id => v3(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+  const parent = byId.get(endpoint)?.Parent;
+  if (!joints.has(endpoint) || !joints.has(parent) || at(endpoint).distanceTo(at(parent)) >= 1e-7) return null;
+  const up = index.ancestors(endpoint).filter(id => joints.has(id)), kept = [endpoint];
+  for (const id of up) {
+    if (at(id).distanceTo(at(kept[0])) < 1e-7) continue;
+    // A joint on the straight line from the next one up to the last kept one (a twist joint) does not bend the limb.
+    const next = up[up.indexOf(id) + 1];
+    if (next != null && kept.length < 3 && at(next).distanceTo(at(id)) > 1e-7) {
+      const a = at(next), b = at(kept[0]), line = b.clone().sub(a), t = at(id).sub(a).dot(line) / Math.max(line.lengthSq(), 1e-12);
+      if (t > 0 && t < 1 && a.clone().addScaledVector(line, t).distanceTo(at(id)) < line.length() * .02) continue;
+    }
+    kept.unshift(id);
+    if (kept.length === 3) break;
+  }
+  if (kept.length < 3) return null;
+  const chain = { root: kept[0], middle: kept[1], end: endpoint, joints: kept };
+  try { validatePoseChain(model, chain, index); return chain; } catch { return null; }
+}
+
+// Limbs are read in mirrored pairs (R1, docs/agent-tasks/xfer-overnight.md). Changes `chains` in place and returns
+// the short limbs: legs of one or two joints, too short for a POSE handle (`stubs`, read by Transfer as limbs).
+//  - A paw that holds a Hand ref (Blizzard's attack-effect slot on a front paw) mirrored by a leg, both standing
+//    with the feet, is a leg.
+//  - A leg whose mirrored twin carries no part name (an unnamed front leg beside a named one) gives the twin.
+//  - Mirrored paws that stand with the feet, read as arms with no leg beside them (a seal's front flippers), are legs.
+//  - A chain that runs through a joint another limb also hangs from (a hip mesh both hind legs hang from, the body)
+//    is no limb: each end below that joint is a short limb of its own joints.
+//  - A knee or shin with nothing below it (a rat's leg ends at its shin) ends a short leg.
+function limbTwinsAndStubs(model, { chains, tree, evidence, transforms, roleOf, ends, unavailable }) {
+  const { byId } = tree, joints = new Set(transforms.map(node => node.ObjectId));
+  // Mirrored left and right only (+Y is left): the two points lie on opposite sides of `origin` across Y, and the
+  // distance of one reflected onto the other, as a share of `span`.
+  const sameReach = (from, a, b) => { const la = from.distanceTo(a), lb = from.distanceTo(b); return Math.min(la, lb) / Math.max(la, lb, 1e-9) > .65; };
+  const mirrorSides = (a, b, origin, span) => (a.y - origin.y) * (b.y - origin.y) >= 0 ? Infinity : new Vector3(a.x, 2 * origin.y - a.y, a.z).distanceTo(b) / Math.max(span, 1e-6);
+  const pivotOf = id => v3(byId.get(id).PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+  const own = ids => ids.filter(id => joints.has(id));
+  const lengthOf = ids => ids.slice(1).reduce((sum, id, i) => sum + pivotOf(id).distanceTo(pivotOf(ids[i])), 0);
+  const endOf = chain => chain.grip ? v3(chain.grip) : pivotOf(chain.end);
+  const legLike = chain => chain.kind === 'leg' && chain.label !== 'Wing' && chain.label !== 'Chain';
+  const plainArm = chain => chain.kind === 'arm' && !chain.label;
+  const trunkRole = id => ['Body', 'Pelvis', 'Chest', 'Spine', 'Neck', 'Head', 'Tail', 'Wing'].includes(roleOf(byId.get(id)));
+  // Two limbs are twins: their tops hang from one joint, mirrored across it, and their ends are mirrored.
+  const twins = (a, b, ia = own(poseChainIds(a)), ib = own(poseChainIds(b))) => {
+    const parent = byId.get(ia[0])?.Parent;
+    if (parent == null || parent !== byId.get(ib[0])?.Parent || !byId.has(parent)) return false;
+    const la = lengthOf([...ia, ...(a.end != null && !joints.has(a.end) ? [a.end] : [])]), lb = lengthOf([...ib, ...(b.end != null && !joints.has(b.end) ? [b.end] : [])]), span = Math.max(la, lb);
+    if (!(span > 1e-4) || !(Math.min(la, lb) / span > .65)) return false;
+    const origin = pivotOf(parent);
+    return mirrorSides(pivotOf(ia[0]), pivotOf(ib[0]), origin, span) < .25 && mirrorSides(endOf(a), endOf(b), origin, span) < .4;
+  };
+  // Standing with the feet: the end is no higher than the lowest leg end of that skeleton by 30% of the limb's reach.
+  const stands = (limb, legs) => {
+    const bottom = Math.min(...legs.filter(other => tree.root(other.end) === tree.root(limb.end)).map(other => endOf(other).z));
+    return Number.isFinite(bottom) && endOf(limb).z <= bottom + pivotOf(own(poseChainIds(limb))[0]).distanceTo(endOf(limb)) * .3;
+  };
+  for (const arm of chains.filter(plainArm)) {
+    const leg = chains.find(other => legLike(other) && twins(arm, other));
+    if (leg && stands(arm, chains.filter(legLike))) Object.assign(arm, { kind: 'leg', ...(leg.label ? { label: leg.label } : {}) });
+  }
+  const occupied = new Set(chains.flatMap(poseChainIds));
+  const children = id => [...byId.values()].filter(node => node.Parent === id && !occupied.has(node.ObjectId));
+  // The mirrored path of a limb's joints under the same parent, joint by joint, or null.
+  const mirrorPath = chain => {
+    const ids = own(poseChainIds(chain)), parent = byId.get(ids[0])?.Parent;
+    if (parent == null || !byId.has(parent) || ids.length < 2) return null;
+    const span = lengthOf([...ids, ...(joints.has(chain.end) ? [] : [chain.end])]), origin = pivotOf(parent), path = [];
+    for (const [i, id] of ids.entries()) {
+      if (i && byId.get(id).Parent !== ids[i - 1]) return null;
+      const near = children(i ? path[i - 1] : parent).filter(node => joints.has(node.ObjectId) && node.ObjectId !== id)
+        .map(node => ({ id: node.ObjectId, error: mirrorSides(pivotOf(id), pivotOf(node.ObjectId), origin, span) }))
+        .filter(item => item.error < .25).sort((a, b) => a.error - b.error)[0];
+      if (!near) return null;
+      path.push(near.id);
+    }
+    if (path.filter(id => evidence.moving(byId.get(id))).length < 2) return null;
+    // Its end: the mirrored end reference when the limb ends at one, else its last joint.
+    const tail = chain.end != null && !joints.has(chain.end) ? children(path.at(-1)).find(node => !joints.has(node.ObjectId) && mirrorSides(pivotOf(chain.end), pivotOf(node.ObjectId), origin, span) < .4) : null;
+    return { joints: path, end: tail ? tail.ObjectId : path.at(-1) };
+  };
+  // A found limb: a chain (pushed, or handed to `place`), else a short leg. An arm too short for a chain is not made.
+  const stubs = [], add = (found, kind, label, place = chain => chains.push(chain)) => {
+    const ids = found.end === found.joints.at(-1) ? found.joints : [...found.joints, found.end];
+    if (ids.length >= 3) {
+      const chain = { root: ids[0], middle: ids[1], end: ids.at(-1), ...(ids.length > 3 || byId.get(ids.at(-1)).Parent !== ids[1] ? { joints: ids } : {}), kind, key: `limb:${ids.at(-1)}`, ...(label ? { label } : {}) };
+      try { validatePoseChain(model, chain, tree); found.joints.concat(found.end).forEach(id => occupied.add(id)); place(chain); return true; } catch { /* a short limb below */ }
+    }
+    if (kind !== 'leg') return false;
+    found.joints.concat(found.end).forEach(id => occupied.add(id));
+    stubs.push({ root: ids[0], end: ids.at(-1), joints: ids, kind, key: `limb:${ids.at(-1)}`, short: true });
+    return true;
+  };
+  // A named leg's unnamed twin; mirrored paws standing with the feet.
+  for (const chain of chains.slice()) {
+    if (!(legLike(chain) || plainArm(chain)) || chains.some(other => other !== chain && twins(chain, other))) continue;
+    if (plainArm(chain) && !stands(chain, chains.filter(legLike))) continue;
+    const found = mirrorPath(chain);
+    if (!found || found.joints.some(id => occupied.has(id))) continue;
+    if (plainArm(chain)) { if (!stands({ ...chain, end: found.end, grip: null }, chains.filter(legLike))) continue; chain.kind = 'leg'; }
+    add(found, 'leg', chain.label);
+  }
+  // Limb ends: the found ones, every Foot, Hoof or Hand end the reader proposed, and every knee or shin with no joint
+  // below it. A reference node counts as the joint it hangs from (one on a forearm is that arm's own).
+  const jointOf = id => joints.has(id) ? id : joints.has(byId.get(id)?.Parent) ? byId.get(id).Parent : null;
+  const named = new Set([...chains.map(chain => chain.end), ...ends.map(node => node.ObjectId)].map(jointOf).filter(id => id != null));
+  // Another limb end hangs from `id`, off the line of the limb that ends at `end`.
+  const carriesOther = (id, end, among) => [...among].some(other => other !== end && other !== id && tree.isAncestor(other, id) && !tree.isAncestor(other, end) && !tree.isAncestor(end, other));
+  // A knee ends a leg only where nothing else does: its joint above carries no other limb end (a kneecap beside a shin does).
+  const knees = transforms.filter(node => /(?:leg2|calf|shin|knee)(?:$|[ _.-])/i.test(node.Name) && evidence.moving(node) && !occupied.has(node.ObjectId) && !transforms.some(child => child.Parent === node.ObjectId)
+    && joints.has(node.Parent) && !carriesOther(node.Parent, node.ObjectId, named) && ![...named].some(end => end !== node.ObjectId && tree.isAncestor(node.ObjectId, end)));
+  const legEnds = new Set([...chains.filter(legLike).map(chain => chain.end), ...ends.filter(node => roleOf(node) !== 'Hand').map(node => node.ObjectId), ...knees.map(node => node.ObjectId)].map(jointOf).filter(id => id != null));
+  const limbEnds = new Set([...legEnds, ...named]);
+  // A limb chain through a joint its mirrored twin also hangs from (a hip both hind legs hang from, the body, the chest
+  // both arms hang from) runs through their common joint: it is read again from its end, below that joint.
+  const cut = [];
+  for (const chain of chains.filter(chain => legLike(chain) || plainArm(chain))) {
+    // A leg's twin may be any leg end (one the reader could not chain yet); an arm's twin is a found arm.
+    const end = jointOf(chain.end), ids = own(poseChainIds(chain)).filter(id => id !== end), among = legLike(chain) ? legEnds : new Set(chains.filter(other => other !== chain && plainArm(other)).map(other => jointOf(other.end)).filter(id => id != null));
+    if (end == null || !ids.some(id => [...among].some(other => other !== end && other !== id && tree.isAncestor(other, id) && !tree.isAncestor(other, end) && !tree.isAncestor(end, other)
+      && sameReach(pivotOf(id), pivotOf(end), pivotOf(other)) && mirrorSides(pivotOf(end), pivotOf(other), pivotOf(id), Math.max(pivotOf(end).distanceTo(pivotOf(id)), 1e-6)) < .4))) continue;
+    cut.push(chain);
+  }
+  const order = chains.slice();
+  for (const chain of cut) { chains.splice(chains.indexOf(chain), 1); poseChainIds(chain).forEach(id => occupied.delete(id)); }
+  // Short limbs: from the end up through its own joints, to the first joint that is shared, a trunk part or a root.
+  // An end with another limb end below it is no end (a foot above its toe); one hanging from a found limb belongs to it.
+  const shortFrom = end => {
+    const joint = jointOf(end);
+    if (joint == null || occupied.has(joint) || [...limbEnds].some(other => other !== joint && tree.isAncestor(other, joint))) return null;
+    // An end below a found limb's end belongs to that limb (a toe under a foot).
+    if (chains.some(chain => tree.isAncestor(joint, chain.end) || tree.isAncestor(joint, jointOf(chain.end) ?? chain.end))) return null;
+    if (occupied.has(byId.get(joint).Parent)) return null;
+    const path = [];
+    for (let id = joint; id != null && joints.has(id) && !occupied.has(id); id = byId.get(id).Parent) {
+      if (path.length && (carriesOther(id, joint, limbEnds) || trunkRole(id) || !byId.has(byId.get(id).Parent))) break;
+      path.unshift(id);
+    }
+    if (!path.length || trunkRole(path[0]) || path.some(id => poseNodeRole(byId.get(id)) === 'Wing') || !byId.has(byId.get(path[0]).Parent) || path.some(id => carriesOther(id, joint, limbEnds)) || !path.some(id => evidence.moving(byId.get(id)))) return null;
+    const ref = joints.has(end) ? children(end).find(node => !joints.has(node.ObjectId) && ['Foot', 'Hand', 'Hoof'].includes(poseNodeRole(node))) : null;
+    return { joints: path, end: joints.has(end) ? ref?.ObjectId ?? end : end };
+  };
+  // A cut limb keeps its kind and its place among the chains; the end it is read from is the deepest limb end on its
+  // line (a toe below its foot). An arm that cannot be read again stays as it was.
+  const replaced = new Map();
+  for (const chain of cut) {
+    const end = jointOf(chain.end), deeper = [...limbEnds].filter(other => other !== end && tree.isAncestor(other, end)).sort((a, b) => tree.depth(b) - tree.depth(a))[0];
+    const found = shortFrom(deeper ?? chain.end);
+    const made = found && !found.joints.some(id => occupied.has(id)) && add(found, chain.kind, chain.label, again => replaced.set(chain, again));
+    if (!made && !legLike(chain)) { replaced.set(chain, chain); poseChainIds(chain).forEach(id => occupied.add(id)); }
+  }
+  chains.splice(0, chains.length, ...order.flatMap(chain => cut.includes(chain) ? (replaced.has(chain) ? [replaced.get(chain)] : []) : [chain]), ...chains.filter(chain => !order.includes(chain)));
+  const short = new Map();
+  for (const node of [...ends, ...knees]) {
+    if (chains.some(chain => poseChainIds(chain).includes(node.ObjectId))) continue;
+    const found = shortFrom(node.ObjectId), key = found && found.joints.at(-1);
+    if (found && !short.has(key)) short.set(key, { ...found, kind: roleOf(node) === 'Hand' ? 'arm' : 'leg' });
+  }
+  // Only legs are read here, and legs come in mirrored pairs: a short limb with a mirrored twin (another short limb or a
+  // leg) is a leg when it is a foot or a paw that stands with the feet; any other is left as it was.
+  const legs = [...chains.filter(legLike), ...[...short.values()].filter(item => item.kind === 'leg')];
+  const twinned = item => [...chains.filter(chain => legLike(chain) || plainArm(chain)), ...stubs, ...short.values()].some(other => other !== item && twins(item, other));
+  for (const item of short.values()) {
+    if (!twinned(item) || item.kind === 'arm' && !(legs.length && stands(item, legs))) continue;
+    if (item.joints.some(id => occupied.has(id))) continue;
+    add(item, 'leg');
+  }
+  if (unavailable) for (const stub of stubs) { const at = unavailable.findIndex(item => stub.joints.includes(item.id)); if (at >= 0) unavailable.splice(at, 1); }
+  return stubs;
 }
 
 function rigidRotation(matrix) {
