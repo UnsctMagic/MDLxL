@@ -121,6 +121,9 @@ const FIXTURES = {
   'transfer-dragonspawn': ['MDLXL_TRANSFER_DRAGONSPAWN', testModel('corpus-sd/creeps__dragonspawnblue.mdx')], // four legs and two arms on an upright chest
   'transfer-chaos-warlord': ['MDLXL_TRANSFER_CHAOS_WARLORD', testModel('corpus-sd/demon__chaoswarlord.mdx')], // a rider (own root) on a four-legged demon horse
   'transfer-crypt-fiend': ['MDLXL_TRANSFER_CRYPT_FIEND', testModel('corpus-sd/undead__cryptfiend.mdx')], // four spider legs under an upright chest with two arms and a head
+  'transfer-orc-shaman': ['MDLXL_TRANSFER_ORC_SHAMAN', testModel('corpus-sd/orc__shaman.mdx')],
+  'transfer-mountain-king': ['MDLXL_TRANSFER_MOUNTAIN_KING', testModel('corpus-sd/human__heromountainking.mdx')],
+  'transfer-graveguard-03': ['MDLXL_TRANSFER_GRAVEGUARD_03', testModel('graveguard/WH_VC_Graveguard03.mdx')],
   'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
   'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)

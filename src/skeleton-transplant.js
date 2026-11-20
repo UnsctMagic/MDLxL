@@ -1251,8 +1251,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // is (`trunkSkin`, used by the skin below). Needs legs and two arms; else the trunk keeps this model's joints.
       // Trunk moves by the trunk map (K1) only where the legs pair: on another number of legs the donor's legs are not this
       // model's, its hip centre is the donor's offsets, and the Chaos Dragon's rider moves flung a Magnataur's skin apart.
+      // And only for a donor read as two creatures (a rider with its mount, cross-kind r2 HG1): a one-creature biped keeps the
+      // travel ratio the humanoid rounds were measured on; on the trunk map the Orc Shaman's and the Mountain King's arms went
+      // into their bodies under the Forest Troll Shadow Priest and the Graveguard.
       const sideB = sideOf(id => placed.get(id)), sideA = sideOf(pA);
-      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason });
+      if (legRoots.length && shoulderB && sideB && sideA) trunkSkin = fitTrunk({ hipB, hipA, shoulderB, shoulderA, sideB, sideA, spine, trunkJoints, moves: legRoots.length === 2 && !whole.reason && rigA.actors?.length > 1 });
     }
     // A winged donor with no arms (its forelimbs are its wings: the Zombie Dragon) standing on as many legs as this model:
     // its trunk line runs from the hip centre to the wing roots, this model's from its hip centre to its own shoulders

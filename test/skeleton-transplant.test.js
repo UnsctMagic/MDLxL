@@ -1431,3 +1431,20 @@ test('TW1 Khorne Knight on the Dragonspawn (whose waist joints, between its root
   const mine = top(model, transferRig(own)), theirs = top(donor, transferRig(donor));
   assert.ok(mine < theirs + 0.3, `the knight's highest tenth ends ${mine.toFixed(2)} hip heights up, the Dragonspawn's ${theirs.toFixed(2)}`);
 });
+
+test('HG1 a donor read as one creature keeps its trunk moves at one ratio: the Forest Troll Shadow Priest\'s chest under the Orc Shaman and the Graveguard\'s under the Mountain King move as the donor\'s, scaled alike on every axis (the trunk map of K1 is for a rider read with its mount; on these bipeds it stretched the chest\'s moves by the trunk\'s length and width ratios and their arms went inside their bodies, ok -> look-bad)', { skip: missing('transfer-orc-shaman', 'transfer-troll-priest', 'transfer-mountain-king', 'transfer-graveguard-03') }, () => {
+  for (const [own, donorKey] of [['transfer-orc-shaman', 'transfer-troll-priest'], ['transfer-mountain-king', 'transfer-graveguard-03']]) {
+    const { donor, model, report } = transplant(own, donorKey);
+    const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+    const nM = byId(model);
+    for (const id of rig.parts.chest.joints) {
+      const theirs = byId(donor).get(id).Translation?.Keys || [], mine = nM.get(report.donorNodes[id])?.Translation?.Keys || [];
+      assert.equal(mine.length, theirs.length, `${own}: ${byId(donor).get(id).Name} keys`);
+      const ratios = [];
+      theirs.forEach((key, i) => { for (let a = 0; a < 3; a++) if (Math.abs(key.Vector[a]) > 1e-3) ratios.push(mine[i].Vector[a] / key.Vector[a]); });
+      if (!ratios.length) continue;
+      const spread = Math.max(...ratios) - Math.min(...ratios);
+      assert.ok(spread < 1e-3 * Math.max(1, Math.abs(ratios[0])), `${own} on ${donorKey}: ${byId(donor).get(id).Name} moves scaled ${Math.min(...ratios).toFixed(3)}-${Math.max(...ratios).toFixed(3)}`);
+    }
+  }
+});
