@@ -50,6 +50,7 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { bendArmsAboveFloor } from './transplant-floor.js';
+import { detachedGrip, transplantPropVisibility } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -846,7 +847,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Where the donor throws or drops its weapon as a loose copy, its weapon bone goes with the copy (the model's weapon rides it).
   // Only for a model that holds a weapon (its rig reads one): the Murloc's Weapon Ref hangs from its hand mesh, which rides the
   // weapon bone as its weapon, and went into the ground with the Clanrat's planted sword.
-  const weaponSwap = Object.values(rigB.parts || {}).some(part => part.weapon) ? donorWeaponSwap(D, rigA) : [];
+  const separateWeapon = (model.Attachments || []).some(n => /weapon/i.test(n.Name) && /spear|javelin|rifle|weapon|sword/i.test(model.Nodes?.[n.Parent]?.Name || '') && model.Nodes[n.Parent].Parent == null);
+  const weaponSwap = separateWeapon || Object.values(rigB.parts || {}).some(part => part.weapon) ? donorWeaponSwap(D, rigA) : [];
   const swapSpans = [...deathSwap.map(item => D.Sequences.find(sequence => sequence.Name === item.sequence)?.Interval), ...(D.Sequences || []).filter(sequence => /birth|death|decay|dissipate/i.test(sequence.Name || '')).map(sequence => sequence.Interval)].filter(Boolean);
   if (!rigB.ok) hard.push(`The open model's body was not recognised: ${rigB.problems.join(' ')}`);
   if (!rigA.ok) hard.push(`The donor's body was not recognised: ${rigA.problems.join(' ')}`);
@@ -995,7 +997,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // model's reference pose holds it against that joint (as an extra is), instead of staying still in the world while the
   // donor's body moves away. One the donor has too (same name, same place) takes the donor's joint (below). Skin shown in
   // no everyday animation (a corpse, a portrait plane) stays as before. -> own outside joint -> own part joint.
-  const rideOf = new Map(), ridersOut = [], outsideShown = new Set();
+  const rideOf = new Map(), ridersOut = [], outsideShown = new Set(), detachedWeapons = new Set();
   // An outside joint stays only where skin that stays (not riding, not on a donor joint) hangs from it.
   const trimOutside = (away = id => rideOf.has(id)) => {
     const staying = new Set();
@@ -1025,7 +1027,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const sampled = frames.map(([frame, sequence]) => {
       const options = { interval: sequences[sequence]?.Interval, globalSequences: model.GlobalSequences, globalTime: 0, fallback: 1 };
       const shows = new Set((model.Geosets || []).map((_, index) => index).filter(index => { const alpha = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha; return !alpha?.Keys?.length || sampleTrack(alpha, frame, options) > 0.001; }));
-      return { m: sampleNodeMatrices(model, frame, sequence), shows };
+      return { m: sampleNodeMatrices(model, frame, sequence), shows, sequence };
     });
     const parts = [...ownPartOf.keys()].sort((a, b) => treeB.depth(a) - treeB.depth(b) || a - b);
     /** How far the skin drifts against a joint where it shows: its centre and its farthest vertex, in the joint's frame. */
@@ -1062,6 +1064,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       const bodyDrift = drift(id, body, probe, samples);
       let joint = body, least = bodyDrift;
       for (const at of [WORLD, ...parts.filter(at => at !== body)]) { const d = drift(id, at, probe, samples); if (d <= FOLLOW_SHARE * bodyDrift && d < least - 1e-6 * rigB.hipHeight) { least = d; joint = at; } }
+      const grip = detachedGrip(model, rigB, treeB, id, points, samples.filter(s =>
+        s.sequence === ownStand || /^walk/i.test(sequences[s.sequence]?.Name || '')));
+      if (grip != null && !keepSet.has(id)) {
+        joint = grip;
+        detachedWeapons.add(id);
+      }
       if (joint === WORLD) continue;
       rideOf.set(id, joint);
       ridersOut.push({ id, name: ownById.get(id)?.Name, joint: ownById.get(joint)?.Name, vertices: points.length, drift: Number.isFinite(least) ? least / rigB.hipHeight : null });
@@ -1161,7 +1169,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const ownWeaponHand = Object.values(rigB.parts || {}).find(part => part.weapon)?.marker ?? null;
   const ownWeaponPoints = (model.Attachments || []).filter(isWeaponPoint);
   const extraOf = id => { for (const at of treeB.ancestors(id, true)) if (extras.has(at)) return at; return null; };
-  const weaponExtras = new Set();
+  const weaponExtras = new Set(detachedWeapons);
   for (const extra of extras.values()) if (ownWeaponHand != null && targetOf(extra.id).via === ownWeaponHand) weaponExtras.add(extra.id);
   // A weapon attachment counts only where an arm holds it: the Kodo Beast's `Weapon Ref` sits on the kodo's head (it
   // butts with it), so its head and neck are no weapon to put in a rider's hand (WH1).
@@ -1216,6 +1224,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       use = result;
       return id;
     };
+    // A rigid spear on a flail follows its handle. The donor's weapon reference
+    // may be on the striking head, several articulated weapon links from the hand.
+    if (bone != null && !weaponSwap.length) {
+      const chain = treeA.ancestors(bone, true);
+      const end = chain.findIndex(id => !/weapon|flail|chain/i.test(donorById.get(id)?.Name || ''));
+      const links = end < 0 ? chain : chain.slice(0, end);
+      const ownLinks = [...weaponExtras].flatMap(id => extras.get(id)?.bones || [id])
+        .filter(id => /weapon|flail|chain/i.test(ownById.get(id)?.Name || '') && moves(id));
+      if (links.length >= 3 && ownLinks.length <= 1) bone = links.at(-1);
+    }
     bone = check(bone);
     if (bone == null) bone = check(Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null);
     if (bone != null && (!keepDonor.has(bone) || !isDonorJoint(bone))) bone = null;
@@ -1701,8 +1719,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const placeWeaponPoint = copy => {
     const plain = name => String(name).replace(/\s+/g, '').toLowerCase();
     const mine = ownWeaponPoints.find(point => plain(point.Name) === plain(copy.Name)) ?? (ownWeaponPoints.length === 1 ? ownWeaponPoints[0] : null);
-    const top = mine?.Parent != null ? extraOf(mine.Parent) : null;
-    const via = mine ? treeB.ancestors(mine.ObjectId).find(partJoint) ?? null : weaponVia;
+    const top = mine?.Parent != null ? (detachedWeapons.has(mine.Parent) ? mine.Parent : extraOf(mine.Parent)) : null;
+    const via = mine ? rideOf.get(mine.Parent) ?? treeB.ancestors(mine.ObjectId).find(partJoint) ?? null : weaponVia;
     if (top != null && keepSet.has(top)) { copy.Parent = top; copy.PivotPoint = new Float32Array(nodePivot(model, mine, mine.ObjectId)); return; }
     const onWeapon = mine ? top != null && weaponExtras.has(top) : weaponExtras.size > 0;
     if (onWeapon && weaponRides) { copy.Parent = newId(donorWeapon); if (!mine || via == null) return; }
@@ -1799,7 +1817,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The weapon's pieces: bones of a weapon extra that move by themselves or hang under one that does. Still
   // skin above them (a hand mesh carrying the weapon) is the hand's and stays with it.
   const weaponPiece = (id, top) => { for (const at of treeB.ancestors(id, true)) { if (moves(at)) return true; if (at === top) return false; } return false; };
-  const weaponBones = new Set(weaponRides ? [...weaponExtras].filter(id => !keepSet.has(id)).flatMap(id => extras.get(id).bones.filter(bone => weaponPiece(bone, id))) : []);
+  const weaponBones = new Set(weaponRides ? [...weaponExtras].filter(id => !keepSet.has(id)).flatMap(id => detachedWeapons.has(id) ? [id] : extras.get(id).bones.filter(bone => weaponPiece(bone, id))) : []);
   const weaponVertices = []; // [geoset, vertex, the hand the weapon was baked onto] to re-place on the weapon bone
   // ---- skin on the donor's bones (contract 4.3, 4.4)
   const carriers = donorSkinCarriers({ donor: D, donorPartJoints, treeA, skinCount: donorSkin });
@@ -2027,6 +2045,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // How he dies (owner, 19 Nov 2026, TEST GORE2 sheet): in the donor's Death and Decay he shows what his Stand shows, so
   // his living body dies with the donor and his own death-only meshes (corpse copies, gut piles) stay hidden; where the
   // donor hides its body, so does he.
+  transplantPropVisibility(M, model, D, treeB, treeA, ownSequences[ownStand], weaponSwap, keepSet, constantTrack);
   holdShowing(M, model, ownSequences[ownStand], newSequences, D);
   // This model's own nodes that hang from a donor node (its own effects, a kept piece) stay where they were in the world
   // although their parent's bind pose was re-posed: their turn becomes C q and their move C t + (re-posed pivot - pivot),
