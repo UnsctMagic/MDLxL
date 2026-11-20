@@ -1293,3 +1293,24 @@ test('H9 Skeleton Orc on the Tauren: its knee takes the Tauren\'s knee, so throu
   }
   assert.ok(worst < 5, `a thigh is up to ${worst.toFixed(1)} deg off the Tauren's`);
 });
+
+test('K3 Skeleton Mage on the Lord of Change: his knee takes the donor\'s knee, so his thigh points as the donor\'s (within 5 deg through Stand and Walk; his straight slanted leg pointed nearer the hock at rest, his knee took it and the thigh ran hip to hock, 32 deg off)', { skip: missing('transfer-skeleton-mage', 'transfer-lord-of-change') }, () => {
+  const { donor, model, report } = transplant('transfer-skeleton-mage', 'transfer-lord-of-change');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), nM = byId(model), nD = byId(donor);
+  for (const key of ['legL', 'legR']) {
+    const [hip, knee] = rig.parts[key].joints;
+    assert.ok(rig.parts[key].joints.length >= 4, `the donor's ${key} has a hock`);
+    for (const name of ['Stand', 'Walk']) {
+      const iD = donor.Sequences.findIndex(s => s.Name === name), iM = model.Sequences.findIndex(s => s.Name === name);
+      let worst = 0;
+      for (let k = 0; k <= 8; k++) {
+        const [a, b] = donor.Sequences[iD].Interval, [c, d] = model.Sequences[iM].Interval;
+        const mD = sampleNodeMatrices(donor, Math.round(a + k / 8 * (b - a)), iD), mM = sampleNodeMatrices(model, Math.round(c + k / 8 * (d - c)), iM);
+        const theirs = at(donor, nD, mD, knee).sub(at(donor, nD, mD, hip)), mine = at(model, nM, mM, report.donorNodes[knee]).sub(at(model, nM, mM, report.donorNodes[hip]));
+        worst = Math.max(worst, mine.angleTo(theirs) * 180 / Math.PI);
+      }
+      assert.ok(worst < 5, `${key} ${name}: the thigh is up to ${worst.toFixed(1)} deg off the donor's`);
+    }
+  }
+});
+
