@@ -1011,12 +1011,13 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     for (const part of Object.values(rigB.parts)) for (const id of part.joints) partOfB.set(id, part);
     const upTo = (tree, of, id) => tree.ancestors(id).find(a => of.has(a));
     const pin = (model, info, a, b) => v3(nodePivot(model, info.byId.get(a), a)).sub(v3(nodePivot(model, info.byId.get(b), b)));
-    for (const entry of drivenOrder.filter(firstOfKey)) {
-      const infoA = modelInfo(entry.donor), partOfA = new Map(), nameA = new Map();
+    // Per clip: a clip added after another may come from another donor, with joints of its own.
+    for (const entry of drivenOrder) {
+      const infoA = modelInfo(entry.donor), partOfA = new Map(), nameA = new Map(), mine = new Set();
       for (const part of Object.values(entry.rigA.parts)) for (const id of part.joints) partOfA.set(id, part);
       for (const id of infoA.joints) { if (partOfA.has(id)) continue; const parent = infoA.tree.parentOf(id), key = infoA.byId.get(id).Name + '|' + (parent == null ? '' : infoA.byId.get(parent)?.Name); nameA.set(key, nameA.has(key) ? null : id); }
       for (const id of infoB.joints) {
-        if (partOfB.has(id) || handled.has(id) || isGlobalTrack(byIdB.get(id)?.Rotation, recipient)) continue;
+        if (partOfB.has(id) || handled.has(id) || mine.has(id) || isGlobalTrack(byIdB.get(id)?.Rotation, recipient)) continue;
         const up = upTo(infoB.tree, partOfB, id); if (up == null || partOfB.get(up) !== entry.own) continue;
         const parent = infoB.tree.parentOf(id), theirs = nameA.get(byIdB.get(id).Name + '|' + (parent == null ? '' : byIdB.get(parent)?.Name));
         if (theirs == null) continue;
@@ -1025,14 +1026,14 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         const keyed = (model, node, interval) => !!node?.Rotation?.Keys && keysInInterval(node.Rotation, interval).length > 0;
         if (!keyed(entry.donor, infoA.byId.get(theirs), entry.seq.Interval) && !keyed(recipient, byIdB.get(id), baseSeq.Interval)) continue;
         if (pin(recipient, infoB, id, up).distanceTo(entry.convertV(pin(entry.donor, infoA, theirs, upA)).multiplyScalar(entry.scale)) > 0.1 * rigB.hipHeight) continue;
-        shared.push({ id, theirs, key: entry.key });
-        handled.add(id);
+        shared.push({ id, theirs, entry });
+        mine.add(id);
       }
     }
     for (const item of shared) if (!tracks.has(item.id)) { tracks.set(item.id, { Rotation: new Float32Array(n * 4) }); driven.push(item.id); }
   }
   const sharedOf = new Map();
-  for (const item of shared) sharedOf.set(item.key, [...(sharedOf.get(item.key) || []), item]);
+  for (const item of shared) sharedOf.set(item.entry, [...(sharedOf.get(item.entry) || []), item]);
   const refTurnInv = new Map(), refInvOf = id => { if (!refTurnInv.has(id)) refTurnInv.set(id, inv(worldRot(refB, id))); return refTurnInv.get(id); };
   // Arms kept out of the body (recipe `avoid`): the trunk's hips, chest and head.
   const pointOf = (id, world) => v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id));
@@ -1104,7 +1105,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
       });
       // Shared joints hanging from this part (a waist under the hips, a sword under the hand), set before the parts
       // below them read their parents.
-      for (const item of sharedOf.get(entry.key) || []) {
+      for (const item of sharedOf.get(entry) || []) {
         const local = donorSample.local.get(item.theirs)?.r, own = base.local.get(item.id);
         if (!local || !own) continue;
         const to = entry.mirror ? mirrorQ(local) : local.clone(), from = over.get(item.id)?.r || own.r;

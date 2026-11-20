@@ -1191,3 +1191,20 @@ test('L1 joints outside every part that the donor has too take its turn: the Foo
     assert.ok(worst < 1, `${node.Name} turns ${worst.toFixed(1)} degrees away from the Footman's own Attack - 1`);
   }
 });
+test('L1 a clip added after, from another donor, reads that donor\'s own joints (the Footman\'s sword after its own attack, then the Grunt\'s)', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  // The sword joint follows the Footman's own Attack - 1 in the first clip. In the Grunt's clip after it, the Grunt has
+  // no such joint: the sword keeps the body animation, and never takes a Grunt joint that has the same number.
+  const foot = fresh('transfer-footman'), self = fresh('transfer-footman'), grunt = load('transfer-grunt'), base = seqMatch(foot, /^stand/i), rig = transferRig(foot, { sequence: base });
+  const own = seq(self, 'Attack - 1'), theirs = seq(grunt, 'Attack - 1'), sources = new Map([['f', self], ['g', grunt]]);
+  const sword = allNodes(foot).find(n => n.Name === 'Cone11'), length = self.Sequences[own].Interval[1] - self.Sequences[own].Interval[0], start = length - 150;
+  const arm = extra => ({ ...defaultTransferPart(rig, 'armL'), source: 'f', sequence: own, blend: 0, ...extra });
+  const built = buildTransfer(foot, sources, { base: { sequence: base }, length: null, sources: {}, parts: { armL: arm({ next: [arm({ source: 'g', sequence: theirs, start, blend: 150 })] }) } });
+  const dense = built.tracks.get(sword.ObjectId)?.Rotation;
+  assert.ok(dense, 'the sword joint is driven in the first clip');
+  const [b0] = foot.Sequences[base].Interval, baseLength = foot.Sequences[base].Interval[1] - b0;
+  built.times.forEach((t, k) => {
+    if (t < start + 200) return;
+    const mine = new Quaternion().fromArray(dense, k * 4), body = new Quaternion().fromArray(sampleTrack(sword.Rotation, b0 + (t * built.baseClock.rate) % baseLength, { interval: foot.Sequences[base].Interval, fallback: [0, 0, 0, 1], quaternion: true }));
+    assert.ok(angle(mine, body) < 1, `at ${t} ms, in the Grunt's clip, the sword is ${angle(mine, body).toFixed(1)} degrees from the body animation`);
+  });
+});
