@@ -620,7 +620,9 @@ test('R7 avoid: the Abomination\'s arms come out of its chest', { skip: missing(
   const abom = load('transfer-abomination'), hunter = load('transfer-demon-hunter'), sources = new Map([['d', hunter]]), rig = transferRig(abom), attack = sequenceLike(hunter, /^attack/i);
   const recipe = extra => ({ base: { sequence: sequenceLike(abom, /^stand/i) }, sources: {}, parts: Object.fromEntries(XFER.transferWholeBody(rig, transferRig(hunter, { sequence: attack })).parts.map(key => [key, { ...defaultTransferPart(rig, key, true), source: 'd', sequence: attack, ...extra }])) });
   const off = XFER.transferDiagnostics(abom, sources, recipe({})), on = XFER.transferDiagnostics(abom, sources, recipe({ avoid: 1 }));
-  assert.ok(off.arms.armL.deficit > 0.1 && off.arms.armR.deficit > 0.05, `the arms start inside (${off.arms.armL.deficit.toFixed(2)}, ${off.arms.armR.deficit.toFixed(2)})`);
+  // The left arm starts inside. The right (weapon) arm was inside only because the weapon lift turned it into the chest
+  // (0.12 of a body radius; unlifted -0.01): since P1 the lift no longer does, so it starts out (-0.04).
+  assert.ok(off.arms.armL.deficit > 0.1 && off.arms.armR.deficit < 0.05, `the left arm starts inside, the right one out (${off.arms.armL.deficit.toFixed(2)}, ${off.arms.armR.deficit.toFixed(2)})`);
   for (const key of ['armL', 'armR']) assert.ok(on.arms[key].deficit <= 0.04, `${key} is out (${on.arms[key].deficit.toFixed(2)} of a body radius still inside)`);
 });
 
@@ -1139,6 +1141,135 @@ test('S6 one mesh, no legs: the Wisp and the robed Necromancer get a size from t
   assert.ok(Math.abs(wisp.hipHeight - 83.4) < 2, `Wisp ${wisp.hipHeight} (was 0.001)`);
   assert.equal(necro.hipMeasured, false);
   assert.ok(necro.hipHeight > 10, `Necromancer ${necro.hipHeight} (was 3.4)`);
+});
+
+// ---------------------------------------------------------------- overnight retarget sweep, 20 Nov 2026 (out/transfer-probe/overnight/retarget/classes.md)
+test('W1 weapon above the ground: where no turn clears the floor, the arm is not flung a quarter turn for nothing (the Khorne knight\'s own Death)', { skip: missing('transfer-khorne-knight') }, () => {
+  // The knight's axe lies on the ground in its own Death. Before, every sample whose weapon a quarter turn could not
+  // bring above the floor got exactly that quarter turn, also where it brought the axe no higher.
+  const knight = fresh('transfer-khorne-knight'), donor = fresh('transfer-khorne-knight'), death = seq(knight, 'Death');
+  const rig = transferRig(knight, { sequence: death }), { parts } = wholeBodyParts(rig, transferRig(donor, { sequence: death }));
+  const arm = Object.values(rig.parts).find(part => part.weapon && part.key === 'armR') || Object.values(rig.parts).find(part => part.weapon);
+  const build = clear => buildTransfer(knight, new Map([['d', donor]]), { base: { sequence: death }, length: null, sources: {}, parts: take(rig, parts, 'd', death, { clear }) });
+  const on = build(null), off = build(false);
+  const lowest = (built, k) => Math.min(...arm.weapon.outline.map(p => new Vector3(...p).applyMatrix4(builtMatrices(knight, built, death, k).get(arm.marker)).z));
+  let worst = null;
+  for (let k = 0; k < on.times.length; k++) {
+    const turn = angle(rotOf(builtMatrices(knight, on, death, k).get(arm.joints[0])), rotOf(builtMatrices(knight, off, death, k).get(arm.joints[0])));
+    if (turn > 85 && (!worst || turn > worst.turn)) worst = { turn, t: on.times[k], gain: lowest(on, k) - lowest(off, k) };
+  }
+  assert.ok(!worst, worst && `the weapon arm turns ${worst.turn.toFixed(1)} degrees at ${worst.t} ms (the axe comes ${worst.gain.toFixed(1)} higher; floor ${rig.floor.toFixed(1)})`);
+});
+test('C1 a keyed camera roll is copied into the new animation as a roll, not as a quaternion', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  // A camera's Rotation is one number (its roll). Copying the body animation read every track named Rotation as a
+  // quaternion: the new animation's camera keys got four values and tangents that are not numbers (other__orccar).
+  const foot = fresh('transfer-footman'), grunt = load('transfer-grunt'), stand = seqMatch(foot, /^stand/i), [a, b] = foot.Sequences[stand].Interval;
+  const key = (Frame, v) => ({ Frame, Vector: new Float32Array([v]), InTan: new Float32Array([v - 0.01]), OutTan: new Float32Array([v + 0.01]) });
+  foot.Cameras = [{ Name: 'Portrait', Position: new Float32Array([200, 0, 80]), FieldOfView: 0.7, FarClip: 1000, NearClip: 8, TargetPosition: new Float32Array([0, 0, 60]), Rotation: { LineType: 3, GlobalSeqId: null, Keys: [key(a, 0), key(Math.round((a + b) / 2), 0.2), key(b, 0)] } }];
+  const rig = transferRig(foot, { sequence: stand }), attack = seq(grunt, 'Attack - 1'), { parts } = wholeBodyParts(rig, transferRig(grunt, { sequence: attack }));
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'g', attack) };
+  const { sequenceIndex } = applyTransfer(foot, buildTransfer(foot, new Map([['g', grunt]]), recipe), recipe, {});
+  const [s, e] = foot.Sequences[sequenceIndex].Interval, keys = foot.Cameras[0].Rotation.Keys.filter(k => k.Frame >= s && k.Frame <= e);
+  assert.ok(keys.length >= 2, `the new animation has ${keys.length} camera roll keys`);
+  for (const k of keys) for (const field of ['Vector', 'InTan', 'OutTan']) {
+    assert.equal(k[field].length, 1, `camera roll key at ${k.Frame} has ${k[field].length} values in ${field}`);
+    assert.ok(Number.isFinite(k[field][0]), `camera roll key at ${k.Frame}: ${field} ${k[field][0]}`);
+  }
+});
+test('L1 joints outside every part that the donor has too take its turn: the Footman given its own attack swings its sword and shield', { skip: missing('transfer-footman') }, () => {
+  // The Footman's shield (handle, Box04) and sword (Box03, Cone11) are joints of their own under the hands, keyed in
+  // Attack - 1. Taken whole from itself over its Stand, they kept the Stand's turn: 39 and 22 degrees off its own attack.
+  const foot = fresh('transfer-footman'), donor = fresh('transfer-footman'), stand = seqMatch(foot, /^stand/i), attack = seq(donor, 'Attack - 1');
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(donor, { sequence: attack }));
+  const recipe = { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'd', attack) };
+  const { sequenceIndex } = applyTransfer(foot, buildTransfer(foot, new Map([['d', donor]]), recipe), recipe, {});
+  const [a] = foot.Sequences[sequenceIndex].Interval, [b, e] = donor.Sequences[attack].Interval, nodes = allNodes(foot);
+  const local = (model, si, frame, id) => { const m = sampleNodeMatrices(model, frame, si), node = nodes.find(n => n.ObjectId === id); return rotOf(m.get(node.Parent).clone().invert().multiply(m.get(id))); };
+  const joints = ['handle', 'Box04', 'Box03', 'Cone11'].map(name => nodes.find(n => n.Name === name)).filter(Boolean);
+  assert.equal(joints.length, 4, 'the Footman has its sword and shield joints');
+  for (const node of joints) {
+    let worst = 0;
+    for (let f = b; f <= e; f += 100) worst = Math.max(worst, angle(local(foot, sequenceIndex, a + f - b, node.ObjectId), local(donor, attack, f, node.ObjectId)));
+    assert.ok(worst < 1, `${node.Name} turns ${worst.toFixed(1)} degrees away from the Footman's own Attack - 1`);
+  }
+});
+test('L1 a clip added after, from another donor, reads that donor\'s own joints (the Footman\'s sword after its own attack, then the Grunt\'s)', { skip: missing('transfer-footman', 'transfer-grunt') }, () => {
+  // The sword joint follows the Footman's own Attack - 1 in the first clip. In the Grunt's clip after it, the Grunt has
+  // no such joint: the sword keeps the body animation, and never takes a Grunt joint that has the same number.
+  const foot = fresh('transfer-footman'), self = fresh('transfer-footman'), grunt = load('transfer-grunt'), base = seqMatch(foot, /^stand/i), rig = transferRig(foot, { sequence: base });
+  const own = seq(self, 'Attack - 1'), theirs = seq(grunt, 'Attack - 1'), sources = new Map([['f', self], ['g', grunt]]);
+  const sword = allNodes(foot).find(n => n.Name === 'Cone11'), length = self.Sequences[own].Interval[1] - self.Sequences[own].Interval[0], start = length - 150;
+  const arm = extra => ({ ...defaultTransferPart(rig, 'armL'), source: 'f', sequence: own, blend: 0, ...extra });
+  const built = buildTransfer(foot, sources, { base: { sequence: base }, length: null, sources: {}, parts: { armL: arm({ next: [arm({ source: 'g', sequence: theirs, start, blend: 150 })] }) } });
+  const dense = built.tracks.get(sword.ObjectId)?.Rotation;
+  assert.ok(dense, 'the sword joint is driven in the first clip');
+  const [b0] = foot.Sequences[base].Interval, baseLength = foot.Sequences[base].Interval[1] - b0;
+  built.times.forEach((t, k) => {
+    if (t < start + 200) return;
+    const mine = new Quaternion().fromArray(dense, k * 4), body = new Quaternion().fromArray(sampleTrack(sword.Rotation, b0 + (t * built.baseClock.rate) % baseLength, { interval: foot.Sequences[base].Interval, fallback: [0, 0, 0, 1], quaternion: true }));
+    assert.ok(angle(mine, body) < 1, `at ${t} ms, in the Grunt's clip, the sword is ${angle(mine, body).toFixed(1)} degrees from the body animation`);
+  });
+});
+test('D1 hips held down for a planted foot stay down when no donor foot is on the ground (the Footman taking the Shadow Hunter\'s Walk)', { skip: missing('transfer-footman', 'transfer-shadow-hunter') }, () => {
+  // The Shadow Hunter's hips stand far higher in its Walk than in its Stand; the Footman's hips come down for its
+  // planted feet. At the moments neither of the Shadow Hunter's feet is down they went back up: 50 -> 140 for one frame.
+  const foot = fresh('transfer-footman'), hunter = load('transfer-shadow-hunter'), stand = seqMatch(foot, /^stand/i), walk = seqMatch(hunter, /^walk$/i);
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(hunter, { sequence: walk }));
+  assert.ok(parts.includes('hips') && parts.includes('legL'), 'hips and legs are taken');
+  const built = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'h', walk) });
+  const heights = built.times.map((_, k) => pivotAt(foot, builtMatrices(foot, built, stand, k), rig.body).z);
+  const steps = heights.slice(1).map((z, k) => Math.abs(z - heights[k])), worst = Math.max(...steps), at = built.times[steps.indexOf(worst) + 1];
+  assert.ok(worst < 0.25 * rig.hipHeight, `the Footman's body jumps ${worst.toFixed(1)} in one 33 ms step at ${at} ms (hip height ${rig.hipHeight.toFixed(1)})`);
+  // A looping walk: the end meets the start.
+  assert.ok(Math.abs(heights.at(-1) - heights[0]) < 0.1 * rig.hipHeight, `the walk's seam opens by ${Math.abs(heights.at(-1) - heights[0]).toFixed(1)}`);
+});
+test('P1 weapon above the ground: the lift does not swing the arm the other way for a frame (Hellscream taking the Archnathid\'s attack)', { skip: missing('transfer-hellscream', 'transfer-archnathid') }, () => {
+  // The axis a lift turns about followed each sample's lowest weapon point; when that is the other end of the axe a
+  // sample later, the weapon arm swung one way and back: 127 degrees in one 33 ms step. Both hands off, so the lift alone moves it.
+  const orc = fresh('transfer-hellscream'), bug = load('transfer-archnathid'), stand = seqMatch(orc, /^stand/i), attack = seq(bug, 'Attack -2');
+  const rig = transferRig(orc, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(bug, { sequence: attack }));
+  const arm = rig.parts.armR;
+  assert.ok(arm?.weapon && parts.includes('armR'), 'the weapon arm is taken');
+  const built = buildTransfer(orc, new Map([['b', bug]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'b', attack, { grip: false }) });
+  let worst = 0, at = 0, prev = null;
+  built.times.forEach((t, k) => { const q = rotOf(builtMatrices(orc, built, stand, k).get(arm.joints[0])); if (prev) { const d = angle(q, prev); if (d > worst) { worst = d; at = t; } } prev = q; });
+  assert.ok(worst < 60, `the weapon arm turns ${worst.toFixed(1)} degrees in one 33 ms step at ${at} ms`);
+  // and the axe still stays above the floor wherever the lift reaches it
+  const lowest = k => Math.min(...arm.weapon.outline.map(p => new Vector3(...p).applyMatrix4(builtMatrices(orc, built, stand, k).get(arm.marker)).z));
+  const under = Math.max(...built.times.map((_, k) => rig.floor - lowest(k)));
+  assert.ok(under < 0.05 * rig.hipHeight, `the axe goes ${under.toFixed(1)} under the floor`);
+});
+test('G1 both hands on the weapon: the gripping arm does not turn over from one moment to the next (the Kurgan taking the Grunt\'s attack)', { skip: missing('transfer-kurgan', 'transfer-grunt') }, () => {
+  // The gripping arm's solve started from the transferred pose, which can point far from the grip and turn fast; with
+  // the handle passing through the shoulder it folded every joint to the limit. The Kurgan's left arm turned 135
+  // degrees in one 33 ms step and its elbow's bend plane 128.
+  const kurgan = load('transfer-kurgan'), grunt = load('transfer-grunt'), stand = seqMatch(kurgan, /^stand/i), attack = seq(grunt, 'Attack - 1');
+  const rig = transferRig(kurgan, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(grunt, { sequence: attack }));
+  const weapon = Object.values(rig.parts).find(part => part.weapon?.grip), arm = weapon && rig.parts[weapon.weapon.grip.arm];
+  assert.ok(arm, 'the Kurgan holds its hammer with both hands');
+  const built = buildTransfer(kurgan, new Map([['g', grunt]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'g', attack) });
+  let turn = 0, plane = 0, at = 0, prev = null;
+  built.times.forEach((t, k) => {
+    const m = builtMatrices(kurgan, built, stand, k), p = arm.joints.slice(-3).map(id => pivotAt(kurgan, m, id)), q = rotOf(m.get(arm.joints[0]));
+    const normal = p[1].clone().sub(p[0]).cross(p[2].clone().sub(p[1]));
+    if (prev) { const d = angle(q, prev.q); if (d > turn) { turn = d; at = t; } if (normal.length() > 1e-6 && prev.normal.length() > 1e-6) plane = Math.max(plane, normal.angleTo(prev.normal) * 180 / Math.PI); }
+    prev = { q, normal };
+  });
+  assert.ok(turn < 90, `the gripping arm turns ${turn.toFixed(1)} degrees in one 33 ms step at ${at} ms`);
+  assert.ok(plane < 90, `its elbow's bend plane turns ${plane.toFixed(1)} degrees in one 33 ms step`);
+});
+test('K1 a looping clip with the hips taken plays at its own speed: the result is whole loops of it (the Footman taking the Shadow Hunter\'s Walk over its Stand)', { skip: missing('transfer-footman', 'transfer-shadow-hunter') }, () => {
+  // The result took the longer of the body animation and the clip and fitted the clip into it in whole loops: the
+  // Shadow Hunter's 800 ms walk over the Footman's 1,500 ms Stand played at 1.07 of its speed (over 1,167 ms at 0.69).
+  const foot = load('transfer-footman'), hunter = load('transfer-shadow-hunter'), stand = seqMatch(foot, /^stand/i), walk = seqMatch(hunter, /^walk$/i);
+  const rig = transferRig(foot, { sequence: stand }), { parts } = wholeBodyParts(rig, transferRig(hunter, { sequence: walk }));
+  const built = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, parts, 'h', walk) });
+  const clip = hunter.Sequences[walk].Interval[1] - hunter.Sequences[walk].Interval[0], loops = built.length / clip;
+  assert.ok(Math.abs(loops - Math.round(loops)) < 0.01, `the result is ${built.length} ms: ${loops.toFixed(3)} loops of the ${clip} ms walk`);
+  assert.equal(built.nonLooping, false);
+  // Arms only (the body animation carries the body): unchanged, the clip is fitted to the body animation as before.
+  const arms = buildTransfer(foot, new Map([['h', hunter]]), { base: { sequence: stand }, length: null, sources: {}, parts: take(rig, ['armL', 'armR'], 'h', walk) });
+  assert.equal(arms.length, foot.Sequences[stand].Interval[1] - foot.Sequences[stand].Interval[0]);
 });
 
 // R1 (docs/agent-tasks/xfer-overnight.md): legs the shared recogniser missed or called arms.
