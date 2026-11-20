@@ -1150,6 +1150,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // head joint keeps the donor's turn as it is (as a foot does). Places and bend points stay this model's.
   const posture = { spine: null, neck: null };
   let trunkSkin = null;
+  // A model with no neck joint on a donor with one: where its head goes (`shift`, bind space before the re-pose) and how much
+  // of that each neck joint and point of neck skin takes (`share`: 0 at the neck joint, 1 at the head).
+  let neckBend = null;
   // This trunk over the donor's (fitTrunk): s1 its length (hip centre to shoulder centre), s2 its shoulder width.
   let trunkScale = null;
   /** The donor's trunk in this model's trunk. Frames: origin the hip centre, first axis to the shoulder centre (its length
@@ -1272,7 +1275,39 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     }
     // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).
     const neckJoints = headAt != null ? headJoints.slice(0, headJoints.indexOf(headAt)) : [];
-    if (neckJoints.length && placed.get(headAt).distanceTo(placed.get(neckJoints[0])) > 1e-3 * rigB.hipHeight) {
+    const chestAt = rigA.parts.chest?.marker, ownChest = chestAt != null ? pairedOwn.get(chestAt) : null, ownHead = headAt != null ? pairedOwn.get(headAt) : null;
+    // A model with no neck joint on a donor with one (humanoid r3, orchestrator 20 Nov 2026 by the owner's "a transplant is
+    // 100% the donor"): the head sits where the donor's sits from its chest (the Gnoll's juts forward and down, 45 deg off
+    // its chest; it stayed over the model's chest, 36-50 deg off). The head goes along the donor's chest-to-head line at
+    // this model's own distance from its chest; the neck turns with the chest and its skin follows the head by its share of
+    // the way from the neck joint up to the head, so it stretches to the head; the head keeps its own turn (as before).
+    const neckless = posture.spine != null && neckJoints.length && ownChest != null && ownHead != null && placed.has(chestAt) && !neckJoints.some(id => pairedOwn.has(id));
+    if (neckless) {
+      const turn = correction.get(chestAt) ?? new Quaternion(), from = placed.get(chestAt), head = placed.get(headAt);
+      const toward = pA(headAt).sub(pA(chestAt)), length = head.distanceTo(from);
+      if (toward.length() > 1e-3 * rigA.hipHeight && length > 1e-3 * rigB.hipHeight) {
+        // The donor's chest > neck > head, scaled to this distance, in this model's bind (before the re-pose turns it).
+        const scale = length / toward.length(), like = id => from.clone().add(pA(id).sub(pA(chestAt)).multiplyScalar(scale).applyQuaternion(inv(turn)));
+        const start = pB(ownChest), axis = pB(ownHead).sub(start), span = axis.lengthSq();
+        const along = p => span > 1e-12 ? p.clone().sub(start).dot(axis) / span : 1, base = along(placed.get(neckJoints[0]));
+        const share = p => base < 1 - 1e-6 ? Math.min(1, Math.max(0, (along(p) - base) / (1 - base))) : 1;
+        // The skin that stretches to the head: on the neck joints and on the joints the neck hangs from (the chest), near the
+        // line (full within the neck run's reach, none from twice that: the shoulders; neck skin with no reach set: all of
+        // it), so the neck stretches over its rings instead of tearing at the first.
+        const run = runs.find(r => r.q === headAt && r.joints.includes(neckJoints[0])), radius = run?.radius ?? null;
+        const near = p => { const t = Math.min(1, Math.max(0, along(p))); return radius > 0 ? Math.min(1, Math.max(0, 2 - p.distanceTo(start.clone().addScaledVector(axis, t)) / radius)) : null; };
+        const neck = new Set(neckJoints), above = new Set(treeA.ancestors(neckJoints[0]));
+        // How far a point bound to a donor joint goes beyond what that joint's pivot takes.
+        const extra = (id, p) => neck.has(id) ? share(p) * (near(p) ?? 1) : above.has(id) && radius > 0 ? share(p) * near(p) : 0;
+        neckBend = { shift: like(headAt).sub(head), extra, of: new Map([...neckJoints.map(id => [id, 0]), [headAt, 1]]) };
+        // The neck joints sit where the donor's sit on that line (so the head swings about them as the donor's does: left on
+        // this model's line, the head's swings in the Ghoul's Death went 13-27 deg astray) and turn with the chest, so the
+        // chest and its skin stay as they were.
+        for (const id of neckJoints) { placed.set(id, like(id)); correction.set(id, turn.clone()); }
+        posture.neck = toward.angleTo(head.clone().sub(from).applyQuaternion(turn)) * 180 / Math.PI;
+      }
+    }
+    if (!neckBend && neckJoints.length && placed.get(headAt).distanceTo(placed.get(neckJoints[0])) > 1e-3 * rigB.hipHeight) {
       const neck = alignFrames(placed.get(headAt).clone().sub(placed.get(neckJoints[0])), pA(headAt).sub(pA(neckJoints[0])), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of neckJoints) correction.set(id, neck.clone());
       posture.neck = angle(neck);
@@ -1632,7 +1667,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // A donor joint with no counterpart here and no skin of this model at or below it (a tail this model lacks) keeps the
     // donor's offset from the joint above it. One with skin (a skin carrier) moves with that joint, as its skin does.
     if (id >= offset && via === newId(offsetJoint.get(id - offset)) && byIdM.has(via) && !skinUnder.has(id) && !limbCorrected.has(id - offset)) p = reposedPivot(via).clone().add(pA(id - offset).sub(pA(offsetJoint.get(id - offset))).multiplyScalar(size));
-    else if (id >= offset && via != null && via >= offset && byIdM.has(via)) p = reposeAbout(via, p);
+    else if (id >= offset && via != null && via >= offset && byIdM.has(via)) {
+      // A neckless model's head (and the donor's neck joints) on the donor's chest-to-head line (`neckBend`).
+      if (neckBend?.of.has(id - offset)) p = p.clone().addScaledVector(neckBend.shift, neckBend.of.get(id - offset) - (neckBend.of.get(via - offset) ?? 0));
+      p = reposeAbout(via, p);
+    }
     reposed.set(id, p);
     return p;
   };
@@ -1650,7 +1689,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         const at = v3(geoset.Vertices.subarray(v * 3, v * 3 + 3)), p = new Vector3(), n = new Vector3(), t = new Vector3();
         const normal = normals ? v3(normals.subarray(v * 3, v * 3 + 3)) : null, tangent = tangents ? v3(tangents.subarray(v * 4, v * 4 + 3)) : null;
         for (const [id, w] of bound) {
-          p.addScaledVector(byIdM.has(id) ? reposeAbout(id, at) : at, w / total);
+          // Neck skin of a neckless model follows the head by its share of the way up the neck (`neckBend`).
+          const more = neckBend && id >= offset ? neckBend.extra(id - offset, at) : 0;
+          const point = more ? at.clone().addScaledVector(neckBend.shift, more) : at;
+          p.addScaledVector(byIdM.has(id) ? reposeAbout(id, point) : point, w / total);
           const turn = turnOf(id);
           if (normal) n.addScaledVector(turn ? normal.clone().applyQuaternion(turn) : normal, w / total);
           if (tangent) t.addScaledVector(turn ? tangent.clone().applyQuaternion(turn) : tangent, w / total);
@@ -1718,6 +1760,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const shortLegs = [rigB, rigA].some(rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg' && part.short));
     if (!whole.reason && !shortLegs && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
     else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel);
+    // A rider on a root of its own comes down to the ground where the donor's does (riderDown).
+    if (ground === 'feet') riderDown(M, D, rigA, rigB, id => remap.get(newId(id)), treeA, 0.01 * rigB.hipHeight);
   }
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand
   // holds them at the result's reference moment (the first frame of its Stand).
@@ -1938,11 +1982,44 @@ function soleReader(model, rig, standIndex) {
   const middle = standSoles.length >> 1, standSole = standSoles.length % 2 ? standSoles[middle] : (standSoles[middle - 1] + standSoles[middle]) / 2;
   return { useLegs, sample, soleOf, standSole };
 }
+/** A rider on a root of its own (humanoid r3: the Warhammer Knights' rider hangs from a parentless twin of the horse's
+ * abdomen, so in Death it falls off onto the ground by its own position keys): those keys were scaled by the mount's
+ * travel, and a rider seated higher on its mount than the donor's (an orc on a wolf: 1.05 of the knight's height where
+ * the travel is 0.88) stopped a third of its height above the ground (Wolf Rider, Thrall, Far Seer on the Khorne Knight:
+ * every limb 30-50 deg off the knight's). Per moment the rider's root moves up or down so the rider's lowest joint stands
+ * as high above the ground as the donor rider's, times this rider's seat over the donor's (their lowest joints in their
+ * Stand), by how far the donor's rider has come down from its seat (none while seated, all of it on the ground), so a
+ * seated rider moves with its mount as before. -> true when done. */
+function riderDown(M, D, rigA, rigB, mapId, treeA, tolerance) {
+  clearTransferCache(M);
+  const chest = rigA.parts?.chest?.marker, top = id => treeA.ancestors(id, true).at(-1);
+  if (chest == null || rigA.body == null) return false;
+  // A mount stands on four legs (the HD Footman's upper body hangs from a root of its own too, beside its two legs: one body).
+  const root = top(chest), mover = mapId(root), legs = Object.values(rigA.parts).filter(part => part.limbKind === 'leg').length;
+  if (legs < 4 || root === top(rigA.body) || mover == null || !M.Nodes[mover] || (M.Nodes[mover].Parent != null && M.Nodes[mover].Parent !== -1)) return false;
+  const body = new Set(treeA.ancestors(rigA.body, true));
+  const pairs = Object.values(rigA.parts).flatMap(part => part.joints).filter(id => !body.has(id) && treeA.ancestors(id, true).includes(root)).map(id => [id, mapId(id)]).filter(([, r]) => r != null && M.Nodes[r]);
+  const donorStand = standSequenceIndex(D), resultStand = standSequenceIndex(M);
+  if (!pairs.length || donorStand < 0 || resultStand < 0) return false;
+  const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
+  const low = (model, nodeOf, ids, index, frame) => { const m = sampleNodeMatrices(model, frame, index); return Math.min(...ids.map(id => v3(nodePivot(model, nodeOf(id), id)).applyMatrix4(m.get(id)).z)); };
+  const donorLow = (index, frame) => low(D, id => donorById.get(id), pairs.map(([d]) => d), index, frame) - rigA.ground;
+  const resultLow = (index, frame) => low(M, id => M.Nodes[id], pairs.map(([, r]) => r), index, frame) - rigB.ground;
+  const seat = (model, index, of) => { const [a, z] = model.Sequences[index].Interval, list = Array.from({ length: 12 }, (_, k) => of(index, Math.round(a + k / 11 * (z - a)))).sort((x, y) => x - y); return (list[5] + list[6]) / 2; };
+  const donorSeat = seat(D, donorStand, donorLow), resultSeat = seat(M, resultStand, resultLow);
+  if (!(donorSeat > tolerance) || !(resultSeat > tolerance)) return false;
+  const ratio = resultSeat / donorSeat;
+  heightPerMoment(M, D, null, [], tolerance, (index, donorIndex) => frame => {
+    const theirs = donorLow(donorIndex, frame), down = Math.min(1, Math.max(0, 1 - theirs / donorSeat));
+    return down > 0 ? down * (theirs * ratio - resultLow(index, frame)) : 0;
+  }, [mover]);
+  return true;
+}
 /** The body joint (and the parentless donor joints) move up or down per moment by `changeOf(index, donorIndex)(frame)`
- * in every animation, added onto their keys linear between breakpoints (see `feetDown`). */
-function heightPerMoment(M, D, rigM, loose, tolerance, changeOf) {
-  const { mover, line } = bodyMover(M, rigM.body, loose);
-  const movers = [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])].map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
+ * in every animation, added onto their keys linear between breakpoints (see `feetDown`). `only`: these nodes instead. */
+function heightPerMoment(M, D, rigM, loose, tolerance, changeOf, only = null) {
+  const { mover, line } = only ? { mover: null, line: new Set() } : bodyMover(M, rigM.body, loose);
+  const movers = (only ?? [...new Set([...heightCarriers(M, [mover]), ...loose.filter(id => !line.has(id))])]).map(id => M.Nodes[id]).filter(node => node && !(node.Translation?.Keys?.length && isGlobalTrack(node.Translation, M)));
   const donorSequences = (D.Sequences || []).filter(sequence => sequence.Interval);
   const done = new Set(); // two animations on one interval (an HD donor) share their keys: the height goes on once
   M.Sequences.forEach((sequence, index) => {

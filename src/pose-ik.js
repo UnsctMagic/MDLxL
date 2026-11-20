@@ -215,11 +215,15 @@ function readPoseRig(model, clues, evidence, cloth = null) {
       .sort((a, b) => a.PivotPoint[2] - b.PivotPoint[2]);
     if (feet[0]) candidates.push(feet[0]);
   }
+  // The joints a chain read through the joints that bend it passes over (twist joints, joints at one place): they belong to
+  // that limb, so no other chain is read from them (the HD Forsaken Paladin's foot and hand refs on its ankle and wrist).
+  const covered = new Set();
   for (const node of candidates) {
     try {
       // Prefer the actual hand/hoof over its child attachment marker.
       if (chains.some(chain => descendantOf(node.ObjectId, chain.end))) continue;
-      const chain = { ...(clues && straightLimb(model, node.ObjectId, tree, joints) || suggestPoseChain(model, node.ObjectId, tree)), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
+      const straight = clues ? straightLimb(model, node.ObjectId, tree, joints, roleOf(node) !== 'Hand') : null;
+      const chain = { ...(straight || suggestPoseChain(model, node.ObjectId, tree)), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
       if (['Body','Pelvis'].includes(roleOf(byId.get(chain.root))) || roleOf(byId.get(chain.root)) === 'Chest' && /arm|thigh|leg1/i.test(byId.get(chain.middle)?.Name)) continue;
       // An arm of two joints (the Witch Hunter's ShoulderL > LowArmL, its hand ref on the forearm) read from its last joint
       // climbs into the chest, the joint both the head and the other arm hang from beside it, and the rig then has no chest (H7).
@@ -233,6 +237,7 @@ function readPoseRig(model, clues, evidence, cloth = null) {
       // footprint slots there (R2; read as a leg it was a one-legged creature standing on its tail).
       if (clues && poseChainIds(chain).filter(id => joints.has(id)).every(id => poseNodeRole(byId.get(id)) === 'Tail')) continue;
       if (chains.some(existing => poseChainIds(chain).some(id => poseChainIds(existing).includes(id)))) continue;
+      if (poseChainIds(chain).some(id => covered.has(id))) continue;
       // Mapping is structural and must not lose a hoof at an authored scale key.
       // Some imports attach a rigid boot mesh straight to the shin and leave
       // its mesh origin near the torso. Grip its skin, retaining the authored
@@ -243,9 +248,10 @@ function readPoseRig(model, clues, evidence, cloth = null) {
       const pivots = poseChainIds(chain).map(id => v3(id === chain.end && chain.grip || byId.get(id).PivotPoint));
       if (pivots.slice(1).some((point, i) => point.distanceTo(pivots[i]) < 1e-7)) throw new Error('Choose joints with nonzero segment lengths.');
       chains.push(chain);
+      if (straight) for (const id of tree.ancestors(chain.end, true)) { if (id === chain.root) break; covered.add(id); }
     } catch (cause) { unavailable.push({ id: node.ObjectId, reason: cause.message }); }
   }
-  const occupied = new Set(chains.flatMap(poseChainIds));
+  const occupied = new Set([...chains.flatMap(poseChainIds), ...covered]);
   for (const branch of inferPoseBranches(evidence, roleOf, occupied, clues ? model : null, clues)) {
     if (branch.ids.some(id => occupied.has(id))) continue;
     const horseLimb = branch.kind === 'leg' && /horse|equine/i.test(byId.get(rootOf(byId.get(branch.ids[0])))?.Name || '');
@@ -416,24 +422,41 @@ function readPoseRig(model, clues, evidence, cloth = null) {
 /** An end joint that sits on the joint above it (an HD hand on its last forearm twist joint) has no limb segment
  * there: its limb is read through the joints that bend it, leaving out the ones at the same place and the twist
  * joints on the straight line between their neighbours. Null for any other end (R1). */
-function straightLimb(model, endpoint, index, joints) {
+function straightLimb(model, endpoint, index, joints, leg = false) {
   const { byId } = index, at = id => v3(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
   const parent = byId.get(endpoint)?.Parent;
-  if (!joints.has(endpoint) || !joints.has(parent) || at(endpoint).distanceTo(at(parent)) >= 1e-7) return null;
+  if (!joints.has(endpoint) || !joints.has(parent)) return null;
+  // Humanoid r3: the HD Forsaken Paladin's last three joints have a stretch of nearly no length (leg_L0_4 > leg_L0_end, 0.4
+  // apart, then 5.6 to its foot; arm_L0_4 > arm_L0_end, 0.2 after 5.8): read from them its leg started at the ankle, with
+  // the hip and knee above as a girdle, and its two legs at different joints. A stretch under a tenth of the other one
+  // counts as no stretch: the joints at one place and the twist joints are left out as at an HD hand.
+  let same = 1e-7;
+  if (at(endpoint).distanceTo(at(parent)) >= same) {
+    const grand = byId.get(parent)?.Parent, first = joints.has(grand) ? at(parent).distanceTo(at(grand)) : 0, last = at(endpoint).distanceTo(at(parent));
+    if (!joints.has(grand) || !(Math.min(first, last) < 0.1 * Math.max(first, last))) return null;
+    same = 0.1 * Math.max(first, last);
+  }
+  // A leg read past such a stretch keeps going to its hip (a foot below the ankle: hip > knee > foot, the ankle in between
+  // goes with the shin as a foot joint does), up to a trunk joint.
+  const wide = leg && same > 1e-7, trunk = id => ['Pelvis', 'Body', 'Spine', 'Chest', 'Neck', 'Head'].includes(poseNodeRole(byId.get(id)));
   const up = index.ancestors(endpoint).filter(id => joints.has(id)), kept = [endpoint];
   for (const id of up) {
-    if (at(id).distanceTo(at(kept[0])) < 1e-7) continue;
+    if (wide && trunk(id)) break;
+    // Two joints at one place: the end keeps itself (an HD hand on its twist joint); above it the upper one, which moves the
+    // other (the Baron's named knee Bone_Leg2_R over the mesh bone Object12 at its place).
+    if (at(id).distanceTo(at(kept[0])) < same) { if (kept[0] !== endpoint) kept[0] = id; continue; }
     // A joint on the straight line from the next one up to the last kept one (a twist joint) does not bend the limb.
     const next = up[up.indexOf(id) + 1];
-    if (next != null && kept.length < 3 && at(next).distanceTo(at(id)) > 1e-7) {
+    if (next != null && kept.length < (wide ? 4 : 3) && at(next).distanceTo(at(id)) > 1e-7 && !(wide && trunk(next))) {
       const a = at(next), b = at(kept[0]), line = b.clone().sub(a), t = at(id).sub(a).dot(line) / Math.max(line.lengthSq(), 1e-12);
       if (t > 0 && t < 1 && a.clone().addScaledVector(line, t).distanceTo(at(id)) < line.length() * .02) continue;
     }
     kept.unshift(id);
-    if (kept.length === 3) break;
+    if (kept.length === (wide ? 4 : 3)) break;
   }
   if (kept.length < 3) return null;
-  const chain = { root: kept[0], middle: kept[1], end: endpoint, joints: kept };
+  const ids = kept.length === 4 ? [kept[0], kept[1], endpoint] : kept;
+  const chain = { root: ids[0], middle: ids[1], end: endpoint, joints: ids };
   try { validatePoseChain(model, chain, index); return chain; } catch { return null; }
 }
 

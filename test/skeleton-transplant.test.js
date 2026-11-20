@@ -1352,3 +1352,34 @@ test('K8 Spirit Pig on the Bronze Dragon Whelp (four legs, its wings read as arm
   const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
   for (const name of ['Walk', 'Stand - 1', 'Attack 1']) { const worst = legPairLine(result, rig, name); assert.ok(worst < 3, `${name}: the pig's back is up to ${worst.toFixed(1)} deg off the whelp's`); }
 });
+
+test('NK1 Headhunter (no neck joint) on the Gnoll: the head sits where the Gnoll\'s sits from its chest, so through Stand, Walk and Attack the chest-to-head line points within 5 deg of the Gnoll\'s (it stayed over his own chest, up to 44 deg off: the Gnoll\'s head juts forward and down)', { skip: missing('transfer-headhunter', 'transfer-gnoll') }, () => {
+  const { donor, model, report } = transplant('transfer-headhunter', 'transfer-gnoll');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+  const chest = rig.parts.chest.marker, head = rig.parts.head.marker;
+  assert.ok(rig.parts.head.joints.indexOf(head) > 0, 'the Gnoll has a neck joint');
+  const nD = byId(donor), nM = byId(model);
+  let worst = 0;
+  for (const name of ['Stand', 'Walk', 'Attack']) {
+    const iM = model.Sequences.findIndex(s => s.Name.startsWith(name)), iD = donor.Sequences.findIndex(s => s.Name === model.Sequences[iM].Name);
+    const [a, b] = model.Sequences[iM].Interval, [c, d] = donor.Sequences[iD].Interval;
+    for (let k = 0; k <= 12; k++) {
+      const mm = sampleNodeMatrices(model, Math.round(a + k / 12 * (b - a)), iM), md = sampleNodeMatrices(donor, Math.round(c + k / 12 * (d - c)), iD);
+      const mine = at(model, nM, mm, report.donorNodes[head]).sub(at(model, nM, mm, report.donorNodes[chest])), theirs = at(donor, nD, md, head).sub(at(donor, nD, md, chest));
+      worst = Math.max(worst, mine.angleTo(theirs) * 180 / Math.PI);
+    }
+  }
+  assert.ok(worst < 5, `the chest-to-head line is up to ${worst.toFixed(1)} deg off the Gnoll's`);
+});
+
+test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
+  const { own, donor, model, report } = transplant('sd-orc-wolfrider', 'transfer-khorne-knight');
+  const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), ownRig = transferRig(own, { sequence: standSequenceIndex(own) });
+  const rider = [rig.parts.chest.marker, rig.parts.head.marker, ...rig.parts.armL.joints, ...rig.parts.armR.joints];
+  const nD = byId(donor), nM = byId(model);
+  const iM = model.Sequences.findIndex(s => s.Name === 'Death'), iD = donor.Sequences.findIndex(s => s.Name === 'Death');
+  const lowest = (m, nodes, index, idOf) => { const mats = sampleNodeMatrices(m, m.Sequences[index].Interval[1], index); return Math.min(...rider.map(id => at(m, nodes, mats, idOf(id)).z)); };
+  const theirs = (lowest(donor, nD, iD, id => id) - rig.ground) / rig.hipHeight, mine = (lowest(model, nM, iM, id => report.donorNodes[id]) - ownRig.ground) / ownRig.hipHeight;
+  assert.ok(theirs < 0.15, `the knight's rider ends ${theirs.toFixed(2)} hip heights above the ground`);
+  assert.ok(mine < 0.2, `the orc ends ${mine.toFixed(2)} hip heights above the ground (the knight's rider ${theirs.toFixed(2)})`);
+});
