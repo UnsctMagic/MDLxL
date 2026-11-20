@@ -1372,6 +1372,28 @@ test('NK1 Headhunter (no neck joint) on the Gnoll: the head sits where the Gnoll
   assert.ok(worst < 5, `the chest-to-head line is up to ${worst.toFixed(1)} deg off the Gnoll's`);
 });
 
+for (const [own, name, before] of [['forge-hd-footman', 'HD Footman', 43], ['transfer-demonette', 'Daemonette', 48]]) {
+  test(`SN1 ${name} (a neck joint, but a much shorter neck than the Gnoll's) on the Gnoll: the head sits where the Gnoll's sits from its chest, so through Stand, Walk and Attack the chest-to-head line points within 5 deg of the Gnoll's (turning its short neck to the Gnoll's left it ${before} deg off)`, { skip: missing(own, 'transfer-gnoll') }, () => {
+    const { own: ownModel, donor, model, report } = transplant(own, 'transfer-gnoll');
+    const ownRig = transferRig(ownModel, { sequence: standSequenceIndex(ownModel) });
+    assert.ok(ownRig.parts.head.joints.indexOf(ownRig.parts.head.marker) > 0, `the ${name} has a neck joint`);
+    const rig = transferRig(donor, { sequence: standSequenceIndex(donor) });
+    const chest = rig.parts.chest.marker, head = rig.parts.head.marker;
+    const nD = byId(donor), nM = byId(model);
+    let worst = 0;
+    for (const seq of ['Stand', 'Walk', 'Attack']) {
+      const iM = model.Sequences.findIndex(s => s.Name.startsWith(seq)), iD = donor.Sequences.findIndex(s => s.Name === model.Sequences[iM].Name);
+      const [a, b] = model.Sequences[iM].Interval, [c, d] = donor.Sequences[iD].Interval;
+      for (let k = 0; k <= 12; k++) {
+        const mm = sampleNodeMatrices(model, Math.round(a + k / 12 * (b - a)), iM), md = sampleNodeMatrices(donor, Math.round(c + k / 12 * (d - c)), iD);
+        const mine = at(model, nM, mm, report.donorNodes[head]).sub(at(model, nM, mm, report.donorNodes[chest])), theirs = at(donor, nD, md, head).sub(at(donor, nD, md, chest));
+        worst = Math.max(worst, mine.angleTo(theirs) * 180 / Math.PI);
+      }
+    }
+    assert.ok(worst < 5, `the chest-to-head line is up to ${worst.toFixed(1)} deg off the Gnoll's`);
+  });
+}
+
 test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lies on the ground as the knight\'s does (the knight\'s rider hangs from a root of its own and falls off by its own position keys; scaled by the mount\'s travel, the orc, who sits higher on his wolf, stopped a third of his height above the ground)', { skip: missing('sd-orc-wolfrider', 'transfer-khorne-knight') }, () => {
   const { own, donor, model, report } = transplant('sd-orc-wolfrider', 'transfer-khorne-knight');
   const rig = transferRig(donor, { sequence: standSequenceIndex(donor) }), ownRig = transferRig(own, { sequence: standSequenceIndex(own) });
