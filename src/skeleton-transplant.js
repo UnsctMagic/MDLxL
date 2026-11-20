@@ -815,7 +815,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = null } = {}) {
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms' } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -2177,9 +2177,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Lobstrokk 66 deg off).
   const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
   const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
-  const fit = hard.length || livingForm || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  const fit = hard.length || livingForm || whole.reason || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
-  if (gaitSources.size) reasons.push("The models stand on different numbers of legs. The model steps with the donor's gait.");
+  if (gaitSources.size) reasons.push("The two models stand on a different number of legs. The model steps with the donor's gait, but their stances differ.");
   else if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
   if (livingForm) reasons.push("Most of the model's visible standing form is rigid. It follows the donor's body as one piece.");
   if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");

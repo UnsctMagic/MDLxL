@@ -62,5 +62,10 @@ for (const [ownName,donorName,choices] of [
     }
     const differs=curves[0].some((f,i)=>f.path.some((p,j)=>p.distanceTo(curves[1][i].path[j])>1));
     assert.ok(differs,'the first two choices produce visibly different foot paths');
+    const selected = ownName === 'orc__hellscream' ? 'back-and-arms' : 'same-side';
+    const automatic = transplantSkeleton(own,donor,{extents:false}).model;
+    const explicit = transplantSkeleton(own,donor,{gait:selected,extents:false}).model;
+    assert.deepEqual(automatic.Geosets,explicit.Geosets,'default uses the selected gait skin');
+    assert.deepEqual(automatic.Helpers,explicit.Helpers,'default uses the selected animation drivers');
   });
 }
