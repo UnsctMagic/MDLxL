@@ -50,6 +50,7 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { bendArmsAboveFloor } from './transplant-floor.js';
+import { rigidLivingForm } from './transplant-forms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { detachedGrip, transplantPropVisibility } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
@@ -998,6 +999,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // model's reference pose holds it against that joint (as an extra is), instead of staying still in the world while the
   // donor's body moves away. One the donor has too (same name, same place) takes the donor's joint (below). Skin shown in
   // no everyday animation (a corpse, a portrait plane) stays as before. -> own outside joint -> own part joint.
+  const livingForm = rigidLivingForm(model,ownStand,outsideKept);
   const rideOf = new Map(), ridersOut = [], outsideShown = new Set(), detachedWeapons = new Set();
   // An outside joint stays only where skin that stays (not riding, not on a donor joint) hangs from it.
   const trimOutside = (away = id => rideOf.has(id)) => {
@@ -1050,6 +1052,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // Chaos Blademaster's turning hips and flew 6 heights into the sky).
     const turnsOrMoves = id => treeB.ancestors(id, true).some(at => ['Translation', 'Rotation'].some(property => ownById.get(at)?.[property]?.Keys?.length));
     for (const [id, points] of skinOf) {
+      if (id === livingForm?.carrier && rigB.body != null && !keepSet.has(id)) {
+        rideOf.set(id,rigB.body);
+        ridersOut.push({id,name:ownById.get(id)?.Name,joint:ownById.get(rigB.body)?.Name,vertices:points.length,drift:null});
+        continue;
+      }
       if (!turnsOrMoves(id)) continue;
       const centre = points.reduce((s, p) => s.add(p), new Vector3()).divideScalar(points.length);
       const probe = [centre, points.reduce((far, p) => p.distanceTo(centre) > far.distanceTo(centre) ? p : far, centre)];
@@ -1835,8 +1842,25 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       }
     }
   }
+  // A two-joint arm may finish at its forearm, with only an attachment at the
+  // wrist. Skin mounted directly on that forearm (the Footman's shield) must
+  // keep its forearm frame even when the donor also has an articulated hand.
+  const forearmSkin = new Map();
+  for (const entry of limbEntries) {
+    const mine = entry.own, theirs = entry.theirs;
+    const forearm = /forearm|lower.?arm|low.?arm|arm.?2/i;
+    if (mine.limbKind !== 'arm' || !forearm.test(ownById.get(mine.marker)?.Name || '') ||
+        !/hand|wrist/i.test(donorById.get(theirs.marker)?.Name || '')) continue;
+    const joint = theirs.joints.slice(0,-1).reverse().find(id => forearm.test(donorById.get(id)?.Name || ''));
+    if (joint == null) continue;
+    for (const child of treeB.children.get(mine.marker) || []) {
+      if (ownVertexCount.has(child.ObjectId) && !moves(child.ObjectId) && !keptExtra(child.ObjectId))
+        forearmSkin.set(child.ObjectId,joint);
+    }
+  }
   /** Donor joints ({ joint }) or a node that stays ({ own }) for one own bone of a vertex at `point` (bind space). */
   const jointsOf = (id, point, { trunk = true } = {}) => {
+    if (forearmSkin.has(id)) return [{joint:forearmSkin.get(id)}];
     const t = targetOf(id);
     if (t.own != null) return [{ own: t.own }];
     const top = extraTop.get(id) ?? (rideOf.has(id) ? id : null), rigid = top != null && (extras.has(top) || rideOf.has(top)) && extraCentre.has(top);
@@ -2046,6 +2070,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // How he dies (owner, 19 Nov 2026, TEST GORE2 sheet): in the donor's Death and Decay he shows what his Stand shows, so
   // his living body dies with the donor and his own death-only meshes (corpse copies, gut piles) stay hidden; where the
   // donor hides its body, so does he.
+  if (livingForm) for (const anim of M.GeosetAnims) {
+    if (livingForm.visibility.has(anim.GeosetId)) anim.Alpha = constantTrack([livingForm.visibility.get(anim.GeosetId)]);
+  }
   transplantPropVisibility(M, model, D, treeB, treeA, ownSequences[ownStand], weaponSwap, keepSet, constantTrack);
   holdShowing(M, model, ownSequences[ownStand], newSequences, D);
   // This model's own nodes that hang from a donor node (its own effects, a kept piece) stay where they were in the world
@@ -2150,10 +2177,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Lobstrokk 66 deg off).
   const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
   const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
-  const fit = hard.length || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
+  const fit = hard.length || livingForm || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
   if (gaitSources.size) reasons.push("The models stand on different numbers of legs. The model steps with the donor's gait.");
   else if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  if (livingForm) reasons.push("Most of the model's visible standing form is rigid. It follows the donor's body as one piece.");
   if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");
   const listed = still.filter(key => !(whole.reason && !gaitSources.size && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
