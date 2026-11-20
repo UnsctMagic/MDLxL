@@ -1230,7 +1230,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const legRoot = key => rigA.parts[key]?.joints?.[0], pairs = [['legL', 'legR'], ['legL2', 'legR2']].map(keys => keys.map(legRoot));
     // So does any four-legged donor taken by a model with no two arms (cross-kind r2 WG2): the donor's shoulders have nothing
     // to sit on here, and a Bronze Dragon Whelp (wings, no arms) on the Dragonspawn leant 57-70 deg off its back.
-    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    // And a rider on a four-legged mount taken by a rider on one (cross-kind r2 RR1): each mount's back is the line between
+    // its leg pairs; from the hip centre to the rider's shoulders, the whole of both bodies tipped to seat the riders alike
+    // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
+    // then takes the donor rider's lean on its own (below).
+    const riders = rigA.actors?.length > 1 && rigB.actors?.length > 1 && count(rigB, 'leg') === 4;
+    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
     if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
@@ -1273,6 +1278,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         for (const id of trunkJoints) correction.set(id, spine.clone());
         posture.spine = angle(spine);
         trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints, moves: true });
+        // A rider on a rider (RR1): the rider's chest joints turn so the line from the chest's first joint to the middle of
+        // the shoulders lies along the donor rider's.
+        const chestIds = (rigA.parts.chest?.joints || []).filter(id => placed.has(id));
+        if (riders && chestIds.length && shoulderB && shoulderA && sideOf(pA)) {
+          const leanB = shoulderB.clone().sub(placed.get(chestIds[0])), leanA = shoulderA.clone().sub(pA(chestIds[0]));
+          if (leanB.length() > 1e-3 * rigB.hipHeight && leanA.length() > 1e-3 * rigA.hipHeight) {
+            const lean = alignFrames(leanB, leanA, sideOf(id => placed.get(id)), sideOf(pA));
+            for (const id of chestIds) correction.set(id, lean.clone());
+          }
+        }
       }
     }
     // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).

@@ -1399,3 +1399,10 @@ test('WG2 Bronze Dragon Whelp on the Dragonspawn (four legs each; the whelp has 
   const worst = Object.fromEntries(names.map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
   assert.ok(names.length >= 3 && Object.entries(worst).every(([name, value]) => value < (/^attack/i.test(name) || /fast/i.test(name) ? 15 : 8)), `the whelp's back is off the dragonspawn's by up to ${JSON.stringify(worst)} deg`);
 });
+
+test('RR1 Chaos Warlord on the Khorne Knight (a rider on a four-legged mount each): the demon horse\'s back takes the knight horse\'s through Walk, Stand and Attack - 1 (within 2 deg; the trunk line from the horse\'s hip centre to the rider\'s shoulders tipped both bodies to seat the riders alike: the back 21 deg off, every segment of horse and rider 12)', { skip: missing('transfer-chaos-warlord', 'transfer-khorne-knight') }, () => {
+  const result = transplant('transfer-chaos-warlord', 'transfer-khorne-knight');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor) });
+  const back = Object.fromEntries(['Walk', 'Stand', 'Attack - 1'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(Object.values(back).every(value => value < 2), `the horse's back is off by up to ${JSON.stringify(back)} deg`);
+});
