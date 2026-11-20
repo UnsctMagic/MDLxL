@@ -1385,3 +1385,12 @@ test('RG4 the Snapdragon reads four legs: of the back left shin and its copy at 
   const back = Object.values(rig.parts).find(part => part.limbKind === 'leg' && part.joints.some(id => nodeName(model, id) === 'Bone Back L Leg'));
   assert.equal(back.joints.map(id => nodeName(model, id)).join('>'), 'Bone Back L Leg>Bone Back L ShinX>Bone Object67');
 });
+test('H7 the Witch Hunter\'s left arm is its two joints: ShoulderL > LowArmL to the hand ref, and the chest stays the chest (the arm was read Bone_Chest > ShoulderL > LowArmL, so the rig had no chest)', { skip: missing('transfer-witch-hunter') }, () => {
+  const model = load('transfer-witch-hunter'), rig = transferRig(model), names = part => rig.parts[part]?.joints.map(id => nodeName(model, id)).join('>');
+  assert.equal(names('armL'), 'ShoulderL>LowArmL');
+  assert.equal(rig.parts.armL.line.map(id => String(nodeName(model, id)).trim()).join('>'), 'ShoulderL>LowArmL>Hand Left Ref', 'read as the Footman\'s right arm is: two joints, the line on to the hand ref');
+  assert.equal(names('armR'), 'ShoulderR>LowArmR>HandR');
+  assert.equal(names('chest'), 'Bone_Chest');
+  const stand = Math.max(0, standSequenceIndex(model)), pose = suggestPoseRig(model, model.Sequences[stand].Interval[0], stand);
+  assert.ok(!pose.chains.some(chain => nodeName(model, chain.root) === 'Bone_Chest'), 'no POSE limb starts at the chest');
+});

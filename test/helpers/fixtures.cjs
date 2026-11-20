@@ -51,6 +51,7 @@ const FIXTURES = {
   'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
   'transfer-ogre-armored': ['MDLXL_TRANSFER_OGRE_ARMORED', testModel('corpus-sd/creeps__ogreoneheadedarmored.mdx')],
   'transfer-kiljaeden-cin': ['MDLXL_TRANSFER_KILJAEDEN_CIN', testModel('corpus-sd/demon__kiljaedencin.mdx')], // body joint Bone_Root bobs by position keys on a global sequence
+  'transfer-witch-hunter': ['MDLXL_TRANSFER_WITCH_HUNTER', testModel('transfer-humanoid/WarhammerWitchHunter.mdx')], // left arm of two joints (ShoulderL > LowArmL), its hand ref on the forearm
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones

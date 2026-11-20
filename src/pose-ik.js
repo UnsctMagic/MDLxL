@@ -221,6 +221,14 @@ function readPoseRig(model, clues, evidence, cloth = null) {
       if (chains.some(chain => descendantOf(node.ObjectId, chain.end))) continue;
       const chain = { ...(clues && straightLimb(model, node.ObjectId, tree, joints) || suggestPoseChain(model, node.ObjectId, tree)), kind: roleOf(node) === 'Hand' ? 'arm' : 'leg', key: `limb:${node.ObjectId}` };
       if (['Body','Pelvis'].includes(roleOf(byId.get(chain.root))) || roleOf(byId.get(chain.root)) === 'Chest' && /arm|thigh|leg1/i.test(byId.get(chain.middle)?.Name)) continue;
+      // An arm of two joints (the Witch Hunter's ShoulderL > LowArmL, its hand ref on the forearm) read from its last joint
+      // climbs into the chest, the joint both the head and the other arm hang from beside it, and the rig then has no chest (H7).
+      // Where a hand ref hangs from that last joint, the arm is read from the ref instead (shoulder > forearm > ref).
+      const beside = id => descendantOf(id, chain.root) && !descendantOf(id, chain.middle);
+      if (clues && chain.kind === 'arm' && joints.has(node.ObjectId)
+        && transforms.some(head => roleOf(head) === 'Head' && joints.has(head.ObjectId) && beside(head.ObjectId))
+        && candidates.some(hand => hand !== node && joints.has(hand.ObjectId) && roleOf(hand) === 'Hand' && beside(hand.ObjectId))
+        && candidates.some(ref => !joints.has(ref.ObjectId) && ref.Parent === node.ObjectId && roleOf(ref) === 'Hand')) continue;
       // A chain whose joints are all named a tail is that tail, not a leg: the Hydralisk rests on its tail and Blizzard put its
       // footprint slots there (R2; read as a leg it was a one-legged creature standing on its tail).
       if (clues && poseChainIds(chain).filter(id => joints.has(id)).every(id => poseNodeRole(byId.get(id)) === 'Tail')) continue;
