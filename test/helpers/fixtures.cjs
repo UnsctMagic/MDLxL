@@ -54,6 +54,7 @@ const FIXTURES = {
   'transfer-witch-hunter': ['MDLXL_TRANSFER_WITCH_HUNTER', testModel('transfer-humanoid/WarhammerWitchHunter.mdx')], // left arm of two joints (ShoulderL > LowArmL), its hand ref on the forearm
   'transfer-troll-priest': ['MDLXL_TRANSFER_TROLL_PRIEST', testModel('corpus-sd/creeps__foresttrollshadowpriest.mdx')],
   'transfer-forsaken-paladin': ['MDLXL_TRANSFER_FORSAKEN_PALADIN', testModel('corpus-sd/creeps__heroforsakenpaladin.mdx')], // HD: its body joint local_C0_0_jnt moves by stepped (DontInterp) position keys
+  'transfer-skeleton-orc': ['MDLXL_TRANSFER_SKELETON_ORC', testModel('corpus-sd/creeps__skeletonorc.mdx')], // straight legs slanting back: its thigh points nearer the Tauren's hip-to-hock than hip-to-knee
   'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
   'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
   'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones

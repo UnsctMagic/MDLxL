@@ -1209,3 +1209,20 @@ test('H8 Forest Troll Shadow Priest on the HD Forsaken Paladin: through the Pala
   }
   assert.ok(worst < 0.03, `the lower foot is up to ${worst.toFixed(3)} hip heights off the Paladin's`);
 });
+
+test('H9 Skeleton Orc on the Tauren: its knee takes the Tauren\'s knee, so through the Walk each thigh points as the Tauren\'s hip-to-knee (its straight thigh slants back, nearer the Tauren\'s hip-to-hock, and the retargeting pairing put the knee on the hock: thighs 31 deg off)', { skip: missing('transfer-skeleton-orc', 'transfer-tauren') }, () => {
+  const { donor, model, report } = transplant('transfer-skeleton-orc', 'transfer-tauren');
+  const nD = byId(donor), nM = byId(model), named = name => allNodes(donor).find(n => n.Name === name).ObjectId;
+  const iM = model.Sequences.findIndex(s => s.Name === 'Walk'), iD = donor.Sequences.findIndex(s => s.Name === 'Walk');
+  const [a, b] = model.Sequences[iM].Interval, [c, d] = donor.Sequences[iD].Interval;
+  let worst = 0;
+  for (const side of ['L', 'R']) {
+    const hip = named(`Bone_Upperleg${side}`), knee = named(`Bone_Leg2${side}`);
+    for (let k = 0; k <= 8; k++) {
+      const mm = sampleNodeMatrices(model, Math.round(a + k / 8 * (b - a)), iM), md = sampleNodeMatrices(donor, Math.round(c + k / 8 * (d - c)), iD);
+      const mine = at(model, nM, mm, report.donorNodes[knee]).sub(at(model, nM, mm, report.donorNodes[hip])), theirs = at(donor, nD, md, knee).sub(at(donor, nD, md, hip));
+      worst = Math.max(worst, mine.angleTo(theirs) * 180 / Math.PI);
+    }
+  }
+  assert.ok(worst < 5, `a thigh is up to ${worst.toFixed(1)} deg off the Tauren's`);
+});

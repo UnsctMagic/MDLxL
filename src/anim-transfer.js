@@ -939,7 +939,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     const from = part.from ?? (whole ? swapSide(key) : key), fromKey = part.flip ? swapSide(from) : from, theirs = rigA.parts[fromKey];
     const mirror = whole !== !!part.flip;
     if (!theirs) { problems.push(`${transferPartLabel(key)}: the donor has no ${transferPartLabel(fromKey).toLowerCase()}, so it keeps the body animation.`); continue; }
-    const entry = prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient });
+    const entry = prepareTaken({ key, part, own, theirs, donor, seq, sequence: part.sequence, rigA, rigB, refB, mirror, recipient, kneeToKnee: !!options.kneeToKnee });
     entry.clipIndex = clipIndex;
     // The clip before this one in the same part hands over to it (see the hold in pass 1).
     const before = clipIndex ? taken.findLast(other => other.key === key) : null;
@@ -1409,7 +1409,7 @@ export function rigSizeRatio(rigB, rigA) {
   if (rigB.hipMeasured && rigA.hipMeasured) return rigB.hipHeight / rigA.hipHeight;
   return rigB.extent > 0 && rigA.extent > 0 ? rigB.extent / rigA.extent : rigB.hipHeight / rigA.hipHeight;
 }
-function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient }) {
+function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB, refB, mirror, recipient, kneeToKnee = false }) {
   const refA = sampleAt(donor, rigA.reference.sequence, rigA.reference.frame);
   // Mirroring reflects the donor across the XZ plane; a facing difference over
   // 20 degrees turns the donor's motion by that yaw.
@@ -1444,7 +1444,7 @@ function prepareTaken({ key, part, own, theirs, donor, seq, sequence, rigA, rigB
   const infoA = modelInfo(donor), infoB = modelInfo(recipient);
   // The limb on the other side and the donor limb it takes from pair together with this one (see limbPairing).
   const partner = own.kind === 'limb' && swapSide(key) !== key ? { own: rigB.parts[swapSide(key)], theirs: rigA.parts[swapSide(theirs.key)] } : null;
-  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner);
+  const pairing = limbPairing(own, theirs, { own: id => v3(nodePivot(recipient, infoB.byId.get(id), id)), theirs: id => convertV(v3(nodePivot(donor, infoA.byId.get(id), id))), ownName: id => infoB.byId.get(id)?.Name, theirName: id => infoA.byId.get(id)?.Name }, onLine, partner, { kneeToKnee });
   const map = pairing ? pairing.map : jointMap(own.tip ? [...pointsB, own.tip] : pointsB, theirs.tip ? [...pointsA, theirs.tip] : pointsA, pointsB.length, pointsA.length);
   // A joint that follows the donor's line across several donor joints: the two ends of that line, and the line in the reference pose.
   const chordEnds = map.map((j, i) => pairing && j >= 0 && pairing.until[i] > j + 1 && pairing.until[i] < pairing.ids.length ? [theirs.joints[j], pairing.ids[pairing.until[i]]] : null);
@@ -1755,7 +1755,7 @@ function jointMap(ownPath, theirPath, ownCount, theirCount) {
  * joint i follows the donor's line across those joints, not one donor bone.
  * Returns null when either limb's top and end are not known: the caller pairs by distance. */
 const KNEE_BEND = 10, KNEE_MARGIN = 20;
-function limbPairing(own, theirs, rest, onLine, partner = null) {
+function limbPairing(own, theirs, rest, onLine, partner = null, { kneeToKnee = false } = {}) {
   if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
   const read = (part, at, name) => {
     const line = part.line || [];
@@ -1822,7 +1822,9 @@ function limbPairing(own, theirs, rest, onLine, partner = null) {
       const atKnee = search(f => f[b.bend] === knee);
       // The stretch above the bend (top -> bend here, top -> the paired joint there), worst over both sides.
       const thigh = f => Math.max(...sides.map(side => side.B[b.bend].clone().sub(side.B[0]).angleTo(side.A[f[b.bend]].clone().sub(side.A[0])) / DEG));
-      if (atKnee && thigh(atKnee) <= thigh(pick) + KNEE_MARGIN) pick = atKnee;
+      // `kneeToKnee` (the transplant: its bind pose is re-posed into the donor's, so the rest directions do not matter): the
+      // bend always takes the knee (H9: the Skeleton Orc's straight thigh slants back, nearer the Tauren's hip-to-hock).
+      if (atKnee && (kneeToKnee || thigh(atKnee) <= thigh(pick) + KNEE_MARGIN)) pick = atKnee;
     }
   }
   for (let t = 0; t < p; t++) map[sB + t] = sA + pick[t];
