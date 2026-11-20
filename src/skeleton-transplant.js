@@ -1171,9 +1171,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const eps = 1e-3 * rigB.hipHeight, epsA = 1e-3 * rigA.hipHeight;
     if (fB.length < eps || fA.length < epsA || fB.width < eps || fA.width < epsA) return null;
     const s1 = fB.length / fA.length, s2 = fB.width / fA.width;
-    // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint.
+    // The trunk: hips and chest joints and the donor joints between the chest and the top hips joint, and between the other
+    // hips joints and the top one (cross-kind r2 TW1: the Dragonspawn's waist joints carry its lower body's skin between its
+    // root and its pelvis joints; left out, that skin read as the root's, and a Baron's horse body bound to the root stayed
+    // up while the Dragonspawn's body fell in its Death).
     const top = rigA.parts.hips?.joints?.[0] ?? rigA.body, chain = new Set(trunkJoints);
-    for (const id of rigA.parts.chest?.joints || []) {
+    for (const id of [...(rigA.parts.hips?.joints || []).slice(1), ...(rigA.parts.chest?.joints || [])]) {
       const line = treeA.ancestors(id);
       if (!line.includes(top)) continue;
       for (const a of line) { if (keepDonor.has(a) && isDonorJoint(a) && placed.has(a)) chain.add(a); if (a === top) break; }

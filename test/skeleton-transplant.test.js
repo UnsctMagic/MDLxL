@@ -1419,3 +1419,15 @@ test('WG2b Grizzly Bear on the Crypt Fiend (four legs and no arms or wings on fo
   }
   assert.ok(worst < 45, `the bear's chest-to-head line is up to ${worst.toFixed(1)} deg off the fiend's`);
 });
+
+test('TW1 Khorne Knight on the Dragonspawn (whose waist joints, between its root and its pelvis joints, carry its lower body): at the end of the Dragonspawn\'s Death the knight lies down with it, its highest tenth of skin no higher above the ground, in its own hip heights, than the Dragonspawn\'s plus 0.3 (the knight\'s horse body went to the root, which stays up while the waist falls: it ended 1.35 hip heights up, the Dragonspawn 0.70)', { skip: missing('transfer-khorne-knight', 'transfer-dragonspawn') }, () => {
+  const { own, donor, model } = transplant('transfer-khorne-knight', 'transfer-dragonspawn');
+  const top = (m, rig) => {
+    const index = m.Sequences.findIndex(s => s.Name === 'Death'), matrices = sampleNodeMatrices(m, m.Sequences[index].Interval[1], index);
+    const z = m.Geosets
+      .flatMap(geoset => Array.from(skinGeoset(geoset, matrices)).filter((_, i) => i % 3 === 2)).sort((a, b) => a - b);
+    return (z[Math.floor(0.9 * (z.length - 1))] - rig.ground) / rig.hipHeight;
+  };
+  const mine = top(model, transferRig(own)), theirs = top(donor, transferRig(donor));
+  assert.ok(mine < theirs + 0.3, `the knight's highest tenth ends ${mine.toFixed(2)} hip heights up, the Dragonspawn's ${theirs.toFixed(2)}`);
+});
