@@ -50,6 +50,7 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { bendArmsAboveFloor } from './transplant-floor.js';
+import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
   rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
@@ -811,7 +812,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend' } = {}) {
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = null } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -852,8 +853,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (!(D.Sequences || []).some(s => s.Interval)) hard.push('The donor has no animations.');
 
   const ownNodes = allNodes(model), ownById = new Map(ownNodes.map(n => [n.ObjectId, n])), treeB = nodeIndex(model, ownNodes);
-  const donorNodes = allNodes(D), donorById = new Map(donorNodes.map(n => [n.ObjectId, n])), treeA = nodeIndex(D, donorNodes);
-  const pB = id => v3(nodePivot(model, ownById.get(id), id)), pA = id => v3(nodePivot(D, donorById.get(id), id));
+  const pB = id => v3(nodePivot(model, ownById.get(id), id));
   const size = rigB.ok && rigA.ok ? rigSizeRatio(rigB, rigA) : 1;
   const hipB = rigB.ok ? bindHipCentre(model, rigB) : new Vector3(), hipA = rigA.ok ? bindHipCentre(D, rigA) : new Vector3();
   const groundB = new Vector3(hipB.x, hipB.y, 0), groundA = new Vector3(hipA.x, hipA.y, 0);
@@ -861,11 +861,19 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // ------------------------------------------------------------ pairing (the engine's own)
   let entries = [];
   const whole = rigB.ok && rigA.ok ? transferWholeBody(rigB, rigA) : { parts: [], reason: null };
+  const gaitSources = whole.reason ? transplantGait(model,D,rigB,rigA,gait) : new Map();
+  if (gaitSources.size) {
+    whole.parts.push(...gaitSources.keys());
+    if (rigB.parts.hips && rigA.parts.hips) whole.parts.push('hips');
+  }
   if (rigB.ok && rigA.ok && ownStand >= 0 && donorStand0 >= 0 && whole.parts.length) {
-    const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false, actor: donorActor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
+    const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false, actor: donorActor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), from: gaitSources.get(key)?.from ?? null, source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
     try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], kneeToKnee: true, probe: ({ entries: found }) => { entries = found; } }); }
     catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
   }
+  rigA = duplicateGaitChains(D,rigA,entries,gaitSources);
+  const donorNodes = allNodes(D), donorById = new Map(donorNodes.map(n => [n.ObjectId, n])), treeA = nodeIndex(D, donorNodes);
+  const pA = id => v3(nodePivot(D, donorById.get(id), id));
   // Limbs the donor has no counterpart for (Poor fit reads `still` below).
   const ridesStill = [];
   for (const [key, part] of Object.entries(rigB.parts || {})) if (part.kind === 'limb' && !entries.some(entry => entry.key === key)) ridesStill.push(key);
@@ -2104,9 +2112,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
   const fit = hard.length || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];
-  if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
+  if (gaitSources.size) reasons.push("The models stand on different numbers of legs. The model steps with the donor's gait.");
+  else if (whole.reason) reasons.push("The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.");
   if (noUpper) reasons.push("The donor carries its head on an upper body (a chest with arms) this model does not have: this model's head follows the donor's head with nothing under it.");
-  const listed = still.filter(key => !(whole.reason && (key === 'hips' || /^leg/.test(key))));
+  const listed = still.filter(key => !(whole.reason && !gaitSources.size && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
   reasons.push(...hard, ...notes);
   const extrasOut = [...extras.values()].map(({ bones, ...rest }) => ({ ...rest, follows: extraMatch.has(rest.id) ? donorById.get(extraMatch.get(rest.id))?.Name ?? null : null }));
