@@ -1383,3 +1383,11 @@ test('RD1 Wolf Rider on the Khorne Knight: at the end of the Death the rider lie
   assert.ok(theirs < 0.15, `the knight's rider ends ${theirs.toFixed(2)} hip heights above the ground`);
   assert.ok(mine < 0.2, `the orc ends ${mine.toFixed(2)} hip heights above the ground (the knight's rider ${theirs.toFixed(2)})`);
 });
+
+test('A1 Timber Wolf on Undead Arthas (a horse whose back legs and tail hang from one joint under its body): the wolf takes the horse\'s body, its back along the horse\'s through Walk, Stand -1, Attack -1 and Stand Ready (within 3 deg; read into the tail, that joint took the wolf\'s tail turns and the horse\'s hindquarters were left in no part: the wolf\'s back stood up to 49 deg off)', { skip: missing('transfer-timber-wolf', 'transfer-undead-arthas') }, () => {
+  const result = transplant('transfer-timber-wolf', 'transfer-undead-arthas');
+  assert.equal(result.report.actor, 'walker');
+  const rig = transferRig(result.donor, { sequence: standSequenceIndex(result.donor), actor: 'walker' });
+  const worst = Object.fromEntries(['Walk', 'Stand -1', 'Attack -1', 'Stand Ready'].map(name => [name, +legPairLine(result, rig, name).toFixed(1)]));
+  assert.ok(Object.values(worst).every(value => value < 6), `the wolf's back is off the horse's by up to ${JSON.stringify(worst)} deg`);
+});
