@@ -1659,7 +1659,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   let ground = null;
   if (rigB.ok && rigA.ok && feet !== 'free') {
     const hasLegs = rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg');
-    if (!whole.reason && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
+    // Short legs on either side (one or two joints, R1: a rat's legs end at the shin, a pig's leg is one bone) have no foot joint to
+    // stand on: this model's own soles go down, as G1's.
+    const shortLegs = [rigB, rigA].some(rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg' && part.short));
+    if (!whole.reason && !shortLegs && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel); ground = 'feet'; }
     else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel);
   }
   // The weapon's skin and attachments, baked onto the hand, go onto the donor's weapon bone where the hand

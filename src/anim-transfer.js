@@ -129,7 +129,8 @@ function defaultSequence(model) {
 }
 function readPose(model) {
   const sequence = defaultSequence(model), frame = sequence >= 0 ? model.Sequences[sequence].Interval[0] : 0;
-  try { return { pose: suggestPoseRig(model, frame, Math.max(sequence, 0)) }; } catch (error) { return { error: `The rig could not be read: ${error.message}` }; }
+  // Short limbs (one or two joints, too short for a POSE handle) are limbs here like any chain.
+  try { const pose = suggestPoseRig(model, frame, Math.max(sequence, 0)); return { pose: pose.stubs ? { ...pose, chains: [...pose.chains, ...pose.stubs] } : pose }; } catch (error) { return { error: `The rig could not be read: ${error.message}` }; }
 }
 // POSE's chains as Transfer reads them. A chain the shared recogniser marks as hanging cloth
 // (`cloth`, see suggestPoseRig) is no limb: never an arm, never a part. For the search for a
@@ -234,7 +235,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   let body = pose.body != null && tree.root(pose.body) === skeleton ? pose.body : null;
   const own = pose.chains.filter(chain => skeletonRoot(model, info, chain.root) === skeleton);
   if (body == null && own.length) {
-    try { body = suggestPoseBody(model, own, tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
+    try { body = suggestPoseBody(model, own.filter(chain => !chain.short), tree); body = tree.ancestors(body, true).find(id => roleOf(id) === 'Body' && !/death|portrait/i.test(byId.get(id).Name)) ?? body; } catch { body = null; }
   }
   // A body that drives none of this skeleton's limbs only carries the name (a still skin bone called "Body" beside
   // the helper that moves the creature): the body is then the joint the legs hang from (the limbs, with no leg).
@@ -342,11 +343,13 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
   const seatedChains = seatTops.length ? seatLegs(seatTops).chains : [];
-  let actor = seatTops.length ? wanted : 'both';
+  // The recogniser's own upper body of this creature (a Reforged turret over its pelvis, `uppers`) is no rider.
+  const carried = seatTops.length > 0 && seatTops.every(top => (pose.uppers?.[body] || []).includes(tree.root(top)));
+  let actor = seatTops.length && !carried ? wanted : 'both';
   if (actor === 'seated') {
     // The seated creature read alone: its own body joint drives its limbs.
     let own = null;
-    try { own = suggestPoseBody(model, seatedChains, tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
+    try { own = suggestPoseBody(model, seatedChains.filter(chain => !chain.short), tree); own = tree.ancestors(own, true).find(id => seatedId(id) && roleOf(id) === 'Body') ?? own; } catch { own = null; }
     if (own != null && joints.has(own) && seatedId(own)) body = own; else actor = 'both';
   }
   const ridden = actor === 'both' ? seatedId : () => false;
@@ -394,7 +397,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     for (let parent = tree.parentOf(limb[0]); parent != null && joints.has(parent) && !trunkIds.has(parent) && chainsBelow(parent) === 1; parent = tree.parentOf(parent)) limb.unshift(parent);
     if (!limb.length) continue;
     const tip = chain.end !== endJoint ? pos(chain.end) : null;
-    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip, line: ids });
+    limbs.push({ kind: chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm', joints: limb, tip, line: ids, short: chain.short === true });
   }
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
@@ -430,6 +433,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
     Object.defineProperty(parts[key], 'line', { value: limb.line || null, enumerable: false });
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
+    if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
   });
   // Which hand holds the weapon (automatic Mirror) stays a naming rule: a
   // geometric weapon is also found where no node is named (and none on a shield).
@@ -440,11 +444,15 @@ function readRig(model, info, skeleton, wanted = 'both') {
   if (!Object.keys(parts).length) return fail('No body parts were recognised on this model.');
   // Size (rules 1 to 4 of docs/agent-tasks/xfer-transplant-fixes.md). Read alone, a rider or its mount keeps the plain numbers.
   const plainReading = actor === 'both', extent = plainReading ? bodyExtent(model, ref, sequence) : { size: 0, floor: null };
-  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : extent.floor ?? Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
-  const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - ground > 1e-3 && hipCentre.z - ground >= HIP_MIN_SHARE * extent.size;
   const partJoints = new Set(Object.values(parts).flatMap(part => part.joints));
   for (const part of legs) Object.defineProperty(part, 'sole', { value: footSole(model, info, ref, part.marker, partJoints), enumerable: false });
-  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - ground) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
+  const ground = legs.length ? Math.min(...legs.map(part => pos(part.marker).z)) : extent.floor ?? Math.min(...Object.values(parts).flatMap(part => part.joints.map(id => pos(id).z)));
+  // The hip height of short legs (one or two joints, the last one above the floor) is measured down to their soles, else
+  // to their end references; `ground` stays the level of the leg ends, which the feet are placed by.
+  const footLevel = part => part.short ? part.sole?.level ?? part.tip?.z ?? pos(part.marker).z : pos(part.marker).z;
+  const floorLevel = legs.length ? Math.min(...legs.map(footLevel)) : ground;
+  const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - floorLevel > 1e-3 && hipCentre.z - floorLevel >= HIP_MIN_SHARE * extent.size;
+  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - floorLevel) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide: weapons.length === 1 ? weapons[0].side : null, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
   Object.defineProperty(rig, 'hipMeasured', { value: hipMeasured, enumerable: false });
   Object.defineProperty(rig, 'extent', { value: extent.size, enumerable: false });
@@ -453,7 +461,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   Object.defineProperty(rig, 'trunk', { value: shoulders.length === 2 ? shoulders[0].add(shoulders[1]).multiplyScalar(0.5).distanceTo(hipCentre) : 0, enumerable: false });
   // Which reading this is, and which the model offers (one creature: 'both' only).
   Object.defineProperty(rig, 'actor', { value: actor, enumerable: false });
-  Object.defineProperty(rig, 'actors', { value: seatTops.length ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
+  Object.defineProperty(rig, 'actors', { value: seatTops.length && !carried ? ['both', 'seated', 'walker'] : ['both'], enumerable: false });
   // The floor a weapon must stay above: the lowest foot vertex, else the ground.
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });

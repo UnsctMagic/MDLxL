@@ -9,6 +9,8 @@ import { createRequire } from 'node:module';
 import { Quaternion, Vector3 } from 'three';
 import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { allNodes, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
+import { vertexBones } from '../src/part-bones.js';
+import { nodeIndex } from '../src/node-hierarchy.js';
 import { validateModel } from '../src/editor-document.js';
 import { clearTransferCache, transferRig } from '../src/anim-transfer.js';
 import { poseLimbStart } from '../src/pose-recognition.js';
@@ -929,19 +931,27 @@ const everydayMoments = (model, each) => model.Sequences.forEach((sequence, inde
 
 test('S1 Rat on the Dire Wolf: where the wolf stands on its feet the rat stands on the ground as in its own Stand (it floated half its height)', { skip: missing('transfer-rat', 'transfer-direwolf') }, () => {
   const { own, donor, model, report } = transplant('transfer-rat', 'transfer-direwolf');
+  // Since R1 the rat reads its four two-joint legs and the wolf its fourth leg: the legs pair, but the rat's legs end at
+  // the shin (no foot joint), so its soles go down. Measured on the rat's legs (its long tail follows the wolf's tail).
   assert.equal(report.counts.ground, 'soles');
-  const living = standLiving(own), stand = standSequenceIndex(own), rest = lowestOf(own, living, stand, own.Sequences[stand].Interval[0]), H = heightOf(own);
+  const living = standLiving(own), stand = standSequenceIndex(own), H = heightOf(own);
   const rigD = transferRig(donor, { sequence: standSequenceIndex(donor) }), nD = byId(donor), feet = Object.values(rigD.parts).filter(part => part.limbKind === 'leg').map(part => part.marker);
+  const rigO = transferRig(own, { sequence: stand }), legsOf = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').flatMap(part => part.joints);
+  const ownLegs = new Set(legsOf(rigO)), resultLegs = new Set(legsOf(rigD).map(id => report.donorNodes[id]).filter(id => id != null));
+  // Skin (any weight) on the leg joints or on the skin bones that hang from them.
+  const lowestOn = (m, joints, index, frame) => { const tree = nodeIndex(m), onLeg = id => [...joints].some(joint => tree.isAncestor(id, joint)), mats = sampleNodeMatrices(m, frame, index); let low = Infinity; for (const g of living) { const geoset = m.Geosets[g], p = skinGeoset(geoset, mats); for (let v = 0; v < p.length / 3; v++) if (vertexBones(geoset, v).some(onLeg)) low = Math.min(low, p[v * 3 + 2]); } return low; };
+  const rest = lowestOn(own, ownLegs, stand, own.Sequences[stand].Interval[0]);
+  assert.ok(Number.isFinite(rest), 'the rat has leg skin');
   let worst = { d: 0 }, checked = 0;
   everydayMoments(model, (sequence, index, frame) => {
     const md = sampleNodeMatrices(donor, frame, index);
     if (Math.min(...feet.map(id => at(donor, nD, md, id).z)) - rigD.ground > 0.05 * rigD.hipHeight) return; // the wolf's feet are off the ground
     checked++;
-    const d = Math.abs(lowestOf(model, living, index, frame) - rest);
+    const d = Math.abs(lowestOn(model, resultLegs, index, frame) - rest);
     if (d > worst.d) worst = { d, name: sequence.Name, frame };
   });
   assert.ok(checked > 20, `${checked} moments with the wolf on its feet`);
-  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the rat's lowest point is ${(worst.d / H).toFixed(2)} of its height off its own Stand's`);
+  assert.ok(worst.d < 0.1 * H, `${worst.name} ${worst.frame}: the rat's lowest foot is ${(worst.d / H).toFixed(2)} of its height off its own Stand's`);
 });
 
 test('S2 Footman on the Banshee (no legs, hovers): the Footman rises and falls with the Banshee\'s body from his own ground (he floated nearly his height)', { skip: missing('transfer-footman', 'transfer-banshee') }, () => {

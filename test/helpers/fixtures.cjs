@@ -79,6 +79,13 @@ const FIXTURES = {
   'transfer-far-seer': ['MDLXL_TRANSFER_FAR_SEER', testModel('corpus-sd/orc__herofarseer.mdx')], // an animation "nothing" from 4294967129 to 0
   'transfer-white-wolf': ['MDLXL_TRANSFER_WHITE_WOLF', testModel('corpus-sd/creeps__whitewolf.mdx')],
   'transfer-faerie-dragon': ['MDLXL_TRANSFER_FAERIE_DRAGON', testModel('corpus-sd/nightelf__faeriedragon.mdx')], // hovers; its dangling legs swing through its Stand
+  'transfer-zergling': ['MDLXL_TRANSFER_ZERGLING', testModel('corpus-sd/critters__zergling.mdx')], // wolf rig: the front right leg's joints carry no part name
+  'transfer-grizzly': ['MDLXL_TRANSFER_GRIZZLY', testModel('corpus-sd/creeps__grizzlybear.mdx')], // the front left paw holds Hand Left Ref; the front right ends at a skin bone named Foot
+  'transfer-rabbit': ['MDLXL_TRANSFER_RABBIT', testModel('corpus-sd/critters__easterrabbit.mdx')], // Hand refs on the front shins, above the named front feet
+  'transfer-pig': ['MDLXL_TRANSFER_PIG', testModel('corpus-sd/critters__pig.mdx')], // one bone per leg: the hind pair hangs from one hip mesh
+  'transfer-sheep': ['MDLXL_TRANSFER_SHEEP', testModel('corpus-sd/critters__sheep.mdx')], // one bone per leg, Foot and Hand refs under them
+  'transfer-wyvern-rider': ['MDLXL_TRANSFER_WYVERN_RIDER', testModel('corpus-sd/orc__wyvernrider.mdx')], // numbered joints: both legs and the tail hang from one hip joint, both arms from the chest
+  'transfer-seal': ['MDLXL_TRANSFER_SEAL', testModel('corpus-sd/critters__seal.mdx')], // flippers of one and two bones; Hand Left Ref has no parent
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
