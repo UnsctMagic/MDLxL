@@ -169,3 +169,29 @@ timeout 180 s (row `timeout`, worker restarted), worker crash -> row `crash`. A 
   74 (all Plague Cloud / Plague Cloud Target, T1: base v1 scored them ok/look-bad); per class gone/new: geoset 117 -> 0,
   posture 108 -> 50, pose 155 -> 99, inside 65 -> 15, hand-inside 48 -> 17, mesh-vanishes 11 -> 0, flung 13 -> 8,
   collapse 10 -> 3, ground 112 -> 116 (43 gone, 47 new: next look).
+- 01:12 sweep-v2 running (651 models, 423,801 pairs, 14 shards, ~8.2/s -> ~55% by 09:00, stratified first). Panel head4 37 ok / 24 bad (base 4/57). NEXT at ~01:45 nudge: Opus analyst on sweep-v2 sample (ground 47 new, remaining pose/posture), then fix workers; merge claude/xfer-r1 when done.
+- 01:16 sweep-v2 sample done: ok 40.7% (base sample 16.7%), broken 1.1% (base 10.4%). Analyst v2 started on it.
+- 01:21 OWNER: 'use this run to also fix other things' -> 1 Retarget mode + 2 ANIM. Started Opus workers on claude/xfer-retarget and claude/anim-overnight (ANIM merges transfer-xl to run on transplant results).
+- 01:24 nudge: sweep-v2 checked; analyst v2, R1, Retarget, ANIM workers running.
+- 01:53 analyst v2 (Opus) on the sweep-v2 sample, POPULATION-weighted (the stratified sample over-weights rare kinds:
+  Plague Cloud x2 = 11.9% of the sample, 0.6% of pairs): v4 ok 46.7% / look-bad 49.5% / broken 3.1% / no-rig 0.6%.
+  `out/transfer-probe/overnight/analysis-v2/classes.md`. no-rig = only Plague Cloud + Plague Cloud Target (0 nodes,
+  0 vertices): correct, no unit. Proven yardstick false alarms -> **ruler v5 now installed as look.mjs** (v4 kept in
+  `analysis-v2/look-v4.mjs`; sweep-v2 keeps its frozen v4 in sweep-v2/code): sinks/floats against each model's own
+  Stand floor/sole (78 models stand below the origin: flyers, swimmers); feet-off-target mesh side reads the engine's G1
+  sole at the Stand's first frame (90% of feet flags: engine on its target, v4 read weapon tips/tails); hock legs read
+  as thigh + knee->foot (owner's straight shin: 33% of leg.lower/end2 weight, offsets = the donor's bind hock bend);
+  body frame/posture by hip/shoulder landmarks for biped trunks (55% of posture weight: chest pivots; Fire Pandaren on
+  Spanish Halberdier 35.7 -> 1.4 deg); flung ignores never-moving bones (hero glow left on the ground in Dissipate, as
+  the donor's own); segments pair by label (v4 compared nothing when a pelvis/chest was missing). Same engine, 180
+  population pairs: ok 47.2 -> 65.6%, feet-off 18.3 -> 3.9, leg.lower 16.7 -> 2.8, sinks 22.2 -> 16.1; panel 37 -> 48 ok
+  (`analysis-v2/panel-head5.json`). REAL, ranked: (1) body dips ~16%: weapon/arm tips/upright dragon bodies under the
+  ground while feet are right = 100% transplant on longer parts -> owner option G-OPT (opt-in lift, off by default);
+  (2) rider/mount + dragon posture ~6% (R1 rider pose); (3) inside on owns whose front legs/wings read as arms ~4% (R1);
+  (4) leg pairing knee<->hock flips L/R on Lord of Change donors ~1.5%, `limbPairing` anim-transfer.js 1612 -> R-B,
+  after R1 (same file, shared with retargeting: baseline must stay 0 differ); (5) odd-leg reads = R1 (5.7% of pairs touch
+  one); (6) G1 sole reference at Stand frame 0 (`solesDown` 1796, Faerie Dragon) small; (7) throws: Undead Car
+  keptExtra<->targetOf recursion (skeleton-transplant.js 728), Revenant Matrix undefined, Far Seer KEYFRAME_ORDER.
+  Parallel: G1b/G-OPT (skeleton-transplant ground functions) with R1; R-B after R1.
+- 01:54 nudge: sweep-v2 checked; workers running.
+- 01:54 analyst v2 done: ruler v5 live (weighted ok 46.7% under v4 -> ~65.6% under v5 on a 180-pair representative set; panel 48 ok). Started Opus: solesDown median + 3 throws on transfer-xl. Row 3 (own long weapon/arms under ground: opt-in lift) WAITS for owner. Row 10 (knee/hock L/R pairing) after R1.
