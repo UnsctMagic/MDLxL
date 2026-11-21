@@ -172,7 +172,7 @@ function floorOf(model, info, legIds, stand) {
  * the sample behind the last one; inside it the track is sampled at `frames` (and its own keys), each sample a straight
  * (slerp) step to the next. Its two end keys keep their value and their tangent on the outer side, so the motion outside
  * every window, and in every other sequence, stays exactly the donor's; the track keeps its interpolation type. */
-function rewriteTrack(model, node, si, frames, turns, property = 'Rotation') {
+export function rewriteTrack(model, node, si, frames, turns, property = 'Rotation') {
   const old = isTrack(node[property]) ? node[property] : null;
   const s = model.Sequences[si], [a, z] = s.Interval;
   const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }));
@@ -285,12 +285,12 @@ function fitSupportTool(model,info,id,floor) {
 
 // With two support pairs, the lowest contact alternates between the fore and
 // hind legs. Preserve the body path and absorb their changing reach at the knees.
-export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fixedBias = null) {
+export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fixedBias = null, individual = false) {
   const chains = parts.map(p => [p.joints[0],p.joints[1],p.marker]);
-  if (chains.length < (fixedBias == null ? 4 : 2) || chains.some(ids => new Set(ids).size !== 3 ||
+  if (chains.length < (individual ? 1 : fixedBias == null ? 4 : 2) || chains.some(ids => new Set(ids).size !== 3 ||
       ids.some(id => !model.Nodes[id] || isGlobalTrack(model.Nodes[id].Rotation,model)))) return null;
   const sorted = [...heights].sort((a,b) => a-b);
-  if (sorted.at(-1)-sorted[0] <= tolerance) return null;
+  if (individual ? sorted.every(v=>Math.abs(v)<=tolerance) : sorted.at(-1)-sorted[0] <= tolerance) return null;
   const bias = fixedBias ?? sorted[Math.floor(sorted.length/2)];
   const turns = chains.map(() => [new Map(),new Map(),new Map()]);
   const turn = (a,b) => new Quaternion().setFromUnitVectors(a.normalize(),b.normalize());
@@ -386,11 +386,11 @@ function plantSupportPalms(model, info, parts, floor, equipment) {
  * (how many samples turned), turn (largest, degrees), spans ([from, to] from the animation's start: outside them every key
  * is the donor's) }.
  */
-export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null }) {
+export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null, tailFloor = false }) {
   const out = [];
   const stand = standSequenceIndex(M);
   if (stand < 0 || !armParts.length || !legParts.length || !(ownHeight > 0)) return out;
-  const info = skinInfo(M), H = ownHeight, tol = TOLERANCE * H;
+  const info = skinInfo(M), H = ownHeight, tol = (tailFloor ? .001 : TOLERANCE) * H;
   const valid = armParts.filter(p => p.joints.length && p.joints.every(id => info.byId.has(id)));
   const supports = valid.filter(p => p.support && new Set([p.joints[0], p.joints[1], p.joints.at(-1)]).size === 3
     && p.joints.length >= 3 && p.joints.every(id => !isGlobalTrack(info.byId.get(id).Rotation, M)));
@@ -398,7 +398,7 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
     .map(p => ({ key: p.key, joint: p.joints[0], hand: p.joints[p.joints.length - 1], ids: info.subtree(p.joints[0]) }));
   // The floor: the median lowest point of the skin the legs carry, over the result's Stand (its soles).
   const legIds = new Set(legParts.flatMap(p => p.joints.filter(id => info.byId.has(id)).flatMap(id => [...info.subtree(id)])));
-  const floor = floorOf(M, info, legIds, stand);
+  const floor = tailFloor ? 0 : floorOf(M, info, legIds, stand);
   if (floor == null) return out;
   const equipment = weapon.supportGear || [];
   out.push(...plantSupportPalms(M, info, supports, floor, equipment));

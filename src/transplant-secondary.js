@@ -33,6 +33,18 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
     if ([...treeA.byId.values()].some(n => n.Name === root.Name &&
         treeA.byId.get(n.Parent)?.Name === treeB.byId.get(root.Parent)?.Name)) continue;
     const cloth = /cape|cloak/i.test(root.Name);
+    const wide = branch => {
+      const bones = new Set(branch);
+      let left=Infinity,right=-Infinity;
+      for (const [gi,g] of donor.Geosets.entries()) {
+        if (hidden.has(gi)) continue;
+        for (let i=0;i<g.Vertices.length/3;i++) if (vertexBones(g,i).some(id=>bones.has(id))) {
+          const y=g.Vertices[i*3+1];
+          left=Math.min(left,y); right=Math.max(right,y);
+        }
+      }
+      return right-left >= .28*h;
+    };
     const candidates = [];
     for (const [id,{sum:p}] of centres) {
       if (Math.abs(p.y-hip.y) > .19*h || (cloth ? p.z > hip.z+.1*h : p.x < hip.x+.12*h || p.z < hip.z)) continue;
@@ -43,16 +55,22 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
       const moving = branch.filter(j => ['Translation','Rotation','Scaling'].some(k => treeA.byId.get(j)[k]?.Keys?.length > 1));
       const low = Math.min(...branch.map(j=>pt(j).z));
       const back = moving.filter(j => pt(j).x < hip.x-.12*h && pt(j).z < hip.z-.15*h);
-      if (cloth ? back.length<2 || Math.max(...branch.map(j=>pt(j).y))-Math.min(...branch.map(j=>pt(j).y)) < .28*h :
+      if (cloth ? back.length<2 || !wide(branch) :
           moving.length<2 || p.z-low < .15*h) continue;
       const depth = (p.z-low)/h;
       candidates.push({id, host:treeA.parentOf(id), branch, score:depth - Math.abs(p.y-hip.y)/h});
     }
     const best = candidates.sort((a,b)=>b.score-a.score)[0];
     if (!best) continue;
-    const origin = new Vector3().fromArray(nodePivot(own,root,root.ObjectId));
+    const drape = cloth && !best.branch.some(j=>best.branch.filter(k=>treeA.parentOf(k)===j).length>1) &&
+      roots.some(n=>/cape.*dummy|cloak.*dummy/i.test(n.Name));
+    // A panelled cloak can have a detached hem rig. Measure every row in
+    // one collar-to-hem coordinate system, including panels hung on the arms.
+    const panels = drape ? [...treeB.byId.values()].filter(n=>/cape|cloak/i.test(n.Name)) : [];
+    const collar = drape ? panels.reduce((a,b)=>nodePivot(own,a)[2]>nodePivot(own,b)[2]?a:b) : root;
+    const origin = new Vector3().fromArray(nodePivot(own,collar,collar.ObjectId));
     const pivot = id => new Vector3().fromArray(nodePivot(own,treeB.byId.get(id),id));
-    const extent = Math.max(1,...ids.map(id=>origin.z-pivot(id).z));
+    const extent = Math.max(1,...(drape?panels.map(n=>n.ObjectId):ids).map(id=>origin.z-pivot(id).z));
     const top = pt(best.id), bottom = Math.min(...best.branch.map(j=>pt(j).z));
     for (const id of ids.sort((a,b)=>treeB.depth(a)-treeB.depth(b))) {
       const parent = matches.get(treeB.parentOf(id)), ownPoint = pivot(id);
@@ -60,17 +78,77 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
       const targetZ = top.z+(bottom-top.z)*depth;
       const side = (ownPoint.y-origin.y)/extent;
       // A flared hem can have its left and right panels on sibling joints.
-      const fork = cloth && Math.abs(side) > .15 && ids.some(s => s !== id && treeB.parentOf(s) === treeB.parentOf(id));
+      const fork = cloth && !drape && Math.abs(side) > .15 && ids.some(s => s !== id && treeB.parentOf(s) === treeB.parentOf(id));
       const sided = fork ? best.branch.filter(j => (pt(j).y-hip.y)*Math.sign(side) > .15*h && pt(j).x < hip.x) : [];
       const allowed = sided.length ? sided : best.branch.filter(j => !parent || treeA.isAncestor(j,parent.driver));
       const cost = j => Math.abs(pt(j).z-targetZ)/h + Math.abs((pt(j).y-hip.y)/h-side) +
         (cloth ? Math.max(0,(pt(j).x-hip.x)/h)*2 : Math.max(0,(hip.x-pt(j).x)/h)*2);
       const driver = allowed.sort((a,b)=>cost(a)-cost(b))[0] ?? parent?.driver;
-      if (driver != null) matches.set(id,{driver,host:parent?.driver ?? best.host,cloth,root:root.ObjectId,
+      if (driver != null) matches.set(id,{driver,host:parent?.driver ?? best.host,cloth,drape,collar:drape && !parent,root:root.ObjectId,
         anchor:best.host,branch:best.branch,depth,split:parent && !treeA.isAncestor(driver,parent.driver)});
     }
   }
   return matches;
+}
+
+// Some layered clothes have a separate rig for the bottom row. Treat the
+// authored seams as one continuous strip and fit each row to the moving
+// donor cloth surface in chest space. Adjacent panels share a hinge.
+function panelledCloak(own,donor,tree,matches,ref,matrices) {
+  const tracks=new Map(), rows=[...matches].filter(([id,m])=>m.drape && /dummy/i.test(own.Nodes[id].Name))
+    .map(([id])=>id).sort((a,b)=>nodePivot(own,own.Nodes[b])[2]-nodePivot(own,own.Nodes[a])[2]);
+  if(rows.length<3)return tracks;
+  const match=matches.get(rows[0]), bones=new Set(match.branch), host=match.anchor, samples=[];
+  const mat=matrices(ref.frame,ref.sequence);
+  for(const [gi,g] of donor.Geosets.entries()) {
+    if(corpseAndBackgroundGeosets(donor).has(gi))continue;
+    for(let v=0;v<g.Vertices.length/3;v++) {
+      const ids=vertexBones(g,v);
+      if(ids.length && ids.every(id=>bones.has(id))) samples.push({ids,p:new Vector3().fromArray(g.Vertices,3*v)});
+    }
+  }
+  if(samples.length<8)return tracks;
+  const position=(s,w)=>{
+    const v=new Vector3();
+    for(const id of s.ids) v.addScaledVector(s.p.clone().applyMatrix4(w.get(id)),1/s.ids.length);
+    return v;
+  };
+  const ranked=samples.sort((a,b)=>position(b,mat).z-position(a,mat).z);
+  const cloud=Array.from({length:rows.length+1},(_,i)=>{
+    const centre=(ranked.length-1)*i/rows.length, half=Math.max(1,ranked.length*.09);
+    return ranked.slice(Math.max(0,Math.floor(centre-half)),Math.ceil(centre+half)+1);
+  });
+  const levels=rows.map(id=>new Vector3().fromArray(nodePivot(own,own.Nodes[id])));
+  levels.push(levels.at(-1).clone().add(levels.at(-1).clone().sub(levels.at(-2))));
+  for(const [id,m] of matches) if(m.drape) {
+    const j=rows.indexOf(id), z=nodePivot(own,own.Nodes[id])[2];
+    if(j<0) m.panelParent=rows.reduce((a,b)=>Math.abs(nodePivot(own,own.Nodes[a])[2]-z)<Math.abs(nodePivot(own,own.Nodes[b])[2]-z)?a:b);
+    else if(j>0)m.panelParent=rows[j-1];
+    tracks.set(id,{});
+  }
+  const keys=rows.map(()=>new Map());
+  for(const [si,s] of donor.Sequences.entries()) {
+    if(!s.Interval)continue;
+    const [a,b]=s.Interval,times=new Set([a,b]),last=[];
+    for(let k=1;a+Math.round(k*1000/30)<b;k++)times.add(a+Math.round(k*1000/30));
+    for(const id of bones)for(const key of donor.Nodes[id].Rotation?.Keys||[])if(key.Frame>=a&&key.Frame<=b)times.add(key.Frame);
+    for(const f of [...times].sort((x,y)=>x-y)){
+      const world=matrices(f,si),anchor=world.get(host);
+      if(!anchor || Math.abs(anchor.determinant())<1e-8)continue;
+      const inverse=anchor.clone().invert();
+      const path=cloud.map(bucket=>bucket.reduce((v,s)=>v.add(position(s,world)),new Vector3()).divideScalar(bucket.length).applyMatrix4(inverse));
+      let upper=new Quaternion();
+      rows.forEach((id,j)=>{
+        const from=levels[j+1].clone().sub(levels[j]),to=path[j+1].clone().sub(path[j]);
+        const angle=to.lengthSq()>1e-6 ? new Quaternion().setFromUnitVectors(from.normalize(),to.normalize()) : upper.clone();
+        const q=upper.clone().invert().multiply(angle).normalize();
+        if(last[j] && last[j].dot(q)<0)q.set(-q.x,-q.y,-q.z,-q.w);
+        keys[j].set(f,{Frame:f,Vector:new Float32Array(q.toArray())});last[j]=q;upper=angle;
+      });
+    }
+  }
+  rows.forEach((id,j)=>{tracks.get(id).Rotation={LineType:1,GlobalSeqId:null,Keys:[...keys[j].values()].sort((a,b)=>a.Frame-b.Frame)};});
+  return tracks;
 }
 
 // Express donor deformation relative to the panel above it, at this surface's
@@ -85,7 +163,10 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
   const relative = (m,d,h) => (m.get(h) || new Matrix4()).clone().invert().multiply(m.get(d));
   const splitRoots = new Set([...matches.values()].filter(m => m.split).map(m => m.root));
   const spans = new Map();
+  const drapeTracks = panelledCloak(own,donor,tree,matches,ref,matrices);
+  for(const [id,keys] of drapeTracks) tracks.set(id,keys);
   for (const [id,match] of matches) {
+    if(drapeTracks.has(id)) continue;
     const {driver,host,cloth} = match;
     if (splitRoots.has(match.root)) {
       tracks.set(id,hemMotion(id,match));
