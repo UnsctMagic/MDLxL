@@ -2784,7 +2784,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // A homologous tail can be longer than the donor's. Use the same
     // skinned-surface floor solve for the articulated tail branch.
     const tailIds=tailLine.map(j=>jointTarget.get(j)).filter(j=>/tail/i.test(donorById.get(j)?.Name));
-    if(tailIds.length>=2 && legPairs(rigB)>0 && legPairs(rigA)>0) {
+    // Winged donors can tuck their legs while airborne. Their tail keeps the donor's rotation.
+    if (tailIds.length >= 2 && legPairs(rigB) > 0 && legPairs(rigA) > 0 && !rigA.parts.wingL && !rigA.parts.wingR) {
       const tail={key:'tail',joints:tailIds};
       bendArmsAboveFloor(M,{ownHeight:hi-lo,arms:[mapped(tail)],legs:legs.map(mapped),weapon:{},tailFloor:true,
         donor:{model:D,arms:[tail],legs:legs.map(own),size}});
