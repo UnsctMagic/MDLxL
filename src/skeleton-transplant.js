@@ -42,6 +42,8 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
+import { physicalSurfaceComponents } from './geoset-operations.js';
 import { SKIN_BAND, donorSkinCarriers, legTravelRatio, splitJoints, transplantRuns } from './transplant-skin.js';
 import { standSequenceIndex, fillSequenceExtents } from './sequence-editor.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
@@ -106,6 +108,33 @@ function alignFrames(from, to, side = null, sideTo = null) {
   if (s1.lengthSq() < 1e-12 || s2.lengthSq() < 1e-12) return swing;
   const angle = Math.atan2(s1.clone().cross(s2).dot(axis), s1.dot(s2));
   return new Quaternion().setFromAxisAngle(axis, angle).multiply(swing);
+}
+
+// A broad rigid plate provides the twist about a wrist that a single handle
+// cannot express. Look only at connected skin on the static hand carriers.
+function wristPlateNormal(model, carriers) {
+  let best = null, largest = 0;
+  for (const geo of model.Geosets) {
+    if (!geo.Faces?.length) continue;
+    const ids = Array.from({length: geo.Vertices.length / 3}, (_, i) => vertexBones(geo, i));
+    const eligible = i => ids[i].length === 1 && carriers.has(ids[i][0]);
+    if (!ids.some((_, i) => eligible(i))) continue;
+    for (const part of physicalSurfaceComponents(geo)) {
+      if (part.faceIndices.length < 3 || !part.vertices.every(eligible)) continue;
+      const faces = part.faceIndices.map(i => {
+        const [a,b,c] = Array.from(geo.Faces.subarray(i * 3, i * 3 + 3), v => v3(geo.Vertices.subarray(v * 3, v * 3 + 3)));
+        return b.sub(a).cross(c.sub(a));
+      });
+      const area = faces.reduce((sum, n) => sum + n.length(), 0);
+      if (area <= largest) continue;
+      const reference = faces.reduce((p, n) => n.lengthSq() > p.lengthSq() ? n : p).clone().normalize();
+      const alignment = faces.reduce((sum,n) => sum + Math.abs(n.dot(reference)), 0);
+      if (alignment < 0.85 * area) continue;
+      best = reference;
+      largest = area;
+    }
+  }
+  return best;
 }
 
 /** Bind pivots of the first joints of the legs, averaged (else the body joint): the hip centre in the rest pose. */
@@ -882,6 +911,29 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   rigA = duplicateGaitChains(D,rigA,entries,gaitSources);
   const donorNodes = allNodes(D), donorById = new Map(donorNodes.map(n => [n.ObjectId, n])), treeA = nodeIndex(D, donorNodes);
   const pA = id => v3(nodePivot(D, donorById.get(id), id));
+  // A static hand mesh can have its pivot near the head. If its forearm also
+  // carries an authored wrist attachment, use that endpoint for a recipient
+  // with the same arm chain. The hand mesh stays on its forearm as authored.
+  for (const entry of entries) {
+    const { own, theirs } = entry;
+    if (own.limbKind !== 'arm' || theirs.limbKind !== 'arm' || !own.tip ||
+        theirs.joints.length !== own.joints.length + 1) continue;
+    const hand = donorById.get(theirs.marker), elbow = theirs.joints.at(-2);
+    const ownRef = own.line.at(-1);
+    if (hand?.Parent !== elbow || ['Translation','Rotation','Scaling'].some(k => hand[k]?.Keys?.length) ||
+        !model.Attachments?.some(n => n.ObjectId === ownRef && n.Parent === own.marker)) continue;
+    const ref = D.Attachments?.find(n => n.Parent === elbow && /hand/i.test(n.Name));
+    if (!ref || pA(ref.ObjectId).sub(pA(elbow)).dot(pA(theirs.marker).sub(pA(elbow))) >= 0) continue;
+    const joints = theirs.joints.slice(0, -1);
+    const arm = { ...theirs, joints, marker: elbow, line: [...joints, ref.ObjectId], tip: pA(ref.ObjectId) };
+    entry.theirs = arm;
+    entry.map = joints.map((_, index) => index);
+    entry.wristRefs = [ownRef, ref.ObjectId];
+    const carriers = new Set((treeB.children.get(own.marker) || [])
+      .filter(n => !['Translation','Rotation','Scaling'].some(k => n[k]?.Keys?.length)).map(n => n.ObjectId));
+    entry.plateNormals = [wristPlateNormal(model, carriers), wristPlateNormal(D, new Set([hand.ObjectId]))];
+    rigA = Object.assign(Object.create(rigA), { parts: { ...rigA.parts, [arm.key]: arm } });
+  }
   // Harpies have hands and a separate wing branch below each elbow. When a bird
   // takes that wing, follow the joints carrying its feathers past the elbow.
   for (const wing of Object.values(rigB.parts || {}).filter(p => p.limbKind === 'wing')) {
@@ -940,6 +992,25 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const hangs = entry.key === 'hips' ? 'leg' : entry.key === 'chest' ? 'arm' : null;
     if (hangs) { const b = own.indexOf(carrier(rigB, hangs)), a = theirs.indexOf(carrier(rigA, hangs)); if (b >= 0 && a >= 0) { kB = b; kA = a; } }
     trunkMap(own, theirs, kB, kA).forEach((j, i) => { const target = theirs[j]; jointTarget.set(own[i], target); if (!pairedOwn.has(target) || i === kB) pairedOwn.set(target, own[i]); });
+  }
+  // In the combined POSE reading, "hips" belongs to the mount. The rider's
+  // pelvis is exposed by the seated reading. Skin on that joint must travel
+  // with the rider even when the horse and rider separate during Death.
+  const mountedPair = rigA.actors?.length > 1 && rigB.actors?.length > 1 && legPairs(rigA) === 2 && legPairs(rigB) === 2;
+  if (mountedPair) {
+    const mine = transferRig(model, { actor: 'seated', sequence: ownStand }).parts?.hips;
+    const theirs = transferRig(reflected, { actor: 'seated', sequence: donorStand0 }).parts?.hips;
+    if (mine?.joints.length && theirs?.joints.length) {
+      const map = trunkMap(mine.joints, theirs.joints, mine.joints.indexOf(mine.marker), theirs.joints.indexOf(theirs.marker));
+      mine.joints.forEach((id, i) => {
+        const joint = theirs.joints[map[i]];
+        if (jointTarget.has(id) || rigA.parts.hips.joints.includes(joint)) return;
+        ownPartOf.set(id, 'chest');
+        partOfDonor.set(joint, 'chest');
+        jointTarget.set(id, joint);
+        if (!pairedOwn.has(joint)) pairedOwn.set(joint, id);
+      });
+    }
   }
   // Keep the recipient's animal head on the foreleg carrier below the humanoid torso.
   if (lowerBodyOnly) for (const key of ['head', 'chest'])
@@ -1438,7 +1509,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     joints.forEach((id, j) => {
       const next = joints[j + 1];
       let turn = previous;
-      if (next == null && entry.own.limbKind === 'leg') turn = new Quaternion();
+      if (next == null && entry.wristRefs) {
+        const [ownRef, donorRef] = entry.wristRefs;
+        const from = pB(ownRef).sub(placed.get(id)), to = pA(donorRef).sub(pA(id));
+        turn = arc(from, to);
+        const [ownPlate, donorPlate] = entry.plateNormals;
+        if (ownPlate && donorPlate) {
+          const normal = ownPlate.clone().applyQuaternion(turn).dot(donorPlate) < 0 ? donorPlate.clone().negate() : donorPlate;
+          turn = alignFrames(from, to, ownPlate, normal);
+        }
+      } else if (next == null && (entry.own.limbKind === 'leg' || entry.own.limbKind === 'arm' && entry.theirs.limbKind === 'leg')) turn = new Quaternion();
       else if (next != null && placed.has(id) && placed.has(next)) {
         const mine = placed.get(next).clone().sub(placed.get(id)), theirs = chordOf.get(id)?.clone() ?? pA(next).sub(pA(id));
         if (mine.length() > 1e-3 * rigB.hipHeight && theirs.length() > 1e-3 * rigA.hipHeight) turn = arc(mine, theirs);
@@ -1488,7 +1568,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // root and its pelvis joints; left out, that skin read as the root's, and a Baron's horse body bound to the root stayed
     // up while the Dragonspawn's body fell in its Death).
     const top = rigA.parts.hips?.joints?.[0] ?? rigA.body, chain = new Set(trunkJoints);
-    for (const id of [...(rigA.parts.hips?.joints || []).slice(1), ...(rigA.parts.chest?.joints || [])]) {
+    for (const id of trunkJoints) {
       const line = treeA.ancestors(id);
       if (!line.includes(top)) continue;
       for (const a of line) { if (keepDonor.has(a) && isDonorJoint(a) && placed.has(a)) chain.add(a); if (a === top) break; }
@@ -1553,7 +1633,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // its leg pairs; from the hip centre to the rider's shoulders, the whole of both bodies tipped to seat the riders alike
     // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
     // then takes the donor rider's lean on its own (below).
-    const riders = rigA.actors?.length > 1 && rigB.actors?.length > 1 && count(rigB, 'leg') === 4;
+    const riders = mountedPair;
     const fourContacts = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
     const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
     if (bipeds && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
@@ -1600,7 +1680,20 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         const spine = alignFrames(frontB.clone().sub(backB), frontA.clone().sub(backA), acrossB, acrossA);
         for (const id of trunkJoints) correction.set(id, spine.clone());
         posture.spine = angle(spine);
-        trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints, moves: true });
+        // Fit the mount spine between its legs. The seated pelvis and chest
+        // must stay on the recipient rider, whose shoulders determine its lean.
+        const mountTrunk = riders ? trunkJoints.filter(id => rigA.parts.hips.joints.includes(id)) : trunkJoints;
+        trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints: mountTrunk, moves: true });
+        // When hands take the donor's forepaws, the receiver's neck bends with
+        // the trunk. Seat its skull relative to the forelegs in the same frame
+        // as the donor's single head handle. Its own upright offset can rotate
+        // the skull below its shoulders, even with all four feet on the ground.
+        if (fourContacts && headJoints.length === 1 && pairedOwn.has(headAt)) {
+          const scale = backB.distanceTo(frontB) / backA.distanceTo(frontA);
+          const offset = pA(headAt).sub(frontA).multiplyScalar(scale).applyQuaternion(inv(spine));
+          const shift = frontB.clone().add(offset).sub(placed.get(headAt));
+          neckBend = { shift, of: new Map([[headAt, 1]]), extra: () => 0 };
+        }
         // A rider on a rider (RR1): the rider's chest joints turn so the line from the chest's first joint to the middle of
         // the shoulders lies along the donor rider's.
         const chestIds = (rigA.parts.chest?.joints || []).filter(id => placed.has(id));
@@ -2198,14 +2291,14 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (floor === 'bend' && rigB.ok && rigA.ok && ground) {
     const mapped = part => ({ key: part.key, joints: part.joints.map(id => remap.get(newId(id))).filter(id => id != null && M.Nodes[id]) });
     const parts = Object.values(rigA.parts || {}), own = part => ({ key: part.key, joints: part.joints });
-    // An arm carrying a forepaw needs the same floor correction as an arm carrying a hand.
+    // A supporting palm keeps the donor's stride as its elbow flexes to clear the sole plane.
     const forelegs = new Set(limbEntries.filter(e => e.own.limbKind === 'arm' && e.theirs.limbKind === 'leg').map(e => e.theirs.key));
     const arms = parts.filter(p => p.limbKind === 'arm' || forelegs.has(p.key));
     const legs = parts.filter(p => p.limbKind === 'leg' && !forelegs.has(p.key));
     let lo = Infinity, hi = -Infinity;
     for (const g of model.Geosets || []) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); }
     bend = bendArmsAboveFloor(M, {
-      ownHeight: hi - lo, arms: arms.map(mapped), legs: legs.map(mapped),
+      ownHeight: hi - lo, arms: arms.map(p => ({ ...mapped(p), support: forelegs.has(p.key) })), legs: legs.map(mapped),
       weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap, ...(bowHands ? {hands:bowHands} : {}) },
       // A paw serves as a foot. Its support plane is the recipient's sole plane.
       donor: { model: D, arms: arms.filter(p => !forelegs.has(p.key)).map(own), legs: legs.map(own), weapon: donorWeapon ?? null, size },

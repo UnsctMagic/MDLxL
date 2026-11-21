@@ -300,7 +300,7 @@ The 20 new owner grades above are the independent quality result for this build.
 
 ## Follow-up result — donor posture and the 20-pair review, 21 November
 
-I reviewed 16 transfers between similar body types and four transfers between body types. I watched the posed meshes in Stand, Walk and Attack, inspected 12 phases per clip, and checked the saved MDX files side by side in the textured MDLxL viewer. My grades are 16 good and four mixed. The owner has not graded this selection. It includes related models with nearly identical rigs, so its score cannot estimate the success rate on random units.
+I reviewed 16 transfers between similar body types and four transfers between body types. I watched the posed meshes in Stand, Walk and Attack, inspected 12 phases per clip, and checked the saved MDX files side by side in the textured MDLxL viewer. I initially graded 16 good and four mixed. I withdraw that assessment. The owner subsequently gave five exports zero, and six comparisons reuse essentially the same mesh. The later skin audit below supersedes my grades.
 
 ### Engine changes
 
@@ -309,7 +309,7 @@ I reviewed 16 transfers between similar body types and four transfers between bo
 - On the Skeleton Warrior, both the sword and shield had qualified as weapons. The Footman's sword consequently followed the shield arm. Where both hands have named equipment, an authored Weapon Ref on one hand and shield-only equipment on the other resolve the weapon side. This retains an ambiguous reading for two actual weapons. The corrected Footman carries its sword forward in Walk and swings with the donor.
 - Fifteen of the 16 ordinary comparisons retained their build 31 sampled skin and handle positions. Wrist placement can still differ because of shoulder spacing and arm length. On Wolf Rider → Knight the rein hand reaches across the rider's middle in Walk. On Grunt → Felguard the right elbow comes farther inside during part of Attack. These are the two ordinary transfers I judged mixed.
 
-### My visual grades
+### Withdrawn visual grades, retained for comparison with the owner's notes
 
 | Donor → recipient | Grade | What I saw |
 |---|---:|---|
@@ -343,3 +343,39 @@ The 61-pair panel retained 59 good and two bad. The 1,000 humanoid pairs retaine
 - [Open the 20 saved donor/result comparisons](<D:/Codex/xfer-pose-handles-review/Review 20.cmd>). The launcher opens build 31 as a viewer for MDX files exported by the revised engine. It stores any new owner grades beside this sheet.
 - [Textured comparison of all 20 pairs](<D:/Codex/xfer-pose-handles-review/evidence/twenty-in-mdlxl.jpg>) and [four before-and-after Walk cycles](<D:/Codex/xfer-pose-handles-review/evidence/four-walks.webp>).
 - [Saved MDX files](<D:/Codex/xfer-pose-handles-review/models>) and [regression counts](<D:/Codex/xfer-pose-handles-review/evidence/regressions.json>).
+
+## Corrected result after the owner rejected the 20-pair selection
+
+The owner graded all 20. Six pairs were texture or near-identical mesh variants. Of the 14 distinct transfers, the owner gave nine an 8–10 and five a zero. My earlier 16-good assessment missed visible deformation on the mounted units, a misplaced shield, and both failed Bear postures. I withdraw those grades and the selection. The original owner files and answers are preserved.
+
+### The five zeroes
+
+| Donor → recipient | What changed | My judgment on the revised export |
+|---|---|---|
+| Wolf Rider → Knight | The rider's seated POSE pelvis now carries the rider's waist. The horse's trunk fit uses the mount hips, so the horse no longer pulls the waist along a shoulder-to-hip skin band. | **Hold.** At the start of Walk the horse's covering stretches between its legs. One edge measures 96.8 units against 55.4 at its longest in the native Knight. |
+| Knight → Wolf Rider | Pairing the seated pelvis also keeps wolf and rider skin on their respective actors in the reverse transfer. | **Hold.** In Death the Knight has fallen into a heap. The Wolf Rider still appears seated, and an edge between the wolf's body and chest reaches 57.8 units against a native maximum of 31.1. |
+| Bandit → Footman | The Bandit's authored wrist attachment sits on the forearm. A static mesh carrier had put the apparent wrist behind the head. XFER now uses the attachment to establish the forearm direction. Where both hands carry a rigid plate, the connected shield surface sets wrist twist. | **Shield placement verified in MDLxL.** The Footman's larger shield stays at the forearm and follows the guard and strikes. Correcting position alone left the two shield faces 32° apart. The final difference is 7.5° in Stand, Walk, Defend and Attack. In Decay Bone the Bandit shows its separate gut mesh and the Footman disappears. This follows the owner's existing living-body visibility rule. |
+| Grizzly Bear → Tauren Chieftain | The shoulder pairs at the POSE arm root. The forelegs locate the head. A supporting palm uses the POSE elbow solve for vertical floor clearance while retaining the paw orientation and stride. | **Hold.** Hands stay on their respective sides in all 234 Walk samples. The owner-graded export crossed in 196. Chieftain wrist travel over 10 ms peaks at 0.06 limb lengths in Walk and 0.14 in Attack Slam, against 0.07 and 0.14 on the Bear. In Attack Slam the skin between the upper arm and chest still stretches from a native maximum of 45.2 to 90.0 units. |
+| Grizzly Bear → Tauren | The regular Tauren uses the same four donor support handles. It keeps its hands apart in all 234 Walk samples. The graded export crossed in 40. | **Hold.** In Attack Slam the log extends in front of the body on an elongated shoulder. The edge between the upper arm and the shoulder/neck blend reaches 63.3 units against 33.2 in the native Tauren. |
+
+[Four held exports at the failing frames](<D:/Codex/xfer-astra-r1/out/skin-review/held-skin.jpg>) · [Bandit and Footman shield comparison](<D:/Codex/xfer-astra-r1/out/skin-review/shield.jpg>)
+
+### Selection and visual checks
+
+The two Archer directions share all 280 distinct vertex positions and the two Wolf directions share all 269. The Chaos Wolf Rider shares 382 positions with the ordinary Wolf Rider. The Chaos Grunt shares 403 with the ordinary Grunt. All six were excluded. Positions were rounded to 0.1 model unit so that UV seams and reordered vertices would not disguise a shared shape.
+
+The nine genuinely different, high-graded exports regenerated byte for byte. These include Grunt ↔ Footman, Felguard ↔ Grunt, Footman → Bandit, Centaur → Grunt, Centaur → Grizzly Bear, Footman → Militia and Skeleton Warrior → Footman. Their grades belong to the owner.
+
+I replaced the six duplicates in the **internal** comparison with Militia → Grunt, Bandit → Grunt, Grunt → Captain, Felguard → Footman, Footman → Felguard and Knight → Death Knight. Each has distinct geometry. The Militia's backswing and forward step read on the Grunt. The Captain takes the Grunt's walk and weapon throw. The two Footman/Felguard directions show why a similar body plan alone is insufficient: one holds a shield while the other uses a long weapon. Knight → Death Knight still crowds the rider and mount during the fall. These comparisons have no owner grades.
+
+The saved-mesh check walked every visible non-additive triangle edge at 60 Hz, at authored local track keys, and at clip endpoints. It compared each edge with its maximum through the recipient's own animation catalog. It covered 173,551 poses in the original 20 exports. The five challenged exports and six new cases also ran through a hidden textured MDLxL viewer. Across their 137 clips, 103,675 synchronized pose samples were examined. After folding consecutive identical visible poses, ten camera directions yielded 768,140 donor/result comparisons, including overhead and underside views. Frame-by-frame capture and image checks were automated. I personally inspected synchronized motion strips, orbits and enlarged failure frames. I did not personally grade each individual render. Long Decay clips account for a substantial share of the frame count.
+
+The high owner grades, the native recipient's edge lengths and the donor's actual stance provide independent references. A single moving limb, a passing floor-height test or a successful export cannot establish a visual pass. The old 20-pair launcher remains historical. I have withheld a new owner grading panel.
+
+[Per-pair surfaces and export fingerprints](<D:/Codex/xfer-astra-r1/out/skin-review/surfaces.json>) · [Per-clip frame and camera coverage](<D:/Codex/xfer-astra-r1/out/skin-review/coverage.json>)
+
+### Regression results
+
+All 268 related tests passed on the final code, with zero skips. All 32 retarget fingerprints match the previous baseline, including the fixture whose donor lacks a Spell sequence. The 61-pair panel retained 59 good and two bad. The humanoid 1,000 retained 993 good, three mixed and four bad. After the initial sweep I replayed 136 humanoid rows covering potential forelimb changes and pending cases, then 326 rows whose donor could have a misplaced static hand carrier. Every prior panel and humanoid verdict was preserved.
+
+On the original 40 pairings, the ruler called these revised exports 36 good, one mixed and three bad. Those calls agree with the owner's grades on the **original exports** in only 19 cases. This comparison does not establish owner acceptance of any revised export. Whole-model Warcraft III playback was not exercised. The local evidence records the remaining mesh failures, contains the eleven private engineering exports and leaves the previously distributed model files intact. [Regression results](<D:/Codex/xfer-astra-r1/out/skin-review/regressions.json>)

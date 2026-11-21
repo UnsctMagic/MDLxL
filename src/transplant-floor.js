@@ -12,6 +12,7 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { TRANSFORM_DEFAULTS, allNodes, inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
+import { solveTwoBone } from './pose-ik.js';
 import { standSequenceIndex } from './sequence-editor.js';
 
 const STEP = 1000 / 30, DENSE = 1000 / 120, DEG = 180 / Math.PI;
@@ -251,6 +252,60 @@ function carryHeldWeapon(M, original, boneId, arms, handAt, plans) {
   }
 }
 
+// A hand carrying the donor's weight is a foot. Lift its contact surface
+// vertically with the POSE elbow solve, keeping its stride and paw orientation.
+function plantSupportPalms(model, info, parts, floor) {
+  const report = [];
+  for (const part of parts) {
+    const chain = part.joints;
+    const joints = [chain[0], chain[1], chain.at(-1)];
+    const nodes = joints.map(id => info.byId.get(id));
+    const palm = info.subtree(joints[2]);
+    const handSkin = (geo, v) => geo.bones[v].some(id => palm.has(id));
+    for (const [si, seq] of model.Sequences.entries()) {
+      if (!seq.Interval || NO_GROUND.test(seq.Name || '')) continue;
+      const [a, b] = seq.Interval, samples = new Set([a, b]);
+      for (let t = a; t < b; t += DENSE) samples.add(Math.round(t));
+      for (const id of chain) for (const key of info.byId.get(id)?.Rotation?.Keys || []) {
+        if (key.Frame >= a && key.Frame <= b) samples.add(key.Frame);
+      }
+      const frames = [...samples].sort((x, y) => x - y), visible = info.visibleIn(si);
+      const values = joints.map(() => new Map());
+      let maxTurn = 0;
+      for (const frame of frames) {
+        const mats = sampleNodeMatrices(model, frame, si);
+        const lift = floor - lowest(info, mats, visible, si, frame, handSkin).minZ;
+        if (!(lift > 0)) continue;
+        const [root, middle, end] = nodes.map(n => v3(nodePivot(model, n)).applyMatrix4(mats.get(n.ObjectId)));
+        const lengths = [root.distanceTo(middle), middle.distanceTo(end)];
+        if (Math.min(...lengths) < 1e-5) continue;
+        const target = end.clone();
+        target.z += lift;
+        const solved = solveTwoBone({root, middle, end, lengths, tolerance: 1e-5}, target);
+        const turn = (from, to) => new Quaternion().setFromUnitVectors(from.normalize(), to.normalize());
+        const upper = turn(middle.clone().sub(root), solved.middle.clone().sub(root));
+        const lower = turn(end.clone().sub(middle), solved.end.clone().sub(solved.middle));
+        const deltas = [upper, lower, new Quaternion()];
+        let parentDelta = new Quaternion();
+        for (const [i, n] of nodes.entries()) {
+          const basis = new Matrix4().extractRotation(mats.get(n.Parent) || new Matrix4());
+          const parent = new Quaternion().setFromRotationMatrix(basis).normalize();
+          const local = parent.clone().invert().multiply(parentDelta.clone().invert()).multiply(deltas[i]).multiply(parent);
+          values[i].set(frame, v => local.clone().multiply(new Quaternion().fromArray(v)).normalize().toArray());
+          parentDelta = deltas[i];
+        }
+        maxTurn = Math.max(maxTurn, upper.angleTo(new Quaternion()));
+      }
+      if (!values[0].size) continue;
+      const windows = rewriteTrack(model, nodes[0], si, frames, values[0]);
+      for (let i = 1; i < nodes.length; i++) rewriteTrack(model, nodes[i], si, frames, values[i]);
+      report.push({sequence: seq.Name, arm: part.key, joint: joints[0], frames: values[0].size,
+        turn: maxTurn * DEG, spans: windows.map(([p,q]) => [p-a,q-a])});
+    }
+  }
+  return report;
+}
+
 /**
  * Turn the arms of a transplant result up at their first joint where their mesh would go under the floor.
  * `M`: the result (changed in place). `ownHeight`: the open model's bind height. `arms`: [{ key, joints }] and `legs`:
@@ -267,13 +322,17 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   const stand = standSequenceIndex(M);
   if (stand < 0 || !armParts.length || !legParts.length || !(ownHeight > 0)) return out;
   const info = skinInfo(M), H = ownHeight, tol = TOLERANCE * H;
-  const arms = armParts.filter(p => p.joints.length && p.joints.every(id => info.byId.has(id)))
+  const valid = armParts.filter(p => p.joints.length && p.joints.every(id => info.byId.has(id)));
+  const supports = valid.filter(p => p.support && new Set([p.joints[0], p.joints[1], p.joints.at(-1)]).size === 3
+    && p.joints.length >= 3 && p.joints.every(id => !isGlobalTrack(info.byId.get(id).Rotation, M)));
+  const arms = valid.filter(p => !supports.includes(p))
     .map(p => ({ key: p.key, joint: p.joints[0], hand: p.joints[p.joints.length - 1], ids: info.subtree(p.joints[0]) }));
-  if (!arms.length) return out;
   // The floor: the median lowest point of the skin the legs carry, over the result's Stand (its soles).
   const legIds = new Set(legParts.flatMap(p => p.joints.filter(id => info.byId.has(id)).flatMap(id => [...info.subtree(id)])));
   const floor = floorOf(M, info, legIds, stand);
   if (floor == null) return out;
+  out.push(...plantSupportPalms(M, info, supports, floor));
+  if (!arms.length) return out;
   const swap = weapon.swap || [];
   const handAt = (si,f) => weapon.hands ? sampleTrack(weapon.hands,f,{interval:M.Sequences[si].Interval,fallback:-1}) : -1;
   // The donor's own arms under the donor's floor at the same moment (by arm key), in this model's size.

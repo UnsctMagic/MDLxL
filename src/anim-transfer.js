@@ -1770,7 +1770,10 @@ export function jointMap(ownPath, theirPath, ownCount, theirCount) {
  * Returns null when either limb's top and end are not known: the caller pairs by distance. */
 const KNEE_BEND = 10, KNEE_MARGIN = 20;
 function limbPairing(own, theirs, rest, onLine, partner = null, { kneeToKnee = false } = {}) {
-  if (!['arm', 'leg'].includes(own.limbKind) || own.limbKind !== theirs.limbKind) return null;
+  // An arm supporting a four-legged transplant still begins at the POSE
+  // shoulder. A clavicle above it cannot serve as the donor's first leg bone.
+  const armSupportsBody = kneeToKnee && own.limbKind === 'arm' && theirs.limbKind === 'leg';
+  if (!['arm', 'leg'].includes(own.limbKind) || (own.limbKind !== theirs.limbKind && !armSupportsBody)) return null;
   const read = (part, at, name) => {
     const line = part.line || [];
     if (line.length < 3 || !part.joints.includes(line[0])) return null;
