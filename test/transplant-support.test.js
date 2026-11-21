@@ -1,5 +1,6 @@
 import test from 'node:test';
-import { Vector3 } from 'three';
+import { Triangle, Vector3 } from 'three';
+import { physicalSurfaceComponents } from '../src/geoset-operations.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -241,3 +242,69 @@ check('Footman shield follows the Bandit wrist through guard and strike',
       }
     }
   }, true);
+
+function surfaceAt(mesh, sequence, frame, geoset) {
+  const index = mesh.Sequences.findIndex(s => s.Name.trim() === sequence);
+  assert.ok(index >= 0, sequence);
+  return skinGeoset(mesh.Geosets[geoset], sampleNodeMatrices(mesh, frame, index));
+}
+
+function point(vertices, index) {
+  return new Vector3().fromArray(vertices, 3 * index);
+}
+
+check('The Knight covering stays sewn across materials and meets the legs in the wolf gallop',
+  'orc__wolfrider', 'human__knight', ({ model }) => {
+    const sequence = model.Sequences.find(s => s.Name.trim() === 'Walk');
+    for (let frame = sequence.Interval[0]; frame <= sequence.Interval[1]; frame += 5) {
+      const fringe = surfaceAt(model, 'Walk', frame, 0), panel = surfaceAt(model, 'Walk', frame, 1);
+      for (const [a,b] of [[520,8],[521,9]]) assert.ok(point(fringe,a).distanceTo(point(panel,b)) < 0.001);
+      assert.ok(point(fringe,520).distanceTo(point(fringe,521)) < 56, 'central seam exceeds native Walk envelope');
+    }
+    const frame = sequence.Interval[0], fringe = surfaceAt(model, 'Walk', frame, 0);
+    const panel = surfaceAt(model, 'Walk', frame, 1);
+    const cloth = [];
+    for (const [geo,skin,start] of [[0,fringe,520],[1,panel,8]]) {
+      const group = physicalSurfaceComponents(model.Geosets[geo]).find(p => p.vertices.includes(start));
+      for (const face of group.faceIndices) {
+        const indices = model.Geosets[geo].Faces.subarray(3*face,3*face+3);
+        cloth.push(new Triangle(...Array.from(indices,i => point(skin,i))));
+      }
+    }
+    for (const cuff of [[120,122,123],[130,132,133],[283,285,286],[531,533,534]]) {
+      let gap = Infinity;
+      for (const i of cuff) for (const face of cloth) {
+        const top = point(fringe,i);
+        gap = Math.min(gap,top.distanceTo(face.closestPointToPoint(top,new Vector3())));
+      }
+      assert.ok(gap < 5, 'a boot separates from the covering by ' + gap);
+    }
+  });
+
+check('The living wolf and rider fall with the Knight corpse and the blade lands with the lance',
+  'human__knight', 'orc__wolfrider', ({ donor, model }) => {
+    const torso = surfaceAt(model,'Death',31800,1);
+    assert.ok(point(torso,24).distanceTo(point(torso,30)) < 31.2);
+    assert.ok(Math.max(...torso.filter((_,i) => i%3 === 2)) < 80, 'rider still seated at the end of the fall');
+    for (const frame of [29700,31200,31800]) {
+      const expected = surfaceAt(donor,'Death',frame,3), actual = surfaceAt(model,'Death',frame,0);
+      const lance = point(expected,53).sub(point(expected,57)).normalize();
+      const blade = point(actual,136).sub(point(actual,138)).normalize();
+      assert.ok(Math.abs(lance.dot(blade)) > Math.cos(3*Math.PI/180), 'blade direction at ' + frame);
+    }
+  });
+
+for (const [name,frame,a,b,limit] of [
+  ['orc__herotaurenchieftain',229859,91,106,60],
+  ['orc__tauren',229942,326,327,36],
+]) {
+  check('The upper arm stays attached through the Bear slam on ' + name,
+    'creeps__grizzlybear', name, ({ model }) => {
+      const skin = surfaceAt(model,'Attack Slam',frame,0);
+      assert.ok(point(skin,a).distanceTo(point(skin,b)) < limit);
+      if (name === 'orc__herotaurenchieftain') {
+        const hand = surfaceAt(model,'Walk',210400,0), axe = surfaceAt(model,'Walk',210400,3);
+        assert.ok(Math.abs(point(axe,11).z - point(hand,185).z) < 1, 'axe clears the supporting palm plane');
+      }
+    });
+}

@@ -252,15 +252,47 @@ function carryHeldWeapon(M, original, boneId, arms, handAt, plans) {
   }
 }
 
+// Keep an unarmed quadruped's planted hand fixed while a held rigid tool
+// rotates around it. Only the tool moves, and only while it would sink.
+function fitSupportTool(model,info,id,floor) {
+  const node = info.byId.get(id), pivot = v3(node.PivotPoint), vertices = [];
+  for (const geo of info.geos) for (let v=0; v<geo.n; v++) {
+    if (geo.bones[v].length === 1 && geo.bones[v][0] === id) vertices.push(v3(geo.g.Vertices.subarray(3*v,3*v+3)));
+  }
+  if (!vertices.length) return;
+  for (const [si,sequence] of model.Sequences.entries()) {
+    if (!sequence.Interval || NO_GROUND.test(sequence.Name)) continue;
+    const times = new Set(framesOf(sequence));
+    for (let at = node.Parent; info.byId.has(at); at = info.byId.get(at).Parent) {
+      for (const k of info.byId.get(at).Rotation?.Keys || []) if (k.Frame >= sequence.Interval[0] && k.Frame <= sequence.Interval[1]) times.add(k.Frame);
+    }
+    const frames = [...times].sort((a,b)=>a-b), turns=new Map();
+    let previous = null;
+    for (const frame of frames) {
+      const world=sampleNodeMatrices(model,frame,si).get(node.Parent), grip=pivot.clone().applyMatrix4(world);
+      const points=vertices.map(v=>{ const p=v.clone().applyMatrix4(world), delta=p.clone().sub(grip); return {z:p.z,dz:delta.z,radius:Math.hypot(delta.x,delta.y),axis:Math.atan2(-delta.x,delta.y)}; });
+      if (points.every(p=>p.z >= floor-0.15)) { previous=null; continue; }
+      const low=points.reduce((a,b)=>a.z<b.z?a:b);
+      const {axis,th}=floorTurn(points,floor,previous ?? low.axis,previous);
+      previous=Math.atan2(axis.y,axis.x);
+      const local=axis.transformDirection(new Matrix4().extractRotation(world).invert());
+      const rotation=new Quaternion().setFromAxisAngle(local,th);
+      turns.set(frame,()=>rotation.toArray());
+    }
+    if (turns.size) rewriteTrack(model,node,si,frames,turns);
+  }
+}
+
 // A hand carrying the donor's weight is a foot. Lift its contact surface
 // vertically with the POSE elbow solve, keeping its stride and paw orientation.
-function plantSupportPalms(model, info, parts, floor) {
+function plantSupportPalms(model, info, parts, floor, equipment) {
   const report = [];
   for (const part of parts) {
     const chain = part.joints;
     const joints = [chain[0], chain[1], chain.at(-1)];
     const nodes = joints.map(id => info.byId.get(id));
     const palm = info.subtree(joints[2]);
+    for (const id of equipment) palm.delete(id);
     const handSkin = (geo, v) => geo.bones[v].some(id => palm.has(id));
     for (const [si, seq] of model.Sequences.entries()) {
       if (!seq.Interval || NO_GROUND.test(seq.Name || '')) continue;
@@ -331,7 +363,9 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   const legIds = new Set(legParts.flatMap(p => p.joints.filter(id => info.byId.has(id)).flatMap(id => [...info.subtree(id)])));
   const floor = floorOf(M, info, legIds, stand);
   if (floor == null) return out;
-  out.push(...plantSupportPalms(M, info, supports, floor));
+  const equipment = weapon.supportGear || [];
+  out.push(...plantSupportPalms(M, info, supports, floor, equipment));
+  for (const id of equipment) fitSupportTool(M,info,id,floor);
   if (!arms.length) return out;
   const swap = weapon.swap || [];
   const handAt = (si,f) => weapon.hands ? sampleTrack(weapon.hands,f,{interval:M.Sequences[si].Interval,fallback:-1}) : -1;

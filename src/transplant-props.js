@@ -9,8 +9,10 @@ const weapon = /weapon|spear|javelin|rifle|sword|choppa|axe|hammer|staff|bow/i;
 // A detached weapon can rotate around its grip in the source animations. Compare
 // its surface with the moving hand across the ordinary poses, rather than
 // measuring drift of the weapon tip, which is supposed to swing away.
-export function detachedGrip(model, rig, tree, id, points, samples) {
+export function detachedGrip(model, rig, tree, id, points, samples, includeGripPivot = false) {
   if (!samples.length || !weapon.test(tree.byId.get(id)?.Name) || !(model.Attachments || []).some(n => /weapon/i.test(n.Name) && n.Parent === id)) return null;
+  // The grip can sit in the middle of a long shaft with no vertex there.
+  if (includeGripPivot) points = [...points, new Vector3().fromArray(nodePivot(model,tree.byId.get(id),id))];
   const arms = Object.values(rig.parts).filter(p => p.limbKind === 'arm');
   const scores = arms.map(arm => {
     const carriers = [...tree.byId.values()].filter(n => tree.isAncestor(n.ObjectId, arm.joints[0]) && /hand|palm|wrist/i.test(n.Name));
