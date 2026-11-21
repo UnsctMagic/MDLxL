@@ -480,3 +480,23 @@ All 291 related tests passed with zero skips. Four regression checks failed firs
 The packaged transfer harness exercised 22 controls, applied the transplant and restored the original with Undo. A private copy of the delivered grading sheet opened all 40 cases, accepted camera rotation by mouse in both panes, and saved all 40 grades and comments without a page error. The owner’s new sheet starts blank. Playback was verified in MDLxL. Warcraft III playback and the new owner grades remain outstanding.
 
 [Grade the 40 models](<D:/Codex/xfer-showcase-40/Review 40.cmd>) · [Donor, graded and repaired poses](<D:/Codex/xfer-showcase-40/Repairs.jpg>) · [Centaur → Grunt repair](<D:/Codex/xfer-showcase-40/Repairs/Centaur to Grunt.mdx>) · [Pair list, SHA-256 hashes, motion measurements and test results](<D:/Codex/xfer-showcase-40/verification.json>)
+
+## New-model capacity sheet after five owner grades
+
+The previous showcase filled 80 donor and recipient slots with only 51 distinct models. Counting new pairings against the preceding 20 still allowed the owner to see familiar units repeatedly. The owner stopped after five cases and asked for new models in both roles. A model counts as shown as soon as a sheet is offered, including ungraded cases. For future capacity sheets, exclude both roles from every previous roster, exclude reskins and check for reversed pairs.
+
+| Previous pair | Owner grade | Evidence |
+|---|---:|---|
+| Grunt → Footman | 6 | The owner reported losing the weapon handle in Stand Victory. The Grunt throws and catches its axe. On the Footman, the sampled sword and hand faces still have a 13.0-unit gap at +750 ms and return to a 0.4-unit gap by +775 ms. |
+| Felguard → Grunt | 10 | No written note. |
+| Wolf Rider → Knight | 9 | No written note. |
+| Grizzly Bear → Tauren Chieftain | 7 | The owner reported shaking in Attack Swim. At 60 Hz, the peak absolute second difference of hip height was 7.00 units in the graded result and 0.44 in the donor. Disabling ground fitting in a diagnostic export reduced the result to 0.68. |
+| Acolyte → Priest | 9 | No written note. |
+
+The new sheet evaluates the same engine, `9f01e322`. Both previous engine defects remain open. This round changed the coverage and the delivered model files. I compared 80 candidate pairs and selected 40. Each of the 80 selected sources is unique across both roles and absent from the earlier review files. The check covered 492 prior model files, source hashes, raw and normalized vertex positions and triangle edge lengths. I also checked the rendered silhouettes for close variants. Forty-three selected models come from the custom POSE fixture collection. The other 37 come from the native and LowPolyWorks collections.
+
+I inspected the 40 primary motions against their donors from the side at 60 Hz, totaling 2,311 synchronized poses. The comparisons include multiple camera angles, the other animation clips and the three worst measured mesh poses per pair. The surface measurements covered 46,127 samples in 426 clips. Candidates withheld included Chelid → Lurker for distorted attack geometry and Nurgle Knight Champion → Elector Count for the mounted donor’s poor fit on the recipient.
+
+Both panes rotated and accepted grades and comments on private copies of all 40 delivered cases. The final viewer checks reported zero page errors or unresolved textures. Three pairs carry external effects that MDLxL cannot preview. The Fallen One Assassin and Black Fur Hunter comparison also reports missing footprint and splash event-table entries. A misnamed PNG in the texture bank was supplied as a BLP for the Slaanesh warrior, with identical decoded RGBA pixels. The previous grades are preserved. The new grades belong to a separate file.
+
+[Open the grading sheet](<D:/Codex/xfer-new-models-40/Grade 40 new pairs.cmd>) · [See the 80 models](<D:/Codex/xfer-new-models-40/Model roster.jpg>) · [Read the roster](<D:/Codex/xfer-new-models-40/Pairings.md>) · [Source identities, measurements and verification](<D:/Codex/xfer-new-models-40/verification.json>)
