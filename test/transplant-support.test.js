@@ -448,3 +448,52 @@ check('The Chieftain keeps the Bear paw cadence without an elbow reversal',
         assert.ok(p[j].clone().add(p[j-2]).addScaledVector(p[j-1],-2).length()<8,'supporting arm twitched');
     }
   });
+
+check('Chieftain rear hock sections preserve their standing width and slam reach',
+  'creeps__grizzlybear','orc__herotaurenchieftain',({own,model})=>{
+    const rig=transferRig(own), g=own.Geosets[0];
+    const rest=skinGeoset(g,sampleNodeMatrices(own,rig.reference.frame,rig.reference.sequence));
+    const sections=[];
+    for(const side of ['legL','legR']){
+      const joints=rig.parts[side].joints;
+      for(let k=1;k<joints.length;k++){
+        const vs=Array.from(g.VertexGroup.keys()).filter(v=>{
+          const ids=vertexBones(g,v);
+          return ids.length===2&&ids.includes(joints[k])&&ids.includes(joints[k-1]);
+        });
+        assert.ok(vs.length>=3);
+        let best={width:0};
+        for(const a of vs)for(const b of vs){
+          const width=point(rest,a).distanceTo(point(rest,b));
+          if(width>best.width)best={a,b,width};
+        }
+        sections.push(best);
+      }
+    }
+    for(const seq of ['Walk','Attack Slam'])frames60(model,seq,m=>{
+      const skin=skinGeoset(model.Geosets[0],m);
+      for(const {a,b,width} of sections) assert.ok(Math.abs(point(skin,a).distanceTo(point(skin,b))-width)<.05,'collapsed rear leg section');
+      assert.ok(point(skin,305).distanceTo(point(skin,306))<32,'thigh stretched past native reach');
+    });
+  });
+
+check('Chieftain unanimated geosets disappear with the Bear living body in Decay Bone',
+  'creeps__grizzlybear','orc__herotaurenchieftain',({model})=>{
+    for(const seq of ['Stand','Decay Bone']){
+      const si=model.Sequences.findIndex(s=>s.Name===seq);
+      const [a,b]=model.Sequences[si].Interval;
+      for(const t of [a,(a+b)>>1,b]) for(const gi of model.Geosets.keys()){
+        const alpha=sampleGeosetAnimation(model,gi,t,si).alpha;
+        if(seq==='Stand'&&gi===0)assert.ok(alpha>.99);
+        if(seq==='Decay Bone')assert.ok(alpha<.001,'body or glow survived the donor');
+      }
+    }
+  });
+
+check('Centaur front torso keeps the Grunt waist joined in Attack - 1',
+  'creeps__centaur','orc__grunt',({model})=>{
+    frames60(model,'Attack - 1',m=>{
+      const skin=skinGeoset(model.Geosets[1],m);
+      assert.ok(point(skin,292).distanceTo(point(skin,294))<17,'waist spans the horse torso');
+    });
+  },true);

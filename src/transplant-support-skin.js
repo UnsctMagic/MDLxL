@@ -35,13 +35,13 @@ export function supportLegSkin(model, own, donor, rig, sourceRig, entries, tree,
     [...tree.byId.keys()].map((id) => [id, handles.get(tree.ancestors(id, true).find((j) => handles.has(j)))])
   );
   const meshes = [];
+  let directSkin = false;
   for (const [gi, original] of own.Geosets.entries()) {
     const vertices = [],
       groups = new Set();
     for (let v = 0; v < original.Vertices.length / 3; v++) {
       const bones = vertexBones(original, v);
-      // Direct joint weighting already articulates the recipient's leg.
-      if (bones.some((id) => handles.has(id))) return null;
+      if (bones.some((id) => handles.has(id))) directSkin = true;
       const slots = bones.map((id) => paths.get(id));
       if (!slots.length || !slots[0] || slots.some((p) => p?.l !== slots[0].l)) continue;
       const indices = slots.map((p) => p.k).sort(),
@@ -130,7 +130,7 @@ export function supportLegSkin(model, own, donor, rig, sourceRig, entries, tree,
     edge.pa.sub(edge.from.center);
     edge.pb.sub(edge.to.center);
   }
-  return (donorMap) => {
+  const fit = (donorMap) => {
     const all = items,
       hierarchy = nodeIndex(model);
     for (const leg of legs) leg.joints = leg.ids.map((j) => donorMap[j]);
@@ -299,4 +299,5 @@ export function supportLegSkin(model, own, donor, rig, sourceRig, entries, tree,
       s.bone.Translation = { LineType: 1, GlobalSeqId: null, Keys: translations };
     }
   };
+  return { fit, fitFeet: !directSkin };
 }

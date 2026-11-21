@@ -53,6 +53,7 @@ import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { deathSkinTwins, mountedWeaponCopy, fitDroppedBlade } from './transplant-death-skin.js';
 import { bendArmsAboveFloor, fitWalkContacts, followSupportFeet } from './transplant-floor.js';
+import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { supportLegSkin } from './transplant-support-skin.js';
 import { secondarySurfaces, secondaryMotion } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
@@ -428,6 +429,27 @@ function holdShowing(M, model, source, newSequences, donor) {
   const targets = newSequences.filter(s => DEATH_KIND.test(String(s.Name || ''))), body = donorBodyAlpha(donor);
   // Where the donor hides its own body (the Grunt's Decay Bone: its bones lie on other joints), so does this model.
   const bodyShows = (sequence, frame) => !body || sampleTrack(body, frame, { interval: sequence.Interval, globalSequences: donor.GlobalSequences, globalTime: 0, fallback: 1 }) > 0.001;
+  // A hero often has no GEOA at all. Its permanently visible skin still needs
+  // the donor's disappearance. Keep the recipient's static opacity in every
+  // other clip, including its team glow.
+  const disappears = body && targets.some(s => [s.Interval[0], s.Interval[1],
+    ...body.Keys.filter(k => k.Frame >= s.Interval[0] && k.Frame <= s.Interval[1]).map(k => k.Frame)]
+    .some(frame => !bodyShows(s, frame)));
+  if (disappears) for (const [gi] of M.Geosets.entries()) {
+    const existing = M.GeosetAnims.find(a => a.GeosetId === gi);
+    const alpha = existing?.Alpha ?? 1;
+    if (typeof alpha !== 'number' || alpha <= 0) continue;
+    const values = new Map();
+    for (const seq of newSequences) {
+      const [a,b] = seq.Interval;
+      const death = DEATH_KIND.test(seq.Name);
+      const frames = [a,b];
+      if (death) for (const k of body.Keys) if (k.Frame > a && k.Frame < b) frames.push(k.Frame);
+      for (const f of frames) values.set(f, death && !bodyShows(seq,f) ? 0 : alpha);
+    }
+    ensureGeosetAnimation(M,gi).Alpha = { LineType: 0, GlobalSeqId: null,
+      Keys: [...values].sort(([a],[b]) => a-b).map(([Frame,v]) => ({Frame,Vector:new Float32Array([v])})) };
+  }
   (model.GeosetAnims || []).forEach(anim => {
     const index = anim.GeosetId, own = anim.Alpha, track = (M.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha;
     if (!own?.Keys?.length || !track?.Keys || isGlobalTrack(own, model)) return;
@@ -1052,7 +1074,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The front and rear limb sockets identify chest and pelvis even when both
   // appear in POSE's single hips chain. Preserve each authored torso weight.
   const fourSupports = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
+  const selectedFront = frontBody && whole.reason && frontBody.legs.every(p =>
+    gaitSources.get('leg' + p.side)?.from === p.key);
   const socketMap = new Map();
+  if (selectedFront) for (const id of rigB.parts.hips?.joints || []) socketMap.set(id, frontBody.carrier);
   if (mountedPair || fourSupports) {
     const socket = (tree, rig, keys) => {
       const roots = keys.map(key => rig.parts[key]?.joints[0]);
@@ -1687,8 +1712,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (rigA.ok && rigB.ok) {
     const at = (list, from) => list.length ? list.map(from).reduce((a, b) => a.add(b), new Vector3()).divideScalar(list.length) : null;
     const rootsOf = kind => Object.values(rigA.parts).filter(part => part.limbKind === kind && placed.has(part.joints[0])).map(part => part.joints[0]);
-    const selectedFront = frontBody && whole.reason && frontBody.legs.every(p =>
-      gaitSources.get('leg' + p.side)?.from === p.key);
     const legRoots = selectedFront ? frontBody.legs.map(p => p.joints[0]) : rootsOf('leg'), armRoots = rootsOf('arm');
     const trunkJoints = ['hips', 'chest'].flatMap(key => rigA.parts[key]?.joints || []).filter(id => placed.has(id)), headJoints = (rigA.parts.head?.joints || []).filter(id => placed.has(id));
     const headAt = rigA.parts.head?.marker != null && placed.has(rigA.parts.head.marker) ? rigA.parts.head.marker : null;
@@ -2507,7 +2530,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The result's body is the donor's, read through the id map: reading the result again can pick another skeleton
   // once its bind pose is the donor's posture (the Ghoul's corpse skeleton instead of its body).
   const rigM = rigB.ok && rigA.ok ? mappedRig(M, rigA, id => remap.get(newId(id))) : { ok: false };
-  if (supportSkin) supportSkin(donorMap);
+  if (supportSkin) supportSkin.fit(donorMap);
   if (rigB.ok && rigA.ok && (donorActor === 'walker' || neckBend))
     posture.face = fitHeadSkin(M,model,D,rigB,rigA,donorMap[rigA.parts.head?.marker]);
   if (rigB.ok && rigA.ok) {
@@ -2594,7 +2617,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     }));
     const soles = soleReader(model,rigB,ownStand);
     if (soles) {
-      const contact = followSupportFeet(M,D,chains,soles.standSole,supportGear.map(n=>n.ObjectId),!!supportSkin,rigB.hipHeight);
+      const contact = followSupportFeet(M,D,chains,soles.standSole,supportGear.map(n=>n.ObjectId),!!supportSkin?.fitFeet,rigB.hipHeight);
       for (const {node,index} of rigM.supportShifts) {
         const curve=contact.get(index);
         if (curve) addHeight(M,node,M.Sequences[index].Interval,curve.frames,curve.values);
