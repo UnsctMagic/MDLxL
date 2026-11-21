@@ -285,13 +285,13 @@ function fitSupportTool(model,info,id,floor) {
 
 // With two support pairs, the lowest contact alternates between the fore and
 // hind legs. Preserve the body path and absorb their changing reach at the knees.
-export function fitWalkContacts(model, si, parts, frames, heights, tolerance) {
+export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fixedBias = null) {
   const chains = parts.map(p => [p.joints[0],p.joints[1],p.marker]);
-  if (chains.length < 4 || chains.some(ids => new Set(ids).size !== 3 ||
+  if (chains.length < (fixedBias == null ? 4 : 2) || chains.some(ids => new Set(ids).size !== 3 ||
       ids.some(id => !model.Nodes[id] || isGlobalTrack(model.Nodes[id].Rotation,model)))) return null;
   const sorted = [...heights].sort((a,b) => a-b);
   if (sorted.at(-1)-sorted[0] <= tolerance) return null;
-  const bias = sorted[Math.floor(sorted.length/2)];
+  const bias = fixedBias ?? sorted[Math.floor(sorted.length/2)];
   const turns = chains.map(() => [new Map(),new Map(),new Map()]);
   const turn = (a,b) => new Quaternion().setFromUnitVectors(a.normalize(),b.normalize());
   for (const [j,frame] of frames.entries()) {
@@ -572,4 +572,107 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   }
   if (beforeBend) carryHeldWeapon(M,beforeBend,weapon.bone,arms,handAt,plans);
   return out;
+}
+
+// Copy the contact height of each donor paw with all the articulated links.
+// Damped increments keep the original elbow plane continuous at full reach.
+export function followSupportFeet(model, donor, chains, floor, gear, fitLimbs, height) {
+  const curves=new Map();
+  const info=skinInfo(model), source=skinInfo(donor);
+  const skin=(info,ids,omit=[])=>{
+    const limb=info.subtree(ids.at(-1));
+    for (const j of omit) limb.delete(j);
+    return (g,v)=>g.bones[v].some(id=>limb.has(id));
+  };
+  const rests=chains.map(c=>({own:skin(info,c.own,gear),donor:skin(source,c.donor)}));
+  for (const [si,seq] of model.Sequences.entries()) {
+    if (!/^walk\b/i.test(seq.Name) || /swim|morph/i.test(seq.Name) || !seq.Interval) continue;
+    const di=donor.Sequences.findIndex(s=>s.Interval?.[0]===seq.Interval[0] && s.Interval[1]===seq.Interval[1]);
+    if (di<0) continue;
+    const [a,b]=seq.Interval, samples=new Set([a,b]);
+    for (let t=a;t<b;t+=1000/60) samples.add(Math.round(t));
+    for (const c of chains) for (const id of c.own) for (const k of model.Nodes[id].Rotation?.Keys || [])
+      if (k.Frame>a && k.Frame<b) samples.add(k.Frame);
+    const frames=[...samples].sort((x,y)=>x-y), visible=info.visibleIn(si), donorVisible=source.visibleIn(di);
+    const poses=frames.map(t=>sampleNodeMatrices(model,t,si));
+    const sources=frames.map(t=>sampleNodeMatrices(donor,t,di));
+    const pawHeights=rests.map(sole=>frames.map((t,j)=>lowest(source,sources[j],donorVisible,di,t,sole.donor).minZ));
+    const ground=frames.map((_,j)=>Math.min(...pawHeights.map(p=>p[j])));
+    if (fitLimbs) for (const [ci,chain] of chains.entries()) {
+      const ids=chain.own, nodes=ids.map(j=>model.Nodes[j]);
+      if (ids.length<3 || ids.some((j,k)=>k && model.Nodes[j].Parent!==ids[k-1]) ||
+          nodes.some(n=>isGlobalTrack(n.Rotation,model))) continue;
+      const low=frames.map((t,j)=>lowest(info,poses[j],visible,si,t,rests[ci].own).minZ);
+      const paw=pawHeights[ci];
+      if (![...low,...paw].every(Number.isFinite)) continue;
+      const turns=ids.map(()=>new Map()), angles=[];
+      for (const [j,frame] of frames.entries()) {
+        const matrices=poses[j],points=nodes.map(n=>v3(nodePivot(model,n)).applyMatrix4(matrices.get(n.ObjectId)));
+        const travel=floor+(paw[j]-ground[j])*chain.ratio-low[j];
+        const lengths=points.slice(1).map((p,k)=>p.distanceTo(points[k]));
+        const end=points.at(-1),targetX=end.x,targetZ=end.z+travel,length=lengths.reduce((u,v)=>u+v,0);
+        const total=Array(ids.length-1).fill(0),up=new Vector3(0,1,0);
+        for (let step=0;step<5;step++) {
+          const lever=points.slice(0,-1).map(p=>[end.z-p.z,p.x-end.x]);
+          const damp=(.11*length)**2;
+          let xx=damp,xz=0,zz=damp;
+          for (const [x,z] of lever) { xx+=x*x; xz+=x*z; zz+=z*z; }
+          const det=xx*zz-xz*xz;
+          if (det<1e-8) break;
+          const dx=targetX-end.x,dz=targetZ-end.z;
+          const u=(zz*dx-xz*dz)/det,v=(xx*dz-xz*dx)/det;
+          for (const [k,[x,z]] of lever.entries()) {
+            const next=Math.max(-.40,Math.min(.40,total[k]+Math.max(-.10,Math.min(.10,x*u+z*v))));
+            const angle=next-total[k];total[k]=next;
+            for (let m=k+1;m<points.length;m++) points[m].sub(points[k]).applyAxisAngle(up,angle).add(points[k]);
+          }
+        }
+        angles.push(total);
+      }
+      for (const [j,frame] of frames.entries()) {
+        const total = Array(ids.length-1).fill(0), span=b-a, window=span/9;
+        let weight=0;
+        for (let m=0;m<frames.length-1;m++) {
+          const distance=Math.abs(frame-frames[m]), phase=Math.min(distance,span-distance);
+          if (phase>=window) continue;
+          const w=(frames[m+1]-frames[m])*(1+Math.cos(Math.PI*phase/window));
+          weight+=w;
+          angles[m].forEach((angle,k)=>total[k]+=w*angle);
+        }
+        total.forEach((value,k)=>total[k]=value/weight);
+        total.push(-total.reduce((u,v)=>u+v,0));
+        const matrices=poses[j], up=new Vector3(0,1,0);
+        for (const [k,n] of nodes.entries()) {
+          const pm=inheritedParentMatrix(matrices.get(n.Parent)||new Matrix4(),n.Flags);
+          const axis=up.clone().transformDirection(new Matrix4().extractRotation(pm).invert());
+          const q=new Quaternion().setFromAxisAngle(axis,total[k]);
+          turns[k].set(frame,value=>q.clone().multiply(new Quaternion().fromArray(value)).normalize().toArray());
+        }
+      }
+      for (const [k,n] of nodes.entries()) rewriteTrack(model,n,si,frames,turns[k]);
+    }
+    // Settle the remaining reach error on the common support plane. Only its
+    // slow component belongs on the body; keep rapid handoffs in the limbs.
+    const supports=(g,v)=>rests.some(r=>r.own(g,v));
+    const donorPlane=[...ground].sort((u,v)=>u-v)[ground.length>>1];
+    const size=chains.reduce((sum,c)=>sum+c.ratio,0)/chains.length;
+    const error=frames.map((t,j)=>{
+      const actual=lowest(info,fitLimbs?sampleNodeMatrices(model,t,si):poses[j],visible,si,t,supports).minZ;
+      return floor-actual+(fitLimbs?0:(ground[j]-donorPlane)*size);
+    });
+    if (!error.every(Number.isFinite)) continue;
+    const values=frames.map(t=>{
+      const span=b-a,window=span/7;let sum=0,weight=0;
+      for (let j=0;j<frames.length-1;j++) {
+        const dt=Math.abs(t-frames[j]),dist=Math.min(dt,span-dt);
+        if (dist>=window) continue;
+        const w=(frames[j+1]-frames[j])*(1+Math.cos(Math.PI*dist/window));
+        sum+=w*error[j];weight+=w;
+      }
+      const band=(fitLimbs ? .06 : .025)*height;
+      return band*Math.tanh(sum/(weight*band));
+    });
+    curves.set(si,{frames,values});
+  }
+  return curves;
 }

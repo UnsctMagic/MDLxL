@@ -365,3 +365,86 @@ check('Footman attacks retain the Spell Breaker solid GEOSET POSE blade',
       }
     }
   },true);
+
+function frames60(model, name, inspect) {
+  const si = model.Sequences.findIndex(s => s.Name.trim() === name);
+  assert.ok(si >= 0);
+  const [a,b] = model.Sequences[si].Interval, samples = [];
+  for (let t=a; t<=b; t+=1000/60) samples.push(inspect(sampleNodeMatrices(model,Math.round(t),si)));
+  return samples;
+}
+
+check('The Grunt holds the Centaur front body height through Stand - 3',
+  'creeps__centaur','orc__grunt',({own,donor,model,report}) => {
+    const hip = report.donorNodes[transferRig(donor).body];
+    const z = frames60(model,'Stand - 3',m => new Vector3().fromArray(nodePivot(model,model.Nodes[hip])).applyMatrix4(m.get(hip)).z);
+    assert.ok(Math.max(...z)-Math.min(...z)<.5,'stationary torso bounced');
+    const rig=transferRig(own);
+    const feet=['legL','legR'].flatMap(key=>solidContactFaces(own,rig.parts[key].marker,{hand:true}));
+    assert.ok(feet.length);
+    frames60(model,'Stand - 3',m=>{
+      const skin=model.Geosets.map(g=>skinGeoset(g,m));
+      const lowest=Math.min(...feet.flatMap(face=>face.ids.map(v=>skin[face.gi][3*v+2])));
+      assert.ok(lowest>-.04*rig.hipHeight && lowest<.08*rig.hipHeight,'front boots lost contact');
+    });
+  },true);
+
+check('The Tauren keeps the width of its rear shin sections through the Bear walk',
+  'creeps__grizzlybear','orc__tauren',({own,model}) => {
+    const rig=transferRig(own),g=own.Geosets[0],sections=new Map();
+    for (let v=0;v<g.Vertices.length/3;v++) {
+      const bones=vertexBones(g,v);
+      if (bones.length!==2 || !bones.every(id=>/shin|hoof/i.test(own.Nodes[id].Name))) continue;
+      const key=bones.join(',');
+      if (!sections.has(key)) sections.set(key,[]);
+      sections.get(key).push(v);
+    }
+    const rest=skinGeoset(g,sampleNodeMatrices(own,rig.reference.frame,rig.reference.sequence));
+    const widths=Array.from(sections.values()).map(vertices=>{
+      let a,b,width=0;
+      for (const i of vertices) for (const j of vertices) {
+        const d=point(rest,i).distanceTo(point(rest,j));
+        if (d>width) { a=i;b=j;width=d; }
+      }
+      return {a,b,width};
+    });
+    assert.ok(widths.length>=4);
+    frames60(model,'Walk',m=>{
+      const skin=skinGeoset(model.Geosets[0],m);
+      for (const {a,b,width} of widths)
+        assert.ok(Math.abs(point(skin,a).distanceTo(point(skin,b))-width)<.05,'rear shin section pinched');
+    });
+  });
+
+check('The Acolyte trailing hem lifts the lower center of the Priest cape',
+  'undead__acolyte','human__priest',({own,donor,model}) => {
+    function centerHeight(reference, animated) {
+      let best=null;
+      reference.Geosets.forEach((g,gi)=>{
+        for (let v=0;v<g.Vertices.length/3;v++) {
+          const p=point(g.Vertices,v),names=vertexBones(g,v).map(id=>reference.Nodes[id].Name);
+          if (p.z<15 && names.some(s=>/skirt|cape/i.test(s)) && (!best || p.x<best.x)) best={gi,v,x:p.x};
+        }
+      });
+      assert.ok(best);
+      return frames60(animated,'Walk',m=>point(skinGeoset(animated.Geosets[best.gi],m),best.v).z);
+    }
+    const a=centerHeight(donor,donor),b=centerHeight(own,model);
+    const span=v=>Math.max(...v)-Math.min(...v),aPeak=a.indexOf(Math.max(...a)),bPeak=b.indexOf(Math.max(...b));
+    assert.ok(span(b)>.8*span(a) && span(b)<1.4*span(a),'hem lift diverged from the donor');
+    assert.ok(Math.abs(aPeak-bPeak)<5,'trailing surface peaked out of phase');
+  });
+
+check('The Chieftain keeps the Bear paw cadence without an elbow reversal',
+  'creeps__grizzlybear','orc__herotaurenchieftain',({model,donor,report})=>{
+    const r=transferRig(donor),hip=report.donorNodes[r.body];
+    for (const key of ['legL2','legR2']) for (const joint of r.parts[key].joints) {
+      const id=report.donorNodes[joint];
+      const p=frames60(model,'Walk',m=>{
+        const at=j=>new Vector3().fromArray(nodePivot(model,model.Nodes[j])).applyMatrix4(m.get(j));
+        return at(id).sub(at(hip));
+      });
+      for (let j=2;j<p.length;j++)
+        assert.ok(p[j].clone().add(p[j-2]).addScaledVector(p[j-1],-2).length()<8,'supporting arm twitched');
+    }
+  });

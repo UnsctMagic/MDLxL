@@ -52,7 +52,8 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { deathSkinTwins, mountedWeaponCopy, fitDroppedBlade } from './transplant-death-skin.js';
-import { bendArmsAboveFloor, fitWalkContacts } from './transplant-floor.js';
+import { bendArmsAboveFloor, fitWalkContacts, followSupportFeet } from './transplant-floor.js';
+import { supportLegSkin } from './transplant-support-skin.js';
 import { secondarySurfaces, secondaryMotion } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitHeadSkin } from './transplant-head.js';
@@ -2487,6 +2488,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     for (const [gi,v] of skin) M.Geosets[gi].VertexGroup[v] = groups.get(gi);
     M.Bones.push(bone); allM.push(bone); supportGear.push(bone);
   }
+  const supportSkin = fourSupports && supportLegSkin(M,model,D,rigB,rigA,limbEntries,treeB,newId,alignFrames);
   const turnedNodes = allM.map(node => [node, turnOf(node.ObjectId)]).filter(([, t]) => t && !near(t, 1e-9)); // ids change below
   const remap = canonicalizeSerializedNodeOrder(M);
   const ownMap = {}, donorMap = {};
@@ -2505,9 +2507,19 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The result's body is the donor's, read through the id map: reading the result again can pick another skeleton
   // once its bind pose is the donor's posture (the Ghoul's corpse skeleton instead of its body).
   const rigM = rigB.ok && rigA.ok ? mappedRig(M, rigA, id => remap.get(newId(id))) : { ok: false };
+  if (supportSkin) supportSkin(donorMap);
   if (rigB.ok && rigA.ok && (donorActor === 'walker' || neckBend))
     posture.face = fitHeadSkin(M,model,D,rigB,rigA,donorMap[rigA.parts.head?.marker]);
   if (rigB.ok && rigA.ok) {
+    if (fourSupports) {
+      rigM.supportShifts = [];
+
+    }
+    if (frontBody && !lowerBodyOnly && gaitSources.size) {
+      const forelegs = limbEntries.filter(e => e.own.limbKind === 'leg').map(e => e.theirs);
+      rigM.frontFeet = forelegs.map(p => p.marker);
+      rigM.frontChains = forelegs.map(p => rigM.parts[p.key]).filter(Boolean);
+    }
     rigM.walkContacts = Object.values(rigB.parts).some(p => p.limbKind==='leg') &&
       ![rigA,rigB].some(r => Object.values(r.parts).some(p => p.limbKind==='leg' && p.short));
     settleFeet(M, rigB, rigM, notes, loose);
@@ -2573,6 +2585,21 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       // A paw serves as a foot. Its support plane is the recipient's sole plane.
       donor: { model: D, arms: arms.filter(p => !forelegs.has(p.key)).map(own), legs: legs.map(own), weapon: donorWeapon ?? null, size },
     });
+  }
+  for (const motion of rigM.supportShifts || []) motion.restore();
+  if (rigM.supportShifts?.length && floor === 'bend') {
+    const chains = limbEntries.filter(e => e.theirs.limbKind==='leg').map(e=>({
+      own:e.theirs.joints.map(j=>donorMap[j]), donor:e.theirs.joints,
+      ratio:e.own.length/Math.max(1,e.theirs.length)
+    }));
+    const soles = soleReader(model,rigB,ownStand);
+    if (soles) {
+      const contact = followSupportFeet(M,D,chains,soles.standSole,supportGear.map(n=>n.ObjectId),!!supportSkin,rigB.hipHeight);
+      for (const {node,index} of rigM.supportShifts) {
+        const curve=contact.get(index);
+        if (curve) addHeight(M,node,M.Sequences[index].Interval,curve.frames,curve.values);
+      }
+    }
   }
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
@@ -2709,7 +2736,7 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel) {
   const { soleOf, sample, standSole: ownSole } = own;
   const donorById = new Map(allNodes(D).map(n => [n.ObjectId, n]));
   const legsA = Object.values(rigA.parts || {}).filter(part => part.limbKind === 'leg');
-  const feetA = legsA.map(part => part.marker).filter(id => donorById.has(id));
+  const feetA = (rigM.frontFeet?.length ? rigM.frontFeet : legsA.map(part => part.marker)).filter(id => donorById.has(id));
   const pivotZ = (id, m) => v3(nodePivot(D, donorById.get(id), id)).applyMatrix4(m.get(id)).z;
   const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
   if (!feetA.length && donorBody == null) return null;
@@ -2840,7 +2867,29 @@ function heightPerMoment(M, D, rigM, loose, tolerance, changeOf, only = null) {
     };
     for (let i = 1; i < sorted.length; i++) { refine(sorted[i - 1], sorted[i]); frames.push(sorted[i]); }
     const values = frames.map(change);
-    if (/^walk\b/i.test(sequence.Name) && !/swim|morph/i.test(sequence.Name) && rigM?.walkContacts && !only) {
+    const walk = /^walk\b/i.test(sequence.Name) && !/swim|morph/i.test(sequence.Name);
+    if (!only && rigM?.walkContacts &&
+        ((walk && rigM.supportShifts) || (rigM.frontFeet?.length && /^stand\b/i.test(sequence.Name)))) {
+      // The donor already articulates all four supports. Moving each knee
+      // a second time introduces a bend reversal when the planted paw changes.
+      const samples = new Set(frames);
+      for (let f = a; f < z; f += 1000/60) samples.add(Math.round(f));
+      const times = [...samples].sort((u,v) => u-v), heights = times.map(change);
+      const bias = [...heights].sort((u,v) => u-v)[heights.length >> 1];
+      if (!walk && rigM.frontChains?.length === 2)
+        fitWalkContacts(M,index,rigM.frontChains,times,heights,tolerance,bias);
+      for (const node of movers) {
+        if (walk && rigM.supportShifts) {
+          addHeight(M,node,sequence.Interval,frames,values);
+          // Fit the planted hand and its tool against the same floor first.
+          rigM.supportShifts.push({node,index,restore() {
+            addHeight(M,node,sequence.Interval,frames,values.map(dz=>bias-dz));
+          }});
+        } else addHeight(M,node,sequence.Interval,[a,z],[bias,bias]);
+      }
+      return;
+    }
+    if (walk && rigM?.walkContacts && !only) {
       const poses = new Set(frames);
       for (let t = a; t < z; t += 1000/60) poses.add(Math.round(t));
       for (const p of Object.values(rigM.parts)) for (const id of p.joints) {

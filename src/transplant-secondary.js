@@ -59,11 +59,15 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
       const depth = cloth ? Math.min(1,Math.max(0,(origin.z-ownPoint.z)/extent)) : .65;
       const targetZ = top.z+(bottom-top.z)*depth;
       const side = (ownPoint.y-origin.y)/extent;
-      const allowed = best.branch.filter(j => !parent || treeA.isAncestor(j,parent.driver));
+      // A flared hem can have its left and right panels on sibling joints.
+      const fork = cloth && Math.abs(side) > .15 && ids.some(s => s !== id && treeB.parentOf(s) === treeB.parentOf(id));
+      const sided = fork ? best.branch.filter(j => (pt(j).y-hip.y)*Math.sign(side) > .15*h && pt(j).x < hip.x) : [];
+      const allowed = sided.length ? sided : best.branch.filter(j => !parent || treeA.isAncestor(j,parent.driver));
       const cost = j => Math.abs(pt(j).z-targetZ)/h + Math.abs((pt(j).y-hip.y)/h-side) +
         (cloth ? Math.max(0,(pt(j).x-hip.x)/h)*2 : Math.max(0,(hip.x-pt(j).x)/h)*2);
       const driver = allowed.sort((a,b)=>cost(a)-cost(b))[0] ?? parent?.driver;
-      if (driver != null) matches.set(id,{driver,host:parent?.driver ?? best.host,cloth});
+      if (driver != null) matches.set(id,{driver,host:parent?.driver ?? best.host,cloth,root:root.ObjectId,
+        anchor:best.host,branch:best.branch,depth,split:parent && !treeA.isAncestor(driver,parent.driver)});
     }
   }
   return matches;
@@ -79,12 +83,21 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
     return cache.get(key);
   };
   const relative = (m,d,h) => (m.get(h) || new Matrix4()).clone().invert().multiply(m.get(d));
-  for (const [id,{driver,host,cloth}] of matches) {
+  const splitRoots = new Set([...matches.values()].filter(m => m.split).map(m => m.root));
+  const spans = new Map();
+  for (const [id,match] of matches) {
+    const {driver,host,cloth} = match;
+    if (splitRoots.has(match.root)) {
+      tracks.set(id,hemMotion(id,match));
+      continue;
+    }
     const out = {}; tracks.set(id,out);
     if (driver===host) continue;
     const chain = tree.ancestors(driver,true);
-    const h = chain.indexOf(host);
-    const local = (h<0 ? chain : chain.slice(0,h)).flatMap(j => ['Rotation','Scaling','Translation'].map(k=>tree.byId.get(j)[k]).filter(t=>t?.Keys?.length && !isGlobalTrack(t,donor)));
+    const hosts = tree.ancestors(host,true);
+    const common = chain.find(j => hosts.includes(j));
+    const below = path => common == null ? path : path.slice(0,path.indexOf(common));
+    const local = [...below(chain),...below(hosts)].flatMap(j => ['Rotation','Scaling','Translation'].map(k=>tree.byId.get(j)[k]).filter(t=>t?.Keys?.length && !isGlobalTrack(t,donor)));
     if (!local.length) continue;
     const base = relative(matrices(ref.frame,ref.sequence),driver,host);
     const pivot = new Vector3().fromArray(nodePivot(donor,tree.byId.get(driver),driver)).applyMatrix4(base);
@@ -121,4 +134,81 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
       out[k] = {LineType:1,GlobalSeqId:null,Keys:keys};
   }
   return tracks;
+
+    // Follow the direction of each weighted strip of robe. The receiver bends
+    // about its own sewn seams, so the hem can flare without lengthening a panel.
+    function hemMotion(id, match) {
+      const region = new Set(match.branch);
+      const samples = [], hidden = corpseAndBackgroundGeosets(donor);
+      for (const [gi,g] of donor.Geosets.entries()) {
+        if (hidden.has(gi)) continue;
+        for (let v=0;v<g.Vertices.length/3;v++) {
+          const bones = vertexBones(g,v);
+          if (bones.length && bones.every(j=>region.has(j)))
+            samples.push({p:new Vector3().fromArray(g.Vertices,v*3),bones});
+        }
+      }
+      if (!samples.length) return {};
+      const top = Math.max(...samples.map(s=>s.p.z)), bottom=Math.min(...samples.map(s=>s.p.z));
+      const left=Math.min(...samples.map(s=>s.p.y)), right=Math.max(...samples.map(s=>s.p.y));
+      const pivot=j=>new Vector3().fromArray(nodePivot(own,own.Nodes[j],j));
+      const collar=pivot(match.root), rootHeight=collar.z;
+      const owned = new Set([...matches].filter(([,p])=>p.root===match.root).map(([j])=>j));
+      let low=rootHeight, y0=Infinity, y1=-Infinity;
+      const fabric=[];
+      for (const g of own.Geosets) for (let v=0;v<g.Vertices.length/3;v++) {
+        const bones=vertexBones(g,v);
+        if (!bones.length || !bones.every(j=>owned.has(j))) continue;
+        const p=new Vector3().fromArray(g.Vertices,3*v);
+        fabric.push(p);low=Math.min(low,p.z);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y);
+      }
+      const landmark=(z,y)=>{
+        // Select the rearmost vertex near this height and side. Weighting the
+        // height first keeps the two endpoints on different rows of the mesh.
+        const cost=s=>Math.abs(s.p.z-z)*3+Math.abs(s.p.y-y)*1.6+s.p.x*.6;
+        return samples.reduce((a,b)=>cost(a)<cost(b)?a:b);
+      };
+      const curve=j=>{
+        if (spans.has(j)) return spans.get(j);
+        const p=pivot(j),children=[...owned].filter(k=>own.Nodes[k].Parent===j);
+        const rim=fabric.filter(v=>v.z<=low+.14*(rootHeight-low));
+        const nearest=rim.reduce((a,b)=>Math.abs(a.y-p.y)<Math.abs(b.y-p.y)?a:b);
+        const end=children.length===1 ? pivot(children[0]) : nearest;
+        const below=end.z;
+        const donorZ=z=>top+(bottom-top)*Math.min(1,Math.max(0,(rootHeight-z)/Math.max(1,rootHeight-low)));
+        const y=left+(right-left)*(end.y-y0)/Math.max(1,y1-y0);
+        const upper=landmark(donorZ(p.z),y),lower=landmark(donorZ(below),y);
+        const position=(m,s)=>{
+          const v=new Vector3();
+          for (const driver of s.bones) v.addScaledVector(s.p.clone().applyMatrix4(m.get(driver)),1/s.bones.length);
+          return v.applyMatrix4(m.get(match.anchor).clone().invert());
+        };
+        const span=m=>position(m,lower).sub(position(m,upper));
+        const origin=span(matrices(ref.frame,ref.sequence)).normalize();
+        const ownAxis=end.clone().sub(p);
+        const lean = matches.get(j).depth>.4 && ownAxis.lengthSq()>1e-6 && origin.lengthSq()>.5 ?
+          new Quaternion().setFromAxisAngle(new Vector3(0,1,0),
+            Math.atan2(ownAxis.x,-ownAxis.z) - Math.atan2(origin.x,-origin.z)) : new Quaternion();
+        const rotation=m=>origin.lengthSq()<.5 ? new Quaternion() :
+          new Quaternion().setFromUnitVectors(origin,span(m).normalize()).multiply(lean);
+        spans.set(j,rotation);return rotation;
+      };
+      const parent=own.Nodes[id].Parent,upper=owned.has(parent)?curve(parent):()=>new Quaternion(),lower=curve(id);
+      const times=new Map(), drivers=new Set(match.branch.flatMap(j=>tree.ancestors(j,true)));
+      for (const [si,s] of donor.Sequences.entries()) {
+        if (!s.Interval) continue;
+        const [a,b]=s.Interval,frames=new Set([a,b]);
+        for (const j of drivers) for (const k of ['Translation','Rotation','Scaling'])
+          for (const key of tree.byId.get(j)[k]?.Keys || []) if (key.Frame>=a && key.Frame<=b) frames.add(key.Frame);
+        for (let f=a;f<b;f+=1000/30) frames.add(Math.round(f));
+        for (const f of frames) times.set(f,si);
+      }
+      const Keys=[];let previous;
+      for (const [Frame,si] of [...times].sort((a,b)=>a[0]-b[0])) {
+        const m=matrices(Frame,si),q=upper(m).invert().multiply(lower(m)).normalize(),v=q.toArray();
+        if (previous && previous.dot(q)<0) for (let k=0;k<4;k++) v[k]*=-1;
+        previous=new Quaternion().fromArray(v);Keys.push({Frame,Vector:new Float32Array(v)});
+      }
+      return {Rotation:{LineType:1,GlobalSeqId:null,Keys}};
+    }
 }
