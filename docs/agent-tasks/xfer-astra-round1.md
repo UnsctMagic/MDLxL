@@ -500,3 +500,30 @@ I inspected the 40 primary motions against their donors from the side at 60 Hz, 
 Both panes rotated and accepted grades and comments on private copies of all 40 delivered cases. The final viewer checks reported zero page errors or unresolved textures. Three pairs carry external effects that MDLxL cannot preview. The Fallen One Assassin and Black Fur Hunter comparison also reports missing footprint and splash event-table entries. A misnamed PNG in the texture bank was supplied as a BLP for the Slaanesh warrior, with identical decoded RGBA pixels. The previous grades are preserved. The new grades belong to a separate file.
 
 [Open the grading sheet](<D:/Codex/xfer-new-models-40/Grade 40 new pairs.cmd>) · [See the 80 models](<D:/Codex/xfer-new-models-40/Model roster.jpg>) · [Read the roster](<D:/Codex/xfer-new-models-40/Pairings.md>) · [Source identities, measurements and verification](<D:/Codex/xfer-new-models-40/verification.json>)
+
+## Repairs from the owner’s 40 new-model grades
+
+All 40 grades were read from the original review. Twelve included written issues, including the two 8/10 notes on the Revenant and Infernal. The repair sheet opens those 12 donors beside the revised recipients and writes to a separate grades file. The engine revision is `be6dc61f`.
+
+| Case | Donor → recipient | Original grade | Donor comparison |
+|---|---|---:|---|
+| 02 | Reikland Greatsword → Dismounted Knight of the Blazing Sun | 5 | The Knight releases, spins and catches his sword in Stand - 2. The transfer now binds all 42 blade vertices to the moving weapon. Mean blade-direction error fell from 71.5° to 10.7°. |
+| 04 | Borreal Hound → Bagnadrana | 6 | Bagnadrana's tail follows the hound's tail through the stride. The lowest tail point moved from −71.1 to −0.2 model units in Walk and from −60.9 to −0.2 in Attack. |
+| 06 | Fel Thief → Skeletal Assassin | 3 | Both legs bend and step on the thief's cadence. Mean right and left leg-direction errors on the skinned model fell from 54.0° and 43.9° to 25.6° and 10.6° in Walk - 1. |
+| 11 | Naga Stealth Viper → Naga Whaler | 2 | The Whaler's linked tail sections now articulate through the serpent's stride. Mean tail-direction error in Walk fell from 35.7° to 16.0°. Attack - 2 still differs by 17.7° on average, up from 14.1°. |
+| 14 | Black Stag → Spirit Pig | 6 | The Spirit Pig follows the stag's head pitch during Attack 2. The mean head-direction difference measured from the face geometry fell from 38.7° to 6.7°. |
+| 17 | Crypt Mother → Nerubian Arbalest | 6 | All four Arbalest feet now follow their matching donor legs in Walk and Walk Fast. Mean direction errors across the four feet fell from 20.4–38.6° to 2.8–6.9° in Walk. |
+| 20 | Phoenix → Albatross | 1 | The Albatross follows the Phoenix's rise and fall. In Stand the mean vertical tracking error fell from 40.0 model units to below 0.01. |
+| 24 | Mindflayer → Odium | 3 | Odium's arms follow the Mindflayer's visible arms and its body follows the donor's rise. Mean Walk height error fell from 15.1 model units to below 0.01. Mean wrist-direction error on each side rounded to 0.0°. |
+| 30 | Sand Scorpion → Red Sizzer | 3 | Red Sizzer's feet now follow the scorpion's stepping phase. The two front leg-direction errors in Walk fell from 29.7° and 23.3° to 14.0° and 15.5°. The largest gap between the nearest shell and tail-fan vertices in Spell fell from 46.2 to 5.9 model units. The different leg proportions remain visible. |
+| 32 | Aspiring Champion → Revenant | 8 | The Revenant's weapon follows the Champion's grip and swing. The shield receives the mirrored change from the weapon's original pose. Mean weapon-direction error fell from 104.2° to below 0.01° in Stand and from 93.7° to 0.31° in Attack - 1. The palm-to-weapon surface distance stays at the authored 2.2 units. Shield-to-palm spacing is 11.4 units against the authored 12.3. |
+| 38 | Night Elf Runner → Assassin | 5 | The Assassin's back cloak follows the runner's cape relative to the torso. Mean collar-to-hem direction error fell from 87.3° to 7.8° in Walk and from 50.6° to 7.1° in Attack. |
+| 39 | Mountain Giant → Infernal | 8 | The Infernal's fists follow the Mountain Giant's sweep. Both visible shoulder-to-hand directions matched the donor to the nearest 0.1° across Walk, Attack and their Upgrade variants. |
+
+The packaged viewer comparison covers 911 synchronized poses at 60 Hz from four angles, with live mouse rotation checked in both panes. Three frames with the greatest triangle-edge extension in different clips were also inspected from eight angles for each model. Red Sizzer’s Spell received a further 66 synchronized poses from four angles. The numerical surface sweep covers 66,638 samples in 142 clips, including authored key times. All 40 output models retain the recipient triangle indices and the donor animation intervals.
+
+All 293 transplant, animation-transfer and window tests passed. The 32 retarget fingerprints matched the stored baseline, including the pre-existing missing Spell sequence. The packaged transplant story passed 6 checkpoints and exercised 22 controls. The 61-pair panel has 59 good and two bad, with all prior verdicts retained. The humanoid sweep produced 993 good, 3 mixed, 4 bad. 0 verdicts changed against the recorded round-one gate. The final two narrow tail changes were checked against all eligible rigs in those sets, with unaffected results reused. The older 40-pair ruler returned 36 good, one mixed and three bad. These verdicts are automated. The revised models have no new owner grades. Verification used packaged MDLxL. Warcraft III playback remains untested.
+
+Of the 28 cases without a written issue, 26 reproduced byte for byte, including the Faerie Dragon and Obscure Dragon after exempting winged donors from the tail-floor correction. The two others are recorded individually with their before/after measurements in the verification file.
+
+[Open the 12 repairs](<D:/Codex/xfer-grade-repairs/Review repairs.cmd>) · [Revenant attack frames](<D:/Codex/xfer-grade-repairs/Revenant comparison.jpg>) · [All 40 grades and measurements](<D:/Codex/xfer-grade-repairs/verification.json>)

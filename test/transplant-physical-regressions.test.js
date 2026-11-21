@@ -138,3 +138,49 @@ test('floor clearance keeps the shoulder continuous through Stand 4', { skip: ab
   // The old solver flipped about 69 degrees over 8ms near the end of this idle.
   assert.ok(worst.excess < 1, `floor correction adds ${worst.excess} degrees in 1ms at ${worst.frame}`);
 });
+
+const houndTail = ['pose-odd/Bagnadrana.mdx', 'pose-odd/BorrealHound.mdx'];
+test('the skinned Bagnadrana tail clears the ground through the hound stride and attack', {skip: absent(houndTail)}, () => {
+  const {own, model} = pair(houndTail);
+  const tip = transferRig(own).parts.tail.joints.at(-1);
+  const tailBones = new Set(allNodes(own).filter(n => under(own, n.ObjectId, tip)).map(n => n.ObjectId));
+  const sites = own.Geosets.map(geo => Array.from({length: geo.Vertices.length / 3}, (_, v) => v).filter(v => {
+    const ids = vertexBones(geo, v);
+    return ids.length && ids.every(id => tailBones.has(id));
+  }));
+  for (const name of ['Walk', 'Attack']) {
+    const si = model.Sequences.findIndex(s => s.Name === name);
+    assert.ok(si >= 0);
+    const [start, end] = model.Sequences[si].Interval;
+    let lowest = Infinity;
+    for (let frame = start; frame <= end; frame += 1000 / 60) {
+      const world = sampleNodeMatrices(model, frame, si);
+      for (const [gi, vertices] of sites.entries()) {
+        if (!vertices.length || sampleGeosetAnimation(model, gi, frame, si).alpha < .5) continue;
+        const points = skinGeoset(model.Geosets[gi], world);
+        for (const v of vertices) lowest = Math.min(lowest, points[3 * v + 2]);
+      }
+    }
+    assert.ok(Number.isFinite(lowest) && lowest >= -1, `${name} tail minimum ${lowest}`);
+  }
+});
+
+const shellTail = ['pose-odd/Red_Sizzer.mdx', 'pose-odd/Sand_Scorpion.mdx'];
+test('the rigid tail fan stays connected as the scorpion raises its stinger in Spell', {skip: absent(shellTail)}, () => {
+  const {model} = pair(shellTail);
+  const si = model.Sequences.findIndex(s => s.Name === 'Spell');
+  assert.ok(si >= 0);
+  const [start, end] = model.Sequences[si].Interval;
+  // In this fixture the shell and tail fan are separate rigid geosets.
+  for (let frame = start; frame <= end; frame += 1000 / 60) {
+    const world = sampleNodeMatrices(model, frame, si);
+    const shell = skinGeoset(model.Geosets[8], world), fan = skinGeoset(model.Geosets[9], world);
+    let gap = Infinity;
+    for (let a = 0; a < shell.length; a += 3) {
+      for (let b = 0; b < fan.length; b += 3) {
+        gap = Math.min(gap, Math.hypot(shell[a]-fan[b], shell[a+1]-fan[b+1], shell[a+2]-fan[b+2]));
+      }
+    }
+    assert.ok(gap < 8, `shell-to-fan gap ${gap.toFixed(2)} at ${frame}`);
+  }
+});
