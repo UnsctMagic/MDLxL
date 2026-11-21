@@ -55,7 +55,7 @@ import { deathSkinTwins, mountedWeaponCopy, fitDroppedBlade } from './transplant
 import { bendArmsAboveFloor, fitWalkContacts, followSupportFeet } from './transplant-floor.js';
 import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { supportLegSkin } from './transplant-support-skin.js';
-import { secondarySurfaces, secondaryMotion } from './transplant-secondary.js';
+import { secondarySurfaces, secondaryMotion, fitTailPlate } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
@@ -2711,9 +2711,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // The terminal marker on some four-link legs is a moving skin carrier.
   // Its pivot can stand well above the mesh sole on only one rig.
   const walkingLegs=limbEntries.filter(e=>e.own.limbKind==='leg');
-  if (feet!=='free' && walkingLegs.length===4 && walkingLegs.every(({own,theirs})=>own.joints.length===4 &&
-      theirs.joints.length===4 && own.joints.every((id,k)=>ownById.get(id).Name===donorById.get(theirs.joints[k]).Name) &&
-      donorById.get(theirs.marker).Translation?.Keys?.length)) {
+  const matchingFourLinkLegs = walkingLegs.length === 4 && walkingLegs.every(({own, theirs}) =>
+    own.joints.length === 4 && theirs.joints.length === 4 &&
+    own.joints.every((id, k) => ownById.get(id).Name === donorById.get(theirs.joints[k]).Name));
+  if (feet !== 'free' && matchingFourLinkLegs && walkingLegs.every(({theirs}) => donorById.get(theirs.marker).Translation?.Keys?.length)) {
     const stand=standSequenceIndex(M), reference={frame:M.Sequences[stand].Interval[0],sequence:stand};
     const fittedTree=nodeIndex(M), fitted=walkingLegs.map(({theirs})=>{
       const source=solePoint(D,rigA,treeA,theirs.marker), id=donorMap[theirs.marker];
@@ -2813,6 +2814,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       }
     }
   }
+  if (matchingFourLinkLegs) fitTailPlate(M, model, rigB, treeB);
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);

@@ -1,5 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { isGlobalTrack, nodePivot, sampleNodeMatrices } from './animation.js';
+import { rewriteTrack } from './transplant-floor.js';
+import { inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleGeosetAnimation } from './animation.js';
 import { vertexBones } from './part-bones.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 
@@ -292,4 +293,67 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
       }
       return {Rotation:{LineType:1,GlobalSeqId:null,Keys}};
     }
+}
+
+// A short rigid tail fan may use only the first link of a long donor tail.
+// Keep its proximal edge on the recipient's shell as it turns with that link.
+export function fitTailPlate(result, own, rig, tree) {
+  const tail = rig.parts.tail;
+  if (!tail || tail.joints.length < 3) return;
+  const [root, next] = tail.joints, parent = tree.parentOf(root);
+  const rest = sampleNodeMatrices(own, rig.reference.frame, rig.reference.sequence);
+  const fan = [], shell = [];
+  let distal = 0;
+  for (const [gi, geo] of own.Geosets.entries()) {
+    if (sampleGeosetAnimation(own, gi, rig.reference.frame, rig.reference.sequence).alpha < 0.5) continue;
+    for (let k = 0; k < geo.Vertices.length / 3; k++) {
+      const ids = vertexBones(geo, k);
+      if (ids.some(id => tree.isAncestor(id, next))) { distal++; continue; }
+      if (ids.length !== 1) continue;
+      const id = ids[0], collection = tree.isAncestor(id, root) ? fan : tree.parentOf(id) === parent ? shell : null;
+      if (!collection) continue;
+      const posedIds = vertexBones(result.Geosets[gi], k);
+      if (posedIds.length !== 1) continue;
+      collection.push({
+        point: new Vector3().fromArray(geo.Vertices, 3*k).applyMatrix4(rest.get(id)),
+        bind: new Vector3().fromArray(result.Geosets[gi].Vertices, 3*k), driver: posedIds[0], ownDriver: id,
+      });
+    }
+  }
+  if (fan.length < 4 || distal > fan.length * 0.1 || !shell.length) return;
+  const carrier = result.Nodes[fan[0].driver];
+  if (!carrier || result.Nodes.some(n => n && n.Parent === carrier.ObjectId) || fan.some(p => p.driver !== carrier.ObjectId) || isGlobalTrack(carrier.Translation, result)) return;
+  const pairs = fan.map(f => {
+    const s = shell.reduce((a, b) => f.point.distanceToSquared(a.point) <= f.point.distanceToSquared(b.point) ? a : b);
+    return {f, s, gap: f.point.distanceTo(s.point)};
+  }).sort((a, b) => a.gap - b.gap);
+  const seam = pairs.filter(p => p.s.driver !== carrier.ObjectId && p.gap <= pairs[0].gap + .035 * rig.hipHeight);
+  if (!seam.length || seam[0].gap > .3 * rig.hipHeight) return;
+  for (const pair of seam) {
+    const matrix = rest.get(pair.s.ownDriver);
+    if (!matrix || Math.abs(matrix.determinant()) < 1e-8) return;
+    const local = matrix.clone().invert();
+    pair.offset = pair.f.point.clone().applyMatrix4(local).sub(pair.s.point.clone().applyMatrix4(local));
+  }
+  for (const [si, sequence] of result.Sequences.entries()) {
+    const [start, end] = sequence.Interval, frames = new Set([start,end]), fixes = new Map();
+    for (let k=1; start+Math.round(k*1000/60)<end; k++) frames.add(start+Math.round(k*1000/60));
+    for (const key of carrier.Translation?.Keys || []) if (key.Frame >= start && key.Frame <= end) frames.add(key.Frame);
+    for (const f of frames) {
+      const world = sampleNodeMatrices(result, f, si);
+      const basis = inheritedParentMatrix(world.get(carrier.Parent) || new Matrix4(), carrier.Flags);
+      if (Math.abs(basis.determinant()) < 1e-8) continue;
+      const correction = new Vector3();
+      for (const pair of seam) {
+        const anchor = pair.s.bind.clone().add(pair.offset).applyMatrix4(world.get(pair.s.driver));
+        const edge = pair.f.bind.clone().applyMatrix4(world.get(carrier.ObjectId));
+        correction.add(anchor.sub(edge));
+      }
+      correction.divideScalar(seam.length);
+      const inverse = basis.invert();
+      const offset = correction.applyMatrix4(inverse).sub(new Vector3().applyMatrix4(inverse));
+      fixes.set(f, previous => new Vector3().fromArray(previous).add(offset).toArray());
+    }
+    rewriteTrack(result, carrier, si, [...frames], fixes, 'Translation');
+  }
 }
