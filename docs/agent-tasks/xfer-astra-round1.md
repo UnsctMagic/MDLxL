@@ -405,3 +405,38 @@ The grading launcher opens the saved exports in MDLxL build 31. Both panes rotat
 For the four repairs, the sweep covered 52 clips, 45,113 synchronized time samples and 604,850 individual model views. For the grading panel it covered 244 clips, 179,296 time samples and 2,282,540 model views. The sets overlap. Each sweep sampled at 60 Hz, clip endpoints and authored keys. It rendered each distinct visible skin pose from eight directions around the body and from above and below. I personally inspected synchronized textured strips, rotated views, the old failure poses and the largest deformation frames. The frame sweep and pixel counts were automated. Empty raster views in the panel occurred in Decay clips. Particle effects can extend beyond the solid-skin framing. Warcraft III playback was not exercised. [Per-clip geometry, coverage and saved-file hashes](<D:/Codex/xfer-solo-review-20/evidence/visual-review.json>)
 
 All 272 related tests passed, with zero skips. Each of the four new regressions failed on the previous commit. All 32 retarget fingerprints matched their original baseline. The 61-pair panel retained 59 good and two bad. The humanoid 1,000 retained 993 good, three mixed and four bad, including a final replay of 64 potentially affected or previously non-good rows. On the original 40 pairings the ruler still returned 36 good, one mixed and three bad. Those revised-export verdicts match 19 of the owner's labels on the original bytes. The owner's grades remain the reference for those original exports. Grades for this new selection are pending. [Regression results](<D:/Codex/xfer-solo-review-20/evidence/regressions.json>)
+
+## Result from the owner's graded 20, 21 November 2026
+
+Engine commit `6fe478b3` on `codex/xfer-astra-r1`. I reopened the graded exports and the donors, repaired the eleven pairs with notes and kept their original case numbers. The new sheet opens each pair on its reported animation. It writes its own grades. [Review the 11 saved exports](<D:/Codex/xfer-walk-review-11/Review 11.cmd>)
+
+### Walks
+
+The old ground fit shifted the entire skeleton whenever the lowest supporting foot changed. The side view showed extra dips when the Knight gathered its legs and when the Centaur handed weight between its front and rear pairs. The Satyr's much broader bounds were visible on the donor itself. Four-legged support now absorbs the changing ground correction at the knees while retaining the angle of the foot. For paired two-legged walks, the fit filters the foot-contact height over adjacent frames. The donor's original lift and fall remain in the body motion.
+
+I stepped through 552 synchronized poses across the seven complete Walk loops from a fixed side camera and ground line. The table gives the largest extra change in vertical speed, measured as the second difference of hip height at 60 Hz after subtracting the same donor motion fitted to the recipient with the ground offset held constant. Values are model units per sample squared. [Side-view pictures](<D:/Codex/xfer-walk-review-11/Walks.jpg>)
+
+| Donor → recipient | Owner grade on previous export | Previous peak | Repaired peak |
+|---|---:|---:|---:|
+| Wolf Rider → Knight | 7 | 13.47 | <0.01 |
+| Satyr → Ghoul | 7 | 6.05 | 0.85 |
+| Grizzly Bear → Timber Wolf | 6 | 2.94 | <0.01 |
+| Gul'dan → Kobold Geomancer | 6 | 2.18 | 0.25 |
+| Centaur → Grunt | 6 | 10.15 | <0.01 |
+| Grizzly Bear → Tauren | 6 | 4.15 | <0.01 |
+| Grizzly Bear → Tauren Chieftain | 7 | 3.40 | <0.01 |
+
+### Belly, cloak and blade
+
+- **Ogre Warrior → Furbolg, previously 6.** The Ogre's unnamed front belly bones move the Furbolg's stomach relative to its torso. In Stand 3 the donor's belly patch travelled 14.22 units and the Furbolg's travelled 7.40. I checked the expansion and return from the side and front.
+- **Shaman → Priest, previously 5.** The broad rear robe panel drives the Priest's cape from its collar to the hem. Its lower panel travelled 12.45 units relative to the collar in Walk. The recipient's own cape joints limit how far its panels fold.
+- **Acolyte → Priest, previously 7.** The rear skirt drives a gentler swing. The donor panel travelled 5.48 units and the Priest's lower cape travelled 6.11 in Walk.
+- **Footman → Spell Breaker, previously 5.** The Footman's weapon attachment identifies its sword even though the bound mesh has an anonymous node name. The Spell Breaker's solid blade stayed visible and its two spinning substitutes stayed hidden at every millisecond of all three attacks, 3,003 samples. [Belly, cloak and blade pictures](<D:/Codex/xfer-walk-review-11/Belly cloak and blade.jpg>)
+
+### Verification and remaining limits
+
+The saved exports retained their donor timelines and recipient triangle topology. I checked the visible edges of all 20 transfers through 244 clips and 179,024 sampled poses. The packaged MDLxL viewer rendered 38,260 donor and result views across 229 non-swim clips. Each reported Walk and each Footman attack was sampled at 60 Hz and authored keys from eight headings, above and below. I inspected the side sequences, the additional angles and each repaired model's worst measured edge at its exact frame. Both panes responded to the normal mouse drag on all 20 pairs. A private copy of the delivered sheet saved a grade for all 11 cases.
+
+The Timber Wolf's torso still lengthens when it reaches forward in the Bear's Attack Slam. Its longest excess over its native edge envelope is 38.4 units at +700 ms, also present in the graded export. These checks cover MDLxL playback. Warcraft III playback and owner grades on the repaired files remain outstanding.
+
+All 283 related tests passed with zero skips. All eleven new regression checks failed against the graded engine. All 32 retarget fingerprints matched. The 61-pair panel retained 59 good and two bad. The full humanoid 1,000 retained 993 good, three mixed and four bad. Each pair retained its previous gate verdict. The revised exports for the original 40 scored 36 good, one mixed and three bad under the ruler. Those verdicts match 19 of the owner's labels on the original files. [Saved-file hashes, measurements and gates](<D:/Codex/xfer-walk-review-11/verification.json>)
