@@ -54,7 +54,7 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { detachedGrip, transplantPropVisibility } from './transplant-props.js';
-import { transplantGait, duplicateGaitChains } from './transplant-gait.js';
+import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
   jointMap, rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
@@ -866,7 +866,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // ------------------------------------------------------------ pairing (the engine's own)
   let entries = [];
   const whole = rigB.ok && rigA.ok ? transferWholeBody(rigB, rigA) : { parts: [], reason: null };
-  const gaitSources = whole.reason ? transplantGait(model,D,rigB,rigA,gait) : new Map();
+  const frontBody = frontBodySupport(D, rigA);
+  const lowerBodyOnly = frontBody && legPairs(rigB) === 2 && !rigB.parts.armL && !rigB.parts.armR && !(rigB.actors?.length > 1);
+  if (lowerBodyOnly) whole.parts = whole.parts.filter(key => key !== 'head' && key !== 'chest');
+  const gaitSources = whole.reason ? transplantGait(model,D,rigB,rigA,gait,frontBody) : new Map();
   if (gaitSources.size) {
     whole.parts.push(...gaitSources.keys());
     if (rigB.parts.hips && rigA.parts.hips) whole.parts.push('hips');
@@ -938,6 +941,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     if (hangs) { const b = own.indexOf(carrier(rigB, hangs)), a = theirs.indexOf(carrier(rigA, hangs)); if (b >= 0 && a >= 0) { kB = b; kA = a; } }
     trunkMap(own, theirs, kB, kA).forEach((j, i) => { const target = theirs[j]; jointTarget.set(own[i], target); if (!pairedOwn.has(target) || i === kB) pairedOwn.set(target, own[i]); });
   }
+  // Keep the recipient's animal head on the foreleg carrier below the humanoid torso.
+  if (lowerBodyOnly) for (const key of ['head', 'chest'])
+    for (const id of rigB.parts[key]?.joints || []) jointTarget.set(id, frontBody.carrier);
   // Poor fit: how much of the body moves as the donor's same part (docs/agent-tasks/xfer-transplant-fixes.md).
   const still = Object.values(rigB.parts || {}).filter(part => !part.joints.some(id => jointTarget.has(id))).map(part => part.key);
 
@@ -1524,7 +1530,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (rigA.ok && rigB.ok) {
     const at = (list, from) => list.length ? list.map(from).reduce((a, b) => a.add(b), new Vector3()).divideScalar(list.length) : null;
     const rootsOf = kind => Object.values(rigA.parts).filter(part => part.limbKind === kind && placed.has(part.joints[0])).map(part => part.joints[0]);
-    const legRoots = rootsOf('leg'), armRoots = rootsOf('arm');
+    const selectedFront = frontBody && whole.reason && frontBody.legs.every(p =>
+      gaitSources.get('leg' + p.side)?.from === p.key);
+    const legRoots = selectedFront ? frontBody.legs.map(p => p.joints[0]) : rootsOf('leg'), armRoots = rootsOf('arm');
     const trunkJoints = ['hips', 'chest'].flatMap(key => rigA.parts[key]?.joints || []).filter(id => placed.has(id)), headJoints = (rigA.parts.head?.joints || []).filter(id => placed.has(id));
     const headAt = rigA.parts.head?.marker != null && placed.has(rigA.parts.head.marker) ? rigA.parts.head.marker : null;
     const hipB = at(legRoots, id => placed.get(id).clone()) ?? (placed.has(rigA.body) ? placed.get(rigA.body).clone() : null), hipA = at(legRoots, pA) ?? pA(rigA.body);
@@ -1546,8 +1554,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
     // then takes the donor rider's lean on its own (below).
     const riders = rigA.actors?.length > 1 && rigB.actors?.length > 1 && count(rigB, 'leg') === 4;
-    const byLegPairs = !whole.reason && count(rigA, 'leg') === 4 && (!bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
-    if (bipeds && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    const fourContacts = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
+    const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !bipeds || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    if (bipeds && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
@@ -2189,12 +2198,17 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (floor === 'bend' && rigB.ok && rigA.ok && ground) {
     const mapped = part => ({ key: part.key, joints: part.joints.map(id => remap.get(newId(id))).filter(id => id != null && M.Nodes[id]) });
     const parts = Object.values(rigA.parts || {}), own = part => ({ key: part.key, joints: part.joints });
+    // An arm carrying a forepaw needs the same floor correction as an arm carrying a hand.
+    const forelegs = new Set(limbEntries.filter(e => e.own.limbKind === 'arm' && e.theirs.limbKind === 'leg').map(e => e.theirs.key));
+    const arms = parts.filter(p => p.limbKind === 'arm' || forelegs.has(p.key));
+    const legs = parts.filter(p => p.limbKind === 'leg' && !forelegs.has(p.key));
     let lo = Infinity, hi = -Infinity;
     for (const g of model.Geosets || []) for (let i = 2; i < g.Vertices.length; i += 3) { lo = Math.min(lo, g.Vertices[i]); hi = Math.max(hi, g.Vertices[i]); }
     bend = bendArmsAboveFloor(M, {
-      ownHeight: hi - lo, arms: parts.filter(part => /^arm/.test(part.key)).map(mapped), legs: parts.filter(part => /^leg/.test(part.key)).map(mapped),
+      ownHeight: hi - lo, arms: arms.map(mapped), legs: legs.map(mapped),
       weapon: { bone: donorWeapon != null ? remap.get(newId(donorWeapon)) ?? null : null, swap: weaponSwap, ...(bowHands ? {hands:bowHands} : {}) },
-      donor: { model: D, arms: parts.filter(part => /^arm/.test(part.key)).map(own), legs: parts.filter(part => /^leg/.test(part.key)).map(own), weapon: donorWeapon ?? null, size },
+      // A paw serves as a foot. Its support plane is the recipient's sole plane.
+      donor: { model: D, arms: arms.filter(p => !forelegs.has(p.key)).map(own), legs: legs.map(own), weapon: donorWeapon ?? null, size },
     });
   }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
@@ -2208,7 +2222,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // chest nor arms (a wolf, a hydra): its head follows the donor's head with nothing under it (a Dire Wolf's on the
   // Lobstrokk 66 deg off).
   const limbsOf = (rig, kind) => Object.values(rig.parts || {}).filter(part => part.limbKind === kind).length;
-  const noUpper = rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
+  const noUpper = !lowerBodyOnly && rigA.ok && rigB.ok && !whole.reason && !!rigA.parts.chest && !!rigA.parts.head && !!rigB.parts.head && limbsOf(rigA, 'arm') >= 2 && !rigB.parts.chest && limbsOf(rigB, 'arm') === 0;
   const changingBowHands = new Set((bowHands?.Keys || []).map(k=>k.Vector[0]).filter(id=>id>=0)).size > 1;
   const fit = hard.length || changingBowHands || livingForm || whole.reason || noUpper || still.some(key => key === 'hips' || /^(arm|leg|wing)/.test(key)) || follows < 0.5 ? 'poor' : 'good';
   const reasons = [`${Math.round(follows * 100)}% of the body follows the donor.`];

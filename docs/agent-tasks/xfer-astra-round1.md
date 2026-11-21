@@ -297,3 +297,49 @@ The fresh 40 use seed `20261124` and contain 40 unique, previously ungraded orde
 All 20 transfer stories passed in sequential, hidden, normal-priority runs of package 31. I checked the actual default and detailed grade views for all 40 new pairs. The harness also verified 80 synchronized Walk samples and normal linked mouse rotation in all 40 screens. The texture audit covered all 520 source references, including 12 loose custom textures. There were zero unresolved texture warnings or app errors in the review. Several differently sized models display smaller in their default view, particularly the Death Knight and Ratling. Non-texture sound and external-effect notices are recorded in the grading evidence. The eight shipped engine source files match the tested worktree by SHA-256. Six unchanged custom model fixtures used by the tests are pinned under `D:\Claude\MDLxL-TestModels\transfer-astra-r1`.
 
 The 20 new owner grades above are the independent quality result for this build. The other 20 fresh cases have no owner grade in this comparison. Verification used the packaged MDLxL preview. Warcraft III playback remains untested.
+
+## Follow-up result — donor posture and the 20-pair review, 21 November
+
+I reviewed 16 transfers between similar body types and four transfers between body types. I watched the posed meshes in Stand, Walk and Attack, inspected 12 phases per clip, and checked the saved MDX files side by side in the textured MDLxL viewer. My grades are 16 good and four mixed. The owner has not graded this selection. It includes related models with nearly identical rigs, so its score cannot estimate the success rate on random units.
+
+### Engine changes
+
+- A four-legged donor can use all four POSE support chains to orient a biped's torso. The rear legs drive its legs and the forelegs drive its arms. The existing shoulder floor correction now checks the skinned forelimbs against the recipient's hind-foot support plane. In the Chieftain's Walk, the old palms stayed 21–66 model units above zero across 12 samples. With the new fit the lowest palm ranges from about −5 to +4. During Attack both Tauren rise with the bear. Their weapons and the Chieftain's back totems still interfere with the silhouette.
+- The centaur's front leg pair and humanoid upper body have a common skeletal carrier above the forequarters. The automatic biped mapping uses that pair for the recipient's legs, and keeps the torso, hands and head on their corresponding upper-body handles. An armless quadruped takes all four legs and carries its head on the centaur's forequarters. The Centaur's axe swing no longer pulls the Bear's head down with the humanoid torso. This uses the shared POSE rig, its limb hierarchy and the posed geoset surfaces used for floor clearance.
+- On the Skeleton Warrior, both the sword and shield had qualified as weapons. The Footman's sword consequently followed the shield arm. Where both hands have named equipment, an authored Weapon Ref on one hand and shield-only equipment on the other resolve the weapon side. This retains an ambiguous reading for two actual weapons. The corrected Footman carries its sword forward in Walk and swings with the donor.
+- Fifteen of the 16 ordinary comparisons retained their build 31 sampled skin and handle positions. Wrist placement can still differ because of shoulder spacing and arm length. On Wolf Rider → Knight the rein hand reaches across the rider's middle in Walk. On Grunt → Felguard the right elbow comes farther inside during part of Attack. These are the two ordinary transfers I judged mixed.
+
+### My visual grades
+
+| Donor → recipient | Grade | What I saw |
+|---|---:|---|
+| Wolf Rider → Knight | 6 | The horse and rider follow the gallop. The rein hand reaches too far across the chest. |
+| Knight → Wolf Rider | 7 | The wolf takes the horse's stride and rear, and the seated rider takes the strike. |
+| Grunt → Footman | 7 | The feet alternate and the sword follows the axe swing. The shield covers more of the guard. |
+| Footman → Grunt | 7 | The Grunt takes the Footman's step and attack. The axe reads clearly on the downswing. |
+| Felguard → Grunt | 8 | The longer stride, forward lean and weapon thrust carry through. |
+| Grunt → Felguard | 6 | The walk carries through. The right elbow comes too far inward during the attack. |
+| Bandit → Footman | 7 | The walk and strike read. The larger shield partly hides the free forearm. |
+| Footman → Bandit | 7 | The Bandit keeps the step, shield guard and axe swing. |
+| Night Elf Archer → High Elf Archer | 9 | The run, draw and bow position track closely. |
+| High Elf Archer → Night Elf Archer | 9 | The draw and release track closely in the reverse direction. |
+| Timber Wolf → Dire Wolf | 9 | The paw cycle and bite track closely. |
+| Dire Wolf → Timber Wolf | 9 | The reverse transfer also retains the crouch and lunge. |
+| Grizzly Bear → Tauren Chieftain | 5 | The Chieftain walks on hands and hooves and rears in Attack. The polearm, back totems and hero glow obscure the contacts. |
+| Centaur → Grunt | 8 | The front legs step under the humanoid chest and the hands retain the axe action. |
+| Centaur → Grizzly Bear | 7 | The Bear takes the four-leg gallop. Its head stays with the forequarters during the axe strike. |
+| Wolf Rider → Chaos Wolf Rider | 9 | The mounted gait and arm motion track closely on the related rig. |
+| Grunt → Chaos Grunt | 9 | The footfalls and axe strokes track closely on the related rig. |
+| Footman → Militia | 8 | The guard, steps and downswing remain readable. |
+| Skeleton Warrior → Footman | 8 | The sword now follows the sword hand and the shield follows the shield hand. |
+| Grizzly Bear → Tauren | 6 | The regular Tauren drops to all fours and rises for the strike. The log still occupies the front contact area. |
+
+### Verification and review files
+
+All 253 related tests passed with zero skips. The three new support regressions fail on build 31. The new shield-hand test failed before the handedness change. All 32 retarget fingerprints match the original, including the existing missing Spell sequence. All 20 saved models reopened with the donor's full sequence list. A real mouse drag rotated both panes in each hidden MDLxL review case. Verification covered MDLxL playback. Warcraft III playback remains untested.
+
+The 61-pair panel retained 59 good and two bad. The 1,000 humanoid pairs retained 993 good, three mixed and four bad, with zero verdict changes against build 31. The full sets ran with the support change. The handedness change affected one source model in the collected fixtures, the Skeleton Warrior. Its one panel pairing and 31 humanoid pairings were rechecked on the final engine. The original owner-graded 40 retained 36 good, one mixed and three bad according to the ruler. Agreement with the original owner grades was 19/40 on the changed results. Those original grades refer to the original models. The owner's later blind 20 still scored build 31 at four of 20 good.
+
+- [Open the 20 saved donor/result comparisons](<D:/Codex/xfer-pose-handles-review/Review 20.cmd>). The launcher opens build 31 as a viewer for MDX files exported by the revised engine. It stores any new owner grades beside this sheet.
+- [Textured comparison of all 20 pairs](<D:/Codex/xfer-pose-handles-review/evidence/twenty-in-mdlxl.jpg>) and [four before-and-after Walk cycles](<D:/Codex/xfer-pose-handles-review/evidence/four-walks.webp>).
+- [Saved MDX files](<D:/Codex/xfer-pose-handles-review/models>) and [regression counts](<D:/Codex/xfer-pose-handles-review/evidence/regressions.json>).

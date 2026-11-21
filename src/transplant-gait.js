@@ -1,4 +1,5 @@
 import { allNodes, nodePivot } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 const legs = (rig, side) => Object.values(rig.parts).filter(p => p.limbKind === 'leg' && p.side === side);
 
@@ -12,7 +13,19 @@ function ordered(rig, model, side) {
   return legs(rig,side).sort((a,b)=>along(a)-along(b));
 }
 
-export function transplantGait(own, donor, ownRig, donorRig, choice) {
+// An upper torso rooted over the forelegs of a single four-legged creature.
+export function frontBodySupport(model, rig) {
+  if (!rig.ok || rig.actors?.length > 1 || !rig.parts.chest || !rig.parts.armL || !rig.parts.armR) return null;
+  const left = ordered(rig, model, 'L'), right = ordered(rig, model, 'R');
+  if (left.length !== 2 || right.length !== 2) return null;
+  const tree = nodeIndex(model);
+  const carrier = tree.ancestors(left[1].joints[0]).find(id =>
+    tree.isAncestor(right[1].joints[0], id) && tree.isAncestor(rig.parts.chest.joints[0], id)
+    && ![left[0], right[0]].some(part => tree.isAncestor(part.joints[0], id)));
+  return carrier == null ? null : { carrier, legs: [left[1], right[1]] };
+}
+
+export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody = null) {
   const assignments = new Map();
   if (!choice || !ownRig.ok || !donorRig.ok) return assignments;
   for (const side of ['L','R']) {
@@ -24,7 +37,7 @@ export function transplantGait(own, donor, ownRig, donorRig, choice) {
       const additional = index >= theirs.length;
       const reflected = additional && choice === 'diagonal' && index % 2 === 1 && other.length > 0;
       if (reflected) source = other[Math.min(index,other.length-1)];
-      if (mine.length === 1 && choice === 'front') source = theirs.at(-1);
+      if (mine.length === 1 && (choice === 'front' || (frontBody && choice === 'back-and-arms' && ownRig.parts.armL && ownRig.parts.armR))) source = theirs.at(-1);
       assignments.set(part.key,{from:source.key,copy:additional,reflected});
     }
     // Use a spare foreleg only when the recipient arm has no actual donor arm.
