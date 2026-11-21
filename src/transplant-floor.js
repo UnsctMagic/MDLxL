@@ -283,6 +283,43 @@ function fitSupportTool(model,info,id,floor) {
   }
 }
 
+// With two support pairs, the lowest contact alternates between the fore and
+// hind legs. Preserve the body path and absorb their changing reach at the knees.
+export function fitWalkContacts(model, si, parts, frames, heights, tolerance) {
+  const chains = parts.map(p => [p.joints[0],p.joints[1],p.marker]);
+  if (chains.length < 4 || chains.some(ids => new Set(ids).size !== 3 ||
+      ids.some(id => !model.Nodes[id] || isGlobalTrack(model.Nodes[id].Rotation,model)))) return null;
+  const sorted = [...heights].sort((a,b) => a-b);
+  if (sorted.at(-1)-sorted[0] <= tolerance) return null;
+  const bias = sorted[Math.floor(sorted.length/2)];
+  const turns = chains.map(() => [new Map(),new Map(),new Map()]);
+  const turn = (a,b) => new Quaternion().setFromUnitVectors(a.normalize(),b.normalize());
+  for (const [j,frame] of frames.entries()) {
+    const mats = sampleNodeMatrices(model,frame,si);
+    for (const [i,ids] of chains.entries()) {
+      const nodes = ids.map(id => model.Nodes[id]);
+      const [root,middle,end] = nodes.map(n => v3(nodePivot(model,n)).applyMatrix4(mats.get(n.ObjectId)));
+      const lengths = [root.distanceTo(middle),middle.distanceTo(end)];
+      if (Math.min(...lengths)<1e-5) continue;
+      const target = end.clone(); target.z += heights[j]-bias;
+      const solved = solveTwoBone({root,middle,end,lengths,tolerance:1e-5},target);
+      const swing = [turn(middle.clone().sub(root),solved.middle.clone().sub(root)),
+        turn(end.clone().sub(middle),solved.end.clone().sub(solved.middle)),new Quaternion()];
+      let previous = new Quaternion();
+      for (const [k,n] of nodes.entries()) {
+        const parentMatrix = inheritedParentMatrix(mats.get(n.Parent) || new Matrix4(),n.Flags);
+        const parent = new Quaternion().setFromRotationMatrix(new Matrix4().extractRotation(parentMatrix)).normalize();
+        const local = parent.clone().invert().multiply(previous.clone().invert()).multiply(swing[k]).multiply(parent);
+        turns[i][k].set(frame, v => local.clone().multiply(new Quaternion().fromArray(v)).normalize().toArray());
+        previous = swing[k];
+      }
+    }
+  }
+  for (const [i,ids] of chains.entries()) for (const [k,id] of ids.entries())
+    if (turns[i][k].size) rewriteTrack(model,model.Nodes[id],si,frames,turns[i][k]);
+  return bias;
+}
+
 // A hand carrying the donor's weight is a foot. Lift its contact surface
 // vertically with the POSE elbow solve, keeping its stride and paw orientation.
 function plantSupportPalms(model, info, parts, floor, equipment) {

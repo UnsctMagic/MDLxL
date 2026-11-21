@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { openDocument } from '../src/editor-document.js';
 import { transferRig } from '../src/anim-transfer.js';
-import { nodePivot, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { nodePivot, sampleGeosetAnimation, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { nodeIndex } from '../src/node-hierarchy.js';
 import { vertexBones } from '../src/part-bones.js';
 import { mirrorModel, transplantSkeleton } from '../src/skeleton-transplant.js';
@@ -308,3 +308,60 @@ for (const [name,frame,a,b,limit] of [
       }
     });
 }
+
+for (const [donorName,recipient,mirror] of [
+  ['orc__wolfrider','human__knight'], ['creeps__satyr','undead__ghoul'],
+  ['orc__orcwarlockguldan','creeps__koboldgeomancer'], ['creeps__centaur','orc__grunt',true],
+  ...['creeps__timberwolf','orc__tauren','orc__herotaurenchieftain'].map(name=>['creeps__grizzlybear',name]),
+]) {
+  check(`Walk ground contact adds no frame-scale hip jolt on ${donorName} into ${recipient}`,
+    donorName,recipient,({model,donor,own,report}) => {
+      const free = transplantSkeleton(own,donor,{mirror:!!mirror,feet:'free',extents:false});
+      const src = transferRig(donor), h = transferRig(own).hipHeight;
+      const si = model.Sequences.findIndex(s=>/^walk$/i.test(s.Name.trim()));
+      const [start,end] = model.Sequences[si].Interval, extra = [];
+      const height = (m,id,t) => new Vector3().fromArray(nodePivot(m,m.Nodes[id],id))
+        .applyMatrix4(sampleNodeMatrices(m,t,si).get(id)).z;
+      for (let k=0;start+k*1000/60<=end;k++) {
+        const f=start+k*1000/60;
+        extra.push(height(model,report.donorNodes[src.body],f)-height(free.model,free.report.donorNodes[src.body],f));
+      }
+      for (let k=1;k<extra.length-1;k++)
+        assert.ok(Math.abs(extra[k+1]+extra[k-1]-2*extra[k])<.035*h,'ground fit jolts the hips at frame '+k);
+    },!!mirror);
+}
+
+for (const [donorName,ownName,clip,patch,host] of [
+  ['creeps__ogreoneheaded','creeps__furbolg','Stand 3','Stomach','belly'],
+  ['orc__shaman','human__priest','Walk','Cape4','Cape'],
+  ['undead__acolyte','human__priest','Walk','Cape4','Cape'],
+]) {
+  check(`${donorName} moves the actual ${patch} surface on ${ownName}`,donorName,ownName,({model,own})=>{
+    const bone = own.Nodes.find(n=>n?.Name===patch), carrier = model.Nodes.find(n=>n?.Name===host);
+    assert.ok(carrier,'secondary surface retained its attachment');
+    const anchor = host==='belly' ? carrier.Parent : carrier.ObjectId;
+    const verts = own.Geosets.flatMap((g,gi)=>Array.from({length:g.Vertices.length/3},(_,v)=>
+      vertexBones(g,v).includes(bone.ObjectId) ? [gi,v] : null).filter(Boolean));
+    assert.ok(verts.length);
+    const si=model.Sequences.findIndex(s=>s.Name.trim()===clip), [a,b]=model.Sequences[si].Interval;
+    const path=[];
+    for (let k=0;k<=30;k++) {
+      const matrices=sampleNodeMatrices(model,a+(b-a)*k/30,si);
+      const points=model.Geosets.map(g=>skinGeoset(g,matrices));
+      const centre=verts.reduce((sum,[gi,v])=>sum.add(new Vector3().fromArray(points[gi],3*v)),new Vector3());
+      path.push(centre.divideScalar(verts.length).applyMatrix4(matrices.get(anchor).clone().invert()));
+    }
+    assert.ok(path.some(p=>path.some(q=>p.distanceTo(q)>4)),'the bound patch moves relative to its host');
+  });
+}
+
+check('Footman attacks retain the Spell Breaker solid GEOSET POSE blade',
+  'human__footman','human__bloodelfspellthief',({model})=>{
+    for (const [si,s] of model.Sequences.entries()) {
+      if (!/attack/i.test(s.Name)) continue;
+      for (let f=s.Interval[0];f<=s.Interval[1];f+=8) {
+        assert.ok(sampleGeosetAnimation(model,2,f,si).alpha>.99);
+        for (const gi of [3,8]) assert.ok(sampleGeosetAnimation(model,gi,f,si).alpha<.001);
+      }
+    }
+  },true);

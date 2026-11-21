@@ -42,8 +42,12 @@ function skinNames(geoset, nodes) {
 
 // Only change separate prop geometry. On a mixed body/weapon mesh the body must
 // never disappear with the weapon. A thrown copy still carries the same weapon.
-export function transplantPropVisibility(M, own, donor, treeB, treeA, stand, swaps, keep, constantTrack) {
+export function transplantPropVisibility(M, own, donor, treeB, treeA, stand, swaps, keep, constantTrack, hand) {
   const hasMissile = (donor.Bones || []).some(n => projectile.test(n.Name));
+  const grips = new Set((donor.Attachments || []).filter(n => /weapon/i.test(n.Name) && hand != null &&
+    treeA.isAncestor(n.Parent,hand)).map(n => treeA.byId.get(n.Parent)?.Name));
+  const solidWeapon = n => weapon.test(n) && !projectile.test(n);
+  const spinBlade = n => /(?:blade.*spin|spin.*blade)/i.test(n);
   let donorWeaponGeos;
   for (const [gi,g] of (own.Geosets || []).entries()) {
     const original = geosetAlphaTrack(own,gi);
@@ -55,9 +59,12 @@ export function transplantPropVisibility(M, own, donor, treeB, treeA, stand, swa
       anim.Alpha = constantTrack([0]);
       continue;
     }
-    if (!stand || !names.every(n => weapon.test(n) && !projectile.test(n)) || !geosetVisibleIn(own,original,stand)) continue;
-    donorWeaponGeos ??= donor.Geosets.map((geo,i) => skinNames(geo,treeA.byId).some(n => weapon.test(n) && !projectile.test(n) && !/death|corpse/i.test(n)) ? i : -1).filter(i => i >= 0);
+    if (!stand) continue;
+    const spinning = names.every(spinBlade) && !geosetVisibleIn(own,original,stand);
+    if (!spinning && !(names.every(solidWeapon) && geosetVisibleIn(own,original,stand))) continue;
+    donorWeaponGeos ??= donor.Geosets.map((geo,i) => skinNames(geo,treeA.byId).some(n => (solidWeapon(n) || grips.has(n)) && !/death|corpse/i.test(n)) ? i : -1).filter(i => i >= 0);
     if (!donorWeaponGeos.length) continue;
+    if (spinning && donor.Bones.some(n => spinBlade(n.Name))) continue;
     const tracks = donorWeaponGeos.map(i => geosetAlphaTrack(donor,i));
     if (tracks.some(track => isGlobalTrack(track,donor))) continue;
     const alpha = anim.Alpha;
@@ -68,7 +75,7 @@ export function transplantPropVisibility(M, own, donor, treeB, treeA, stand, swa
       for (const track of tracks) for (const k of track?.Keys || []) if (k.Frame >= a && k.Frame <= b) steps.add(k.Frame);
       const thrown = swaps.filter(s => s.sequence === seq.Name).flatMap(s => s.spans);
       for (const [lo,hi] of thrown) for (const f of [a+lo,a+hi,a+hi+1]) if (f >= a && f <= b) steps.add(f);
-      const visible = f => thrown.some(([lo,hi]) => f-a >= lo && f-a <= hi) ? 1 :
+      const visible = f => spinning ? 0 : thrown.some(([lo,hi]) => f-a >= lo && f-a <= hi) ? 1 :
         Math.max(...tracks.map(track => sampleTrack(track,f,{interval:seq.Interval,fallback:1})));
       if ([...steps].every(f => Math.abs(sampleTrack(alpha,f,{interval:seq.Interval,fallback:1})-visible(f)) < 1e-5)) continue;
       alpha.Keys = alpha.Keys.filter(k => k.Frame < a || k.Frame > b);

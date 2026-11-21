@@ -52,7 +52,8 @@ import { createResourceImporter } from './model-import.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 import { deathSkinTwins, mountedWeaponCopy, fitDroppedBlade } from './transplant-death-skin.js';
-import { bendArmsAboveFloor } from './transplant-floor.js';
+import { bendArmsAboveFloor, fitWalkContacts } from './transplant-floor.js';
+import { secondarySurfaces, secondaryMotion } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
@@ -1238,6 +1239,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   }
   // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
   // own extra bone -> donor joint.
+  const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet) : new Map();
   const extraMatch = new Map();
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
@@ -1260,7 +1262,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       result = up != null ? { ...targetOf(up), via: extraMatch.has(up) ? null : rideOf.has(up) ? rideOf.get(up) : up } : { donor: fallbackDonor, via: null };
       return result.own != null ? { own: result.own, via: null } : result;
     }
-    if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
+    if (secondary.has(id)) result = { own:id, via:null };
+    else if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
     else if (rideOf.has(id)) result = { ...targetOf(rideOf.get(id)), via: rideOf.get(id) };
     else if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
     else if (twin.has(id)) result = targetOf(twin.get(id));
@@ -1511,7 +1514,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     };
     const candidates = [];
     for (const extra of extras.values()) {
-      if (extra.kept || weaponExtras.has(extra.id) || holdsPart(treeB, partJoint, extra.id)) continue;
+      if (extra.kept || extra.bones.some(id => secondary.has(id)) || weaponExtras.has(extra.id) || holdsPart(treeB, partJoint, extra.id)) continue;
       const anchor = treeB.parentOf(extra.id), target = anchor != null ? targetOf(anchor).donor : null;
       if (target == null || !partOfDonor.has(target)) continue;
       for (const [top, joint] of donorTops) {
@@ -1845,7 +1848,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // ------------------------------------------------------------ the new model
   const M = structuredClone({ ...model, Nodes: undefined });
   delete M.Nodes;
-  const ownKeep = new Set([...keptOwn, ...ownNodes.filter(n => keptExtra(n.ObjectId) || outsideKept.has(n.ObjectId)).map(n => n.ObjectId)]);
+  const ownKeep = new Set([...secondary.keys(), ...keptOwn, ...ownNodes.filter(n => keptExtra(n.ObjectId) || outsideKept.has(n.ObjectId)).map(n => n.ObjectId)]);
   // The model's own effects and collision shapes stay; its attachments are replaced by the donor's;
   // its events stay only when the donor's are not taken.
   for (const node of ownNodes) {
@@ -1874,12 +1877,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const starts = [...new Set(newSequences.filter(keyable).map(sequence => sequence.Interval[0]))].sort((a, b) => a - b);
   const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: starts.map(frame => ({ Frame: frame, Vector: like(template ?? new Float32Array(value.length), value) })) });
   const isDefault = (property, value) => property === 'Rotation' ? near(new Quaternion().fromArray(value).normalize(), 1e-7) : property === 'Scaling' ? value.every(v => Math.abs(v - 1) < 1e-7) : value.every(v => Math.abs(v) < 1e-7);
+  const surfaceTracks = secondaryMotion(model,D,treeA,secondary,rigA.reference,size);
   for (const node of ownNodes) {
     if (!ownKeep.has(node.ObjectId)) continue;
     const copy = structuredClone(node), key = NODE_KEYS.find(k => (model[k] || []).includes(node));
     copy.Parent = ownParent(node.ObjectId) ?? null;
     copy.PivotPoint = new Float32Array(nodePivot(model, node, node.ObjectId));
-    if (JOINT_KEYS.includes(key) && !keptOwn.has(node.ObjectId)) {
+    if (surfaceTracks.has(node.ObjectId)) {
+      for (const property of ['Translation','Rotation','Scaling']) delete copy[property];
+      Object.assign(copy,surfaceTracks.get(node.ObjectId));
+    } else if (JOINT_KEYS.includes(key) && !keptOwn.has(node.ObjectId)) {
       // Kept still where the model's own reference pose holds it; a global-sequence track keeps moving.
       const local = refLocal(node);
       for (const property of ['Translation', 'Rotation', 'Scaling']) {
@@ -2428,7 +2435,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (livingForm) for (const anim of M.GeosetAnims) {
     if (livingForm.visibility.has(anim.GeosetId)) anim.Alpha = constantTrack([livingForm.visibility.get(anim.GeosetId)]);
   }
-  transplantPropVisibility(M, model, D, treeB, treeA, ownSequences[ownStand], weaponSwap, keepSet, constantTrack);
+  transplantPropVisibility(M, model, D, treeB, treeA, ownSequences[ownStand], weaponSwap, keepSet, constantTrack, Object.values(rigA.parts || {}).find(p => p.weapon)?.marker);
   holdShowing(M, model, ownSequences[ownStand], newSequences, D);
   // This model's own nodes that hang from a donor node (its own effects, a kept piece) stay where they were in the world
   // although their parent's bind pose was re-posed: their turn becomes C q and their move C t + (re-posed pivot - pivot),
@@ -2500,7 +2507,11 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const rigM = rigB.ok && rigA.ok ? mappedRig(M, rigA, id => remap.get(newId(id))) : { ok: false };
   if (rigB.ok && rigA.ok && (donorActor === 'walker' || neckBend))
     posture.face = fitHeadSkin(M,model,D,rigB,rigA,donorMap[rigA.parts.head?.marker]);
-  if (rigB.ok && rigA.ok) settleFeet(M, rigB, rigM, notes, loose);
+  if (rigB.ok && rigA.ok) {
+    rigM.walkContacts = Object.values(rigB.parts).some(p => p.limbKind==='leg') &&
+      ![rigA,rigB].some(r => Object.values(r.parts).some(p => p.limbKind==='leg' && p.short));
+    settleFeet(M, rigB, rigM, notes, loose);
+  }
   // Feet down where the legs pair; else (G1) this model's own soles go down as the donor stands or hovers.
   let ground = null;
   if (rigB.ok && rigA.ok && feet !== 'free') {
@@ -2587,7 +2598,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const listed = still.filter(key => !(whole.reason && !gaitSources.size && (key === 'hips' || /^leg/.test(key))));
   if (listed.length) reasons.push(`No counterpart in the donor: ${listed.map(key => transferPartLabel(key).toLowerCase()).join(', ')}. They ride the donor's body without moving by themselves.`);
   reasons.push(...hard, ...notes);
-  const extrasOut = [...extras.values()].map(({ bones, ...rest }) => ({ ...rest, follows: extraMatch.has(rest.id) ? donorById.get(extraMatch.get(rest.id))?.Name ?? null : null }));
+  const extrasOut = [...extras.values()].map(({ bones, ...rest }) => {
+    const source = secondary.get(rest.id)?.driver ?? extraMatch.get(rest.id);
+    return { ...rest, follows:donorById.get(source)?.Name ?? null };
+  });
   return {
     model: M,
     report: {
@@ -2826,6 +2840,48 @@ function heightPerMoment(M, D, rigM, loose, tolerance, changeOf, only = null) {
     };
     for (let i = 1; i < sorted.length; i++) { refine(sorted[i - 1], sorted[i]); frames.push(sorted[i]); }
     const values = frames.map(change);
+    if (/^walk\b/i.test(sequence.Name) && !/swim|morph/i.test(sequence.Name) && rigM?.walkContacts && !only) {
+      const poses = new Set(frames);
+      for (let t = a; t < z; t += 1000/60) poses.add(Math.round(t));
+      for (const p of Object.values(rigM.parts)) for (const id of p.joints) {
+        for (const key of M.Nodes[id]?.Rotation?.Keys || []) if (key.Frame > a && key.Frame < z) poses.add(key.Frame);
+      }
+      const times = [...poses].sort((u,v) => u-v);
+      const heights = times.map(change);
+      if (Math.max(...heights)-Math.min(...heights) <= tolerance) {
+        for (const node of movers) addHeight(M,node,sequence.Interval,frames,values);
+        return;
+      }
+      const bias = fitWalkContacts(M,index,Object.values(rigM.parts),times,heights,tolerance);
+      if (bias != null) {
+        for (const node of movers) addHeight(M,node,sequence.Interval,[a,z],[bias,bias]);
+        return;
+      }
+      // Within foot-contact tolerance the hips need no extra motion. Above
+      // that band, spread the adjustment across the step and its loop seam.
+      const median = [...heights].sort((x,y)=>x-y)[heights.length >> 1];
+      const band = 1.5*tolerance, span = z-a;
+      const smooth = times.map(f => {
+        let sum = 0, weight = 0;
+        for (let k=-4;k<=4;k++) {
+          const t = a+((f-a+k*span/32)%span+span)%span;
+          const w = 5-Math.abs(k);
+          sum += w*change(Math.round(t)); weight += w;
+        }
+        // The lower-foot marker can change twice in a single contact. A
+        // five-frame contact window rejects that one-frame reversal.
+        let stance = 0;
+        for (let k=-2;k<=2;k++) {
+          const t = a+((f-a+k*1000/60)%span+span)%span;
+          stance += (3-Math.abs(k))*change(Math.round(t));
+        }
+        stance /= 9;
+        const desired = (sum/weight+median)/2;
+        return Math.min(stance+band,Math.max(stance-band,desired));
+      });
+      for (const node of movers) addHeight(M,node,sequence.Interval,times,smooth);
+      return;
+    }
     for (const node of movers) addHeight(M, node, sequence.Interval, frames, values);
   });
   clearTransferCache(M);
@@ -2918,7 +2974,7 @@ function settleFeet(M, rigB, rigM, notes, loose = []) {
 function mappedRig(M, rigA, mapId) {
   const body = mapId(rigA.body);
   if (body == null || !M.Nodes[body]) return { ok: false };
-  const legs = Object.values(rigA.parts).filter(part => part.limbKind === 'leg').map(part => ({ key: part.key, limbKind: 'leg', marker: mapId(part.marker) })).filter(part => part.marker != null && M.Nodes[part.marker]);
+  const legs = Object.values(rigA.parts).filter(part => part.limbKind === 'leg').map(part => ({ key: part.key, limbKind: 'leg', joints: part.joints.map(mapId), marker: mapId(part.marker) })).filter(part => part.marker != null && M.Nodes[part.marker]);
   const stand = standSequenceIndex(M), interval = M.Sequences?.[stand]?.Interval;
   let ground = 0;
   if (legs.length && interval) { const m = sampleNodeMatrices(M, interval[0], stand); ground = Math.min(...legs.map(part => v3(nodePivot(M, M.Nodes[part.marker], part.marker)).applyMatrix4(m.get(part.marker)).z)); }
