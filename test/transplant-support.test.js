@@ -497,3 +497,17 @@ check('Centaur front torso keeps the Grunt waist joined in Attack - 1',
       assert.ok(point(skin,292).distanceTo(point(skin,294))<17,'waist spans the horse torso');
     });
   },true);
+
+test('Static decay visibility follows the active geoset record on legacy duplicate GEOAs', t => {
+  const files=['orc__herotaurenchieftain','creeps__grizzlybear'].map(name => testModel('corpus-sd/'+name+'.mdx'));
+  if (files.some(f => !fs.existsSync(f))) return t.skip('SD fixture unavailable');
+  const [own,donor]=files.map(f => openDocument(fs.readFileSync(f),f).model);
+  const record=alpha=>({GeosetId:0,Flags:0,Color:new Float32Array([1,1,1]),Alpha:alpha});
+  own.GeosetAnims.push(record(1),record(.37));
+  const {model}=transplantSkeleton(own,donor,{extents:false});
+  const records=model.GeosetAnims.filter(a=>a.GeosetId===0);
+  assert.equal(records.length,2);
+  assert.equal(records[1].Alpha,.37);
+  const si=model.Sequences.findIndex(s=>s.Name==='Decay Bone');
+  assert.equal(sampleGeosetAnimation(model,0,model.Sequences[si].Interval[0],si).alpha,0);
+});

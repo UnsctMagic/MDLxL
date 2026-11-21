@@ -447,7 +447,7 @@ function holdShowing(M, model, source, newSequences, donor) {
       if (death) for (const k of body.Keys) if (k.Frame > a && k.Frame < b) frames.push(k.Frame);
       for (const f of frames) values.set(f, death && !bodyShows(seq,f) ? 0 : alpha);
     }
-    ensureGeosetAnimation(M,gi).Alpha = { LineType: 0, GlobalSeqId: null,
+    (existing ?? ensureGeosetAnimation(M,gi)).Alpha = { LineType: 0, GlobalSeqId: null,
       Keys: [...values].sort(([a],[b]) => a-b).map(([Frame,v]) => ({Frame,Vector:new Float32Array([v])})) };
   }
   (model.GeosetAnims || []).forEach(anim => {
