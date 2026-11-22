@@ -60,7 +60,7 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
+import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
 import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -2900,6 +2900,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   }
   if (matchingFourLinkLegs) fitTailPlate(M, model, rigB, treeB);
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
+  if (fix?.looseAxis && detachedWeapons.size === 1 && !weaponHeld && weaponVertices.length && !weaponSwap.length && !mountedPair) {
+    const arms = Object.values(rigA.parts).filter(p => p.limbKind === 'arm' && p.weapon && p.marker === donorWeapon);
+    if (arms.length === 1 && resultStand >= 0 && donorStandD >= 0 &&
+        alignLooseItem(M,D,arms[0],weaponVertices,weaponMoves,donorMap[donorWeapon],resultStand,donorStandD)) fixed.looseAxis = true;
+  }
   for (const refresh of rigidSockets) refresh();
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);

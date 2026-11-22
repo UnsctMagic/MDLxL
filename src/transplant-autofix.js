@@ -11,7 +11,7 @@ import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset, worldPivot } from 
 import { vertexBones } from './part-bones.js';
 import { isWeaponName } from './rig-names.js';
 
-export const AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trunk', 'arms']);
+export const AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trunk', 'arms', 'looseAxis']);
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;
 /** A detached item is held by the hand it stays within this share of the standing height of, and at most half as far as the other hand. */
@@ -178,6 +178,7 @@ export function autoFixNotes(report, mirror = null) {
   if (mirror && mirror.held != null && mirror.held !== mirror.named && mirror.used === mirror.held) notes.push(mirror.held ? 'Mirror on: the weapon hands differ.' : 'Mirror off: both hold the weapon in the same hand.');
   if (did.markers) notes.push('Weapon set by its real grip and tip.');
   if (did.detached?.length) notes.push('Loose weapon put in the hand.');
+  if (did.looseAxis) notes.push('Loose weapon turned to match the donor’s.');
   if (did.arms) notes.push('Arms follow the donor’s main hands.');
   if (did.trunk) notes.push('Body tilt left out: no legs to stand on.');
   return notes;
