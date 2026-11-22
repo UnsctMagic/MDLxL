@@ -16,6 +16,11 @@ const FILE_ICONS = Object.freeze({ page: 'file-page.ico', 'dark-page': 'file-dar
 // Labelled variations exist once per model format: label-page → file-mdl-page.ico.
 const LABELLED = Object.freeze({ 'label-page': 'page', 'label-dark-page': 'dark-page', 'label-tile': 'tile', 'label-tag': 'program', 'label-letters': 'tile' });
 const CLASSES = 'HKCU\\Software\\Classes';
+// Test copies (TestBuilds, packaging output, Codex task folders) never
+// register: double-clicked models must keep opening the installed program,
+// not a build that is deleted after testing.
+const TEST_COPY = /\\TestBuilds\\|\\out\\pkg[^\\]*\\|^[a-z]:\\Codex\\/i;
+const isTestCopy = executable => TEST_COPY.test(path.win32.normalize(String(executable || '')));
 const CAPABILITIES = 'Software\\MDLxL\\Capabilities';
 
 function iconLocation(choice, executable, brandingDirectory, kind) {
@@ -89,6 +94,7 @@ class FileTypeRegistration {
     return operation;
   }
   async write(choice, claim = false) {
+    if (isTestCopy(this.executable)) return false;
     const owner = await ownerExecutable(this.run);
     if (!claim && owner && owner.toLowerCase() !== this.executable.toLowerCase() && this.exists(owner)) return false;
     const entries = registryEntries({ choice, executable: this.executable, brandingDirectory: this.brandingDirectory });
@@ -120,4 +126,4 @@ class FileTypeRegistration {
   }
 }
 
-module.exports = { FileTypeRegistration, FILE_ICONS, MODEL_TYPES, PROG_ID, registryEntries, addArguments };
+module.exports = { FileTypeRegistration, FILE_ICONS, MODEL_TYPES, PROG_ID, registryEntries, addArguments, isTestCopy };

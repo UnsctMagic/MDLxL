@@ -53,7 +53,9 @@ export function EventDataPicker({ type, id, modelPath, catalog, spawnLookup, tea
   const needle = query.trim().toLowerCase();
   const matches = (type === 'SPN' ? spawnChoices : rows).filter(row => row.id === id || row.label.toLowerCase().includes(needle));
   const selectedSpawnShown = matches.some(row => row.id === id);
-  const sounds = type === 'SND' ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
+  // The expansion buttons narrow browsing only; a typed search looks in every
+  // expansion so a sound is never hidden behind a switched-off button.
+  const sounds = type === 'SND' && !needle ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
   const toggleExpansion = key => setExpansions(previous => {
     const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key);
     if (!next.size) for (const value of Object.keys(SOUND_EXPANSIONS)) next.add(value);
