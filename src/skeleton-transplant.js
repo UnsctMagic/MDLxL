@@ -1385,7 +1385,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   }
   // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
   // own extra bone -> donor joint.
-  const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet) : new Map();
+  const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet,rigB) : new Map();
   const extraMatch = new Map();
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).

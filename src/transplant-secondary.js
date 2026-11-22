@@ -6,11 +6,75 @@ import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 
 // Match hanging surfaces by their bound vertices and the POSE trunk that carries
 // them. A rear panel can hang from the hips even when a cape hangs from the chest.
-export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep) {
+export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep, recipient) {
   const matches = new Map();
   const roots = [...treeB.byId.values()].filter(n => /cape|cloak|belly|stomach/i.test(n.Name) &&
     !partJoint(n.ObjectId) && !treeB.ancestors(n.ObjectId).some(id => /cape|cloak|belly|stomach/i.test(treeB.byId.get(id)?.Name)));
-  if (!roots.length || !rig.parts.chest || !rig.parts.hips) return matches;
+  if (!rig.parts.chest || !rig.parts.hips) return matches;
+  // Work in each trunk's coordinates. A secondary branch carries visible
+  // material below or behind the hips and has no load-bearing landmark.
+  function strips(m, r, tree) {
+    const body = new Set(Object.values(r.parts).filter(p => p.key !== 'tail').flatMap(p => p.joints));
+    const skin = new Map(), invisible = corpseAndBackgroundGeosets(m);
+    const hip = new Vector3().fromArray(nodePivot(m, tree.byId.get(r.body), r.body));
+    for (const [gi,g] of m.Geosets.entries()) {
+      if (invisible.has(gi) || sampleGeosetAnimation(m,gi,r.reference.frame,r.reference.sequence).alpha < .5) continue;
+      for (let i=0;i<g.Vertices.length/3;i++) for (const id of vertexBones(g,i)) {
+        if (!skin.has(id)) skin.set(id,{v:new Vector3(),n:0});
+        const spot=skin.get(id); spot.v.add(new Vector3().fromArray(g.Vertices,3*i)); spot.n++;
+      }
+    }
+    const host = new Set([...(r.parts.hips?.joints || []), ...(r.parts.chest?.joints || [])]);
+    const clusters = new Map();
+    for (const [id,spot] of skin) {
+      if (body.has(id)) continue;
+      const path=tree.ancestors(id,true), index=path.findIndex(j=>body.has(j));
+      if (index<1 || !host.has(path[index])) continue;
+      const root=path[index-1], p=spot.v.clone().divideScalar(spot.n).sub(hip).divideScalar(r.hipHeight);
+      if (!clusters.has(root)) clusters.set(root,{root,host:path[index],nodes:new Set(),points:[]});
+      const c=clusters.get(root);
+      for(const j of path.slice(0,index)) c.nodes.add(j);
+      c.points.push({id,p});
+    }
+    const clips=['stand','walk','attack','spell'];
+    return [...clusters.values()].filter(c=>c.points.some(t=>Math.abs(t.p.y)<.8 && (t.p.x<-.35 || t.p.z<-.35)) &&
+      ![...body].some(j=>tree.isAncestor(j,c.root))).map(c=>{
+      const span=Math.max(.05,...c.points.map(t=>t.p.length()));
+      const motion=clips.map(family=>{
+        const seq=m.Sequences.find(s=>s.Name.trim().toLowerCase().startsWith(family));
+        if(!seq)return null;
+        let swing=0;
+        for(const j of c.nodes) {
+          const keys=tree.byId.get(j).Rotation?.Keys?.filter(k=>k.Frame>=seq.Interval[0] && k.Frame<=seq.Interval[1]) || [];
+          for (const k of keys) swing=Math.max(swing,new Quaternion().fromArray(k.Vector).angleTo(new Quaternion().fromArray(keys[0].Vector)));
+        }
+        return swing;
+      });
+      return {...c,span,motion};
+    });
+  }
+  const candidates= strips(donor,rig,treeA);
+  for(const c of strips(own,recipient,treeB)) {
+    if([...c.nodes].some(j=>keep.has(j)))continue;
+    const sources=candidates.filter(d=>d.motion.some(v=>v>.025));
+    const cost=d=>c.motion.reduce((s,v,i)=>s+(v==null || d.motion[i]==null?0:Math.abs(v-d.motion[i])),0)+.3*Math.abs(Math.log(d.span/c.span));
+    const source=sources.sort((a,b)=>cost(a)-cost(b))[0];
+    const depth=(tree,j,root)=>tree.depth(j)-tree.depth(root);
+    const maxDepth=Math.max(1,...[...c.nodes].map(j=>depth(treeB,j,c.root)));
+    for(const j of [...c.nodes].sort((a,b)=>treeB.depth(a)-treeB.depth(b))) {
+      const parent=matches.get(treeB.parentOf(j));
+      const u=depth(treeB,j,c.root)/maxDepth;
+      let driver=source?.host ?? rig.body;
+      if(source){
+        const dMax=Math.max(1,...[...source.nodes].map(k=>depth(treeA,k,source.root)));
+        const available=[...source.nodes].filter(k=>!parent || treeA.isAncestor(k,parent.driver));
+        available.sort((a,b)=>Math.abs(depth(treeA,a,source.root)/dMax-u)-Math.abs(depth(treeA,b,source.root)/dMax-u));
+        driver=available[0] ?? parent?.driver ?? source.root;
+      }
+      matches.set(j,{driver,host:parent?.driver ?? source?.host ?? driver,cloth:true,root:c.root,panelParent:parent?treeB.parentOf(j):undefined,amplitude:source?source.span/c.span:0});
+    }
+  }
+  if (!roots.length) return matches;
   const core = new Map(Object.values(rig.parts).flatMap(p => p.joints.map(id => [id,p])));
   const centres = new Map(), hidden = corpseAndBackgroundGeosets(donor);
   for (const [gi,g] of donor.Geosets.entries()) {
@@ -26,6 +90,7 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
   const hip = new Vector3().fromArray(nodePivot(donor,treeA.byId.get(rig.body),rig.body));
   const h = rig.hipHeight;
   for (const root of roots) {
+    if (matches.has(root.ObjectId)) continue;
     const ids = [...treeB.byId.keys()].filter(id => treeB.isAncestor(id,root.ObjectId) &&
       (own.Bones?.includes(treeB.byId.get(id)) || own.Helpers?.includes(treeB.byId.get(id))));
     if (ids.some(partJoint) || treeB.ancestors(root.ObjectId,true).some(id => keep.has(id))) continue;
@@ -204,7 +269,8 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
       const rot = new Quaternion(), scale = new Vector3();
       delta.decompose(new Vector3(),rot,scale); rot.normalize();
       const angle = rot.angleTo(new Quaternion());
-      if (angle > maxBend) rot.slerp(new Quaternion(),1-maxBend/angle);
+      const scaled = Math.min(maxBend,angle*(match.amplitude ?? 1));
+      if (angle > 1e-6) rot.copy(new Quaternion().slerp(rot.clone(), scaled/angle));
       const q = rot.toArray();
       if (previous && rot.dot(previous)<0) for (let i=0;i<4;i++) q[i]*=-1;
       previous = new Quaternion().fromArray(q);
