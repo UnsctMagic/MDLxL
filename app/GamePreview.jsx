@@ -17,7 +17,7 @@ import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
 import { drawCollisionShapes } from './optimizexl-overlays.js';
 import { ModelRenderer } from 'war3-model';
-import { guardRendererDestroy } from './war3-model-patches.js';
+import { guardRendererDestroy, previewTextureLayers } from './war3-model-patches.js';
 import { advanceShowcaseModel } from './showcase-playback.js';
 import { showcaseOrbitRadius, setShowcaseOrbitCamera, showcaseFraming } from './showcase-orbit.js';
 import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js';
@@ -311,6 +311,7 @@ export default function GamePreview(inputProps) {
     };
     const invalidate = () => scheduler?.invalidate();
     const ownedModel = structuredClone(rendererModel);
+    for (const material of ownedModel.Materials) material.Layers = previewTextureLayers(material.Layers);
     if (uvRestPose) applyUVRestAppearance(ownedModel);
     // New Forge items have no material yet; the private clone shows them as clay.
     const clayPixels = addClayPreviewMaterials(ownedModel);
@@ -1885,7 +1886,7 @@ export default function GamePreview(inputProps) {
       },
       previewMaterialLayers(index,layers) {
         if(disposed||!ownedModel.Materials[index])return;
-        ownedModel.Materials[index].Layers=layers;invalidate();
+        ownedModel.Materials[index].Layers=previewTextureLayers(layers);invalidate();
       },
       // A live fitting control re-uploads only this geoset's first UV set.
       previewGeosetUV(index,uv) {

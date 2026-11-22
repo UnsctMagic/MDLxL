@@ -41,3 +41,11 @@ export function compensateRibbonWallClock(controller) {
   };
   return update;
 }
+
+// Texture indices select discrete images. Interpolating their numbers can
+// index a fractional slot or briefly display images absent from the flipbook.
+export function previewTextureLayers(layers) {
+  return layers.map(layer => layer.TextureID?.Keys && layer.TextureID.LineType !== 0
+    ? { ...layer, TextureID: { ...layer.TextureID, LineType: 0 } }
+    : layer);
+}
