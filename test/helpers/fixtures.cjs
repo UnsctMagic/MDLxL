@@ -131,6 +131,25 @@ const FIXTURES = {
   'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)
   'transfer-demonette': ['MDLXL_TRANSFER_DEMONETTE', testModel('transfer-humanoid/WH_DOC_Demonette02.mdx')], // a neck joint whose run is 12% of its chest-to-head distance (the Gnoll's 59%)
+  // XFER transplant Auto fix (owner's graded pairs, 22 Nov 2026; xfer-auto-fix/README.md): donor and native recipient of each pair
+  'autofix-08-donor': ['MDLXL_AUTOFIX_08_DONOR', testModel('xfer-auto-fix/pair08-donor-EarthLich.mdx')], // control: staff named and measured on both
+  'autofix-08-own': ['MDLXL_AUTOFIX_08_OWN', testModel('xfer-auto-fix/pair08-recipient-Minion_Archivist.mdx')],
+  'autofix-10-donor': ['MDLXL_AUTOFIX_10_DONOR', testModel('xfer-auto-fix/pair10-donor-ObsidianReaver.mdx')],
+  'autofix-10-own': ['MDLXL_AUTOFIX_10_OWN', testModel('xfer-auto-fix/pair10-recipient-NRP_MurlocAssassin.mdx')], // Hand Right Ref at foot level (markers)
+  'autofix-12-donor': ['MDLXL_AUTOFIX_12_DONOR', testModel('xfer-auto-fix/pair12-donor-DemonHag.mdx')], // staff on its own top-level bone, held in the left hand (hand)
+  'autofix-12-own': ['MDLXL_AUTOFIX_12_OWN', testModel('xfer-auto-fix/pair12-recipient-WH_VC_LahmianVampire01.mdx')],
+  'autofix-15-donor': ['MDLXL_AUTOFIX_15_DONOR', testModel('xfer-auto-fix/pair15-donor-Bretonnian_Archer.mdx')], // an empty helper named Sword on the right arm, bow on the left (hand)
+  'autofix-15-own': ['MDLXL_AUTOFIX_15_OWN', testModel('xfer-auto-fix/pair15-recipient-Ungor_bow.mdx')],
+  'autofix-16-donor': ['MDLXL_AUTOFIX_16_DONOR', testModel('xfer-auto-fix/pair16-donor-Hero_ArchBishop.mdx')], // control: items on both arms, names agree
+  'autofix-16-own': ['MDLXL_AUTOFIX_16_OWN', testModel('xfer-auto-fix/pair16-recipient-DwarfStonemason.mdx')],
+  'autofix-17-donor': ['MDLXL_AUTOFIX_17_DONOR', testModel('xfer-auto-fix/pair17-donor-Greenskin_Goblin0.mdx')],
+  'autofix-17-own': ['MDLXL_AUTOFIX_17_OWN', testModel('xfer-auto-fix/pair17-recipient-Dullahan_red.mdx')], // no legs, hip-to-shoulder line 4% of its height (trunk)
+  'autofix-18-donor': ['MDLXL_AUTOFIX_18_DONOR', testModel('xfer-auto-fix/pair18-donor-ForestTrollPillager.mdx')], // Hand/Weapon markers 133 deg off its sword (markers)
+  'autofix-18-own': ['MDLXL_AUTOFIX_18_OWN', testModel('xfer-auto-fix/pair18-recipient-Luc_Valonforth.mdx')],
+  'autofix-33-donor': ['MDLXL_AUTOFIX_33_DONOR', testModel('xfer-auto-fix/pair33-donor-Archelect_TheGodslayer.mdx')],
+  'autofix-33-own': ['MDLXL_AUTOFIX_33_OWN', testModel('xfer-auto-fix/pair33-recipient-clanrat29.mdx')], // control: two legs, hip-to-shoulder line 5% of its height (trunk stays)
+  'autofix-34-donor': ['MDLXL_AUTOFIX_34_DONOR', testModel('xfer-auto-fix/pair34-donor-Knightess.mdx')],
+  'autofix-34-own': ['MDLXL_AUTOFIX_34_OWN', testModel('xfer-auto-fix/pair34-recipient-WH_Unsanctioned_Paladin.mdx')], // sword on its own bone named sord (detached)
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
