@@ -601,3 +601,22 @@ Pre-code measurements on the original native inputs. Identified means at least o
 | new40 | 40 | 29 | 20 | 5 |
 | repairs | 12 | 8 | 5 | 1 |
 | fresh50 | 50 | 46 | 26 | 16 |
+
+#### Rule 1 trial and stop
+
+The candidate at `5a3cc5a6` read the grip from a rigid skin surface across native Stand, Walk and Attack poses, including the observed grip of a separate animated item. The shared rig reading supplied both the default mirror and the held-item carrier. The trial removed the detached carrier's name gate. All four target pairs and seven fresh-sheet controls reproduced their graded bytes on the unchanged engine before the trial, as did both protected repair exports.
+
+| Pair | Graded | Trial |
+|---|---|---|
+| #2 Knightess → Unsanctioned Paladin, Walk | All 739 sword vertices on the pelvis. Mean grip gap 24% of height, maximum 33%. | All 739 on the right hand. Mean and maximum gap both 4%. |
+| #6 Norse Elementalist → Witch, 9/10 | Staff-axis line error 5° in Stand Ready, Attack -1 and Walk. Walk grip gap averaged 8%. | Line error rose to 8° in all three clips. Walk grip gap averaged 7%. |
+| Repair #32 Aspiring Champion → Revenant, Walk | Weapon axis parallel to the donor's as a line. Grip gap averaged 12% of height. | Shaft almost perpendicular, 88° line error. Grip gap averaged 13%. |
+| Repair #11 Naga Whaler | Graded bytes | Identical bytes |
+
+The grip-gap numbers here use Claude's held-item surface landmarks and nearest hand attachment at 2 ms. They are separate from the hand-bone acceptance test required for rule 2. The line error treats a shaft's two directions as equivalent. The full measured directed angles and sample counts are in the evidence file. On fresh rows #29, #35 and #23 the automatic mirror respectively changed from on to off, off to on and off to on. Visual acceptance on these three remains unestablished.
+
+**Why the control changed.** The Witch and its donor both carry a staff on the left. The baseline selected the right hand and routed no extra through the special weapon-binding pass. The trial selected the left hand, routed 166 staff vertices through that pass, and reproduced the worse angle on the serialized export. The 8° result still passes the 30° limit. The owner's stop rule also covers deterioration within tolerance. On the Revenant, the donor axe, mirrored donor and 18 tracked weapon vertices were the same. Identifying the recipient's correct left hand turned `explicitGrip` from true to false. The engine consequently skipped the existing donor alignment and mirrored shield adjustment. The change in pose is visible in the Walk comparison.
+
+**Disposition.** Reverted at `945b3737`. Regenerated the Paladin, Witch, Revenant and Naga Whaler after the revert and obtained the graded bytes for all four. The complete production source matches the graded source. No patch removal or behavior change remains active. Rules 2–10 did not run. The 1,000/61 counts above measure coverage only. The verdict sweeps, retarget comparison, full independent checks, test suites and packaged viewer gates remain unrun for this rejected trial. The sealed 15 remain unopened, with 0 evaluated. No 34-pair grading sheet was produced, and no improvement on unseen pairs was demonstrated.
+
+[Donor, graded result and trial at matched Walk times](<D:/Codex/xfer-held-item-trial/Walk comparisons.png>) · [Counts, hashes, unrounded sample times and routing traces](<D:/Codex/xfer-held-item-trial/Rule 1 evidence.json>)
