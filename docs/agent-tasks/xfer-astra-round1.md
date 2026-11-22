@@ -620,3 +620,31 @@ The grip-gap numbers here use Claude's held-item surface landmarks and nearest h
 **Disposition.** Reverted at `945b3737`. Regenerated the Paladin, Witch, Revenant and Naga Whaler after the revert and obtained the graded bytes for all four. The complete production source matches the graded source. No patch removal or behavior change remains active. Rules 2–10 did not run. The 1,000/61 counts above measure coverage only. The verdict sweeps, retarget comparison, full independent checks, test suites and packaged viewer gates remain unrun for this rejected trial. The sealed 15 remain unopened, with 0 evaluated. No 34-pair grading sheet was produced, and no improvement on unseen pairs was demonstrated.
 
 [Donor, graded result and trial at matched Walk times](<D:/Codex/xfer-held-item-trial/Walk comparisons.png>) · [Counts, hashes, unrounded sample times and routing traces](<D:/Codex/xfer-held-item-trial/Rule 1 evidence.json>)
+
+### Resumed under the 22 November gate clarification
+
+A check regresses when a passing check fails or a control visibly deteriorates. The Witch staff line at 8 degrees still passed the 30-degree gate. A rejected rule is reverted in isolation and independent rules continue.
+
+Structural rules and coverage predicates measured on the unchanged engine before implementation. The table counts pairs eligible for evaluation. Runtime activation and measured outputs are tracked separately.
+
+1. Feed a geometry-confirmed held grip through the existing axis and reflected shield fit whenever its authored grip branch and donor grip support that fit. The earlier geometry coverage table applies.
+2. Anchor a held surface at the native hand bone with its native grip offset when the arm carries an item and a donor hand is available.
+3. Orient a held surface to the donor axis and place the second hand on the shaft when either source uses a second grip. Evaluate pairs with a weapon surface or grip on both sides.
+4. Prefer a moving skinned child over an unkeyed, unskinned recognized joint when that child actually carries the donor surface.
+5. For moving extra skin on both rigs, match the clips in which local motion occurs and keep shoulder surface motion coupled to the arm.
+6. For two rigs with hips and chest, derive the trunk and limb re-pose from their visible skin and limit the correction to the rotation the bound surface can absorb.
+7. For rigs with a tail or independently animated extra skin, match hanging surfaces by native motion and preserve the chain and relative travel.
+8. On donors and recipients with a standing reference, transfer ground or hover height in units of visible standing height.
+9. When both rigs contain a mounted actor, use a common trunk driver for the mount and seat.
+10. Resolve animated material texture indices at the displayed time and decode shipped texture data by format. Count models with animated texture indices in either role.
+
+| Set | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| humanoid | 951 | 911 | 28 | 875 | 999 | 909 | 1000 | 58 | 2 |
+| panel | 49 | 47 | 1 | 53 | 49 | 60 | 61 | 4 | 0 |
+| original40 | 26 | 23 | 0 | 35 | 31 | 35 | 40 | 0 | 0 |
+| solo20 | 15 | 16 | 0 | 14 | 16 | 14 | 20 | 1 | 0 |
+| showcase40 | 35 | 36 | 0 | 32 | 35 | 32 | 40 | 6 | 0 |
+| new40 | 31 | 31 | 0 | 33 | 33 | 35 | 40 | 1 | 2 |
+| repairs | 7 | 7 | 0 | 9 | 8 | 10 | 12 | 0 | 0 |
+| fresh50 | 46 | 46 | 2 | 35 | 50 | 36 | 50 | 1 | 1 |
