@@ -44,6 +44,24 @@ function principalPitch(points, positions) {
 }
 const lineDifference=(a,b)=>((a-b+270)%180+180)%180-90;
 
+export function bindingChecks(result,marks,donorRig,report) {
+  const trunk=new Set([...(donorRig.parts?.hips?.joints||[]),...(donorRig.parts?.chest?.joints||[])]
+    .map(j=>report.donorNodes?.[j]).filter(j=>j!=null));
+  const checks={};
+  if(marks.grip.length && trunk.size){
+    let bound=0;
+    for(const p of marks.grip){
+      const weights=vertexBoneWeights(result.Geosets[p.gi],p.vi);
+      if(weights.length && weights.every(([j])=>trunk.has(j)))bound++;
+    }
+    checks.gripOnTrunk={value:bound/marks.grip.length,limit:1,pass:bound<marks.grip.length};
+  }
+  if(marks.bindPitch!=null){
+    const pitch=principalPitch(marks.trunk,result.Geosets.map(g=>g.Vertices));
+    if(pitch!=null){const value=Math.abs(lineDifference(pitch,marks.bindPitch));checks.posedTrunkTurn={value,limit:20,pass:value<=20};}
+  }
+  return checks;
+}
 function strongest(model, points) {
   const weights=new Map();
   for(const {gi,vi} of points) for(const [id,w] of vertexBoneWeights(model.Geosets[gi],vi))
@@ -133,7 +151,7 @@ export function referenceLandmarks(a) {
     const near=percentile(width[0],.9),far=percentile(width[1],.9);asymmetric=far!=null&&near!=null&&far>Math.max(1.6*near,.055*length);
   }
   const overlap=overlapGroups(m,head,trunk,arms);
-  return {H,overlap,arms,head:mass,hips,chest,trunk,pitch:principalPitch(trunk,skin),grip,tip,asymmetric,two,hand:nearest?.side,mouth,sockets,edges,
+  return {H,overlap,bindPitch:principalPitch(trunk,m.Geosets.map(g=>g.Vertices)),arms,head:mass,hips,chest,trunk,pitch:principalPitch(trunk,skin),grip,tip,asymmetric,two,hand:nearest?.side,mouth,sockets,edges,
     hem:secondary.slice(0,n),collar:n?secondary.slice(-n):[],mounted:a.rig.actors?.length>1};
 }
 

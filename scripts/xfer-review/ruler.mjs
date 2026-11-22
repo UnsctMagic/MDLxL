@@ -1,4 +1,4 @@
-import { compareMaterialClip, materialClip, referenceLandmarks } from './material-motion.mjs';
+import { bindingChecks, compareMaterialClip, materialClip, referenceLandmarks } from './material-motion.mjs';
 import { measureFistClearance } from './fist-clearance.mjs';
 import { compareSubframeMotion, subframeMotion } from './subframe-motion.mjs';
 // Offline XFER review. The own model identifies pieces of its mesh by vertex index.
@@ -326,14 +326,14 @@ export function materialChecks(own, donor, result, report, include = () => true,
   const ownMarks=referenceLandmarks(native), donorMarks=referenceLandmarks(source);
   const resultMarks=referenceLandmarks(anatomy(result));
   const wrists=Object.fromEntries(donorMarks.arms.map(a=>[a.side,report.donorNodes?.[a.marker]]));
-  const nativeClips=new Map(), output=[];
+  const nativeClips=new Map(), output=[], binding=bindingChecks(result,ownMarks,source.rig,report);
   for(const [si,seq] of donor.Sequences.entries()) {
     if(!include(seq,si) || /death|decay|dissipate|birth/i.test(seq.Name))continue;
     const oi=own.Sequences.findIndex(q=>q.Name.trim().toLowerCase()===seq.Name.trim().toLowerCase());
     if(oi>=0&&!nativeClips.has(oi))nativeClips.set(oi,materialClip(own,ownMarks,oi,null,overlapChecks));
     const a=materialClip(donor,donorMarks,si,null,overlapChecks), b=materialClip(result,ownMarks,si,wrists,overlapChecks);
     const fields=compareMaterialClip(nativeClips.get(oi),a,b,resultMarks.H,donorMarks.H,donorMarks,ownMarks,seq.Name);
-    output.push({index:si,sequence:seq.Name.trim(),samples:b.frames.length,fields});
+    output.push({index:si,sequence:seq.Name.trim(),samples:b.frames.length,fields:{...fields,...binding}});
   }
   return output;
 }
