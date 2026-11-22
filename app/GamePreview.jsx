@@ -571,7 +571,7 @@ export default function GamePreview(inputProps) {
             const normal = gesture.handle.axis === 'XYZ' ? gesture.camera.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1);
             values = normal.multiplyScalar(degrees).toArray();
           } else if (gesture.mode === 'scale') values = gesture.handle.free || gesture.workplaneEnabled ? movementFreeScaleValues(dx, dy, { sensitivity, workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, shiftKey: event.shiftKey }) : ['X', 'Y', 'Z'].map(axis => axis === gesture.handle.axis ? movementDragAmount(gesture.handle, dx, dy, 'scale', sensitivity) : 1);
-          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { control: poseNodeControl(gesture.baseline, gesture.config, nodeTarget, gesture.mode), mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
+          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { control: poseNodeControl(gesture.baseline, gesture.config, nodeTarget, gesture.mode), mode: gesture.mode, space: gesture.mode === 'rotate' ? gesture.space : 'world', values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.mode === 'rotate') {
@@ -743,7 +743,7 @@ export default function GamePreview(inputProps) {
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
-          if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
+          if (directRotate) nodeGesture.space = 'world';
           nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},dragKeys(event,'move',p.preferences).shiftKey);
           beginRotationDrag(nodeGesture, active.rotation, event, !!directRotate, () => downstreamBoneIds(ownedModel, ids));
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); editPause(p); canvas.setPointerCapture(event.pointerId); invalidate();
