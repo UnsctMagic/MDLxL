@@ -60,7 +60,6 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -1387,14 +1386,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
   // own extra bone -> donor joint.
   const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet) : new Map();
-  let nativePoses;
-  const shoulderPoses = () => nativePoses ??= model.Sequences.flatMap((s,i) => /^(stand|walk|attack)/i.test(s.Name)
-    ? [0,.5].map(t => sampleNodeMatrices(model,Math.round(s.Interval[0]+t*(s.Interval[1]-s.Interval[0])),i)) : []);
-  for (const extra of extras.values()) {
-    if (extra.kept) continue;
-    const carrier=nativeShoulderCarrier(model,ownById.get(extra.id),rigB,treeB,shoulderPoses);
-    if (carrier != null) for (const id of extra.bones) rideOf.set(id,carrier);
-  }
   const extraMatch = new Map();
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
@@ -1669,8 +1660,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         if (best != null && distance <= reach) pair(id, best);
       }
     };
-    const candidates = [], ownMotion = new Map(), donorMotion = new Map();
-    const profile = (map,m,n) => { if(!map.has(n.ObjectId)) map.set(n.ObjectId,motionFamilies(m,n));return map.get(n.ObjectId) };
+    const candidates = [];
     for (const extra of extras.values()) {
       if (extra.kept || extra.bones.some(id => secondary.has(id)) || weaponExtras.has(extra.id) || holdsPart(treeB, partJoint, extra.id)) continue;
       const anchor = treeB.parentOf(extra.id), target = anchor != null ? targetOf(anchor).donor : null;
@@ -1678,10 +1668,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       for (const [top, joint] of donorTops) {
         if (partOfDonor.get(joint) !== partOfDonor.get(target)) continue;
         const d = placed.get(top).distanceTo(pB(extra.id));
-        if (d <= near && !rideOf.has(extra.id)) {
-          const mismatch=missedMotion(profile(ownMotion,model,ownById.get(extra.id)),profile(donorMotion,D,donorById.get(top)));
-          candidates.push({ own:extra.id, top, d:d+near*mismatch });
-        }
+        if (d <= near) candidates.push({ own: extra.id, top, d });
       }
     }
     candidates.sort((a, b) => a.d - b.d || a.own - b.own || a.top - b.top);
@@ -2106,7 +2093,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // of the recipient can carry an upper arm. Measure its actual shoulder travel
   // relative to its chest through the recipient's living poses.
   const socketTravel = new Map();
-  {
+  if (fourSupports) {
     const shoulders = limbEntries.filter(e => e.own.limbKind === 'arm').map(({own, theirs}) => {
       const shoulder = own.joints.length > 3 ? own.joints.at(-3) : own.joints[0];
       return { shoulder, chest: own.anchor, root: theirs.joints[0], reach: 0 };
@@ -2202,14 +2189,14 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       : null;
     if (copy.Translation?.Keys) {
       let socketRatio = 1;
-      if (socketTravel.has(id)) {
+      if (trunkMove && socketTravel.has(id)) {
         let peak = 0;
         for (const k of copy.Translation.Keys) if (!swapSpans.some(([a,b]) => k.Frame >= a && k.Frame <= b)) {
-          peak = Math.max(peak, (trunkMove ? trunkMove(v3(k.Vector)) : v3(k.Vector).multiplyScalar(scale)).length());
+          peak = Math.max(peak, trunkMove(v3(k.Vector)).length());
         }
         if (peak > 0) socketRatio = Math.min(1, socketTravel.get(id) / peak);
       }
-      const move = (v, mapped) => v && like(v, (mapped ? trunkMove(v3(v)).multiplyScalar(socketRatio) : v3(v).multiplyScalar(scale*socketRatio)).toArray());
+      const move = (v, mapped) => v && like(v, (mapped ? trunkMove(v3(v)).multiplyScalar(socketRatio) : v3(v).multiplyScalar(scale)).toArray());
       for (const k of copy.Translation.Keys) { const mapped = !!trunkMove && !swapSpans.some(([a, b]) => k.Frame >= a && k.Frame <= b); k.Vector = move(k.Vector, mapped); if (k.InTan) k.InTan = move(k.InTan, mapped); if (k.OutTan) k.OutTan = move(k.OutTan, mapped); }
     }
     if (importer && key === 'ParticleEmitters2' && copy.TextureID != null && copy.TextureID !== -1) copy.TextureID = importer.textureRef(node.TextureID);
