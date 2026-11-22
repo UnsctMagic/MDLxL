@@ -49,7 +49,20 @@ export function installParticleNativeCompatibility(native,{getTravelDistance=del
    return result;
  };
  const identity=new Matrix4().elements,point=new Vector3(),velocity=new Vector3(),origin=new Vector3(),matrix=new Matrix4(),positionValues=new Float32Array(3),velocityValues=new Float32Array(3);
- particles.createParticle=function(emitter,transform){return create.call(this,emitter,emitter.props.Flags&524288?identity:transform);};
+ particles.createParticle=function(emitter,transform){
+   const props=emitter.props,spawnMatrix=props.Flags&524288?identity:transform;
+   const {Width,Length}=props;
+   if(Width===Length)return create.call(this,emitter,spawnMatrix);
+   const hasWidth=Object.hasOwn(props,'Width'),hasLength=Object.hasOwn(props,'Length');
+   // The renderer samples Width on X and Length on Y. Warcraft PRE2 uses Length on X and Width on Y.
+   props.Width=Length;
+   props.Length=Width;
+   try{return create.call(this,emitter,spawnMatrix);}
+   finally{
+     if(hasWidth)props.Width=Width;else delete props.Width;
+     if(hasLength)props.Length=Length;else delete props.Length;
+   }
+ };
  particles.updateParticleBuffers=function(particle,index,emitter){
    if(!(emitter.props.Flags&524288))return buffers.call(this,particle,index,emitter);
    const position=particle.pos,speed=particle.speed;matrix.fromArray(native.rendererData.nodes[emitter.props.ObjectId].matrix);
