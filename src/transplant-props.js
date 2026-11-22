@@ -6,32 +6,10 @@ import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
 const projectile = /arrow|missile|projectile/i;
 const weapon = /weapon|spear|javelin|rifle|sword|choppa|axe|hammer|staff|bow/i;
 
-// A detached weapon can rotate around its grip in the source animations. Compare
-// its surface with the moving hand across the ordinary poses, rather than
-// measuring drift of the weapon tip, which is supposed to swing away.
-export function detachedGrip(model, rig, tree, id, points, samples, includeGripPivot = false) {
-  if (!samples.length || !weapon.test(tree.byId.get(id)?.Name) || !(model.Attachments || []).some(n => /weapon/i.test(n.Name) && n.Parent === id)) return null;
-  // The grip can sit in the middle of a long shaft with no vertex there.
-  if (includeGripPivot) points = [...points, new Vector3().fromArray(nodePivot(model,tree.byId.get(id),id))];
-  const arms = Object.values(rig.parts).filter(p => p.limbKind === 'arm');
-  const scores = arms.map(arm => {
-    const carriers = [...tree.byId.values()].filter(n => tree.isAncestor(n.ObjectId, arm.joints[0]) && /hand|palm|wrist/i.test(n.Name));
-    if (!carriers.length) carriers.push(tree.byId.get(arm.marker));
-    let worst = 0;
-    for (const {m} of samples) {
-      let gap = Infinity;
-      const prop = m.get(id);
-      if (!prop) continue;
-      for (const hand of carriers) {
-        if (!hand || !m.has(hand.ObjectId)) continue;
-        const palm = new Vector3().fromArray(nodePivot(model, hand)).applyMatrix4(m.get(hand.ObjectId));
-        for (const p of points) gap = Math.min(gap, p.clone().applyMatrix4(prop).distanceTo(palm));
-      }
-      worst = Math.max(worst, gap);
-    }
-    return { joint:arm.marker, worst };
-  }).sort((a,b) => a.worst-b.worst);
-  return scores[0]?.worst < 0.4 * rig.hipHeight && scores[0].worst < 0.7 * (scores[1]?.worst ?? Infinity) ? scores[0].joint : null;
+// Detached equipment follows the same native surface reading used for Mirror.
+export function detachedGrip(rig, carrier) {
+  const item = rig.heldItem;
+  return item?.detached && item.carrier === carrier ? item.hand : null;
 }
 
 // Match the authored grip-to-tip direction in the donor's Stand. A rigid
