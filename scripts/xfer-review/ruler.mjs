@@ -1,3 +1,4 @@
+import { measureFistClearance } from './fist-clearance.mjs';
 import { compareSubframeMotion, subframeMotion } from './subframe-motion.mjs';
 // Offline XFER review. The own model identifies pieces of its mesh by vertex index.
 // Sample those same vertices in the serialized result, including on donor bones that
@@ -313,10 +314,20 @@ export function gradeMotion(ownModel, donorModel, resultModel, report = {}) {
   return {verdict,reasons:[...new Set(faults.map(f=>f.type))],metrics};
 }
 
+export function fistClearanceForModels(own, donor, result, report, include) {
+  return measureFistClearance(anatomy(own), anatomy(donor), result, report, include);
+}
+
 export function gradeSweepMotion(own, donor, result, report) {
   const score = gradeMotion(own, donor, result, report);
   const checks = compareSubframeMotion(subframeMotion(donor), subframeMotion(result), report.donorNodes);
   score.metrics.subframe = checks;
+  const fists = fistClearanceForModels(own, donor, result, report);
+  score.metrics.fistClearance = fists;
+  if (fists.available && fists.clips.some(clip => clip.belowBand > 0)) {
+    score.reasons.push('hand clearance');
+    if (score.verdict === 'good') score.verdict = 'mixed';
+  }
   if (checks.some(clip => clip.unmatchedSpikes.length || clip.unmatchedKeys.length)) {
     score.verdict = 'bad';
     score.reasons.push('subframe motion');
