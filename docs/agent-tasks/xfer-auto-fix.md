@@ -156,3 +156,14 @@ No additional main-arm change was found in the historical 1,263 pairs. Current o
 - **trunk** (1) — panel 57.
 
 [Owner report and grading links](<D:/Codex/xfer-engine-34/Auto fix step 2 sheet/Owner report.md>) · [All triangle measurements](<D:/Codex/xfer-engine-34/Auto fix step 2 sheet/Measurements/Tear report.md>)
+
+
+### Owner grading follow-up · donor cloth motion on robes and tails
+
+All 19 grades are in the [owner's step-2 answers](<D:/Codex/xfer-engine-34/Auto fix step 2 sheet/answers.json>). On humanoid 493, Human Mage → Blowpipe Skink, the owner gave 2/10 and asked for the cloak movement to reach the tail. Humanoid 435 and 532 each received 0/10 with an explicit preference for the plain result. Those two comments do not identify cloth as the cause.
+
+The owner also tried HeroLich → TEST XFER AUTOFIX 02 (Kel’Thuzad) in Stand. The donor has three global sequences, but the robe is driven by clip-local rotations. In Stand, 22 joints on the eight lower robe strips have rotation keys. Following the skinned strip vertices every 2 ms in their common garment anchor’s coordinates gives up to 63.25 model units of travel from the opening pose. The recipient's native four robe panels have independent translation and rotation tracks. They hang from Main, outside the usual hips/chest hierarchy. The dedicated surface matcher filters candidate roots by cape, cloak, belly or stomach; these robe panels never enter it. In the resulting Stand, the two back panels and left side panel have one fixed translation and no rotation track. The right panel's skin is partly assigned directly to the body root. The same loss occurs with Auto fix on.
+
+On humanoid 493, the 40 recipient vertices influenced by its native tail end up on three donor bones. Two are children of the left and right upper legs, and the third is attached to the body root. None belongs to the donor cape chain. This is another consequence of pairing by skeleton location without establishing which visible surface carries the desired motion.
+
+For the shared cloth-and-tail work, identify a moving surface by its skin, where it attaches, and how its hem or tip moves relative to that attachment. Support separate panels as well as linked chains and both clip-local and global motion. Preserve the recipient’s seams, proportions and pivots while transferring swing down the surface. Compare recipient hem and tip motion with the donor at the same time, relative to each surface’s anchor and length. Protect the native seam stretch and previously successful cloth and tail controls. These findings are from build 33.
