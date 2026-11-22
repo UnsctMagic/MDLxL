@@ -91,7 +91,15 @@ export function donorSkinCarriers({ donor, donorPartJoints, treeA, skinCount }) 
   }
   for (const joint of donorPartJoints) {
     if (bones.has(joint) && (skinCount.get(joint) || 0) > 0) carriers.set(joint, joint);
-    else carriers.set(joint, best.get(joint)?.id ?? joint);
+    else {
+      let carrier = best.get(joint)?.id ?? joint;
+      if (carrier === joint && !keyed(treeA.byId.get(joint))) {
+        const moving = (treeA.children.get(joint) || []).filter(n =>
+          bones.has(n.ObjectId) && !donorPartJoints.has(n.ObjectId) && skinCount.get(n.ObjectId) > 0 && keyed(n));
+        if (moving.length === 1) carrier = moving[0].ObjectId;
+      }
+      carriers.set(joint, carrier);
+    }
   }
   return carriers;
 }
