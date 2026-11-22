@@ -5,7 +5,7 @@
 //   hand     which hand holds the weapon, and so the automatic Mirror, from what is held (heldSide, autoFixMirror)
 //   markers  the grip and tip the weapon fit reads, from the measured item when the model's Hand/Weapon markers are off it
 //   detached a weapon on its own bone is recognised without the name test (skeleton-transplant.js, detachedGrip)
-//   trunk    the trunk posture turn is left out when this model has no hip-to-shoulder line (skeleton-transplant.js)
+//   trunk    the trunk posture turn is left out when this model has no legs and no hip-to-shoulder line (skeleton-transplant.js)
 import { Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset, worldPivot } from './animation.js';
 import { vertexBones } from './part-bones.js';
@@ -16,7 +16,7 @@ export const AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trun
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;
 /** A detached item is held by the hand it stays within this share of the standing height of, and at most half as far as the other hand. */
 export const HELD_SHARE = 0.2, HELD_CLEARLY = 0.5;
-/** A hip-to-shoulder line shorter than this share of the standing height is no trunk line to turn. */
+/** On a model with no legs, a hip-to-shoulder line shorter than this share of the standing height is no trunk line to turn. */
 export const TRUNK_LINE_SHARE = 0.08;
 
 /** `true` turns every correction on; an object turns on the keys it holds true. -> { hand, markers, detached, trunk } or null. */
@@ -178,6 +178,6 @@ export function autoFixNotes(report, mirror = null) {
   if (mirror && mirror.held != null && mirror.held !== mirror.named && mirror.used === mirror.held) notes.push(mirror.held ? 'Mirror on: the weapon hands differ.' : 'Mirror off: both hold the weapon in the same hand.');
   if (did.markers) notes.push('Weapon set by its real grip and tip.');
   if (did.detached?.length) notes.push('Loose weapon put in the hand.');
-  if (did.trunk) notes.push('Body tilt left out: no trunk line.');
+  if (did.trunk) notes.push('Body tilt left out: no legs to stand on.');
   return notes;
 }

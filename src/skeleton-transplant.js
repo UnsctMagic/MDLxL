@@ -1876,14 +1876,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const angle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
     // The upper end of the trunk line: the shoulders; a body with no arms, its head joint.
     const topB = shoulderB ?? (headAt != null ? placed.get(headAt) : null), topA = shoulderA ?? (headAt != null ? pA(headAt) : null);
-    // Auto fix `trunk`: a model with no hip-to-shoulder line (no legs: the donor's hips land level with its shoulders, the
-    // Dullahan's line is 4% of its height) has no trunk line to turn onto the donor's; turned, its whole body tipped 81 deg.
-    // It keeps its own trunk, as a donor with no legs or arms already does.
+    // Auto fix `trunk`: a model with no legs whose hip-to-shoulder line is next to nothing (the donor's hips land level
+    // with its shoulders: the Dullahan's line is 4% of its height) has no trunk line to turn onto the donor's; turned, its
+    // whole body tipped 81 deg. It keeps its own trunk, as a donor with no legs or arms already does. A model on legs is
+    // left alone whatever its line (the Clanrat's is 5% of a height its raised weapon and tail stretch; the owner graded it 9).
     let twoLegged = bipeds;
     if (fix?.trunk && bipeds && hipB && topB) {
       const height = standingHeight(model, rigB);
       fixed.trunkLine = height > 0 ? topB.distanceTo(hipB) / height : null;
-      if (fixed.trunkLine != null && fixed.trunkLine < TRUNK_LINE_SHARE) { twoLegged = false; fixed.trunk = true; }
+      if (fixed.trunkLine != null && fixed.trunkLine < TRUNK_LINE_SHARE && count(rigB, 'leg') < 2) { twoLegged = false; fixed.trunk = true; }
     }
     // A four-legged donor whose arms hang from no chest (forelimbs or wings read as arms on the body itself: the dragons,
     // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
