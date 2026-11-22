@@ -1,4 +1,5 @@
 import { Quaternion } from 'three';
+import { sequenceSampler } from './material-motion.mjs';
 import { allNodes, sampleNodeMatrices, skinGeoset } from '../../src/animation.js';
 import { standSequenceIndex } from '../../src/sequence-editor.js';
 import { surfaceVisible } from './surface-review.mjs';
@@ -28,8 +29,7 @@ function shortReversals(model, sequence) {
   return reversals;
 }
 
-function surfaces(model, si, frame) {
-  const matrices = sampleNodeMatrices(model, frame, si);
+function surfaces(model, si, frame, matrices = sampleNodeMatrices(model, frame, si)) {
   return model.Geosets.map((g, i) => surfaceVisible(model, i, frame, si) ? skinGeoset(g, matrices) : null);
 }
 
@@ -51,9 +51,10 @@ export function subframeMotion(model, include = () => true) {
   for (const [si, seq] of model.Sequences.entries()) {
     if (!include(seq,si)) continue;
     const [start,end] = seq.Interval, acceleration = [];
+    const pose=sequenceSampler(model,si);
     let previous, older, peakSpeed=0, speedTime=0;
     for (let frame=start; frame<=end; frame+=step) {
-      const now = surfaces(model,si,frame);
+      const now = surfaces(model,si,frame,pose(frame));
       let speedSquared=0, accelerationSquared=0;
       if (previous) {
         for (let gi=0; gi<now.length; gi++) {
