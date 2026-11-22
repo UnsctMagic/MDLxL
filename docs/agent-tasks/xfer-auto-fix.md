@@ -99,3 +99,11 @@ All 1,263 input pairs completed the first replay against step 1. The second pass
 The independent movement check follows every recipient vertex and attachment through every clip at the union of skeletal key times and nine samples per clip. Byte equality covers the serialized model, including attachments. Read-only inputs were compared using the compatible MDX writer in memory. 6 rows also needed direct encoding because the ordinary Save validation rejected an existing sequence interval. Each affected manifest row records that limitation. Results cover the sampled movement and complete serialized bytes.
 
 [All pair paths, hashes and maximum displacements](<D:/Codex/xfer-engine-34/Step 1 replay/Pair measurements.json>)
+
+### Detached item repair and revised tear gate
+
+A loose item and every vertex influenced by its carrier or descendants move as one surface. If that surface shares a triangle with the remaining body, retain the plain placement. A rigid grip inherits rotation and translation separately when the donor scales its arm.
+
+All four Skinks carry the whole pipe. Across all clips at 2 ms, every one of its 98 edges fits its own native maximum on every row. Other edges already outside their native bands with the switch off counted 167, 204, 148 and 247 on rows 95, 195, 493 and 841. The corrected counts are 167, 181, 148 and 224. No other overrun grew. All 86 plain exports and all nine owner-accepted step-1 exports matched their saved bytes, including Paladin and its fresh50-2 counterpart.
+
+The owner set the tear threshold to more than 1.5 times both the native maximum and the plain maximum for the same edge. Fresh Shambler retains its accepted grade of 10 and its Death jump at 584 ms. Humanoid 175 and 443 use the owner's authorized replacement, the Warcraft III Bandit. Their old export hashes apply only to the missing original.

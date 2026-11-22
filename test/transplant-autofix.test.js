@@ -16,6 +16,8 @@ import { vertexBones } from '../src/part-bones.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from '../src/skeleton-transplant.js';
 import { rigFor, transplantOptions } from '../src/transfer-window.js';
+import { detachedSurface } from '../src/transplant-props.js';
+import { nodeIndex } from '../src/node-hierarchy.js';
 import { AUTO_FIX_KEYS, autoFixMirror, autoFixOptions, heldSide } from '../src/transplant-autofix.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
@@ -404,4 +406,33 @@ test('main arms drive the recipient skin in Walk and Attack, leaving single-arm 
     assert.ok(armError(corrected.model, pattern) <= 15);
   }
   for (const control of ALL) assert.equal(difference(plain(control).model, transplant(control, { autoFix: { arms: true } }).model), null);
+});
+
+test('detached surface includes child and mixed weights and refuses a triangle crossing back to the body', () => {
+  const nodes = [0,1,2].map((ObjectId) => ({ ObjectId, Parent: ObjectId === 1 ? 0 : null }));
+  const geo = { Vertices: new Float32Array(12), Faces: [0,1,2], Groups: [[0],[0,1],[1,2],[2]], VertexGroup: [0,1,2,3] };
+  const model = { Nodes: nodes, Bones: nodes, Geosets: [geo] };
+  const tree = nodeIndex(model, nodes);
+  assert.deepEqual(detachedSurface(model, tree, 0, new Set()).vertices, [[0,0],[0,1],[0,2]]);
+  geo.Faces.push(1,2,3);
+  assert.equal(detachedSurface(model, tree, 0, new Set()), null);
+});
+
+test('detached pipe stays rigid in the scaling donor’s hand', { skip: absent(['841']) }, () => {
+  const id = '841', own = models(id).own, plainModel = plain(id).model;
+  const fixed = transplant(id, { autoFix: { detached: true } }).model;
+  const edge = (model, si, time, a, b) => {
+    const skin = skinGeoset(model.Geosets[3], sampleNodeMatrices(model, model.Sequences[si].Interval[0] + time, si));
+    return new Vector3().fromArray(skin, a*3).distanceTo(new Vector3().fromArray(skin, b*3));
+  };
+  // A native seam shared by the tube and its tip. The native maximum includes the tip's own animation.
+  let nativeMax = 0;
+  for (const [si,s] of own.Sequences.entries()) for (let t=0; t<=s.Interval[1]-s.Interval[0]; t+=2)
+    nativeMax = Math.max(nativeMax, edge(own,si,t,57,37));
+  const death = clip(fixed,/^Death$/);
+  assert.ok(edge(plainModel,death,650,57,37) > nativeMax+0.001);
+  assert.ok(edge(fixed,death,650,57,37) <= nativeMax+0.001);
+  const stand = clip(fixed,/^Stand - 1$/);
+  const length = edge(fixed,stand,0,7,8);
+  assert.ok(Math.abs(edge(fixed,stand,934,7,8)-length) < 0.001);
 });

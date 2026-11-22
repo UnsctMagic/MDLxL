@@ -132,6 +132,8 @@ const FIXTURES = {
   'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)
   'transfer-demonette': ['MDLXL_TRANSFER_DEMONETTE', testModel('transfer-humanoid/WH_DOC_Demonette02.mdx')], // a neck joint whose run is 12% of its chest-to-head distance (the Gnoll's 59%)
   // XFER transplant Auto fix (owner's graded pairs, 22 Nov 2026; xfer-auto-fix/README.md): donor and native recipient of each pair
+  'autofix-841-own': ['MDLXL_AUTOFIX_841_OWN', testModel('xfer-auto-fix/skink_blowpipe_orange.mdx')],
+  'autofix-841-donor': ['MDLXL_AUTOFIX_841_DONOR', testModel('corpus-sd/creeps__facelessone.mdx')],
   'autofix-09-own': ['MDLXL_AUTOFIX_09_OWN', testModel('corpus-sd/undead__kelthuzad.mdx')],
   'autofix-09-donor': ['MDLXL_AUTOFIX_09_DONOR', testModel('corpus-sd/creeps__herotinker.mdx')],
   'autofix-08-donor': ['MDLXL_AUTOFIX_08_DONOR', testModel('xfer-auto-fix/pair08-donor-EarthLich.mdx')], // control: staff named and measured on both

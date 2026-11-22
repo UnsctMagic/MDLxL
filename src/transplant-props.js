@@ -35,6 +35,84 @@ export function detachedGrip(model, rig, tree, id, points, samples, includeGripP
   return scores[0]?.worst < 0.4 * rig.hipHeight && scores[0].worst < 0.7 * (scores[1]?.worst ?? Infinity) ? scores[0].joint : null;
 }
 
+// A detached surface may have more than one joint. Claim every vertex touched by
+// the carrier's subtree before testing the boundary, including mixed-weight vertices.
+export function detachedSurface(model, tree, carrier, keep) {
+  const family = new Set([...tree.byId.keys()].filter(id => tree.isAncestor(id, carrier)));
+  if ([...family].some(id => keep.has(id))) return null;
+  const pieces = [], vertices = [];
+  for (const [gi, geo] of model.Geosets.entries()) {
+    const touched = new Uint8Array(geo.Vertices.length / 3);
+    for (let v = 0; v < touched.length; v++) {
+      const ids = vertexBones(geo, v);
+      if (!ids.some(id => family.has(id))) continue;
+      touched[v] = 1;
+      vertices.push([gi, v]);
+      if (ids.some(id => id !== carrier)) pieces.push([gi, v]);
+    }
+    for (let i = 0; i < geo.Faces.length; i += 3) {
+      const [a,b,c] = [geo.Faces[i], geo.Faces[i+1], geo.Faces[i+2]];
+      if (touched[a] !== touched[b] || touched[b] !== touched[c]) return null;
+    }
+  }
+  return { family, pieces, vertices };
+}
+
+// A held rigid item takes the position of its grip and the rotations of its
+// carrier chain. A donor's animated muscle scale must not lengthen the prop.
+// Build the position and rotation separately so global sequences still run on
+// their own clocks. Node references survive the final ID renumbering.
+export function rigidItemSocket(model, nodes, byId, skin, grip, label, constantTrack) {
+  const parentIds = new Set(skin.flatMap(([gi, v]) => vertexBones(model.Geosets[gi], v)));
+  if (parentIds.size !== 1 || !grip) return null;
+  const parent = byId.get([...parentIds][0]), chain = [];
+  for (let n = parent; n; n = byId.get(n.Parent)) chain.unshift(n);
+  if (!chain.some(n => n.Scaling?.Keys?.some(k => Array.from(k.Vector).some(x => Math.abs(x-1) > 1e-6)
+    || k.InTan || k.OutTan))) return null;
+  const meshes = new Set(skin.map(([gi]) => model.Geosets[gi]));
+  if ([...meshes].some(g => g.Groups.length >= 256)) return null;
+  let id = Math.max(...nodes.map(n => n.ObjectId)) + 1;
+  // The packed HD indices are bytes before canonicalization as well.
+  if ([...meshes].some(g => g.SkinWeights?.length) && id + chain.length > 255) return null;
+  const add = (group, parentId, flags) => {
+    const n = { Name: label + ' Grip ' + id, ObjectId: id++, Parent: parentId, Flags: flags, PivotPoint: new Float32Array(3) };
+    model[group].push(n); nodes.push(n);
+    return n;
+  };
+  const pivot = new Vector3().fromArray(grip.PivotPoint);
+  const anchor = add('Helpers', parent.ObjectId, 0);
+  anchor.Translation = constantTrack(pivot.toArray());
+  const copies = [];
+  let last = anchor;
+  for (const [i, source] of chain.entries()) {
+    const terminal = i === chain.length-1;
+    // Discard the anchor's rotation and scale. Its translated origin is the grip.
+    const flags = (i === 0 ? 6 : source.Flags & 2) | (terminal ? 256 : 0);
+    last = add(terminal ? 'Bones' : 'Helpers', last.ObjectId, flags);
+    if (terminal) { last.GeosetId = null; last.GeosetAnimId = null; }
+    if (source.Rotation) last.Rotation = source.Rotation;
+    copies.push([source, last]);
+  }
+  const group = new Map();
+  for (const g of meshes) {
+    group.set(g, g.Groups.length);
+    g.Groups.push([last.ObjectId]); g.TotalGroupsCount++;
+  }
+  for (const [gi,v] of skin) {
+    const g = model.Geosets[gi];
+    const pos = new Vector3().fromArray(g.Vertices, 3*v).sub(pivot);
+    g.Vertices.set(pos.toArray(), 3*v);
+    g.VertexGroup[v] = group.get(g);
+    if (g.SkinWeights?.length) g.SkinWeights.set([last.ObjectId,0,0,0,255,0,0,0], 8*v);
+  }
+  return () => {
+    for (const [source, socket] of copies) {
+      if (source.Rotation) socket.Rotation = structuredClone(source.Rotation);
+      else delete socket.Rotation;
+    }
+  };
+}
+
 // Match the authored grip-to-tip direction in the donor's Stand. A rigid
 // weapon then follows the donor's weapon joint throughout its swings and throws.
 export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,weaponMoves,

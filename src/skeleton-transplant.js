@@ -40,7 +40,7 @@
 //    stay; what they key inside its own animations is fitted into the donor animation of the
 //    same kind (else its Stand).
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset, sampleGeosetAnimation, visitTracks } from './animation.js';
+import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals, sampleGeosetAnimation, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { vertexBones } from './part-bones.js';
 import { physicalSurfaceComponents } from './geoset-operations.js';
@@ -60,7 +60,7 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
+import { rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
 import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -1324,6 +1324,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // no everyday animation (a corpse, a portrait plane) stays as before. -> own outside joint -> own part joint.
   const livingForm = rigidLivingForm(model,ownStand,outsideKept);
   const rideOf = new Map(), ridersOut = [], outsideShown = new Set(), detachedWeapons = new Set();
+  const wholeItems = new Map(), itemCarrier = new Map();
   // An outside joint stays only where skin that stays (not riding, not on a donor joint) hangs from it.
   const trimOutside = (away = id => rideOf.has(id)) => {
     const staying = new Set();
@@ -1400,9 +1401,16 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       let grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports);
       // Auto fix `detached`: a weapon on its own bone whose name is no weapon word (a sword bone called `sord`) is still
       // the weapon when it carries the Weapon attachment and stays in one hand.
-      if (grip == null && !alreadyOnArm && fix?.detached && !keepSet.has(id)) {
-        grip = detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports, true);
-        if (grip != null) (fixed.detached ||= []).push(ownById.get(id)?.Name ?? '');
+      if (!alreadyOnArm && fix?.detached && !keepSet.has(id)) {
+        const candidate = grip ?? detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports, true);
+        if (candidate != null) {
+          const item = detachedSurface(model, treeB, id, keepSet);
+          if (item && (!item.pieces.length || safeInverse(sampled[0]?.m.get(id)))) {
+            if (grip == null || item.pieces.length) (fixed.detached ||= []).push(ownById.get(id)?.Name ?? '');
+            grip = candidate;
+            if (item.pieces.length) wholeItems.set(id, { ...item, hand: grip });
+          }
+        }
       }
       if (grip != null && !keepSet.has(id)) {
         joint = grip;
@@ -1411,6 +1419,17 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       if (joint === WORLD) continue;
       rideOf.set(id, joint);
       ridersOut.push({ id, name: ownById.get(id)?.Name, joint: ownById.get(joint)?.Name, vertices: points.length, drift: Number.isFinite(least) ? least / rigB.hipHeight : null });
+    }
+    for (const [carrier, item] of wholeItems) {
+      for (const id of item.family) {
+        rideOf.set(id, item.hand);
+        const rider = ridersOut.find(entry => entry.id === id);
+        if (rider) rider.joint = ownById.get(item.hand).Name;
+      }
+      for (const [gi, v] of item.pieces) {
+        if (!itemCarrier.has(gi)) itemCarrier.set(gi, new Map());
+        itemCarrier.get(gi).set(v, carrier);
+      }
     }
     trimOutside();
   }
@@ -2446,6 +2465,23 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   let baked = 0;
   for (const geoset of M.Geosets || []) {
     const count = (geoset.Vertices?.length || 0) / 3;
+    // Bake the complete disconnected item from the same native pose as its grip.
+    // A vertex spanning two weights must keep its posed position when made rigid.
+    const gi = M.Geosets.indexOf(geoset), claimed = itemCarrier.get(gi);
+    if (claimed) {
+      const native = model.Geosets[gi], positions = skinGeoset(native, ownRef);
+      const normals = native.Normals?.length ? skinGeosetNormals(native, ownRef) : null;
+      for (const [v, carrier] of claimed) {
+        const inverse = refInverse(carrier);
+        geoset.Vertices.set(new Vector3().fromArray(positions, 3*v).applyMatrix4(inverse).toArray(), 3*v);
+        if (normals) geoset.Normals.set(new Vector3().fromArray(normals, 3*v).transformDirection(inverse).toArray(), 3*v);
+        if (geoset.SkinWeights?.length >= count*8) {
+          const weights = geoset.SkinWeights;
+          const total = weights[v*8+4]+weights[v*8+5]+weights[v*8+6]+weights[v*8+7];
+          weights.set([carrier,0,0,0,total,0,0,0], v*8);
+        }
+      }
+    }
     const bake = (v, bones) => {
       // A vertex carried by extras alone rides the part joint they hang from, held as the model's own reference pose holds it
       // (an outside joint's skin: the part joint it rides). An extra on the donor's matching chain is not held (no `via`).
@@ -2519,7 +2555,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     }
     const groups = [], index = new Map(), vertexGroup = [];
     for (let v = 0; v < count; v++) {
-      const bones = Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
+      const bones = claimed?.has(v) ? [claimed.get(v)] : Array.from(geoset.Groups?.[geoset.VertexGroup?.[v]] || []);
       const hd = geoset.SkinWeights?.length >= count * 8, riding = rides(bones);
       if (!hd) bake(v, bones);
       let targets;
@@ -2681,7 +2717,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       if (geo.SkinWeights?.length) continue;
       for (let v=0; v<geo.Vertices.length/3; v++) {
         const source = vertexBones(geo,v);
-        if (source.length !== 1 || source[0] !== id) continue;
+        if (itemCarrier.get(gi)?.get(v) !== id && (source.length !== 1 || source[0] !== id)) continue;
         const group = vertexBones(M.Geosets[gi],v);
         if (group.length !== 1) continue;
         parents.add(group[0]); skin.push([gi,v]);
@@ -2700,6 +2736,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     }
     for (const [gi,v] of skin) M.Geosets[gi].VertexGroup[v] = groups.get(gi);
     M.Bones.push(bone); allM.push(bone); supportGear.push(bone);
+  }
+  const rigidSockets = [];
+  for (const [id, item] of wholeItems) {
+    const refresh = rigidItemSocket(M, allM, byIdM, item.vertices, byIdM.get(skinTarget(item.hand)), ownById.get(id).Name, constantTrack);
+    if (refresh) rigidSockets.push(refresh);
   }
   const supportSkin = fourSupports && supportLegSkin(M,model,D,rigB,rigA,limbEntries,treeB,newId,alignFrames);
   const turnedNodes = allM.map(node => [node, turnOf(node.ObjectId)]).filter(([, t]) => t && !near(t, 1e-9)); // ids change below
@@ -2859,6 +2900,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   }
   if (matchingFourLinkLegs) fitTailPlate(M, model, rigB, treeB);
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
+  for (const refresh of rigidSockets) refresh();
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
