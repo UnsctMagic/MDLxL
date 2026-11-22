@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "baseline": "be6dc61f",
+  "seed": "23440456e655cc8c98b78691da770f456389d191befa158dc283ef00aea8e643",
+  "method": "HMAC-SHA256 path order; first 30 models paired consecutively, donor first. Metadata-only eligibility from historical grades, catalogue families and distinct living unit designs. No model file was read.",
+  "eligible": 51,
+  "priorManifests": [
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-grade-astra-round1\\cases-20.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-grade-astra-round1\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-grade-astra-round1\\grade-our-verdicts.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-grade\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-grade\\grade-our-verdicts.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-feet\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-floor\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-gore2\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-gore\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-legless\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review-v2\\cases.json",
+    "D:\\Claude\\MDLxL\\TestBuilds\\transplant-review\\cases.json",
+    "D:\\Codex\\xfer-astra-r1\\out\\gait-choice\\cases.json",
+    "D:\\Codex\\xfer-four-review\\cases.json",
+    "D:\\Codex\\xfer-pose-handles-review\\cases-20.json",
+    "D:\\Codex\\xfer-pose-handles-review\\next-panel.json",
+    "D:\\Codex\\xfer-showcase-40\\cases.json",
+    "D:\\Codex\\xfer-showcase-40\\verification.json",
+    "D:\\Codex\\xfer-solo-review-20\\cases.json",
+    "D:\\Codex\\xfer-solo-review-20\\pairs.json",
+    "D:\\Codex\\xfer-walk-review-11\\cases.json",
+    "D:/Codex/xfer-new-models-40/cases.json",
+    "D:/Codex/xfer-new-models-40/verification.json",
+    "D:/Codex/xfer-grade-repairs/cases.json",
+    "D:/Claude/MDLxL/TestBuilds/transfer-picks/cases.json",
+    "D:/Claude/MDLxL/TestBuilds/transfer-riders/cases.json",
+    "D:/Claude/MDLxL/TestBuilds/transfer-riders-2/cases.json"
+  ],
+  "pairs": [
+    {
+      "id": 1,
+      "donor": {
+        "name": "Limb Snapper",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Limb_Snapper.mdx",
+        "family": "Limb_Snapper"
+      },
+      "recipient": {
+        "name": "Toxic Snapper",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Toxic_Snapper.mdx",
+        "family": "Toxic_Snapper"
+      }
+    },
+    {
+      "id": 2,
+      "donor": {
+        "name": "Goblin Tinker",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__herotinker.mdx",
+        "family": "herotinker"
+      },
+      "recipient": {
+        "name": "Human Necromancer Kel’Thuzad",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\undead__kelthuzad.mdx",
+        "family": "kelthuzad"
+      }
+    },
+    {
+      "id": 3,
+      "donor": {
+        "name": "Feral Cold One",
+        "file": "D:\\Claude\\lpw-main\\dist\\models\\gluma\\358910\\Cold_One_Riderless.mdx",
+        "family": "gluma-143398"
+      },
+      "recipient": {
+        "name": "Frog",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\critters__frog.mdx",
+        "family": "frog"
+      }
+    },
+    {
+      "id": 4,
+      "donor": {
+        "name": "Gilgamesh",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Gilgamesh.mdx",
+        "family": "Gilgamesh"
+      },
+      "recipient": {
+        "name": "ParasitEworm",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\ParasiteWorm.mdx",
+        "family": "ParasitEworm"
+      }
+    },
+    {
+      "id": 5,
+      "donor": {
+        "name": "Hydralisk",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\critters__hydralisk.mdx",
+        "family": "hydralisk"
+      },
+      "recipient": {
+        "name": "Spirit Walker",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\orc__spiritwalker.mdx",
+        "family": "spiritwalker"
+      }
+    },
+    {
+      "id": 6,
+      "donor": {
+        "name": "Hydra",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__hydra.mdx",
+        "family": "hydra"
+      },
+      "recipient": {
+        "name": "Spirit of Vengeance",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\nightelf__spiritofvengeance.mdx",
+        "family": "spiritofvengeance"
+      }
+    },
+    {
+      "id": 7,
+      "donor": {
+        "name": "Guitariclev2",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Guitariclev2.mdx",
+        "family": "Guitariclev2"
+      },
+      "recipient": {
+        "name": "Locust",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\undead__locust.mdx",
+        "family": "locust"
+      }
+    },
+    {
+      "id": 8,
+      "donor": {
+        "name": "Seal",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\critters__seal.mdx",
+        "family": "seal"
+      },
+      "recipient": {
+        "name": "Naga Sea Witch",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\naga__heronagaseawitch.mdx",
+        "family": "heronagaseawitch"
+      }
+    },
+    {
+      "id": 9,
+      "donor": {
+        "name": "Snotling",
+        "file": "D:\\Claude\\lpw-main\\dist\\models\\herrdave\\42\\Greenskin_Goblin0.mdx",
+        "family": "herrdave-103868"
+      },
+      "recipient": {
+        "name": "Dullahan red",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Dullahan_red.mdx",
+        "family": "Dullahan_red"
+      }
+    },
+    {
+      "id": 10,
+      "donor": {
+        "name": "Ocula",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Ocula.mdx",
+        "family": "Ocula"
+      },
+      "recipient": {
+        "name": "Sludge Monster",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__sludgemonster.mdx",
+        "family": "sludgemonster"
+      }
+    },
+    {
+      "id": 11,
+      "donor": {
+        "name": "Skink Worker",
+        "file": "D:\\Claude\\lpw-main\\dist\\models\\gluma\\356052\\skink_worker.mdx",
+        "family": "gluma-skink-worker"
+      },
+      "recipient": {
+        "name": "Banisher",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Banisher.mdx",
+        "family": "Banisher"
+      }
+    },
+    {
+      "id": 12,
+      "donor": {
+        "name": "Dolomeros",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Dolomeros.mdx",
+        "family": "Dolomeros"
+      },
+      "recipient": {
+        "name": "IcecrownSeer",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\IcecrownSeer.mdx",
+        "family": "IcecrownSeer"
+      }
+    },
+    {
+      "id": 13,
+      "donor": {
+        "name": "Troll Batrider",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\orc__battroll.mdx",
+        "family": "battroll"
+      },
+      "recipient": {
+        "name": "Quillbeast",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__quillbeast.mdx",
+        "family": "quillbeast"
+      }
+    },
+    {
+      "id": 14,
+      "donor": {
+        "name": "Man-Eater",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Man-Eater.mdx",
+        "family": "Man-Eater"
+      },
+      "recipient": {
+        "name": "Snap Dragon",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\naga__snapdragon.mdx",
+        "family": "snapdragon"
+      }
+    },
+    {
+      "id": 15,
+      "donor": {
+        "name": "Master Mage",
+        "file": "D:\\Claude\\MDLxL-TestModels\\pose-odd\\Master_Mage.mdx",
+        "family": "Master_Mage"
+      },
+      "recipient": {
+        "name": "Wisp",
+        "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\nightelf__wisp.mdx",
+        "family": "wisp"
+      }
+    }
+  ]
+}
