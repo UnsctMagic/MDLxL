@@ -51,9 +51,17 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
   const [tip,carrier] = weaponMoves[0], handId=remap.get(carrier);
   const palm = model.Attachments.find(n=>n.Name.trim().toLowerCase()===handRef(donor,wrist).Name.trim().toLowerCase());
   if (!palm || !matrices.has(handId)) return null;
-  const targetGrip = pos(model,palm,matrices);
   const ownWorld=sampleNodeMatrices(own,rigB.reference.frame,rigB.reference.sequence);
-  const authoredGrip=pos(own,handRef(own,hand),ownWorld);
+  const handBone = treeB.byId.get(hand);
+  const handOrigin = pos(own,handBone,ownWorld);
+  const referenceGrip = pos(own,handRef(own,hand),ownWorld);
+  // A remote attachment is an effect socket. Preserve the rigid surface's
+  // authored offset in hand-bone space when the reference is outside the palm.
+  const remote = referenceGrip.distanceTo(handOrigin) > .15 * (rigB.extent || rigB.hipHeight);
+  const gripCarrier = remote ? model.Nodes[donorMap[wrist]] : palm;
+  if (!gripCarrier || !matrices.has(gripCarrier.ObjectId)) return null;
+  const targetGrip = pos(model,gripCarrier,matrices);
+  const authoredGrip = remote ? handOrigin : referenceGrip;
   const intoHand=ownWorld.get(hand).clone().invert();
   const sourceGrip=authoredGrip.clone().applyMatrix4(intoHand).applyMatrix4(matrices.get(handId));
   // Rebuild the rigid surface and its reference from the same authored
@@ -74,7 +82,7 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
   const about = (from,to,q) => new Matrix4().makeTranslation(to.x,to.y,to.z).multiply(new Matrix4().makeRotationFromQuaternion(q))
     .multiply(new Matrix4().makeTranslation(-from.x,-from.y,-from.z));
   const correction=about(sourceGrip,targetGrip,turn);
-  fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm,ref,rigA,rigB});
+  fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm:gripCarrier,ref,rigA,rigB});
 
   // Reflect the change about the opposite grip. The original shield keeps
   // its authored offset on that forearm, including an asymmetric shield boss.
