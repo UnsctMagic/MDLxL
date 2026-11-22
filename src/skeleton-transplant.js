@@ -1401,12 +1401,12 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       let grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports);
       // Auto fix `detached`: a weapon on its own bone whose name is no weapon word (a sword bone called `sord`) is still
       // the weapon when it carries the Weapon attachment and stays in one hand.
-      if (!alreadyOnArm && fix?.detached && !keepSet.has(id)) {
-        const candidate = grip ?? detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports, true);
+      if (grip == null && !alreadyOnArm && fix?.detached && !keepSet.has(id)) {
+        const candidate = detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports, true);
         if (candidate != null) {
           const item = detachedSurface(model, treeB, id, keepSet);
           if (item && (!item.pieces.length || safeInverse(sampled[0]?.m.get(id)))) {
-            if (grip == null || item.pieces.length) (fixed.detached ||= []).push(ownById.get(id)?.Name ?? '');
+            (fixed.detached ||= []).push(ownById.get(id)?.Name ?? '');
             grip = candidate;
             if (item.pieces.length) wholeItems.set(id, { ...item, hand: grip });
           }
@@ -2740,6 +2740,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const rigidSockets = [];
   for (const [id, item] of wholeItems) {
     const refresh = rigidItemSocket(M, allM, byIdM, item.vertices, byIdM.get(skinTarget(item.hand)), ownById.get(id).Name, constantTrack);
+    // A partly represented socket could stretch its item. Rebuild with this key off.
+    if (refresh === false) return { detachedUnused: true };
     if (refresh) rigidSockets.push(refresh);
   }
   const supportSkin = fourSupports && supportLegSkin(M,model,D,rigB,rigA,limbEntries,treeB,newId,alignFrames);
@@ -2955,8 +2957,9 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
  * own attachment points for nothing: the transplant is then built without that key, exactly as the plain one is. */
 export function transplantSkeleton(model, donor, options = {}) {
   const made = transplantRun(model, donor, options);
+  if (made.detachedUnused) return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), detached: false } });
   if (!made.markersUnused) return made;
-  return transplantRun(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
+  return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
 }
 
 /** The ground the feet stand on in the result's reference pose, against the open model's own:

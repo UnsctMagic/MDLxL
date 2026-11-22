@@ -97,16 +97,16 @@ export function detachedSurface(model, tree, carrier, keep) {
 // their own clocks. Node references survive the final ID renumbering.
 export function rigidItemSocket(model, nodes, byId, skin, grip, label, constantTrack) {
   const parentIds = new Set(skin.flatMap(([gi, v]) => vertexBones(model.Geosets[gi], v)));
-  if (parentIds.size !== 1 || !grip) return null;
+  if (parentIds.size !== 1 || !grip) return false;
   const parent = byId.get([...parentIds][0]), chain = [];
   for (let n = parent; n; n = byId.get(n.Parent)) chain.unshift(n);
   if (!chain.some(n => n.Scaling?.Keys?.some(k => Array.from(k.Vector).some(x => Math.abs(x-1) > 1e-6)
     || k.InTan || k.OutTan))) return null;
   const meshes = new Set(skin.map(([gi]) => model.Geosets[gi]));
-  if ([...meshes].some(g => g.Groups.length >= 256)) return null;
+  if ([...meshes].some(g => g.Groups.length >= 256)) return false;
   let id = Math.max(...nodes.map(n => n.ObjectId)) + 1;
   // The packed HD indices are bytes before canonicalization as well.
-  if ([...meshes].some(g => g.SkinWeights?.length) && id + chain.length > 255) return null;
+  if ([...meshes].some(g => g.SkinWeights?.length) && id + chain.length > 255) return false;
   const add = (group, parentId, flags) => {
     const n = { Name: label + ' Grip ' + id, ObjectId: id++, Parent: parentId, Flags: flags, PivotPoint: new Float32Array(3) };
     model[group].push(n); nodes.push(n);
