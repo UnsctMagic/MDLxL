@@ -70,7 +70,70 @@ overnight humanoid 1,000 and panel 61 lists. 888 pairs still have both files. It
 result against the donor and the original. The results are in `D:\Claude\xfer-look\sweep-888.jsonl`,
 with counts below.
 
-SWEEP-RESULTS
+At `a96fd433`, the check flagged 259 of 888 distinct transplants. All 888 had measured clips. A pair can have several reasons. Arrows run from the animation donor to the model wearing it. H is the humanoid list and P is the panel.
+
+| What the check saw | Pairs out of 888 | Three examples |
+| --- | ---: | --- |
+| Skin tears or stretches | 91 | H27 Dreadlord → Grunt, H50 Dark Troll → Gnoll Archer, H62 Chaos Wolf Rider → Archmage |
+| Body curls up or collapses | 71 | H69 Demon Hunter → Mountain King, H286 Mountain King → Grunt, H314 Pandaren Brewmaster → Tauren |
+| A held piece comes off | 48 | H21 Grunt → Satyr, H296 Wendigo → Razormane, H606 Huntress → Knight |
+| Skin squashes flat | 44 | H206 Huntress → Archmage, H268 Human Mage → Watcher, H316 Druid of the Claw → Villager Woman |
+| Shakes more than the donor | 37 | H489 Chaos Peon → Warden, H867 Murloc → Demon Hunter, P32 Footman → Shade |
+| Bobs more than the donor | 28 | H39 Footman → Kurgan Warlord, H85 Chaos Wolf Rider → Knight of Khorne, H444 Sea Giant → Bray-Shaman |
+| Floats or sinks compared with the donor | 24 | H45 Hippogryph Rider → Gryphon Rider, H69 Demon Hunter → Mountain King, H506 Demon Hunter → Blademaster |
+| Legs, tail or cloak stop moving in Walk | 19 | H69 Demon Hunter → Mountain King, H471 Murloc Mutant → Kobold Geomancer, H943 Villager Woman → Priest |
+| A body part that normally moves stays still | 13 | H35 Banshee Ranger → Blood Mage, H574 Shandris → Paladin, H874 Warlock → Jungle Beast |
+
+### Stretched skin in the normal transplant
+
+Sampling every fourth stretch warning in manifest order gave 23 pairs. The same piece of the original chest could be cut across separate donor joints by the height split. For example, on H912, Felguard → Murloc, 18 stretched edges had both ends on the Murloc’s original chest. On H153, Brewmaster → Minotaur, 98 came from a single original torso bone. The first trial keeps a torso region on its own mapped joint when native skin already covers every bend carrying the donor’s torso.
+
+The check also flags an intended donor movement. In Attack Slam at 408 ms the Gor enlarges its visible head. Of 202 edges rigidly on its head, 51 grow past 1.5 times their starting length. The longest ratio is 1.667 on the donor, 1.678 on the Ghoul (H75) and 1.679 on Jaina (H982). This head stretch follows the donor. Other edges and other warnings on those pairs still count. The published look check and its thresholds are unchanged.
+
+The first trial reduced stretch from 91 to 75. It cleared 15 pairs of every warning and introduced body collapse on two formerly clean pairs. Other counts were unchanged except for still body regions (13 → 11) and body collapse (71 → 73). Of 138 replayable high grades, 59 changed. Six of the changed exports failed the check, and the Kurgan → Tauren binding test lost its two required blended vertices (250 of 251 tests passed). The trial was rejected.
+
+| Changed high grade that still flagged | Reason on the trial |
+| --- | --- |
+| Dire Ice Troll → Kroxigor Ancient | Stretched skin |
+| Murloc Behemoth → Sea Giant | Body collapse and stretched skin |
+| Baphomet Sr → Tyrael | Excessive bob and still body region |
+| Lichling → Villager | Still skin in Walk |
+| Fel Vindicator → Dark Hunter | Body collapse |
+| Black Fur Great Knight → Brigand | Body collapse |
+
+The second trial compares a sewn torso edge under two independent donor hinges with that edge on the recipient’s authored weights in the same pose. It retains those weights only when the hinges swing more than a right angle apart from their starting relation and the proposed height cut more than doubles the edge against both its bind length and its length on the paired weights. Other donors, other joints and surfaces without this fault use the starting engine’s assignment.
+
+### Round outcome
+
+Both trials failed their gates. The first rule repainted too many surfaces that the owner had accepted. The second cleared one stretch warning in 888 pairs, Felguard → Murloc (H912). It changed ten high-grade results. Eight passed the look check. Two changed and still flagged.
+
+- Murloc Behemoth → Sea Giant, grade 9. Body collapse stayed at 0.442 in Walk Swim (limit 0.402). The stretched-edge share in Spell fell from 6.5% to 6.0% (limit 3.46%).
+- Fel Vindicator → Dark Hunter, grade 10. Body collapse stayed at 0.425 in Stand - 4 (limit 0.402).
+
+Both warnings were present on the owner-graded files. Under this round’s rule a changed high-grade result has to pass the entire check. All 251 tests passed on the second trial. The two-trial stop applies to stretched skin, so work on the lower-ranked reasons ended here.
+
+| Look-check reason | Start | First trial | Second trial | Retained |
+| --- | ---: | ---: | ---: | ---: |
+| Skin tears or stretches | 91 | 75 | 90 | 91 |
+| Body curls up or collapses | 71 | 73 | 71 | 71 |
+| A held piece comes off | 48 | 48 | 48 | 48 |
+| Skin squashes flat | 44 | 44 | 44 | 44 |
+| Shakes more than the donor | 37 | 37 | 37 | 37 |
+| Bobs more than the donor | 28 | 28 | 28 | 28 |
+| Floats or sinks compared with the donor | 24 | 24 | 24 | 24 |
+| Legs, tail or cloak stop moving in Walk | 19 | 19 | 19 | 19 |
+| A body part that normally moves stays still | 13 | 11 | 13 | 13 |
+| **Pairs with any warning** | **259** | **246** | **258** | **259** |
+
+All three sweeps have exactly the 888 manifest keys, no error rows and at least one measured clip per pair. Both experimental engines were removed. The retained normal engine, Auto fix and look-check files match `a96fd433` byte for byte. The retained column therefore uses its completed baseline sweep. Zero pairs qualify for the requested grade sheet. The sheet viewer requires at least one qualifying pair.
+
+The high-grade inventory is 140 results. Of the 138 that could be rebuilt, the starting engine reproduced 110 archived exports byte for byte, 27 older differences passed, and one older difference (Paladin → Kobold Geomancer, grade 9) already flagged for collapse. The original Daemonette21 recipient for grades 24 and 37 is unavailable. Neither row was counted as a successful replay. The unchanged final engine introduces zero high-grade changes. The accompanying report names every high grade that changed in either trial. [Graded replays](xfer-look-fixes-grades.md)
+
+The complete measurements and per-pair changes are saved locally in the worktree’s `out/look-fixes` directory (`stretch-1.jsonl`, `stretch-2.jsonl` and their `-delta.json` reports).
+
+On the retained engine, all 251 tests passed across skeleton transplant, Auto fix, animation transfer and the transfer window. None were skipped. The log is `out/look-fixes/retained-tests.log`.
+
+The single packaged reference build opened `TEST XFER AUTOFIX 02.mdx` in a hidden window. After 10 seconds the model canvas measured 1024 × 735, with zero preview errors or crashes. Packaging verified 1,659 runtime and asset files. The packaged normal engine has the same SHA-256 as the starting engine (`52d049cb8587548d21b1b3850eb46aa6af27380194427541a2e42255ae4d7236`).
 
 ## Next
 
