@@ -648,3 +648,4 @@ Structural rules and coverage predicates measured on the unchanged engine before
 | new40 | 31 | 31 | 0 | 33 | 33 | 35 | 40 | 1 | 2 |
 | repairs | 7 | 7 | 0 | 9 | 8 | 10 | 12 | 0 | 0 |
 | fresh50 | 46 | 46 | 2 | 35 | 50 | 36 | 50 | 1 | 1 |
+Rule 1 downstream fit eligibility, before coding, in the geometry-recognition replay: humanoid 232, panel 11, original40 7, solo20 6, showcase40 3, new40 5, repairs 3, fresh50 11. Each count requires the donor grip fit prerequisites and at least one recipient grip branch.
