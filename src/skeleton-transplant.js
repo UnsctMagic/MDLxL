@@ -1775,7 +1775,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // (head part above the head joint) turn so the neck (first neck joint to the head joint) points as the donor's. The
   // head joint keeps the donor's turn as it is (as a foot does). Places and bend points stay this model's.
   const posture = { spine: null, neck: null };
-  let trunkSkin = null, seatSkin = null;
+  let trunkSkin = null;
   // A model with no neck joint on a donor with one: where its head goes (`shift`, bind space before the re-pose) and how much
   // of that each neck joint and point of neck skin takes (`share`: 0 at the neck joint, 1 at the head).
   let neckBend = null;
@@ -1914,17 +1914,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         posture.spine = angle(spine);
         // Fit the mount spine between its legs. The seated pelvis and chest
         // must stay on the recipient rider, whose shoulders determine its lean.
-        if (riders && rigA.parts.chest && rigB.parts.chest) {
-          // The seat is the mount branch from which the rider spine emerges.
-          // Material carried by the corresponding native seat uses that branch.
-          const seat = (rig,tree) => {
-            const path=tree.ancestors(rig.parts.chest.joints[0]);
-            const at=path.findIndex(j=>rig.parts.hips.joints.includes(j));
-            return at<0 ? null : {carrier:path[Math.max(0,at-1)],support:path[at]};
-          };
-          const a=seat(rigA,treeA), b=seat(rigB,treeB);
-          if(a && b && keepDonor.has(a.carrier))seatSkin={joint:a.carrier,own:b.support};
-        }
         const mountTrunk = riders ? trunkJoints.filter(id => rigA.parts.hips.joints.includes(id)) : trunkJoints;
         trunkSkin = fitTrunk({ hipB: backB, hipA: backA, shoulderB: frontB, shoulderA: frontA, sideB: acrossB, sideA: acrossA, spine, trunkJoints: mountTrunk, moves: true });
         // When hands take the donor's forepaws, the receiver's neck bends with
@@ -2278,7 +2267,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const jointsOf = (id, point, { trunk = true } = {}) => {
     if (droppedWeapon?.used && id === droppedWeapon.own) return [{joint:droppedWeapon.driver}];
     if (wristPieces.has(id)) return [{joint:wristPieces.get(id)}];
-    if (seatSkin && (id===seatSkin.own || rideOf.get(id)===seatSkin.own)) return [{joint:seatSkin.joint}];
     if (forearmSkin.has(id)) return [{joint:forearmSkin.get(id)}];
     const t = targetOf(id);
     if (t.own != null) return [{ own: t.own }];
