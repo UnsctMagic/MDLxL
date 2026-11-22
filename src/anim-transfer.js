@@ -13,8 +13,7 @@ import { trackValueError } from './optimizexl-animation.js';
 import { extentsExclusions } from './model-extents.js';
 import { box, finish, include, sequenceSampler } from './optimizexl-bounds.js';
 import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
-import { readHeldItem } from './held-item.js';
-import { isWeaponName } from './rig-names.js';
+import { isWeaponName, nameTokens } from './rig-names.js';
 
 export const TRANSFER_PART_LABELS = Object.freeze({
   hips: 'Hips', chest: 'Chest', head: 'Head', armL: 'Left arm', armR: 'Right arm',
@@ -441,6 +440,21 @@ function readRig(model, info, skeleton, wanted = 'both') {
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
     if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
   });
+  // Which hand holds the weapon (automatic Mirror) stays a naming rule: a
+  // geometric weapon is also found where no node is named (and none on a shield).
+  const weapons = Object.values(parts).filter(part => part.named);
+  let weaponSide = weapons.length === 1 ? weapons[0].side : null;
+  if (weapons.length === 2) {
+    // A named shield also counts as equipment. Resolve sword-and-shield handedness
+    // only when the authored weapon attachment identifies the opposite hand.
+    const references = (model.Attachments || []).filter(node => /^weapon\s+ref\s*$/i.test(node.Name));
+    const holders = weapons.filter(part => references.some(ref => tree.isAncestor(ref.ObjectId, part.marker)));
+    if (holders.length === 1) {
+      const other = weapons.find(part => part !== holders[0]);
+      const items = info.nodes.filter(node => tree.isAncestor(node.ObjectId, other.marker) && isWeaponName(node.Name));
+      if (items.length && items.every(node => nameTokens(node.Name).includes('shield'))) weaponSide = holders[0].side;
+    }
+  }
   for (const part of Object.values(parts).filter(part => part.weapon)) part.weapon.grip = twoHandGrip(model, info, ref, part, Object.values(parts).filter(other => other.limbKind === 'arm' && other !== part));
   const legs = Object.values(parts).filter(part => part.limbKind === 'leg');
   const hipCentre = legs.length ? average(legs.map(part => pos(part.joints[0]))) : bodyPos;
@@ -455,7 +469,7 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const footLevel = part => part.short ? part.sole?.level ?? part.tip?.z ?? pos(part.marker).z : pos(part.marker).z;
   const floorLevel = legs.length ? Math.min(...legs.map(footLevel)) : ground;
   const hipMeasured = !plainReading || legs.length > 0 && hipCentre.z - floorLevel > 1e-3 && hipCentre.z - floorLevel >= HIP_MIN_SHARE * extent.size;
-  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - floorLevel) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide:null, facing: facing.toArray(), problems };
+  const rig = { ok: true, reference, body, parts, hipHeight: hipMeasured || !(extent.size > 0) ? Math.max(1e-3, hipCentre.z - floorLevel) : Math.max(1e-3, HIP_SHARE * extent.size), ground, weaponSide, facing: facing.toArray(), problems };
   Object.defineProperty(rig, 'hipCentre', { value: hipCentre, enumerable: false });
   Object.defineProperty(rig, 'hipMeasured', { value: hipMeasured, enumerable: false });
   Object.defineProperty(rig, 'extent', { value: extent.size, enumerable: false });
@@ -469,9 +483,6 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const soles = legs.map(part => part.sole?.level).filter(Number.isFinite);
   Object.defineProperty(rig, 'floor', { value: soles.length ? Math.min(...soles) : ground, enumerable: false });
   endAtMovingJoints(info, parts, pos);
-  const heldItem = readHeldItem(model, rig);
-  Object.defineProperty(rig, 'heldItem', {value:heldItem});
-  rig.weaponSide = heldItem?.side ?? null;
   return rig;
 }
 
