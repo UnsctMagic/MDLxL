@@ -1,3 +1,4 @@
+import { compareSubframeMotion, subframeMotion } from './subframe-motion.mjs';
 // Offline XFER review. The own model identifies pieces of its mesh by vertex index.
 // Sample those same vertices in the serialized result, including on donor bones that
 // have animation but carry no visible skin. Neither case names nor grades are inputs.
@@ -310,4 +311,15 @@ export function gradeMotion(ownModel, donorModel, resultModel, report = {}) {
   }
   const verdict = faults.some(f=>f.severity==='bad') ? 'bad' : faults.length ? 'mixed' : 'good';
   return {verdict,reasons:[...new Set(faults.map(f=>f.type))],metrics};
+}
+
+export function gradeSweepMotion(own, donor, result, report) {
+  const score = gradeMotion(own, donor, result, report);
+  const checks = compareSubframeMotion(subframeMotion(donor), subframeMotion(result), report.donorNodes);
+  score.metrics.subframe = checks;
+  if (checks.some(clip => clip.unmatchedSpikes.length || clip.unmatchedKeys.length)) {
+    score.verdict = 'bad';
+    score.reasons.push('subframe motion');
+  }
+  return score;
 }

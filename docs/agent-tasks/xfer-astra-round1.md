@@ -527,3 +527,32 @@ All 293 transplant, animation-transfer and window tests passed. The 32 retarget 
 Of the 28 cases without a written issue, 26 reproduced byte for byte, including the Faerie Dragon and Obscure Dragon after exempting winged donors from the tail-floor correction. The two others are recorded individually with their before/after measurements in the verification file.
 
 [Open the 12 repairs](<D:/Codex/xfer-grade-repairs/Review repairs.cmd>) · [Revenant attack frames](<D:/Codex/xfer-grade-repairs/Revenant comparison.jpg>) · [All 40 grades and measurements](<D:/Codex/xfer-grade-repairs/verification.json>)
+
+## Shared engine round, 22 November
+
+The hold-out draw is sealed in `xfer-engine-holdout.json` at commit `3e21737c`. The draw used existing unit metadata. The 15 pairs stay unopened until freeze. Evaluate the original and frozen engines together in one hold-out run, record both predictions before owner grading, and retain all 15 outcomes.
+
+**Class 1 proposed rule.** When a transform track has an authored key between two solver samples and either bounding sample is corrected, the intervening key must follow the corrected motion through that interval while preserving the untouched motion outside the solve.
+
+The first probe counts off-grid authored keys next to a corrected solver sample. The broader probe counts any uncorrected authored key strictly inside a rewritten window. Proposed shared rule: a rewritten window interpolates through the supplied corrected poses and its boundary poses, dropping stale interior authored keys that would reintroduce the pre-fit transform.
+
+Before implementation, the narrower rule fired on 0/1,000 humanoid, 0/61 panel, 0/40 original, 0/20 graded, 1/40 recent and 1/12 repairs. It was rejected as a singleton. The shared window rule fired on 228/1,000 humanoid, 9/61 panel, 11/40 original, 5/20 graded, 4/40 recent and 2/12 repairs. Counts are pairs with at least one active window containing an uncorrected, strictly interior authored key, measured at the common writer in the unchanged engine. The repairs overlap the recent forty. All 1,150 distinct source pairs completed. The starting Red Sizzer export matches the graded MDX byte for byte. Its 114 short-gap reversals include 63 in Walk. Peak Walk travel at 2 ms is 0.38661 body heights.
+
+### Class 1 result — stopped under rule D
+
+Candidate `b4825896` changed only the common track writer. It found rewrite boundaries from solver times, omitted uncorrected authored keys strictly inside them, and preserved the boundary value and outer tangent where the boundary was unturned. The two independent checks use visible skinned vertices every 2 ms and short-gap rotation reversals of at least 10° within 50 ms. Claude’s original tools independently reproduced the observations on the saved MDX files.
+
+| Development check | Displayed donor | Reviewed engine | Class 1 candidate |
+| --- | ---: | ---: | ---: |
+| Sand Scorpion → Red Sizzer, Stand surface spikes | 0 | 3 | 0 |
+| Red Sizzer, short-gap reversals across clips | 0 | 114 | 13 |
+| Red Sizzer, Walk short-gap reversals | 0 | 63 | 2 |
+| Red Sizzer, greatest vertex travel per 2 ms in Walk, fraction of height | 0.00739 | 0.38661 | 0.03086 |
+| Greenskin Orc3 → Tuskarr Ranged, Stand - 3, skin acceleration at 1,300 ms | 0.000070 | 0.000055 | 0.011965 |
+| Tuskarr Ranged, Attack - 2, skin acceleration at 200 ms | 0.000640 | 0.000905 | 0.010721 |
+
+Acceleration is the length of the second difference of visible vertex positions divided by Stand height. Both Tuskarr events newly cross the review threshold on geoset 2, vertex 1. The 1,300 ms Stand event is absent on both the donor and the reproduced baseline. On Red Sizzer the candidate cleared the Stand flicker, but Walk still exceeds twice donor travel. These are development results. The hold-out has 0/15 evaluated and there is no evidence of a gain on unseen pairs.
+
+The candidate was reverted locally at `4da3f9e4`. The entire production source tree matches review HEAD `8c5f3c67`. Regenerating both the triggering Tuskarr pair and the target Red Sizzer after the revert reproduced the baseline bytes. Revenant 32 and Naga Whaler 11 were byte-identical to their graded exports even with the candidate enabled. No existing engine patches were removed. The offline ruler retains the 2 ms skin and short-gap checks. The other geometry checks and the full post-change validation sweeps did not run to completion. Class 2 (rest-relative rotations), 3 (skin-based roles), 4 (secondary travel), 5 (held carriers) and 6 (clearance order) were not started. The retarget, unit and packaged click gates were not run this round. The sealed draw remains available for the eventual frozen candidate.
+
+[Independent scan output and frame comparisons](<D:/Codex/xfer-engine-rule1-review>) · [Exact Tuskarr event measurements](<D:/Codex/xfer-engine-rule1-review/Tuskarr-surface-events.json>). The frame strips show donor, reviewed result and rejected result from top to bottom. The Red Sizzer strip covers Walk 220–234 ms and the Tuskarr strip covers Stand - 3 at 1,296–1,304 ms, both at 2 ms spacing.

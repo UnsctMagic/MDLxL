@@ -43,7 +43,7 @@ if(fs.existsSync(meta)){const prev=read(meta);if(prev.fingerprint!==fingerprint)
 else{if(fs.existsSync(output))throw Error('Output exists without metadata; choose a new --out');fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(meta,JSON.stringify(info,null,2),{flag:'wx'});}
 const done=new Set();if(fs.existsSync(output)){let txt=fs.readFileSync(output,'utf8');if(txt&&!txt.endsWith('\n'))throw Error('Partial JSONL line; inspect output before resuming');for(const l of txt.split('\n').filter(Boolean)){const row=JSON.parse(l);if(row.fingerprint!==fingerprint||!Number.isInteger(row.index)||done.has(row.index))throw Error('Invalid or duplicate row');done.add(row.index)}}
 const ST=await imp(engine), TW=await imp(path.join(src,'transfer-window.js')), ED=await imp(path.join(src,'editor-document.js')), SQ=await imp(path.join(src,'sequence-editor.js')), R=await imp(ruler);
-if(typeof R.gradeMotion!=='function')throw Error('ruler.mjs must export gradeMotion');
+if(typeof R.gradeSweepMotion!=='function')throw Error('ruler.mjs must export gradeSweepMotion');
 const cache=new Map();function model(f){if(!f)throw Error('No model path');if(!cache.has(f)){let d=ED.openDocument(new Uint8Array(fs.readFileSync(f)),path.basename(f));if(!d.model)throw Error('Unreadable '+f);cache.set(f,d.model);if(cache.size>24)cache.delete(cache.keys().next().value)}else{const item=cache.get(f);cache.delete(f);cache.set(f,item)}return structuredClone(cache.get(f));}
 const first=m=>{let i=SQ.standSequenceIndex(m);return i>=0?i:(m.Sequences?.length?0:-1)};
 console.log(`${set}: ${pairs.length} pairs, ${done.size} completed, fingerprint ${fingerprint}; single Node process`);
@@ -84,7 +84,7 @@ for(let index=0;index<pairs.length;index++){
     }
   }
   const displayed=mirror?ST.mirrorModel(structuredClone(donor)):structuredClone(donor);
-  const judged=await R.gradeMotion(own,displayed,made.model,made.report);
+  const judged=await R.gradeSweepMotion(own,displayed,made.model,made.report);
   if(!judged||!['good','mixed','bad'].includes(judged.verdict)||!Array.isArray(judged.reasons))throw Error('Invalid ruler result');
   Object.assign(row,{mirror,verdict:judged.verdict,reasons:judged.reasons,metrics:judged.metrics??{}});
  }catch(e){Object.assign(row,{verdict:'error',error:String(e?.stack||e)});}
