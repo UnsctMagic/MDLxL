@@ -12,7 +12,7 @@ import { createRequire } from 'node:module';
 import { openDocument } from '../src/editor-document.js';
 import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, worldPivot } from '../src/animation.js';
 import { geosetMaterialLayers, isAdditiveLayer } from '../src/geoset-extras.js';
-import { vertexBones } from '../src/part-bones.js';
+import { vertexBoneWeights, vertexBones } from '../src/part-bones.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from '../src/skeleton-transplant.js';
 import { rigFor, transplantOptions } from '../src/transfer-window.js';
@@ -360,7 +360,7 @@ test('autoFixOptions: off for false, null and {}; true turns on every key; an ob
   for (const off of [false, null, undefined, {}, { hand: false }]) assert.equal(autoFixOptions(off), null, JSON.stringify(off));
   assert.deepEqual(autoFixOptions(true), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, true])));
   assert.deepEqual(autoFixOptions({ markers: true, trunk: 'yes' }), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, key === 'markers'])));
-  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms']);
+  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
 });
 
 // No copied model has two arms holding items without a weapon name. The Dwarf Stonemason (pair-16) holds measured items in
@@ -435,4 +435,140 @@ test('detached pipe stays rigid in the scaling donor’s hand', { skip: absent([
   const stand = clip(fixed,/^Stand - 1$/);
   const length = edge(fixed,stand,0,7,8);
   assert.ok(Math.abs(edge(fixed,stand,934,7,8)-length) < 0.001);
+});
+
+
+const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const fabricCases = [
+  { name:'Lich robe on separate hem panels', own:'corpus-sd/undead__kelthuzad.mdx', donor:'corpus-sd/undead__herolich.mdx', ownRoot:37, donorRoot:39, body:41 },
+  { name:'Mage cape on a linked tail', own:'xfer-auto-fix/skink_blowpipe_final.mdx', donor:'corpus-sd/creeps__humanmage.mdx', ownRoot:48, donorRoot:5, body:37, mirror:true },
+];
+
+// Choose the outer tenth of the weighted skin in the native standing pose once.
+// Follow those same vertices in all exports, in the space of their body socket.
+function fabricTip(native, root, socket) {
+  const si=stand(native), f=native.Sequences[si].Interval[0], W=sampleNodeMatrices(native,f,si);
+  const pivot=new Vector3().fromArray(native.PivotPoints[socket]).applyMatrix4(W.get(socket));
+  const carries=below(native,new Set([root])), points=[];
+  for(const [gi,g] of native.Geosets.entries()) if(visible(native,gi,f,si))
+    for(let v=0;v<g.Vertices.length/3;v++) if(vertexBones(g,v).some(carries)) points.push({gi,v});
+  assert.ok(points.length, 'the native surface has visible weighted vertices');
+  const ref=skinAll(native,f,si);
+  const radius=v=>new Vector3(...P(ref,v)).distanceTo(pivot);
+  const share=v=>vertexBoneWeights(native.Geosets[v.gi],v.v).reduce((s,[id,w])=>s+(carries(id)?w:0),0);
+  const most=Math.max(...points.map(share)), outer=points.filter(v=>share(v)>=most-1e-6);
+  const tips=outer.sort((a,b)=>radius(b)-radius(a)).slice(0,Math.max(1,Math.ceil(outer.length/10)));
+  const length=new Vector3(...centre(ref,tips)).distanceTo(pivot);
+  return (model,si,host)=>{
+    const [a,b]=model.Sequences[si].Interval, positions=[];
+    for(let f=a;;f=Math.min(b,f+16)){
+      const w=sampleNodeMatrices(model,f,si), skin=new Map();
+      const p=new Vector3();
+      for(const v of tips){
+        if(!skin.has(v.gi))skin.set(v.gi,skinGeoset(model.Geosets[v.gi],w));
+        p.add(new Vector3().fromArray(skin.get(v.gi),3*v.v));
+      }
+      positions.push(p.divideScalar(tips.length).applyMatrix4(w.get(host).clone().invert()));
+      if(f===b)break;
+    }
+    return positions.map(p=>p.distanceTo(positions[0])/length);
+  };
+}
+
+for(const c of fabricCases) test(c.name+' moves in time with donor skin in Stand and Walk', {
+  skip:[c.own,c.donor].some(f=>!fs.existsSync(testModel(f))) ? 'XFER fabric fixtures unavailable' : false
+},()=>{
+  const own=load(testModel(c.own)),source=load(testModel(c.donor));
+  const donor=c.mirror?mirrorModel(source):source;
+  const settings=transplantOptions({sounds:true,effects:!c.mirror,mirror:!!c.mirror});
+  const off=transplantSkeleton(own,source,settings).model;
+  const on=transplantSkeleton(own,source,{...settings,autoFix:true}).model;
+  if(c.mirror){
+    const si=clip(donor,/^death$/i),frame=donor.Sequences[si].Interval[0]+1552;
+    const height=(native,model,root)=>{
+      const carries=below(native,new Set([root])), W=sampleNodeMatrices(model,frame,si);
+      let low=Infinity;
+      for(const [gi,g] of native.Geosets.entries()) if(visible(model,gi,frame,si)){
+        const points=skinGeoset(model.Geosets[gi],W);
+        for(let v=0;v<g.Vertices.length/3;v++)if(vertexBones(g,v).some(carries))low=Math.min(low,points[3*v+2]);
+      }
+      return low;
+    };
+    assert.ok(height(donor,donor,c.donorRoot)>0,'donor cape is still above the floor in Death');
+    assert.ok(height(own,off,c.ownRoot)<-5,'plain tail sinks through the floor');
+    assert.ok(height(own,on,c.ownRoot)>=-.1,'visible tail clears the floor during the fall');
+  }
+  const sectors=c.mirror ? [[c.ownRoot,c.donorRoot]] : [[37,39],[38,36],[39,41],[40,35]];
+  for(const [ownRoot,donorRoot] of sectors){
+    const mine=fabricTip(own,ownRoot,c.mirror?ownRoot:c.body);
+    const theirs=fabricTip(donor,donorRoot,donorRoot);
+    for(const name of ['Stand','Walk']){
+      const si=donor.Sequences.findIndex(s=>s.Name.trim()===name);
+      const d=theirs(donor,si,donor.Nodes[donorRoot].Parent);
+      const trace=m=>mine(m,si,allNodes(m).find(n=>n.Name==='Bone_Root').ObjectId);
+      const before=trace(off),after=trace(on);
+      const error=t=>Math.sqrt(t.reduce((sum,v,i)=>sum+(v-d[i])**2,0)/t.length);
+      assert.ok(Math.max(...before)<Math.max(...d)*.5,name+' plain misses the donor swing');
+      assert.ok(Math.max(...after)>=Math.max(...d)*.5,name+' at least half the normalized donor excursion');
+      assert.ok(error(after)<error(before),name+' recipient skin follows the donor more closely frame by frame');
+    }
+  }
+});
+
+test('a cloak on an independent timer still drives the tail while the clip is paused', {
+  skip:fabricCases.slice(1).some(c=>[c.own,c.donor].some(f=>!fs.existsSync(testModel(f)))) ? 'XFER fabric fixtures unavailable' : false
+},()=>{
+  const c=fabricCases[1], own=load(testModel(c.own)), donor=load(testModel(c.donor));
+  const cloth=below(donor,new Set([c.donorRoot])), clock=donor.GlobalSequences.push(1800)-1;
+  // The timer has no keys in Walk. Both moving cape links use the same independent clock.
+  for(const n of allNodes(donor).filter(n=>cloth(n.ObjectId))){
+    for(const k of ['Rotation','Scaling','Translation'])delete n[k];
+    if(n.ObjectId===c.donorRoot || n.Parent===c.donorRoot)n.Rotation={LineType:1,GlobalSeqId:clock,Keys:
+      [0,900,1800].map((Frame,i)=>({Frame,Vector:new Float32Array([0,i===1?.26:0,0,i===1?Math.sqrt(1-.26**2):1])}))};
+  }
+  const settings=transplantOptions({sounds:true,effects:false,mirror:true});
+  const at=(model,clock)=>{
+    const si=clip(model,/^walk$/i), f=model.Sequences[si].Interval[0],W=sampleNodeMatrices(model,f,si,clock);
+    const id=allNodes(model).find(n=>n.Name==='Bone_Root').ObjectId;
+    const g=model.Geosets[1], p=skinGeoset(g,W), underTip=below(own,new Set([21])), native=own.Geosets[1], tip=[];
+    for(let v=0;v<p.length/3;v++)if(vertexBones(native,v).some(underTip))tip.push(new Vector3().fromArray(p,v*3));
+    assert.ok(tip.length);
+    return tip.reduce((sum,v)=>sum.add(v),new Vector3()).divideScalar(tip.length).applyMatrix4(W.get(id).clone().invert());
+  };
+  const off=transplantSkeleton(own,donor,settings).model, on=transplantSkeleton(own,donor,{...settings,autoFix:{chains:true}}).model;
+  assert.ok(at(off,0).distanceTo(at(off,900))<.05);
+  assert.ok(at(on,0).distanceTo(at(on,900))>2);
+  assert.ok(at(on,0).distanceTo(at(on,1800))<.05);
+});
+
+test('a hood joint below the head stays on its authored support', {
+  skip:['corpus-sd/human__rifleman.mdx',fabricCases[1].donor].some(f=>!fs.existsSync(testModel(f))) ? 'XFER fabric fixtures unavailable' : false
+},()=>{
+  const own=load(testModel('corpus-sd/human__rifleman.mdx')), donor=load(testModel(fabricCases[1].donor));
+  const options=transplantOptions(), off=transplantSkeleton(own,donor,options);
+  const on=transplantSkeleton(own,donor,{...options,autoFix:{chains:true}});
+  assert.equal(on.report.autoFix.chains,undefined);
+  assert.equal(difference(off.model,on.model),null);
+});
+
+test('a weighted static socket at the base of a moving tail keeps the plain binding', {
+  skip:[fabricCases[1].own,fabricCases[1].donor].some(f=>!fs.existsSync(testModel(f))) ? 'XFER fabric fixtures unavailable' : false
+},()=>{
+  const c=fabricCases[1], own=load(testModel(c.own)), donor=load(testModel(c.donor));
+  const root=own.Nodes[c.ownRoot], skin=own.Geosets[1];
+  for(const k of ['Rotation','Translation','Scaling'])delete root[k];
+  for(const group of skin.Groups)for(let i=0;i<group.length;i++)if(group[i]===22)group[i]=c.ownRoot;
+  const options=transplantOptions({mirror:true});
+  const off=transplantSkeleton(own,donor,options),on=transplantSkeleton(own,donor,{...options,autoFix:{chains:true}});
+  assert.equal(on.report.autoFix.chains,undefined);
+  assert.equal(difference(off.model,on.model),null);
+});
+
+test('one side of a split cape cannot steer the entire centreline tail', {
+  skip:[fabricCases[1].own,'corpus-sd/human__heropaladin.mdx'].some(f=>!fs.existsSync(testModel(f))) ? 'XFER fabric fixtures unavailable' : false
+},()=>{
+  const own=load(testModel(fabricCases[1].own)), donor=load(testModel('corpus-sd/human__heropaladin.mdx'));
+  const opts=transplantOptions(), off=transplantSkeleton(own,donor,opts), on=transplantSkeleton(own,donor,{...opts,autoFix:{chains:true}});
+  assert.equal(on.report.autoFix.chains,undefined);
+  assert.equal(difference(off.model,on.model),null);
 });

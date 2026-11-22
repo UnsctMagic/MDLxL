@@ -167,3 +167,15 @@ The owner also tried HeroLich → TEST XFER AUTOFIX 02 (Kel’Thuzad) in Stand. 
 On humanoid 493, the 40 recipient vertices influenced by its native tail end up on three donor bones. Two are children of the left and right upper legs, and the third is attached to the body root. None belongs to the donor cape chain. This is another consequence of pairing by skeleton location without establishing which visible surface carries the desired motion.
 
 For the shared cloth-and-tail work, identify a moving surface by its skin, where it attaches, and how its hem or tip moves relative to that attachment. Support separate panels as well as linked chains and both clip-local and global motion. Preserve the recipient’s seams, proportions and pivots while transferring swing down the surface. Compare recipient hem and tip motion with the donor at the same time, relative to each surface’s anchor and length. Protect the native seam stretch and previously successful cloth and tail controls. These findings are from build 33.
+
+### Auto fix for cloth and tails · 22 November 2026
+
+Transfer the donor garment’s body-relative swing to a supported recipient hem or articulated pelvic tail, scaled to the receiving surface and carried on its native weights and joints. Preserve a single independent donor timer, refuse an ambiguous source or weighted rigid socket, and use the visible donor fabric’s clearance when the body falls.
+
+The Lich’s four robe sectors passed in all 32 living panel/clip comparisons. The Mage’s cloak drove the Skink tail in all five living clips. Walk normalized excursion was 0.23–0.34 across the four recipient panels against 0.31–0.40 on their donor strips. The tail reached 1.10 lengths against 1.04 on the donor and zero previously. The 77,220 sampled poses cover all clips at 2 ms. The largest edge overruns over both native and Auto fix off were 1.33× and 1.24×. The Skink’s largest residual floor dip while the donor cape was clear was 0.62 unit in Decay Flesh.
+
+The 34/50/19 sheets had 66 rows scored 7–10. All 66 enabled results matched build 33 byte for byte. All 105 plain comparisons matched. The older 9/10 Kobold Geomancer and Nathrezim Doombringer also matched. On the older 8/10 Odium repair only tail vertices moved, with no new tear at 2 ms. The broader single-key replay found 29 changed slots, 1,197 unchanged or structurally excluded, and 37 unavailable. The full list identifies 44 alternate input paths. No high-scoring owner's answer was modified.
+
+The existing Auto fix switch was tested with both donors in transfer-xl-34. Three synchronized comparison panes, clip jumps and mouse rotation were exercised on the hidden desktop. The source regression checks include real skin motion in Stand and Walk, a paused clip with a running global sequence, visible clearance in Death and ambiguity refusals. 332 distinct targeted tests passed. Mixed independent clocks remain unsupported by this correction.
+
+[Comparison sheet](<D:/Codex/xfer-engine-34/Auto fix cloth sheet/cases.json>) · [Measurements, changed pairs and limits](<D:/Codex/xfer-engine-34/Auto fix cloth sheet/Cloak and tail verification.md>)

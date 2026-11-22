@@ -386,7 +386,7 @@ function plantSupportPalms(model, info, parts, floor, equipment) {
  * (how many samples turned), turn (largest, degrees), spans ([from, to] from the animation's start: outside them every key
  * is the donor's) }.
  */
-export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null, tailFloor = false }) {
+export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null, tailFloor = false, fallingSurface = false }) {
   const out = [];
   const stand = standSequenceIndex(M);
   if (stand < 0 || !armParts.length || !legParts.length || !(ownHeight > 0)) return out;
@@ -452,7 +452,8 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
 
   const plans = [];
   M.Sequences.forEach((s, si) => {
-    if (NO_GROUND.test(s.Name || '') || !s.Interval) return;
+    const falling = fallingSurface && /^(death|decay)\b/i.test(s.Name || '');
+    if ((!falling && NO_GROUND.test(s.Name || '')) || !s.Interval) return;
     // an arm whose first joint turns on a global sequence cannot take keys in one animation
     const free = arms.filter(arm => !isGlobalTrack(info.byId.get(arm.joint).Rotation, M));
     if (!free.length) return;
@@ -475,7 +476,7 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
         const inArm = (x, v) => x.bones[v].some(carried);
         const a0 = lowest(info, mats, vis, si, f, held(si, f, mats, inArm));
         if (!(a0.minZ < floor - clearance)) continue;
-        const level = floor - clearance - donorDip(si, f, arm.key);
+        const level = floor - clearance - (fallingSurface && !falling ? 0 : donorDip(si, f, arm.key));
         if (!(a0.minZ < level)) continue;
         const s0 = pivotAt(mats, arm.joint);
         const hand = pivotAt(mats, arm.hand).sub(s0);

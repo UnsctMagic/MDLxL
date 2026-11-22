@@ -55,6 +55,7 @@ import { deathSkinTwins, mountedWeaponCopy, fitDroppedBlade } from './transplant
 import { bendArmsAboveFloor, fitWalkContacts, followSupportFeet } from './transplant-floor.js';
 import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { supportLegSkin } from './transplant-support-skin.js';
+import { fabricMotion } from './transplant-fabric.js';
 import { secondarySurfaces, secondaryMotion, fitTailPlate } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
@@ -1436,6 +1437,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
   // own extra bone -> donor joint.
   const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet) : new Map();
+  const fabric = fix?.chains && rigB.ok && rigA.ok ? fabricMotion(model,D,rigB,rigA,treeB,treeA,keepSet,jointTarget) : new Map();
+  if (fabric.size) fixed.chains = true;
   const extraMatch = new Map();
   // Where an own bone's skin goes: a donor joint ({ donor }) or a joint that stays ({ own }); `via` is the
   // own part joint whose place the target takes (null for a joint that keeps its own place).
@@ -1458,7 +1461,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       result = up != null ? { ...targetOf(up), via: extraMatch.has(up) ? null : rideOf.has(up) ? rideOf.get(up) : up } : { donor: fallbackDonor, via: null };
       return result.own != null ? { own: result.own, via: null } : result;
     }
-    if (secondary.has(id)) result = { own:id, via:null };
+    if (secondary.has(id) || fabric.has(id)) result = { own:id, via:null };
     else if (extraMatch.has(id)) result = { donor: extraMatch.get(id), via: null };
     else if (rideOf.has(id)) result = { ...targetOf(rideOf.get(id)), via: rideOf.get(id) };
     else if (keptOwn.has(id) || keptExtra(id) || outsideKept.has(id)) result = { own: id, via: null };
@@ -2064,7 +2067,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // ------------------------------------------------------------ the new model
   const M = structuredClone({ ...model, Nodes: undefined });
   delete M.Nodes;
-  const ownKeep = new Set([...secondary.keys(), ...keptOwn, ...ownNodes.filter(n => keptExtra(n.ObjectId) || outsideKept.has(n.ObjectId)).map(n => n.ObjectId)]);
+  const ownKeep = new Set([...fabric.keys(), ...secondary.keys(), ...keptOwn, ...ownNodes.filter(n => keptExtra(n.ObjectId) || outsideKept.has(n.ObjectId)).map(n => n.ObjectId)]);
   // The model's own effects and collision shapes stay; its attachments are replaced by the donor's;
   // its events stay only when the donor's are not taken.
   for (const node of ownNodes) {
@@ -2072,6 +2075,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (!events && (model.EventObjects || []).includes(node)) ownKeep.add(node.ObjectId);
   }
   const ownParent = id => {
+    if (fabric.has(id)) return fabric.get(id).root ? newId(fabric.get(id).host) : treeB.parentOf(id);
     if (secondary.get(id)?.panelParent!=null) return secondary.get(id).panelParent;
     if (secondary.get(id)?.collar) return newId(rigA.parts.chest.marker);
     let parent = treeB.parentOf(id);
@@ -2096,6 +2100,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const constantTrack = (value, template) => ({ LineType: 0, GlobalSeqId: null, Keys: starts.map(frame => ({ Frame: frame, Vector: like(template ?? new Float32Array(value.length), value) })) });
   const isDefault = (property, value) => property === 'Rotation' ? near(new Quaternion().fromArray(value).normalize(), 1e-7) : property === 'Scaling' ? value.every(v => Math.abs(v - 1) < 1e-7) : value.every(v => Math.abs(v) < 1e-7);
   const surfaceTracks = secondaryMotion(model,D,treeA,secondary,rigA.reference,size);
+  for (const [id,match] of fabric) surfaceTracks.set(id,match.tracks);
   for (const node of ownNodes) {
     if (!ownKeep.has(node.ObjectId)) continue;
     const copy = structuredClone(node), key = NODE_KEYS.find(k => (model[k] || []).includes(node));
@@ -2128,6 +2133,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (!globalMap.has(track.GlobalSeqId)) globalMap.set(track.GlobalSeqId, M.GlobalSequences.push(D.GlobalSequences[track.GlobalSeqId]) - 1);
     track.GlobalSeqId = globalMap.get(track.GlobalSeqId);
   };
+  for (const {tracks,clock} of fabric.values()) if (clock != null)
+    for (const track of Object.values(tracks)) globalShift(track);
   // A donor weapon attachment hangs from the bone that carries the weapon, where the model's own one of the
   // same name (else its only one) sits on the weapon. Riding the donor's weapon bone, it is re-placed with the
   // weapon's skin after the keys are made (`weaponMoves`).
@@ -2523,7 +2530,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         return entries;
       }
       // A tail carried by a mixed torso seam follows that seam's motion.
-      if (tailGroup && bones.length && bones.every(id => tailSkin.has(id))) {
+      if (tailGroup && !bones.some(id=>fabric.has(id)) && bones.length && bones.every(id => tailSkin.has(id))) {
         const targets = tailGroup.map(j => [newId(carrierOf(j)),1/tailGroup.length]);
         return bones.map(id => ({id,targets}));
       }
@@ -2577,7 +2584,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
           const remaining = 4 - allocation.reduce((sum, item) => sum + item.count, 0);
           for (let i = 0; i < remaining; i++) allocation[i].count++;
           targets = allocation.flatMap(({id,count}) => Array(count).fill(id));
-        } else if (tailGroup && bones.length && bones.every(id => tailSkin.has(id))) targets = entries[0].targets.map(([id])=>id);
+        } else if (tailGroup && !bones.some(id=>fabric.has(id)) && bones.length && bones.every(id => tailSkin.has(id))) targets = entries[0].targets.map(([id])=>id);
         else if ((fourSupports || coverSeams.size && coverSeams.has(seam(source,v))) && slots.length <= 4 && entries.every(e => e.targets.length === 1)) targets = slots;
         else targets = [...new Set(slots)];
       }
@@ -2899,6 +2906,14 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         if (curve) addHeight(M,node,M.Sequences[index].Interval,curve.frames,curve.values);
       }
     }
+  }
+  if (fabric.size && rigB.parts.tail && floor === 'bend' && ground) {
+    const joints=[...fabric.keys()].filter(id=>fabric.get(id).root || model.Nodes[id].Rotation?.Keys?.length).map(id=>remap.get(id));
+    const legs=Object.values(rigA.parts).filter(p=>p.limbKind==='leg').map(p=>({key:p.key,joints:p.joints.map(j=>donorMap[j]).filter(j=>j!=null)}));
+    const source=[...fabric.values()].find(match=>match.root).source;
+    const donorLegs=Object.values(rigA.parts).filter(p=>p.limbKind==='leg');
+    bendArmsAboveFloor(M,{ownHeight:rigB.hipHeight,arms:[{key:'tail',joints}],legs,weapon:{},tailFloor:true,fallingSurface:true,
+      donor:{model:D,arms:[{key:'tail',joints:[source]}],legs:donorLegs,size}});
   }
   if (matchingFourLinkLegs) fitTailPlate(M, model, rigB, treeB);
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
