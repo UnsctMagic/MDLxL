@@ -1370,7 +1370,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       const bodyDrift = drift(id, body, probe, samples);
       let joint = body, least = bodyDrift;
       for (const at of [WORLD, ...parts.filter(at => at !== body)]) { const d = drift(id, at, probe, samples); if (d <= FOLLOW_SHARE * bodyDrift && d < least - 1e-6 * rigB.hipHeight) { least = d; joint = at; } }
-      const grip = detachedGrip(rigB, id);
+      const alreadyOnArm = rigB.parts[ownPartOf.get(joint)]?.limbKind === 'arm';
+      const grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, samples.filter(s =>
+        s.sequence === ownStand || /^walk/i.test(sequences[s.sequence]?.Name || '')), fourSupports);
       if (grip != null && !keepSet.has(id)) {
         joint = grip;
         detachedWeapons.add(id);
@@ -1473,10 +1475,10 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // used: the weapon then stays on the hand it pairs with. The donor's weapon attachments hang from the bone
   // that carries the weapon, where the model's own weapon attachment sits on it.
   const isWeaponPoint = node => /weapon/i.test(node?.Name || '');
-  const ownWeaponHand = rigB.heldItem?.hand ?? null;
+  const ownWeaponHand = Object.values(rigB.parts || {}).find(part => part.weapon)?.marker ?? null;
   const ownWeaponPoints = (model.Attachments || []).filter(isWeaponPoint);
   const extraOf = id => { for (const at of treeB.ancestors(id, true)) if (extras.has(at)) return at; return null; };
-  const explicitGrip = articulatedGrip && gripBranches.size > 0;
+  const explicitGrip = articulatedGrip && ([...gripBranches.values()].some(grip=>grip.hand!==ownWeaponHand) || [...gripBranches.keys()].some(top=>!extras.get(top).bones.some(moves)));
   const weaponExtras = new Set(detachedWeapons);
   for (const extra of extras.values()) if (explicitGrip ? gripBranches.has(extra.id) : ownWeaponHand != null && targetOf(extra.id).via === ownWeaponHand) weaponExtras.add(extra.id);
   // A weapon attachment counts only where an arm holds it: the Kodo Beast's `Weapon Ref` sits on the kodo's head (it
@@ -1522,8 +1524,9 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   const decollapse = new Map(); // donor node -> its scale at the reference moment, for keys that scale it to nothing
   let donorWeapon = null, weaponSkip = null, weaponChain = [];
   {
+    const point = (D.Attachments || []).find(node => isWeaponPoint(node) && node.Parent != null && node.Parent !== -1);
     const handTarget = weaponVia != null ? targetOf(weaponVia) : null, handId = handTarget?.donor ?? null;
-    let bone = rigA.heldItem?.carrier ?? null, use = null;
+    let bone = point ? treeA.ancestors(point.ObjectId).find(id => isDonorJoint(id)) ?? null : null, use = null;
     const check = id => {
       if (id == null || handId == null) return id;
       const result = weaponUse(id, handId);
@@ -1548,7 +1551,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       }
     }
     bone = check(bone);
-    if (bone == null) bone = check(rigA.heldItem?.hand ?? null);
+    if (bone == null) bone = check(Object.values(rigA.parts || {}).find(part => part.weapon)?.marker ?? null);
     if (bone != null && (!keepDonor.has(bone) || !isDonorJoint(bone))) bone = null;
     weaponChain = bone != null && use ? use.chain : [];
     const ownArm = weaponVia != null ? ownPartOf.get(weaponVia) : null;
