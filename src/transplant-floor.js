@@ -169,7 +169,7 @@ function floorOf(model, info, legIds, stand) {
 
 /** Rewrite a transform track in ONE sequence, only in windows around the frames `turns` (frame -> turn of the value)
  * changes. A window runs from the track's own key before the sample ahead of the first turned frame to its own key after
- * the sample behind the last one; inside it the track is sampled at `frames` (and its own keys), each sample a straight
+ * the sample behind the last one. Interior authored keys are replaced by the fitted motion, each sample a straight
  * (slerp) step to the next. Its two end keys keep their value and their tangent on the outer side, so the motion outside
  * every window, and in every other sequence, stays exactly the donor's; the track keeps its interpolation type. */
 export function rewriteTrack(model, node, si, frames, turns, property = 'Rotation') {
@@ -178,29 +178,31 @@ export function rewriteTrack(model, node, si, frames, turns, property = 'Rotatio
   const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }));
   const own = new Map(); if (old) for (const key of old.Keys) if (key.Frame >= a && key.Frame <= z) own.set(key.Frame, key);
   const ownFrames = [...own.keys()].sort((x, y) => x - y);
-  const fr = [...new Set([...frames.map(Math.round), ...ownFrames, a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
+  const solverFrames = [...new Set([...frames.map(Math.round), ...turns.keys(), a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
   const windows = [];
-  fr.forEach((f, i) => {
+  solverFrames.forEach((f, i) => {
     if (!turns.has(f)) return;
-    const lo = fr[i - 1] ?? a, hi = fr[i + 1] ?? z;
+    const lo = solverFrames[i - 1] ?? a, hi = solverFrames[i + 1] ?? z;
     const from = ownFrames.filter(k => k <= lo).pop() ?? a, to = ownFrames.find(k => k >= hi) ?? z;
     const last = windows[windows.length - 1];
     if (last && from <= last[1]) last[1] = Math.max(last[1], to); else windows.push([from, to]);
   });
   const type = old ? old.LineType : 1, curved = type === 2 || type === 3;
   const mine = [];
-  for (const [from, to] of windows) for (const f of fr) {
-    if (f < from || f > to) continue;
-    const kept = own.get(f);
-    if (kept && !turns.has(f) && (f === from || f === to)) {
-      // an end key: its value and its outer tangent stay; its inner tangent goes straight into the window
-      const key = { ...kept, Vector: new Float32Array(kept.Vector) };
-      if (curved && kept.InTan && kept.OutTan) { key.InTan = new Float32Array(f === to ? kept.Vector : kept.InTan); key.OutTan = new Float32Array(f === from ? kept.Vector : kept.OutTan); }
-      mine.push(key); continue;
+  for (const [from, to] of windows) {
+    const interior = solverFrames.filter(f => f > from && f < to && (turns.has(f) || !own.has(f)));
+    for (const f of [from, ...interior, ...(to > from ? [to] : [])]) {
+      const kept = own.get(f);
+      if (kept && !turns.has(f) && (f === from || f === to)) {
+        // an end key: its value and its outer tangent stay; its inner tangent goes straight into the window
+        const key = { ...kept, Vector: new Float32Array(kept.Vector) };
+        if (curved && kept.InTan && kept.OutTan) { key.InTan = new Float32Array(f === to ? kept.Vector : kept.InTan); key.OutTan = new Float32Array(f === from ? kept.Vector : kept.OutTan); }
+        mine.push(key); continue;
+      }
+      const value = turns.has(f) ? turns.get(f)(sample(f)) : sample(f), key = { Frame: f, Vector: new Float32Array(value) };
+      if (curved) { key.InTan = new Float32Array(value); key.OutTan = new Float32Array(value); }
+      mine.push(key);
     }
-    const value = turns.has(f) ? turns.get(f)(sample(f)) : sample(f), key = { Frame: f, Vector: new Float32Array(value) };
-    if (curved) { key.InTan = new Float32Array(value); key.OutTan = new Float32Array(value); }
-    mine.push(key);
   }
   const others = old ? old.Keys.filter(k => !windows.some(([p, q]) => k.Frame >= p && k.Frame <= q)) : [];
   const keys = [...others, ...mine].sort((x, y) => x.Frame - y.Frame);
