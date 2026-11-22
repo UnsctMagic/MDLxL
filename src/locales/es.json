@@ -8718,5 +8718,8 @@
   "Drag on the UV map to draw.": "Arrastra sobre el mapa UV para dibujar.",
   "Drag on the UV map to highlight.": "Arrastra sobre el mapa UV para resaltar.",
   "Drag on the animation to draw.": "Arrastra sobre la animación para dibujar.",
-  "Drag on the animation to highlight.": "Arrastra sobre la animación para resaltar."
+  "Drag on the animation to highlight.": "Arrastra sobre la animación para resaltar.",
+  "Local": "Local",
+  "Local axes": "Ejes locales",
+  "On: Rotate's handles and the XY/ZX/YZ planes tilt with the selected bone. Off: they follow the model's axes.": "Activado: los tiradores de rotación y los planos XY/ZX/YZ se inclinan con el hueso seleccionado. Desactivado: siguen los ejes del modelo."
 }
