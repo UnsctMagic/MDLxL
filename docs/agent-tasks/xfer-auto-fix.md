@@ -63,7 +63,39 @@ The owner graded 34 transplant pairs on 22 Nov 2026 (eight zeros) and asked: "at
 - Grade sheet (donor, today, Auto fix side by side): `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - Auto fix (9 pairs).cmd`; answers in `D:\Codex\xfer-engine-34\Auto fix sheet\answers.json`.
 - The switch itself: `D:\Claude\MDLxL\TestBuilds\_START HERE\9 TRANSPLANT - Auto fix switch.cmd` (opens `TEST XFER AUTOFIX 01.mdx`).
 
-## Not done
+## Outstanding at the end of step 1
 
 - The change list over the 1,263-pair replay (plan gate 3). The 34 graded pairs and the fresh 50 are swept.
 - Steps 2 to 5 of the plan (Tinker's arms, looping-timer motion, shoulders, cloak and tail, weapon out of the body).
+
+## Step 2 · stopped on the accepted step-1 replay
+
+The step-1 `detached` key splits the Chameleon Skink’s blowpipe mesh on two independently reproduced donors. On humanoid 95, the same edge is 3.34% of native standing height with Auto fix off and 43.14% with only `detached` on. This occurs in Stand - Var3 at 1,625 ms. On humanoid 195, the edge grows from 3.76% to 43.54% in Attack - 2 at 906 ms. The native edge is 3.34%. Two other Skink blowpipe recipients show the same split. On humanoid 493 the edge grows from 3.66% to 39.01% in Stand - 4 at 1,517 ms. On humanoid 841 it grows from 2.87% to 40.01% in Stand - 1 at 750 ms. On all four rows, both adjoining triangles are on a visible geoset with an opaque material layer. The key moves the blowpipe carrier to the hand while the tip stays on the body. The two ends of a continuous surface then follow different joints. All four reproductions use the accepted step-1 commit 45f64e6e. The owner’s stop condition applies.
+
+[Matched frame](<D:/Codex/xfer-engine-34/Step 1 replay/Skink blowpipe.png>) · [Frame, material and skin weights](<D:/Codex/xfer-engine-34/Step 1 replay/Skink measurements.txt>)
+
+### Step-2 work at the stop
+
+| Pair | Rule and disposition | Evidence |
+|---|---|---|
+| 09 Tinker → Kel’Thuzad | Saved `arms` alone at a45b81ac. For a single pair of recipient arms, prefer the first POSE arm on each donor side only when both uniquely meet the shoulder-height and terminal hand-reference tests. Ambiguous readings retain the original pairing. | The recipient’s shoulder-to-wrist skin direction in chest space, sampled every 20 ms, improved from 62.57° to 11.75° in Walk and from 58.66° to 11.94° in Attack - 1 (limit 15°). The historical 55.7° and 54.1° baselines use joint directions. Across 86 saved exports, only pair-09 changed with the key alone or added to step 1. Nine single-arm control models passed the focused test. The wider step-2 replay and packaged verification remain outstanding. |
+| 30 Locust | Looping timer keys should keep the skin on its moving bone. Pending. | No trial before the stop. |
+| 34 Paladin | Align a detached sword with the donor blade around the hand. Pending. | Step-1 output still matches the owner’s grade-8 file. |
+| 12 Lahmian | Keep staff and hand together through the donor’s swing. Measurement only. | In Spell the step-1 gap is 7.4% at 450 ms and 35.4% at 760 ms. At 750 ms the donor gap is 5.3%. Peak tip travel per 2 ms in Spell is 3.70% of recipient height versus 2.20% on the donor. The directed offset reaches 23.6° in the measured Walk, Attack and Spell. The source of the owner’s angle complaint remains open. |
+
+Auto fix off matched 86/86 saved exports before and after the arm selection. With all keys enabled all nine accepted step-1 exports matched their saved bytes. The two focused test cases passed. The remaining transplant, transfer and window tests, hidden packaged click and grade sheet were deferred at the stop. No step-2 key was reverted. The four accepted step-1 keys remain intact.
+
+### Accepted step-1 keys across all 1,263 replay rows
+
+Row numbers are one-based within each named manifest set. A changed row has a vertex displacement above 0.01% of native standing height or a moving attachment. Each row compares Auto fix off with each of the four keys individually. A byte change with neither kind of movement is listed separately.
+
+- **hand** — 59 changed. humanoid 9, 38, 65, 68, 142, 143, 145, 154, 175, 183, 264, 276, 288, 300, 325, 329, 338, 375, 399, 411, 428, 443, 479, 484, 493, 503, 504, 508, 538, 543, 548, 561, 642, 671, 704, 747, 761, 822, 826, 833, 841, 846, 865, 870, 903, 920, 929, 940, 983, 984, 990, 994 · panel 54 · original40 16 · new40 26 · fresh50 18, 23, 29, 31.
+- **markers** — 5 changed. humanoid 435, 532 · showcase40 25 · fresh50 12, 47.
+- **detached** — 5 changed. humanoid 95, 195, 493, 841 · fresh50 2.
+- **trunk** — 1 changed. panel 57.
+
+All 1,263 input pairs completed the first replay against step 1. The second pass explicitly serialized keys that the first pass could rule out from the rig. 2 original download paths needed substitutes in that second pass. Their plain and all four single-key exports matched the hashes from the first replay; the JSON identifies the substitute inputs. The native file WH_DOC_Demonette21.mdx for original40-37 became unavailable between passes. The first replay found no changed key on that pair. A second explicit serialization of its inactive keys could not be repeated.
+
+The independent movement check follows every recipient vertex and attachment through every clip at the union of skeletal key times and nine samples per clip. Byte equality covers the serialized model, including attachments. Read-only inputs were compared using the compatible MDX writer in memory. 6 rows also needed direct encoding because the ordinary Save validation rejected an existing sequence interval. Each affected manifest row records that limitation. Results cover the sampled movement and complete serialized bytes.
+
+[All pair paths, hashes and maximum displacements](<D:/Codex/xfer-engine-34/Step 1 replay/Pair measurements.json>)
