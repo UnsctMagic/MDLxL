@@ -61,7 +61,7 @@ import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
-import { autoFixMirror, autoFixOptions } from './transplant-autofix.js';
+import { autoFixMirror, autoFixOptions, fixMarkers } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -905,6 +905,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
+  // Auto fix (src/transplant-autofix.js): off, `fix` is null and nothing below reads it.
+  const fix = autoFixOptions(autoFix), fixed = {};
   // ------------------------------------------------------------ read both bodies
   // A model with no bone or helper (an effect: Plague Cloud) has no skeleton: say so plainly before anything is read
   // (its joints would be undefined ids further on: "Geoset 0 references missing node NaN").
@@ -915,6 +917,16 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   let rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined });
   const donorStand0 = standSequenceIndex(donor);
   let rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined });
+  // `markers`: where a model's Hand or Weapon marker is off the item its arm holds, the weapon fit below reads the
+  // measured grip and tip instead, from private copies of the two models (the caller's models are never changed).
+  if (fix?.markers && rigB.ok && rigA0.ok) {
+    const corrected = fixMarkers(model, donor, rigB, rigA0);
+    if (corrected) {
+      if (corrected.model !== model) { model = corrected.model; rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined }); }
+      if (corrected.donor !== donor) { donor = corrected.donor; rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }); }
+      fixed.markers = true;
+    }
+  }
   // A donor that is two creatures (a rider on a mount) taken by a model that is one creature with no arms, standing on as
   // many legs as the mount: the donor is read as its mount alone (the walker reading), so a wolf on the Knight takes the
   // horse's body. Read together, the horse's legs carried the rider's trunk: the wolf's back rose as the rider sits.
@@ -924,8 +936,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const walker = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: 'walker' });
     if (walker !== rigA0 && walker.ok && legPairs(walker) > 0 && legPairs(walker) === legPairs(rigB)) { rigA0 = walker; donorActor = 'walker'; notes.push("The donor is a rider on a mount: this model takes the mount's body; the rider's motion is left out."); }
   }
-  // Auto fix (src/transplant-autofix.js): off, `fix` is null and nothing below reads it.
-  const fix = autoFixOptions(autoFix), fixed = {};
   const namedOffer = !!(rigB.ok && rigA0.ok && rigA0.weaponSide && rigB.weaponSide && rigA0.weaponSide !== rigB.weaponSide);
   // `hand`: the weapon hands read from what is held; where either is not read, the named offer stands.
   const heldOffer = fix?.hand && rigB.ok && rigA0.ok ? autoFixMirror(model, rigB, donor, rigA0) : null;
