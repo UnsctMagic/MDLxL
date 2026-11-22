@@ -346,9 +346,13 @@ export function reorderSequences(model, order) {
     },
   });
   for (const geoset of model.Geosets || []) if (geoset.Anims?.length) {
-    if (geoset.Anims.length !== sequences.length) throw new Error('Geoset animation bounds must match the animation count before reordering.');
-    const anims = order.map(index => geoset.Anims[index]);
-    edits.push(() => { geoset.Anims = anims; });
+    if (geoset.Anims.length > sequences.length) throw new Error('Geoset animation bounds must match the animation count before reordering.');
+    // A short table is positional: animations past its end use the geoset box.
+    // Fill moved-in gaps with that box and drop trailing fill, so every
+    // animation keeps the bounds it had.
+    const anims = order.map(index => geoset.Anims[index] ?? null);
+    while (anims.length && anims.at(-1) === null) anims.pop();
+    edits.push(() => { geoset.Anims = anims.map(record => record ?? extentCopy(geoset)); });
   }
   for (const range of next) {
     range.sequence.Interval = intervalLike(range.sequence.Interval, ...range.currentNext);
