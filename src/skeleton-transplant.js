@@ -60,7 +60,6 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { orientHeldSurface } from './transplant-held-orientation.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -2761,7 +2760,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     for (const [node, hand] of weaponMoves) node.PivotPoint.set(v3(node.PivotPoint).applyMatrix4(turnFrom(hand)).toArray());
     }
   }
-  if (!mountedPair && !weaponHeld && !weaponSwap.length) orientHeldSurface({model:M,own:model,donor:D,rigA,rigB,treeA,donorWeapon,donorMap,weaponVertices,remap,ownHand:weaponVia,donorStand:donorStandD,resultStand});
   // Safety net: nothing that is not a finite number leaves the engine; what was held is said in the report.
   orderKeys(M);
   const held = holdNonFinite(M, model);
