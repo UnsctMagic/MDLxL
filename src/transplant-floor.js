@@ -178,70 +178,28 @@ export function rewriteTrack(model, node, si, frames, turns, property = 'Rotatio
   const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }));
   const own = new Map(); if (old) for (const key of old.Keys) if (key.Frame >= a && key.Frame <= z) own.set(key.Frame, key);
   const ownFrames = [...own.keys()].sort((x, y) => x - y);
-  const controls = [...new Set([a, z, ...frames.map(Math.round), ...turns.keys()])].filter(f => f >= a && f <= z).sort((x,y) => x-y);
-  const corrected = new Map(), corrections = new Map();
-  for (const f of controls) {
-    if (!turns.has(f)) continue;
-    const original = sample(f), target = turns.get(f)([...original]);
-    corrected.set(f, target);
-    corrections.set(f, property === 'Rotation'
-      ? new Quaternion().fromArray(target).normalize().multiply(new Quaternion().fromArray(original).normalize().invert())
-      : new Vector3().fromArray(target).sub(new Vector3().fromArray(original)));
-  }
-  const identity = property === 'Rotation' ? new Quaternion() : new Vector3();
-  const fr = [...new Set([...controls, ...ownFrames])].sort((x,y) => x-y);
+  const fr = [...new Set([...frames.map(Math.round), ...ownFrames, a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
   const windows = [];
-  controls.forEach((f, i) => {
+  fr.forEach((f, i) => {
     if (!turns.has(f)) return;
-    const lo = controls[i - 1] ?? a, hi = controls[i + 1] ?? z;
+    const lo = fr[i - 1] ?? a, hi = fr[i + 1] ?? z;
     const from = ownFrames.filter(k => k <= lo).pop() ?? a, to = ownFrames.find(k => k >= hi) ?? z;
     const last = windows[windows.length - 1];
     if (last && from <= last[1]) last[1] = Math.max(last[1], to); else windows.push([from, to]);
   });
-
-  // A span with no fitted motion through it can use its original interpolation
-  // and tangents exactly. A solver sample inside that span needs no new key.
-  const nativeFrom = new Set(), nativeTo = new Set(), skipped = new Set();
-  const influenced = new Set();
-  let ci = 0;
-  const fittedValue = new Map();
-  for (const f of fr) {
-    while (ci + 1 < controls.length && controls[ci + 1] <= f) ci++;
-    const left = controls[ci], right = controls[ci+1] ?? left;
-    if (corrected.has(f)) {
-      influenced.add(f);
-      fittedValue.set(f,corrected.get(f));
-    } else if (f !== left && (corrections.has(left) || corrections.has(right))) {
-      influenced.add(f);
-      const delta = (corrections.get(left) ?? identity).clone(), end = corrections.get(right) ?? identity;
-      const t = (f-left)/(right-left), native = sample(f);
-      fittedValue.set(f, property === 'Rotation'
-        ? delta.slerp(end,t).multiply(new Quaternion().fromArray(native)).normalize().toArray()
-        : delta.lerp(end,t).add(new Vector3().fromArray(native)).toArray());
-    }
-  }
-  let interior = [];
-  for (const f of fr) {
-    if (interior.length && own.has(f)) {
-      const left = interior[0];
-      if (!influenced.has(f) && !interior.some(k => influenced.has(k))) {
-        nativeFrom.add(left); nativeTo.add(f);
-        for (const k of interior.slice(1)) skipped.add(k);
-      }
-      interior = [];
-    }
-    if (own.has(f) || interior.length) interior.push(f);
-  }
   const type = old ? old.LineType : 1, curved = type === 2 || type === 3;
   const mine = [];
   for (const [from, to] of windows) for (const f of fr) {
-    if (f < from || f > to || skipped.has(f)) continue;
-    const kept = own.get(f), value = fittedValue.get(f) ?? sample(f);
-    const key = {Frame:f, Vector:new Float32Array(value)};
-    if (curved) {
-      key.InTan = new Float32Array(kept?.InTan && (nativeTo.has(f) || f === from && !influenced.has(f)) ? kept.InTan : value);
-      key.OutTan = new Float32Array(kept?.OutTan && (nativeFrom.has(f) || f === to && !influenced.has(f)) ? kept.OutTan : value);
+    if (f < from || f > to) continue;
+    const kept = own.get(f);
+    if (kept && !turns.has(f) && (f === from || f === to)) {
+      // an end key: its value and its outer tangent stay; its inner tangent goes straight into the window
+      const key = { ...kept, Vector: new Float32Array(kept.Vector) };
+      if (curved && kept.InTan && kept.OutTan) { key.InTan = new Float32Array(f === to ? kept.Vector : kept.InTan); key.OutTan = new Float32Array(f === from ? kept.Vector : kept.OutTan); }
+      mine.push(key); continue;
     }
+    const value = turns.has(f) ? turns.get(f)(sample(f)) : sample(f), key = { Frame: f, Vector: new Float32Array(value) };
+    if (curved) { key.InTan = new Float32Array(value); key.OutTan = new Float32Array(value); }
     mine.push(key);
   }
   const others = old ? old.Keys.filter(k => !windows.some(([p, q]) => k.Frame >= p && k.Frame <= q)) : [];
