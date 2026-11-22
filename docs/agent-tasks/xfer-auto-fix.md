@@ -52,16 +52,17 @@ The owner graded 34 transplant pairs on 22 Nov 2026 (eight zeros) and asked: "at
 - **On changes seven pairs, byte for byte:** 10, 18, 32 (`markers`), 12, 15 (`hand`), 34 (`detached`), 17 (`trunk`). The other 27, including every 10 and every 9, are byte-identical to the plain result.
 - **Each key alone** over the 34 (`held\gates\*.txt`, largest vertex move): `hand` 12, 15; `markers` 10, 18, 32; `detached` 34; `trunk` 17.
 - **Two rules were tightened by these sweeps.** `trunk` first fired on pair-33 (graded 9), so it now needs fewer than two legs. `markers` first moved attachment points on pairs 04, 22, 24 and 29, so it now falls back to the plain result where the fit did not use the markers.
+- **The earlier fresh 50** (`heldgatesresh50-all.txt`, all keys on): 43 identical, 7 change. Five are the same pairs as above under their old numbers. Two are new, both graded 9, both by `hand` turning Mirror on: fresh #18 (War Monger to Fresh Shambler: the Shambler's only measured item is in its left hand while its Weapon marker sits on its bare right hand) and fresh #31 (Crossbowman to Gnoll: the crossbow, on its own bone, stays with the right hand; the Gnoll's flail is in its left). Not verified as better; both are on the grade sheet for the owner to judge.
 - **Source tests:** `test/transplant-autofix.test.js`, 30 tests on nine real pairs in `D:\Claude\MDLxL-TestModels\xfer-auto-fix`; each visible check also asserts the plain result fails its limit.
 - **App click, packaged build, hidden:** `test/transplant-autofix.electron.cjs` on `TestBuilds\transfer-xl-32`: off by default, ticking rebuilds and lists the correction, unticking takes it back, Transplant then one Undo.
-- **Grade sheet checked hidden in the same build:** seven cases, three views each, Look buttons find their bones, no error text.
+- **Grade sheet checked hidden in the same build:** nine cases, three views each, Look buttons find their bones, no error text.
 
 ## For the owner
 
-- Grade sheet (donor, today, Auto fix side by side): `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - Auto fix (7 pairs).cmd`; answers in `D:\Codex\xfer-engine-34\Auto fix sheet\answers.json`.
+- Grade sheet (donor, today, Auto fix side by side): `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - Auto fix (9 pairs).cmd`; answers in `D:\Codex\xfer-engine-34\Auto fix sheet\answers.json`.
 - The switch itself: `D:\Claude\MDLxL\TestBuilds\_START HERE\9 TRANSPLANT - Auto fix switch.cmd` (opens `TEST XFER AUTOFIX 01.mdx`).
 
 ## Not done
 
-- The change list over the fresh 50 and the 1,263-pair replay (plan gate 3). Only the 34 graded pairs are swept.
+- The change list over the 1,263-pair replay (plan gate 3). The 34 graded pairs and the fresh 50 are swept.
 - Steps 2 to 5 of the plan (Tinker's arms, looping-timer motion, shoulders, cloak and tail, weapon out of the body).
