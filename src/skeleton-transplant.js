@@ -61,6 +61,7 @@ import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
+import { autoFixMirror, autoFixOptions } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -900,7 +901,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms' } = {}) {
+export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -923,7 +924,13 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const walker = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: 'walker' });
     if (walker !== rigA0 && walker.ok && legPairs(walker) > 0 && legPairs(walker) === legPairs(rigB)) { rigA0 = walker; donorActor = 'walker'; notes.push("The donor is a rider on a mount: this model takes the mount's body; the rider's motion is left out."); }
   }
-  const mirrorOffer = !!(rigB.ok && rigA0.ok && rigA0.weaponSide && rigB.weaponSide && rigA0.weaponSide !== rigB.weaponSide);
+  // Auto fix (src/transplant-autofix.js): off, `fix` is null and nothing below reads it.
+  const fix = autoFixOptions(autoFix), fixed = {};
+  const namedOffer = !!(rigB.ok && rigA0.ok && rigA0.weaponSide && rigB.weaponSide && rigA0.weaponSide !== rigB.weaponSide);
+  // `hand`: the weapon hands read from what is held; where either is not read, the named offer stands.
+  const heldOffer = fix?.hand && rigB.ok && rigA0.ok ? autoFixMirror(model, rigB, donor, rigA0) : null;
+  if (fix?.hand) fixed.mirror = { held: heldOffer, named: namedOffer };
+  const mirrorOffer = heldOffer ?? namedOffer;
   const reflected = mirror === true ? mirrorModel(donor) : donor;
   if (mirror === true) clearTransferCache(reflected);
   let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor }) : rigA0;
@@ -2854,7 +2861,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         attachments: (M.Attachments || []).length, events: (M.EventObjects || []).length, emitters: EFFECT_KEYS.reduce((n, k) => n + (M[k] || []).length, 0),
         vertices: (M.Geosets || []).reduce((n, g) => n + g.Vertices.length / 3, 0), bakedVertices: baked, sizeRatio: size, travel, ridesStill, skin: skinCounts, posture,
       },
-      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut,
+      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, ...(fix ? { autoFix: fixed } : {}),
     },
   };
 }
