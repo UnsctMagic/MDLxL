@@ -584,3 +584,20 @@ The owner requested 50 previously unseen pairs. The grading sheet uses 100 disti
 **Verification and open work.** All 283 transplant, animation-transfer and window tests passed. The packaged test clicked through the 50 actual cases, loaded all 100 native views, rotated the result by mouse, and saved all test scores and a comment separately. All 878 authored texture references resolve. The two rejected class 1 engine trials remain reverted. The Assassin cloak and Infernal arm failures remain. No further production rules or patch removals were made. The 1,000/61 and retarget gates remain open, and the original 15 remain sealed.
 
 [Grade the 50 pairs](<D:/Codex/Grade 50 fresh XFER pairs.cmd>) · [Capacity report](<D:/Codex/xfer-fresh-50/Capacity report.md>) · [Per-pair evidence](<D:/Codex/xfer-fresh-50/Capacity evidence.json>).
+
+### Owner-graded 50, shared-cause round
+
+**Rule 1, recorded before implementation.** Identify the held item and its carrying hand from a rigid skin surface that extends from the hand and follows it across native poses, including detached carriers identified by a Weapon attachment or stable grip, and use the observed side and carrier to pair equipment and decide the automatic mirror.
+
+Pre-code measurements on the original native inputs. Identified means at least one side of the pair had a qualifying surface. Changed side includes transitions to or from an ambiguous reading. Mirror counts compare the two default on/off decisions.
+
+| Set | Pairs | Identified | Changed side | Changed mirror |
+|---|---:|---:|---:|---:|
+| humanoid | 1000 | 980 | 461 | 192 |
+| panel | 61 | 55 | 25 | 12 |
+| original40 | 40 | 31 | 21 | 9 |
+| solo20 | 20 | 19 | 8 | 2 |
+| showcase40 | 40 | 38 | 19 | 7 |
+| new40 | 40 | 29 | 20 | 5 |
+| repairs | 12 | 8 | 5 | 1 |
+| fresh50 | 50 | 46 | 26 | 16 |
