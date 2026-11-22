@@ -106,16 +106,17 @@ function worldPos(model, sample, id) {
  * copy) uses the one the animation moves: `sequence` is the animation in use
  * (the taken one for a donor, the body animation for the open model); without
  * it the model's Stand decides. */
-export function transferRig(model, { sequence, actor } = {}) {
+export function transferRig(model, { sequence, actor, mainArms = false } = {}) {
   const info = modelInfo(model);
   if (info.pose === undefined) info.pose = readPose(model);
   if (!info.pose.pose) return info.rigs.get(null) || (info.rigs.set(null, failedRig(info.pose.error)), info.rigs.get(null));
   const skeleton = skeletonFor(model, info, Number.isInteger(sequence) && model.Sequences?.[sequence]?.Interval ? sequence : defaultSequence(model));
   // 'both' is the plain reading; 'seated' and 'walker' read one of two creatures alone and
   // fall back to 'both' on a model that is a single creature.
-  const wanted = actor === 'seated' || actor === 'walker' ? actor : 'both', key = wanted === 'both' ? skeleton : `${skeleton}:${wanted}`;
+  const wanted = actor === 'seated' || actor === 'walker' ? actor : 'both';
+  const key = mainArms ? `${skeleton}:${wanted}:mainArms` : wanted === 'both' ? skeleton : `${skeleton}:${wanted}`;
   if (!info.rigs.has(key)) {
-    const rig = readRig(model, info, skeleton, wanted);
+    const rig = readRig(model, info, skeleton, wanted, mainArms);
     info.rigs.set(key, rig.actor === wanted || wanted === 'both' ? rig : transferRig(model, { sequence }));
   }
   return info.rigs.get(key);
@@ -228,7 +229,7 @@ function skeletonFor(model, info, sequence) {
   return best;
 }
 
-function readRig(model, info, skeleton, wanted = 'both') {
+function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {
   const { tree, byId, joints } = info, problems = [], sequences = model.Sequences || [], { pose } = info.pose;
   const roleOf = id => pose.roles?.[id] || poseNodeRole(byId.get(id));
   // The body of this skeleton: POSE's body, else the joint that drives all its limbs.
@@ -428,7 +429,23 @@ function readRig(model, info, skeleton, wanted = 'both') {
   const order = (a, b) => a.kind === 'leg' ? pos(a.joints[0]).dot(facing) - pos(b.joints[0]).dot(facing) : pos(b.joints[0]).z - pos(a.joints[0]).z;
   const groups = new Map();
   for (const limb of limbs) { const k = limb.kind + (limb.side || ''); groups.set(k, [...(groups.get(k) || []), limb]); }
-  for (const [stem, list] of groups) list.sort(order).forEach((limb, i) => {
+  // POSE keeps the authored arm pair first. Both sides must independently identify
+  // that pair by its shoulder level and its terminal hand attachment.
+  const preferred = new Set();
+  if (mainArms && parts.chest && parts.head) {
+    const chestZ = pos(parts.chest.joints[0]).z, headZ = pos(parts.head.marker).z;
+    const handEnds = new Set((model.Attachments || []).filter(node => /^hand\s+(left|right)\s+ref\s*$/i.test(node.Name)).map(node => node.Parent));
+    for (const side of ['armL', 'armR']) {
+      const list = groups.get(side) || [];
+      const matches = list.filter(limb => {
+        const z = pos(limb.joints[0]).z;
+        return z >= chestZ && z <= headZ && handEnds.has(limb.joints.at(-1));
+      });
+      if (list.length > 1 && matches.length === 1 && matches[0] === list[0]) preferred.add(matches[0]);
+    }
+  }
+  const ranked = preferred.size === 2 ? (a, b) => Number(preferred.has(b)) - Number(preferred.has(a)) || order(a, b) : order;
+  for (const [stem, list] of groups) list.sort(ranked).forEach((limb, i) => {
     const key = stem + (i ? i + 1 : ''), last = limb.joints.at(-1);
     const named = limb.kind === 'arm' && info.nodes.some(node => node.ObjectId !== last && tree.isAncestor(node.ObjectId, last) && isWeaponName(node.Name));
     const length = chainLength([...limb.joints.map(pos), ...(limb.tip ? [limb.tip] : [])]);
@@ -946,7 +963,7 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
     if (!own) { problems.push(`This model has no ${transferPartLabel(key).toLowerCase()}.`); continue; }
     const donor = modelOf(part.source), seq = donor?.Sequences?.[part.sequence];
     if (!seq?.Interval) { problems.push(`${transferPartLabel(key)}: choose an animation to take it from.`); continue; }
-    const rigA = transferRig(donor, { sequence: part.sequence, actor: recipe.sources?.[part.source]?.actor });
+    const rigA = transferRig(donor, { sequence: part.sequence, actor: recipe.sources?.[part.source]?.actor, mainArms: options.mainArms });
     const auto = donor !== recipient && !!rigA.weaponSide && !!rigB.weaponSide && rigA.weaponSide !== rigB.weaponSide;
     const whole = recipe.sources?.[part.source]?.mirror ?? auto;
     // Other side: the donor's opposite limb, mirrored so it bends the right way.

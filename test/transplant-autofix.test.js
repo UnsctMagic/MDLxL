@@ -5,11 +5,12 @@
 // opens it and the recipient's native model. Each check measures what the user sees on the recipient's own vertices (same
 // indices in the native model and the result), never the markers or attachments a correction sets.
 import test from 'node:test';
+import { Vector3 } from 'three';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { openDocument } from '../src/editor-document.js';
-import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
+import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, worldPivot } from '../src/animation.js';
 import { geosetMaterialLayers, isAdditiveLayer } from '../src/geoset-extras.js';
 import { vertexBones } from '../src/part-bones.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
@@ -356,8 +357,8 @@ test('trunk: the controls pair-08, pair-16 and the two-legged pair-33 come out e
 test('autoFixOptions: off for false, null and {}; true turns on every key; an object only its true keys', () => {
   for (const off of [false, null, undefined, {}, { hand: false }]) assert.equal(autoFixOptions(off), null, JSON.stringify(off));
   assert.deepEqual(autoFixOptions(true), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, true])));
-  assert.deepEqual(autoFixOptions({ markers: true, trunk: 'yes' }), { hand: false, markers: true, detached: false, trunk: false });
-  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk']);
+  assert.deepEqual(autoFixOptions({ markers: true, trunk: 'yes' }), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, key === 'markers'])));
+  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms']);
 });
 
 // No copied model has two arms holding items without a weapon name. The Dwarf Stonemason (pair-16) holds measured items in
@@ -372,4 +373,35 @@ test('heldSide: two arms holding items, no name, is unknown and leaves Mirror to
   // (Object.create keeps the part's `limbKind`, a non-enumerable property that a spread would drop.)
   assert.deepEqual(heldSide(own, unnamed), { side: null, why: 'two items' });
   assert.equal(heldSide(own, { ok: false }).side, null, 'an unread rig is unknown');
+});
+
+test('main arms drive the recipient skin in Walk and Attack, leaving single-arm rigs alone', { skip: absent(['09', ...ALL]) }, () => {
+  const id = '09', donor = models(id).donor, corrected = transplant(id, { autoFix: { arms: true } });
+  // Native shoulder seam and wrist seam vertices, identified on Kel'Thuzad before transplant.
+  const shoulder = [{ gi: 1, v: 140 }, { gi: 1, v: 367 }, { gi: 1, v: 383 }];
+  const wrist = [{ gi: 0, v: 10 }, { gi: 1, v: 381 }, { gi: 0, v: 11 }];
+  const node = (model, name) => allNodes(model).find(n => n.Name.trim() === name);
+  const upper = node(donor, 'Bone_Arm1_R01'), hand = node(donor, 'Bone_Hand_R01');
+  function armError(model, pattern) {
+    const si = clip(model, pattern), di = clip(donor, pattern), [start, end] = model.Sequences[si].Interval;
+    const dr = node(donor, 'Bone_Chest01'), rr = node(model, 'Bone_Chest01');
+    let sum = 0, count = 0;
+    for (let t = 0; t <= end - start; t += 20) {
+      const d = sampleNodeMatrices(donor, donor.Sequences[di].Interval[0] + t, di);
+      const r = sampleNodeMatrices(model, start + t, si);
+      const target = worldPivot(donor, hand.ObjectId, d, hand).sub(worldPivot(donor, upper.ObjectId, d, upper))
+        .transformDirection(d.get(dr.ObjectId).clone().invert());
+      const skin = model.Geosets.map(g => skinGeoset(g, r));
+      const direction = new Vector3().fromArray(sub(centre(skin, wrist), centre(skin, shoulder)))
+        .transformDirection(r.get(rr.ObjectId).clone().invert());
+      sum += direction.angleTo(target) * 180 / Math.PI;
+      count++;
+    }
+    return sum / count;
+  }
+  for (const pattern of [/^Walk$/, /^Attack - 1$/]) {
+    assert.ok(armError(plain(id).model, pattern) > 15);
+    assert.ok(armError(corrected.model, pattern) <= 15);
+  }
+  for (const control of ALL) assert.equal(difference(plain(control).model, transplant(control, { autoFix: { arms: true } }).model), null);
 });

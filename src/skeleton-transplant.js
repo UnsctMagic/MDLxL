@@ -945,6 +945,13 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const reflected = mirror === true ? mirrorModel(donor) : donor;
   if (mirror === true) clearTransferCache(reflected);
   let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor }) : rigA0;
+  if (fix?.arms && rigB.parts?.armL && rigB.parts.armR && !rigB.parts.armL2 && !rigB.parts.armR2 && rigA.parts?.armL2 && rigA.parts.armR2) {
+    const preferred = transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor, mainArms: true });
+    if (preferred.parts.armL.marker !== rigA.parts.armL.marker || preferred.parts.armR.marker !== rigA.parts.armR.marker) {
+      rigA = preferred;
+      fixed.arms = true;
+    }
+  }
   // The donor's node data in this model's format (materials and versioned fields).
   const D = reflected.Version === model.Version ? structuredClone(reflected) : adaptPasteFormat(reflected, model.Version);
   // Where the donor swaps its living body for a death body, the living joints and body take the death body's part.
@@ -979,7 +986,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   }
   if (rigB.ok && rigA.ok && ownStand >= 0 && donorStand0 >= 0 && whole.parts.length) {
     const recipe = { base: { sequence: ownStand }, length: null, sources: { d: { mirror: false, actor: donorActor } }, parts: Object.fromEntries(whole.parts.map(key => [key, { ...defaultTransferPart(rigB, key, true), from: gaitSources.get(key)?.from ?? null, source: 'd', sequence: donorStand0, match: 1, plant: false, grip: false }])) };
-    try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], kneeToKnee: true, probe: ({ entries: found }) => { entries = found; } }); }
+    try { buildTransfer(model, new Map([['d', reflected]]), recipe, { times: [0], kneeToKnee: true, mainArms: fixed.arms, probe: ({ entries: found }) => { entries = found; } }); }
     catch (error) { hard.push(`The bodies could not be paired: ${error.message}`); }
   }
   // Count a second arm as an arm only when it hangs from the shoulder's
