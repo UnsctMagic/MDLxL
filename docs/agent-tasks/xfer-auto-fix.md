@@ -127,3 +127,32 @@ The broader detached trial also moved six items that the plain engine already re
 An independently animated donor staff keeps its shaft direction, while its grip travels with the recipient's holding hand when the donor is holding it. In Spell the trial reduced the 760 ms gap to 4.4%, but the held-window maximum was 9.47% (limit 7.4%). The staff line was within 1.93° geometrically, but the asymmetric ends faced the wrong way (178.08° directed error). Peak tip travel was 2.30% per 2 ms versus the donor’s 2.20%. The trial is withdrawn. The accepted Lahmian export and its grade of 5 stand. Its Spell gap is exposed on the sheet.
 
 The wider replay withdrew looseAxis. On humanoid 326 it turned a Skink spear using the Wendigo hand surface (50 vertices spanning two body geosets). On humanoid 791 it used the Dreadlord hand and its effect geometry (81 vertices, including 32 on the untextured effect). The Knightess control has separate blade skin. A useful grip and angle on Paladin do not validate either other seating. The key, localized note and trial test have been removed, and the owner’s grade-8 Paladin bytes are retained.
+
+## Step 2 delivery · build 33
+
+The packaged sheet has 19 living-unit pairs. All 57 panes rendered, all jump buttons opened, and rotating a pane turned the three cameras. The Fresh Shambler jump opens Death at 584 ms. A separate hidden check verified synchronized playback and scrubbing. The packaged app opened TEST XFER AUTOFIX 02.mdx and one checkbox click applied the Tinker arm correction. The owner’s answers file was empty when checked.
+
+| Correction | Delivered result |
+|---|---|
+| Main arms | Kept. Tinker → Kel’Thuzad follows the primary arms within 11.75° in Walk and 11.94° in Attack - 1. The limit is 15°. Pair 09 is the only new result among the 86 graded files compared with accepted step 1. |
+| Detached item | Kept. All four Skinks carry the full pipe. All 98 pipe edges fit their native band in every clip at 2 ms on each row. On 493 and 841 this also holds with the entire switch on. The separate hand correction still creates body tears on those two rows. |
+| Looping wings | Withdrawn. Locust wing travel rose from 0 to 14.245 units, but height still missed by up to 0.908 standing heights, against the 0.05 limit. |
+| Loose sword angle | Withdrawn. The Paladin sword reached 7.38° with a 5.36% Walk grip gap. The wider replay also aimed Skink spears using unarmed donors’ hand geometry. Paladin retains the accepted grade-8 file. |
+| Independent staff | Withdrawn. The trial reduced the Lahmian’s Spell gap at 760 ms to 4.4%. During an interval when the donor held its staff, the gap still reached 9.47%, over the 7.4% limit. The shaft ends were reversed and the peak tip step exceeded the donor’s. The grade-5 file is retained. |
+
+All 86 Auto-fix-off files matched the saved exports, including Revenant and Naga Whaler. All nine accepted step-1 results matched with the original four keys on. All twelve protected pairs matched with the final checkbox on. All 326 final transplant, animation-transfer and window tests passed, with zero skipped. The full packaged suite was excluded as requested.
+
+Of the 70 step-1 key/row combinations, 19 of 59 hand replays crossed the tear limit. Markers (5), detached (5), and trunk (1) had zero real tears. The original Bandit was replaced by the Warcraft III Bandit for hand replays 175 and 443. Neither substitute crossed the threshold. The original 1,263-row change list below remains the historical one. A hand-key tear stops further work on that key in this round. The owner’s accepted hand output is preserved.
+
+The sheet includes every markers and trunk case, the four pipe cases, Tinker and ten hand cases spanning four sets (two are also pipe cases). Panel 54, Footman → Forsaken Paladin, raised a Warcraft preview error in both result panes. Its measurements are in the tear report. Humanoid 9, Saurus Warrior → Storm Pandaren Brewmaster, takes its sheet slot. Every row in the sheet has a donor, plain result, checkbox-on result, clip jump, numeric grade and comment field.
+
+No additional main-arm change was found in the historical 1,263 pairs. Current or saved donor models ruled out the arm rule on 1240 rows. On the remaining 23 rows the original POSE readings record one arm per side. Those archived readings are a structural check; the missing original files could not be byte-replayed. The earlier 1,263-pair run provides the four step-1 change lists.
+
+### Step-1 change list across 1,263 pairs
+
+- **hand** (59) — humanoid 9, 38, 65, 68, 142, 143, 145, 154, 175, 183, 264, 276, 288, 300, 325, 329, 338, 375, 399, 411, 428, 443, 479, 484, 493, 503, 504, 508, 538, 543, 548, 561, 642, 671, 704, 747, 761, 822, 826, 833, 841, 846, 865, 870, 903, 920, 929, 940, 983, 984, 990, 994 · panel 54 · original40 16 · new40 26 · fresh50 18, 23, 29, 31.
+- **markers** (5) — humanoid 435, 532 · showcase40 25 · fresh50 12, 47.
+- **detached** (5) — humanoid 95, 195, 493, 841 · fresh50 2.
+- **trunk** (1) — panel 57.
+
+[Owner report and grading links](<D:/Codex/xfer-engine-34/Auto fix step 2 sheet/Owner report.md>) · [All triangle measurements](<D:/Codex/xfer-engine-34/Auto fix step 2 sheet/Measurements/Tear report.md>)
