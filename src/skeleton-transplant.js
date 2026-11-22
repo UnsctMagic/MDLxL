@@ -901,12 +901,13 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-export function transplantSkeleton(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null } = {}) {
+function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
   // Auto fix (src/transplant-autofix.js): off, `fix` is null and nothing below reads it.
   const fix = autoFixOptions(autoFix), fixed = {};
+  let markersCorrected = false;
   // ------------------------------------------------------------ read both bodies
   // A model with no bone or helper (an effect: Plague Cloud) has no skeleton: say so plainly before anything is read
   // (its joints would be undefined ids further on: "Geoset 0 references missing node NaN").
@@ -924,7 +925,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     if (corrected) {
       if (corrected.model !== model) { model = corrected.model; rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined }); }
       if (corrected.donor !== donor) { donor = corrected.donor; rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }); }
-      fixed.markers = true;
+      markersCorrected = true;
     }
   }
   // A donor that is two creatures (a rider on a mount) taken by a model that is one creature with no arms, standing on as
@@ -2784,6 +2785,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const weaponFit = explicitGrip && !mountedPair && !weaponSwap.length && fitHeldEquipment({model:M, own:model, donor:D, gripBranches, weaponVertices, weaponMoves,
       donorWeapon, donorMap, rigA, rigB, treeA, treeB, matrices:m, remap, donorStand:donorStandD,
       plateNormal:wristPlateNormal, reposeAbout, keep:keepSet});
+    // Auto fix `markers`: the corrected markers are of use only where this fit ran on them (transplantSkeleton, below).
+    if (markersCorrected && weaponFit) fixed.markers = true;
     const turnFrom = hand => { const id = remap.get(hand); if (!turns.has(id)) turns.set(id, toWeapon.clone().multiply(weaponFit || new Matrix4()).multiply(m.get(id))); return turns.get(id); };
     for (const [geoset, v, hand] of weaponVertices) {
       const t = turnFrom(hand);
@@ -2889,7 +2892,17 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       },
       ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, ...(fix ? { autoFix: fixed } : {}),
     },
+    ...(markersCorrected && !fixed.markers ? { markersUnused: true } : {}),
   };
+}
+
+/** The transplant (see `transplantRun` above for the options and the report). Auto fix `markers` corrects the Hand and
+ * Weapon markers the weapon fit reads. Where no weapon fit ran on them, the corrected markers would only move the result's
+ * own attachment points for nothing: the transplant is then built without that key, exactly as the plain one is. */
+export function transplantSkeleton(model, donor, options = {}) {
+  const made = transplantRun(model, donor, options);
+  if (!made.markersUnused) return made;
+  return transplantRun(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
 }
 
 /** The ground the feet stand on in the result's reference pose, against the open model's own:
