@@ -19,6 +19,7 @@ import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { autoFixMirror, autoFixNotes } from '../src/transplant-autofix.js';
 import { createTransplantBuilder } from './transplant-builder.js';
 import { replaceModelContents, transplantOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
@@ -54,6 +55,7 @@ const OWN_RIDER_TIP = 'The rider alone, hips and legs included.';
 // Transplant mode: the open model's mesh on the donor's skeleton with all the donor's animations.
 const SOUNDS_TIP = 'The donor\'s sounds and footprints.';
 const EFFECTS_TIP = 'The donor\'s particle effects, ribbons and lights.';
+const AUTO_FIX_TIP = 'Corrects common faults: a weapon out of the hand, the wrong weapon hand, a tipped-over body. Off keeps the plain result.';
 const KEEP_TIP = 'Keeps this piece on its own bone instead of the donor\'s.';
 // The transplant replaces the whole model (src/skeleton-transplant.js keeps only the model's own camera and effects).
 const TRANSPLANT_SECTIONS = [...SECTIONS, 'Info', 'GlobalSequences', 'Textures', 'PivotPoints', 'BindPoses'];
@@ -213,10 +215,23 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const taken = Object.keys(effective.parts).filter(key => rigB.parts[key]);
   const [selected, setSelected] = useState(null), [clipAt, setClipAt] = useState(0);
   const select = (key, index = 0) => { setSelected(key); setClipAt(index); };
+  // Transplant settings (used below); declared here because Auto fix also decides the automatic Mirror.
+  const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [], autoFix: false });
+  // Auto fix reads which hand holds the weapon (skins and samples both models): kept until the donor or model changes.
+  const heldMirror = useRef({ key: null, value: null });
   const mirrorOf = id => {
     const own = recipe.sources?.[id]?.mirror;
     if (own != null) return own;
     const rig = modelOf(id) && rigFor(modelOf(id), id === donor?.id ? donorSeq : undefined, actorOf(id));
+    if (transplanting && tpSettings.autoFix && id !== 'self' && id === donor?.id && rig) {
+      const key = `${id}|${donor.revision}|${doc.revision}|${donorSeq}|${actorOf(id)}|${recipe.base.sequence}|${recipe.base.actor ?? ''}`;
+      if (heldMirror.current.key !== key) {
+        let value = null;
+        try { value = autoFixMirror(model, rigB, modelOf(id), rig); } catch { value = null; }
+        heldMirror.current = { key, value };
+      }
+      if (heldMirror.current.value != null) return heldMirror.current.value;
+    }
     return id !== 'self' && !!rig?.weaponSide && !!rigB.weaponSide && rig.weaponSide !== rigB.weaponSide;
   };
   const donorMirror = donor ? mirrorOf(donor.id) : false;
@@ -595,7 +610,6 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // (app/transplant.worker.js, the engine and its per-animation extents), so the window never waits:
   // the last result stays on screen (and the camera where it is) with "Building…" while a setting
   // rebuilds it, and a newer setting stops the build still running (app/transplant-builder.js).
-  const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [] });
   const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
   const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
   const tpOptions = useMemo(() => transplantOptions({ ...tpSettings, mirror: donorMirror }), [tpSettings, donorMirror]);
@@ -624,6 +638,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const tpShown = !tpDonor ? null : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
   // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
   const tpReport = tpShown?.report || null;
+  // Auto fix says what it corrected; Mirror only when the user has not set it by hand for this donor.
+  const tpFixNotes = tpSettings.autoFix && tpReport?.autoFix ? autoFixNotes(tpReport, tpReport.autoFix.mirror && recipe.sources?.[tpDonor.id]?.mirror == null ? { ...tpReport.autoFix.mirror, used: donorMirror } : null) : [];
   const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
   const tpInterval = tpShown?.model?.Sequences?.[tpSeq]?.Interval;
   const [tpTime, setTpTime] = useState(0), [tpPlaying, setTpPlaying] = useState(true), [tpSpeed, setTpSpeed] = useState(100);
@@ -785,6 +801,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           {tpReport?.fit === 'poor' && <div className="xf-poor" role="status"><b>Poor fit</b>{tpReport.reasons.map(text => <p key={text} className="xf-note xf-reason">{text}</p>)}</div>}
           <label className="xf-check" title={SOUNDS_TIP}><input data-hotkey="transfer:sounds" data-hotkey-manual data-hotkey-label="Sounds" type="checkbox" checked={tpSettings.sounds} onChange={event => setTp({ sounds: event.target.checked })}/> Sounds</label>
           <label className="xf-check" title={EFFECTS_TIP}><input data-hotkey="transfer:effects" data-hotkey-manual data-hotkey-label="Effects" type="checkbox" checked={tpSettings.effects} onChange={event => setTp({ effects: event.target.checked })}/> Effects</label>
+          <label className="xf-check" title={AUTO_FIX_TIP}><input data-hotkey="transfer:auto-fix" data-hotkey-manual data-hotkey-label="Auto fix" type="checkbox" checked={tpSettings.autoFix} onChange={event => setTp({ autoFix: event.target.checked })}/> Auto fix</label>
+          {tpFixNotes.map(text => <p key={text} className="xf-note xf-reason">{text}</p>)}
           {tpReport?.extras?.length > 0 && <>
             <b className="xf-heading">Keep</b>
             <div className="gf-tree xf-list xf-features" role="group" aria-label="Keep">
