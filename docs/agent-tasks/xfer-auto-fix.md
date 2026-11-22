@@ -1,6 +1,6 @@
 # XFER Transplant: Auto fix (step 1)
 
-**Status:** in progress, local only. Branch `claude/xfer-auto-fix` (worktree `D:\Claude\MDLxL\.claude\worktrees\xfer-auto-fix`), cut from `codex/xfer-astra-r1` at `d831e3c7` (graded engine source `8c5f3c67`). Nothing is online.
+**Status:** step 1 built and verified, waiting for the owner's grades; local only. Branch `claude/xfer-auto-fix` (worktree `D:\Claude\MDLxL\.claude\worktrees\xfer-auto-fix`), cut from `codex/xfer-astra-r1` at `d831e3c7` (graded engine source `8c5f3c67`). Nothing is online.
 
 ## Why
 
@@ -23,7 +23,7 @@ The owner graded 34 transplant pairs on 22 Nov 2026 (eight zeros) and asked: "at
 | Key | Rule | Where | Report |
 |---|---|---|---|
 | `hand` | Weapon hand from what is held. A named side stands when that arm holds a measured item or a weapon-named bone there carries skin; a name on an empty helper gives way to the one other arm that holds a measured item; no name: the one arm with a measured item, else the hand a detached item stays with (within 20% of standing height and half the other hand's distance). Unknown on either model: the named decision stands. | `heldSide`, `autoFixMirror`; the caller decides Mirror (`Transfer.jsx` `mirrorOf`); the engine's `mirrorOffer` follows it | `autoFix.mirror = { held, named }` |
-| `markers` | A model's `Hand … Ref` more than 30% of a hip height from the real grip, or `Hand Ref → Weapon Ref` more than 30° off the measured butt-to-tip line: the transplant runs on private copies of both models with those markers on the measured grip and tip. | `fixMarkers`, start of `transplantSkeleton` | `autoFix.markers = true` |
+| `markers` | A model's `Hand … Ref` more than 30% of a hip height from the real grip, or `Hand Ref → Weapon Ref` more than 30° off the measured butt-to-tip line: the transplant runs on private copies of both models with those markers on the measured grip and tip. Where no weapon fit ran on the corrected markers, the result is rebuilt without the key, so it is the plain one (corrected donor markers would otherwise move the result's own attachment points for nothing: pairs 04, 22, 24, 29). | `fixMarkers`, start of `transplantRun`; `transplantSkeleton` is the wrapper that rebuilds | `autoFix.markers = true` only when the fit used them |
 | `detached` | A skinned bone outside the arms is the weapon without the name test, when the plain call found none; its `Weapon` attachment and hand distance are still required. | `detachedGrip(…, anyName)` in `transplant-props.js`; call site in `transplantSkeleton` | `autoFix.detached = [bone names]` |
 | `trunk` | The trunk posture turn is left out when the model has fewer than two legs and its placed hip-to-shoulder line is shorter than 8% of its standing height. A model on legs is never touched (pair-33, graded 9, has a 5% line and must not change). | `twoLegged` in `transplantSkeleton` | `autoFix.trunkLine` (share), `autoFix.trunk = true` |
 
@@ -46,7 +46,22 @@ The owner graded 34 transplant pairs on 22 Nov 2026 (eight zeros) and asked: "at
 - Pair-12: Spell reopens after 450 ms; Walk tops its limit briefly (8.6% at 230 ms).
 - Pair-32 (graded 8) changes under `markers`; the owner judges it on the sheet.
 
-## Checks still to record here
+## Checks run (22 Nov 2026)
 
-- Off = identical on all 34 graded results; each key alone: which pairs change (`held\gates\*.txt`).
-- New tests, the source suite, packaged no-crash click, the changed-pairs grade sheet.
+- **Off is the graded bytes.** For all 34 graded pairs the plain transplant, serialized, equals the graded result file byte for byte (`D:\Codex\xfer-engine-34\Auto fix sheet\byte-gate.json`, built by `build.mjs` there).
+- **On changes seven pairs, byte for byte:** 10, 18, 32 (`markers`), 12, 15 (`hand`), 34 (`detached`), 17 (`trunk`). The other 27, including every 10 and every 9, are byte-identical to the plain result.
+- **Each key alone** over the 34 (`held\gates\*.txt`, largest vertex move): `hand` 12, 15; `markers` 10, 18, 32; `detached` 34; `trunk` 17.
+- **Two rules were tightened by these sweeps.** `trunk` first fired on pair-33 (graded 9), so it now needs fewer than two legs. `markers` first moved attachment points on pairs 04, 22, 24 and 29, so it now falls back to the plain result where the fit did not use the markers.
+- **Source tests:** `test/transplant-autofix.test.js`, 30 tests on nine real pairs in `D:\Claude\MDLxL-TestModels\xfer-auto-fix`; each visible check also asserts the plain result fails its limit.
+- **App click, packaged build, hidden:** `test/transplant-autofix.electron.cjs` on `TestBuilds\transfer-xl-32`: off by default, ticking rebuilds and lists the correction, unticking takes it back, Transplant then one Undo.
+- **Grade sheet checked hidden in the same build:** seven cases, three views each, Look buttons find their bones, no error text.
+
+## For the owner
+
+- Grade sheet (donor, today, Auto fix side by side): `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - Auto fix (7 pairs).cmd`; answers in `D:\Codex\xfer-engine-34\Auto fix sheet\answers.json`.
+- The switch itself: `D:\Claude\MDLxL\TestBuilds\_START HERE\9 TRANSPLANT - Auto fix switch.cmd` (opens `TEST XFER AUTOFIX 01.mdx`).
+
+## Not done
+
+- The change list over the fresh 50 and the 1,263-pair replay (plan gate 3). Only the 34 graded pairs are swept.
+- Steps 2 to 5 of the plan (Tinker's arms, looping-timer motion, shoulders, cloak and tail, weapon out of the body).
