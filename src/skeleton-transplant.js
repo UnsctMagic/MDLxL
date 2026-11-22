@@ -61,7 +61,7 @@ import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
-import { autoFixMirror, autoFixOptions, fixMarkers } from './transplant-autofix.js';
+import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -1876,6 +1876,15 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const angle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
     // The upper end of the trunk line: the shoulders; a body with no arms, its head joint.
     const topB = shoulderB ?? (headAt != null ? placed.get(headAt) : null), topA = shoulderA ?? (headAt != null ? pA(headAt) : null);
+    // Auto fix `trunk`: a model with no hip-to-shoulder line (no legs: the donor's hips land level with its shoulders, the
+    // Dullahan's line is 4% of its height) has no trunk line to turn onto the donor's; turned, its whole body tipped 81 deg.
+    // It keeps its own trunk, as a donor with no legs or arms already does.
+    let twoLegged = bipeds;
+    if (fix?.trunk && bipeds && hipB && topB) {
+      const height = standingHeight(model, rigB);
+      fixed.trunkLine = height > 0 ? topB.distanceTo(hipB) / height : null;
+      if (fixed.trunkLine != null && fixed.trunkLine < TRUNK_LINE_SHARE) { twoLegged = false; fixed.trunk = true; }
+    }
     // A four-legged donor whose arms hang from no chest (forelimbs or wings read as arms on the body itself: the dragons,
     // the spiders) on as many legs reads its trunk between its leg pairs (below), not from the hip centre of four legs to
     // those arms: there a Spirit Pig on the Bronze Dragon Whelp leant 35 deg off it and a Knight on the Green Dragon 53.
@@ -1890,8 +1899,8 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // then takes the donor rider's lean on its own (below).
     const riders = mountedPair;
     const fourContacts = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
-    const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !bipeds || (rigA.parts.armL && rigA.parts.armR && rigB.parts.armL && rigB.parts.armR && [rigA,rigB].every(r=>Object.values(r.parts).filter(p=>p.limbKind==='arm').every(p=>p.joints.some(j=>/claw/i.test((r===rigA?D:model).Nodes[j]?.Name))))) || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
-    if (bipeds && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !twoLegged || (rigA.parts.armL && rigA.parts.armR && rigB.parts.armL && rigB.parts.armR && [rigA,rigB].every(r=>Object.values(r.parts).filter(p=>p.limbKind==='arm').every(p=>p.joints.some(j=>/claw/i.test((r===rigA?D:model).Nodes[j]?.Name))))) || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
+    if (twoLegged && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
@@ -1912,7 +1921,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     // (both where the forelimbs start), so the trunk takes the donor's posture as above. A Ghoul on the Zombie Dragon kept
     // its own upright trunk on the dragon's legs, 58 deg off the dragon's level body.
     const wingL = rigA.parts.wingL?.joints?.[0], wingR = rigA.parts.wingR?.joints?.[0], ownArmL = rigB.parts.armL?.joints?.[0], ownArmR = rigB.parts.armR?.joints?.[0];
-    if (!bipeds && !whole.reason && count(rigA, 'arm') === 0 && legRoots.length >= 2 && wingL != null && wingR != null && ownArmL != null && ownArmR != null && trunkJoints.length && hipB) {
+    if (!twoLegged && !whole.reason && count(rigA, 'arm') === 0 && legRoots.length >= 2 && wingL != null && wingR != null && ownArmL != null && ownArmR != null && trunkJoints.length && hipB) {
       const wingsA = pA(wingL).add(pA(wingR)).multiplyScalar(0.5), armsB = pB(ownArmL).add(pB(ownArmR)).multiplyScalar(0.5);
       const acrossA = pA(wingL).sub(pA(wingR)), acrossB = pB(ownArmL).sub(pB(ownArmR));
       if (armsB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
