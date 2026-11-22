@@ -98,7 +98,7 @@ test('another copy leaves the file types alone unless the owner is gone or it cl
   };
   const command = () => registry.get(`HKCU\\Software\\Classes\\${PROG_ID}\\shell\\open\\command|`);
   const copy = file => new FileTypeRegistration({ executable: file, brandingDirectory, run, exists: candidate => present.has(candidate) });
-  const testBuild = 'D:\\TestBuilds\\MDLxL\\MDLxL.exe';
+  const testBuild = 'D:\\Apps\\MDLxL-copy\\MDLxL.exe';
   assert.equal(await copy(executable).apply('page'), true);
   assert.equal(await copy(testBuild).apply('page'), false);
   assert.equal(command(), `"${executable}" "%1"`);
@@ -113,6 +113,22 @@ test('another copy leaves the file types alone unless the owner is gone or it cl
   present.delete(executable);
   assert.equal(await copy(testBuild).apply('tile'), true);
   assert.equal(command(), `"${testBuild}" "%1"`);
+});
+
+test('test builds never take over double-clicked models, even when the owner is gone or they claim', async () => {
+  const registry = new Map(), writes = [];
+  const run = async (file, args) => {
+    if (file !== 'reg.exe') return '';
+    if (args[0] === 'add') { writes.push(args[1]); registry.set(args[1], args[args.indexOf('/d') + 1]); return ''; }
+    throw Error('not found');
+  };
+  for (const build of ['D:\\Claude\\MDLxL\\TestBuilds\\uv-new-tools\\MDLxL-win32-x64\\MDLxL.exe', 'D:\\Claude\\MDLxL\\.claude\\worktrees\\task\\out\\pkg-picks\\MDLxL-win32-x64\\MDLxL.exe', 'D:\\Codex\\xfer-showcase-40\\Engine\\MDLxL-win32-x64\\MDLxL.exe']) {
+    const copy = new FileTypeRegistration({ executable: build, brandingDirectory, run, exists: () => false });
+    assert.equal(await copy.apply('page'), false, build);
+    assert.equal(await copy.apply('tile', { claim: true }), false, build);
+  }
+  assert.deepEqual(writes, []);
+  assert.equal(await new FileTypeRegistration({ executable, brandingDirectory, run, exists: () => false }).apply('page'), true);
 });
 
 test('Open with defaults are detected for either extension, regardless of registry casing', async () => {
