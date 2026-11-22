@@ -121,3 +121,7 @@ A rigid item already seated on the donor’s blade-carrying hand turns about its
 On Paladin (34, also fresh50-2) the directed skin angle fell from 47° to 7.38° or less in Walk and Attack. Walk grip distance is 5.36% of native visible height (limit 9.2%). Those are the only two entries that changed in the 86-file sweep when added to the seated result. All 86 plain files and all twelve protected results matched byte for byte. Step-1-only outputs retain all nine accepted hashes.
 
 The broader detached trial also moved six items that the plain engine already recognized (humanoid 49 and 513, showcase40 4 and 28, solo20 19 and new40 13). That expansion was withdrawn. The whole-surface rule owns the optional detached placement; existing plain-engine placements keep their original bytes. A socket that cannot represent a whole item falls back before returning a partial result.
+
+### Independent staff trial
+
+An independently animated donor staff keeps its shaft direction, while its grip travels with the recipient's holding hand when the donor is holding it. In Spell the trial reduced the 760 ms gap to 4.4%, but the held-window maximum was 9.47% (limit 7.4%). The staff line was within 1.93° geometrically, but the asymmetric ends faced the wrong way (178.08° directed error). Peak tip travel was 2.30% per 2 ms versus the donor’s 2.20%. The trial is withdrawn. The accepted Lahmian export and its grade of 5 stand. Its Spell gap is exposed on the sheet.
