@@ -1,6 +1,6 @@
 # XFER Transplant: Auto fix (step 1)
 
-**Status:** step 1 built and verified, waiting for the owner's grades; local only. Branch `claude/xfer-auto-fix` (worktree `D:\Claude\MDLxL\.claude\worktrees\xfer-auto-fix`), cut from `codex/xfer-astra-r1` at `d831e3c7` (graded engine source `8c5f3c67`). Nothing is online.
+**Status:** step 1 built, verified and **accepted by the owner** (22 Nov 2026: all four keys kept; grades 10, 5, 10, 9, 10, 10, 8, 10, 10 for pairs 10, 12, 15, 17, 18, 32, 34, fresh #18, fresh #31; comments: 12 "needs improvement, not smooth and staff angle is incorrect.", 34 "angle of sword is slightly off but much better"). Step 2 handed to Codex on `codex/xfer-auto-fix-step2`, cut from this branch. Local only. Branch `claude/xfer-auto-fix` (worktree `D:\Claude\MDLxL\.claude\worktrees\xfer-auto-fix`), cut from `codex/xfer-astra-r1` at `d831e3c7` (graded engine source `8c5f3c67`). Nothing is online.
 
 ## Why
 
