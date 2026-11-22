@@ -60,7 +60,6 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { bindLandmarks } from './transplant-bind-landmarks.js';
 import { detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -1728,8 +1727,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
   if (legs !== 'folded') for (const run of runs) if (isLeg(run.q)) { const chord = pA(run.q).sub(pA(run.a)); for (const id of run.seq) chordOf.set(id, chord); }
   // Corrections: each transplanted limb joint turns this model's stretch onto the donor's; a leg's end joint
   // (the foot) is not corrected, so its world turn is the donor's (contract 4.5).
-  const surfaceA=bindLandmarks(D,rigA,treeA),surfaceB=bindLandmarks(model,rigB,treeB);
-  const bounded=q=>new Quaternion().rotateTowards(q,Math.PI/9);
   for (const entry of transplanted) {
     const joints = entry.theirs.joints;
     let previous = new Quaternion();
@@ -1749,12 +1746,6 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       else if (next != null && placed.has(id) && placed.has(next)) {
         const mine = placed.get(next).clone().sub(placed.get(id)), theirs = chordOf.get(id)?.clone() ?? pA(next).sub(pA(id));
         if (mine.length() > 1e-3 * rigB.hipHeight && theirs.length() > 1e-3 * rigA.hipHeight) turn = arc(mine, theirs);
-      }
-      if(entry.own.limbKind==='arm' && entry.theirs.limbKind==='arm' && next!=null){
-        const own=entry.own.joints, ia=surfaceA.sites.get(id),ib=surfaceA.sites.get(next),oa=surfaceB.sites.get(own[j]),ob=surfaceB.sites.get(own[j+1]);
-        if(ia && ib && oa && ob && ia.distanceTo(ib)>.05*rigA.hipHeight && oa.distanceTo(ob)>.05*rigB.hipHeight)
-          turn=arc(ob.clone().sub(oa),ib.clone().sub(ia));
-        if(j===0 && surfaceB.cross.has(own[j]))turn=bounded(turn);
       }
       correction.set(id, turn.clone()); previous = turn;
     });
@@ -1878,7 +1869,7 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     const fourContacts = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
     const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !bipeds || (rigA.parts.armL && rigA.parts.armR && rigB.parts.armL && rigB.parts.armR && [rigA,rigB].every(r=>Object.values(r.parts).filter(p=>p.limbKind==='arm').every(p=>p.joints.some(j=>/claw/i.test((r===rigA?D:model).Nodes[j]?.Name))))) || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
     if (bipeds && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
-      const spine = bounded(alignFrames((surfaceB.head??topB).clone().sub(hipB), (surfaceA.head??topA).clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA)));
+      const spine = alignFrames(topB.clone().sub(hipB), topA.clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       for (const id of trunkJoints) correction.set(id, spine.clone());
       posture.spine = angle(spine);
       // Bend where the donor bends (v2 item 4, "trunk included"): the donor's trunk joints (hips, chest and the joints
