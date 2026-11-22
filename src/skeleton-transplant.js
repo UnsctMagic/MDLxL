@@ -1388,8 +1388,14 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
       let joint = body, least = bodyDrift;
       for (const at of [WORLD, ...parts.filter(at => at !== body)]) { const d = drift(id, at, probe, samples); if (d <= FOLLOW_SHARE * bodyDrift && d < least - 1e-6 * rigB.hipHeight) { least = d; joint = at; } }
       const alreadyOnArm = rigB.parts[ownPartOf.get(joint)]?.limbKind === 'arm';
-      const grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, samples.filter(s =>
-        s.sequence === ownStand || /^walk/i.test(sequences[s.sequence]?.Name || '')), fourSupports);
+      const gripSamples = samples.filter(s => s.sequence === ownStand || /^walk/i.test(sequences[s.sequence]?.Name || ''));
+      let grip = alreadyOnArm ? null : detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports);
+      // Auto fix `detached`: a weapon on its own bone whose name is no weapon word (a sword bone called `sord`) is still
+      // the weapon when it carries the Weapon attachment and stays in one hand.
+      if (grip == null && !alreadyOnArm && fix?.detached && !keepSet.has(id)) {
+        grip = detachedGrip(model, rigB, treeB, id, points, gripSamples, fourSupports, true);
+        if (grip != null) (fixed.detached ||= []).push(ownById.get(id)?.Name ?? '');
+      }
       if (grip != null && !keepSet.has(id)) {
         joint = grip;
         detachedWeapons.add(id);
