@@ -114,7 +114,7 @@ The owner set the tear threshold to more than 1.5 times both the native maximum 
 
 **Staff, pair 12.** Following the authored ends of both items every 2 ms showed a fixed 23.587° seating error in Walk, Attack and Spell. The recipient shaft moves less than 0.000002° in the donor staff’s coordinate system. It follows the separate global staff carrier exactly, while the hand follows the recipient arm. The donor still holds the staff at 750 ms in Spell (5.3% of donor height); the recipient's own hand and staff skin separate by 35.4% near 760 ms. Its peak tip travel is 3.70% of visible native height per 2 ms, versus 2.20% for the donor. This identifies both a constant alignment error and a separate translation mismatch through the swing.
 
-### Loose sword angle
+### Loose sword angle trial (withdrawn after the wider replay)
 
 A rigid item already seated on the donor’s blade-carrying hand turns about its grip to follow that blade. It requires exactly one detached item and one measured donor weapon on the same carrier. It leaves an uncertain reading alone. This alignment uses the existing detached seating. It does not recognize new items on its own.
 
@@ -125,3 +125,5 @@ The broader detached trial also moved six items that the plain engine already re
 ### Independent staff trial
 
 An independently animated donor staff keeps its shaft direction, while its grip travels with the recipient's holding hand when the donor is holding it. In Spell the trial reduced the 760 ms gap to 4.4%, but the held-window maximum was 9.47% (limit 7.4%). The staff line was within 1.93° geometrically, but the asymmetric ends faced the wrong way (178.08° directed error). Peak tip travel was 2.30% per 2 ms versus the donor’s 2.20%. The trial is withdrawn. The accepted Lahmian export and its grade of 5 stand. Its Spell gap is exposed on the sheet.
+
+The wider replay withdrew looseAxis. On humanoid 326 it turned a Skink spear using the Wendigo hand surface (50 vertices spanning two body geosets). On humanoid 791 it used the Dreadlord hand and its effect geometry (81 vertices, including 32 on the untextured effect). The Knightess control has separate blade skin. A useful grip and angle on Paladin do not validate either other seating. The key, localized note and trial test have been removed, and the owner’s grade-8 Paladin bytes are retained.

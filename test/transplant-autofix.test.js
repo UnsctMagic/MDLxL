@@ -360,7 +360,7 @@ test('autoFixOptions: off for false, null and {}; true turns on every key; an ob
   for (const off of [false, null, undefined, {}, { hand: false }]) assert.equal(autoFixOptions(off), null, JSON.stringify(off));
   assert.deepEqual(autoFixOptions(true), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, true])));
   assert.deepEqual(autoFixOptions({ markers: true, trunk: 'yes' }), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, key === 'markers'])));
-  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms', 'looseAxis']);
+  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms']);
 });
 
 // No copied model has two arms holding items without a weapon name. The Dwarf Stonemason (pair-16) holds measured items in
@@ -435,21 +435,4 @@ test('detached pipe stays rigid in the scaling donor’s hand', { skip: absent([
   const stand = clip(fixed,/^Stand - 1$/);
   const length = edge(fixed,stand,0,7,8);
   assert.ok(Math.abs(edge(fixed,stand,934,7,8)-length) < 0.001);
-});
-
-
-test('looseAxis seats a detached blade along the donor blade and inside the native grip limit', { skip: absent(['34']) }, () => {
-  const {own, donor} = models('34');
-  const donorHand = allNodes(donor).find(n => n.Name === 'R_Hand').ObjectId;
-  const ownLine = itemLine(own, below(own,new Set([weaponBone(own)])));
-  const donorLine = itemLine(donor, below(donor,new Set([donorHand])));
-  const off = plain('34').model;
-  const seated = transplant('34', {autoFix:{detached:true}}).model;
-  const fixed = transplant('34', {autoFix:{detached:true,looseAxis:true}}).model;
-  for (const move of [/^Walk$/, /^Attack - 1$/]) {
-    assert.ok(itemAngle(seated,ownLine,donor,donorLine,move,2).max > 30);
-    assert.ok(itemAngle(fixed,ownLine,donor,donorLine,move,2).max < 30);
-  }
-  assert.ok(floatGap('34',off,/^Walk$/,2).max > 0.092);
-  assert.ok(floatGap('34',fixed,/^Walk$/,2).max <= 0.092);
 });
