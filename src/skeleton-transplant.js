@@ -1767,6 +1767,22 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
     return { own, donor: theirs, along };
   });
   const travel = rigB.ok && rigA.ok && rigB.hipMeasured && rigA.hipMeasured ? legTravelRatio(legStretches, size, 1e-3 * rigA.hipHeight) : size;
+  // Measure vertical travel in standing body heights. Keep horizontal
+  // stride on the leg ratio and articulated local translations on their own axes.
+  const standingHeight = m => {
+    const si=standSequenceIndex(m), frame=m.Sequences[si]?.Interval?.[0];
+    if (frame==null) return 0;
+    const world=sampleNodeMatrices(m,frame,si);
+    let low=Infinity,high=-Infinity;
+    for(const [gi,g] of m.Geosets.entries()){
+      if(sampleGeosetAnimation(m,gi,frame,si).alpha<.5)continue;
+      const skin=skinGeoset(g,world);
+      for(let i=2;i<skin.length;i+=3){low=Math.min(low,skin[i]);high=Math.max(high,skin[i]);}
+    }
+    return Math.max(0,high-low);
+  };
+  const verticalTravel = standingHeight(model)/standingHeight(D);
+  const bodyCarriers = new Set(treeA.ancestors(rigA.body,true));
   const limbCorrected = new Set(correction.keys());
   // Posture (owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT"): the trunk takes the donor's posture too, read
   // between landmarks, not between trunk pivots (riggers put a chest pivot anywhere: the Tauren's sits 5.8 behind its
@@ -2196,7 +2212,12 @@ export function transplantSkeleton(model, donor, { keep = [], events = true, emi
         }
         if (peak > 0) socketRatio = Math.min(1, socketTravel.get(id) / peak);
       }
-      const move = (v, mapped) => v && like(v, (mapped ? trunkMove(v3(v)).multiplyScalar(socketRatio) : v3(v).multiplyScalar(scale)).toArray());
+      const move = (v, mapped) => {
+        if (!v) return v;
+        const motion = mapped ? trunkMove(v3(v)).multiplyScalar(socketRatio) : v3(v).multiplyScalar(scale);
+        if (!mapped && bodyCarriers.has(id) && Number.isFinite(verticalTravel) && verticalTravel>0) motion.z=v[2]*verticalTravel;
+        return like(v,motion.toArray());
+      };
       for (const k of copy.Translation.Keys) { const mapped = !!trunkMove && !swapSpans.some(([a, b]) => k.Frame >= a && k.Frame <= b); k.Vector = move(k.Vector, mapped); if (k.InTan) k.InTan = move(k.InTan, mapped); if (k.OutTan) k.OutTan = move(k.OutTan, mapped); }
     }
     if (importer && key === 'ParticleEmitters2' && copy.TextureID != null && copy.TextureID !== -1) copy.TextureID = importer.textureRef(node.TextureID);
