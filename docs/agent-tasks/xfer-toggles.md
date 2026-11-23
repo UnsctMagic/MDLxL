@@ -927,3 +927,11 @@ The unclear names were checked against their rigs: Kobold Shoveler (K_ bones wit
 walk clips), Dalaran Reject (animated creature). The seed, the exclusion of graded pairs and the two-use limit are as asked;
 43% of the pairs are biped-to-biped. Build CP7b exactly as in the instructions, using the 30 main cases in this order. Use spares
 only to replace a case that fails to load or renders gray, and name each swap. Stop with `CHECKPOINT 7b READY`.
+
+### CP7b · Thirty-pair grading sheet
+
+- Kept all 30 approved pairs in the CP7a order. No spares were needed. `cases-random30.json` stores the engine’s suggestions and the approved mirror choices. Each question contains the two model names. Every case has Donor, Own, Before and After, the Geoset pose choice, Looks with the existing CP4b framing, and the usual grade and comment controls.
+- The [launcher](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER random 30.cmd>) opens `TEST XFER RANDOM 30.mdx` in `transfer-xl-35`. Verified the launcher's arguments by opening the installed sheet hidden on case 1 of 30. The new `answers.json` is empty. The round 1–3 answer archives kept their hashes.
+- Reused the accepted CP6 executable. Where a model needed local texture lookup, the sheet uses a byte-identical MDX copy with its existing textures beside it. Engine code and the original model and texture sources are unchanged.
+- [Screenshot proof](../../out/cp7/) includes one default view and one first Look for every case. Reviewed the 60 PNGs. All 240 panes showed visible geometry with zero unresolved textures, texture decode errors or page errors. The shared Look camera fit all four views. The default view for pair 26 is wide, and its first Look shows the bodies at a larger scale.
+- The first case’s two captures passed before the mouse test hit an ambiguous canvas selector. The supplemental check on pair 2 used the model canvas and verified real mouse rotation on the shared camera, all four Geoset poses, and grade and comment saving to disposable answers. See the [verification record](../../out/cp7/verification.json).
