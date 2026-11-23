@@ -3,6 +3,39 @@ import { nodePivot, sampleTrack, sampleNodeMatrices, sampleGeosetAnimation, isGl
 import { vertexBones } from './part-bones.js';
 import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
 
+// A loose, rigid item already seated on the same hand that carries the donor's
+// measured blade can be turned in that hand without rewriting animation.
+export function alignLooseItem(model, donor, arm, vertices, moves, resultHand, stand, donorStand) {
+  const count = new Map();
+  for (const [g, v] of vertices) {
+    const bones = vertexBones(g, v);
+    if (bones.length !== 1 || bones[0] !== resultHand) return false;
+    if (!count.has(g)) count.set(g, new Set());
+    count.get(g).add(v);
+  }
+  const points = [...count].flatMap(([g, vs]) => [...vs].map(v => new Vector3().fromArray(g.Vertices, 3*v)));
+  if (points.length < 3) return false;
+  const handNode = model.Nodes[resultHand], hand = new Vector3().fromArray(nodePivot(model,handNode,resultHand));
+  const grip = points.reduce((p,q) => p.distanceToSquared(hand) < q.distanceToSquared(hand) ? p : q);
+  const tip = points.reduce((p,q) => p.distanceToSquared(grip) > q.distanceToSquared(grip) ? p : q);
+  const src = sampleNodeMatrices(donor,donor.Sequences[donorStand].Interval[0],donorStand).get(arm.marker);
+  const dest = sampleNodeMatrices(model,model.Sequences[stand].Interval[0],stand).get(resultHand);
+  if (!src || !dest || Math.abs(dest.determinant()) < 1e-9) return false;
+  const target = new Vector3().fromArray(arm.weapon.tip).sub(new Vector3().fromArray(arm.weapon.butt))
+    .transformDirection(src).transformDirection(dest.clone().invert());
+  const axis = tip.clone().sub(grip).normalize();
+  if (axis.angleTo(target) <= Math.PI/6) return false;
+  const turn = new Quaternion().setFromUnitVectors(axis,target);
+  const rotate = p => p.sub(grip).applyQuaternion(turn).add(grip);
+  for (const [g, indices] of count) for (const v of indices) {
+    g.Vertices.set(rotate(new Vector3().fromArray(g.Vertices,3*v)).toArray(),3*v);
+    for (const [array, stride] of [[g.Normals,3],[g.Tangents,4]]) if (array?.length >= (v+1)*stride)
+      array.set(new Vector3().fromArray(array,stride*v).applyQuaternion(turn).toArray(),stride*v);
+  }
+  for (const [node] of moves) node.PivotPoint.set(rotate(new Vector3().fromArray(node.PivotPoint)).toArray());
+  return true;
+}
+
 const projectile = /arrow|missile|projectile/i;
 const weapon = /weapon|spear|javelin|rifle|sword|choppa|axe|hammer|staff|bow/i;
 
@@ -116,7 +149,7 @@ export function rigidItemSocket(model, nodes, byId, skin, grip, label, constantT
 // Match the authored grip-to-tip direction in the donor's Stand. A rigid
 // weapon then follows the donor's weapon joint throughout its swings and throws.
 export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,weaponMoves,
-  donorWeapon,donorMap,rigA,rigB,treeA,treeB,matrices,remap,donorStand,plateNormal,reposeAbout,keep}) {
+  donorWeapon,donorMap,rigA,rigB,treeA,treeB,matrices,remap,donorStand,plateNormal,reposeAbout,keep, wristGrip = false }) {
   if (gripBranches.size!==1 || !weaponVertices.length || weaponMoves.length!==1 || donorStand<0) return null;
   const [{hand,grip}] = gripBranches.values();
   const handRef = (m,id) => m.Attachments.find(n=>/hand/i.test(n.Name) && n.Parent===id);
@@ -130,9 +163,14 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
   const [tip,carrier] = weaponMoves[0], handId=remap.get(carrier);
   const palm = model.Attachments.find(n=>n.Name.trim().toLowerCase()===handRef(donor,wrist).Name.trim().toLowerCase());
   if (!palm || !matrices.has(handId)) return null;
-  const targetGrip = pos(model,palm,matrices);
   const ownWorld=sampleNodeMatrices(own,rigB.reference.frame,rigB.reference.sequence);
-  const authoredGrip=pos(own,handRef(own,hand),ownWorld);
+  const referenceGrip = pos(own,handRef(own,hand),ownWorld);
+  const handOrigin = wristGrip ? pos(own,treeB.byId.get(hand),ownWorld) : null;
+  const remote = handOrigin && referenceGrip.distanceTo(handOrigin) > .15 * (rigB.extent || rigB.hipHeight);
+  const gripCarrier = remote ? model.Nodes[donorMap[wrist]] : palm;
+  if (remote && (!gripCarrier || !matrices.has(gripCarrier.ObjectId))) return null;
+  const targetGrip = pos(model,gripCarrier,matrices);
+  const authoredGrip = remote ? handOrigin : referenceGrip;
   const intoHand=ownWorld.get(hand).clone().invert();
   const sourceGrip=authoredGrip.clone().applyMatrix4(intoHand).applyMatrix4(matrices.get(handId));
   // Rebuild the rigid surface and its reference from the same authored
@@ -153,7 +191,7 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
   const about = (from,to,q) => new Matrix4().makeTranslation(to.x,to.y,to.z).multiply(new Matrix4().makeRotationFromQuaternion(q))
     .multiply(new Matrix4().makeTranslation(-from.x,-from.y,-from.z));
   const correction=about(sourceGrip,targetGrip,turn);
-  fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm,ref,rigA,rigB});
+  fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm:gripCarrier,ref,rigA,rigB});
 
   // Reflect the change about the opposite grip. The original shield keeps
   // its authored offset on that forearm, including an asymmetric shield boss.

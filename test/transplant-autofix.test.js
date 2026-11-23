@@ -356,11 +356,18 @@ test('trunk: the controls pair-08, pair-16 and the two-legged pair-33 come out e
 });
 
 // ============================================================ 6. The option and the held-side refusals
-test('autoFixOptions: off for false, null and {}; true turns on every key; an object only its true keys', () => {
-  for (const off of [false, null, undefined, {}, { hand: false }]) assert.equal(autoFixOptions(off), null, JSON.stringify(off));
-  assert.deepEqual(autoFixOptions(true), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, true])));
-  assert.deepEqual(autoFixOptions({ markers: true, trunk: 'yes' }), Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, key === 'markers'])));
-  assert.deepEqual(AUTO_FIX_KEYS, ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
+test('autoFixOptions keeps the original checkbox and selects individual repairs', () => {
+  for (const off of [false, null, undefined, {}, { hand: false }, { seamFix: false }]) {
+    assert.equal(autoFixOptions(off), null, JSON.stringify(off));
+  }
+  const active = options => {
+    const enabled = autoFixOptions(options);
+    return enabled ? AUTO_FIX_KEYS.filter(key => enabled[key]) : [];
+  };
+  assert.deepEqual(active(true), ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
+  assert.deepEqual(active({ markers: true, trunk: 'yes' }), ['markers']);
+  assert.deepEqual(active({ seamFix: true }), ['seamFix']);
+  assert.deepEqual(active({ looseAxis: true }), ['detached', 'looseAxis']);
 });
 
 // No copied model has two arms holding items without a weapon name. The Dwarf Stonemason (pair-16) holds measured items in

@@ -30,7 +30,7 @@ function direction(model,world,joint,sites){
 
 // A POSE wrist can end before the hand's visible reach. Align the skinned
 // hand from the shoulder for multipart fists or long finger chains.
-export function fitArmSurfaces(result,own,donor,rigB,rigA,treeB,treeA,entries,donorMap) {
+export function fitArmSurfaces(result,own,donor,rigB,rigA,treeB,treeA,entries,donorMap,trackMode = null) {
   for(const entry of entries) {
     if(entry.own.limbKind!=='arm' || entry.theirs.limbKind!=='arm')continue;
     const ownSites=fingers(own,rigB,treeB,entry.own),sourceSites=fingers(donor,rigA,treeA,entry.theirs);
@@ -53,7 +53,7 @@ export function fitArmSurfaces(result,own,donor,rigB,rigA,treeB,treeA,entries,do
         const q=new Quaternion().setFromUnitVectors(from.transformDirection(inverse),to.transformDirection(inverse));
         if(Math.abs(q.w)<1-1e-8)turns.set(f,v=>q.clone().multiply(new Quaternion().fromArray(v)).normalize().toArray());
       }
-      if(turns.size)rewriteTrack(result,node,si,frames,turns);
+      if(turns.size)rewriteTrack(result,node,si,frames,turns,'Rotation',trackMode);
     }
   }
 }

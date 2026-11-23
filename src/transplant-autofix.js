@@ -1,7 +1,5 @@
-// Auto fix for a transplant (owner, 22 Nov 2026: "offer users an AUTO FIX ... to avoid regressions on other models,
-// offer it as an option"). Off by default: without it the transplant is exactly the plain one. Each correction has
-// its own key, reads the two models (never names alone), acts only where its fault is measured, and says what it did.
-// Contract: docs/agent-tasks/xfer-auto-fix.md.
+// Optional transplant corrections. Each reads the two models and is off by default.
+// Contract: docs/agent-tasks/xfer-toggles.md.
 //   hand     which hand holds the weapon, and so the automatic Mirror, from what is held (heldSide, autoFixMirror)
 //   markers  the grip and tip the weapon fit reads, from the measured item when the model's Hand/Weapon markers are off it
 //   detached a weapon on its own bone is recognised without the name test (skeleton-transplant.js, detachedGrip)
@@ -11,7 +9,48 @@ import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset, worldPivot } from 
 import { vertexBones } from './part-bones.js';
 import { isWeaponName } from './rig-names.js';
 
-export const AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
+const LEGACY_AUTO_FIX_KEYS = ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains'];
+export const AUTO_FIX_KEYS = Object.freeze([
+  ...LEGACY_AUTO_FIX_KEYS,
+  'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
+  'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix',
+]);
+export const TOGGLE_CLASHES = Object.freeze([
+  ['hand', 'heldGeometry'],
+  ['markers', 'wristGrip'],
+  ['surfaceGrip', 'looseAxis'],
+  ['chains', 'hangingChains', 'extraMotion'],
+  ['trackWindow', 'authoredMotion'],
+  ['keepTorso', 'sewnTorso', 'seamFix'],
+  ['trunk', 'skinLandmarks'],
+].map(group => Object.freeze(group)));
+export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']) });
+
+export const AUTO_FIX_LABELS = Object.freeze({
+  hand: ['Weapon hand', 'Mirrors the donor when the two models hold their weapons in different hands.'],
+  markers: ['Grip markers', 'Lines up the grip and tip points with the weapon you see.'],
+  detached: ['Loose weapon', 'Moves a loose weapon and all its pieces into the hand.'],
+  trunk: ['Legless posture', 'Keeps a legless body from tipping when it has no clear body line.'],
+  arms: ['Main arms', 'Follows the donor’s main hands when it has extra arms.'],
+  chains: ['Cloth motion', 'Makes cloth and tails swing with the donor’s cloth.'],
+  looseAxis: ['Loose blade angle', 'Turns a loose blade in the hand to match the donor’s blade.'],
+  gripRouting: ['Weapon on bones', 'Fits a weapon that hangs on its own bones into the hand.'],
+  heldGeometry: ['Find held weapon', 'Finds which hand holds the weapon by watching how it moves.'],
+  surfaceGrip: ['Two-hand grip', 'Lines up the weapon and fits the other hand when it grips the shaft.'],
+  extraMotion: ['Jaw and pads', 'Moves extra parts, like jaws and shoulder pads, in the animations where they move.'],
+  skinLandmarks: ['Rest pose fit', 'Lines up the body’s starting pose from the shape of its skin.'],
+  hangingChains: ['Hanging parts', 'Matches capes, tails and chains by where they hang and how they swing.'],
+  rootHeight: ['Jump height', 'Scales jumps and drops to this model’s height.'],
+  saddleDriver: ['Saddle', 'Moves the saddle with the mount’s saddle.'],
+  trackWindow: ['Smooth feet', 'Removes jitter left where the feet are kept on the ground.'],
+  authoredMotion: ['Keep donor motion', 'Keeps the donor’s own movement between the ground corrections.'],
+  movingCarrier: ['Helper bone motion', 'Lets a moving bone carry the skin of a still helper bone above it.'],
+  wristGrip: ['Wrist grip', 'Holds the weapon at the wrist when the model’s grip point is far from the hand.'],
+  keepTorso: ['Keep own torso', 'Keeps the recipient’s torso bends where they already fit.'],
+  sewnTorso: ['Torso seams', 'Keeps the torso skin together where two donor joints would pull it apart.'],
+  seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
+});
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;
 /** A detached item is held by the hand it stays within this share of the standing height of, and at most half as far as the other hand. */
@@ -19,10 +58,15 @@ export const HELD_SHARE = 0.2, HELD_CLEARLY = 0.5;
 /** On a model with no legs, a hip-to-shoulder line shorter than this share of the standing height is no trunk line to turn. */
 export const TRUNK_LINE_SHARE = 0.08;
 
-/** `true` turns every correction on; an object turns on the keys it holds true. -> { hand, markers, detached, trunk } or null. */
+/** The original checkbox enables the first six keys; an object enables only its selected keys and their requirements. */
 export function autoFixOptions(value) {
   if (!value) return null;
-  const on = Object.fromEntries(AUTO_FIX_KEYS.map(key => [key, value === true || value[key] === true]));
+  const on = Object.fromEntries(AUTO_FIX_KEYS.map(key => [
+    key, value === true ? LEGACY_AUTO_FIX_KEYS.includes(key) : value[key] === true,
+  ]));
+  for (const [key, needs] of Object.entries(TOGGLE_NEEDS)) {
+    if (on[key]) for (const need of needs) on[need] = true;
+  }
   return AUTO_FIX_KEYS.some(key => on[key]) ? on : null;
 }
 

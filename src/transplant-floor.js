@@ -172,12 +172,14 @@ function floorOf(model, info, legIds, stand) {
  * the sample behind the last one; inside it the track is sampled at `frames` (and its own keys), each sample a straight
  * (slerp) step to the next. Its two end keys keep their value and their tangent on the outer side, so the motion outside
  * every window, and in every other sequence, stays exactly the donor's; the track keeps its interpolation type. */
-export function rewriteTrack(model, node, si, frames, turns, property = 'Rotation') {
+export function rewriteTrack(model, node, si, frames, turns, property = 'Rotation', trackMode = null) {
   const old = isTrack(node[property]) ? node[property] : null;
   const s = model.Sequences[si], [a, z] = s.Interval;
   const sample = f => Array.from(sampleTrack(old, f, { interval: s.Interval, globalSequences: model.GlobalSequences, globalTime: f, fallback: TRANSFORM_DEFAULTS[property], quaternion: property === 'Rotation' }));
   const own = new Map(); if (old) for (const key of old.Keys) if (key.Frame >= a && key.Frame <= z) own.set(key.Frame, key);
   const ownFrames = [...own.keys()].sort((x, y) => x - y);
+  if (trackMode === 'trackWindow') return rewriteWindow(node, property, old, own, ownFrames, sample, a, z, frames, turns);
+  if (trackMode === 'authoredMotion') return rewriteAuthored(node, property, old, own, ownFrames, sample, a, z, frames, turns);
   const fr = [...new Set([...frames.map(Math.round), ...ownFrames, a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
   const windows = [];
   fr.forEach((f, i) => {
@@ -202,6 +204,110 @@ export function rewriteTrack(model, node, si, frames, turns, property = 'Rotatio
     if (curved) { key.InTan = new Float32Array(value); key.OutTan = new Float32Array(value); }
     mine.push(key);
   }
+  return writeCorrectionWindows(node, property, old, windows, mine, type);
+}
+
+function rewriteWindow(node, property, old, own, ownFrames, sample, a, z, frames, turns) {
+  const solverFrames = [...new Set([...frames.map(Math.round), ...turns.keys(), a, z])].filter(f => f >= a && f <= z).sort((x, y) => x - y);
+  const windows = [];
+  solverFrames.forEach((f, i) => {
+    if (!turns.has(f)) return;
+    const lo = solverFrames[i - 1] ?? a, hi = solverFrames[i + 1] ?? z;
+    const from = ownFrames.filter(k => k <= lo).pop() ?? a, to = ownFrames.find(k => k >= hi) ?? z;
+    const last = windows[windows.length - 1];
+    if (last && from <= last[1]) last[1] = Math.max(last[1], to); else windows.push([from, to]);
+  });
+  const type = old ? old.LineType : 1, curved = type === 2 || type === 3;
+  const mine = [];
+  for (const [from, to] of windows) {
+    const interior = solverFrames.filter(f => f > from && f < to && (turns.has(f) || !own.has(f)));
+    for (const f of [from, ...interior, ...(to > from ? [to] : [])]) {
+      const kept = own.get(f);
+      if (kept && !turns.has(f) && (f === from || f === to)) {
+        // an end key: its value and its outer tangent stay; its inner tangent goes straight into the window
+        const key = { ...kept, Vector: new Float32Array(kept.Vector) };
+        if (curved && kept.InTan && kept.OutTan) { key.InTan = new Float32Array(f === to ? kept.Vector : kept.InTan); key.OutTan = new Float32Array(f === from ? kept.Vector : kept.OutTan); }
+        mine.push(key); continue;
+      }
+      const value = turns.has(f) ? turns.get(f)(sample(f)) : sample(f), key = { Frame: f, Vector: new Float32Array(value) };
+      if (curved) { key.InTan = new Float32Array(value); key.OutTan = new Float32Array(value); }
+      mine.push(key);
+    }
+  }
+  return writeCorrectionWindows(node, property, old, windows, mine, type);
+}
+
+function rewriteAuthored(node, property, old, own, ownFrames, sample, a, z, frames, turns) {
+  const controls = [...new Set([a, z, ...frames.map(Math.round), ...turns.keys()])].filter(f => f >= a && f <= z).sort((x,y) => x-y);
+  const corrected = new Map(), corrections = new Map();
+  for (const f of controls) {
+    if (!turns.has(f)) continue;
+    const original = sample(f), target = turns.get(f)([...original]);
+    corrected.set(f, target);
+    corrections.set(f, property === 'Rotation'
+      ? new Quaternion().fromArray(target).normalize().multiply(new Quaternion().fromArray(original).normalize().invert())
+      : new Vector3().fromArray(target).sub(new Vector3().fromArray(original)));
+  }
+  const identity = property === 'Rotation' ? new Quaternion() : new Vector3();
+  const fr = [...new Set([...controls, ...ownFrames])].sort((x,y) => x-y);
+  const windows = [];
+  controls.forEach((f, i) => {
+    if (!turns.has(f)) return;
+    const lo = controls[i - 1] ?? a, hi = controls[i + 1] ?? z;
+    const from = ownFrames.filter(k => k <= lo).pop() ?? a, to = ownFrames.find(k => k >= hi) ?? z;
+    const last = windows[windows.length - 1];
+    if (last && from <= last[1]) last[1] = Math.max(last[1], to); else windows.push([from, to]);
+  });
+
+  // A span with no fitted motion through it can use its original interpolation
+  // and tangents exactly. A solver sample inside that span needs no new key.
+  const nativeFrom = new Set(), nativeTo = new Set(), skipped = new Set();
+  const influenced = new Set();
+  let ci = 0;
+  const fittedValue = new Map();
+  for (const f of fr) {
+    while (ci + 1 < controls.length && controls[ci + 1] <= f) ci++;
+    const left = controls[ci], right = controls[ci+1] ?? left;
+    if (corrected.has(f)) {
+      influenced.add(f);
+      fittedValue.set(f,corrected.get(f));
+    } else if (f !== left && (corrections.has(left) || corrections.has(right))) {
+      influenced.add(f);
+      const delta = (corrections.get(left) ?? identity).clone(), end = corrections.get(right) ?? identity;
+      const t = (f-left)/(right-left), native = sample(f);
+      fittedValue.set(f, property === 'Rotation'
+        ? delta.slerp(end,t).multiply(new Quaternion().fromArray(native)).normalize().toArray()
+        : delta.lerp(end,t).add(new Vector3().fromArray(native)).toArray());
+    }
+  }
+  let interior = [];
+  for (const f of fr) {
+    if (interior.length && own.has(f)) {
+      const left = interior[0];
+      if (!influenced.has(f) && !interior.some(k => influenced.has(k))) {
+        nativeFrom.add(left); nativeTo.add(f);
+        for (const k of interior.slice(1)) skipped.add(k);
+      }
+      interior = [];
+    }
+    if (own.has(f) || interior.length) interior.push(f);
+  }
+  const type = old ? old.LineType : 1, curved = type === 2 || type === 3;
+  const mine = [];
+  for (const [from, to] of windows) for (const f of fr) {
+    if (f < from || f > to || skipped.has(f)) continue;
+    const kept = own.get(f), value = fittedValue.get(f) ?? sample(f);
+    const key = {Frame:f, Vector:new Float32Array(value)};
+    if (curved) {
+      key.InTan = new Float32Array(kept?.InTan && (nativeTo.has(f) || f === from && !influenced.has(f)) ? kept.InTan : value);
+      key.OutTan = new Float32Array(kept?.OutTan && (nativeFrom.has(f) || f === to && !influenced.has(f)) ? kept.OutTan : value);
+    }
+    mine.push(key);
+  }
+  return writeCorrectionWindows(node, property, old, windows, mine, type);
+}
+
+function writeCorrectionWindows(node, property, old, windows, mine, type) {
   const others = old ? old.Keys.filter(k => !windows.some(([p, q]) => k.Frame >= p && k.Frame <= q)) : [];
   const keys = [...others, ...mine].sort((x, y) => x.Frame - y.Frame);
   if (old) old.Keys = keys;
@@ -212,7 +318,7 @@ export function rewriteTrack(model, node, si, frames, turns, property = 'Rotatio
 // An independent weapon has no shoulder in its parent chain. Apply the same
 // world-space shoulder turn to the held weapon, including its grip, only in
 // the corrected windows. Its existing keys elsewhere still carry the donor.
-function carryHeldWeapon(M, original, boneId, arms, handAt, plans) {
+function carryHeldWeapon(M, original, boneId, arms, handAt, plans, trackMode) {
   const bone = M.Nodes[boneId], pivot = v3(nodePivot(M,bone));
   for (const si of new Set(plans.map(p=>p.si))) {
     const seq = M.Sequences[si], [a,b] = seq.Interval;
@@ -246,15 +352,15 @@ function carryHeldWeapon(M, original, boneId, arms, handAt, plans) {
       offsets.set(frame,()=>offset.toArray());
     }
     if (angles.size) {
-      rewriteTrack(M,bone,si,[...frames],angles,'Rotation');
-      rewriteTrack(M,bone,si,[...frames],offsets,'Translation');
+      rewriteTrack(M,bone,si,[...frames],angles,'Rotation',trackMode);
+      rewriteTrack(M,bone,si,[...frames],offsets,'Translation',trackMode);
     }
   }
 }
 
 // Keep an unarmed quadruped's planted hand fixed while a held rigid tool
 // rotates around it. Only the tool moves, and only while it would sink.
-function fitSupportTool(model,info,id,floor) {
+function fitSupportTool(model,info,id,floor,trackMode) {
   const node = info.byId.get(id), pivot = v3(node.PivotPoint), vertices = [];
   for (const geo of info.geos) for (let v=0; v<geo.n; v++) {
     if (geo.bones[v].length === 1 && geo.bones[v][0] === id) vertices.push(v3(geo.g.Vertices.subarray(3*v,3*v+3)));
@@ -279,13 +385,13 @@ function fitSupportTool(model,info,id,floor) {
       const rotation=new Quaternion().setFromAxisAngle(local,th);
       turns.set(frame,()=>rotation.toArray());
     }
-    if (turns.size) rewriteTrack(model,node,si,frames,turns);
+    if (turns.size) rewriteTrack(model,node,si,frames,turns,'Rotation',trackMode);
   }
 }
 
 // With two support pairs, the lowest contact alternates between the fore and
 // hind legs. Preserve the body path and absorb their changing reach at the knees.
-export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fixedBias = null, individual = false) {
+export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fixedBias = null, individual = false, trackMode = null) {
   const chains = parts.map(p => [p.joints[0],p.joints[1],p.marker]);
   if (chains.length < (individual ? 1 : fixedBias == null ? 4 : 2) || chains.some(ids => new Set(ids).size !== 3 ||
       ids.some(id => !model.Nodes[id] || isGlobalTrack(model.Nodes[id].Rotation,model)))) return null;
@@ -316,13 +422,13 @@ export function fitWalkContacts(model, si, parts, frames, heights, tolerance, fi
     }
   }
   for (const [i,ids] of chains.entries()) for (const [k,id] of ids.entries())
-    if (turns[i][k].size) rewriteTrack(model,model.Nodes[id],si,frames,turns[i][k]);
+    if (turns[i][k].size) rewriteTrack(model,model.Nodes[id],si,frames,turns[i][k],'Rotation',trackMode);
   return bias;
 }
 
 // A hand carrying the donor's weight is a foot. Lift its contact surface
 // vertically with the POSE elbow solve, keeping its stride and paw orientation.
-function plantSupportPalms(model, info, parts, floor, equipment) {
+function plantSupportPalms(model, info, parts, floor, equipment, trackMode) {
   const report = [];
   for (const part of parts) {
     const chain = part.joints;
@@ -366,8 +472,8 @@ function plantSupportPalms(model, info, parts, floor, equipment) {
         maxTurn = Math.max(maxTurn, upper.angleTo(new Quaternion()));
       }
       if (!values[0].size) continue;
-      const windows = rewriteTrack(model, nodes[0], si, frames, values[0]);
-      for (let i = 1; i < nodes.length; i++) rewriteTrack(model, nodes[i], si, frames, values[i]);
+      const windows = rewriteTrack(model, nodes[0], si, frames, values[0], 'Rotation', trackMode);
+      for (let i = 1; i < nodes.length; i++) rewriteTrack(model, nodes[i], si, frames, values[i], 'Rotation', trackMode);
       report.push({sequence: seq.Name, arm: part.key, joint: joints[0], frames: values[0].size,
         turn: maxTurn * DEG, spans: windows.map(([p,q]) => [p-a,q-a])});
     }
@@ -386,7 +492,7 @@ function plantSupportPalms(model, info, parts, floor, equipment) {
  * (how many samples turned), turn (largest, degrees), spans ([from, to] from the animation's start: outside them every key
  * is the donor's) }.
  */
-export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null, tailFloor = false, fallingSurface = false }) {
+export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legParts, weapon = {}, donor = null, tailFloor = false, fallingSurface = false, trackMode = null }) {
   const out = [];
   const stand = standSequenceIndex(M);
   if (stand < 0 || !armParts.length || !legParts.length || !(ownHeight > 0)) return out;
@@ -401,8 +507,8 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   const floor = tailFloor ? 0 : floorOf(M, info, legIds, stand);
   if (floor == null) return out;
   const equipment = weapon.supportGear || [];
-  out.push(...plantSupportPalms(M, info, supports, floor, equipment));
-  for (const id of equipment) fitSupportTool(M,info,id,floor);
+  out.push(...plantSupportPalms(M, info, supports, floor, equipment, trackMode));
+  for (const id of equipment) fitSupportTool(M,info,id,floor,trackMode);
   if (!arms.length) return out;
   const swap = weapon.swap || [];
   const handAt = (si,f) => weapon.hands ? sampleTrack(weapon.hands,f,{interval:M.Sequences[si].Interval,fallback:-1}) : -1;
@@ -568,16 +674,16 @@ export function bendArmsAboveFloor(M, { ownHeight, arms: armParts, legs: legPart
   for (const { si, arm, frames, at } of plans) {
     const node = info.byId.get(arm.joint);
     const turns = new Map([...at].map(([f, b]) => [f, v => new Quaternion().setFromAxisAngle(v3(b.axisL), b.th).multiply(new Quaternion().fromArray(v)).normalize().toArray()]));
-    const start = M.Sequences[si].Interval[0], windows = rewriteTrack(M, node, si, frames, turns);
+    const start = M.Sequences[si].Interval[0], windows = rewriteTrack(M, node, si, frames, turns, 'Rotation', trackMode);
     out.push({ sequence: M.Sequences[si].Name, arm: arm.key, joint: arm.joint, frames: at.size, turn: Math.max(...[...at.values()].map(b => b.th)) * DEG, spans: windows.map(([p, q]) => [p - start, q - start]) });
   }
-  if (beforeBend) carryHeldWeapon(M,beforeBend,weapon.bone,arms,handAt,plans);
+  if (beforeBend) carryHeldWeapon(M,beforeBend,weapon.bone,arms,handAt,plans,trackMode);
   return out;
 }
 
 // Copy the contact height of each donor paw with all the articulated links.
 // Damped increments keep the original elbow plane continuous at full reach.
-export function followSupportFeet(model, donor, chains, floor, gear, fitLimbs, height) {
+export function followSupportFeet(model, donor, chains, floor, gear, fitLimbs, height, trackMode = null) {
   const curves=new Map();
   const info=skinInfo(model), source=skinInfo(donor);
   const skin=(info,ids,omit=[])=>{
@@ -650,7 +756,7 @@ export function followSupportFeet(model, donor, chains, floor, gear, fitLimbs, h
           turns[k].set(frame,value=>q.clone().multiply(new Quaternion().fromArray(value)).normalize().toArray());
         }
       }
-      for (const [k,n] of nodes.entries()) rewriteTrack(model,n,si,frames,turns[k]);
+      for (const [k,n] of nodes.entries()) rewriteTrack(model,n,si,frames,turns[k],'Rotation',trackMode);
     }
     // Settle the remaining reach error on the common support plane. Only its
     // slow component belongs on the body; keep rapid handoffs in the limbs.

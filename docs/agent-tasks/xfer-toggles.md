@@ -186,6 +186,10 @@ Report: a table only. Review before any code.
 - Optional A: a small table of which toggles helped which kind of pair, used to order the tries and as the first guess. Only
   if time remains.
 
+## After today
+
+Claude deferred cross-kind round 3 (branch `claude/xfer-crosskind`) to its own follow-up. Its rider, wing and tail features stay on that branch.
+
 ## Checkpoint log
 
 (Codex appends reports here; Claude appends reviews.)
@@ -281,3 +285,86 @@ Checked: `c799fd77` and `fd516469` touch only the note, and the step-2 worktree 
    keys.
 
 Then do CP2 as written, with the 40-pair smoke set (list the ids), and stop.
+
+### CP2 · Engine repairs and proof
+
+The existing registry now has 22 keys, including all 15 recoverable historical repairs and the new seam fix. `autoFix: true` still selects the original six. `TOGGLE_CLASHES` contains the seven reviewed groups and `TOGGLE_NEEDS` seats a loose weapon before aligning its blade. `staffGrip` and `loopingMotion` remain **not recoverable**. The existing checkbox still uses the legacy Boolean. The reviewed English labels are in the registry.
+
+#### All-off byte identity
+
+- **138/138 high grades and 59/59 low grades** matched the starting engine at `ed35d2e8` by SHA-256 over complete serialized MDX. The replay used the `high-gate.mjs` document writer and the saved source manifests. Nine low-grade rows without a `native` field had their originals resolved from those manifests. Two absent high-grade inputs were outside the 138 rebuildable rows.
+- The first run exposed a missing track option in the ground-correction call. After fixing it, the replay reused 45 matches and reran the other 152 rows.
+- Legacy `autoFix: true` exports were byte-identical on **40/40** smoke pairs. The focused registry assertion failed on the baseline at the new `seamFix` key and passed on the candidate (**1 passed, 0 failed, 0 skipped**).
+
+#### Retarget
+
+- `node --test test/anim-transfer.test.js` passed **82 tests**, with 0 failed and 0 skipped. **32/32 Retarget MDX fingerprints** matched across eight recipient rigs and Stand, Walk, Attack, and Spell. Held geometry is read inside Transplant, and Retarget keeps its original rig reader.
+
+#### 40-pair smoke set
+
+Each key was evaluated against the plain build through the document writer. **880/880** outputs serialized, reopened, and passed `validateModel` with 0 errors. `looseAxis` was run with `detached` and changed the result beyond `detached` alone on `Fresh cloak and tail 20/cloth-01`, `xfer-engine-34/pair-34`.
+
+The initial smoke set included six exports with inherited zero-duration global sequences. The final set replaces `xfer-engine-34/pair-09`, `xfer-engine-34/pair-17`, `xfer-engine-34/pair-05`, `xfer-engine-34/pair-11`, `xfer-grade-repairs/new-32`, `Auto fix cloth sheet/lich`. The initial pair-09 and pair-17 comparisons showed `arms` and `trunk` changing the respective target outputs without introducing additional validation errors.
+
+| Low grade | High grade |
+| --- | --- |
+| `xfer-engine-34/pair-02` | `xfer-engine-34/pair-03` |
+| `xfer-new-models-40/new-24` | `xfer-engine-34/pair-04` |
+| `xfer-engine-34/pair-12` | `xfer-engine-34/pair-13` |
+| `xfer-engine-34/pair-15` | `xfer-engine-34/pair-07` |
+| `transplant-grade/grade-21` | `xfer-engine-34/pair-08` |
+| `xfer-engine-34/pair-18` | `xfer-engine-34/pair-22` |
+| `xfer-engine-34/pair-31` | `xfer-engine-34/pair-14` |
+| `xfer-engine-34/pair-34` | `xfer-engine-34/pair-16` |
+| `xfer-new-models-40/new-06` | `xfer-engine-34/pair-20` |
+| `xfer-new-models-40/new-11` | `xfer-engine-34/pair-27` |
+| `xfer-new-models-40/new-20` | `xfer-engine-34/pair-33` |
+| `xfer-new-models-40/new-30` | `xfer-four-review/followup-16` |
+| `Fresh cloak and tail 20/cloth-01` | `xfer-four-review/followup-17` |
+| `Fresh cloak and tail 20/cloth-04` | `xfer-fresh-50/fresh-56` |
+| `Fresh cloak and tail 20/cloth-05` | `xfer-fresh-50/fresh-59` |
+| `Fresh cloak and tail 20/cloth-06` | `xfer-new-models-40/new-08` |
+| `Fresh cloak and tail 20/cloth-07` | `xfer-pose-handles-review/pose-support-16` |
+| `Fresh cloak and tail 20/cloth-09` | `transplant-grade-astra-round1/astra-grade-15` |
+| `xfer-pose-handles-review/pose-support-02` | `xfer-fresh-50/sample-2-055` |
+| `Auto fix step 2 sheet/humanoid-493` | `Fresh cloak and tail 20/cloth-02` |
+
+| Key | Tested | MDX bytes changed | Errors |
+| --- | ---: | ---: | ---: |
+| `hand` | 40 | 3 | 0 |
+| `markers` | 40 | 1 | 0 |
+| `detached` | 40 | 3 | 0 |
+| `trunk` | 40 | 0 | 0 |
+| `arms` | 40 | 0 | 0 |
+| `chains` | 40 | 4 | 0 |
+| `looseAxis` | 40 | 3 | 0 |
+| `gripRouting` | 40 | 3 | 0 |
+| `heldGeometry` | 40 | 11 | 0 |
+| `surfaceGrip` | 40 | 7 | 0 |
+| `extraMotion` | 40 | 17 | 0 |
+| `skinLandmarks` | 40 | 36 | 0 |
+| `hangingChains` | 40 | 23 | 0 |
+| `rootHeight` | 40 | 38 | 0 |
+| `saddleDriver` | 40 | 0 | 0 |
+| `trackWindow` | 40 | 4 | 0 |
+| `authoredMotion` | 40 | 8 | 0 |
+| `movingCarrier` | 40 | 1 | 0 |
+| `wristGrip` | 40 | 0 | 0 |
+| `keepTorso` | 40 | 17 | 0 |
+| `sewnTorso` | 40 | 2 | 0 |
+| `seamFix` | 40 | 35 | 0 |
+
+#### Seam fix
+
+The skin pass compares neighbouring weight groups with actual donor edges. It reuses donor blends where available and places an affected connected rigid piece on the nearer donor joint otherwise. Held and additive effect skin are outside this pass.
+
+Measured with the existing `D:/Claude/xfer-look/diagnosis/scripts/donorseam.mjs` ruler against the baseline and `seamFix` alone. Invented totals combine rigid and mixed seams. Counts in other classes also moved, including more beyond-donor stretch on three pairs.
+
+| Pair | Torn invented edges | Donor-like | Beyond donor |
+| --- | ---: | ---: | ---: |
+| H500 | 40 → 0 | 20 → 8 | 0 → 0 |
+| H912 | 29 → 3 | 11 → 14 | 2 → 4 |
+| H227 | 131 → 49 | 2 → 24 | 1 → 37 |
+| H993 | 113 → 66 | 0 → 3 | 0 → 19 |
+
+Verification covered engine output and the independent seam measures. The desktop checkbox and Warcraft III playback remain unexercised at this checkpoint.

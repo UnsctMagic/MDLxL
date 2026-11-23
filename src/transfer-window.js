@@ -377,7 +377,7 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase, feature
  * engine's report lists, when it is given) and the donor caption's Mirror. */
 export function transplantOptions({ sounds = true, effects = false, keep = [], mirror = false, autoFix = false } = {}, extras = null) {
   const offered = extras ? new Set(extras.map(extra => extra.id)) : null;
-  return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror, ...(autoFix ? { autoFix: true } : {}) };
+  return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror, ...(autoFix ? { autoFix } : {}) };
 }
 
 /** The transplanted model's animation that matches the donor's `sequence`: the one of the same
