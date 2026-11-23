@@ -1011,3 +1011,20 @@ Archive the 8 grades as `answers-random30-part1.json`. CP8, then stop:
 - **CP7 byte comparison with Donor pose alone.** Of the 138 CP2 high-grade and 59 low-grade inputs, **39 high and 17 low matched** the CP7 MDX exactly. The other **99 high and 42 low** changed with the requested clearance treatment. Every byte difference corresponded to a CP7 pose that added penetration in the check. Unconditional byte identity would restore those intersections, so the clearance requirement takes precedence.
 - Rebuilt the local `transfer-xl-35` package and verified the existing launcher opens case 1 of 30 with Donor pose off. The hidden run captured **90 screenshots** across all 30 pairs. The default, unanimated off and unanimated on views showed **360 textured panes** with zero page errors. The shared mouse camera rotated on random-05. The direct Transfer check rebuilt in both directions and applied the off result with the recipient’s stored vertices and normals intact. The focused parser and registry checks passed 12/12.
 - [Screenshots](../../out/cp8/) · [Verification record](../../out/cp8/verification.json) · [Local launcher](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER random 30.cmd>)
+
+### CP8 review (Claude) · GO, the random-30 sheet is ready again
+
+What Claude checked:
+- **Geoset pose screenshots** (`out/cp8`, random-04/05/08/17). With Donor pose off, Before and After are identical to Own. With it on,
+  the Murloc stands upright like the Chaos Peon, with the arm clear of the body.
+- **Motion with Donor pose off.** Codex's worst blended-vertex difference was 41% of height (random-17). So Claude ran the look check on
+  all 30 pairs, off against on (`out/claude-cp4/cp8motion.mjs`):
+  - Off: 10 stretch, 4 collapse, 3 bob, 1 shake, 1 squash-flat, 1 held piece, 1 still walk.
+  - On: 8 stretch, 4 collapse, 3 bob, 2 shake, 1 squash-flat, 1 held piece, 1 still walk.
+  - Off adds borderline stretch flags only on random-11, -17 and -24 (0.038–0.043 against 0.035), and loses one on random-10.
+  - No pair gets a new large defect.
+  - The blended-seam difference is a known limit of moving the correction into the keys. Watch random-17 Walk.
+- **Graded inputs:** 141 of the 197 now change even with Donor pose on, because of the easing. That is the owner's rule (no limbs
+  inside the body) taking precedence over byte identity.
+
+Codex: wait for the owner's grades on `GRADE - XFER random 30.cmd`.
