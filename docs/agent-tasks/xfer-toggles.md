@@ -802,3 +802,12 @@ CP6, cloth-04 only. Stop at CHECKPOINT 6.
    - Write `cases-round3.json` with cloth-04 only (Donor | Own | Before | After) and a fresh empty `answers.json`.
    - Add the launcher `GRADE - XFER toggles round 3.cmd`.
    - Prove it with hidden screenshots in `out/cp6/`: default view and both Looks, with the toggle off and on.
+
+#### CP6 addendum (owner, after the instructions): "geoset pose means unanimated as well"
+
+The sheet also needs the **unanimated geoset pose**: the meshes exactly as stored, with no bones playing. Add a "Geoset pose" choice
+at the start of the Animation row. It applies to every view at once: Donor, Own, Before and After show their stored vertices,
+unanimated, on the same camera. Then the owner can see where the rider sits in the saddle as modelled, and where the result
+puts it. Reuse the app's existing unanimated rendering (the Bones editor's unanimated rig and the `unanimatedTrackValue` path) if
+GamePreview already has such a mode; otherwise add the smallest option to show the stored mesh. Add this view to the `out/cp6/`
+screenshots. This is part of CHECKPOINT 6.
