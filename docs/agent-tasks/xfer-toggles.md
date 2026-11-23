@@ -219,3 +219,65 @@ Report: a table only. Review before any code.
 | 22 | `sewnTorso` | Sewn torso edge | Keep a sewn torso surface together when two donor hinges would pull it apart. | `src/skeleton-transplant.js` | `git apply --check` passes on `stretch-2.patch`. | `saddleDriver`, `keepTorso`, `seamFix` (torso weights) | Only Felguard → Murloc cleared. The two changed high grades still flagged for inherited collapse, and the trial mostly missed chained or multi-level torsos. [Look handoff](xfer-look-claude-handoff.md) |
 | 23 | `seamFix` | Seam fix | Join only joint combinations the donor's skin joins, reusing its weights or keeping a rigid piece on the nearer joint. | Planned `src/skeleton-transplant.js` and `src/transplant-skin.js` (skin assignment). | New rule in `D:\Claude\xfer-look\diagnosis\DIAGNOSIS.md` §4. No patch to check. | `saddleDriver`, `keepTorso`, `sewnTorso` (skin weights on overlapping seams) | Diagnosis found invented seams on all 91 stretch rows and estimated that fixing them could clear about 75. No trial, so gains and side effects remain unmeasured. |
 | — | Deferred to Claude | Cross-kind fit | Fit rider, wing and tail motion using the donor's visible body parts. | `src/anim-transfer.js`, `src/skeleton-transplant.js`, `src/pose-ik.js`, `src/pose-recognition.js`, `test/anim-transfer.test.js`, `test/skeleton-transplant.test.js`, `test/helpers/fixtures.cjs` in the seven branch commits. | Individual dry-run conflicts: TP1/TP2, U2, CR1, WG3b and RR2 in source, WG3 and ST1 only in test files. Merge `63615a29` left for review. | Pending scope. Tail routing may overlap `chains` and `hangingChains`. Rider trunk fit and vertical travel merit a check against `saddleDriver` and `rootHeight`. | The branch tests target Rat/Dire Wolf tail, unnamed wings, totem lift, Knight/Spider poor-fit reporting, Dragonspawn back and rider lean, and Far Seer rider fall. WG3b corrects WG3's hidden Talon raven false positive. No fresh results on this branch. |
+
+### CP1 review (Claude) · GO, with these changes for CP2
+
+Checked: `c799fd77` and `fd516469` touch only the note, and the step-2 worktree has no stash or loose patch. 20a and 20b stay
+"not recoverable" (rebuild them later as new toggles only if the owner asks). The inventory is complete for today.
+
+1. **Plain names and tooltips.** The owner is not a programmer. A tooltip says what the user sees change, in one sentence, with no
+   engine words ("solver", "carrier", "articulated", "unkeyed", "branch", "keys"). Use these, or plainer:
+
+   | Key | Name | Tooltip |
+   | --- | --- | --- |
+   | gripRouting | Weapon on bones | Fits a weapon that hangs on its own bones into the hand. |
+   | heldGeometry | Find held weapon | Finds which hand holds the weapon by how it moves, not by its name. |
+   | extraMotion | Jaw and pads | Moves extra parts, like jaws and shoulder pads, in the animations where they move. |
+   | skinLandmarks | Rest pose fit | Lines up the body's starting pose from the shape of its skin. |
+   | hangingChains | Hanging parts | Matches capes, tails and chains by where they hang and how they swing. |
+   | rootHeight | Jump height | Scales jumps and drops to this model's height. |
+   | saddleDriver | Saddle | Moves the saddle with the mount's saddle. |
+   | trackWindow | Smooth feet | Removes jitter left where the feet are kept on the ground. |
+   | authoredMotion | Keep donor motion | Keeps the donor's own movement between the ground corrections. |
+   | movingCarrier | Helper bone motion | Lets a moving bone carry the skin of a still helper bone above it. |
+   | wristGrip | Wrist grip | Holds the weapon at the wrist when the model's grip point is far from the hand. |
+   | sewnTorso | Torso seams | Keeps the torso skin together where two donor joints would pull it apart. |
+
+   Keep the other names (Weapon hand, Grip markers, Loose weapon, Legless posture, Main arms, Cloth motion, Loose blade angle,
+   Two-hand grip, Keep own torso, Seam fix) and make their tooltips plain in the same way.
+
+2. **Clash groups (ticking one unticks the others in its group).** Only these are exclusive:
+   - Mirror choice: hand · heldGeometry
+   - Grip point: markers · wristGrip
+   - Weapon angle: surfaceGrip · looseAxis
+   - Extra and hanging parts: chains · hangingChains · extraMotion
+   - Ground corrections: trackWindow · authoredMotion
+   - Torso skin: keepTorso · sewnTorso · seamFix
+   - Trunk rest turn: trunk · skinLandmarks
+
+   Everything else stacks, applied in the engine's own order. Put the groups in `TOGGLE_CLASHES` and nothing else there.
+
+3. **Needs.** looseAxis needs detached. Add `TOGGLE_NEEDS = { looseAxis: ['detached'] }`. Ticking looseAxis ticks detached. The
+   smoke test and the suggester try looseAxis together with what it needs.
+
+4. **Retarget stays identical.** gripRouting and heldGeometry touch `src/anim-transfer.js`, and the earlier trial changed four Retarget
+   fingerprints. With every key off, Retarget output must be identical too. Add the focused `test/anim-transfer.test.js` to the
+   CP2 proof, along with the byte check.
+
+5. **seamFix is new code.** Build it in CP2 from `DIAGNOSIS.md` §4, where the share step (`jointsOf` → `trunkShare` / `splitJoints`)
+   decides weights.
+   - Collect the donor's own edge joint-pairs once per transplant.
+   - When the share would put two neighbouring result vertices on a donor joint pair the donor never joins, give those vertices
+     the donor's own blend for that pair.
+   - If the donor has no blend for that pair, put the whole connected rigid piece on the nearer joint.
+   - Proof in the report: on H500, H912, H227 and H993, the torn invented-seam edges fall. Use
+     `D:\Claude\xfer-look\diagnosis\scripts\donorseam.mjs`; its classes are in `DIAGNOSIS.md`.
+   - If seamFix is not working after two attempts, report what it does and go on. It still ships as a toggle.
+
+6. **Cross-kind round 3** (`claude/xfer-crosskind`): left out today. Five of its commits conflict in source, and they are features,
+   not repairs. Record it under "After today" in this note. Do not merge it.
+
+7. **The window UI is CP4.** In CP2, do not touch `app/`, except to keep the existing `Auto fix` checkbox working with the six old
+   keys.
+
+Then do CP2 as written, with the 40-pair smoke set (list the ids), and stop.
