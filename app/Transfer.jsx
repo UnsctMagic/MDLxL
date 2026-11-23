@@ -613,7 +613,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
   const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
   const tpOptions = useMemo(() => transplantOptions({ ...tpSettings, mirror: donorMirror }), [tpSettings, donorMirror]);
-  const tpSettingsKey = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpOptions)}` : null;
+  const tpMirrorOverride = tpDonor ? recipe.sources?.[tpDonor.id]?.mirror : null;
+  const tpSettingsKey = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpOptions)}|${tpMirrorOverride ?? ''}` : null;
   // After Transplant the result view shows the open model itself (and Transplant is off), until a
   // setting, the donor or the model changes. A setting is what the user set: Mirror's automatic
   // choice reads the open model, which the transplant itself changed, so it does not count.
@@ -626,12 +627,14 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     spawn: () => new Worker(new URL('./transplant.worker.js', import.meta.url), { type: 'module' }),
     buildHere: request => transplantSkeleton(request.model, request.donor, request.options),
     onResult: next => tpResult.current(next),
+    onSuggestion: next => setTpBuilt(old => old?.key === next.key ? { ...old, ...next } : old),
   });
   useEffect(() => () => tpBuilder.current.dispose(), []);
   useEffect(() => {
     if (!tpKey) { tpBuilder.current.cancel(); return; }
     if (tpBuilt?.key === tpKey) return;
-    tpBuilder.current.request({ key: tpKey, model, modelKey: `${doc.revision}`, donor: tpDonor.model, donorKey: `${tpDonor.id}|${tpDonor.revision}`, options: tpOptions });
+    tpBuilder.current.request({ key: tpKey, model, modelKey: `${doc.revision}`, donor: tpDonor.model, donorKey: `${tpDonor.id}|${tpDonor.revision}`,
+      options: tpOptions, suggest: !tpSettings.autoFix, automaticMirror: tpMirrorOverride == null });
   }, [tpKey]);
   const tpReady = !!tpKey && tpBuilt?.key === tpKey && !!tpBuilt.model;
   const tpBuilding = !!tpKey && tpBuilt?.key !== tpKey;
@@ -715,7 +718,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, 5);
   // The parts list names a part's clips in order: "Attack - 1, then Attack - 2".
   const chainName = part => partClips(part).map((clip, i) => i === 0 || clip.source !== part.source ? clipName(clip) : sequenceName(modelOf(clip.source), clip.sequence)).reduce((a, b) => translate('{0}, then {1}').replace('{0}', () => a).replace('{1}', () => b));
-  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, building: tpBuilding, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
+  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, building: tpBuilding, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, suggestion: tpBuilt?.key === tpKey ? tpBuilt.suggestion || null : null, suggestionError: tpBuilt?.key === tpKey ? tpBuilt.suggestionError || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
   const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
   const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };

@@ -190,6 +190,11 @@ Report: a table only. Review before any code.
 
 Claude deferred cross-kind round 3 (branch `claude/xfer-crosskind`) to its own follow-up. Its rider, wing and tail features stay on that branch.
 
+The CP2 smoke fixtures with inherited zero-length global sequences are deferred. Recheck their original
+recipients separately before including them in a future review.
+
+- `xfer-engine-34/pair-05`, `xfer-engine-34/pair-09`, `xfer-engine-34/pair-11`, `xfer-engine-34/pair-17`, `xfer-grade-repairs/new-32`, `Auto fix cloth sheet/lich`.
+
 ## Checkpoint log
 
 (Codex appends reports here; Claude appends reviews.)
@@ -393,3 +398,83 @@ For CP3:
    sequence. Note them for later.
 
 Then stop at CHECKPOINT 3.
+
+### CP3 · Toggle suggester
+
+The same model-only checker now serves the scripts and the suggester. The suggester compares generated compatible MDX against the plain build and lists changed keys in inventory order. It scores each visible build by verdict reason count, then by the sum of value divided by limit. The best-scoring key wins each clash. The final combo is compared with the best single repair, including that repair’s required keys.
+
+#### Checker parity
+
+**5/5 saved rows** exactly matched the original full-sampling measurements, the numbers stored on disk, and the original verdicts. Rows were `xfer-engine-34/pair-34`, `xfer-fresh-50/fresh-56`, `xfer-new-models-40/new-20`, `xfer-pose-handles-review/pose-support-02`, `Fresh cloak and tail 20/cloth-06`. The existing threshold file and donor-like warnings are unchanged.
+
+#### Background delivery and sheet preparation
+
+- `node --test test/transplant-builder.test.js` passed **6 tests**, with 0 failed and 0 skipped. The new assertion failed on the previous client because it did not request suggestions.
+- The browser worker bundled without a filesystem import. With Paladin in a real worker thread, the first reply matched the plain MDX and the second supplied its suggestion. Changing the pair cancels the outdated suggestion. A manual Mirror choice stays fixed.
+- `node scripts/xfer-look/suggest-cases.mjs <cases.json> <output.json>` reads the first `variant.transplant` in each case. That record holds `recipient`, `donor`, and optional engine `options`. The script stores `case.suggestion` for the sheet to use at opening. The prepared Paladin case held the same result as the worker.
+
+#### Sampling and timing
+
+Stand, Walk, Attack, and Spell families use at most 21 moments per clip. Timings are wall seconds while the smoke replay used up to three workers. Build + fast check includes the plain build, every key trial and any candidate combo. The sweep column times only the full look check on the same built variants, with the same donor and native cache reuse.
+
+| Pair | Build + fast check (s) | Fast look (s) | Full look (s) | Result moments, fast / full |
+| --- | ---: | ---: | ---: | ---: |
+| `xfer-engine-34/pair-34` | 15.43 | 3.00 | 6.37 | 945 / 2880 |
+| `xfer-new-models-40/new-20` | 4.51 | 0.29 | 0.95 | 945 / 3595 |
+| `Fresh cloak and tail 20/cloth-01` | 33.30 | 1.21 | 4.03 | 1512 / 6344 |
+| `Fresh cloak and tail 20/cloth-06` | 20.42 | 0.27 | 0.62 | 420 / 1460 |
+| `xfer-pose-handles-review/pose-support-02` | 64.24 | 0.89 | 3.24 | 945 / 4210 |
+
+Across these five pairs, fast sampling used **74.2% fewer result moments** and saved **62.7% of look-check time** (15.21 s → 5.67 s). Building candidates still accounted for most of the time.
+
+#### 40 smoke pairs
+
+**40/40** returned a result with no exceptions. 11/40 had a suggested repair. Visible keys ranged from 0 to 10 with a median of 5. Score cells show reason count / summed ratio, with ratios rounded here for display. Owner grades are context only.
+
+| Pair | Owner grade | Visible keys | Suggested keys | Plain → suggested score |
+| --- | ---: | --- | --- | --- |
+| `xfer-engine-34/pair-02` | 0 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-new-models-40/new-24` | 3 | `chains`, `heldGeometry`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-12` | 0 | `hand`, `heldGeometry`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | `hand`, `skinLandmarks` | 1 / 2.150 → 0 / 0.000 |
+| `xfer-engine-34/pair-15` | 0 | `hand`, `heldGeometry`, `surfaceGrip`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `transplant-grade/grade-21` | 3 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-18` | 0 | `markers`, `heldGeometry`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-31` | 0 | `extraMotion`, `skinLandmarks`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-34` | 0 | `detached`, `looseAxis`, `heldGeometry`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | — | 1 / 1.087 → 1 / 1.087 |
+| `xfer-new-models-40/new-06` | 3 | `skinLandmarks`, `rootHeight`, `trackWindow`, `authoredMotion`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-new-models-40/new-11` | 2 | `gripRouting`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | `gripRouting`, `hangingChains` | 1 / 1.086 → 0 / 0.000 |
+| `xfer-new-models-40/new-20` | 1 | `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | `seamFix` | 3 / 5.576 → 3 / 4.195 |
+| `xfer-new-models-40/new-30` | 3 | `extraMotion`, `skinLandmarks`, `rootHeight`, `trackWindow`, `authoredMotion`, `seamFix` | `skinLandmarks`, `seamFix` | 1 / 1.342 → 1 / 1.289 |
+| `Fresh cloak and tail 20/cloth-01` | 0 | `detached`, `looseAxis`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | `detached`, `looseAxis`, `skinLandmarks` | 1 / 1.922 → 1 / 1.239 |
+| `Fresh cloak and tail 20/cloth-04` | 0 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `authoredMotion`, `keepTorso`, `seamFix` | `skinLandmarks` | 1 / 1.443 → 1 / 1.034 |
+| `Fresh cloak and tail 20/cloth-05` | 0 | `chains`, `heldGeometry`, `skinLandmarks`, `hangingChains`, `rootHeight`, `authoredMotion`, `keepTorso`, `seamFix` | `rootHeight`, `seamFix` | 2 / 2.555 → 2 / 2.133 |
+| `Fresh cloak and tail 20/cloth-06` | 0 | `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 2 / 2.502 → 2 / 2.502 |
+| `Fresh cloak and tail 20/cloth-07` | 0 | `skinLandmarks`, `hangingChains`, `rootHeight`, `trackWindow`, `authoredMotion`, `seamFix` | `skinLandmarks`, `rootHeight`, `seamFix` | 1 / 1.055 → 0 / 0.000 |
+| `Fresh cloak and tail 20/cloth-09` | 0 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | `extraMotion`, `skinLandmarks`, `seamFix` | 1 / 1.032 → 1 / 1.012 |
+| `xfer-pose-handles-review/pose-support-02` | 0 | `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `Auto fix step 2 sheet/humanoid-493` | 2 | `hand`, `detached`, `chains`, `looseAxis`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-03` | 10 | `skinLandmarks`, `rootHeight` | — | 2 / 2.324 → 2 / 2.324 |
+| `xfer-engine-34/pair-04` | 10 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `authoredMotion`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-13` | 9 | `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-07` | 10 | `surfaceGrip`, `skinLandmarks`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-08` | 10 | `skinLandmarks`, `hangingChains`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-22` | 10 | `heldGeometry`, `skinLandmarks`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-14` | 10 | `skinLandmarks`, `rootHeight` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-16` | 10 | `skinLandmarks`, `rootHeight`, `movingCarrier`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-20` | 9 | `gripRouting`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `sewnTorso`, `seamFix` | `skinLandmarks`, `keepTorso` | 2 / 2.939 → 1 / 1.771 |
+| `xfer-engine-34/pair-27` | 10 | — | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-33` | 9 | `skinLandmarks`, `hangingChains`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-four-review/followup-16` | 10 | `extraMotion`, `skinLandmarks`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-four-review/followup-17` | 9 | `heldGeometry`, `extraMotion`, `rootHeight`, `authoredMotion`, `seamFix` | `seamFix` | 2 / 2.068 → 2 / 2.023 |
+| `xfer-fresh-50/fresh-56` | 9 | `heldGeometry`, `extraMotion`, `skinLandmarks`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-fresh-50/fresh-59` | 10 | `skinLandmarks`, `rootHeight`, `keepTorso`, `sewnTorso` | — | 1 / 1.057 → 1 / 1.057 |
+| `xfer-new-models-40/new-08` | 10 | `rootHeight`, `seamFix` | — | 1 / 1.032 → 1 / 1.032 |
+| `xfer-pose-handles-review/pose-support-16` | 10 | `hangingChains` | — | 0 / 0.000 → 0 / 0.000 |
+| `transplant-grade-astra-round1/astra-grade-15` | 9 | `skinLandmarks`, `rootHeight`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-fresh-50/sample-2-055` | 10 | `gripRouting`, `heldGeometry`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `rootHeight`, `keepTorso`, `seamFix` | — | 0 / 0.000 → 0 / 0.000 |
+| `Fresh cloak and tail 20/cloth-02` | 10 | `chains`, `heldGeometry`, `extraMotion`, `skinLandmarks`, `hangingChains`, `rootHeight`, `trackWindow`, `authoredMotion`, `keepTorso`, `seamFix` | — | 1 / 3.429 → 1 / 3.429 |
+
+- The plain score had zero reasons on `xfer-engine-34/pair-02`, `xfer-new-models-40/new-24`, `xfer-engine-34/pair-15`, `transplant-grade/grade-21`, `xfer-engine-34/pair-18`, `xfer-engine-34/pair-31`, `xfer-new-models-40/new-06`, `xfer-pose-handles-review/pose-support-02`, `Auto fix step 2 sheet/humanoid-493`, `xfer-engine-34/pair-04`, `xfer-engine-34/pair-13`, `xfer-engine-34/pair-07`, `xfer-engine-34/pair-08`, `xfer-engine-34/pair-22`, `xfer-engine-34/pair-14`, `xfer-engine-34/pair-16`, `xfer-engine-34/pair-27`, `xfer-engine-34/pair-33`, `xfer-four-review/followup-16`, `xfer-fresh-50/fresh-56`, `xfer-pose-handles-review/pose-support-16`, `transplant-grade-astra-round1/astra-grade-15`, `xfer-fresh-50/sample-2-055`.
+- No changed build improved the plain score on `xfer-engine-34/pair-34`, `Fresh cloak and tail 20/cloth-06`, `xfer-engine-34/pair-03`, `xfer-fresh-50/fresh-59`, `xfer-new-models-40/new-08`, `Fresh cloak and tail 20/cloth-02`.
+
+The desktop row, packaged clicks, and owner review remain at their later checkpoints.

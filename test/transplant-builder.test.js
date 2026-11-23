@@ -95,3 +95,28 @@ test('a model edited in place (same object, new revision) is sent again', () => 
   builder.request({ key: 'b', model, modelKey: '2', donor, donorKey: 'd', options: {} });
   assert.deepEqual(made[0].sent.slice(3).map(m => m.hold || 'job'), ['model', 'job']);
 });
+
+test('a suggestion arrives after the plain result and a new pair cancels the old suggestion', () => {
+  const { made, spawn } = fakeWorkers(), results = [], suggestions = [];
+  const builder = createTransplantBuilder({ spawn, buildHere: () => assert.fail('not here'),
+    onResult: result => results.push(result), onSuggestion: result => suggestions.push(result) });
+  builder.request({ key: 'a', model, donor, options: {}, suggest: true });
+  const first = made[0];
+  assert.equal(first.sent.at(-1).suggest, true);
+  first.finish({ model: { plain: 1 }, report: {} });
+  assert.equal(builder.building, false, 'the plain model is available while its suggestion runs');
+  assert.deepEqual(results.map(result => result.model), [{ plain: 1 }]);
+  assert.deepEqual(suggestions, []);
+
+  builder.request({ key: 'b', model, donor: other, options: {}, suggest: true });
+  assert.equal(first.ended, true, 'stops the old pair even after its plain build');
+  first.finish({ suggestion: { suggested: ['hand'] } });
+  assert.deepEqual(suggestions, []);
+
+  const second = made[1];
+  second.finish({ model: { plain: 2 }, report: {} });
+  const suggestion = { visible: ['chains'], suggested: ['chains'], scores: { plain: [1, 2], suggested: [0, 0] } };
+  second.finish({ suggestion });
+  assert.deepEqual(suggestions, [{ key: 'b', suggestion }]);
+  assert.deepEqual(results.map(result => result.model), [{ plain: 1 }, { plain: 2 }]);
+});

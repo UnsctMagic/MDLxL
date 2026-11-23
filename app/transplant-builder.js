@@ -4,7 +4,7 @@
 // and the donor between builds, so a setting change sends only the options. When no worker can
 // start (or one fails), builds run here instead, after a short wait so the window paints first.
 // Pure of React and the DOM: `spawn` makes a worker, `buildHere(request)` returns { model, report }.
-export function createTransplantBuilder({ spawn, buildHere, onResult, wait = (run, ms) => setTimeout(run, ms), stopWait = clearTimeout }) {
+export function createTransplantBuilder({ spawn, buildHere, onResult, onSuggestion, wait = (run, ms) => setTimeout(run, ms), stopWait = clearTimeout }) {
   let worker = null, held = null, busy = null, latest = null, broken = false, next = 0, timer = null;
   const end = () => { if (worker) { worker.onmessage = worker.onerror = null; worker.terminate(); } worker = null; held = null; busy = null; };
   const deliver = (request, result) => { if (request === latest) { latest = null; onResult({ key: request.key, ...result }); } };
@@ -24,13 +24,21 @@ export function createTransplantBuilder({ spawn, buildHere, onResult, wait = (ru
     worker.onmessage = ({ data }) => {
       const request = busy;
       if (!request || data.id !== request.id) return;
-      busy = null;
+      if (data.suggestion || data.suggestionError != null) {
+        busy = null;
+        const result = data.suggestion ? { suggestion: data.suggestion } : { suggestionError: data.suggestionError };
+        onSuggestion?.({ key: request.key, ...result });
+        return;
+      }
+      if (!request.suggest || data.error != null) busy = null;
       deliver(request, data.error != null ? { error: data.error } : { model: data.model, report: data.report });
     };
     worker.onerror = event => {
       event?.preventDefault?.();
+      const request = busy;
       end(); broken = true;
       if (latest) here(latest);
+      else if (request?.suggest) onSuggestion?.({ key: request.key, suggestionError: event?.message || 'Toggle suggestion worker stopped.' });
     };
     return true;
   };
@@ -43,12 +51,13 @@ export function createTransplantBuilder({ spawn, buildHere, onResult, wait = (ru
       if (was?.value === request[part] && was.key === key) continue;
       worker.postMessage({ hold: part, value: request[part] }); held[part] = { value: request[part], key };
     }
-    busy = request; worker.postMessage({ id: request.id, options: request.options });
+    busy = request;
+    worker.postMessage({ id: request.id, options: request.options, suggest: request.suggest, automaticMirror: request.automaticMirror });
   };
   return {
-    /** Builds `{ key, model, modelKey, donor, donorKey, options }`; onResult({ key, model, report } or { key, error }) when it is still the newest. */
+    /** Delivers the current build through onResult and, when requested, its later suggestion through onSuggestion. */
     request(request) {
-      if (busy && busy.key === request.key) { latest = busy; return; }
+      if (busy?.key === request.key) return;
       latest = { ...request, id: ++next };
       if (broken) here(latest); else send(latest);
     },
