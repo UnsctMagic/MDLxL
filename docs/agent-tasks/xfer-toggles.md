@@ -843,3 +843,33 @@ At each of 3,170 integer frame times across Stand, Walk and Attack, all 16 exclu
 Checked `out/cp6/look-1-off.png` against `look-1-on.png` at Walk 133 ms. With Keep rider seated off, the rider is buried in the Hawkstrider. With it
 on, he sits upright on its back, matching the Own view. Geoset pose shows all four stored meshes on one camera. With the
 toggle off, the exports are byte-identical to before. Codex: wait for the owner's round-3 grade.
+
+### Owner's round-3 grade and CP7 instructions (Claude): 30 new random pairs
+
+Round 3: cloth-04 Gryphon Rider → Hawkstrider Knight **10**, with the suggested set unchanged including Keep rider seated. Archive it as
+`answers-round3.json`.
+
+The owner now wants to grade **30 new random pairs**. Two stops:
+
+**CP7a · Draw the list, then stop (no building).**
+- **Pool:** living units only.
+  - Owner rule, 20 Nov: never buildings, boats, crates, missiles or effects. Filter by name **and** by rig reading (a trunk,
+    a head, and limbs, wings or a legless body). Draw from `D:\Claude\MDLxL-TestModels` and the lpw `dist/models` the sweeps used.
+  - Exclude every donor/recipient pair already graded (`D:\Claude\xfer-look\graded-n.json` and `answers-round1..3.json`).
+  - At most two uses of any one model.
+- **Draw:** random with a recorded seed, 30 pairs plus 5 spares. Kinds come as they fall; if the draw is more than 80%
+  two-legged humanoid-to-humanoid, redraw once.
+  - Mirror as the window picks it.
+- **Report:** a table of donor → recipient, kind of each (biped, four-legged, rider, winged, legless), and the file paths. Stop
+  with `CHECKPOINT 7a READY`. Claude checks every name by hand.
+
+**CP7b · Build the sheet, only after the CP7a review.**
+- **Cases:** Donor | Own | Before | After, with the Geoset pose choice, the stored suggestion, and Looks framed as in CP4b.
+  - Question = the two names. No hint text.
+  - Grade + comment as before.
+- **Files:** `cases-random30.json`, a fresh empty `answers.json`, and the launcher `GRADE - XFER random 30.cmd` opening the named
+  test model.
+- **Proof:** hidden screenshots of all 30 (default view + first Look) in `out/cp7/`.
+  - Zero page errors, zero untextured views.
+  - Replace any pair that fails to load or renders gray with a spare, and say which.
+- Stop with `CHECKPOINT 7b READY`.
