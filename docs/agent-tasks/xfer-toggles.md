@@ -478,3 +478,40 @@ Across these five pairs, fast sampling used **74.2% fewer result moments** and s
 - No changed build improved the plain score on `xfer-engine-34/pair-34`, `Fresh cloak and tail 20/cloth-06`, `xfer-engine-34/pair-03`, `xfer-fresh-50/fresh-59`, `xfer-new-models-40/new-08`, `Fresh cloak and tail 20/cloth-02`.
 
 The desktop row, packaged clicks, and owner review remain at their later checkpoints.
+
+### CP3 review (Claude) · GO, with one rule change done first in CP4
+
+Checked:
+- `src/xfer-suggest-toggles.js` follows the contract.
+- Checker parity is exact on 5 rows.
+- The worker shows the plain build first, and a changed pair cancels the stale suggestion.
+- No filesystem import reaches the app.
+
+**Problem:** the suggestion is empty on 29 of 40 pairs. On 23 of them the look check already scores the plain build 0. That
+covers most of the owner's zeros: pair-15 bow not switched, pair-18 weapon angle, pair-34 weapon floating, pair-31 arms,
+humanoid-493 cloak to tail, pair-02 cloak. The check cannot see those faults; we knew it caught only 37 of 59 bad results. On the sheet,
+"after" would equal "before" for half the low grades, and the owner would see nothing happen.
+
+**Rule change (first thing in CP4, in `suggestToggles`):**
+1. **Targeted repairs** act only where their own fault test fires. If such a key changes the result and does not make the
+   score worse, it is suggested. Add `TARGETED_KEYS` with a one-line comment: these are the keys that changed at most 10 of
+   the 40 smoke pairs: hand, markers, detached, trunk, arms, chains, looseAxis, gripRouting, surfaceGrip, saddleDriver,
+   trackWindow, authoredMotion, movingCarrier, wristGrip, sewnTorso. The six original Auto fix keys are in this set; the owner kept all
+   six on 22 Nov.
+2. **Broad repairs** (skinLandmarks, rootHeight, seamFix, keepTorso, extraMotion, hangingChains, heldGeometry) are suggested
+   only when they lower the score, as now.
+3. **Clashes:** the lower score wins. On a tie, an original Auto fix key wins, then inventory order.
+4. **Keep the combo check.** If the combo scores worse than the plain build, drop the broad keys from it first. Never drop a
+   targeted key.
+5. **Proof:** rerun the 40-pair table with only the "suggested" column and the score. Expected:
+   - pair-15 gets `hand`
+   - pair-34 gets `detached`, `looseAxis`
+   - humanoid-493 gets `hand` / `detached` / `chains` as they fire
+   - pair-18 gets `markers`
+
+   If any of these does not happen, say why in one line.
+
+Timing: up to 64 s per pair in the window is acceptable in the background. While it runs, show a short "Suggesting…" note in
+the row, and nothing else. The sheet uses the stored suggestion.
+
+Then do CP4 as written. Stop before the owner sees anything.
