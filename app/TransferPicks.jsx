@@ -1,11 +1,15 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ToolWindow from './ToolWindow.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
+import TransplantToggles from './TransplantToggles.jsx';
+import { createTransplantBuilder } from './transplant-builder.js';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { useEditorArea } from './editor-area.js';
 import { readPreviewModel } from './transfer-files.js';
 import { buildTransfer, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
-import { jointPath, pathMarker } from '../src/transfer-window.js';
+import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
+import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
@@ -56,6 +60,21 @@ function sequenceByName(model, name) {
 /** Animation names every model has, in the first model's order. */
 const commonNames = models => (models[0]?.Sequences || []).map(sequence => trimmed(sequence.Name)).filter(name => models.every(model => sequenceByName(model, name) >= 0));
 
+function useTransplantView(request) {
+  const [result, setResult] = useState(null), builder = useRef(null);
+  builder.current ||= createTransplantBuilder({
+    spawn: () => new Worker(new URL('./transplant.worker.js', import.meta.url), { type: 'module' }),
+    buildHere: job => transplantSkeleton(job.model, job.donor, transplantRepairOptions(job.model, job.donor, job.options)),
+    onResult: setResult,
+  });
+  useEffect(() => () => builder.current.dispose(), []);
+  useEffect(() => {
+    if (request) builder.current.request(request);
+    else builder.current.cancel();
+  }, [request?.key]);
+  return result;
+}
+
 function PickSheet({ sheet, teamColor, onClose }) {
   const dialog = useRef(null);
   useEditorArea(dialog);
@@ -65,7 +84,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
   const [problem, setProblem] = useState('');
   const item = cases[index];
   const done = !sheet.error && index >= cases.length;
-  const fileCase = item?.kind === 'file';
+  const transplantCase = item?.kind === 'transplant';
+  const fileCase = transplantCase || item?.kind === 'file';
 
   // Models of the shown case: recipe cases read the case model and its donors, file cases each
   // variant's file, all with their textures.
@@ -81,6 +101,12 @@ function PickSheet({ sheet, teamColor, onClose }) {
     let live = true; setLoaded(null);
     (async () => {
       try {
+        if (item.kind === 'transplant') {
+          const { recipient, donor } = item.variants[1].transplant;
+          const [own, source] = await Promise.all([read(recipient), read(donor)]);
+          if (live) setLoaded({ id: item.id, own, donor: source });
+          return;
+        }
         if (item.kind === 'file') {
           const records = {};
           for (const variant of item.variants) records[variant.id] = await read(variant.file);
@@ -96,8 +122,20 @@ function PickSheet({ sheet, teamColor, onClose }) {
   }, [item?.id]);
   const ready = !!item && loaded?.id === item.id && !loaded.error;
 
+  const checked = transplantCase ? answers[item.id]?.toggles ?? item.suggestion.suggested : [];
+  const liveRequest = (variant, keys) => ready && transplantCase ? {
+    key: item.id + '|' + variant.id + '|' + keys.join(','),
+    model: loaded.own.model, donor: loaded.donor.model,
+    modelKey: variant.transplant.recipient, donorKey: variant.transplant.donor,
+    options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false },
+  } : null;
+  const beforeRequest = liveRequest(item?.variants[1], []);
+  const afterRequest = liveRequest(item?.variants[2], checked);
+  const before = useTransplantView(beforeRequest), after = useTransplantView(afterRequest);
+  const afterReady = afterRequest && after?.key === afterRequest.key && !!after.model;
+
   // File cases: the animation every view plays, by name; the row lists the case's names or those all share.
-  const names = useMemo(() => !fileCase || !ready ? [] : item.sequences.length ? item.sequences : commonNames(item.variants.map(variant => loaded.files[variant.id].model)), [item?.id, ready]);
+  const names = useMemo(() => !fileCase || !ready ? [] : item.sequences.length ? item.sequences : commonNames(transplantCase ? [loaded.donor.model] : item.variants.map(variant => loaded.files[variant.id].model)), [item?.id, ready]);
   const [animation, setAnimation] = useState('');
   useEffect(() => { setAnimation(names[0] || ''); }, [names]);
 
@@ -109,9 +147,23 @@ function PickSheet({ sheet, teamColor, onClose }) {
     return Object.entries(letters).map(([letter, id]) => {
       const variant = item.variants.find(entry => entry.id === id), label = variant.label;
       if (fileCase) {
-        const record = loaded.files[id], sequenceIndex = sequenceByName(record.model, animation);
+        let record = loaded.files?.[id], path = variant.file, revision;
+        if (transplantCase) {
+          if (id === 'donor') record = loaded.donor;
+          else {
+            const result = id === 'before' ? before : after;
+            if (!result?.key.startsWith(item.id + '|') || !result.model) {
+              return { letter, id, label, error: result?.key.startsWith(item.id + '|') ? result.error : 'Building…' };
+            }
+            const effects = variant.transplant.options.emitters;
+            record = { model: result.model, assets: effects ? new Map([...loaded.own.assets, ...loaded.donor.assets]) : loaded.own.assets };
+            path = variant.transplant.recipient;
+            revision = result.key;
+          }
+        }
+        const sequenceIndex = sequenceByName(record.model, animation);
         if (sequenceIndex < 0) return { letter, id, label, error: `No "${animation}" animation in this model.` };
-        return { letter, id, label, preview: { model: record.model, sequenceIndex }, assets: record.assets, path: variant.file, interval: record.model.Sequences[sequenceIndex].Interval };
+        return { letter, id, label, preview: { model: record.model, sequenceIndex }, assets: record.assets, path, revision, interval: record.model.Sequences[sequenceIndex].Interval };
       }
       const model = loaded.model.model, sources = new Map(Object.entries(loaded.donors).map(([key, record]) => [key, record.model]));
       try {
@@ -122,7 +174,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
         return { letter, id, label, preview: made, assets: loaded.model.assets, path: item.model, interval: own.Interval };
       } catch (error) { return { letter, id, label, error: error.message || 'This variant could not be built.' }; }
     });
-  }, [item?.id, ready, loaded, letters, animation]);
+  }, [item?.id, ready, loaded, letters, animation, before, after]);
 
   // Flip: two variants in one place, on the same camera and clock; held key or button, or every 0.5 s.
   const [flip, setFlip] = useState(false), [pair, setPair] = useState([]), [second, setSecond] = useState(false), [auto, setAuto] = useState(false);
@@ -226,7 +278,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
   useEffect(() => { setComment(item ? answersRef.current[item.id]?.comment ?? '' : ''); }, [item?.id]);
   const grade = async value => {
     if (!item) return;
-    const next = withGrade(answersRef.current, item, { grade: value, comment });
+    const next = withGrade(answersRef.current, item, { grade: value, comment, toggles: transplantCase ? checked : undefined });
     try { await write(next); }
     catch (error) { setProblem(`The grade was not saved: ${error.message}`); return; }
     answersRef.current = next; setProblem(''); setAnswers(next); setIndex(i => i + 1);
@@ -234,9 +286,15 @@ function PickSheet({ sheet, teamColor, onClose }) {
   const typeComment = text => {
     setComment(text);
     if (!item) return;
-    const next = withGrade(answersRef.current, item, { comment: text });
+    const next = withGrade(answersRef.current, item, { comment: text, toggles: transplantCase ? checked : undefined });
     answersRef.current = next; setAnswers(next);
     write(next).then(() => setProblem(''), error => setProblem(`The comment was not saved: ${error.message}`));
+  };
+  const changeRepair = (key, enabled) => {
+    const toggles = toggleRepair(answersRef.current[item.id]?.toggles ?? item.suggestion.suggested, key, enabled);
+    const next = withGrade(answersRef.current, item, { toggles });
+    answersRef.current = next; setAnswers(next);
+    write(next).then(() => setProblem(''), error => setProblem('The repairs were not saved: ' + error.message));
   };
   const back = () => { setProblem(''); setIndex(i => Math.max(0, i - 1)); };
   const picked = item ? answers[item.id]?.pick : null;
@@ -293,19 +351,21 @@ function PickSheet({ sheet, teamColor, onClose }) {
             <label className="xp-auto"><input type="checkbox" checked={auto} onChange={event => setAuto(event.target.checked)}/>Every 0.5 s</label>
           </>}
         </div>
-        <div className={`xp-views${flip ? ' xp-flipping' : ''}`} style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+        <div className={`xp-views${transplantCase ? ' xp-transplant' : ''}${flip ? ' xp-flipping' : ''}`} style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
           {!ready ? (loaded?.id === item.id && loaded.error ? <div className="xp-message" role="alert">{loaded.error}</div> : <div className="xf-placeholder xp-loading">Loading models…</div>)
-            : views.map(view => {
+            : views.map((view, position) => {
               const on = active(view), shown = !flip || view.id === shownId, start = view.interval?.[0] ?? 0, time = Math.min(view.interval?.[1] ?? 0, start + clock), marked = paths[view.id];
               const overlay = marked?.found.length ? marked.found.map(path => ({ points: path.points, motion: true, width: 3, alpha: .95, marker: pathMarker(path.frames, time) })) : undefined;
-              return <section key={`${item.id}:${view.id}`} className={`xp-view${shown ? '' : ' xp-off'}`} aria-label={`Variant ${view.letter}`} aria-hidden={shown ? undefined : true}>
+              return <section key={`${item.id}:${view.id}`} className={`xp-view${shown ? '' : ' xp-off'}`} aria-label={transplantCase ? view.label : `Variant ${view.letter}`} aria-hidden={shown ? undefined : true}
+                style={transplantCase && !flip ? { gridColumn: position+1 } : undefined} data-transplant-pane={transplantCase ? view.id : undefined} data-transplant-revision={view.revision}>
+                {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair}/> }
                 <div className="xf-preview">
-                  <span className="xp-letter" aria-hidden="true">{view.letter}</span>
+                  {!transplantCase && <span className="xp-letter" aria-hidden="true">{view.letter}</span>}
                   {view.label && <span className="xp-label">{view.label}</span>}
                   {marked?.none && <span className="xp-missing">Not in this model</span>}
                   {view.preview ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                     <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox={fileCase ? 'rest' : true} showGrid={false} showAxes={false} preserveCameraView
-                      model={view.preview.model} revision={`${item.id}|${view.id}`} textureAssets={view.assets} modelPath={view.path} teamColor={teamColor}
+                      model={view.preview.model} revision={view.revision ?? `${item.id}|${view.id}`} textureAssets={view.assets} modelPath={view.path} teamColor={teamColor}
                       sequenceIndex={view.preview.sequenceIndex} time={time} onTimeChange={view === reporter ? onReport : undefined} playing={playing} playbackSpeed={speed} loop
                       playbackRange={look ? [start + look.from, start + look.to] : undefined} overlayPaths={overlay} suspended={!on}
                       compareCamera={fileCase ? undefined : camera} turnCamera={fileCase ? camera : undefined} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
@@ -322,7 +382,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
           <textarea rows={3} value={comment} onChange={event => typeComment(event.target.value)}/></label>}
         <div className="xp-footer">
           {item.grade ? <div className="xp-grades" role="group" aria-label="Grade">
-            {GRADES.map(value => <button key={value} className="xp-answer" aria-pressed={graded === value} title={value === 0 ? 'Unacceptable' : value === 10 ? 'Perfect' : undefined} onClick={() => grade(value)}>{String(value)}</button>)}
+            {GRADES.map(value => <button key={value} className="xp-answer" aria-pressed={graded === value} disabled={transplantCase && !afterReady} title={value === 0 ? 'Unacceptable' : value === 10 ? 'Perfect' : undefined} onClick={() => grade(value)}>{String(value)}</button>)}
           </div>
           : choices.length ? choices.map(choice => <button key={choice.id} className="xp-answer" aria-pressed={picked === choice.id} onClick={() => answer(choice.id)}>{choice.label}</button>)
             : <>

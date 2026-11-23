@@ -515,3 +515,94 @@ Timing: up to 64 s per pair in the window is acceptable in the background. While
 the row, and nothing else. The sheet uses the stored suggestion.
 
 Then do CP4 as written. Stop before the owner sees anything.
+
+### CP4 report (Codex)
+
+#### CP3 review replay
+
+Targeted repairs now qualify on ties. Broad repairs still need a lower score. Exclusions prefer the lower score, then the original six repairs, then inventory order. If the combo scores worse than plain, it is rebuilt without the broad repairs. Prior grades do not enter the decision.
+
+All 40 rows ran. The engine suggested a repair on 22 rows. Suggested scores improved on 11 and tied on 29. Score is reason count / summed value-to-limit ratio.
+
+| Pair | Suggested | Plain → suggested score |
+|---|---|---:|
+| `xfer-engine-34/pair-02` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-new-models-40/new-24` | `chains` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-12` | `hand`, `skinLandmarks` | 1 / 2.150 → 0 / 0.000 |
+| `xfer-engine-34/pair-15` | `hand`, `surfaceGrip` | 0 / 0.000 → 0 / 0.000 |
+| `transplant-grade/grade-21` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-18` | `markers`, `surfaceGrip` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-31` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-34` | — | 1 / 1.087 → 1 / 1.087 |
+| `xfer-new-models-40/new-06` | `trackWindow` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-new-models-40/new-11` | `gripRouting`, `surfaceGrip`, `hangingChains` | 1 / 1.086 → 0 / 0.000 |
+| `xfer-new-models-40/new-20` | `seamFix` | 3 / 5.576 → 3 / 4.195 |
+| `xfer-new-models-40/new-30` | `skinLandmarks`, `trackWindow`, `seamFix` | 1 / 1.342 → 1 / 1.289 |
+| `Fresh cloak and tail 20/cloth-01` | `detached`, `looseAxis`, `skinLandmarks` | 1 / 1.922 → 1 / 1.239 |
+| `Fresh cloak and tail 20/cloth-04` | `skinLandmarks`, `hangingChains`, `rootHeight`, `authoredMotion`, `keepTorso` | 1 / 1.443 → 1 / 1.226 |
+| `Fresh cloak and tail 20/cloth-05` | `rootHeight`, `authoredMotion`, `seamFix` | 2 / 2.555 → 2 / 2.133 |
+| `Fresh cloak and tail 20/cloth-06` | — | 2 / 2.502 → 2 / 2.502 |
+| `Fresh cloak and tail 20/cloth-07` | `skinLandmarks`, `rootHeight`, `trackWindow`, `seamFix` | 1 / 1.055 → 0 / 0.000 |
+| `Fresh cloak and tail 20/cloth-09` | `extraMotion`, `skinLandmarks`, `seamFix` | 1 / 1.032 → 1 / 1.012 |
+| `xfer-pose-handles-review/pose-support-02` | — | 0 / 0.000 → 0 / 0.000 |
+| `Auto fix step 2 sheet/humanoid-493` | `hand`, `detached`, `chains`, `looseAxis` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-03` | — | 2 / 2.324 → 2 / 2.324 |
+| `xfer-engine-34/pair-04` | `authoredMotion` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-13` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-07` | `surfaceGrip` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-08` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-22` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-14` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-16` | `movingCarrier` | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-20` | `gripRouting`, `surfaceGrip`, `skinLandmarks`, `keepTorso` | 2 / 2.939 → 1 / 1.771 |
+| `xfer-engine-34/pair-27` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-engine-34/pair-33` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-four-review/followup-16` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-four-review/followup-17` | `authoredMotion`, `seamFix` | 2 / 2.068 → 2 / 2.023 |
+| `xfer-fresh-50/fresh-56` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-fresh-50/fresh-59` | `sewnTorso` | 1 / 1.057 → 1 / 1.057 |
+| `xfer-new-models-40/new-08` | — | 1 / 1.032 → 1 / 1.032 |
+| `xfer-pose-handles-review/pose-support-16` | — | 0 / 0.000 → 0 / 0.000 |
+| `transplant-grade-astra-round1/astra-grade-15` | — | 0 / 0.000 → 0 / 0.000 |
+| `xfer-fresh-50/sample-2-055` | `gripRouting` | 0 / 0.000 → 0 / 0.000 |
+| `Fresh cloak and tail 20/cloth-02` | `trackWindow` | 1 / 3.429 → 1 / 3.429 |
+
+- Paladin `pair-34` shows both `detached` and `looseAxis`. Each kept one reason and raised its ratio, from 1.087 plain to 1.212 and 1.338 respectively, so neither was suggested.
+- The background Node replay took a median 20.7 s per pair. The slowest was `Fresh cloak and tail 20/cloth-02` at 160.7 s under parallel load. The sheet reads stored suggestions.
+
+#### Review sheet
+
+| Case | Donor → recipient | Prior grade | Reason |
+|---|---|---:|---|
+| `pair-34` | Knightess → Unsanctioned Paladin | 0 | Separate sword floating away from the hand. |
+| `pair-15` | Bretonnian Archer → Ungor Bow | 0 | Bow held in the quiver hand. |
+| `pair-18` | Forest Troll Pillager → Luc Valonforth | 0 | Hammer angle and grip. |
+| `humanoid-493` | Human Mage → Blowpipe Skink | 2 | Blowpipe and the donor cloak on the Skink tail. |
+| `cloth-01` | Elven Executioner → Zweihander Knight | 0 | Cloth and weapon motion on the Zweihander Knight. |
+| `cloth-04` | Gryphon Rider → Hawkstrider Knight | 0 | Rider and mount motion during the swing. |
+| `cloth-05` | Dwarf Demon Huntress → Bonelord | 0 | Bonelord cloak and shoulder motion. |
+| `cloth-06` | Raccoon → Giant Arctic Rat | 0 | Arctic Rat front legs in motion. |
+| `cloth-07` | Silverpaw Marksman → Magnataur | 0 | Magnataur cloth and underbody motion. |
+| `cloth-09` | Thanatos Serpent → Ironclaw Beast | 0 | Ironclaw tail and trunk motion. |
+| `pair-03` | Skink Worker → Banisher | 10 | High-grade humanoid control. |
+| `new-08` | Azure Dragon Whelp → Faerie Dragon | 10 | High-grade winged control. |
+| `fresh-56` | Norse Elementalist → Witch | 9 | High-grade staff control. |
+| `followup-17` | Grizzly Bear → Tauren | 9 | High-grade four-footed control. |
+| `pair-27` | Limb Snapper → Toxic Snapper | 10 | High-grade reptile control. |
+| `humanoid-500` | Graveguard → Spanish Swordsman | Ungraded | Torso seam across several donor levels. |
+| `humanoid-912` | Felguard → Murloc | Ungraded | Two torso hinges on a small recipient. |
+| `humanoid-227` | Arthas → Bretonnian Pikeman | Ungraded | Linked spine stretch in Walk. |
+| `humanoid-993` | Chaos Wolf Rider → Goblin Alchemist | Ungraded | Rider and mount seam in Attack. |
+| `panel-36` | Frost Wyrm → Green Dragon | Ungraded | Winged control with a flying donor. |
+
+The ten low-grade cases display the original comments. The five ungraded cases came from saved sweep inputs. Their exact recipient/donor MDX hash pairs were checked against the available historical grade inputs. Five historical input entries could not be matched to a local model file. No new sweep was run.
+
+#### Package and verification
+
+- `D:\Claude\MDLxL\TestBuilds\transfer-xl-35` contains the offline Electron 40.8.0 package, `cases.json` and an empty `answers.json`. The package verified 1,680 runtime and asset files and preserved 55 locale files.
+- Claude can open `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - XFER toggles 20.cmd`. It opens `D:\Claude\MDLxL\TestBuilds\test-models\XFER Toggles\TEST XFER TOGGLES 01.mdx` and the review sheet. The standalone model and its textures match the source files by SHA-256.
+- The three focused source files passed 46/46 tests. The new live-sheet parser test fails on the CP3 revision because it cannot read a transplant variant. The hidden Luc regression passed all three checks, including applying and undoing a repair.
+- In the final package, the hidden Transfer run clicked 21 distinct repairs over 10 case openings, including the supplemental fixtures. The hidden sheet opened all 20 review cases and four disposable cases, and clicked 21 distinct repairs. It saved grades, the test comment and both repair lists to disposable answers. Real mouse drag rotated both views. A paused render kept its exact playback frame and camera through repair rebuilds. The tests also exercised the no-change row, background suggestion status, exclusions, the loose blade dependency and the existing Look controls.
+- The window row and the sheet row each stayed on one line. The window frame check was repeated with the Pause state confirmed after an initial assertion sampled live playback.
+- `saddleDriver` is the only key without a packaged click in either view. It changed none of the 40 smoke pairs, and the historical mounted #40 comparison also remained byte-identical. There is no eligible checkbox to click on these fixtures. The packaged supplemental `arms` and `trunk` cases retain their known input global-sequence faults and were used for UI coverage only.
+- The transplant engine source stayed at its CP2 revision. CP4 reused the CP2 all-off byte comparison. No full suite, fresh 888-pair sweep or Warcraft III run was performed. The local-only package and sheet are for Claude’s review. Owner grading is pending.

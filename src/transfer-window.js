@@ -4,6 +4,8 @@
 import { Matrix4, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices } from './animation.js';
 import { transferRig, transferWholeBody } from './anim-transfer.js';
+import { standSequenceIndex } from './sequence-editor.js';
+import { autoFixMirror } from './transplant-autofix.js';
 
 const CHIP_ORDER = ['head', 'chest', 'hips', 'armL', 'armR', 'legL', 'legR', 'wingL', 'wingR', 'tail'];
 
@@ -378,6 +380,19 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase, feature
 export function transplantOptions({ sounds = true, effects = false, keep = [], mirror = false, autoFix = false } = {}, extras = null) {
   const offered = extras ? new Set(extras.map(extra => extra.id)) : null;
   return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror, ...(autoFix ? { autoFix } : {}) };
+}
+
+/** Use the same automatic Mirror choice for the trial and the result it recommends. */
+export function transplantRepairOptions(model, donor, options = {}, automaticMirror = options.mirror == null) {
+  if (!automaticMirror) return options;
+  const fix = options.autoFix;
+  if (fix?.heldGeometry) return { ...options, mirror: null };
+  if (options.mirror != null && !fix?.hand) return options;
+  const ownRig = rigFor(model, Math.max(0, standSequenceIndex(model)));
+  const donorRig = rigFor(donor, Math.max(0, standSequenceIndex(donor)));
+  const named = options.mirror ?? !!(ownRig?.weaponSide && donorRig?.weaponSide && ownRig.weaponSide !== donorRig.weaponSide);
+  const mirror = fix?.hand && ownRig?.ok && donorRig?.ok ? autoFixMirror(model, ownRig, donor, donorRig) ?? named : named;
+  return { ...options, mirror };
 }
 
 /** The transplanted model's animation that matches the donor's `sequence`: the one of the same

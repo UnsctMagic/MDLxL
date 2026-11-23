@@ -9,7 +9,7 @@ import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset, worldPivot } from 
 import { vertexBones } from './part-bones.js';
 import { isWeaponName } from './rig-names.js';
 
-const LEGACY_AUTO_FIX_KEYS = ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains'];
+export const LEGACY_AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
 export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
@@ -26,6 +26,22 @@ export const TOGGLE_CLASHES = Object.freeze([
   ['trunk', 'skinLandmarks'],
 ].map(group => Object.freeze(group)));
 export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']) });
+
+/** Toggle one repair, applying the same clashes and dependencies in both views. */
+export function toggleRepair(keys, key, checked) {
+  const selected = new Set(keys);
+  if (checked) {
+    for (const clash of TOGGLE_CLASHES.find(group => group.includes(key)) ?? []) selected.delete(clash);
+    selected.add(key);
+    for (const need of TOGGLE_NEEDS[key] ?? []) selected.add(need);
+  } else {
+    selected.delete(key);
+    for (const [dependent, needs] of Object.entries(TOGGLE_NEEDS)) if (needs.includes(key)) selected.delete(dependent);
+  }
+  return AUTO_FIX_KEYS.filter(item => selected.has(item));
+}
+
+export const repairFlags = keys => Object.fromEntries(keys.map(key => [key, true]));
 
 export const AUTO_FIX_LABELS = Object.freeze({
   hand: ['Weapon hand', 'Mirrors the donor when the two models hold their weapons in different hands.'],

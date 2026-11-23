@@ -1,16 +1,12 @@
-// Auto fix in the Transplant settings, clicked in the app (docs/agent-tasks/xfer-auto-fix.md). Luc Valonforth takes the
-// Forest Troll Pillager (the owner's pair-18: "the weapon and angles are wrong ... offer users an AUTO FIX"): the checkbox
-// is off when the window opens, ticking it rebuilds the result and says what it corrected, unticking it takes that back,
-// and Transplant with it on is one Undo. Disposable profile and model copies under out/. Run it hidden:
-// MDLXL_PLAYWRIGHT_MODULE=<playwright-core> MDLXL_TEST_EXE=<MDLxL.exe> node test/transplant-autofix.electron.cjs
+// Click the suggested Grip markers repair in Transplant on Luc Valonforth, then apply it and Undo.
+// Run hidden using the shared packaged-app launcher.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { launchApp, closeApp, stubDialogs } = require('./helpers/app.cjs');
 const { fixturePath } = require('./helpers/fixtures.cjs');
 
 const out = path.resolve(process.env.MDLXL_AUTOFIX_OUT || 'out/transplant-autofix-ui');
 const results = { checks: [], screenshots: [] };
-const watchdog = setTimeout(() => { console.error('Auto fix harness timed out'); process.exit(3); }, Number(process.env.MDLXL_AUTOFIX_TIMEOUT || 420000));
-const NOTE = 'Weapon set by its real grip and tip.';
+const watchdog = setTimeout(() => { console.error('Transplant repairs harness timed out'); process.exit(3); }, Number(process.env.MDLXL_AUTOFIX_TIMEOUT || 420000));
 
 (async () => {
   fs.mkdirSync(out, { recursive: true });
@@ -23,10 +19,20 @@ const NOTE = 'Weapon set by its real grip and tip.';
     const dialog = page.getByRole('dialog', { name: 'Transfer' });
     const shot = async name => { const file = path.join(out, name + '.png'); await page.screenshot({ path: file }); results.screenshots.push(file); };
     const noCrash = async where => { assert.equal(await page.locator('[data-error-boundary],.error-boundary').count(), 0, `error screen at ${where}`); assert.deepEqual(errors, [], `page errors at ${where}`); };
-    // The result view has its model and is not rebuilding.
-    const built = async () => { await dialog.locator('[data-transplant-view] .game-preview-root').waitFor({ timeout: 120000 }); await dialog.locator('[data-transplant-building]').waitFor({ state: 'detached', timeout: 120000 }); await page.waitForTimeout(400); };
-    const box = () => dialog.getByRole('checkbox', { name: 'Auto fix' });
-    const notes = () => dialog.locator('aside[aria-label="Transplant"] p.xf-reason').allInnerTexts();
+    const state = () => page.evaluate(() => window.__mdlxl.transfer()?.transplant);
+    const built = previous => page.waitForFunction(old => {
+      const view = window.__mdlxl.transfer()?.transplant;
+      return view?.ready && !view.building && view.resultKey !== old;
+    }, previous ?? null, {timeout:120000});
+    const box = () => dialog.locator('input[data-repair="markers"]');
+    const clickRepair = async () => {
+      const {resultKey} = await state();
+      await box().scrollIntoViewIfNeeded();
+      const b = await box().boundingBox();
+      assert.ok(b);
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+      await built(resultKey);
+    };
     const nodes = () => page.evaluate(() => { const m = window.__mdlxl.model(); return [m.Bones, m.Helpers].flat().filter(Boolean).length; });
 
     await page.locator('button.transfer-tool').click(); await dialog.waitFor(); await page.waitForTimeout(800);
@@ -34,31 +40,30 @@ const NOTE = 'Weapon set by its real grip and tip.';
     await stubDialogs(app, { open: troll });
     await dialog.locator('aside[aria-label="From"]').getByRole('button', { name: 'Open file...' }).click();
     await built();
-    assert.equal(await box().isChecked(), false, 'Auto fix is off when the window opens');
-    assert.ok(!(await notes()).includes(NOTE), 'off: no Auto fix line');
-    await shot('01-auto-fix-off'); await noCrash('plain result');
-    results.checks.push('Auto fix is off by default; the plain result builds');
+    await box().waitFor({timeout:120000});
+    await built();
+    assert.ok(await box().isChecked(), 'the suggested Grip markers starts checked');
+    await noCrash('suggested repair');
+    await shot('01-grip-markers-suggested');
+    results.checks.push('the suggested Grip markers repair is ticked automatically');
 
-    await box().check(); await page.waitForTimeout(300); await built();
-    await dialog.locator('aside[aria-label="Transplant"] p.xf-reason', { hasText: NOTE }).waitFor({ timeout: 60000 });
-    await shot('02-auto-fix-on'); await noCrash('Auto fix on');
-    results.checks.push('ticking Auto fix rebuilds the result and lists the weapon correction');
+    await clickRepair();
+    assert.equal(await box().isChecked(),false);
+    assert.equal((await state()).options.autoFix?.markers,undefined);
+    await noCrash('Grip markers off');
+    results.checks.push('unticking Grip markers rebuilds without that key');
 
-    await box().uncheck(); await page.waitForTimeout(300); await built();
-    assert.ok(!(await notes()).includes(NOTE), 'off again: the line is gone');
-    await noCrash('Auto fix off again');
-    results.checks.push('unticking takes the line and the correction back');
-
-    // Transplant with Auto fix on, then one Undo.
-    await box().check(); await page.waitForTimeout(300); await built();
+    await clickRepair();
+    assert.ok(await box().isChecked());
+    assert.equal((await state()).options.autoFix.markers,true);
     const before = await nodes();
     await dialog.locator('button[data-hotkey="transfer:transplant"]').click();
     await page.waitForFunction(count => { const m = window.__mdlxl.model(); return [m.Bones, m.Helpers].flat().filter(Boolean).length !== count; }, before, { timeout: 120000 });
-    await page.waitForTimeout(800); await shot('03-transplanted'); await noCrash('Transplant with Auto fix');
+    await page.waitForTimeout(800); await shot('03-transplanted'); await noCrash('Transplant with Grip markers');
     await dialog.getByRole('button', { name: 'Close Transfer' }).click(); await page.waitForTimeout(300);
     await page.keyboard.press('Control+Z'); await page.waitForFunction(count => { const m = window.__mdlxl.model(); return [m.Bones, m.Helpers].flat().filter(Boolean).length === count; }, before, { timeout: 60000 });
     await noCrash('Undo');
-    results.checks.push('Transplant with Auto fix on swaps the model in; one Undo restores it');
+    results.checks.push('Transplant with Grip markers swaps the model in and one Undo restores it');
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
     console.log('PASS', results.checks.length, 'checks'); for (const line of results.checks) console.log(' -', line);
   } catch (error) {

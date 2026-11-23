@@ -2,6 +2,7 @@
 // Contract: docs/agent-tasks/transfer-xl.md "Pick sheet as built".
 
 import { allNodes } from './animation.js';
+import { AUTO_FIX_KEYS } from './transplant-autofix.js';
 
 export const LETTERS = ['A', 'B', 'C', 'D'];
 /** Viewing speeds a look may ask for: the strip's own list, so its menu always shows the value. */
@@ -11,6 +12,8 @@ const MODEL_FILE = /\.(?:mdx|mdl)$/i;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 const RESERVED = new Set(['same', 'none']);
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+const modelFile = file => typeof file === 'string' && ABSOLUTE.test(file) && MODEL_FILE.test(file);
+const repairList = keys => Array.isArray(keys) && new Set(keys).size === keys.length && keys.every(key => AUTO_FIX_KEYS.includes(key));
 const isIndex = value => Number.isInteger(value) && value >= 0;
 const text = value => typeof value === 'string' && value.trim().length > 0;
 
@@ -50,6 +53,15 @@ export function parseCases(source) {
       variantIds.add(variant.id);
       if (variant.label != null && typeof variant.label !== 'string') throw new Error(`${at}: "label" must be text.`);
       const label = typeof variant.label === 'string' ? variant.label.trim() : '';
+      if (variant.transplant != null) {
+        const transplant = variant.transplant;
+        if (variant.file != null || variant.recipe != null || !isObject(transplant) ||
+            !modelFile(transplant.recipient) || !modelFile(transplant.donor) ||
+            transplant.options != null && !isObject(transplant.options)) {
+          throw new Error(at + ': transplant needs recipient and donor model paths and optional options.');
+        }
+        return { id: variant.id, label, transplant: { recipient: transplant.recipient, donor: transplant.donor, options: transplant.options ?? {} } };
+      }
       if (variant.file != null && variant.recipe != null) throw new Error(`${at}: give "file" or "recipe", not both.`);
       if (variant.file != null) {
         if (!text(variant.file) || !ABSOLUTE.test(variant.file) || !MODEL_FILE.test(variant.file)) throw new Error(`${at}: "file" must be the absolute path of an .mdx or .mdl file.`);
@@ -66,6 +78,21 @@ export function parseCases(source) {
       }
       return { id: variant.id, label, recipe };
     });
+    if (variants.some(variant => variant.transplant)) {
+      const [donor, before, after] = variants;
+      if (variants.length !== 3 || donor.id !== 'donor' || before.id !== 'before' || after.id !== 'after' ||
+          !donor.file || !before.transplant || !after.transplant ||
+          donor.file !== before.transplant.donor || donor.file !== after.transplant.donor ||
+          before.transplant.recipient !== after.transplant.recipient) {
+        throw new Error(where + ': expected Donor, Before and After for the same transplant pair.');
+      }
+      const suggestion = item.suggestion;
+      if (!isObject(suggestion) || !repairList(suggestion.visible) || !repairList(suggestion.suggested)) {
+        throw new Error(where + ': a saved repair suggestion is required.');
+      }
+      return { id: item.id, question: item.question.trim(), hint: typeof item.hint === 'string' ? item.hint.trim() : '',
+        model: item.model, donors: { ...donors }, kind: 'transplant', variants, suggestion, ...compareFields(item, where, 'transplant', variantIds) };
+    }
     const kind = variants[0].file ? 'file' : 'recipe';
     if (variants.some(variant => (variant.file ? 'file' : 'recipe') !== kind)) throw new Error(`${where}: variants must all be files or all recipes.`);
     return { id: item.id, question: item.question.trim(), hint: typeof item.hint === 'string' ? item.hint.trim() : '', model: item.model, donors: { ...donors }, kind, variants, ...compareFields(item, where, kind, variantIds) };
@@ -85,7 +112,7 @@ function compareFields(item, where, kind, variantIds) {
   if (!Array.isArray(sequences) || sequences.some(name => !text(name))) throw new Error(`${where}: "sequences" must be a list of animation names.`);
   const looks = item.looks ?? [];
   if (!Array.isArray(looks)) throw new Error(`${where}: "looks" must be a list.`);
-  if ((looks.length || sequences.length) && kind !== 'file') throw new Error(`${where}: "looks" and "sequences" need file variants.`);
+  if ((looks.length || sequences.length) && kind === 'recipe') throw new Error(`${where}: "looks" and "sequences" need file variants.`);
   const time = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
   const parsedLooks = looks.map((look, l) => {
     const at = `${where}, look ${l + 1}`;
@@ -166,7 +193,7 @@ function seeded(seed) {
  * File variants (labelled, compared rather than picked blind) keep the case's order. */
 export function caseLetters(item) {
   const ids = item.variants.map(variant => variant.id), random = seeded(item.id);
-  if (item.kind === 'file') return Object.fromEntries(ids.map((id, i) => [LETTERS[i], id]));
+  if (item.kind !== 'recipe') return Object.fromEntries(ids.map((id, i) => [LETTERS[i], id]));
   for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
   return Object.fromEntries(ids.map((id, i) => [LETTERS[i], id]));
 }
@@ -182,10 +209,16 @@ export const GRADES = Array.from({ length: 11 }, (_, i) => i);
 
 /** The answers with a grade case's grade and/or comment changed: { grade: 0-10 or null, comment, at }; the part not
  * given keeps its saved value. */
-export function withGrade(answers, item, { grade, comment } = {}, at = new Date().toISOString()) {
+export function withGrade(answers, item, { grade, comment, toggles } = {}, at = new Date().toISOString()) {
   if (grade !== undefined && grade !== null && !GRADES.includes(grade)) throw new Error('The grade must be a whole number from 0 to 10.');
   const old = answers[item.id] || {};
-  return { ...answers, [item.id]: { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null, comment: comment !== undefined ? String(comment) : typeof old.comment === 'string' ? old.comment : '', at } };
+  const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
+    comment: comment !== undefined ? String(comment) : old.comment ?? '', at };
+  if (item.kind === 'transplant') {
+    entry.toggles = [...(toggles ?? old.toggles ?? item.suggestion.suggested)];
+    entry.suggested = [...item.suggestion.suggested];
+  }
+  return { ...answers, [item.id]: entry };
 }
 
 /** The answers with one case answered: a variant id, 'same' or 'none'. */

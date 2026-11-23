@@ -286,7 +286,6 @@
   {"id":"transfer:add-all","label":"Add all","group":"transfer","category":"Transfer"},
   {"id":"transfer:add-animation","label":"Add animation","group":"transfer","category":"Transfer"},
   {"id":"transfer:all-taken-parts","label":"All taken parts","group":"transfer","category":"Transfer"},
-  {"id":"transfer:auto-fix","label":"Auto fix","group":"transfer","category":"Transfer"},
   {"id":"transfer:avoid-body","label":"Keep arm out of the body","group":"transfer","category":"Transfer"},
   {"id":"transfer:body-animation","label":"Body animation","group":"transfer","category":"Transfer"},
   {"id":"transfer:both-hands","label":"Both hands on the weapon","group":"transfer","category":"Transfer"},

@@ -60,6 +60,9 @@
 .transfer-xl .xf-slider .range-field-head>output{grid-column:3;grid-row:1;text-align:right;font-variant-numeric:tabular-nums}
 .transfer-xl .xf-slider .range-input{grid-column:2;grid-row:1;min-width:0;margin:0;height:16px}
 .transfer-xl .xf-slider .range-field-ends{grid-column:2;grid-row:2;font-size:9px;line-height:1;margin-top:-2px}
+.transfer-xl .xf-repairs{display:flex;gap:8px;align-items:center;flex:none;min-width:0;min-height:18px;font-size:11px;white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+.transfer-xl .xf-repairs .xf-check{flex:none}
+.transfer-xl .xf-suggested{color:var(--ui-muted,#555);cursor:help}
 .transfer-xl .xf-check{display:flex;gap:4px;align-items:center;font-size:11px;min-height:18px}
 .transfer-xl .xf-timing{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
 .transfer-xl .xf-timing>summary{cursor:pointer;font-weight:bold;padding:2px 0}
@@ -137,6 +140,11 @@
 .transfer-picks .xp-question>b{font-size:15px}
 .transfer-picks .xp-question>span{color:var(--ui-muted,#444)}
 .transfer-picks .xp-count{font-variant-numeric:tabular-nums;font-weight:bold;white-space:nowrap}
+.transfer-picks .xp-transplant{grid-template-rows:auto minmax(0,1fr)}
+.transfer-picks .xp-transplant .xp-view{display:grid;grid-row:1/-1;grid-template-rows:subgrid}
+.transfer-picks .xp-transplant .xf-repairs{grid-row:1}
+.transfer-picks .xp-transplant .xf-preview{grid-row:2}
+.transfer-picks .xp-transplant .xp-label{top:4px}
 .transfer-picks .xp-views{flex:1;min-height:0;display:grid;gap:6px}
 .transfer-picks .xp-view{min-width:0;min-height:0;display:flex;flex-direction:column;gap:4px}
 .transfer-picks .xp-letter{position:absolute;left:8px;top:4px;z-index:6;font-size:34px;font-weight:bold;line-height:1;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:2px 8px;pointer-events:none}
@@ -163,6 +171,7 @@
 .transfer-picks .xp-label{position:absolute;left:8px;top:46px;z-index:6;font-weight:bold;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
 .transfer-picks .xp-missing{position:absolute;left:8px;bottom:6px;z-index:6;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
 .transfer-picks .xp-flipping .xp-view{grid-area:1/1}
+.transfer-picks .xp-transplant.xp-flipping .xp-view{grid-area:1 / 1 / 3 / 2}
 .transfer-picks .xp-view.xp-off{visibility:hidden}
 
 /* Own features (round 8): one switch per feature of the open model, about six rows before it scrolls. */

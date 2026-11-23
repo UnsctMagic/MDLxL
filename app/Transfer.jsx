@@ -6,6 +6,7 @@ import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
 import TransferTimeline from './TransferTimeline.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
+import TransplantToggles from './TransplantToggles.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { exposeTransferForTests } from './test-hook.js';
 import { openDocument } from '../src/editor-document.js';
@@ -19,9 +20,9 @@ import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { autoFixMirror, autoFixNotes } from '../src/transplant-autofix.js';
+import { repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { createTransplantBuilder } from './transplant-builder.js';
-import { replaceModelContents, transplantOptions, transplantSequence } from '../src/transfer-window.js';
+import { replaceModelContents, transplantOptions, transplantRepairOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
 import './resource-editors.css';
 import './texture-library.css';
@@ -55,7 +56,6 @@ const OWN_RIDER_TIP = 'The rider alone, hips and legs included.';
 // Transplant mode: the open model's mesh on the donor's skeleton with all the donor's animations.
 const SOUNDS_TIP = 'The donor\'s sounds and footprints.';
 const EFFECTS_TIP = 'The donor\'s particle effects, ribbons and lights.';
-const AUTO_FIX_TIP = 'Corrects common faults: a weapon out of the hand, the wrong weapon hand, a tipped-over body. Off keeps the plain result.';
 const KEEP_TIP = 'Keeps this piece on its own bone instead of the donor\'s.';
 // The transplant replaces the whole model (src/skeleton-transplant.js keeps only the model's own camera and effects).
 const TRANSPLANT_SECTIONS = [...SECTIONS, 'Info', 'GlobalSequences', 'Textures', 'PivotPoints', 'BindPoses'];
@@ -215,23 +215,11 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const taken = Object.keys(effective.parts).filter(key => rigB.parts[key]);
   const [selected, setSelected] = useState(null), [clipAt, setClipAt] = useState(0);
   const select = (key, index = 0) => { setSelected(key); setClipAt(index); };
-  // Transplant settings (used below); declared here because Auto fix also decides the automatic Mirror.
-  const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [], autoFix: false });
-  // Auto fix reads which hand holds the weapon (skins and samples both models): kept until the donor or model changes.
-  const heldMirror = useRef({ key: null, value: null });
+  const [tpSettings, setTpSettings] = useState({ sounds: true, effects: false, keep: [] });
   const mirrorOf = id => {
     const own = recipe.sources?.[id]?.mirror;
     if (own != null) return own;
     const rig = modelOf(id) && rigFor(modelOf(id), id === donor?.id ? donorSeq : undefined, actorOf(id));
-    if (transplanting && tpSettings.autoFix && id !== 'self' && id === donor?.id && rig) {
-      const key = `${id}|${donor.revision}|${doc.revision}|${donorSeq}|${actorOf(id)}|${recipe.base.sequence}|${recipe.base.actor ?? ''}`;
-      if (heldMirror.current.key !== key) {
-        let value = null;
-        try { value = autoFixMirror(model, rigB, modelOf(id), rig); } catch { value = null; }
-        heldMirror.current = { key, value };
-      }
-      if (heldMirror.current.value != null) return heldMirror.current.value;
-    }
     return id !== 'self' && !!rig?.weaponSide && !!rigB.weaponSide && rig.weaponSide !== rigB.weaponSide;
   };
   const donorMirror = donor ? mirrorOf(donor.id) : false;
@@ -258,7 +246,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     change({ ...recipe, parts }); setWholeReason(whole.reason || ''); select('all');
   };
   const clearAll = () => { remove(Object.keys(recipe.parts)); setWholeReason(''); };
-  const toggleMirror = () => { if (donor) change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { ...recipe.sources?.[donor.id], mirror: !donorMirror } } }); };
+  const toggleMirror = () => { if (donor) change({ ...recipe, sources: { ...recipe.sources, [donor.id]: { ...recipe.sources?.[donor.id], mirror: !(transplanting ? shownMirror : donorMirror) } } }); };
   // Both, Rider or Mount for the donor: one Undo step; taken parts the new reading reads from other
   // joints (or lacks) are removed and named.
   const chooseActor = actor => {
@@ -611,42 +599,53 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // the last result stays on screen (and the camera where it is) with "Building…" while a setting
   // rebuilds it, and a newer setting stops the build still running (app/transplant-builder.js).
   const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
+  const [tpRepairs, setTpRepairs] = useState(null);
   const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
-  const tpOptions = useMemo(() => transplantOptions({ ...tpSettings, mirror: donorMirror }), [tpSettings, donorMirror]);
   const tpMirrorOverride = tpDonor ? recipe.sources?.[tpDonor.id]?.mirror : null;
-  const tpSettingsKey = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpOptions)}|${tpMirrorOverride ?? ''}` : null;
-  // After Transplant the result view shows the open model itself (and Transplant is off), until a
-  // setting, the donor or the model changes. A setting is what the user set: Mirror's automatic
-  // choice reads the open model, which the transplant itself changed, so it does not count.
-  const tpChoice = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpSettings)}|${recipe.sources?.[tpDonor.id]?.mirror ?? ''}` : null;
+  const tpChoice = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpSettings)}|${tpMirrorOverride ?? ''}` : null;
   const tpShowsModel = !!tpApplied && tpApplied.revision === doc.revision && tpApplied.choice === tpChoice;
-  const tpKey = tpSettingsKey && rigB.ok && !tpShowsModel ? `${tpSettingsKey}|${doc.revision}` : null;
-  const tpBuilder = useRef(null), tpResult = useRef(null);
+  const tpContext = tpChoice && rigB.ok && !tpShowsModel ? `${tpChoice}|${doc.revision}|${donorMirror}` : null;
+  const activeRepairs = tpRepairs?.context === tpContext ? tpRepairs : null;
+  const selectedRepairs = activeRepairs?.checked ?? [];
+  const tpOptions = transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false });
+  const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}` : null;
+  const tpBuilder = useRef(null), tpResult = useRef(null), tpSuggestion = useRef(null);
   tpResult.current = next => setTpBuilt(next);
+  tpSuggestion.current = next => {
+    if (next.key !== tpKey) return;
+    if (next.suggestion) setTpRepairs({ context: tpContext, ...next.suggestion, checked: next.suggestion.suggested });
+    else setTpBuilt(old => old?.key === next.key ? { ...old, ...next } : old);
+  };
   tpBuilder.current ||= createTransplantBuilder({
     spawn: () => new Worker(new URL('./transplant.worker.js', import.meta.url), { type: 'module' }),
-    buildHere: request => transplantSkeleton(request.model, request.donor, request.options),
+    buildHere: request => {
+      const options = transplantRepairOptions(request.model, request.donor, request.options, request.automaticMirror);
+      const built = transplantSkeleton(request.model, request.donor, options);
+      built.report.mirrored = options.mirror ?? built.report.mirrorOffer;
+      return built;
+    },
     onResult: next => tpResult.current(next),
-    onSuggestion: next => setTpBuilt(old => old?.key === next.key ? { ...old, ...next } : old),
+    onSuggestion: next => tpSuggestion.current(next),
   });
   useEffect(() => () => tpBuilder.current.dispose(), []);
   useEffect(() => {
     if (!tpKey) { tpBuilder.current.cancel(); return; }
     if (tpBuilt?.key === tpKey) return;
     tpBuilder.current.request({ key: tpKey, model, modelKey: `${doc.revision}`, donor: tpDonor.model, donorKey: `${tpDonor.id}|${tpDonor.revision}`,
-      options: tpOptions, suggest: !tpSettings.autoFix, automaticMirror: tpMirrorOverride == null });
+      options: tpOptions, suggest: !activeRepairs, automaticMirror: tpMirrorOverride == null });
   }, [tpKey]);
   const tpReady = !!tpKey && tpBuilt?.key === tpKey && !!tpBuilt.model;
   const tpBuilding = !!tpKey && tpBuilt?.key !== tpKey;
   const tpShown = !tpDonor ? null : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
   // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
   const tpReport = tpShown?.report || null;
-  // Auto fix says what it corrected; Mirror only when the user has not set it by hand for this donor.
-  const tpFixNotes = tpSettings.autoFix && tpReport?.autoFix ? autoFixNotes(tpReport, tpReport.autoFix.mirror && recipe.sources?.[tpDonor.id]?.mirror == null ? { ...tpReport.autoFix.mirror, used: donorMirror } : null) : [];
+  const shownMirror = tpMirrorOverride ?? tpReport?.mirrored ?? donorMirror;
+  const changeRepair = (key, checked) => setTpRepairs(old => old?.context === tpContext
+    ? { ...old, checked: toggleRepair(old.checked, key, checked) } : old);
   const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
   const tpInterval = tpShown?.model?.Sequences?.[tpSeq]?.Interval;
   const [tpTime, setTpTime] = useState(0), [tpPlaying, setTpPlaying] = useState(true), [tpSpeed, setTpSpeed] = useState(100);
-  useEffect(() => { setTpTime(tpInterval?.[0] ?? 0); }, [tpShown?.model, tpSeq]);
+  useEffect(() => { setTpTime(tpInterval?.[0] ?? 0); }, [tpDonor?.id, tpDonor?.revision, doc.revision, tpSeq, tpInterval?.[0]]);
   const tpAssets = useMemo(() => tpSettings.effects && tpDonor?.assets instanceof Map && textureAssets instanceof Map ? new Map([...tpDonor.assets, ...textureAssets]) : textureAssets, [tpSettings.effects, tpDonor?.assets, textureAssets]);
   const tpOptionsList = useMemo(() => (tpShown?.model?.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(tpShown.model, i), own: true })), [tpShown?.model]);
   const setTp = values => setTpSettings(old => ({ ...old, ...values }));
@@ -718,7 +717,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, 5);
   // The parts list names a part's clips in order: "Attack - 1, then Attack - 2".
   const chainName = part => partClips(part).map((clip, i) => i === 0 || clip.source !== part.source ? clipName(clip) : sequenceName(modelOf(clip.source), clip.sequence)).reduce((a, b) => translate('{0}, then {1}').replace('{0}', () => a).replace('{1}', () => b));
-  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, building: tpBuilding, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, suggestion: tpBuilt?.key === tpKey ? tpBuilt.suggestion || null : null, suggestionError: tpBuilt?.key === tpKey ? tpBuilt.suggestionError || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
+  useEffect(() => { exposeTransferForTests(() => ({ recipe: recipeRef.current, selected, clip: at, mode, transplant: tpDonor ? { ready: tpReady, building: tpBuilding, applied: tpShowsModel, options: tpOptions, sequence: tpSeq, error: tpBuilt?.key === tpKey ? tpBuilt.error || null : null, suggestion: activeRepairs, checked: selectedRepairs, resultKey: tpBuilt?.key, time: tpTime, suggestionError: tpBuilt?.key === tpKey ? tpBuilt.suggestionError || null : null, fit: tpReport?.fit || null, reasons: tpReport?.reasons || [], extras: tpReport?.extras || [], names: (tpShown?.model?.Sequences || []).map(s => s.Name), events: tpShown?.model?.EventObjects?.length || 0, emitters: tpReport?.counts?.emitters ?? null } : null })); return () => exposeTransferForTests(null); });
   const resultOptions = useMemo(() => [{ value: 'new', label: 'New animation' }, ...sequences.map((s, i) => ({ value: String(i), label: sequenceName(model, i), own: true }))], [sequences, model, doc.revision]);
   const selectFix = fix => { showNew(); select(fix.key); setPlaying(false); if (preview) setTime(preview.start + fix.time); };
   const deleteFix = fix => { const part = recipe.parts[fix.key]; if (part?.fixes) setPart(fix.key, { fixes: part.fixes.filter((_, i) => i !== fix.index) }); };
@@ -751,7 +750,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           <div className="xf-stage">
             <section className="xf-view" aria-label="Donor">
               <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
-                {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}
+                {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={transplanting ? shownMirror : donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}
                 {donor && !transplanting && rigA?.actors?.length > 1 && <>
                   <button data-hotkey="transfer:donor-both" data-hotkey-manual data-hotkey-label="Donor: Both" data-actor="both" aria-pressed={donorActor === 'both'} title={ACTORS[0][2]} onClick={() => chooseActor('both')}>Both</button>
                   <button data-hotkey="transfer:donor-rider" data-hotkey-manual data-hotkey-label="Donor: Rider" data-actor="seated" aria-pressed={donorActor === 'seated'} title={ACTORS[1][2]} onClick={() => chooseActor('seated')}>Rider</button>
@@ -764,6 +763,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </section>
             {transplanting ? <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
+              {!tpShowsModel && <TransplantToggles visible={activeRepairs?.visible} suggested={activeRepairs?.suggested} checked={selectedRepairs}
+                onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}/>}
               <div className="xf-preview" data-transplant-view="">
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
@@ -804,8 +805,6 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           {tpReport?.fit === 'poor' && <div className="xf-poor" role="status"><b>Poor fit</b>{tpReport.reasons.map(text => <p key={text} className="xf-note xf-reason">{text}</p>)}</div>}
           <label className="xf-check" title={SOUNDS_TIP}><input data-hotkey="transfer:sounds" data-hotkey-manual data-hotkey-label="Sounds" type="checkbox" checked={tpSettings.sounds} onChange={event => setTp({ sounds: event.target.checked })}/> Sounds</label>
           <label className="xf-check" title={EFFECTS_TIP}><input data-hotkey="transfer:effects" data-hotkey-manual data-hotkey-label="Effects" type="checkbox" checked={tpSettings.effects} onChange={event => setTp({ effects: event.target.checked })}/> Effects</label>
-          <label className="xf-check" title={AUTO_FIX_TIP}><input data-hotkey="transfer:auto-fix" data-hotkey-manual data-hotkey-label="Auto fix" type="checkbox" checked={tpSettings.autoFix} onChange={event => setTp({ autoFix: event.target.checked })}/> Auto fix</label>
-          {tpFixNotes.map(text => <p key={text} className="xf-note xf-reason">{text}</p>)}
           {tpReport?.extras?.length > 0 && <>
             <b className="xf-heading">Keep</b>
             <div className="gf-tree xf-list xf-features" role="group" aria-label="Keep">

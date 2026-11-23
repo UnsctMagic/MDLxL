@@ -147,3 +147,20 @@ test('answers resume at the first unanswered case', () => {
   assert.deepEqual(parseAnswers('not json'), {});
   assert.deepEqual(parseAnswers(JSON.stringify(one)), one);
 });
+
+test('a live transplant sheet keeps view order and the chosen repairs with the grade', () => {
+  const donor = 'D:/models/Knightess.mdx';
+  const transplant = { recipient: 'D:/models/Paladin.mdx', donor, options: { mirror: false } };
+  const [item] = parseCases(JSON.stringify({ answers: 'D:/review/answers.json', cases: [{
+    id: 'paladin', question: 'Knightess to Paladin', grade: true, model: donor,
+    variants: [{ id:'donor', file:donor }, { id:'before', transplant }, { id:'after', transplant }],
+    sequences: ['Attack - 1'], looks: [{ label:'Blade', sequence:'Attack - 1', from:0, to:500, bones:['Hand_R'] }],
+    suggestion: { visible: ['detached','looseAxis'], suggested: ['detached'] },
+  }] })).cases;
+  assert.equal(item.kind, 'transplant');
+  assert.deepEqual(caseLetters(item), {A:'donor',B:'before',C:'after'});
+  const draft = withGrade({}, item, { comment:'blade moved', toggles:['detached','looseAxis'] }, 'draft');
+  assert.deepEqual(withGrade(draft,item,{ grade:8 },'graded').paladin, {
+    grade:8, comment:'blade moved', toggles:['detached','looseAxis'], suggested:['detached'], at:'graded',
+  });
+});

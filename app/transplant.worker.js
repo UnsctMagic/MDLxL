@@ -1,4 +1,5 @@
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { transplantRepairOptions } from '../src/transfer-window.js';
 import { suggestToggles } from '../src/xfer-suggest-toggles.js';
 
 // Transplant (Transfer window) builds off the main thread: the engine and the per-animation extents.
@@ -9,7 +10,9 @@ self.onmessage = ({ data }) => {
   const { id, options, suggest, automaticMirror } = data;
   let plain;
   try {
-    plain = transplantSkeleton(held.model, held.donor, options);
+    const resolved = transplantRepairOptions(held.model, held.donor, options, automaticMirror);
+    plain = transplantSkeleton(held.model, held.donor, resolved);
+    plain.report.mirrored = resolved.mirror ?? plain.report.mirrorOffer;
     self.postMessage({ id, model: plain.model, report: plain.report });
   } catch (error) {
     self.postMessage({ id, error: error.message });

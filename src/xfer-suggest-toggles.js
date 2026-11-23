@@ -1,7 +1,7 @@
 import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
-import { AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror } from './transplant-autofix.js';
 import { rigFor } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { verdict } from './xfer-look-verdict.js';
@@ -10,6 +10,12 @@ export const SUGGESTION_SAMPLING = Object.freeze({
   maxMoments: 21,
   clipKinds: /^(stand|walk|attack|spell)\b/i,
 });
+
+// Targeted repairs changed at most ten of the forty smoke pairs.
+export const TARGETED_KEYS = new Set([
+  'hand', 'markers', 'detached', 'trunk', 'arms', 'chains', 'looseAxis', 'gripRouting', 'surfaceGrip',
+  'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier', 'wristGrip', 'sewnTorso',
+]);
 
 const compared = (a, b) => a[0] - b[0] || a[1] - b[1];
 
@@ -51,38 +57,38 @@ export function suggestToggles(model, donor, options = {}, {
   }
 
   const scores = { plain: measure(base.model, baseMirror) };
-  const visible = [], improved = [];
+  const visible = [], candidates = [], measured = new Map([['', scores.plain]]);
   for (const key of AUTO_FIX_KEYS) {
     const result = build([key]);
     if (baseBytes.equals(generateCompatibleMdx(result.model))) continue;
     visible.push(key);
     scores[key] = measure(result.model, result.mirrored);
-    if (compared(scores[key], scores.plain) < 0) improved.push(key);
+    measured.set(keysWithNeeds([key]).join(','), scores[key]);
+    const change = compared(scores[key], scores.plain);
+    if (change < 0 || change === 0 && TARGETED_KEYS.has(key)) candidates.push(key);
   }
-  if (!improved.length) {
-    scores.suggested = scores.plain;
-    return { visible, suggested: [], scores };
-  }
-
-  // Stable ties follow the inventory; a stronger key takes its group first.
-  improved.sort((a, b) => compared(scores[a], scores[b]));
+  // A stronger key takes its clash group first. Ties prefer the original six, then inventory order.
+  candidates.sort((a, b) => compared(scores[a], scores[b]) ||
+    Number(LEGACY_AUTO_FIX_KEYS.includes(b)) - Number(LEGACY_AUTO_FIX_KEYS.includes(a)));
   const combo = new Set();
-  for (const key of improved) {
+  for (const key of candidates) {
     const group = TOGGLE_CLASHES.find(group => group.includes(key));
     if (group?.some(other => combo.has(other))) continue;
     combo.add(key);
   }
-  const best = improved[0];
-  let suggested = keysWithNeeds([...combo]);
-  const bestKeys = keysWithNeeds([best]);
-  let comboScore = scores[best];
-  if (suggested.length !== bestKeys.length || suggested.some((key, i) => key !== bestKeys[i])) {
-    const built = build(suggested);
-    comboScore = measure(built.model, built.mirrored);
+
+  function scoreCombo(keys) {
+    const known = measured.get(keys.join(','));
+    if (known) return known;
+    const built = build(keys);
+    return measure(built.model, built.mirrored);
   }
-  if (compared(comboScore, scores[best]) > 0) {
-    suggested = bestKeys;
-    comboScore = scores[best];
+
+  let suggested = keysWithNeeds([...combo]);
+  let comboScore = scoreCombo(suggested);
+  if (compared(comboScore, scores.plain) > 0 && [...combo].some(key => !TARGETED_KEYS.has(key))) {
+    suggested = keysWithNeeds([...combo].filter(key => TARGETED_KEYS.has(key)));
+    comboScore = scoreCombo(suggested);
   }
   scores.suggested = comboScore;
   return { visible, suggested, scores };

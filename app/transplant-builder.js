@@ -14,6 +14,7 @@ export function createTransplantBuilder({ spawn, buildHere, onResult, onSuggesti
       timer = null;
       if (request !== latest) return;
       let result; try { const out = buildHere(request); result = { model: out.model, report: out.report }; } catch (error) { result = { error: error.message }; }
+      if (request.suggest && !result.error) result.suggestionError = "Suggestions are unavailable.";
       deliver(request, result);
     }, 30);
   };
