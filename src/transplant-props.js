@@ -1,7 +1,8 @@
 import { Matrix4, Quaternion, Triangle, Vector3 } from 'three';
-import { nodePivot, sampleTrack, sampleNodeMatrices, sampleGeosetAnimation, isGlobalTrack } from './animation.js';
+import { nodePivot, sampleTrack, sampleNodeMatrices, sampleGeosetAnimation, skinGeoset, isGlobalTrack } from './animation.js';
 import { vertexBones } from './part-bones.js';
-import { geosetAlphaTrack, geosetVisibleIn } from './geoset-extras.js';
+import { geosetAlphaTrack, geosetVisibleIn, geosetMaterialLayers, hasOnlyAdditiveLayers } from './geoset-extras.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // A loose, rigid item already seated on the same hand that carries the donor's
 // measured blade can be turned in that hand without rewriting animation.
@@ -33,6 +34,65 @@ export function alignLooseItem(model, donor, arm, vertices, moves, resultHand, s
       array.set(new Vector3().fromArray(array,stride*v).applyQuaternion(turn).toArray(),stride*v);
   }
   for (const [node] of moves) node.PivotPoint.set(rotate(new Vector3().fromArray(node.PivotPoint)).toArray());
+  return true;
+}
+
+/** Seat the native handle on the mapped palm while keeping the donor weapon's rotations. */
+export function seatLooseGrip(model, own, donor, item, hand, stand, donorMap, constantTrack) {
+  const palmRef = (m, part) => m.Attachments.find(node =>
+    /^Hand (Left|Right) Ref$/i.test(node.Name.trim()) && part.joints.includes(node.Parent) &&
+    (node.Parent === part.marker || node.Parent === m.Nodes[part.marker]?.Parent));
+  const nativePalm = palmRef(own, hand.own), donorPalm = palmRef(donor, hand.theirs);
+  const palm = donorPalm && model.Nodes[donorMap[donorPalm.ObjectId]];
+  const [firstGeoset, firstVertex] = item.vertices[0];
+  const carrier = model.Nodes[vertexBones(model.Geosets[firstGeoset], firstVertex)[0]];
+  if (!nativePalm || !palm || stand < 0 || !carrier?.Translation?.Keys?.length ||
+      carrier.Parent !== palm.Parent || (carrier.Flags & 7) !== (palm.Flags & 7)) return false;
+
+  const claimed = new Map();
+  for (const [index, vertex] of item.vertices) {
+    const weights = vertexBones(model.Geosets[index], vertex);
+    if (weights.length !== 1 || weights[0] !== carrier.ObjectId) return false;
+    if (!claimed.has(index)) claimed.set(index, new Set());
+    claimed.get(index).add(vertex);
+  }
+  // The carrier must belong to this rigid item alone.
+  if (model.Geosets.some((g, index) => g.VertexGroup.some((_, vertex) =>
+    !claimed.get(index)?.has(vertex) && vertexBones(g, vertex).includes(carrier.ObjectId)))) return false;
+
+  const frame = own.Sequences[stand].Interval[0], matrices = sampleNodeMatrices(own, frame, stand);
+  const nativeGrip = new Vector3().fromArray(nativePalm.PivotPoint).applyMatrix4(matrices.get(nativePalm.ObjectId));
+  let grip = null, least = Infinity;
+  for (const [index, selected] of claimed) {
+    const geoset = own.Geosets[index];
+    if (hasOnlyAdditiveLayers(geosetMaterialLayers(own, geoset)) || sampleGeosetAnimation(own, index, frame, stand).alpha < .5) continue;
+    const posed = skinGeoset(geoset, matrices);
+    for (let i = 0; i + 2 < geoset.Faces.length; i += 3) {
+      const face = Array.from(geoset.Faces.subarray(i, i + 3));
+      if (!face.every(vertex => selected.has(vertex))) continue;
+      const triangle = new Triangle(...face.map(vertex => new Vector3().fromArray(posed, vertex * 3)));
+      const near = triangle.closestPointToPoint(nativeGrip, new Vector3()), gap = near.distanceToSquared(nativeGrip);
+      const weights = triangle.getBarycoord(near, new Vector3());
+      if (!weights || gap >= least) continue;
+      least = gap;
+      const result = model.Geosets[index].Vertices;
+      grip = face.reduce((point, vertex, at) => point.addScaledVector(new Vector3().fromArray(result, vertex * 3), weights.getComponent(at)), new Vector3());
+    }
+  }
+  if (!grip) return false;
+
+  // Move the measured handle to the weapon pivot, then keep that pivot on the palm.
+  const pivot = new Vector3().fromArray(carrier.PivotPoint), offset = pivot.clone().sub(grip);
+  for (const [index, vertices] of claimed) {
+    const values = model.Geosets[index].Vertices, point = new Vector3();
+    for (const vertex of vertices) values.set(point.fromArray(values, vertex * 3).add(offset).toArray(), vertex * 3);
+  }
+  const tree = nodeIndex(model);
+  for (const joint of tree.byId.values()) if (joint !== carrier && tree.isAncestor(joint.ObjectId, carrier.ObjectId)) {
+    joint.PivotPoint.set(new Vector3().fromArray(joint.PivotPoint).add(offset).toArray());
+    if (model.PivotPoints[joint.ObjectId] !== joint.PivotPoint) model.PivotPoints[joint.ObjectId]?.set(joint.PivotPoint);
+  }
+  carrier.Translation = constantTrack(new Vector3().fromArray(palm.PivotPoint).sub(pivot).toArray());
   return true;
 }
 

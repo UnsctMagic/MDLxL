@@ -8841,5 +8841,7 @@
   "Torso seams": "躯干接缝",
   "Keeps the torso skin together where two donor joints would pull it apart.": "防止供体的两个关节拉开躯干网格。",
   "Seam fix": "修复接缝",
-  "Keeps the skin from pulling apart where the donor never bends.": "防止网格在供体不弯曲的位置被拉裂。"
+  "Keeps the skin from pulling apart where the donor never bends.": "防止网格在供体不弯曲的位置被拉裂。",
+  "Seat loose grip": "固定武器握点",
+  "Keeps a detached weapon’s grip on the palm during the animation.": "在动画中让独立武器的握点贴合手掌。"
 }

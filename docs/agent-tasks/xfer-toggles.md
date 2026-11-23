@@ -702,3 +702,53 @@ CP5, in this order. Stop at CHECKPOINT 5.
    - Make a 5-case sheet `TestBuilds\transfer-xl-35\cases-round2.json` (cloth-04, cloth-07, cloth-01, followup-17, humanoid-227)
      and the launcher `GRADE - XFER toggles round 2.cmd`.
    - Prove each case with hidden screenshots in `out/cp5/`, as in CP4b.
+
+### CP5 report (Codex)
+
+#### Round-one lessons
+
+Seam fix stays available when it changes the result. The suggester leaves it unchecked. The owner dropped it on five of seven suggestions and kept it on cloth-05 and cloth-09.
+
+| Pair | Suggested | Still ticked from suggestion | Added | Owner action | Grade | Owner comment |
+|---|---|---|---|---|---:|---|
+| `pair-34` | `detached`, `looseAxis` | `detached`, `looseAxis` | — | — | 10 | — |
+| `pair-15` | `hand`, `surfaceGrip` | `hand`, `surfaceGrip` | — | — | 10 | — |
+| `pair-18` | `markers`, `surfaceGrip` | `markers`, `surfaceGrip` | — | — | 10 | — |
+| `humanoid-493` | `hand`, `detached`, `chains`, `looseAxis` | `hand`, `detached`, `chains` | — | Unticked `looseAxis` | 8 | — |
+| `cloth-01` | `detached`, `looseAxis`, `skinLandmarks` | `detached`, `looseAxis`, `skinLandmarks` | — | — | 7 | even with all fixes - i cannot get a weapon in his hand, it is not being held (its still better) |
+| `cloth-04` | `skinLandmarks`, `hangingChains`, `rootHeight`, `authoredMotion`, `keepTorso` | `skinLandmarks`, `rootHeight`, `authoredMotion`, `keepTorso` | — | Unticked `hangingChains` | 0 | This one is very bad, they are actually similar - bird with rider but the translation is poor - rider collapses inside body, wings dont flap = result is 0 |
+| `cloth-05` | `chains`, `rootHeight`, `authoredMotion`, `seamFix` | `chains`, `rootHeight`, `authoredMotion`, `seamFix` | — | — | 8 | — |
+| `cloth-06` | — | — | — | — | 5 | — |
+| `cloth-07` | `skinLandmarks`, `rootHeight`, `trackWindow`, `seamFix` | `skinLandmarks` | `authoredMotion` | Unticked `rootHeight` | 0 | This one is really bad, the whole unit has come apart and is warped and disfigure |
+| `cloth-07` | `skinLandmarks`, `rootHeight`, `trackWindow`, `seamFix` | `skinLandmarks` | `authoredMotion` | Unticked `trackWindow` | 0 | This one is really bad, the whole unit has come apart and is warped and disfigure |
+| `cloth-07` | `skinLandmarks`, `rootHeight`, `trackWindow`, `seamFix` | `skinLandmarks` | `authoredMotion` | Unticked `seamFix` | 0 | This one is really bad, the whole unit has come apart and is warped and disfigure |
+| `cloth-07` | `skinLandmarks`, `rootHeight`, `trackWindow`, `seamFix` | `skinLandmarks` | `authoredMotion` | Ticked `authoredMotion` | 0 | This one is really bad, the whole unit has come apart and is warped and disfigure |
+| `cloth-09` | `extraMotion`, `skinLandmarks`, `seamFix` | `extraMotion`, `skinLandmarks`, `seamFix` | — | — | 7 | — |
+| `pair-03` | — | — | — | — | 10 | — |
+| `new-08` | — | — | — | — | 9 | — |
+| `fresh-56` | — | — | — | — | 8 | — |
+| `followup-17` | `authoredMotion`, `seamFix` | `authoredMotion` | — | Unticked `seamFix` | 8 | seam fix RUINS the unit. without way better |
+| `pair-27` | — | — | — | — | 9 | — |
+| `humanoid-500` | `gripRouting`, `skinLandmarks`, `seamFix` | `gripRouting`, `skinLandmarks` | — | Unticked `seamFix` | 8 | seam fix makes it woirse |
+| `humanoid-912` | `gripRouting`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `keepTorso` | `gripRouting`, `surfaceGrip`, `extraMotion`, `skinLandmarks`, `keepTorso` | — | — | 9 | — |
+| `humanoid-227` | `skinLandmarks`, `trackWindow`, `seamFix` | `skinLandmarks`, `trackWindow` | — | Unticked `seamFix` | 8 | Seam fix made it worse not better |
+| `humanoid-993` | `seamFix` | — | — | Unticked `seamFix` | 8 | seam fix failed |
+| `panel-36` | — | — | — | — | 10 | — |
+
+The owner also unticked Hanging parts on cloth-04, Jump height and Smooth feet on cloth-07, and Loose blade angle on humanoid-493. The owner added Keep donor motion on cloth-07. These are observations from individual pairs. Their rules stay as reviewed.
+
+#### Measured diagnoses
+
+I compared the all-off export, each of the 22 existing repairs in isolation, the original suggestion and the owner's kept combination on the three named pairs.
+
+- **cloth-04, Gryphon Rider → Hawkstrider Knight.** The recipient has one leg pair and the donor has two, so the base transplant skips its seated-rider branch and places the rider through the general body fit. At the sheet's Walk 133 ms and Attack 333 ms, the visible rider centroid was 10.7 and 16.8 model units above the mount centroid in the native Hawkstrider. All-off measured 13.4 and 10.3. Rest Pose Fit alone lowered those figures to −0.4 and +3.1. Both the old suggestion and the owner's kept combination put the rider below the mount centroid at both moments (−2.6 and −1.5). Hanging Parts alone measured 12.9 and 9.5, so it does not explain the pronounced sink. The Gryphon's wing branches own 72 donor skin vertices and its left wing tip moves 64.6 units relative to its root in Walk. The Hawkstrider has no recognized wing chain. Neither grafted donor wing subtree owns any recipient vertices with all keys off or with any of the existing repairs. Turning off Rest Pose Fit reduces the rider collapse. Saddle is byte-identical to plain here. Seating two different mount rigs while retaining their independent bodies needs a separate, verified placement change. Giving this recipient a flap would require a supported skin region. No new toggle was added for this pair.
+- **cloth-07, Silverpaw Marksman → Magnataur.** The all-off result already distorts the torso and shoulder. The biped-to-quadruped graft sends native blended torso weights to widely diverging donor Chest, Head and arm joints. One plain Walk edge with a native maximum of 10.22 units grew to 51.02 at 433 ms. A plain Attack edge grew from 24.18 to 96.88 at 570 ms. Across 1,632 eligible visible triangle edges per clip, 38 Walk and 24 Attack edges exceeded twice their sampled native maximum with all repairs off. Rest Pose Fit alone reduced the counts to 14 and 8, exactly the counts with Keep Donor Motion also ticked. Jump Height and Smooth Feet alone kept the plain counts. Seam Fix alone reduced the counts to 22 and 16 but created worse local splits. For example, the two vertices on a Walk edge originally shared the same two native weights. Seam Fix put one exclusively on Chest and the other exclusively on Head and the edge reached 74.43 units against 10.37 native. The old suggested combination still had 10 Walk and 6 Attack edges above twice native. The remaining damage spans the main cross-kind skin and posture fit. No existing toggle resolves it and there is no verified narrow replacement for that fit.
+- **cloth-01, Elven Executioner → Zweihander Knight.** Plain put the measured sword triangle on Pelvis. Loose Weapon correctly rerouted its rigid surface onto the donor Hammer bone under the right hand, but Hammer has its own translations and Loose Blade Angle pivots around a sword vertex near that carrier. In 31 sampled moments of Attack - 1, distance from the same modeled handle point to Hand Right Ref averaged 44.7 units plain, 20.9 with Loose Weapon, and 36.7 with the old suggested combination. At the sheet's 200 ms moment the old suggestion left 26.2 units of separation. The other existing keys do not seat the handle. The new **Seat loose grip** toggle uses the native solid handle surface closest to the native palm, puts that point on the result's mapped palm and retains the donor's weapon rotations. It requires Loose Weapon and applies to a rigid disconnected weapon with its own translated carrier under the mapped palm's wrist. The grip stayed within 0.1 unit of the palm at all sampled points in Stand, Walk and Attack - 1. The weapon rotation track and validation diagnostics match the old export. All-off MDX bytes matched the pre-edit exports for the three diagnosis pairs, and the existing cloth-01 repair combination still exports the same bytes when Seat Loose Grip is off.
+
+#### Round-two package and proof
+
+- Rebuilt with `pnpm run build` and repackaged `D:\Claude\MDLxL\TestBuilds\transfer-xl-35` offline with TEMP/TMP on D:. Package verification covered 1,681 runtime and asset files and 55 locale files.
+- Regenerated the same 20 suggestions. Seam Fix remains visible on 18 cases and is suggested on zero. It dropped out of all seven previous suggestions. Keep Own Torso now wins the available slot on cloth-05. Seat Loose Grip is visible and suggested on cloth-01 only. The other 12 suggestions compare equal to round one.
+- Archived the owner’s 20 grades byte for byte in `answers-round1.json`. The round-two sheet uses the fresh `answers.json`, which is still empty. `cases-round2.json` contains cloth-04, cloth-07, cloth-01, followup-17 and humanoid-227 in that order with the round-one comments. Claude can open it using `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - XFER toggles round 2.cmd` with the existing named test model.
+- [Screenshot proof](../../out/cp5/) contains a PNG for each case, with Donor / Before / After in the default view and both Looks. The cloth-01 PNG includes Seat Loose Grip off and on at the same paused Attack frame and camera. The hidden run checked five cases and clicked ten Looks. It verified the unchecked Seam Fix control on all five and normal mouse rotation. All 51 preview captures had zero unresolved textures and the run had zero page errors. Hidden test grades went to a disposable file.
+- The cloth-04 and cloth-07 screenshots show the residual defects described above. No full suite, fresh 888-pair sweep or Warcraft III run was performed. CP5 and the package are local for Claude’s review.

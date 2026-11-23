@@ -61,7 +61,7 @@ import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
-import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment } from './transplant-props.js';
+import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment, seatLooseGrip } from './transplant-props.js';
 import { readHeldItem } from './held-item.js';
 import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
@@ -3150,6 +3150,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (arm?.weapon && carrier != null &&
         alignLooseItem(M, D, arm, vertices, item ? [] : weaponMoves, carrier, resultStand, donorStandD)) fixed.looseAxis = true;
   }
+  if (fix?.seatLooseGrip && wholeItems.size === 1 && !weaponHeld && !weaponSwap.length) {
+    const item = wholeItems.values().next().value;
+    const hand = limbEntries.find(entry => entry.own.marker === item.hand);
+    if (hand && seatLooseGrip(M, model, D, item, hand, ownStand, donorMap, constantTrack)) fixed.seatLooseGrip = true;
+  }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
@@ -3199,7 +3204,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
  * own attachment points for nothing: the transplant is then built without that key, exactly as the plain one is. */
 export function transplantSkeleton(model, donor, options = {}) {
   const made = transplantRun(model, donor, options);
-  if (made.detachedUnused) return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), detached: false, looseAxis: false } });
+  if (made.detachedUnused) return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), detached: false, looseAxis: false, seatLooseGrip: false } });
   if (!made.markersUnused) return made;
   return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
 }

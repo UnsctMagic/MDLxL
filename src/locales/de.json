@@ -9060,5 +9060,7 @@
   "Torso seams": "Rumpfnähte",
   "Keeps the torso skin together where two donor joints would pull it apart.": "Hält die Rumpfhaut zusammen, wo zwei Gelenke des Spenders sie auseinanderziehen würden.",
   "Seam fix": "Nähte korrigieren",
-  "Keeps the skin from pulling apart where the donor never bends.": "Verhindert, dass die Haut an Stellen aufreißt, an denen der Spender sich nicht beugt."
+  "Keeps the skin from pulling apart where the donor never bends.": "Verhindert, dass die Haut an Stellen aufreißt, an denen der Spender sich nicht beugt.",
+  "Seat loose grip": "Griff fixieren",
+  "Keeps a detached weapon’s grip on the palm during the animation.": "Hält den Griff einer losen Waffe während der Animation an der Handfläche."
 }

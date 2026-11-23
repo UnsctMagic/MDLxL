@@ -14,7 +14,7 @@ export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
-  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip',
 ]);
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
@@ -25,7 +25,7 @@ export const TOGGLE_CLASHES = Object.freeze([
   ['keepTorso', 'sewnTorso', 'seamFix'],
   ['trunk', 'skinLandmarks'],
 ].map(group => Object.freeze(group)));
-export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']) });
+export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']), seatLooseGrip: Object.freeze(['detached']) });
 
 /** Toggle one repair, applying the same clashes and dependencies in both views. */
 export function toggleRepair(keys, key, checked) {
@@ -66,6 +66,7 @@ export const AUTO_FIX_LABELS = Object.freeze({
   keepTorso: ['Keep own torso', 'Keeps the recipient’s torso bends where they already fit.'],
   sewnTorso: ['Torso seams', 'Keeps the torso skin together where two donor joints would pull it apart.'],
   seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
+  seatLooseGrip: ['Seat loose grip', 'Keeps a detached weapon’s grip on the palm during the animation.'],
 });
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;

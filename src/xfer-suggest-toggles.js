@@ -46,7 +46,7 @@ export function suggestToggles(model, donor, options = {}, {
     const autoFix = Object.fromEntries(keys.map(key => [key, true]));
     const mirror = automaticMirror && autoFix.heldGeometry ? null : autoFix.hand ? handMirror : baseMirror;
     const built = transplantSkeleton(model, donor, { ...plainOptions, mirror, autoFix });
-    return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer };
+    return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer, looseGripSeated: built.report.autoFix?.seatLooseGrip };
   }
 
   let reflected;
@@ -60,10 +60,13 @@ export function suggestToggles(model, donor, options = {}, {
   const visible = [], candidates = [], measured = new Map([['', scores.plain]]);
   for (const key of AUTO_FIX_KEYS) {
     const result = build([key]);
+    if (key === 'seatLooseGrip' && !result.looseGripSeated) continue;
     if (baseBytes.equals(generateCompatibleMdx(result.model))) continue;
     visible.push(key);
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
+    // Owner: "most times seamfix was used it made things worse".
+    if (key === 'seamFix') continue;
     const change = compared(scores[key], scores.plain);
     // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
     if (change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
