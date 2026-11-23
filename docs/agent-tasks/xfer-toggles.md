@@ -661,3 +661,44 @@ Do not change the suggester rules or any repair. Then stop with `CHECKPOINT 4b R
 Checked Codex's `out/cp4b/` proofs for humanoid-493, pair-03, humanoid-912, followup-17 and humanoid-227. The Skinks are textured.
 Every Look shows the marked part whole, with a margin. `answers.json` is empty, and the launcher opens `TEST XFER TOGGLES 01.mdx` with the
 sheet. Codex: wait for the owner's grades. CP5 starts only when the owner says the sheet is graded.
+
+### Owner's grades on the 20-pair sheet (23 Nov, ~18:00) and CP5 instructions (Claude)
+
+The owner graded all 20 (`TestBuilds\transfer-xl-35\answers.json`). The owner's words after grading: "most times seamfix was used it made things
+worse".
+
+- **Zeros that rose:**
+  - pair-34 0 → 10, pair-15 0 → 10, pair-18 0 → 10, all with the suggested toggles unchanged.
+  - humanoid-493 2 → 8, with looseAxis unticked.
+  - cloth-05 0 → 8, cloth-09 0 → 7.
+  - cloth-01 0 → 7: "even with all fixes - i cannot get a weapon in his hand, it is not being held (its still better)".
+  - cloth-06 0 → 5, nothing suggested.
+- **Still 0:**
+  - cloth-04 Gryphon Rider → Hawkstrider Knight: "rider collapses inside body, wings dont flap". He unticked hangingChains.
+  - cloth-07 Silverpaw Marksman → Magnataur: "the whole unit has come apart and is warped and disfigure". He unticked rootHeight,
+    trackWindow and seamFix, and ticked authoredMotion.
+- **Controls held:** pair-03 10, pair-27 9, new-08 9, fresh-56 8, followup-17 8, panel-36 10, humanoid-912 9, humanoid-500/227/993 8.
+- **Seam fix:** suggested on 7 pairs, unticked on 5 (followup-17 "seam fix RUINS the unit", humanoid-500 "makes it worse",
+  humanoid-227 "made it worse", humanoid-993 "failed", cloth-07). Kept on 2 (cloth-05, cloth-09).
+
+CP5, in this order. Stop at CHECKPOINT 5.
+1. **Seam fix is never auto-suggested.** It stays in the row as a toggle; nothing is removed. In `suggestToggles`, exclude `seamFix`
+   from candidates, with a one-line comment quoting the owner.
+2. **Lessons table** in this note: per pair, suggested vs kept vs added, grade, comment. One line per toggle the owner flipped.
+   Also add hangingChains (unticked on cloth-04), rootHeight and trackWindow (unticked on cloth-07), and looseAxis (unticked on
+   humanoid-493) as observations. Do not change their rules on one pair each.
+3. **Diagnose the two remaining zeros and cloth-01, about 30 minutes each, measured, no guessing.** For each, say:
+   - which part of the engine (or which ticked toggle) causes what the owner describes;
+   - whether an existing toggle fixes it.
+
+   If none does, build a narrowly scoped new repair **as a new toggle** (no gating) only when the cause is clear. Otherwise
+   write the cause and stop. The three cases:
+   - cloth-04: the rider sinks into the mount's body, and the Hawkstrider's wings don't flap like the Gryphon's.
+   - cloth-07: the Magnataur comes apart and warps. Check which ticked toggles do it, and how it looks with all toggles off.
+   - cloth-01: the Zweihander Knight's weapon is not held, even with detached and looseAxis on.
+4. **Rebuild and package `transfer-xl-35`.**
+   - Regenerate the suggestions in `cases.json`.
+   - Move the owner's answers to `answers-round1.json` and leave a fresh empty `answers.json`.
+   - Make a 5-case sheet `TestBuilds\transfer-xl-35\cases-round2.json` (cloth-04, cloth-07, cloth-01, followup-17, humanoid-227)
+     and the launcher `GRADE - XFER toggles round 2.cmd`.
+   - Prove each case with hidden screenshots in `out/cp5/`, as in CP4b.
