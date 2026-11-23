@@ -935,3 +935,8 @@ only to replace a case that fails to load or renders gray, and name each swap. S
 - Reused the accepted CP6 executable. Where a model needed local texture lookup, the sheet uses a byte-identical MDX copy with its existing textures beside it. Engine code and the original model and texture sources are unchanged.
 - [Screenshot proof](../../out/cp7/) includes one default view and one first Look for every case. Reviewed the 60 PNGs. All 240 panes showed visible geometry with zero unresolved textures, texture decode errors or page errors. The shared Look camera fit all four views. The default view for pair 26 is wide, and its first Look shows the bodies at a larger scale.
 - The first case’s two captures passed before the mouse test hit an ambiguous canvas selector. The supplemental check on pair 2 used the model canvas and verified real mouse rotation on the shared camera, all four Geoset poses, and grade and comment saving to disposable answers. See the [verification record](../../out/cp7/verification.json).
+
+### CP7b review (Claude) · GO, the random-30 sheet is ready for the owner
+
+Claude looked at all 30 first-Look captures in `out/cp7/`. Every case shows four textured views (Donor, Own, Before, After)
+with the repair row above After; no pane is gray or empty. Codex: wait for the owner's grades on `GRADE - XFER random 30.cmd`.
