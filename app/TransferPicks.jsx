@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Box3, Vector3 } from 'three';
 import ToolWindow from './ToolWindow.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
 import TransplantToggles from './TransplantToggles.jsx';
@@ -6,6 +7,9 @@ import { createTransplantBuilder } from './transplant-builder.js';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { useEditorArea } from './editor-area.js';
 import { readPreviewModel } from './transfer-files.js';
+import { previewGeosetTint } from './warcraft-preview-adapter.js';
+import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { geosetMaterialLayers, hasOnlyAdditiveLayers } from '../src/geoset-extras.js';
 import { buildTransfer, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
@@ -28,6 +32,31 @@ function modelSize(model) {
   let low = Infinity, high = -Infinity;
   for (const geoset of model.Geosets || []) for (let i = 2; i < geoset.Vertices.length; i += 3) { low = Math.min(low, geoset.Vertices[i]); high = Math.max(high, geoset.Vertices[i]); }
   return high > low ? (high - low) / 3 : 1;
+}
+
+// Frame solid skin around the marks over the Look window. Unweighted pivots still frame
+// the nearby surface, while distant gear and effects cannot pull the camera away from it.
+function lookSurfaceBounds(model, sequence, paths, reach) {
+  const bounds = new Box3(), point = new Vector3(), reachSquared = reach * reach;
+  const marks = paths.map(path => path.points.map(at => new Vector3().fromArray(at)));
+  const surfaces = (model.Geosets || []).flatMap((geoset, index) => {
+    const layers = geosetMaterialLayers(model, geoset);
+    if (!layers.length || hasOnlyAdditiveLayers(layers)) return [];
+    return [{ geoset, index, layers, posed: new Float32Array(geoset.Vertices.length) }];
+  });
+  paths[0].frames.forEach((frame, at) => {
+    const centers = marks.map(points => points[at]), matrices = sampleNodeMatrices(model, frame, sequence);
+    for (const center of centers) bounds.expandByPoint(center);
+    for (const { geoset, index, layers, posed } of surfaces) {
+      if (!layers.some(layer => previewGeosetTint(model, index, layer, frame, sequence)[3] > .001)) continue;
+      skinGeoset(geoset, matrices, posed);
+      for (let vertex = 0; vertex < posed.length; vertex += 3) {
+        point.fromArray(posed, vertex);
+        if (centers.some(center => center.distanceToSquared(point) <= reachSquared)) bounds.expandByPoint(point);
+      }
+    }
+  });
+  return bounds;
 }
 
 /**
@@ -245,13 +274,14 @@ function PickSheet({ sheet, teamColor, onClose }) {
       frameLook.current = false; api.fit(marked.flatMap(view => paths[view.id].found.flatMap(path => path.points.flat()))); return;
     }
     if (marked.some(view => !captures.current.get(view.id))) return;
+    const minimumShare = .65;
     const frames = marked.map(view => {
-      const points = paths[view.id].found.flatMap(path => path.points), size = modelSize(view.preview.model);
-      const center = [0, 1, 2].map(axis => points.reduce((sum, point) => sum + point[axis], 0) / points.length);
-      const reach = Math.max(...points.map(point => Math.hypot(point[0] - center[0], point[1] - center[1], point[2] - center[2])));
+      const { model, sequenceIndex } = view.preview, size = modelSize(model);
+      const bounds = lookSurfaceBounds(model, sequenceIndex, paths[view.id].found, minimumShare * size);
+      const center = bounds.getCenter(new Vector3()).toArray(), reach = bounds.getSize(new Vector3()).length() / 2;
       return { view, center, size, share: reach / size };
     });
-    const share = Math.max(.3, ...frames.map(frame => frame.share));
+    const share = Math.max(minimumShare, ...frames.map(frame => frame.share));
     frameLook.current = false;
     for (const { view, center, size } of frames) {
       const r = share * size;
