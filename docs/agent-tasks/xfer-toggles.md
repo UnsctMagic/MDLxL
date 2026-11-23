@@ -1028,3 +1028,87 @@ What Claude checked:
   inside the body) taking precedence over byte identity.
 
 Codex: wait for the owner's grades on `GRADE - XFER random 30.cmd`.
+
+### CP9 · New-models sheet
+
+- The seen inventory read all **56 matching case JSONs and 24 answer JSONs** found under `D:\Codex` and `D:\Claude\MDLxL\TestBuilds`, plus the **295 grade records and 888 saved pairs**. Compared unit names with race prefixes removed, model metadata aliases, 1,120 distinct SHA-256 file hashes, and exact stored-geometry hashes. The historical `WH_VC_LahmianVampire01 (1).mdx` reference had no available file, so its recorded name was used for exclusion.
+- Enumerated **755 Classic SD model files** from the installed Warcraft III CASC `war3.w3mod:units` module through `electron/casc.cjs`. Reviewed the World Editor unit entries outside that folder for eligible living rigs. Scanned **3,162 model files** in the full MDLxL-TestModels, LowPolyWorks and BindXL reference trees. The name and rig checks required a head, trunk and articulated limbs, wings or a legless body. The final draw excludes already-shown unit identities and reused file or geometry hashes.
+- Seed **`0x4e4fa4f1`** used Mulberry32 on source-path-sorted candidate lists, with seeded reserves for exclusions and load failures. The final 30 pairs contain **28 Blizzard and 32 non-Blizzard models**, used once each, with **6/30 biped → biped**. The independent Blizzard reserves were exhausted when both Alchemist cases failed. The Blizzard MDXs and their textures were added under `D:\Claude\MDLxL-TestModels\new-30`. The verification record includes every original source and the copied model and texture hashes.
+- [GRADE - XFER new 30.cmd](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER new 30.cmd>) opens the CP8 build with the named startup copy of the first selected Blizzard model. `cases-new30.json` contains the four panes, Geoset pose, stored suggestions and an unchecked Donor pose. The sheet writes to its own empty `new30\answers.json`. The previous grading sheet keeps its answers file.
+- Reviewed **60 screenshots**, default and unanimated Geoset pose for each pair. All **240 panes** rendered with zero unresolved textures or page errors in the final cases. Before and After matched Own’s stored vertex and normal arrays with Donor pose off. A real mouse drag rotated the shared camera. The installed launcher reopened case 1 with all four panes and empty answers.
+- [Screenshots](../../out/cp9/) · [Verification record](../../out/cp9/verification.json)
+
+#### Replacements
+
+| Slot | Removed | Used instead | Reason |
+|---|---|---|---|
+| new-02 | French Rifleman → Union Field Cannon | French Rifleman → Polish Partisan WWII Sapper | Name and rig audit identified an artillery crew model. |
+| new-17 | Bronze Dragon → Warhammer Chaos Knight Of Khorne Standard Bearer | Bronze Dragon → German AT-Rifle | The local model is a saved pivot-regression fixture. |
+| new-26 | High Elf Hawkstrider Knight → In Land Murloc Spear Man Purple | Dire Gnoll Hero → In Land Murloc Spear Man Purple | The High Elf Hawkstrider variant is in the previously shown Hawkstrider Knight family. |
+| new-04 | Hero Goblin Alchemist B → Dire Wolf (Level 2) | Italian Officer WWI → CCP Chinese Shocktroop | Hidden app could not decode the donor GOLDCoin.blp texture. |
+| new-23 | Ice Troll Alchemist → Dog | Arkain Man At Arms By General Frank → French SMG | Hidden app could not decode the donor GOLDCoin.blp texture. |
+
+#### The 60 selected models
+
+| Case | Role | Model | Origin | Kind | File |
+|---|---|---|---|---|---|
+| new-01 | Donor | Nether Dragon | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\creeps__netherdragon-7351839c\netherdragon.mdx` |
+| new-01 | Own | Makrura Pooldweller | Blizzard | many-legged | `D:\Claude\MDLxL-TestModels\new-30\creeps__lobstrokkred-c14da854\lobstrokkred.mdx` |
+| new-02 | Donor | French Rifleman | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\FrenchWW1Sapper-3f6255b9\FrenchWW1Sapper.mdx` |
+| new-02 | Own | Polish Partisan WWII Sapper | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\PolishPartisanSapper-8c3f7975\PolishPartisanSapper.mdx` |
+| new-03 | Donor | Elven Dire Dragonhawk | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ElvenDireDragonhawk-5a414d4e\ElvenDireDragonhawk.mdx` |
+| new-03 | Own | King Anduin Wrynn H | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\King_Anduin_WrynnH-efd447a7\King Anduin WrynnH.mdx` |
+| new-04 | Donor | Italian Officer WWI | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ItalianOfficerWWI-eb3eb113\ItalianOfficerWWI.mdx` |
+| new-04 | Own | CCP Chinese Shocktroop | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ChineseCCP_Shocktroop-3d610f80\ChineseCCP_Shocktroop.mdx` |
+| new-05 | Donor | Italian Airborn SMG | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ItalianAirborn_SMG-98eb0e9a\ItalianAirborn_SMG.mdx` |
+| new-05 | Own | Dire Orc Death Knight | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Dire_GruntDead-ee32f22b\Dire_GruntDead.mdx` |
+| new-06 | Donor | Ottoman Trench Raider | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\OttomanTrenchRaider-4a7cbedc\OttomanTrenchRaider.mdx` |
+| new-06 | Own | Rabbit | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\critters__easterrabbit-3863e8ad\easterrabbit.mdx` |
+| new-07 | Donor | Coastal Murloc Warrior Green | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\CG_MurlocWarrior-de60ab83\CG_MurlocWarrior.mdx` |
+| new-07 | Own | Knight of Tzeentch · Sword | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\WH_WOC_KnightTzeentchSword07-9a7a863e\WH_WOC_KnightTzeentchSword07.mdx` |
+| new-08 | Donor | Hero Berserker | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Hero_Berserker-4acc1c0f\Hero_Berserker.mdx` |
+| new-08 | Own | Druid of the Talon (Night Elf Form) | Blizzard | biped | `D:\Claude\MDLxL-TestModels\new-30\nightelf__druidofthetalon-edea56bb\druidofthetalon.mdx` |
+| new-09 | Donor | Fel Boar | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\critters__felboar-3ce16578\felboar.mdx` |
+| new-09 | Own | Khamûll The Easterling | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Wraith_Khamul-1-e44250a7\Wraith_Khamul-1.mdx` |
+| new-10 | Donor | Orc Warchief | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\demon__chaoswarlord-78bcb4fa\chaoswarlord.mdx` |
+| new-10 | Own | Dragonhawk Rider | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\human__bloodelfdragonhawk-a175aae4\bloodelfdragonhawk.mdx` |
+| new-11 | Donor | Deep Sea Murloc Mage Purple | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\DSP_MurlocMage-28b788dd\DSP_MurlocMage.mdx` |
+| new-11 | Own | Red Dragon | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\creeps__reddragon-8fbd9325\reddragon.mdx` |
+| new-12 | Donor | Costal Murloc Worker Purple | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\CP_MurlocWorker-b04d2e60\CP_MurlocWorker.mdx` |
+| new-12 | Own | Crypt Lord | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\undead__herocryptlord-38598f3f\herocryptlord.mdx` |
+| new-13 | Donor | Furbolg Elder Shaman | Blizzard | biped | `D:\Claude\MDLxL-TestModels\new-30\creeps__furbolgshaman-1aa9291f\furbolgshaman.mdx` |
+| new-13 | Own | Overlord Arachnathid | Blizzard | many-legged | `D:\Claude\MDLxL-TestModels\new-30\creeps__archnathidpurple-86468d34\archnathidpurple.mdx` |
+| new-14 | Donor | Elder Voidwalker | Blizzard | legless | `D:\Claude\MDLxL-TestModels\new-30\creeps__voidwalker-6ef9d442\voidwalker.mdx` |
+| new-14 | Own | Malfurion (Mounted) | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\nightelf__malfurionnostag-a9fb55c2\malfurionnostag.mdx` |
+| new-15 | Donor | Azure Dragon Crystal Lord By Frankster | Non-Blizzard | winged | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\AzureDragonCrystalLord_Jade-52cf127d\AzureDragonCrystalLord_Jade.mdx` |
+| new-15 | Own | Bronze Dragon Whelp | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\creeps__bronzedragonwelp-1cf2e43b\bronzedragonwelp.mdx` |
+| new-16 | Donor | Hydromancer | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\creeps__banditmage-8906c71d\banditmage.mdx` |
+| new-16 | Own | Halahk the Lifebringer | Blizzard | biped | `D:\Claude\MDLxL-TestModels\new-30\human__heropaladinboss-343b5ecb\heropaladinboss.mdx` |
+| new-17 | Donor | Bronze Dragon | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\creeps__bronzedragon-a20cc34e\bronzedragon.mdx` |
+| new-17 | Own | German AT-Rifle | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\GermanATRifle-9e217f7e\GermanATRifle.mdx` |
+| new-18 | Donor | Female Death Knight | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\undead__herofemaledeathknight-2cc56a65\herofemaledeathknight.mdx` |
+| new-18 | Own | Riderless Horse | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\human__knightnorider-675a7c7b\knightnorider.mdx` |
+| new-19 | Donor | Red Dragon Whelp | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\creeps__reddragonwelp-05f8e059\reddragonwelp.mdx` |
+| new-19 | Own | Italian SMG WWI | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ItalianSMGWWI-50d24447\ItalianSMGWWI.mdx` |
+| new-20 | Donor | Satyr Shadowdancer | Blizzard | biped | `D:\Claude\MDLxL-TestModels\new-30\creeps__satyrtrickster-a06ae66b\satyrtrickster.mdx` |
+| new-20 | Own | Reef Elemental | Blizzard | legless | `D:\Claude\MDLxL-TestModels\new-30\creeps__seaelemental-4242b9ad\seaelemental.mdx` |
+| new-21 | Donor | Forest Troll Bear Rider | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ForestTrollBearRider-ba6e8979\ForestTrollBearRider.mdx` |
+| new-21 | Own | Dwarf Rifleman | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Dire_Rifleman-b8290e4d\Dire_Rifleman.mdx` |
+| new-22 | Donor | Warsong Clefthoof Drummer | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Warsong_ClefthoofDrummerV2-1306c08f\Warsong_ClefthoofDrummerV2.mdx` |
+| new-22 | Own | Chaos Orc Range | Blizzard | biped | `D:\Claude\MDLxL-TestModels\new-30\demon__chaosorcrange-dd187574\chaosorcrange.mdx` |
+| new-23 | Donor | Arkain Man At Arms By General Frank | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Arkain_ManAtArms-bc559945\Arkain_ManAtArms.mdx` |
+| new-23 | Own | French SMG | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\FrenchSMG_Tommy-gun-8de1aad5\FrenchSMG(Tommy-gun).mdx` |
+| new-24 | Donor | English SAS Rifleman | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\EnglishSAS_Rifleman-e64b67db\EnglishSAS_Rifleman.mdx` |
+| new-24 | Own | Priestessof Death | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\PriestessofDeathV1_04-048d09cc\PriestessofDeathV1.04.mdx` |
+| new-25 | Donor | Hero Murlock Purple | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\Hero_MurlockPurple-2703a4e3\Hero_MurlockPurple.mdx` |
+| new-25 | Own | Pack Horse | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\critters__packhorse-7f35193b\packhorse.mdx` |
+| new-26 | Donor | Dire Gnoll Hero | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\DireGnoll-466b1801\DireGnoll.mdx` |
+| new-26 | Own | In Land Murloc Spear Man Purple | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\ILP_MurlocSpearman-94e16265\ILP_MurlocSpearman.mdx` |
+| new-27 | Donor | Salamander | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\creeps__thunderlizardsalamander-7153b197\thunderlizardsalamander.mdx` |
+| new-27 | Own | Spirit Wind Rider | Blizzard | winged | `D:\Claude\MDLxL-TestModels\new-30\orc__spiritwyvern-442f88e2\spiritwyvern.mdx` |
+| new-28 | Donor | Warsaw Insurgent Officer | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\WarsawInsurgentOfficer-0e2c9eab\WarsawInsurgentOfficer.mdx` |
+| new-28 | Own | Pit Lord | Blizzard | four-legged | `D:\Claude\MDLxL-TestModels\new-30\demon__pitlord-73eef75e\pitlord.mdx` |
+| new-29 | Donor | Ottoman Cavalry | Non-Blizzard | rider | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\OttomanCavalry_Sword-6ab58e05\OttomanCavalry(Sword).mdx` |
+| new-29 | Own | Polish KOP Rifleman | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\PolishKOPRifleman-754a5fa8\PolishKOPRifleman.mdx` |
+| new-30 | Donor | Lord Garithos | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\creeps__lordgarithos-c8532f2c\lordgarithos.mdx` |
+| new-30 | Own | Australian Sniper | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\AustralianSniper-95362f41\AustralianSniper.mdx` |
