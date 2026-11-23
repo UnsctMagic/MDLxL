@@ -368,3 +368,28 @@ Measured with the existing `D:/Claude/xfer-look/diagnosis/scripts/donorseam.mjs`
 | H993 | 113 → 66 | 0 → 3 | 0 → 19 |
 
 Verification covered engine output and the independent seam measures. The desktop checkbox and Warcraft III playback remain unexercised at this checkpoint.
+
+### CP2 review (Claude) · GO
+
+Checked independently on six sweep pairs that are not in the smoke set (H69, H214, H227, H500, H874, P25): with every key off, the
+MDX is byte-identical to the `26fb96f3` engine, and every key alone builds without throwing. The registry, `TOGGLE_CLASHES`,
+`TOGGLE_NEEDS` and the labels match the CP1 review.
+
+Seam fix is accepted as a toggle. It clears H500 (40 → 0) and H912 (29 → 3). H227 and H993 are partial: invented-seam tears fall,
+but some move to beyond-donor tears. The suggester decides per pair, which is the point.
+
+For CP3:
+1. **Score exactly as the contract says.** The look check's thresholds and the donor-like flags (the Gor head swell) stay as
+   they are. The same donor stretch appears in every build of a pair, so it does not bias the choice.
+2. **Visible keys:** rootHeight and skinLandmarks change almost every pair (38 and 36 of 40), so expect about 5–8 visible
+   toggles per pair. That is fine. Order the row by the contract's inventory order, not by score.
+3. **Speed:** report the seconds for "build every key alone + measure the visible ones" on 5 pairs, and how much the
+   fewer-moments sampling saves.
+   - For the sheet, compute the suggestion when the sheet is built and store it in `cases.json`, so the owner never waits.
+   - In the window it runs in the background after the plain build shows.
+4. **Report table** for the 40 smoke pairs: visible keys, suggested keys, score plain → suggested, owner grade (context only).
+   Add one line on the pairs where the suggestion is "nothing", and why.
+5. **Leave out of today:** the six smoke pairs that were swapped out because the recipient's own file has a zero-length global
+   sequence. Note them for later.
+
+Then stop at CHECKPOINT 3.
