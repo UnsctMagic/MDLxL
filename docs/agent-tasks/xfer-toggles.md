@@ -919,3 +919,11 @@ The owner now wants to grade **30 new random pairs**. Two stops:
 | Spare 3 | Keeper of the Grove | four-legged | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__herokeeperofthegrove.mdx` | Bristleback | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__bristleback.mdx` | No |
 | Spare 4 | Storm Pandaren Brewmaster | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__stormpandarenbrewmaster.mdx` | Archmage Ghost (mounted) | rider | `D:\Claude\MDLxL-TestModels\corpus-sd\other__heroarchmageghost.mdx` | Yes |
 | Spare 5 | Dalaran Reject | legless | `D:\Claude\MDLxL-TestModels\corpus-sd\other__dalaranreject.mdx` | Demon Hunter | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__herodemonhunter.mdx` | No |
+
+### CP7a review (Claude) · GO
+
+Claude checked all 30 pairs and 5 spares by hand: every one is a living unit, with no buildings, boats, crates or effects.
+The unclear names were checked against their rigs: Kobold Shoveler (K_ bones with a tail), Seal (critter with feet and
+walk clips), Dalaran Reject (animated creature). The seed, the exclusion of graded pairs and the two-use limit are as asked;
+43% of the pairs are biped-to-biped. Build CP7b exactly as in the instructions, using the 30 main cases in this order. Use spares
+only to replace a case that fails to load or renders gray, and name each swap. Stop with `CHECKPOINT 7b READY`.
