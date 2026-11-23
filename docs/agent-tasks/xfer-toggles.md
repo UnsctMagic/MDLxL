@@ -629,3 +629,22 @@ Seen but left for the owner to judge on the sheet: on pair-15, Two-hand grip tur
 edge-on. It is suggested, and the owner can untick it.
 
 **Next (CP5):** the owner grades `TestBuilds\_START HERE\GRADE - XFER toggles 20.cmd`. Then Codex does CP5 as written, and Claude reviews it.
+
+### CP4b review (Claude) · FIX before the owner sees the sheet
+
+Claude rendered all 20 sheet cases on the packaged `transfer-xl-35`, hidden, with the default view and the first Look moment.
+Contact sheets: `out/claude-cp4/sheet-low.png`, `out/claude-cp4/sheet-rest.png`; single shots are `out/claude-cp4/<id>.png` and `<id>-look.png`.
+All 20 load with 0 page errors and the suggested boxes ticked. Fix only these:
+
+1. **Gray, untextured models.** humanoid-493: the Blowpipe Skink recipient is gray in Before and After. pair-03: the Skink Worker
+   donor is gray. Find out why the textures are not found, and make every view of all 20 cases textured. That could mean texture
+   lookup for `transplant` variants and file variants, or copies of the models with their textures beside them. Prove it with one
+   screenshot per case, three views each, saved in `out/cp4b/`. Use the hidden runner (`out/claude-cp4/look.cjs` is a working example).
+2. **Look framing is inside the body.** On humanoid-912, humanoid-227 and followup-17 the first Look puts the camera inside the
+   mesh, and the view is an unreadable smear. A Look must show the whole marked body part with a margin around it, like the Looks on the low-grade
+   cases. Check every Look of all 20 cases in the same screenshots. Fix the framing, or the look entries in `cases.json`,
+   whichever owns the fault.
+3. Rebuild and package into `TestBuilds\transfer-xl-35`. Keep `cases.json` suggestions; regenerate them only if the engine changed.
+   Keep `answers.json` empty. Run TEMP/TMP on D:. `electron/ffmpeg` binaries are already present in the worktree.
+
+Do not change the suggester rules or any repair. Then stop with `CHECKPOINT 4b READY — <this file>`.
