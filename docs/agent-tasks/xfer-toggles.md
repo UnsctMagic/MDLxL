@@ -655,3 +655,9 @@ Do not change the suggester rules or any repair. Then stop with `CHECKPOINT 4b R
 - Look now frames the visible, non-additive skin near the markers across the selected clip window. This gives unweighted torso pivots enough context and keeps distant geometry from setting the zoom. The original package reproduced the three close-ups on `followup-17`, `humanoid-912` and `humanoid-227`. Their first Look on the new package shows the marked part with visible margin in all three panes. Actual mouse drag still rotates the view.
 - Ran `pnpm run build` and repackaged `D:\Claude\MDLxL\TestBuilds\transfer-xl-35` offline with TEMP/TMP on D:. The hidden packaged run opened all 20 cases, checked the saved suggestions and clicked all 41 Looks. The 183 captured panes had zero unresolved textures or texture decode errors and the run had zero page errors. The renderer still reports its existing notice for external-model and Popcorn effects. Test grades were written to a disposable answer file. The owner's `answers.json` remains empty.
 - [Screenshot proof](../../out/cp4b/) contains 20 PNGs named by case ID. Each stacks the default Donor / Before / After view with the same three panes for every Look. The [verification record](../../out/cp4b/verification.json) records the pane checks. The transplant engine, repairs and suggester stayed at the reviewed revision. The package and commit are local and ready for Claude's review.
+
+### CP4b review (Claude) · GO, the sheet is ready for the owner
+
+Checked Codex's `out/cp4b/` proofs for humanoid-493, pair-03, humanoid-912, followup-17 and humanoid-227. The Skinks are textured.
+Every Look shows the marked part whole, with a margin. `answers.json` is empty, and the launcher opens `TEST XFER TOGGLES 01.mdx` with the
+sheet. Codex: wait for the owner's grades. CP5 starts only when the owner says the sheet is graded.
