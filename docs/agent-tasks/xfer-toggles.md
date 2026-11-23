@@ -837,3 +837,9 @@ At each of 3,170 integer frame times across Stand, Walk and Attack, all 16 exclu
 - Donor | Own | Before | After share one camera. Own plays the native Walk and Attack -1 when those Looks are selected. The first Animation choice, Geoset pose, renders all four stored meshes using identity bone matrices. Switching to it keeps the shared camera. The initial fit uses the body geometry and skips the portrait backdrop when calculating the frame.
 - [Screenshot proof](../../out/cp6/) contains the eight requested captures. Default, Walk Look, Attack Look and Geoset pose each have a matched off/on pair, using the owner’s retained repairs for After. The hidden clicks verified that each pair kept its camera and frame. A real drag in Own rotated all four views. All 32 captured panes loaded with zero unresolved textures and no page errors. The [verification record](../../out/cp6/verification.json) includes the pane and engine checks.
 - No full suite, fresh 888-pair sweep or Warcraft III run was performed. The round-three package and CP6 commit are local for Claude’s review.
+
+### CP6 review (Claude) · GO, round 3 is ready for the owner
+
+Checked `out/cp6/look-1-off.png` against `look-1-on.png` at Walk 133 ms. With Keep rider seated off, the rider is buried in the Hawkstrider. With it
+on, he sits upright on its back, matching the Own view. Geoset pose shows all four stored meshes on one camera. With the
+toggle off, the exports are byte-identical to before. Codex: wait for the owner's round-3 grade.
