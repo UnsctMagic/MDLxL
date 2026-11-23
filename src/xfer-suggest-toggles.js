@@ -42,10 +42,13 @@ export function suggestToggles(model, donor, options = {}, {
   const base = plain ?? transplantSkeleton(model, donor, plainOptions);
   const baseBytes = generateCompatibleMdx(base.model);
 
+  const usableDonorPose = new Map();
   function build(keys) {
     const autoFix = Object.fromEntries(keys.map(key => [key, true]));
     const mirror = automaticMirror && autoFix.heldGeometry ? null : autoFix.hand ? handMirror : baseMirror;
     const built = transplantSkeleton(model, donor, { ...plainOptions, mirror, autoFix });
+    const pose = built.report.donorPose;
+    usableDonorPose.set(keys.join(','), !!pose?.enabled && !pose.retainedOwn && !Object.keys(pose.added).length);
     return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer, looseGripSeated: built.report.autoFix?.seatLooseGrip };
   }
 
@@ -61,14 +64,17 @@ export function suggestToggles(model, donor, options = {}, {
   for (const key of AUTO_FIX_KEYS) {
     const result = build([key]);
     if (key === 'seatLooseGrip' && !result.looseGripSeated) continue;
-    if (baseBytes.equals(generateCompatibleMdx(result.model))) continue;
+    const identical = baseBytes.equals(generateCompatibleMdx(result.model));
+    if (identical && key !== 'donorPose') continue;
     visible.push(key);
+    if (identical) continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
     // Owner: "most times seamfix was used it made things worse".
     if (key === 'seamFix') continue;
     const change = compared(scores[key], scores.plain);
     // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
+    if (key === 'donorPose' && !usableDonorPose.get(key)) continue;
     if (change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
   }
   // A stronger key takes its clash group first. Ties prefer the original six, then inventory order.
@@ -93,6 +99,13 @@ export function suggestToggles(model, donor, options = {}, {
   if (compared(comboScore, scores.plain) > 0 && [...combo].some(key => !TARGETED_KEYS.has(key))) {
     suggested = keysWithNeeds([...combo].filter(key => TARGETED_KEYS.has(key)));
     comboScore = scoreCombo(suggested);
+  }
+  if (suggested.includes('donorPose')) {
+    const without = suggested.filter(key => key !== 'donorPose'), score = scoreCombo(without);
+    if (!usableDonorPose.get(suggested.join(',')) || compared(comboScore, score) >= 0) {
+      suggested = without;
+      comboScore = score;
+    }
   }
   scores.suggested = comboScore;
   return { visible, suggested, scores };

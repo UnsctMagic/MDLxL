@@ -30,10 +30,8 @@
 //    Grunt's Stand Victory), its weapon bone first takes the copy's motion there (`donorWeaponSwap`), so the
 //    model's weapon leaves the hand with it.
 // 5. The donor's keys are copied with its animation list, rotation keys as they are, position keys
-//    scaled (owner, 19 Nov 2026: "A TRANSPLANT IS 100% A TRANSPLANT"). The posture is the donor's:
-//    the bind pose is re-posed into the donor's rest posture on this model's proportions (each limb
-//    stretch along the donor's; the upper body and neck turned so hips > shoulders > head point as
-//    the donor's), and the mesh follows its bones.
+//    scaled. The donor's rest turn is carried by the animation keys unless Donor pose is enabled.
+//    That repair puts the turn into the stored skin, easing limbs that would penetrate.
 // 6. Attachment points are the donor's (its weapon ones hang from the bone carrying the weapon,
 //    where the model's own weapon attachment sits on it); its sounds and footprints (`events`) and particle effects
 //    (`emitters`) come along when asked. The model's own camera, collision shapes and effects
@@ -66,6 +64,7 @@ import { readHeldItem } from './held-item.js';
 import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
+import { finishDonorPose, storedPoseClearance } from './transplant-donor-pose.js';
 import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
@@ -2350,8 +2349,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         if (k.OutTan) k.OutTan = like(k.Vector, copy.Scaling.LineType === 3 ? rest : [0, 0, 0]);
       }
     }
-    // Rotation: the donor's keys as they are (100% transplant). The posture is in the bind pose: the mesh is re-posed
-    // into the donor's rest posture below (`repose`), so no key carries a correction.
+    // Start with the donor rotation keys and a posed bind basis for the existing motion and equipment fits.
+    // At export, move the bind correction into the keys if the stored donor pose is off or eased.
     // Translation: scaled to this model. Inside a transplanted limb a joint's move is scaled by its own stretch (this
     // model's length over the donor's), so the stretch keeps pointing as the donor's does; elsewhere by the travel ratio.
     const parentId = parent?.donor;
@@ -2994,14 +2993,19 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (refresh) rigidSockets.push(refresh);
   }
   const supportSkin = fourSupports && supportLegSkin(M,model,D,rigB,rigA,limbEntries,treeB,newId,alignFrames);
-  const turnedNodes = allM.map(node => [node, turnOf(node.ObjectId)]).filter(([, t]) => t && !near(t, 1e-9)); // ids change below
+  const bindNodes = allM.map(node => {
+    const id = node.ObjectId;
+    const role = id >= offset ? treeA.ancestors(id - offset,true).map(partOrTwin).find(Boolean) : null;
+    return {node,native:restPivot.get(id),turn:turnOf(id),role};
+  });
+  const turnedNodes = bindNodes.filter(({ turn }) => turn && !near(turn, 1e-9)); // ids change below
   const remap = canonicalizeSerializedNodeOrder(M);
   const ownMap = {}, donorMap = {};
   for (const node of ownNodes) if (remap.has(node.ObjectId) && ownKeep.has(node.ObjectId)) ownMap[node.ObjectId] = remap.get(node.ObjectId);
   for (const node of donorNodes) if (remap.has(newId(node.ObjectId))) donorMap[node.ObjectId] = remap.get(newId(node.ObjectId));
   // How the bind pose was re-posed: result node -> the turn its skin took ([x, y, z, w]; only turned nodes).
   const reposeOut = {};
-  for (const [node, t] of turnedNodes) reposeOut[node.ObjectId] = t.toArray();
+  for (const { node, turn } of turnedNodes) reposeOut[node.ObjectId] = turn.toArray();
   M.Info = { ...(M.Info || {}) };
   updateCounts(M);
 
@@ -3181,6 +3185,33 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (hand && seatLooseGrip(M, model, D, item, hand, ownStand, donorMap, constantTrack)) fixed.seatLooseGrip = true;
   }
   if (riderSeat) fixed.riderSeat = true;
+  const recipientParts = new Map(limbEntries.map(({own,theirs}) => [theirs.key,own.key]));
+  const frames = new Map();
+  for (const {node,native,turn,role} of bindNodes) {
+    if (!native || !turn) continue;
+    frames.set(node.ObjectId,{native,turn,pivot:v3(node.PivotPoint),part:recipientParts.get(role)});
+  }
+  const anchors = new Map();
+  for (const {own,theirs} of limbEntries) {
+    const root = M.Nodes[donorMap[theirs.joints[0]]];
+    if (!root) continue;
+    const anchor = frames.get(root.Parent);
+    if (anchor && anchor.part !== own.key) anchors.set(own.key,anchor);
+  }
+  const sourceParts = new Map(Object.values(rigB.parts || {}).flatMap(part=>part.joints.map(id=>[id,part.key])));
+  const partOfSkin = id => {
+    for (const ancestor of treeB.ancestors(id,true)) {
+      if (weaponBones.has(ancestor)) return null;
+      if (sourceParts.has(ancestor)) return sourceParts.get(ancestor);
+    }
+    return null;
+  };
+  const donorPose = finishDonorPose(M,model,frames,{
+    enabled:!!fix?.donorPose,
+    measure:fix?.donorPose ? storedPoseClearance(model,partOfSkin,rigB.hipHeight || 1) : null,
+    anchors, partOfSkin,
+  });
+  if (!donorPose.enabled || donorPose.retainedOwn) for (const id of Object.keys(reposeOut)) delete reposeOut[id];
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
@@ -3219,7 +3250,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         attachments: (M.Attachments || []).length, events: (M.EventObjects || []).length, emitters: EFFECT_KEYS.reduce((n, k) => n + (M[k] || []).length, 0),
         vertices: (M.Geosets || []).reduce((n, g) => n + g.Vertices.length / 3, 0), bakedVertices: baked, sizeRatio: size, travel, ridesStill, skin: skinCounts, posture,
       },
-      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, ...(fix ? { autoFix: fixed } : {}),
+      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, donorPose, ...(fix ? { autoFix: fixed } : {}),
     },
     ...(markersCorrected && !fixed.markers ? { markersUnused: true } : {}),
   };

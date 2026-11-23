@@ -2,7 +2,7 @@
 // Contract: docs/agent-tasks/transfer-xl.md "Pick sheet as built".
 
 import { allNodes } from './animation.js';
-import { AUTO_FIX_KEYS } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, defaultRepairKeys } from './transplant-autofix.js';
 
 export const LETTERS = ['A', 'B', 'C', 'D'];
 /** Viewing speeds a look may ask for: the strip's own list, so its menu always shows the value. */
@@ -217,7 +217,7 @@ export function withGrade(answers, item, { grade, comment, toggles } = {}, at = 
   const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
     comment: comment !== undefined ? String(comment) : old.comment ?? '', at };
   if (item.kind === 'transplant') {
-    entry.toggles = [...(toggles ?? old.toggles ?? item.suggestion.suggested)];
+    entry.toggles = [...(toggles ?? old.toggles ?? defaultRepairKeys(item.suggestion.suggested))];
     entry.suggested = [...item.suggestion.suggested];
   }
   return { ...answers, [item.id]: entry };

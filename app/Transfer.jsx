@@ -20,7 +20,7 @@ import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { repairFlags, toggleRepair } from '../src/transplant-autofix.js';
+import { defaultRepairKeys, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { createTransplantBuilder } from './transplant-builder.js';
 import { replaceModelContents, transplantOptions, transplantRepairOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
@@ -613,7 +613,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   tpResult.current = next => setTpBuilt(next);
   tpSuggestion.current = next => {
     if (next.key !== tpKey) return;
-    if (next.suggestion) setTpRepairs({ context: tpContext, ...next.suggestion, checked: next.suggestion.suggested });
+    if (next.suggestion) setTpRepairs({ context: tpContext, ...next.suggestion, checked: defaultRepairKeys(next.suggestion.suggested) });
     else setTpBuilt(old => old?.key === next.key ? { ...old, ...next } : old);
   };
   tpBuilder.current ||= createTransplantBuilder({

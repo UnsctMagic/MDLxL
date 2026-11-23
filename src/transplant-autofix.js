@@ -9,12 +9,15 @@ import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset, worldPivot } from 
 import { vertexBones } from './part-bones.js';
 import { isWeaponName } from './rig-names.js';
 
+// A pose suggestion is opt-in in both editing and grading.
+export const defaultRepairKeys = suggestions => suggestions.filter(key => key !== 'donorPose');
+
 export const LEGACY_AUTO_FIX_KEYS = Object.freeze(['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
 export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
-  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat', 'donorPose',
 ]);
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
@@ -68,6 +71,7 @@ export const AUTO_FIX_LABELS = Object.freeze({
   seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
   seatLooseGrip: ['Seat loose grip', 'Keeps a detached weapon’s grip on the palm during the animation.'],
   riderSeat: ["Keep rider seated", "Keeps the rider sitting in this model's own saddle while the bodies move."],
+  donorPose: ["Donor pose", "Bends this model's stored pose into the donor's resting pose."],
 });
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;

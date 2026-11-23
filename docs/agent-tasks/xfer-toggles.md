@@ -976,3 +976,38 @@ Archive the 8 grades as `answers-random30-part1.json`. CP8, then stop:
 4. **Rebuild the random-30 sheet** (`cases-random30.json`, all 30, fresh suggestions, empty `answers.json`).
    - Prove it with hidden screenshots in `out/cp8/`: the default view **and the Geoset pose view** for every case.
    - Stop with `CHECKPOINT 8 READY`. Claude reviews every Geoset pose before the owner sees it.
+
+### CP8 · Donor pose
+
+- Archived the eight owner grades as `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\answers-random30-part1.json`. The live sheet has the same 30 pairs in order, refreshed suggestions and an empty answers file.
+- **Donor pose** starts unchecked in Transfer and in the sheet. With it off, the bind-space correction is carried in the animation rotation and translation keys. All 30 reopened MDX exports kept the recipient’s exact stored vertex and normal bytes. The four fixtures with a zero-duration global sequence reported the same validation error as their inputs.
+- Compared Donor pose off and on across the first 20 pairs, at nine frames in each of up to three clips per pair. There were **513 frames** and **366,302 visible vertex samples**, normalized by the recipient’s standing height. The median of the 20 per-pair vertex medians was **0.00000344% of height**. The worst was **41.09% of height** on random-17, Shaman → Skink Chief (Hero), in Walk at model frame 21167 (geoset 2, vertex 35, zero-based). The vertex has blended native weights. Rebasing one rigid influence preserves its motion, while rebasing a blended bind point and then skinning cannot in general reproduce the original two-stage blend. The detailed samples also separate mixed weights from rigid effects and fittings.
+- The clearance check compares posed vertices and triangle centers with the recipient’s original torso and limb surfaces. It searches the limb’s share of the donor correction and keeps the nearest verified clear share. Open or differently weighted shapes limit what those samples can certify. The recipient’s stored pose is used when the checked limb adjustments cannot clear the candidate.
+- With **Donor pose alone**, 19 of 30 requested a clearance adjustment. Twelve retained an eased donor pose and seven retained the recipient’s pose. With the suggested repairs also checked, 19 required adjustment and nine retained the recipient’s pose. In both runs all 30 passed the added-penetration check. The engine suggests Donor pose on random-16, Centaur → Black Dragon Whelp, where it reduced the look-check score. The recommendation remains unchecked until the user selects it.
+
+| Case | Limbs eased with Donor pose alone | Share of donor correction kept |
+|---|---|---|
+| random-01 | Left leg, Right leg, Left arm, Right arm | Recipient’s stored pose |
+| random-02 | Left leg, Right leg | Recipient’s stored pose |
+| random-03 | Left leg, Right leg | Left leg 35.9%, Right leg 0.0% |
+| random-05 | Left arm, Right arm | Left arm 63.3%, Right arm 60.9% |
+| random-06 | Right arm, Tail, Left arm | Recipient’s stored pose |
+| random-08 | Right arm | Right arm 15.6% |
+| random-10 | Left arm, Tail, Right arm | Left arm 76.6%, Tail 53.9%, Right arm 79.7% |
+| random-11 | Right leg, Left leg | Right leg 82.0%, Left leg 68.8% |
+| random-13 | Left arm | Left arm 36.7% |
+| random-14 | Left arm | Left arm 53.1% |
+| random-15 | Left leg | Left leg 75.8% |
+| random-17 | Right leg | Right leg 40.6% |
+| random-21 | Left arm | Left arm 10.2% |
+| random-23 | Left arm, Right arm | Recipient’s stored pose |
+| random-25 | Left leg, Right leg | Recipient’s stored pose |
+| random-26 | Right leg, Left leg, Left arm | Recipient’s stored pose |
+| random-28 | Left arm, Right arm, Left leg, Second left leg, Second right leg, Right leg | Recipient’s stored pose |
+| random-29 | Left leg, Right leg, Right arm | Left leg 45.3%, Right leg 18.0%, Right arm 28.9% |
+| random-30 | Left arm | Left arm 28.9% |
+
+- **Owner’s two cases.** Random-05 retained 63.3% of the left-arm correction and 60.9% of the right-arm correction. Random-08 retained 15.6% of its right-arm correction. Both cleared the measured added penetration while retaining the donor pose elsewhere. The `diagnosis-random-05-geoset-on.png` and `diagnosis-random-08-geoset-on.png` images show Donor pose alone.
+- **CP7 byte comparison with Donor pose alone.** Of the 138 CP2 high-grade and 59 low-grade inputs, **39 high and 17 low matched** the CP7 MDX exactly. The other **99 high and 42 low** changed with the requested clearance treatment. Every byte difference corresponded to a CP7 pose that added penetration in the check. Unconditional byte identity would restore those intersections, so the clearance requirement takes precedence.
+- Rebuilt the local `transfer-xl-35` package and verified the existing launcher opens case 1 of 30 with Donor pose off. The hidden run captured **90 screenshots** across all 30 pairs. The default, unanimated off and unanimated on views showed **360 textured panes** with zero page errors. The shared mouse camera rotated on random-05. The direct Transfer check rebuilt in both directions and applied the off result with the recipient’s stored vertices and normals intact. The focused parser and registry checks passed 12/12.
+- [Screenshots](../../out/cp8/) · [Verification record](../../out/cp8/verification.json) · [Local launcher](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER random 30.cmd>)
