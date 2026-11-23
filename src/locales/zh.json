@@ -8843,5 +8843,7 @@
   "Seam fix": "修复接缝",
   "Keeps the skin from pulling apart where the donor never bends.": "防止网格在供体不弯曲的位置被拉裂。",
   "Seat loose grip": "固定武器握点",
-  "Keeps a detached weapon’s grip on the palm during the animation.": "在动画中让独立武器的握点贴合手掌。"
+  "Keeps a detached weapon’s grip on the palm during the animation.": "在动画中让独立武器的握点贴合手掌。",
+  "Keep rider seated": "让骑手留在鞍上",
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "在双方身体运动时，让骑手坐在此模型原有的鞍上。"
 }

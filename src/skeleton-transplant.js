@@ -177,7 +177,7 @@ function ownTimedTracks(roots) {
 /** Refit the own tracks into the donor's animation list: each donor animation gets the keys of
  * the own animation of the same kind (else the own Stand), fitted to its length as the transfer
  * fits a body animation (whole loops for a looping one, stretched for one that plays once). */
-function refitTracks(entries, ownSequences, globalSequences, newSequences, ownStand) {
+function refitTracks(entries, ownSequences, globalSequences, newSequences, ownStand, sameTime = false) {
   if (!entries.length) return;
   const holderOf = list => ({ Sequences: ownSequences, GlobalSequences: globalSequences, Nodes: list });
   const plans = newSequences.map(sequence => {
@@ -188,7 +188,8 @@ function refitTracks(entries, ownSequences, globalSequences, newSequences, ownSt
     if (!own?.Interval || length <= 0) return null;
     const ownLength = own.Interval[1] - own.Interval[0];
     if (ownLength <= 0) return null;
-    const looping = !own.NonLooping, rate = looping ? Math.max(1, Math.round(length / ownLength)) * ownLength / length : ownLength / length;
+    const looping = !sameTime && !own.NonLooping;
+    const rate = sameTime ? 1 : looping ? Math.max(1, Math.round(length / ownLength)) * ownLength / length : ownLength / length;
     // The own animation is read from a copy moved past the new one (geoset sweep): copyBodyAnimation clears the new
     // animation's time span first, so where the two share frames (a model on itself, or a donor animation lying over
     // the own one) the own keys were cleared before they were read and the track showed what no key shows.
@@ -1182,10 +1183,23 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // In the combined POSE reading, "hips" belongs to the mount. The rider's
   // pelvis is exposed by the seated reading. Skin on that joint must travel
   // with the rider even when the horse and rider separate during Death.
-  const mountedPair = rigA.actors?.length > 1 && rigB.actors?.length > 1 && legPairs(rigA) === 2 && legPairs(rigB) === 2;
+  const bothMounted = rigA.actors?.length > 1 && rigB.actors?.length > 1;
+  const mountedLegs = bothMounted && legPairs(rigA) === 2 && legPairs(rigB) === 2;
+  // A winged four-legged mount can take the two-legged mount's own rider seat.
+  const fitSeat = fix?.riderSeat && bothMounted && legPairs(rigA) === 2 && legPairs(rigB) === 1 &&
+    rigA.parts.wingL && rigA.parts.wingR && !rigB.parts.wingL && !rigB.parts.wingR;
+  const seatedOwn = mountedLegs || fitSeat ? transferRig(model, { actor: 'seated', sequence: ownStand }) : null;
+  const seatedDonor = mountedLegs || fitSeat ? transferRig(reflected, { actor: 'seated', sequence: donorStand0 }) : null;
+  const seatRoot = seatedOwn?.parts?.hips?.joints[0], seatParent = treeB.parentOf(seatRoot);
+  const riderChest = seatedDonor?.parts?.hips?.joints[0];
+  const riderSeat = fitSeat && seatParent != null && treeB.isAncestor(seatParent, rigB.body) &&
+    seatedOwn.parts.hips.marker !== seatRoot && riderChest === rigA.parts.chest?.joints[0] && treeA.parentOf(riderChest) === rigA.body;
+  const seatJoints = new Set(riderSeat ? Object.values(seatedOwn.parts)
+    .filter(part => part.key === 'hips' || part.limbKind === 'leg').flatMap(part => part.joints) : []);
+  for (const id of seatJoints) keptOwn.add(id);
+  const mountedPair = mountedLegs || riderSeat;
   if (mountedPair) {
-    const mine = transferRig(model, { actor: 'seated', sequence: ownStand }).parts?.hips;
-    const theirs = transferRig(reflected, { actor: 'seated', sequence: donorStand0 }).parts?.hips;
+    const mine = seatedOwn.parts?.hips, theirs = seatedDonor.parts?.hips;
     if (mine?.joints.length && theirs?.joints.length) {
       const map = trunkMap(mine.joints, theirs.joints, mine.joints.indexOf(mine.marker), theirs.joints.indexOf(theirs.marker));
       mine.joints.forEach((id, i) => {
@@ -1227,6 +1241,12 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     link(socket(treeB,rigB,fourSupports ? ['armL','armR'] : front), socket(treeA,rigA,front));
     link(rigB.parts.hips?.joints[0], rigA.parts.hips?.joints[0]);
     if (mountedPair) {
+      if (riderSeat) {
+        // The native seat is on the mount's chest. Route the mount skin to
+        // the donor mount before attaching the independently moving rider.
+        ownPartOf.set(seatParent, 'hips');
+        link(seatParent, rigA.body);
+      }
       const a = transferRig(reflected, {actor:'walker',sequence:donorStand0}).parts.head;
       const b = transferRig(model, {actor:'walker',sequence:ownStand}).parts.head;
       if (a && b && !rigB.parts.head?.joints.includes(b.marker) && !rigA.parts.head?.joints.includes(a.marker)) {
@@ -2032,9 +2052,18 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     // (the Chaos Warlord on the Khorne Knight: the demon horse's back 21 deg off the knight's horse, the rider 12); the rider
     // then takes the donor rider's lean on its own (below).
     const riders = mountedPair;
+    // RR1 reads the rider's lean separately from the line through the mount.
+    const leanRider = () => {
+      const chestIds = (rigA.parts.chest?.joints || []).filter(id => placed.has(id));
+      if (!chestIds.length || !shoulderB || !shoulderA || !sideOf(pA)) return;
+      const leanB = shoulderB.clone().sub(placed.get(chestIds[0])), leanA = shoulderA.clone().sub(pA(chestIds[0]));
+      if (leanB.length() <= 1e-3 * rigB.hipHeight || leanA.length() <= 1e-3 * rigA.hipHeight) return;
+      const lean = alignFrames(leanB, leanA, sideOf(id => placed.get(id)), sideOf(pA));
+      for (const id of chestIds) correction.set(id, lean.clone());
+    };
     const fourContacts = ['L','R'].every(side => gaitSources.has('arm'+side) && gaitSources.has('leg'+side));
     const byLegPairs = (!whole.reason || fourContacts) && count(rigA, 'leg') === 4 && (lowerBodyOnly || !twoLegged || (rigA.parts.armL && rigA.parts.armR && rigB.parts.armL && rigB.parts.armR && [rigA,rigB].every(r=>Object.values(r.parts).filter(p=>p.limbKind==='arm').every(p=>p.joints.some(j=>/claw/i.test((r===rigA?D:model).Nodes[j]?.Name))))) || !rigA.parts.chest?.joints?.length || count(rigB, 'arm') < 2 && count(rigB, 'wing') >= 2 || riders) && pairs.flat().every(id => id != null && placed.has(id)) && trunkJoints.length > 0;
-    if (twoLegged && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
+    if (twoLegged && !riderSeat && !lowerBodyOnly && !byLegPairs && trunkJoints.length && hipB && topB && topA && topB.distanceTo(hipB) > 1e-3 * rigB.hipHeight) {
       const fitSpine = alignFrames((surfaceB?.head ?? topB).clone().sub(hipB), (surfaceA?.head ?? topA).clone().sub(hipA), sideOf(id => placed.get(id)), sideOf(pA));
       const spine = useLandmarks ? bounded(fitSpine) : fitSpine;
       for (const id of trunkJoints) correction.set(id, spine.clone());
@@ -2104,18 +2133,10 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
           const shift = frontB.clone().add(offset).sub(placed.get(headAt));
           neckBend = { shift, of: new Map([[headAt, 1]]), extra: () => 0 };
         }
-        // A rider on a rider (RR1): the rider's chest joints turn so the line from the chest's first joint to the middle of
-        // the shoulders lies along the donor rider's.
-        const chestIds = (rigA.parts.chest?.joints || []).filter(id => placed.has(id));
-        if (riders && chestIds.length && shoulderB && shoulderA && sideOf(pA)) {
-          const leanB = shoulderB.clone().sub(placed.get(chestIds[0])), leanA = shoulderA.clone().sub(pA(chestIds[0]));
-          if (leanB.length() > 1e-3 * rigB.hipHeight && leanA.length() > 1e-3 * rigA.hipHeight) {
-            const lean = alignFrames(leanB, leanA, sideOf(id => placed.get(id)), sideOf(pA));
-            for (const id of chestIds) correction.set(id, lean.clone());
-          }
-        }
+        if (riders) leanRider();
       }
     }
+    if (riderSeat) leanRider();
     // The neck, for every donor with a neck joint (a snake's too: it needs no trunk line).
     const neckJoints = headAt != null ? headJoints.slice(0, headJoints.indexOf(headAt)) : [];
     const chestAt = rigA.parts.chest?.marker, ownChest = chestAt != null ? pairedOwn.get(chestAt) : null, ownHead = headAt != null ? pairedOwn.get(headAt) : null;
@@ -2221,7 +2242,10 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const copy = structuredClone(node), key = NODE_KEYS.find(k => (model[k] || []).includes(node));
     copy.Parent = ownParent(node.ObjectId) ?? null;
     copy.PivotPoint = new Float32Array(nodePivot(model, node, node.ObjectId));
-    if (surfaceTracks.has(node.ObjectId)) {
+    if (seatJoints.has(node.ObjectId)) {
+      if (node.ObjectId === seatRoot) copy.Parent = newId(rigA.body);
+      refitTracks(ownTimedTracks([copy]), model.Sequences, model.GlobalSequences, newSequences, ownStand, true);
+    } else if (surfaceTracks.has(node.ObjectId)) {
       for (const property of ['Translation','Rotation','Scaling']) delete copy[property];
       Object.assign(copy,surfaceTracks.get(node.ObjectId));
     } else if (JOINT_KEYS.includes(key) && !keptOwn.has(node.ObjectId)) {
@@ -2306,7 +2330,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const node = donorById.get(id), copy = structuredClone(node), key = NODE_KEYS.find(k => (D[k] || []).includes(node));
     copy.ObjectId = newId(id);
     const parent = donorParent(id);
-    copy.Parent = parent == null ? null : parent.own != null ? parent.own : newId(parent.donor);
+    copy.Parent = riderSeat && id === riderChest ? seatRoot : parent == null ? null : parent.own != null ? parent.own : newId(parent.donor);
     copy.PivotPoint = new Float32Array(placed.get(id).toArray());
     if (key === 'Bones') { copy.GeosetId = null; copy.GeosetAnimId = null; }
     visitTracks(copy, globalShift, { event: globalShift });
@@ -2387,6 +2411,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       };
       for (const k of copy.Translation.Keys) { const mapped = !!trunkMove && !swapSpans.some(([a, b]) => k.Frame >= a && k.Frame <= b); k.Vector = move(k.Vector, mapped); if (k.InTan) k.InTan = move(k.InTan, mapped); if (k.OutTan) k.OutTan = move(k.OutTan, mapped); }
     }
+    if (riderSeat && id === riderChest) delete copy.Translation;
     if (importer && key === 'ParticleEmitters2' && copy.TextureID != null && copy.TextureID !== -1) copy.TextureID = importer.textureRef(node.TextureID);
     if (importer && key === 'RibbonEmitters') copy.MaterialID = importer.materialRef(node.MaterialID);
     if (key === 'ParticleEmitterPopcorns' && M.Version < 900) continue;
@@ -2915,7 +2940,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // although their parent's bind pose was re-posed: their turn becomes C q and their move C t + (re-posed pivot - pivot),
   // the pivot itself kept, so their own skin and children need nothing.
   for (const node of allM) {
-    if (node.ObjectId >= offset || !(node.Parent >= offset) || !byIdM.has(node.Parent)) continue;
+    if (node.ObjectId >= offset || seatJoints.has(node.ObjectId) || !(node.Parent >= offset) || !byIdM.has(node.Parent)) continue;
     const turn = turnOf(node.Parent) ?? new Quaternion(), shift = reposeAbout(node.Parent, restPivot.get(node.ObjectId)).sub(restPivot.get(node.ObjectId));
     if (!near(turn, 1e-9)) {
       const q = v => v && like(v, turn.clone().multiply(new Quaternion().fromArray(v)).toArray());
@@ -3155,6 +3180,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const hand = limbEntries.find(entry => entry.own.marker === item.hand);
     if (hand && seatLooseGrip(M, model, D, item, hand, ownStand, donorMap, constantTrack)) fixed.seatLooseGrip = true;
   }
+  if (riderSeat) fixed.riderSeat = true;
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);

@@ -8947,5 +8947,7 @@
   "Seam fix": "Reparar costuras",
   "Keeps the skin from pulling apart where the donor never bends.": "Evita que la malla se separe donde el donante no se flexiona.",
   "Seat loose grip": "Asentar el agarre",
-  "Keeps a detached weapon’s grip on the palm during the animation.": "Mantiene el agarre de un arma suelta en la palma durante la animación."
+  "Keeps a detached weapon’s grip on the palm during the animation.": "Mantiene el agarre de un arma suelta en la palma durante la animación.",
+  "Keep rider seated": "Mantener al jinete sentado",
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Mantiene al jinete en la silla de este modelo mientras ambos cuerpos se mueven."
 }

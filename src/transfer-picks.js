@@ -79,12 +79,14 @@ export function parseCases(source) {
       return { id: variant.id, label, recipe };
     });
     if (variants.some(variant => variant.transplant)) {
-      const [donor, before, after] = variants;
-      if (variants.length !== 3 || donor.id !== 'donor' || before.id !== 'before' || after.id !== 'after' ||
+      const donor = variants[0], [before, after] = variants.slice(-2);
+      const own = variants.length === 4 ? variants[1] : null;
+      if (variants.length < 3 || donor.id !== 'donor' || before.id !== 'before' || after.id !== 'after' ||
           !donor.file || !before.transplant || !after.transplant ||
           donor.file !== before.transplant.donor || donor.file !== after.transplant.donor ||
-          before.transplant.recipient !== after.transplant.recipient) {
-        throw new Error(where + ': expected Donor, Before and After for the same transplant pair.');
+          before.transplant.recipient !== after.transplant.recipient ||
+          own && (own.id !== 'own' || own.file !== before.transplant.recipient)) {
+        throw new Error(where + ': expected Donor, optional Own, Before and After for the same transplant pair.');
       }
       const suggestion = item.suggestion;
       if (!isObject(suggestion) || !repairList(suggestion.visible) || !repairList(suggestion.suggested)) {

@@ -14,7 +14,7 @@ export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
-  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat',
 ]);
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
@@ -67,6 +67,7 @@ export const AUTO_FIX_LABELS = Object.freeze({
   sewnTorso: ['Torso seams', 'Keeps the torso skin together where two donor joints would pull it apart.'],
   seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
   seatLooseGrip: ['Seat loose grip', 'Keeps a detached weapon’s grip on the palm during the animation.'],
+  riderSeat: ["Keep rider seated", "Keeps the rider sitting in this model's own saddle while the bodies move."],
 });
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;

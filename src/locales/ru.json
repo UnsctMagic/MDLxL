@@ -8937,5 +8937,7 @@
   "Seam fix": "Исправить швы",
   "Keeps the skin from pulling apart where the donor never bends.": "Не даёт поверхности разойтись там, где донор не сгибается.",
   "Seat loose grip": "Зафиксировать хват",
-  "Keeps a detached weapon’s grip on the palm during the animation.": "Удерживает рукоять отдельного оружия у ладони во время анимации."
+  "Keeps a detached weapon’s grip on the palm during the animation.": "Удерживает рукоять отдельного оружия у ладони во время анимации.",
+  "Keep rider seated": "Удерживать всадника в седле",
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Удерживает всадника в родном седле этой модели во время движения."
 }

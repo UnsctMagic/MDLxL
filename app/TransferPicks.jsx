@@ -9,8 +9,8 @@ import { useEditorArea } from './editor-area.js';
 import { readPreviewModel } from './transfer-files.js';
 import { previewGeosetTint } from './warcraft-preview-adapter.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
-import { geosetMaterialLayers, hasOnlyAdditiveLayers } from '../src/geoset-extras.js';
-import { buildTransfer, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
+import { corpseAndBackgroundGeosets, geosetMaterialLayers, hasOnlyAdditiveLayers } from '../src/geoset-extras.js';
+import { buildTransfer, sameKindSequence, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
 import { repairFlags, toggleRepair } from '../src/transplant-autofix.js';
@@ -115,6 +115,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
   const done = !sheet.error && index >= cases.length;
   const transplantCase = item?.kind === 'transplant';
   const fileCase = transplantCase || item?.kind === 'file';
+  const hasOwn = transplantCase && item.variants.some(variant => variant.id === 'own');
+  const beforeVariant = transplantCase && item.variants.find(variant => variant.id === 'before');
 
   // Models of the shown case: recipe cases read the case model and its donors, file cases each
   // variant's file, all with their textures.
@@ -131,7 +133,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
     (async () => {
       try {
         if (item.kind === 'transplant') {
-          const { recipient, donor } = item.variants[1].transplant;
+          const { recipient, donor } = beforeVariant.transplant;
           const [own, source] = await Promise.all([read(recipient), read(donor)]);
           if (live) setLoaded({ id: item.id, own, donor: source });
           return;
@@ -158,14 +160,15 @@ function PickSheet({ sheet, teamColor, onClose }) {
     modelKey: variant.transplant.recipient, donorKey: variant.transplant.donor,
     options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false },
   } : null;
-  const beforeRequest = liveRequest(item?.variants[1], []);
-  const afterRequest = liveRequest(item?.variants[2], checked);
+  const beforeRequest = liveRequest(beforeVariant, []);
+  const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked);
   const before = useTransplantView(beforeRequest), after = useTransplantView(afterRequest);
   const afterReady = afterRequest && after?.key === afterRequest.key && !!after.model;
 
   // File cases: the animation every view plays, by name; the row lists the case's names or those all share.
   const names = useMemo(() => !fileCase || !ready ? [] : item.sequences.length ? item.sequences : commonNames(transplantCase ? [loaded.donor.model] : item.variants.map(variant => loaded.files[variant.id].model)), [item?.id, ready]);
   const [animation, setAnimation] = useState('');
+  const geosetPose = hasOwn && animation === null;
   useEffect(() => { setAnimation(names[0] || ''); }, [names]);
 
   // Each view: a recipe built the way Transfer's result view builds it (a failure keeps the engine's
@@ -179,6 +182,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
         let record = loaded.files?.[id], path = variant.file, revision;
         if (transplantCase) {
           if (id === 'donor') record = loaded.donor;
+          else if (id === 'own') record = loaded.own;
           else {
             const result = id === 'before' ? before : after;
             if (!result?.key.startsWith(item.id + '|') || !result.model) {
@@ -190,7 +194,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
             revision = result.key;
           }
         }
-        const sequenceIndex = sequenceByName(record.model, animation);
+        if (geosetPose) return { letter, id, label, preview: { model: record.model, sequenceIndex: -1 }, assets: record.assets, path, revision, interval: [0, 0] };
+        const sequenceIndex = id === 'own' && hasOwn ? sameKindSequence(record.model, animation) ?? -1 : sequenceByName(record.model, animation);
         if (sequenceIndex < 0) return { letter, id, label, error: `No "${animation}" animation in this model.` };
         return { letter, id, label, preview: { model: record.model, sequenceIndex }, assets: record.assets, path, revision, interval: record.model.Sequences[sequenceIndex].Interval };
       }
@@ -223,6 +228,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
   // their model's rest pose (fitBox="rest"), not on whatever pose is playing when each first draws, so
   // views load at the same size. Recipe cases (one model) share the whole camera.
   const camera = useMemo(() => ({ saved: null, listeners: new Set() }), [item?.id]);
+  const sharedCamera = !fileCase || hasOwn;
   const [clock, setClock] = useState(0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const reporter = views.find(view => view.preview && active(view) && (!flip || view.id === pair[0])) || views.find(view => view.preview && active(view));
   const reporterRef = useRef(null); reporterRef.current = reporter;
@@ -233,6 +239,23 @@ function PickSheet({ sheet, teamColor, onClose }) {
     return captureHandlers.current.get(id);
   };
   const capture = () => reporter && captures.current.get(reporter.id);
+  const framedCase = useRef(null);
+  // Open the four-way comparison with a single view of the stored geometry.
+  useEffect(() => {
+    if (!hasOwn || framedCase.current === item.id || views.length !== 4 ||
+        views.some(view => !view.preview || !captures.current.get(view.id))) return;
+    const bounds = new Box3(), point = new Vector3();
+    for (const view of views) {
+      const model = view.preview.model, extras = corpseAndBackgroundGeosets(model);
+      model.Geosets.forEach((geoset, index) => {
+        const layers = geosetMaterialLayers(model, geoset);
+        if (extras.has(index) || hasOnlyAdditiveLayers(layers) || !layers.some(layer => previewGeosetTint(model, index, layer, 0, -1)[3] > .001)) return;
+        for (let i = 0; i < geoset.Vertices.length; i += 3) bounds.expandByPoint(point.fromArray(geoset.Vertices, i));
+      });
+    }
+    framedCase.current = item.id;
+    if (!bounds.isEmpty()) capture()?.fit([...bounds.min, ...bounds.max]);
+  }, [hasOwn, item?.id, views, captureTick]);
 
   // Looks: one animation, only its window looping, slow, framed close on the bones, which are
   // highlighted in every view (their path over the window and where they are now).
@@ -269,9 +292,16 @@ function PickSheet({ sheet, teamColor, onClose }) {
     if (!frameLook.current || !look) return;
     const marked = views.filter(view => paths[view.id]?.found.length);
     if (!marked.length) return;
-    if (!fileCase) {
+    if (sharedCamera) {
       const api = capture(); if (!api) return;
-      frameLook.current = false; api.fit(marked.flatMap(view => paths[view.id].found.flatMap(path => path.points.flat()))); return;
+      frameLook.current = false;
+      const points = marked.flatMap(view => {
+        const { model, sequenceIndex } = view.preview, { found } = paths[view.id];
+        if (!hasOwn) return found.flatMap(path => path.points.flat());
+        const bounds = lookSurfaceBounds(model, sequenceIndex, found, .65 * modelSize(model));
+        return [...bounds.min, ...bounds.max];
+      });
+      api.fit(points); return;
     }
     if (marked.some(view => !captures.current.get(view.id))) return;
     const minimumShare = .65;
@@ -365,6 +395,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
         </div>
         {fileCase && names.length > 0 && <div className="xp-row" role="group" aria-label="Animation">
           <span className="xp-row-name">Animation</span>
+          {hasOwn && <button aria-pressed={geosetPose} onClick={() => chooseAnimation(null)}>Geoset pose</button>}
           {names.map(name => <button key={name} aria-pressed={animation === name} onClick={() => chooseAnimation(name)}>{name}</button>)}
         </div>}
         {item.looks.length > 0 && <div className="xp-row" role="group" aria-label="Look here">
@@ -394,19 +425,19 @@ function PickSheet({ sheet, teamColor, onClose }) {
                   {view.label && <span className="xp-label">{view.label}</span>}
                   {marked?.none && <span className="xp-missing">Not in this model</span>}
                   {view.preview ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                    <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox={fileCase ? 'rest' : true} showGrid={false} showAxes={false} preserveCameraView
+                    <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox={!hasOwn && (fileCase ? 'rest' : true)} showGrid={false} showAxes={false} preserveCameraView
                       model={view.preview.model} revision={view.revision ?? `${item.id}|${view.id}`} textureAssets={view.assets} modelPath={view.path} teamColor={teamColor}
-                      sequenceIndex={view.preview.sequenceIndex} time={time} onTimeChange={view === reporter ? onReport : undefined} playing={playing} playbackSpeed={speed} loop
+                      sequenceIndex={view.preview.sequenceIndex} time={time} restPose={geosetPose} onTimeChange={!geosetPose && view === reporter ? onReport : undefined} playing={!geosetPose && playing} playbackSpeed={speed} loop
                       playbackRange={look ? [start + look.from, start + look.to] : undefined} overlayPaths={overlay} suspended={!on}
-                      compareCamera={fileCase ? undefined : camera} turnCamera={fileCase ? camera : undefined} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
+                      compareCamera={sharedCamera ? camera : undefined} turnCamera={sharedCamera ? undefined : camera} overlays={geosetPose ? { particles: false, events: false, sounds: false } : undefined} cleanAnimationPreview emptyDragRotates onCaptureReady={onCaptureFor(view.id)}/>
                   </Suspense> : <div className="xp-failed" role="status">{view.error}</div>}
                 </div>
                 {!choices.length && !item.grade && <button className="xp-pick" aria-pressed={picked === view.id} disabled={!view.preview} onClick={() => answer(view.id)}>{`Pick ${view.letter}`}</button>}
               </section>;
             })}
         </div>
-        <TransferViewStrip plain name="Views" playing={playing} onPlay={() => setPlaying(value => !value)} playTitle="Play or pause every view." onReset={() => { if (fileCase) for (const view of views) captures.current.get(view.id)?.resetView(); else capture()?.resetView(); }}
-          interval={[0, Math.max(1, duration)]} time={clock} onSeek={value => { setPlaying(false); setClock(value); }} speed={speed} onSpeed={setSpeed} disabled={!reporter}/>
+        <TransferViewStrip plain name="Views" playing={playing} onPlay={() => setPlaying(value => !value)} playTitle="Play or pause every view." onReset={() => { if (!sharedCamera) for (const view of views) captures.current.get(view.id)?.resetView(); else capture()?.resetView(); }}
+          interval={[0, Math.max(1, duration)]} time={clock} onSeek={value => { setPlaying(false); setClock(value); }} speed={speed} onSpeed={setSpeed} disabled={!reporter || geosetPose}/>
         {problem && <p className="xp-problem" role="alert">{problem}</p>}
         {item.grade && <label className="xp-comment"><span className="xp-row-name">What is wrong</span>
           <textarea rows={3} value={comment} onChange={event => typeComment(event.target.value)}/></label>}

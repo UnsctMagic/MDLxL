@@ -14,7 +14,7 @@ export const SUGGESTION_SAMPLING = Object.freeze({
 // Targeted repairs changed at most ten of the forty smoke pairs.
 export const TARGETED_KEYS = new Set([
   'hand', 'markers', 'detached', 'trunk', 'arms', 'chains', 'looseAxis', 'gripRouting', 'surfaceGrip',
-  'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier', 'wristGrip', 'sewnTorso',
+  'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier', 'wristGrip', 'sewnTorso', 'riderSeat',
 ]);
 
 const compared = (a, b) => a[0] - b[0] || a[1] - b[1];

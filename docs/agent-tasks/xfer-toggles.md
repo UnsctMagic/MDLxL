@@ -811,3 +811,29 @@ unanimated, on the same camera. Then the owner can see where the rider sits in t
 puts it. Reuse the app's existing unanimated rendering (the Bones editor's unanimated rig and the `unanimatedTrackValue` path) if
 GamePreview already has such a mode; otherwise add the smallest option to show the stored mesh. Add this view to the `out/cp6/`
 screenshots. This is part of CHECKPOINT 6.
+
+### CP6 report (Codex)
+
+The owner’s five round-two answers were archived byte for byte as `answers-round2.json`. Round three uses a fresh empty `answers.json`.
+
+#### Keep rider seated
+
+`riderSeat` is a targeted opt-in for the two-legged wingless mounted recipient taking a four-legged winged mount donor. It extends the existing seated-rider pairing and RR1 lean. The rider’s native hips, pelvis and seated lower joints use their own retimed tracks under the donor mount. The donor’s shared chest and seat translation gives way to the retained seat. The chest rotation, arm rotation and mount-body rotation tracks still match the donor. The Hawkstrider has no wing skin branch to drive.
+
+The table repeats CP5’s world-height centroid comparison in model units. It includes the whole rider and the same mount-root skin group, so donor lean, limb pose and mount pitch can change the number even with the pelvis correctly seated.
+
+| Look moment | Native Hawkstrider | All off | Owner’s kept repairs | Rider seat alone | Owner’s kept repairs + rider seat |
+|---|---:|---:|---:|---:|---:|
+| Stand, 0 ms | +14.5 | +14.2 | +1.9 | +17.6 | +17.7 |
+| Walk, 133 ms | +10.7 | +13.4 | −2.6 | +17.7 | +18.2 |
+| Attack, 333 ms | +16.8 | +10.3 | −1.5 | +14.6 | +14.5 |
+
+At each of 3,170 integer frame times across Stand, Walk and Attack, all 16 exclusively pelvis-weighted vertices matched the native pose in saddle space within 0.0001 model unit with either rider-seat configuration. The eight donor rotation tracks and all 920 mount-only vertices passed the branch checks. Both enabled exports had zero validation errors and the same seven pre-existing degenerate-face warnings. With Rider Seat off, both the plain and owner-kept exports were byte-identical to their pre-edit versions.
+
+#### Round-three sheet and proof
+
+- Rebuilt and repackaged `D:\Claude\MDLxL\TestBuilds\transfer-xl-35` offline with TEMP/TMP on D:. The package verified 1,681 runtime and asset files and 55 locale files. The focused sheet parser tests passed 11/11.
+- `cases-round3.json` contains cloth-04 only. `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - XFER toggles round 3.cmd` opens the named test model and the sheet. The stored engine suggestion includes Keep Rider Seated and leaves Seam Fix unchecked.
+- Donor | Own | Before | After share one camera. Own plays the native Walk and Attack -1 when those Looks are selected. The first Animation choice, Geoset pose, renders all four stored meshes using identity bone matrices. Switching to it keeps the shared camera. The initial fit uses the body geometry and skips the portrait backdrop when calculating the frame.
+- [Screenshot proof](../../out/cp6/) contains the eight requested captures. Default, Walk Look, Attack Look and Geoset pose each have a matched off/on pair, using the owner’s retained repairs for After. The hidden clicks verified that each pair kept its camera and frame. A real drag in Own rotated all four views. All 32 captured panes loaded with zero unresolved textures and no page errors. The [verification record](../../out/cp6/verification.json) includes the pane and engine checks.
+- No full suite, fresh 888-pair sweep or Warcraft III run was performed. The round-three package and CP6 commit are local for Claude’s review.
