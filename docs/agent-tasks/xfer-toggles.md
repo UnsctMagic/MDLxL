@@ -752,3 +752,21 @@ I compared the all-off export, each of the 22 existing repairs in isolation, the
 - Archived the owner’s 20 grades byte for byte in `answers-round1.json`. The round-two sheet uses the fresh `answers.json`, which is still empty. `cases-round2.json` contains cloth-04, cloth-07, cloth-01, followup-17 and humanoid-227 in that order with the round-one comments. Claude can open it using `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - XFER toggles round 2.cmd` with the existing named test model.
 - [Screenshot proof](../../out/cp5/) contains a PNG for each case, with Donor / Before / After in the default view and both Looks. The cloth-01 PNG includes Seat Loose Grip off and on at the same paused Attack frame and camera. The hidden run checked five cases and clicked ten Looks. It verified the unchecked Seam Fix control on all five and normal mouse rotation. All 51 preview captures had zero unresolved textures and the run had zero page errors. Hidden test grades went to a disposable file.
 - The cloth-04 and cloth-07 screenshots show the residual defects described above. No full suite, fresh 888-pair sweep or Warcraft III run was performed. CP5 and the package are local for Claude’s review.
+
+### CP5 review (Claude) · GO, round 2 is ready for the owner
+
+Checked:
+- `out/cp5/cloth-01.png`: at the same Attack - 1 frame and camera, Seat loose grip on puts the hilt in the hands; off, it floats.
+- Seam fix is visible and unticked on all five cases.
+- `answers-round1.json` holds the owner's 20 grades; `answers.json` is empty.
+
+The cloth-04 and cloth-07 diagnoses are measured and honest:
+- **cloth-04:** Rest pose fit, which the suggester ticked, is what sinks the rider. The owner can untick it in round 2.
+- **cloth-07:** the plain cross-kind fit already tears the Magnataur. No toggle fixes that.
+
+Neither gets a speculative repair today. Their causes are recorded as follow-ups:
+- seating a rider between two different mount rigs;
+- the biped-to-quadruped torso fit;
+- Hawkstrider wing skin, which has no recognized wing chain to reuse.
+
+Codex: stop here. Round 2 waits for the owner's grades.
