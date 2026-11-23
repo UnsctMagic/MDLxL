@@ -940,3 +940,39 @@ only to replace a case that fails to load or renders gray, and name each swap. S
 
 Claude looked at all 30 first-Look captures in `out/cp7/`. Every case shows four textured views (Donor, Own, Before, After)
 with the repair row above After; no pane is gray or empty. Codex: wait for the owner's grades on `GRADE - XFER random 30.cmd`.
+
+### Owner stopped the random-30 grading; CP8 instructions (Claude): pose transfer becomes a toggle
+
+The owner graded 8 of 30, then stopped: "50% of the pose transfers were messed up so I stopped grading. Pose transfer should be a
+toggle, pose transfers need to be better - you cannot provide a pose with arms inside the body etc - that is invalid for editing".
+- random-05, Runner → Villager Kid, 4: "Geoset pose is messed up - the kids arm goes into his body???"
+- random-08, Chaos Peon → Murloc Warrior, 3: "Geoset pose is messed up!! why are you changing geosets pose to begin with?? this is an
+  animation/bone transfeR?"
+
+**Cause:** since `0f2a8185` (19 Nov) the transplant re-poses the stored mesh into the donor's rest posture (the `repose` block in
+`skeleton-transplant.js`, "re-pose: the donor's rest posture in the bind pose"), so the donor's rotation keys can be copied
+unchanged. Claude measured it: Grunt → Footman moves 531 of 582 stored vertices, by up to 35% of the height.
+
+Archive the 8 grades as `answers-random30-part1.json`. CP8, then stop:
+1. **New toggle `donorPose`, "Donor pose"**, tooltip: "Bends this model's stored pose into the donor's resting pose." **Off by
+   default.**
+   - **Off:** every stored vertex and normal of the result is identical to the recipient's own geoset. The donor's rest-turn
+     correction goes into the keys instead of the mesh: each joint's rotation keys carry its correction, so the motion still
+     follows the donor.
+   - Measure how close the motion is. Take the skinned positions at sampled frames, compared with donorPose on, on 20 pairs.
+     Report the median and worst difference as a share of height, and where the difference comes from (blended seam vertices).
+   - **On:** the engine as before.
+   - Proof: with donorPose on and every other toggle off, the export is byte-identical to the CP7 engine on the CP2 high- and
+     low-grade inputs.
+   - The owner's decision replaces the old baseline, so "all toggles off" now means the model keeps its own geoset pose.
+2. **A donor pose must be valid for editing when on.** In the re-posed stored mesh, no arm, leg, tail or wing skin may end up
+   inside the torso or inside another limb, beyond what the recipient's own geoset already has.
+   - Measure each limb's added penetration in the stored mesh against the trunk and the other limbs.
+   - Where a limb's rest turn adds penetration, ease that limb's correction back toward the model's own rest pose (search the
+     share) until it clears. The rest of the pose stays the donor's.
+   - Proof: random-05 (the kid's arm) and random-08 (the Murloc), plus a count of how many of the 30 random pairs needed easing,
+     and which limbs.
+3. **Suggester:** suggest donorPose only when the eased pose has no added penetration **and** it lowers the look-check score.
+4. **Rebuild the random-30 sheet** (`cases-random30.json`, all 30, fresh suggestions, empty `answers.json`).
+   - Prove it with hidden screenshots in `out/cp8/`: the default view **and the Geoset pose view** for every case.
+   - Stop with `CHECKPOINT 8 READY`. Claude reviews every Geoset pose before the owner sees it.
