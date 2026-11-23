@@ -873,3 +873,49 @@ The owner now wants to grade **30 new random pairs**. Two stops:
   - Zero page errors, zero untextured views.
   - Replace any pair that fails to load or renders gray with a spare, and say which.
 - Stop with `CHECKPOINT 7b READY`.
+
+### CP7a · Random living-unit pairs
+
+- Archived the owner’s 10/10 for cloth-04 in `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\answers-round3.json`. It is a byte-for-byte copy of the graded `answers.json`, with Keep rider seated in both the selected and suggested sets. SHA-256 `8a6f163beca6752160e847ff6b76154363e5e9d4ceb04b4f72e78ca1f52aa8c8`.
+- Read 532 MDX files under `D:\Claude\MDLxL-TestModels\corpus-sd` and `D:\Claude\lpw-main\dist\models`. The name and rig filter yielded 427 eligible units with a drawable mesh, an active sequence, a head and trunk, and limbs, wings or a legless body. The kind reflects the unit’s default form. Checked ambiguous names and body plans against the model’s rig, mesh and textures. Animated undead and other named creature units are included. Excluded non-unit assets and anatomies outside the five requested kinds.
+- Mulberry32 seed `0x9a54f5bf` sampled donor and recipient indices from the eligible files sorted by case-insensitive path. Skipped self-pairs, repeated pairs, and any candidate that would exceed two uses of one model across the 30 cases and five spares. Checked both directions against 295 records in `graded-n.json` and 26 answers from rounds 1–3, using source paths, content hashes and name aliases. The highest use count is 2.
+- 13/30 main cases are two-legged humanoid → two-legged humanoid (43.3%). The draw stayed below the redraw threshold. The Mirror column uses the Transfer window’s initial default with repairs off. Verified all 35 mirror choices against the window helper. 8 default to Yes.
+- CP7a stops at the list. The engine, package and grading sheet are at their CP6 revisions. This checkpoint ran no builds, test suites or fresh sweeps.
+
+| Case | Donor | Kind | Donor file | Recipient | Kind | Recipient file | Mirror |
+|---|---|---|---|---|---|---|---|
+| 01 | Reikland Halberdier | biped | `D:\Claude\lpw-main\dist\models\herrdave\77\ReiklandHalberdier.mdx` | Kodo Beast (mounted) | rider | `D:\Claude\MDLxL-TestModels\corpus-sd\orc__kotobeast.mdx` | No |
+| 02 | Seal | legless | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__seal.mdx` | Gor Spear Thrower | biped | `D:\Claude\lpw-main\dist\models\gluma\355533\gor_spear.mdx` | No |
+| 03 | Knight of Slaanesh · Axe | rider | `D:\Claude\lpw-main\dist\models\WH_WOC_KnightSlaaneshAxe07.mdx` | Ogre | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__ogre.mdx` | No |
+| 04 | Savage Orc | biped | `D:\Claude\lpw-main\dist\models\herrdave\42\Greenskin_Orc1.mdx` | Demoness | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\demon__demoness.mdx` | No |
+| 05 | Night Elf Runner | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__runner.mdx` | Villager Kid | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__villagerkid.mdx` | Yes |
+| 06 | Naga Royal Guard | legless | `D:\Claude\MDLxL-TestModels\corpus-sd\naga__nagaroyalguard.mdx` | Knight of Nurgle · Heavy | rider | `D:\Claude\lpw-main\dist\models\WH_WOC_KnightNurgleHeavy06.mdx` | No |
+| 07 | Blood Mage | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\human__herobloodelf.mdx` | Tauren Chieftain | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\orc__herotaurenchieftain.mdx` | No |
+| 08 | Chaos Peon | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\demon__chaospeon.mdx` | Murloc Warrior | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__murlocwarrior.mdx` | No |
+| 09 | Faceless One | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__facelessone.mdx` | Villager Woman | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__villagerwoman.mdx` | No |
+| 10 | Saurus Oldblood Hero | biped | `D:\Claude\lpw-main\dist\models\gluma\358116\Oldblood_hero.mdx` | Kroxigor Hero | biped | `D:\Claude\lpw-main\dist\models\gluma\359970\kroxigor_hero_xtent_fix.mdx` | No |
+| 11 | Knight of Slaanesh · Axe | rider | `D:\Claude\lpw-main\dist\models\WH_WOC_KnightSlaaneshAxe07.mdx` | Skeleton | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\undead__skeleton.mdx` | Yes |
+| 12 | Druid of the Claw | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__druidoftheclaw.mdx` | Wind Serpent | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\naga__windserpent.mdx` | No |
+| 13 | Gargoyle | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\undead__gargoyle.mdx` | Revenant of the Waves | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__revenantofthewaves.mdx` | No |
+| 14 | Spanish Swordsman (Estalia) | biped | `D:\Claude\lpw-main\dist\models\herrdave\46\Spanish_Swordsman.mdx` | Revenant | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__revenant.mdx` | Yes |
+| 15 | Blood Elf Lieutenant | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\other__bloodelflieutenant.mdx` | Kobold Shoveler | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__shoveler.mdx` | No |
+| 16 | Centaur | four-legged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__centaur.mdx` | Black Dragon Whelp | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__blackdragonwelp.mdx` | No |
+| 17 | Shaman | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\orc__shaman.mdx` | Skink Chief (Hero) | biped | `D:\Claude\lpw-main\dist\models\gluma\355959\skink_chief_hero.mdx` | No |
+| 18 | Empire Handgunners (Arquebus) | biped | `D:\Claude\lpw-main\dist\models\gluma\373390\handgunner_arquebus.mdx` | Magnataur Brown | four-legged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__magnataurbrown.mdx` | No |
+| 19 | Ungor with Spear | biped | `D:\Claude\lpw-main\dist\models\gluma\326273\ungor_spear.mdx` | Demoness | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\demon__demoness.mdx` | No |
+| 20 | Admiral Proudmoore | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\other__proudmoore.mdx` | Warrior of Khorne · Bruiser | biped | `D:\Claude\lpw-main\dist\models\WH_WOC_WarriorKhorne04.mdx` | Yes |
+| 21 | Dark Elf Slavemaster (Unit) | biped | `D:\Claude\lpw-main\dist\models\gluma\371134\Dark_Elf_Slavemaster_unit_opt.mdx` | Empire Handgunners (Scoped) | biped | `D:\Claude\lpw-main\dist\models\gluma\373390\handgunner_scope.mdx` | No |
+| 22 | High Elf Peasant | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__highelfpeasant.mdx` | Harpy | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__harpy.mdx` | Yes |
+| 23 | Dark Elf Slavemaster (Hero) | biped | `D:\Claude\lpw-main\dist\models\gluma\371134\Dark_Elf_Slavemaster_hero_opt.mdx` | Knight of Khorne · Champion (Flail, Hero) | rider | `D:\Claude\lpw-main\dist\models\WH_WOC_KnightKhorneFlailHero01.mdx` | No |
+| 24 | Centaur | four-legged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__centaur.mdx` | Naga Royal Guard | legless | `D:\Claude\MDLxL-TestModels\corpus-sd\naga__nagaroyalguard.mdx` | No |
+| 25 | Knight of Nurgle · Champion (Hero) | rider | `D:\Claude\lpw-main\dist\models\WH_WOC_KnightNurgleChampionHero01.mdx` | Bestigor | biped | `D:\Claude\lpw-main\dist\models\gluma\352415\bestigor10.mdx` | No |
+| 26 | Death Knight (mounted) | rider | `D:\Claude\MDLxL-TestModels\corpus-sd\undead__herodeathknight.mdx` | Arthas with Sword | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\human__arthaswithsword.mdx` | Yes |
+| 27 | Watcher | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__watcher.mdx` | Chaos Hellscream | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\demon__chaoshellscream.mdx` | No |
+| 28 | Murloc Flesh Eater | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__murlocflesheater.mdx` | Centigor Spearman | four-legged | `D:\Claude\lpw-main\dist\models\maximal\358425\Centigor(Spearman).mdx` | No |
+| 29 | Skink Worker | biped | `D:\Claude\lpw-main\dist\models\gluma\356052\skink_worker.mdx` | Saurus Warrior | biped | `D:\Claude\lpw-main\dist\models\gluma\357283\saurus_warrior_unit_run.mdx` | No |
+| 30 | Blademaster | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\orc__heroblademaster.mdx` | Revenant | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__revenant.mdx` | Yes |
+| Spare 1 | Harpy Queen | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__harpyqueen.mdx` | Blademaster | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\orc__heroblademaster.mdx` | No |
+| Spare 2 | Gargoyle | winged | `D:\Claude\MDLxL-TestModels\corpus-sd\undead__gargoyle.mdx` | High Elf Peasant | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\critters__highelfpeasant.mdx` | No |
+| Spare 3 | Keeper of the Grove | four-legged | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__herokeeperofthegrove.mdx` | Bristleback | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__bristleback.mdx` | No |
+| Spare 4 | Storm Pandaren Brewmaster | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\creeps__stormpandarenbrewmaster.mdx` | Archmage Ghost (mounted) | rider | `D:\Claude\MDLxL-TestModels\corpus-sd\other__heroarchmageghost.mdx` | Yes |
+| Spare 5 | Dalaran Reject | legless | `D:\Claude\MDLxL-TestModels\corpus-sd\other__dalaranreject.mdx` | Demon Hunter | biped | `D:\Claude\MDLxL-TestModels\corpus-sd\nightelf__herodemonhunter.mdx` | No |
