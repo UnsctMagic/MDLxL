@@ -65,7 +65,8 @@ export function suggestToggles(model, donor, options = {}, {
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
     const change = compared(scores[key], scores.plain);
-    if (change < 0 || change === 0 && TARGETED_KEYS.has(key)) candidates.push(key);
+    // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
+    if (change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
   }
   // A stronger key takes its clash group first. Ties prefer the original six, then inventory order.
   candidates.sort((a, b) => compared(scores[a], scores[b]) ||

@@ -606,3 +606,26 @@ The ten low-grade cases display the original comments. The five ungraded cases c
 - The window row and the sheet row each stayed on one line. The window frame check was repeated with the Pause state confirmed after an initial assertion sampled live playback.
 - `saddleDriver` is the only key without a packaged click in either view. It changed none of the 40 smoke pairs, and the historical mounted #40 comparison also remained byte-identical. There is no eligible checkbox to click on these fixtures. The packaged supplemental `arms` and `trunk` cases retain their known input global-sequence faults and were used for UI coverage only.
 - The transplant engine source stayed at its CP2 revision. CP4 reused the CP2 all-off byte comparison. No full suite, fresh 888-pair sweep or Warcraft III run was performed. The local-only package and sheet are for Claude’s review. Owner grading is pending.
+
+### CP4 review (Claude) · GO; two fixes made by Claude, sheet ready for the owner
+
+The owner was asleep and said "streamline", so Claude made the two small fixes itself instead of a round trip. Everything below
+was checked on the packaged build on the hidden desktop (`out/claude-cp4/look.cjs`, screenshots in `out/claude-cp4/`).
+
+1. **pair-34 (Knightess → Paladin, "WEAPON FLOATING") showed After identical to Before.** detached and looseAxis kept the
+   same single look-check reason, but its ratio rose, so the tie rule rejected them. Change in `suggestToggles`: a targeted repair
+   now qualifies unless it **adds a reason**; the ratio no longer blocks it. Now pair-34 suggests `detached, looseAxis`: the sword
+   sits in the hand at the donor's angle. cloth-05 also gains `chains`. The other 18 sheet cases are unchanged.
+2. **The repair row scrolled sideways** (pair-15: "Hanging parts" was cut off behind a scrollbar). `.xf-repairs` now wraps onto a
+   second line instead of scrolling.
+
+After the fixes:
+- Focused tests: transplant-builder, transfer-picks and transplant-autofix, 56/56 pass.
+- `pnpm run build`, then packaged again into `TestBuilds\transfer-xl-35`.
+- Suggestions regenerated with `suggest-cases.mjs` into its `cases.json`; `answers.json` is still empty.
+- Hidden re-check of pair-34 and pair-15: no page errors, suggested boxes ticked, row on two lines.
+
+Seen but left for the owner to judge on the sheet: on pair-15, Two-hand grip turns the Ungor's bow into a straight line seen
+edge-on. It is suggested, and the owner can untick it.
+
+**Next (CP5):** the owner grades `TestBuilds\_START HERE\GRADE - XFER toggles 20.cmd`. Then Codex does CP5 as written, and Claude reviews it.
