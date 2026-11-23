@@ -770,3 +770,35 @@ Neither gets a speculative repair today. Their causes are recorded as follow-ups
 - Hawkstrider wing skin, which has no recognized wing chain to reuse.
 
 Codex: stop here. Round 2 waits for the owner's grades.
+
+### Owner's round-2 grades (23 Nov) and CP6 instructions (Claude)
+
+Round 2 (`TestBuilds\transfer-xl-35\answers.json`):
+- cloth-07 Silverpaw → Magnataur 0 → **8** (kept Rest pose fit, Jump height, Smooth feet)
+- cloth-01 Zweihander 7 → **8** (kept Loose weapon, Loose blade angle, Seat loose grip; **unticked Rest pose fit**)
+- followup-17 Grizzly → Tauren **8**, humanoid-227 Arthas → Pikeman **9**, both without seam fix
+- cloth-04 Gryphon Rider → Hawkstrider Knight 0 → **5**. The owner: "We have a GRIFFON RIDER - the rider is ONTOP of the griffon.
+  if you cannot transfer the wings can you not keep the rider in the saddle??? I need to see the geoset pose to determine this one."
+
+Archive these as `answers-round2.json`.
+
+CP6, cloth-04 only. Stop at CHECKPOINT 6.
+1. **New toggle `riderSeat` — "Keep rider seated"**, tooltip "Keeps the rider sitting in this model's own saddle while the bodies
+   move." Use it when the donor and this model are both read as a rider on a mount, but the seated-rider branch is skipped (here:
+   two donor leg pairs, one recipient leg pair).
+   - The rider's seat, meaning its hips and pelvis skin, stays where this model's own animations put it on its own mount, every frame.
+   - Measure that seat on the native Hawkstrider, relative to the mount body, in Stand/Walk/Attack.
+   - The rider's upper body and arms still take the donor rider's motion. The mount keeps its transplanted motion.
+   - Reuse the existing seated-rider code (`mountedPair`, `riders`, the RR1 rider-lean step in `skeleton-transplant.js`)
+     instead of a new mechanism.
+   - Proof: the rider-above-mount numbers from your CP5 diagnosis (native +10.7 / +16.8 at Walk 133 ms / Attack 333 ms)
+     with the toggle on, both alone and together with the owner's kept combo.
+   - It is a targeted key: it fires only on this rider case and joins `TARGETED_KEYS`. Translate the label into the 5 languages.
+2. **Show the model's own pose.** The owner asked to "see the geoset pose". Add a fourth view, "Own", to the cloth-04 case:
+   the Hawkstrider Knight's own file, playing its own matching animation. He can then compare where the rider sits natively.
+   If the sheet already supports a file variant beside a transplant case, use that; otherwise add the smallest support for it.
+3. **Package and sheet.**
+   - Rebuild and package `transfer-xl-35`.
+   - Write `cases-round3.json` with cloth-04 only (Donor | Own | Before | After) and a fresh empty `answers.json`.
+   - Add the launcher `GRADE - XFER toggles round 3.cmd`.
+   - Prove it with hidden screenshots in `out/cp6/`: default view and both Looks, with the toggle off and on.
