@@ -1662,3 +1662,12 @@ four sheets (123 pairs). Pose and transfer tests: 157/157 pass.
 
 Next sheet `cases-weapons15.json` (launcher `GRADE - XFER weapons 15.cmd`): 16 plus every weapons-14 row under 10 (15, 17,
 19, 25, 28, 33), all donated animations.
+
+#### Owner's weapons-15 grades (24 Nov, all donated animations shown)
+
+16 10 (was 5: necklace fix works), 15 0 (was 9): "arm is twitching... nop, this is failed, also head is a bit too much rotated
+upwards", 17 7 (was 8): "arrow doesnt move forward", 19 6: "arrow doesnt react/disappear", 25 8, 28 5 (was 9): "He is holding
+his staff too high - look at his original own pose, its a mirror", 33 9.
+15, 17, 19 and 28 export byte-identical files to weapons-14: the drops come from the animations the earlier sheets hid
+(weapons-14 showed 15 only Walk/Attack - 1/Stand). Open: 15 arm twitch and head tilt in the newly shown animations; 28 staff
+height against the model's own (mirror-image) pose; 17/19 the loaded arrow/bolt must fly or vanish like the donor's.
