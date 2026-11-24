@@ -1112,3 +1112,72 @@ Codex: wait for the owner's grades on `GRADE - XFER random 30.cmd`.
 | new-29 | Own | Polish KOP Rifleman | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\PolishKOPRifleman-754a5fa8\PolishKOPRifleman.mdx` |
 | new-30 | Donor | Lord Garithos | Blizzard | rider | `D:\Claude\MDLxL-TestModels\new-30\creeps__lordgarithos-c8532f2c\lordgarithos.mdx` |
 | new-30 | Own | Australian Sniper | Non-Blizzard | biped | `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\new30\fixtures\AustralianSniper-95362f41\AustralianSniper.mdx` |
+
+### CP10 · Reasonable 50
+
+- Launcher `D:\Claude\MDLxL\TestBuilds\_START HERE\GRADE - XFER reasonable 50.cmd`
+- Manifest `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\cases-reasonable50.json` and separate empty answers `D:\Claude\MDLxL\TestBuilds\transfer-xl-35\reasonable50\answers.json`
+- [Donor and Own Stand contact sheet](../../out/cp10/donor-own-contact.png), [50 default-view captures](../../out/cp10/), [verification record](../../out/cp10/verification.json).
+
+Captured Stand and Attack for 381 candidates, then checked the selected pictures against joint chains, attachments and held items. The final 100 distinct models include 30 Blizzard SD models from the game CASC and 70 custom models. 33 had no match in the broader local name, geometry or byte index. Compared both directions by aliases and available content against 476 prior pair records and owner examples from 57 files. Excluded the earlier Skeleton Warrior ↔ Footman pairing. The mix is 10 foot melee, 6 polearm or two-hand, 6 ranged, 8 casters, 8 ground riders, 5 flying riders, 7 beasts or legless.
+
+Every selected pair passed the separate skeleton and animation-family check. Compared bone parent links and bind pivots, then compared rotations sampled across Stand, Attack and other clips after normalizing sequence time. The earlier draft contained 34 shared-family matches. The revised list excludes each of them. The per-case comparisons are in the verification record.
+
+Captured every default view using the existing CP8 grading build. All 200 panes loaded and rendered without unresolved or gray textures. Checked Geoset pose on the same camera in all 50 cases, Donor pose unchecked on entry, stored engine suggestions, unchanged geoset vertices and normals with Donor pose off, mouse rotation, and the installed launcher with its empty answers. Prior answer files retained their SHA-256 hashes. Blizzard files and textures were added under `D:\Claude\MDLxL-TestModels\reasonable-50`.
+
+- reasonable-46 changed from Red Dragon → Von Carstein Zombie Dragon to Red Dragon → Wind Rider (Riderless) (Closer flight silhouette and size in the shared default view).
+- reasonable-47 changed from Frost Wyrm → Wind Rider (Riderless) to Frost Wyrm → Von Carstein Zombie Dragon (Both are large undead dragons with independently authored skeletons and flight animations).
+- Candidate texture staging excluded Knight With Lordaeron Shield, Knight With Footman Shield, Mediumcav, orcdragonrider, orcdragonriderchaos, blackdragonrider, Greenskin Orc2, Greenskin Orc3, Ironforge Ram Rider, Gnome Lindormr Rider Twin Heads Face Alpha Wrap, WH VC Zombie Dragon VCarstein02, Chaos Dragon Skeleton 13.
+
+| # | Donor | Recipient | Body | Role | Size | Why |
+| --- | --- | --- | --- | --- | --- | --- |
+| 01 | High Elf Footman | Blood Elf Lieutenant | foot biped | sword and shield | man-sized | Both are armored elf infantry who step behind a shield and cut with a one-handed sword. |
+| 02 | Bretonnian Swordsman | Royal Soldier | foot biped | sword and shield | man-sized | Both are shield infantry who carry a short sword and attack from the front foot. |
+| 03 | Dire Footman | Dismounted Bronzebeard Gryphon Warrior | foot biped | melee one-hand | small | Both dwarves brace a shield and swing a short hammer or mace around it. |
+| 04 | Black Knight | Dismounted Knight of the Blazing Sun | foot biped | sword and shield | man-sized | Both are armored foot knights who use a shield and a one-handed blade. |
+| 05 | Khorne Berserker | Mountain King | foot biped | melee one-hand | man-sized | Both carry a short weapon in each hand and swing from a wide infantry stance. |
+| 06 | Fel Orc Grunt | Gor Axeman | foot biped | melee one-hand | man-sized | Both use a broad stance and a one-handed axe as their main attack. |
+| 07 | Footman | Footman Sergeant | foot biped | sword and shield | man-sized | Both are armored footmen with a sword, shield, and broad forward step. |
+| 08 | Footman Leader | Elf Death Knight | foot biped | melee one-hand | man-sized | Both are tall armored foot fighters who slash with a long sword in one hand. |
+| 09 | Skeletal Orc | Greenskin Orc1 | foot biped | melee one-hand | man-sized | Both have a broad orc stance and swing a single weapon down from the shoulder. |
+| 10 | Templar Exemplar | Captain | foot biped | melee one-hand / sword and shield | man-sized | Both are armored shield infantry who deliver a one-handed strike past the shield. |
+| 11 | Skink Spearman | Northrend Murloc Spearman | foot biped | polearm/spear | small | Both are small tailed infantry who drive a long spear forward with a planted stride. |
+| 12 | Reikland Halberdier | Bretonnian Pikeman | foot biped | polearm/spear | man-sized | Both brace a long polearm across the body and step into a two-handed thrust. |
+| 13 | Black Fur Great Knight | Reikland Greatsword | foot biped | melee two-hand | man-sized | Both armored foot fighters swing a long, heavy weapon across the body with two hands. |
+| 14 | Hero Tauren Warbeast | Bestigor | foot biped | melee two-hand | large | Both are horned heavy infantry that swing a long-handled axe. |
+| 15 | Minotaur | Tauren Chieftain | foot biped | melee two-hand | large | Both are bulky bovine infantry that swing a large axe across the body. |
+| 16 | Kroxigor | Tauren | foot biped | melee two-hand | large | Both heavy infantry swing a long, blunt weapon with two hands. |
+| 17 | Bretonnian Archer | Night Elf Archer | foot biped | bow/crossbow | man-sized | Both are foot archers who draw a hand bow from a planted stance. |
+| 18 | Arbalester | Crossbowman | foot biped | bow/crossbow | man-sized | Both aim a crossbow with two hands and fire directly ahead. |
+| 19 | Gnoll Assassin | Bronzebeard Crossbowman | foot biped | bow/crossbow | small | Both are short, stocky crossbow users who shoot from a low stance. |
+| 20 | Bronzebeard Rifleman | Dire Rifleman | foot biped | gun | small | Both are dwarf riflemen who raise a long gun to shoot from a braced stance. |
+| 21 | Skaven Ratling Gunner | Repeater Handgunner | foot biped | gun | man-sized | Both are foot gunners who brace a heavy multibarrel gun with two hands. |
+| 22 | Arquebus Handgunner | Reikland Handgunner | foot biped | gun | man-sized | Both are human handgunners who bring a long gun down out of an upright carry to shoot. |
+| 23 | Hero Wizard | Tzeentch Shaman | foot biped | caster with staff | man-sized | Both stand upright and sweep a tall magical staff outward with one hand. |
+| 24 | Hero Dwarf Grand Mage | Bronzebeard Priest | foot biped | caster with staff | small | Both are dwarven casters who thrust a short casting rod forward. |
+| 25 | Bronzebeard Mage | Skink High Priest | foot biped | caster with staff | small | Both small ground casters extend a glowing staff in one hand. |
+| 26 | Hero Murgul Warlock | Northrend Murloc Warlock | foot biped | caster with staff | small | Both small amphibious warlocks bend into a cast with a staff in one hand. |
+| 27 | Forest Troll Shadow Priest | Forest Troll High Priest | foot biped | caster with staff | man-sized | Both troll priests reach forward with a short staff from a bent-knee pose. |
+| 28 | Fel Orc Warlock | Furion | foot biped | caster with staff | man-sized | Both carry a staff upright in one hand and extend it to cast. |
+| 29 | Furbolg Elder Shaman | Wendigo Shaman | foot biped | caster empty-handed | large | Both heavy furred shamans stand and attack with their hands free. |
+| 30 | Hero Grey Wizard | Bray Shaman | foot biped | caster with staff | man-sized | Both foot casters extend a long staff from the side into a forward cast. |
+| 31 | Orc Warg Rider | Thrall | mounted rider (wolf) | melee one-hand | large | Both wolf riders swing a one-handed hammer beside the mount's shoulder. |
+| 32 | Arkain Cavalry Sergeant | French Dragoon Cavalry | mounted rider (horse) | melee one-hand | large | Both cavalrymen make a one-handed saber cut beside a horse's neck. |
+| 33 | Swan Knight | Polish Lancer | mounted rider (horse) | polearm/spear | large | Both horse riders level a long lance for a forward strike. |
+| 34 | Black Rock Rider | Arthas (mounted, undead) | mounted rider (wolf / horse) | melee one-hand | large | Both riders cut with a long blade from the saddle of a four-legged mount. |
+| 35 | Arkain Knight Of Kome | Undivided Chaos Knight | mounted rider (horse) | sword and shield | large | Both heavy cavalry units make a close one-handed sword strike from a shielded horse. |
+| 36 | WH WOC Knight Khorne Axe03 | Paladin Horse1.02 | mounted rider (horse) | melee one-hand | large | Both armored riders swing a heavy one-handed weapon in front of the horse's shoulder. |
+| 37 | Stolio the Lancer | Tzeentch Lance Knight | mounted rider (horse) | polearm/spear | large | Both heavy cavalry models attack by leveling a lance over a horse's shoulder. |
+| 38 | Cold One Rider | Lizardman Raiding Cavalry | mounted rider (reptile) | polearm/spear | large | Both attack with a spear held forward while riding a long-tailed reptile. |
+| 39 | Bronzebeard Gryphon Rider | Wind Rider Undead | flying rider (gryphon / wyvern) | one-handed throw (hammer / spear) | large | Both wind up for a one-handed throw while their mounts hover and beat their wings. |
+| 40 | Black Legion Gryphon Rider | Apothecary Bat Mount | flying rider (gryphon / bat) | one-handed throw (hammer / flask) | large | Both riders lob a held projectile overhand from the saddle of a winged mount. |
+| 41 | Elven Dire Dragonhawk | Warsong Wyvern Rider | flying rider (dragonhawk / wyvern) | polearm/spear | large | Both riders reach forward with a spear while their mounts remain airborne. |
+| 42 | Far Seer Wyvern | Hero Gnome Dragonrider | flying rider (wyvern / dragon) | caster with staff | large | Both riders aim a staff forward from a flying reptile's saddle. |
+| 43 | Gryphon Rider | Dragonhawk Rider | flying rider (gryphon / dragonhawk) | one-handed aerial ranged attack | large | Both riders bring a one-handed weapon forward for a ranged attack as their mounts bank. |
+| 44 | Dire Wolf | Fel Stalker | four-legged beast (wolf-like) | brute/unarmed | large | Both are long-bodied canine beasts that brace on four feet and attack headfirst. |
+| 45 | Cold One Riderless | Snap Dragon | four-legged beast (reptile) | brute/unarmed | large | Both long-snouted reptiles plant four legs and thrust their jaws forward. |
+| 46 | Red Dragon | Wind Rider (Riderless) | winged beast or dragon | brute/unarmed | large | Both are flying reptiles with a long tail and two wings that attack headfirst. |
+| 47 | Frost Wyrm | Von Carstein Zombie Dragon | winged beast or dragon | brute/unarmed | large | Both are undead dragons that fly on skeletal wings and attack forward with their jaws. |
+| 48 | Dreadlord | Succubus | winged beast (biped demon) | brute/unarmed | large | Both horned winged demons stand upright and reach forward with a free hand to attack. |
+| 49 | Elder Voidwalker | Lava Spawn (Level 1) | legless (elemental) | caster empty-handed | man-sized | Both hover on a legless lower body and cast through a free hand. |
+| 50 | Sea Turtle | Lightning Lizard | four-legged beast (armored reptile) | brute/unarmed | large | Both are low, armored reptiles that brace on four feet and attack from the snout. |
