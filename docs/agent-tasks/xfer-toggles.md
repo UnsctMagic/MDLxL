@@ -1348,3 +1348,17 @@ Rebuilt and verified 1,684 package runtime and asset files and 55 locales. The i
 - Hidden packaged screenshots for all 31 pairs [fixes/](../../out/cp11/fixes/) and [fixes-launcher.png](../../out/cp11/fixes-launcher.png). A normal mouse drag rotated all four linked cameras by 66.69° on the first pair. [fixes/captures.json](../../out/cp11/fixes/captures.json) · [package-verification.json](../../out/cp11/package-verification.json)
 
 Targeted source verification covered 280 tests. The first pass returned 265 passes and 15 failures. Eleven of those failures also occurred on the exact CP10 source and recurred in the final targeted run (P9, P2, P4, T6, T12, WS4, Q3, V2, V3, HG1 and detached pipe). The four new failures (P1, G1, Q2 and FB1 Grunt/Murloc) all passed on the final source. These counts reuse the original passing checks. The full suite, Warcraft III gameplay and a fresh owner grade were outside this checkpoint. [Targeted results](../../out/cp11/targeted-tests.log) · [Baseline replay](../../out/cp11/old-failing-replay.log) · [Final focused reruns](../../out/cp11/cp11-specific-trial2.log) · [Final existing failures](../../out/cp11/final-known-failures.log)
+
+### CP11 review (Claude) · FIX one regression before the owner grades
+
+Accepted: legs on 03/23/30, wings on 40–47, the head stretch on 36 (34.45× → 1.80×), the cloak on 34, the suggestion changes, and the honest record of
+what still fails (weapons, rider legs on 38, stretch on 50).
+
+**Not acceptable: grade-10 case 39 lost its wingbeat** (Walk 1.14×/1.14× → 0.07×/0.00× donor). CP11b, then stop:
+1. When the new reader finds wings on the model but the donor has no matching wing pair, the model's wings take exactly the CP10 path.
+   Case 39 must be byte-identical to its CP10 export at its old ticks, and its wing travel must return to about 1.1× in Walk/Stand/Attack.
+2. Re-measure wing travel on 40–47 to prove the gain is kept.
+3. Rebuild `transfer-xl-35` and regenerate the `cases-fix11.json` suggestions. Replace the 39 screenshots in `out/cp11/`.
+   Stop with `CHECKPOINT 11b READY — <this file>`.
+
+Weapons (group C) get their own checkpoint after the owner grades this sheet. Do not start them now.
