@@ -1386,3 +1386,9 @@ The table gives visible skin travel divided by donor travel. Case 39 matched CP1
 The offline package build verified 1,684 runtime and asset files and 55 locales. All 1,547 installed engine and renderer files matched the staged build. All 31 fixes-sheet suggestions were recomputed with their original options. Only case 39’s default ticks changed. The owner’s answers and case order were preserved. All 18 targeted wing and mounted tests passed. Verification covered the model engine and the packaged viewer. Warcraft III gameplay was not exercised. [Package verification](../../out/cp11b/package-verification.json) · [Sheet verification](../../out/cp11b/sheet-verification.json) · [Focused tests](../../out/cp11b/wing-mounted-tests.log)
 
 The hidden packaged run reopened case 39 with its regenerated defaults. The Walk (334 ms) and Attack (834 ms) model panes matched the CP10 captures pixel for pixel. The comparison and grading screenshots below replace the CP11 captures for this pair. [Before and after](../../out/cp11/before-after/reasonable-39.png) · [Grading sheet, Walk](../../out/cp11/fixes/reasonable-39-default.png) · [Grading sheet, Attack](../../out/cp11/fixes/reasonable-39-attack.png) · [Capture verification](../../out/cp11b/screenshot-verification.json)
+
+### CP11b review (Claude) · GO, the fixes sheet is ready for the owner
+
+Case 39 exports byte-identical to CP10 at its old ticks, its panes match CP10 pixel for pixel, and 40–47 keep their wing gains. Claude
+spot-checked fixes captures 03, 23, 41, 47, 13 and 39: all four views are textured, with the repair row in place. Codex: wait for the owner's
+grades on `GRADE - XFER fixes 11.cmd`. Weapons are the next checkpoint after that.
