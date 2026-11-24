@@ -3,7 +3,7 @@ import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
 import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror } from './transplant-autofix.js';
 import { heldContact } from './held-item.js';
-import { rigFor } from './transfer-window.js';
+import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { verdict } from './xfer-look-verdict.js';
 
@@ -47,10 +47,11 @@ export function suggestToggles(model, donor, options = {}, {
   function build(keys) {
     const autoFix = Object.fromEntries(keys.map(key => [key, true]));
     const mirror = automaticMirror && autoFix.heldGeometry ? null : autoFix.hand ? handMirror : baseMirror;
-    const built = transplantSkeleton(model, donor, { ...plainOptions, mirror, autoFix });
+    const resolved = transplantRepairOptions(model,donor,{...plainOptions,mirror,autoFix},automaticMirror);
+    const built = transplantSkeleton(model, donor, resolved);
     const pose = built.report.donorPose;
     usableDonorPose.set(keys.join(','), !!pose?.enabled && !pose.retainedOwn && !Object.keys(pose.added).length);
-    return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer, weaponSeated: !!built.report.autoFix?.seatWeapon, looseGripSeated: built.report.autoFix?.seatLooseGrip };
+    return { model: built.model, mirrored: resolved.mirror ?? built.report.mirrorOffer, weaponSeated: built.report.autoFix?.seatWeapon, looseGripSeated: built.report.autoFix?.seatLooseGrip };
   }
 
   let reflected;
@@ -81,7 +82,12 @@ export function suggestToggles(model, donor, options = {}, {
     const change = compared(scores[key], scores.plain);
     // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
     if (key === 'donorPose' && !usableDonorPose.get(key)) continue;
-    if (key === 'seatWeapon' || change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
+    if (key === 'seatWeapon') {
+      if (result.weaponSeated.every(item => Number.isFinite(item.after)) &&
+          result.weaponSeated.reduce((sum,item) => sum+item.before-item.after,0) > .01*result.weaponSeated.length) candidates.push(key);
+      continue;
+    }
+    if (change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
   }
   // A stronger key takes its clash group first. Ties prefer the original six, then inventory order.
   candidates.sort((a, b) => compared(scores[a], scores[b]) ||
@@ -112,6 +118,14 @@ export function suggestToggles(model, donor, options = {}, {
     if (!usableDonorPose.get(suggested.join(',')) || compared(comboScore, score) >= 0) {
       suggested = without;
       comboScore = score;
+    }
+  }
+  if (suggested.includes('seatWeapon')) {
+    const items=build(suggested).weaponSeated;
+    if (!items?.length || !items.every(item => Number.isFinite(item.before) && Number.isFinite(item.after)) ||
+        items.reduce((sum,item)=>sum+item.before-item.after,0)<=.01*items.length) {
+      suggested=suggested.filter(key=>key!=='seatWeapon');
+      comboScore=scoreCombo(suggested);
     }
   }
   scores.suggested = comboScore;

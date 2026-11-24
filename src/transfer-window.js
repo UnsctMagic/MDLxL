@@ -5,6 +5,7 @@ import { Matrix4, Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices } from './animation.js';
 import { transferRig, transferWholeBody } from './anim-transfer.js';
 import { standSequenceIndex } from './sequence-editor.js';
+import { animationMirror } from './transplant-weapon-seat.js';
 import { autoFixMirror } from './transplant-autofix.js';
 
 const CHIP_ORDER = ['head', 'chest', 'hips', 'armL', 'armR', 'legL', 'legR', 'wingL', 'wingR', 'tail'];
@@ -386,6 +387,10 @@ export function transplantOptions({ sounds = true, effects = false, keep = [], m
 export function transplantRepairOptions(model, donor, options = {}, automaticMirror = options.mirror == null) {
   if (!automaticMirror) return options;
   const fix = options.autoFix;
+  if (fix?.seatWeapon || fix?.hand || fix?.heldGeometry) {
+    const match=animationMirror(model,donor,rigFor(model,Math.max(0,standSequenceIndex(model))),rigFor(donor,Math.max(0,standSequenceIndex(donor))));
+    if(match?.close) return {...options,mirror:match.mirror};
+  }
   if (fix?.heldGeometry) return { ...options, mirror: null };
   if (options.mirror != null && !fix?.hand) return options;
   const ownRig = rigFor(model, Math.max(0, standSequenceIndex(model)));

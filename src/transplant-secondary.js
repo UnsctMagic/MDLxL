@@ -1,6 +1,10 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { rewriteTrack } from './transplant-floor.js';
 import { inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleGeosetAnimation } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
+import { geosetSkinMatrix, skinGeoset } from './animation.js';
+import { bindVertices } from './editor-commands.js';
+import { physicalSurfaceComponents } from './geoset-operations.js';
 import { vertexBones } from './part-bones.js';
 import { corpseAndBackgroundGeosets } from './geoset-extras.js';
 
@@ -72,7 +76,9 @@ export function secondarySurfaces(own, donor, rig, treeB, treeA, partJoint, keep
           available.sort((a,b)=>Math.abs(depth(treeA,a,source.root)/dMax-u)-Math.abs(depth(treeA,b,source.root)/dMax-u));
           driver=available[0] ?? parent?.driver ?? source.root;
         }
-        matches.set(j,{driver,host:parent?.driver ?? source?.host ?? driver,cloth:true,root:c.root,panelParent:parent?treeB.parentOf(j):undefined,amplitude:source?source.span/c.span:0});
+        matches.set(j,{driver,host:parent?.driver ?? source?.host ?? driver,cloth:true,root:c.root,panelParent:parent?treeB.parentOf(j):undefined,amplitude:source?source.span/c.span:0,
+          ...(source && c.nodes.size>=4 && [...source.nodes].some(j=>(treeA.children.get(j)||[]).filter(n=>source.nodes.has(n.ObjectId)).length>1) ?
+            {surfaceDriver:true,anchor:source.host,branch:[...source.nodes],depth:0} : {})});
       }
     }
   }
@@ -236,7 +242,7 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
   for (const [id,match] of matches) {
     if(drapeTracks.has(id)) continue;
     const {driver,host,cloth} = match;
-    if (splitRoots.has(match.root)) {
+    if (match.surfaceDriver || splitRoots.has(match.root)) {
       tracks.set(id,hemMotion(id,match));
       continue;
     }
@@ -363,6 +369,81 @@ export function secondaryMotion(own, donor, tree, matches, ref, size) {
       }
       return {Rotation:{LineType:1,GlobalSeqId:null,Keys}};
     }
+}
+
+// A sewn cape can have one articulated strip below the arm and another
+// below the chest. Transplanting the first as arm equipment pulls the
+// two edges apart. Restore the garment in the receiver's chest frame.
+export function fitSplitCape(result,own,donor,b,a,mappedChest,keep) {
+  if (!result.Nodes[mappedChest] || !a.parts.chest || !b.parts.chest) return 0;
+  const tree=nodeIndex(own), chest=b.parts.chest.marker;
+  const anatomy=new Set(Object.values(b.parts).flatMap(p=>p.joints));
+  const armIds=new Set(Object.values(b.parts).filter(p=>p.limbKind==='arm').flatMap(p=>p.joints));
+  const owner=id=>tree.ancestors(id,true).find(j=>anatomy.has(j));
+  const frames=(m,r)=>sampleNodeMatrices(m,r.reference.frame,r.reference.sequence);
+  const native=frames(own,b), target=frames(donor,a);
+  const si=result.Sequences.findIndex(s=>s.Name===donor.Sequences[a.reference.sequence]?.Name);
+  if(si<0)return 0;
+  const posed=sampleNodeMatrices(result,a.reference.frame,si);
+  const current=posed.get(mappedChest), home=native.get(chest);
+  if(!home || !current || Math.abs(current.determinant())<1e-8)return 0;
+  const chestAt=(m,id,world)=>new Vector3().fromArray(nodePivot(m,m.Nodes[id],id)).applyMatrix4(world.get(id));
+  const origin=chestAt(own,chest,native), destination=chestAt(result,mappedChest,posed);
+  const fromDonor=chestAt(donor,a.parts.chest.marker,target);
+  const donorTree=nodeIndex(donor);
+  const donorLeg=new Set(Object.values(a.parts).filter(p=>p.limbKind==='leg').flatMap(p=>p.joints));
+  const donorTrunk=new Set([...(a.parts.chest.joints||[]),...(a.parts.hips?.joints||[])]);
+  let donorReach=0,changed=0;
+  for(const [gi,g] of own.Geosets.entries()){
+    if(sampleGeosetAnimation(own,gi,b.reference.frame,b.reference.sequence).alpha<.5)continue;
+    for(const part of physicalSurfaceComponents(g)){
+      const ids=[...new Set(part.vertices.flatMap(v=>vertexBones(g,v)))];
+      if(ids.some(id=>tree.ancestors(id,true).some(j=>keep.has(j))))continue;
+      const branches=ids.map(id=>({id,host:owner(id)}));
+      const deep=host=>branches.filter(x=>host(x.host) && tree.depth(x.id)-tree.depth(x.host)>=3);
+      if(!deep(id=>id===chest).length || !deep(id=>armIds.has(id)).length ||
+          branches.some(x=>x.host!==chest && !armIds.has(x.host)))continue;
+      const vertices=skinGeoset(g,native), points=part.vertices.map(v=>new Vector3().fromArray(vertices,3*v));
+      const centre=points.reduce((v,p)=>v.add(p),new Vector3()).divideScalar(points.length);
+      if(centre.z>=origin.z || centre.x>=origin.x || points.length<8)continue;
+      if(!donorReach){
+        for(const [di,dg] of donor.Geosets.entries()){
+          if(sampleGeosetAnimation(donor,di,a.reference.frame,a.reference.sequence).alpha<.5)continue;
+          const dv=skinGeoset(dg,target);
+          for(const dc of physicalSurfaceComponents(dg)){
+            const bindings=new Set(dc.vertices.flatMap(v=>vertexBones(dg,v)));
+            if(![...bindings].some(j=>donorTrunk.has(j)) || ![...bindings].some(j=>donorLeg.has(j)) ||
+              [...bindings].some(j=>Object.values(a.parts).some(p=>p.limbKind==='arm' && p.joints.some(id=>donorTree.isAncestor(j,id)))))continue;
+            const rear=dc.vertices.map(v=>new Vector3().fromArray(dv,3*v)).filter(p=>p.x<fromDonor.x && p.z<fromDonor.z);
+            if(rear.length>=dc.vertices.length/3) donorReach=Math.max(donorReach,...rear.map(p=>p.distanceTo(fromDonor)));
+          }
+        }
+      }
+      const scale=donorReach?Math.min(1,donorReach/Math.max(...points.map(p=>p.distanceTo(origin)))):1;
+      const rg=result.Geosets[gi], inverse=current.clone().invert();
+      if(rg.Groups.length>=256 && !rg.Groups.some(ids=>ids.length===1 && ids[0]===mappedChest))continue;
+      const joint=result.Nodes[mappedChest];
+      if(!result.Bones.includes(joint)){
+        const helper=result.Helpers.indexOf(joint);
+        if(helper<0)continue;
+        result.Helpers.splice(helper,1);
+        Object.assign(joint,{Flags:joint.Flags|256,GeosetId:null,GeosetAnimId:null});
+        result.Bones.push(joint);
+      }
+      bindVertices(result,rg,part.vertices,mappedChest);
+      for(const [i,v] of part.vertices.entries())
+        {
+          points[i].sub(origin).multiplyScalar(scale).add(destination).applyMatrix4(inverse).toArray(rg.Vertices,3*v);
+          for(const [field,stride] of [['Normals',3],['Tangents',4]]){
+            if(!g[field]?.length)continue;
+            new Vector3().fromArray(g[field],v*stride).transformDirection(geosetSkinMatrix(g,v,native))
+              .transformDirection(inverse).toArray(rg[field],v*stride);
+          }
+        }
+      changed+=part.vertices.length;
+    }
+  }
+  return changed;
 }
 
 // A short rigid tail fan may use only the first link of a long donor tail.

@@ -54,14 +54,14 @@ import { bendArmsAboveFloor, fitWalkContacts, followSupportFeet } from './transp
 import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { supportLegSkin } from './transplant-support-skin.js';
 import { fabricMotion } from './transplant-fabric.js';
-import { secondarySurfaces, secondaryMotion, fitTailPlate } from './transplant-secondary.js';
+import { secondarySurfaces, secondaryMotion, fitSplitCape, fitTailPlate } from './transplant-secondary.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment, seatLooseGrip } from './transplant-props.js';
 import { readHeldItem } from './held-item.js';
-import { seatWeapon } from './transplant-weapon-seat.js';
+import { animationMirror, seatWeapon } from './transplant-weapon-seat.js';
 import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
@@ -955,7 +955,9 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const ownHeld = fix?.heldGeometry && rigB.ok ? readHeldItem(model, rigB) : null;
   const donorHeld = fix?.heldGeometry && rigA0.ok ? readHeldItem(donor, rigA0) : null;
   const geometryOffer = ownHeld && donorHeld ? ownHeld.side !== donorHeld.side : null;
-  const mirrorOffer = geometryOffer ?? heldOffer ?? namedOffer;
+  const nativeMatch = mirror == null && rigA0.ok && rigB.ok ? animationMirror(model,donor,rigB,rigA0) : null;
+  const mirrorOffer = nativeMatch?.close ? nativeMatch.mirror : geometryOffer ?? heldOffer ?? namedOffer;
+  if (mirror == null && nativeMatch?.close) mirror = mirrorOffer;
   if (fix?.heldGeometry && mirror == null) mirror = mirrorOffer;
   const reflected = mirror === true ? mirrorModel(donor) : donor;
   if (mirror === true) clearTransferCache(reflected);
@@ -2210,6 +2212,14 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     }
     if (!neckBend && neckJoints.length && placed.get(headAt).distanceTo(placed.get(neckJoints[0])) > 1e-3 * rigB.hipHeight) {
       const neck = alignFrames(placed.get(headAt).clone().sub(placed.get(neckJoints[0])), pA(headAt).sub(pA(neckJoints[0])), sideOf(id => placed.get(id)), sideOf(pA));
+      // A backwards bind neck can already be folded into the authored pose.
+      // Rotating it past a right angle again winds the joined collar around the
+      // chest. Keep that seam in its chest frame and let the donor keys bend it.
+      const chestTurn = correction.get(chestAt) ?? new Quaternion();
+      if (neck.angleTo(chestTurn) > Math.PI/2 || angle(neck) > 90) {
+        neck.copy(chestTurn);
+        correction.set(headAt,chestTurn.clone());
+      }
       for (const id of neckJoints) correction.set(id, neck.clone());
       posture.neck = angle(neck);
     }
@@ -3276,6 +3286,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const seating = seatWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
     if (seating) fixed.seatWeapon = seating;
   }
+  if (rigA.ok && rigB.ok && rigB.parts.chest && rigA.parts.chest)
+    fitSplitCape(M,model,reflected,rigB,rigA,donorMap[rigA.parts.chest.marker],keepSet);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);

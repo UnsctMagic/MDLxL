@@ -1,5 +1,6 @@
 import { Matrix4, Quaternion, Triangle, Vector3 } from 'three';
 import { nodePivot, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from './animation.js';
+import { sameKindSequence } from './anim-transfer.js';
 import { bindVertices } from './editor-commands.js';
 import { physicalSurfaceComponents } from './geoset-operations.js';
 import { geosetMaterialLayers, isAdditiveLayer } from './geoset-extras.js';
@@ -17,8 +18,9 @@ const weaponWord = name => isWeaponName(name, ['totum','crossbow','barrel','axha
 const excluded = /shield|buckler|quiver|arrow|bolt|projectile|bullet|muzzleflash|finger|thumb|cloth|plane|cape|hair|wing/i;
 const finite = p => p.toArray().every(Number.isFinite);
 
-function pose(model, sequence) {
-  const frame = model.Sequences[sequence].Interval[0];
+function pose(model, sequence, phase = 0) {
+  const [start,end] = model.Sequences[sequence].Interval;
+  const frame = Math.round(start + phase*(end-start));
   const world = sampleNodeMatrices(model, frame, sequence), skin = new Map();
   function point(gi, v) {
     if (!skin.has(gi)) skin.set(gi, skinGeoset(model.Geosets[gi], world));
@@ -79,7 +81,7 @@ function contacts(model, reading, parts, palm) {
       tri.getBarycoord(nearest,bary);
       const source = vector();
       ids.forEach((v,j) => source.addScaledVector(at(model.Geosets[gi].Vertices,v),bary.getComponent(j)));
-      best = {world:nearest.clone(),source,gap:Math.sqrt(gap)};
+      best = {world:nearest.clone(),source,gap:Math.sqrt(gap),gi,ids,weights:bary.toArray()};
     }
   }
   return best;
@@ -274,9 +276,171 @@ function readWeapon(model, rig) {
     if (support && support.gap<=.15*other.arm.length && support.world.distanceTo(item.contact.world)>.12*item.geometry.length)
       item.support = {hand:other,gap:support.gap};
   }
+  for (const item of items) nativeGrip(model,item,reading);
   return {items,hands,reading,tree};
 }
 
+// Track the same material point across the authored clips. A palm passing a
+// blade for one frame is weaker evidence than contact throughout the motion.
+const activeClip = name => /^(stand|walk|attack)\b/i.test(name.trim());
+const palmAt = (hand, frame) => mean(hand.patch.map(({gi,v}) => frame.point(gi,v)));
+const contactAt = (hit, frame) => hit.ids.reduce((p,v,i) =>
+  p.addScaledVector(frame.point(hit.gi,v),hit.weights[i]),vector());
+function nativeGrip(model,item,reading) {
+  if (!item.hand.patch.length) return;
+  const samples = [];
+  for (const [i,seq] of model.Sequences.entries()) {
+    if (!activeClip(seq.Name)) continue;
+    for (const phase of [0,.25,.5,.75,1]) {
+      const frame = pose(model,i,phase);
+      if (!item.parts.some(p => sampleGeosetAnimation(model,p.gi,frame.frame,i).alpha>.25)) continue;
+      samples.push({frame,palm:palmAt(item.hand,frame),stand:/^stand/i.test(seq.Name)});
+    }
+  }
+  if (!samples.length) return;
+  let best = item.contact, error = Infinity;
+  for (const {frame,palm} of samples) {
+    const candidate = contacts(model,frame,item.parts,palm);
+    if (!candidate) continue;
+    const distance = samples.reduce((sum,s) => sum+contactAt(candidate,s.frame).distanceTo(s.palm),0);
+    if (distance<error) { best=candidate; error=distance; }
+  }
+  item.contact = {...best,world:contactAt(best,reading)};
+  const vertices = item.axisParts.flatMap(p => p.vertices.map(v => ({gi:p.gi,v})));
+  const projection = ref => reading.point(ref.gi,ref.v).dot(item.geometry.axis);
+  vertices.sort((a,b) => projection(a)-projection(b));
+  // Average each end ring so one off-axis corner cannot turn a blade.
+  const lo=projection(vertices[0]),hi=projection(vertices.at(-1)),band=.08*(hi-lo);
+  const ends=[vertices.filter(v=>projection(v)<=lo+band),vertices.filter(v=>projection(v)>=hi-band)];
+  const elevated=samples.filter(s=>s.stand).map(s=>{
+    const [a,b]=ends.map(end=>endAt(end,s.frame));
+    return (b.z-a.z)/Math.max(1e-6,b.distanceTo(a));
+  }).sort((a,b)=>a-b);
+  // A support palm on a launcher leads the trigger hand toward the muzzle.
+  // Otherwise the far end from the persistent native grip is the striking end.
+  const votes=samples.map(({frame,palm})=>{
+    const [a,b]=ends.map(end=>endAt(end,frame));
+    if(item.launcher && item.support?.hand.patch.length)
+      return palmAt(item.support.hand,frame).sub(palm).dot(b.sub(a).normalize());
+    return b.distanceTo(palm)-a.distanceTo(palm);
+  }).sort((a,b)=>a-b);
+  const upright=elevated[Math.floor(elevated.length/2)] ?? 0;
+  const vote=votes[Math.floor(votes.length/2)];
+  if ((!item.launcher && Math.abs(upright)>.65 && Math.abs(vote)<.5*item.geometry.length ? upright : vote)<0) ends.reverse();
+  item.ends=ends;
+  const fractions=samples.map(({frame,palm})=>{
+    const [base,head]=ends.map(end=>endAt(end,frame));
+    const shaft=head.sub(base);
+    return palm.clone().sub(base).dot(shaft)/Math.max(1e-8,shaft.lengthSq());
+  }).sort((a,b)=>a-b);
+  item.fraction=Math.max(0,Math.min(1,fractions[Math.floor(fractions.length/2)]));
+}
+function endAt(refs,frame){return mean(refs.map(({gi,v})=>frame.point(gi,v)));}
+function shaftAt(item,frame) {
+  const [a,b]=item.ends.map(end=>endAt(end,frame));
+  return b.sub(a).normalize();
+}
+function gripFit(own,result,donor,item,wanted,hand,palm,turn,anchor) {
+  if (!item.ends || !wanted.ends) return null;
+  const ends=item.ends.map(end=>mean(end.map(({gi,v})=>at(own.Geosets[gi].Vertices,v))));
+  const length=ends[1].distanceTo(ends[0]);
+  if (length<1e-5) return null;
+  const axis=ends[1].clone().sub(ends[0]).normalize();
+  const grip=item.contact.source.clone();
+  const level=ends[0].dot(axis)+wanted.fraction*length;
+  grip.addScaledVector(axis,level-grip.dot(axis));
+  // Intersect the native mesh with the donor grip plane. The nearest point
+  // on that section is an actual point on the shaft, including curved handles.
+  let closest=null,gap=Infinity;
+  for(const {gi,faces} of item.parts)for(let i=0;i<faces.length;i+=3){
+    const cut=[], points=faces.slice(i,i+3).map(v=>at(own.Geosets[gi].Vertices,v));
+    for(let j=0;j<3;j++){
+      const a=points[j],b=points[(j+1)%3],da=a.dot(axis)-level,db=b.dot(axis)-level;
+      if(da*db<=0 && Math.abs(da-db)>1e-8)cut.push(a.clone().lerp(b,da/(da-db)));
+    }
+    if(cut.length<2)continue;
+    const segment=cut[1].clone().sub(cut[0]);
+    const t=Math.max(0,Math.min(1,grip.clone().sub(cut[0]).dot(segment)/Math.max(1e-8,segment.lengthSq())));
+    const q=cut[0].addScaledVector(segment,t),d=q.distanceToSquared(grip);
+    if(d<gap){gap=d;closest=q;}
+  }
+  if(closest)grip.copy(closest);
+  const observations=[];
+  for (const [i,seq] of donor.Sequences.entries()) {
+    if (!activeClip(seq.Name)) continue;
+    const out=result.Sequences.findIndex(s=>s.Name===seq.Name && s.Interval[0]===seq.Interval[0]);
+    if(out<0) continue;
+    for(const phase of [0,.25,.5,.75,1]) {
+      const df=pose(donor,i,phase), rf=pose(result,out,phase), matrix=rf.world.get(hand);
+      if (!matrix || Math.abs(matrix.determinant())<1e-7 ||
+          sampleGeosetAnimation(donor,wanted.parts[0].gi,df.frame,i).alpha<.25 ||
+          sampleGeosetAnimation(result,item.parts[0].gi,rf.frame,out).alpha<.25) continue;
+      const direction=shaftAt(wanted,df);
+      if(direction.lengthSq()<.9) continue;
+      observations.push({rf,matrix,direction, palm:palmAt(palm,rf)});
+    }
+  }
+  if(!observations.length) return null;
+  const local=mean(observations.map(o=>o.direction.clone().transformDirection(o.matrix.clone().invert())));
+  if(local.lengthSq()>1e-6) turn.premultiply(new Quaternion().setFromUnitVectors(axis.clone().applyQuaternion(turn),local.normalize()));
+  anchor.copy(mean(observations.map(o=>o.palm.clone().applyMatrix4(o.matrix.clone().invert()))));
+  let before=0,after=0;
+  for(const o of observations){
+    const previous=shaftAt(item,o.rf);
+    before+=previous.angleTo(o.direction)+contactAt(item.contact,o.rf).distanceTo(o.palm)/length;
+    after+=axis.clone().applyQuaternion(turn).transformDirection(o.matrix).angleTo(o.direction)+
+      anchor.clone().applyMatrix4(o.matrix).distanceTo(o.palm)/length;
+  }
+  return {grip,before:before/observations.length,after:after/observations.length};
+}
+
+// Compare the same authored actions in a common body frame, including the
+// material endpoints: skeletal landmarks alone cannot distinguish two stocks
+// pointing opposite ways on hands that occupy the same spot.
+export function animationMirror(own,donor,rigB,rigA) {
+  if(!rigA?.ok || !rigB?.ok || !(rigA.hipHeight>0 && rigB.hipHeight>0)) return null;
+  const action = /^(stand|walk|attack)(?:\s*-?\s*\d+)?$/i;
+  const b=readWeapon(own,rigB)?.items, a=readWeapon(donor,rigA)?.items;
+  if(b?.length!==1 || a?.length!==1 || !b[0].ends || !a[0].ends) return null;
+  function landmarks(model,rig,item,frame) {
+    const pivot=id=>at(nodePivot(model,model.Nodes[id],id),0).applyMatrix4(frame.world.get(id));
+    const origin=pivot(rig.body);
+    const front=new Vector3(...rig.facing).setZ(0).normalize();
+    const local=p=>{
+      p.sub(origin).divideScalar(rig.hipHeight);
+      return new Vector3(p.x*front.x+p.y*front.y,p.y*front.x-p.x*front.y,p.z);
+    };
+    const points={};
+    for(const key of ['head','chest','armL','armR','legL','legR']){
+      const part=rig.parts[key];
+      if(!part || !frame.world.has(part.marker))continue;
+      points[key]=local(pivot(part.marker));
+    }
+    points.grip=local(contactAt(item.contact,frame));
+    points.headEnd=points.grip.clone().add(local(endAt(item.ends[1],frame)).sub(local(endAt(item.ends[0],frame))).normalize());
+    return points;
+  }
+  const sums=[0,0]; let count=0;
+  for(const [i,seq] of donor.Sequences.entries()){
+    if(!action.test(seq.Name.trim()))continue;
+    const j=sameKindSequence(own,seq.Name);
+    if(j==null)continue;
+    for(const phase of [0,.25,.5,.75,1]){
+      const x=landmarks(own,rigB,b[0],pose(own,j,phase)),y=landmarks(donor,rigA,a[0],pose(donor,i,phase));
+      for(const [key,point] of Object.entries(x)){
+        const opposite=key.replace(/[LR]$/,s=>s==='L'?'R':'L');
+        if(!y[key]||!y[opposite])continue;
+        sums[0]+=point.distanceToSquared(y[key]);
+        const mirrored=y[opposite].clone();mirrored.y=-mirrored.y;
+        sums[1]+=point.distanceToSquared(mirrored);count++;
+      }
+    }
+  }
+  if(!count)return null;
+  const errors=sums.map(s=>Math.sqrt(s/count));
+  return {plain:errors[0],reflected:errors[1],mirror:errors[1]<errors[0],
+    close:Math.min(...errors)<.65 && Math.min(...errors)<.9*Math.max(...errors)};
+}
 function rotation(matrix) {
   const q = new Quaternion();
   matrix.decompose(vector(),q,vector());
@@ -321,10 +485,11 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
           g.Groups.length>=256 && !g.Groups.some(ids => ids.length===1 && ids[0]===hand) ||
           g.SkinWeights?.length && (g.SkinWeights.length!==g.Vertices.length/3*8 || hand>(result.Version>=1400?65535:255))) return null;
     }
-    moves.push({item,wanted,hand,turn,destination});
+    const fit=gripFit(own,result,donor,item,wanted,hand,palm,turn,destination);
+    moves.push({item,wanted,hand,turn,destination,fit});
   }
   const report = [];
-  for (const {item,wanted,hand,turn,destination} of moves) {
+  for (const {item,wanted,hand,turn,destination,fit} of moves) {
     // Unreferenced duplicates at seams still belong to the stored weapon.
     const geosets = new Set(item.parts.map(p => p.gi));
     for (const gi of geosets) {
@@ -351,7 +516,7 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
       const g = result.Geosets[p.gi], native = own.Geosets[p.gi];
       bindVertices(result,g,p.vertices,hand);
       for (const v of p.vertices) {
-        at(native.Vertices,v).sub(item.contact.source).applyQuaternion(turn).add(destination).toArray(g.Vertices,v*3);
+        at(native.Vertices,v).sub(fit?.grip ?? item.contact.source).applyQuaternion(turn).add(destination).toArray(g.Vertices,v*3);
         if (native.Normals?.length===native.Vertices.length) at(native.Normals,v).applyQuaternion(turn).toArray(g.Normals,v*3);
         if (native.Tangents?.length===native.Vertices.length/3*4)
           vector().fromArray(native.Tangents,v*4).applyQuaternion(turn).toArray(g.Tangents,v*4);
@@ -364,7 +529,8 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
     const supportPalm = updated && mean(support.patch.map(p => updated.point(p.gi,p.v)));
     const shaftDistance = line && supportPalm.distanceTo(line.center.clone().addScaledVector(line.axis,
       Math.max(line.lo,Math.min(line.hi,supportPalm.clone().sub(line.center).dot(line.axis)))));
-    report.push({standFrame:stand.frame,donorStandFrame:target.reading.frame,sourceGrip:item.contact.source.toArray(),
+    report.push({standFrame:stand.frame,donorStandFrame:target.reading.frame,sourceGrip:(fit?.grip ?? item.contact.source).toArray(),
+      gripFraction:wanted.fraction, before:fit?.before, after:fit?.after,
       donorGripInHand:wanted.contact.world.clone().applyMatrix4(target.reading.world.get(wanted.hand.id).clone().invert()).toArray(),
       donorAxisInHand:new Vector3(1,0,0).applyQuaternion(wanted.handBasis).toArray(),
       donorFaceInHand:new Vector3(0,0,1).applyQuaternion(wanted.handBasis).toArray(),

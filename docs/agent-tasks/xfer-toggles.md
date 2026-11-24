@@ -1518,3 +1518,73 @@ CP13. One checkpoint report at the end. Everything is a general rule measured on
   `GRADE - XFER weapons 13.cmd`, prove it with hidden screenshots in `out/cp13/`, report as `### CP13 · …` and stop with
   `CHECKPOINT 13 READY — <this file>`.
 - Budget: if a group fails twice, record what was measured and move on. Do not loop.
+
+### CP13 · Native animation, weapon grip and cloak motion
+
+The offline weapons-13 sheet is ready for owner grading. All 19 pairs opened in the installed four-pane grader. Outstanding visual failures include the reversed sword on 13, the inflated cape on 17 and the low crossbow on 18. Pair 15's neck and pair 20's cloak motion improved. The five previous 10s still need an owner grade. The two-attempt limit was applied to grip and cloak fitting.
+
+[Open GRADE - XFER weapons 13.cmd](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER weapons 13.cmd>) · [19-pair sheet](D:/Claude/MDLxL/TestBuilds/transfer-xl-35/cases-weapons13.json) · [Hidden Attack captures and exact playback settings](../../out/cp13/cp13-defaults.json)
+
+#### A. Twins
+
+The previous orientation came from weapon names or a held-item reading. The new comparison samples corresponding Stand, Walk and Attack clips, normalizes for body size and facing, and compares both body landmarks and held material in the original and reflected donor poses. The grading sheet records the chosen After orientation. A deliberate Mirror choice in Transfer takes precedence. A single orientation applies to the entire donor animation set.
+
+The independent ruler measured 33 phases per clip. Distances below are RMS fractions of bind landmark height. All nine grading clips for 17–19 met the result-to-donor requirement. For all 265 donor clips across 19 pairs there were 150 exact native matches, 71 same-kind matches and 44 without a native counterpart. Among the twins, all 31 native-comparable clips passed against the donor **in the orientation actually selected**. Against the closer of both native comparisons, 17's Decay Bone measured 0.1172 versus 0.1156. The grading set passed that stricter comparison on 63/65 clips. [Per-pair, per-clip results](../../out/cp13/pose-final.md) · [All 265 donor clips](../../out/cp13/pose-final-all-clips.json)
+
+| Pair | After donor | CP12 → CP13 distance to own, Walk / Attack / Stand | Visible result |
+|---|---|---|---|
+| 17 | Plain | .371 → .230 / .438 → .262 / .387 → .310 | CP12 had reflected the body despite better native agreement with the plain donor in all three clips. Bow placement changes, but the stiff cape fold remains. [Attack](../../out/cp13/cp13-defaults-reasonable-17.png) |
+| 18 | Plain | .255 → .255 / .209 → .209 / .087 → .087 | The body was already close to the donor. The stock still points low relative to the native horizontal aim at this Attack moment. [Attack](../../out/cp13/cp13-defaults-reasonable-18.png) |
+| 19 | Mirrored | .223 → .238 / .343 → .196 / .114 → .166 | The weapon changes from nearly vertical to low and forward. Attack moves closer to native, while Walk and Stand move farther away. [Attack](../../out/cp13/cp13-defaults-reasonable-19.png) |
+
+#### B. Grip and head direction
+
+The engine follows material contacts against the native palm through Stand, Walk and Attack. It transfers the donor's median fractional hand position onto an actual cross-section of the recipient shaft, then fits the rigid weapon orientation and contact in the mapped hand's frame. A single rigid hand binding cannot reproduce every changing donor grip or independently animated weapon angle.
+
+The independent check sampled serialized and reopened models. Fraction is measured from the base toward the weapon head, with symmetric orientation on 15. The gap is the maximum shortest distance from the tracked palm to the weapon surface across sampled Stand, Walk and Attack. This checks physical contact but does not prove the same piece of material stayed in the hand. The textured tip identified which endpoint to use on 13 and 28. All clip-family distributions and the original fixed-point measurements are available in the [surface results](../../out/cp13/surface-final.json).
+
+| Pair | Attack grip fraction, donor → result (median) | Largest palm gap | Attack head angle (median) | Textured result |
+|---|---:|---:|---:|---|
+| 13 | .396 → .368 | .140 | 163.35° | Sword is still backwards. The visible red donor blade and recipient blade point in opposite directions. [Attack](../../out/cp13/cp13-defaults-reasonable-13.png) |
+| 15 | .301 → .231 | .731 | 5.33° on symmetric axis | The broad axe pose is closer. The shaft is foreshortened and partially occluded. The grip fraction and body silhouette still differ from the donor. [Attack](../../out/cp13/cp13-defaults-reasonable-15.png) |
+| 16 | .173 → .122 | <.000004 | .98° | The grip is near the end, with a residual fraction difference. Angle reaches 26.94° in Attack. [Attack](../../out/cp13/cp13-defaults-reasonable-16.png) |
+| 28 | .451 → .599 | .656 | 20.53° | Both ornate heads are above their hands at the graded moment. The recipient hand still sits at a different fraction along the staff. [Attack](../../out/cp13/cp13-defaults-reasonable-28.png) |
+| 33 | .143 → .150 | 2.579 | .01° | Angle and median fraction closely match. The maximum gap still leaves some separation. [Attack](../../out/cp13/cp13-defaults-reasonable-33.png) |
+
+#### C. Neck on 15
+
+The previous bind-pose correction turned the neck 101°. The revised rule carries an opposing bind neck with the chest and lets the donor animation bend it. All 84 audited neck edges stayed inside the larger of the donor clip-family maximum and the corresponding native edge maximum at the sampled phases. The worst Walk stretch fell from 3.560× to 2.442× (donor 2.974×, own 1.559×). The Attack maximum fell from 2.820× to 2.089×. [CP12 baseline](../../out/cp13/surface-baseline.json) · [CP13 edge measurements](../../out/cp13/surface-final.json)
+
+#### D. Cloaks
+
+On 20 the earlier chain match sent both fork tips to one side and selected the same driver for adjacent levels. Driving the forked panel from the donor's skinned surface improved chest-relative motion. Peak Walk RMS went from 15.10 to 22.62 units against the donor's 22.63. Attack went from 3.79 to 6.21 against 6.70. The hem still travels farther than the donor's. [Pair 20](../../out/cp13/cp13-defaults-reasonable-20.png)
+
+On 17 the same continuous garment has one strip rigged under the arm and another under the chest. Restoring split panels in the chest frame did not contain the complete visible garment. Its Attack span/reach measured 129.27/72.56 units on CP12, 126.06/76.01 on the first CP13 pass and **137.88/83.36** in the final build. The native cape measured 86.29/64.56. The donor's closest visible rear garment measured 59.32/55.84 and differs in construction. The final result regressed on both span and reach. [First pass](../../out/cp13/surface-cape-pass1.json) · [Final](../../out/cp13/surface-final.json)
+
+#### E. Rifle on 22
+
+The barrel points farther along the line of sight when seated. The visible gun's 117 vertices move rigidly together. Its diameter at Attack tick 40567 was 121.15482 units off and 121.15484 on. The alternate rifle stayed hidden. Projecting off and on into the same packaged camera shortened the gun from 144.38 to 113.86 pixels, making the black muzzle cap more prominent. This accounts for the apparent deformation at the reported frame. [Captured camera](../../out/cp13/cp13-case22-camera.json) · [Textured frame](../../out/cp13/cp13-defaults-reasonable-22.png)
+
+#### F. Seat suggestion
+
+The previous suggester promoted any successful bind. The new gate compares the off and on shaft-direction error in radians plus the grip gap divided by shaft length in matched visible phases. It also checks the chosen combination. The minimum mean improvement is .01. The final sheet suggests seating on 18/19. Pair 01 is off (.0171 off → .0244 on). Pair 06 remains on (2.114 → .058). Its previous grade was 10 despite the owner's preference to leave it off. Case 13 demonstrates a limit of this gate when the engine reads the wrong head end. [Scores for all 19 pairs](../../out/cp13/surface-final.json)
+
+#### Five previous 10s at default ticks
+
+Each plate compares the CP12 and CP13 After panes at the same Attack frame, camera and checkbox settings. Both weapons are visible on 05. The hidden run also exercised normal mouse rotation. All five pictures changed. Whether they retain a 10 is pending owner grading.
+
+| Pair | CP12 → CP13 | Pixels differing by more than 3 channel levels |
+|---|---|---:|
+| [02](../../out/cp13/no-loss-reasonable-02.png) | The sword drops lower and points farther down-right. | 621 |
+| [04](../../out/cp13/no-loss-reasonable-04.png) | The sword shifts slightly below the shield. | 231 |
+| [05](../../out/cp13/no-loss-reasonable-05.png) | The axe on the left swings outward. The other axe stays near its previous position. | 3,372 |
+| [06](../../out/cp13/no-loss-reasonable-06.png) | The shaft is more vertical and the axe blade turns. | 820 |
+| [27](../../out/cp13/no-loss-reasonable-27.png) | The skull on the staff turns toward the viewer and the shaft sits slightly more upright. | 914 |
+
+[Camera, frame, default ticks and pixel measurements](../../out/cp13/no-loss-comparison.json)
+
+#### Offline build and checks
+
+The rebuilt `transfer-xl-35` grading package opened every row and rendered all 76 textured panes with zero page errors. The launcher opened row 1/19 with the correct donor, recipient and four labels. The install check verified 1,674 application files and 432 protected files, including 395 profile files. Hidden grade writes used scratch answers. The owner's weapons-13 sheet is ready for fresh grades. [Package verification](../../out/cp13/package-verification.json) · [Launcher proof](../../out/cp13/launcher-verification.json)
+
+The four focused source suites finished with **52 passing, 1 failing, 0 skipped**. The outstanding detached-pipe edge assertion in Death at 650 ms also failed on the earlier CP11b baseline. All three legacy Archer checks passed. Warcraft III gameplay and owner grading remain unverified. [Test log](../../out/cp13/work/tests-focused.log)
