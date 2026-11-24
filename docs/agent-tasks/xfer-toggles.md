@@ -1588,3 +1588,37 @@ Each plate compares the CP12 and CP13 After panes at the same Attack frame, came
 The rebuilt `transfer-xl-35` grading package opened every row and rendered all 76 textured panes with zero page errors. The launcher opened row 1/19 with the correct donor, recipient and four labels. The install check verified 1,674 application files and 432 protected files, including 395 profile files. Hidden grade writes used scratch answers. The owner's weapons-13 sheet is ready for fresh grades. [Package verification](../../out/cp13/package-verification.json) · [Launcher proof](../../out/cp13/launcher-verification.json)
 
 The four focused source suites finished with **52 passing, 1 failing, 0 skipped**. The outstanding detached-pipe edge assertion in Death at 650 ms also failed on the earlier CP11b baseline. All three legacy Archer checks passed. Warcraft III gameplay and owner grading remain unverified. [Test log](../../out/cp13/work/tests-focused.log)
+
+### Owner's weapons-13 grades (24 Nov, 12 of 19) and CP14 · Claude codes the fixes
+
+Graded before stopping: 01 9, 02 10, 04 10, 05 10 (Seat off is better), 06 10 (prefers Seat off), 12 10, 13 8 ("still upside
+down but its ok"), 15 7 ("hands are still not gripping the shaft ... during walk"), 16 10, 17 5 ("look at the cloak, you really
+ruined this model"), 18 5, 19 0. The owner then said Codex "offered 0 improvements" and asked Claude to code it.
+
+Claude rendered donor / own / result frames per pair (`out/claude-cp14/render.mjs`, flat colour per geoset) and found three causes:
+
+1. **19, crossbow turned a quarter turn about its stock.** For a launcher the stock part gives the shaft, and the roll came from
+   the stock's own cross-section, which is arbitrary for a thin bar. Fix (`transplant-weapon-seat.js` `rolled`): when the axis
+   comes from a stock part, the roll comes from the whole item (the bow limbs lie across it), in both the Stand reading and the
+   stored frame.
+2. **18, crossbow held sideways and backwards; the loaded bolt left behind.** The donor reading picked the arbalest string as
+   the "stock" (the two palms sit side by side). Fix (`aimedAxis`): a launcher's stock is the item direction that the model's own
+   Attack keeps pointing along its facing, muzzle first; it is used for the axis, the head end and the stored frame. Pieces that
+   ride only on the weapon's own bones (the bolt cards) now move with the seated weapon.
+3. **17, the cape ballooned.** One side of the cape hangs from the right shoulder in the model's rig; the transplant bound it to
+   the donor's right forearm, so every bow draw flung it out. CP13's split-cape pass moved only one of the two coincident cape
+   layers, which pulled them apart. Fix (new `transplant-native-cloth.js` `nativeCloth`, engine, not a toggle): cloth chains
+   (three or more non-body links under the chest or a shoulder, no weapon/head names) whose skin the transplant put on a donor
+   forearm keep the model's own motion against its own torso. Per moment the own torso skin is fitted onto the result torso
+   skin (similarity fit) and the cloth bones are baked from the own model's same-kind clip; chains sharing skin are one garment.
+
+Measured: exports of the 19 weapons-13 pairs at their suggested ticks change only on 17, 18, 19 and 21 (21: same picture, tiny
+numeric change). Over the 50 reasonable-50 pairs at their own ticks only 17 changes; new30 and random30 (60 pairs) are
+byte-identical to CP13. The five 10s (02, 04, 05, 06, 27) are byte-identical.
+
+Not fixed yet: 15's second hand does not reach the shaft in Walk (Two-hand grip does nothing with Seat on), 13's sword head end,
+and the Seat suggestion on 05/06 (owner prefers it off).
+
+Grading build: `transfer-xl-35` reinstalled with this source (old dist/src kept in `out/claude-cp14/installed-cp13`). Sheet
+`cases-weapons14.json` = 17, 18, 19 plus the seven ungraded weapons-13 rows (20, 21, 22, 25, 27, 28, 33), launcher
+`GRADE - XFER weapons 14.cmd`. Hidden run opened all 10 rows with zero page errors (`out/claude-cp14/smoke`).

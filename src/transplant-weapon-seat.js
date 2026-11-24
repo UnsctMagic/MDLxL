@@ -66,6 +66,74 @@ function shape(points) {
   return {center,axis,wide,length:hi-lo,width:right-left,lo,hi};
 }
 
+// Of the item's two longest directions, the one its own Attack keeps pointing
+// along the body's facing. Read on the bone carrying most of the item.
+function aimedAxis(model, rig, surfaces, reading) {
+  const front = new Vector3(...(rig.facing || [1,0,0])).setZ(0);
+  if (front.lengthSq()<1e-6) return null;
+  front.normalize();
+  const points = surfaces.flatMap(p => p.vertices.map(v => reading.point(p.gi,v)));
+  const whole = shape(points);
+  if (!whole) return null;
+  const counts = new Map();
+  for (const p of surfaces) for (const v of p.vertices) for (const id of vertexBones(model.Geosets[p.gi],v)) counts.set(id,(counts.get(id)||0)+1);
+  const carrier = [...counts].sort((a,b) => b[1]-a[1])[0]?.[0];
+  const rest = carrier!=null && reading.world.get(carrier);
+  if (!rest || Math.abs(rest.determinant())<1e-8) return null;
+  const toLocal = rest.clone().invert();
+  const dirs = [whole.axis,whole.wide].map(d => d.clone().transformDirection(toLocal));
+  const scores = [0,0];
+  let n = 0;
+  for (const [i,seq] of model.Sequences.entries()) {
+    if (!/^attack/i.test(seq.Name.trim())) continue;
+    for (const phase of [.2,.4,.6,.8]) {
+      const m = pose(model,i,phase).world.get(carrier);
+      if (!m || Math.abs(m.determinant())<1e-8) continue;
+      dirs.forEach((d,k) => { scores[k] += d.clone().transformDirection(m).dot(front); });
+      n++;
+    }
+  }
+  if (!n) return null;
+  const k = Math.abs(scores[0])>=Math.abs(scores[1]) ? 0 : 1;
+  if (Math.abs(scores[k])/n<.5) return null;
+  const axis = (k ? whole.wide : whole.axis).clone();
+  if (scores[k]<0) axis.negate();
+  const wide = (k ? whole.axis : whole.wide).clone();
+  let lo=Infinity,hi=-Infinity,left=Infinity,right=-Infinity;
+  for (const p of points) {
+    const d=p.clone().sub(whole.center), t=d.dot(axis), s=d.dot(wide);
+    lo=Math.min(lo,t); hi=Math.max(hi,t); left=Math.min(left,s); right=Math.max(right,s);
+  }
+  return {center:whole.center,axis,wide,length:hi-lo,width:right-left,lo,hi,aimed:true,carrier};
+}
+
+// The widest direction across a given shaft, measured on every point of the item.
+function rolled(geometry, points) {
+  points = [...new Map(points.map(p => [pointKey(p),p])).values()];
+  if (!geometry || points.length<3) return geometry;
+  const center = mean(points), axis = geometry.axis;
+  const flat = points.map(p => { const d = p.clone().sub(center); return d.addScaledVector(axis,-d.dot(axis)); });
+  let wide = null, best = -1;
+  for (const seed of [new Vector3(1,0,0),new Vector3(0,1,0),new Vector3(0,0,1)]) {
+    const v = seed.clone().addScaledVector(axis,-seed.dot(axis));
+    if (v.lengthSq()<1e-6) continue;
+    v.normalize();
+    for (let i=0;i<24;i++) {
+      const next = vector();
+      for (const d of flat) next.addScaledVector(d,d.dot(v));
+      next.addScaledVector(axis,-next.dot(axis));
+      if (next.lengthSq()<1e-12) break;
+      v.copy(next.normalize());
+    }
+    const spread = flat.reduce((s,d) => s+d.dot(v)**2,0);
+    if (spread>best) { best=spread; wide=v; }
+  }
+  if (!wide) return geometry;
+  let left=Infinity,right=-Infinity;
+  for (const d of flat) { const t=d.dot(wide); left=Math.min(left,t); right=Math.max(right,t); }
+  return {...geometry,wide,width:right-left};
+}
+
 function contacts(model, reading, parts, palm) {
   let best = null, distance = Infinity;
   const nearest = vector(), bary = vector();
@@ -126,7 +194,7 @@ function oriented(shape, grip, handWorld) {
   const toward = (shape.lo+shape.hi)/2 + shape.center.clone().sub(grip).dot(axis);
   const inHand = handWorld.clone().invert();
   const local = axis.clone().transformDirection(inHand);
-  if (Math.abs(toward) > .045*shape.length ? toward < 0 : (Math.abs(local.z)>.35 ? local.z : local.x)<0) axis.negate();
+  if (!shape.aimed && (Math.abs(toward) > .045*shape.length ? toward < 0 : (Math.abs(local.z)>.35 ? local.z : local.x)<0)) axis.negate();
   const face = vector().crossVectors(axis,wide).normalize();
   const normal = face.clone().transformDirection(inHand);
   const dominant = normal.toArray().reduce((a,b) => Math.abs(b)>Math.abs(a)?b:a,0);
@@ -154,7 +222,7 @@ function ammunitionCards(geoset, components, tree) {
     Math.abs(cards[0].axis.dot(cards[1].axis))>.97 && cards[0].center.distanceTo(cards[1].center)<cards[0].width;
 }
 
-function readWeapon(model, rig) {
+export function readWeapon(model, rig) {
   const si = standSequenceIndex(model);
   if (!rig.ok || si<0) return null;
   const reading = pose(model,si), tree = nodeIndex(model), hands = readHands(model,rig,tree,reading);
@@ -211,6 +279,9 @@ function readWeapon(model, rig) {
       }
       if (bestStock) geometry=shape(axisParts[0].vertices.map(v => reading.point(axisParts[0].gi,v)));
     }
+    // A launcher points at its target while it shoots: in the model's own
+    // Attack, the stock is the item direction that stays forward, muzzle first.
+    const aim = launcher ? aimedAxis(model,rig,surfaces,reading) : null;
     const marked = refs.some(r => r.Parent===carrier || isHand && tree.isAncestor(r.Parent,carrier)), named = weaponWord(name);
     for (const hand of hands) {
       const reach = hand.arm.length;
@@ -223,7 +294,7 @@ function readWeapon(model, rig) {
       const score = Math.min(3,relativeLength)*Math.min(3.5,elongation) /
         (1+4*contact.gap/reach) * (marked?2.2:1) * (named?1.8:1) * (attached?1.45:1) *
         (legacy?.carrier===carrier ? 1.3 : 1);
-      candidates.push({...group,hand,geometry,axisParts,launcher,score,contact,marked,named});
+      candidates.push({...group,hand,geometry,axisParts,launcher,score,contact,marked,named,aim});
     }
   }
   candidates.sort((a,b) => b.score-a.score);
@@ -248,6 +319,11 @@ function readWeapon(model, rig) {
     item.axisParts=item.parts;
     item.geometry=shape(item.parts.flatMap(p => p.vertices.map(v => reading.point(p.gi,v))));
   }
+  // When a narrow stock gives the shaft, its own cross-section cannot say which
+  // way the weapon lies. The whole item does: crossbow limbs lie across it.
+  for (const item of items) if (item.aim) { item.geometry=item.aim; item.axisParts=item.parts; }
+  for (const item of items) if (item.axisParts!==item.parts)
+    item.geometry=rolled(item.geometry,item.parts.flatMap(p => p.vertices.map(v => reading.point(p.gi,v))));
   const omit = new Set(items.flatMap(c => c.parts));
   for (const h of hands) {
     h.patch = palmPatch(model,tree,parts,h,omit);
@@ -326,7 +402,7 @@ function nativeGrip(model,item,reading) {
   }).sort((a,b)=>a-b);
   const upright=elevated[Math.floor(elevated.length/2)] ?? 0;
   const vote=votes[Math.floor(votes.length/2)];
-  if ((!item.launcher && Math.abs(upright)>.65 && Math.abs(vote)<.5*item.geometry.length ? upright : vote)<0) ends.reverse();
+  if (!item.geometry.aimed && (!item.launcher && Math.abs(upright)>.65 && Math.abs(vote)<.5*item.geometry.length ? upright : vote)<0) ends.reverse();
   item.ends=ends;
   const fractions=samples.map(({frame,palm})=>{
     const [base,head]=ends.map(end=>endAt(end,frame));
@@ -467,12 +543,15 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
     if (hand==null || !stand.world.has(hand) || Math.abs(stand.world.get(hand).determinant())<1e-8) return null;
     const destination = mean(palm.patch.map(p => stand.point(p.gi,p.v))).applyMatrix4(stand.world.get(hand).clone().invert());
     const points = item.axisParts.flatMap(p => p.vertices.map(v => at(own.Geosets[p.gi].Vertices,v)));
-    const storedShape = shape(points);
+    const storedShape = item.axisParts!==item.parts
+      ? rolled(shape(points),item.parts.flatMap(p => p.vertices.map(v => at(own.Geosets[p.gi].Vertices,v))))
+      : shape(points);
     if (!storedShape) return null;
     // Transport the measured Stand frame back to stored space through the
     // carrier. For articulated items use the stored surface's own rigid frame.
     const skinIds=new Set(item.axisParts.flatMap(p => [...p.ids]));
-    const oldCarrier = skinIds.size===1 && source.reading.world.get([...skinIds][0]);
+    const oldCarrier = item.geometry.aimed ? source.reading.world.get(item.geometry.carrier)
+      : skinIds.size===1 && source.reading.world.get([...skinIds][0]);
     const storedFrame = oldCarrier
       ? rotation(oldCarrier).invert().multiply(item.worldBasis)
       : oriented(storedShape,item.contact.source,new Matrix4());
@@ -490,6 +569,17 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
   }
   const report = [];
   for (const {item,wanted,hand,turn,destination,fit} of moves) {
+    // Ammunition and other pieces that ride only on the weapon's own bones
+    // (a loaded bolt card) are part of the same rigid object: they move with it.
+    if (!item.isHand) {
+      const ids=new Set(item.parts.flatMap(p => [...p.ids])), taken=new Set(item.parts.map(p => p.gi));
+      for (const [gi,g] of own.Geosets.entries()) {
+        if (taken.has(gi) || !g.Faces?.length || !result.Geosets[gi] || result.Geosets[gi].Vertices.length!==g.Vertices.length) continue;
+        const count=g.Vertices.length/3, all=Array.from({length:count},(_,v)=>v);
+        if (count && all.every(v => { const b=vertexBones(g,v); return b.length && b.every(id => ids.has(id)); }))
+          item.parts.push({gi,vertices:all,faces:g.Faces,ids:new Set(all.flatMap(v => vertexBones(g,v)))});
+      }
+    }
     // Unreferenced duplicates at seams still belong to the stored weapon.
     const geosets = new Set(item.parts.map(p => p.gi));
     for (const gi of geosets) {

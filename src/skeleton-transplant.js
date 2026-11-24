@@ -55,6 +55,7 @@ import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { supportLegSkin } from './transplant-support-skin.js';
 import { fabricMotion } from './transplant-fabric.js';
 import { secondarySurfaces, secondaryMotion, fitSplitCape, fitTailPlate } from './transplant-secondary.js';
+import { nativeCloth } from './transplant-native-cloth.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
@@ -3286,8 +3287,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const seating = seatWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
     if (seating) fixed.seatWeapon = seating;
   }
+  const cloth = nativeCloth(M,model,rigB,rigA,donorMap);
+  if (cloth.vertices) fixed.nativeCloth = cloth.chains;
+  const clothTops = new Set([...keepSet,...cloth.chains.flatMap(c => c.tops)]);
   if (rigA.ok && rigB.ok && rigB.parts.chest && rigA.parts.chest)
-    fitSplitCape(M,model,reflected,rigB,rigA,donorMap[rigA.parts.chest.marker],keepSet);
+    fitSplitCape(M,model,reflected,rigB,rigA,donorMap[rigA.parts.chest.marker],clothTops);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);
