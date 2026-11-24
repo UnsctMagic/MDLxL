@@ -1650,3 +1650,15 @@ the owner to point it out.
 
 Owner: the next grading sheet shows every donated animation. Sheets made by `out/claude-cp14/make-sheet.cjs` now omit
 `sequences`, so the sheet lists all of the donor's animations (`TransferPicks.jsx` uses the donor's names when the list is empty).
+
+#### CP14c · 16: the head no longer follows the donor's necklace
+
+The owner pointed at the Kroxigor donor's gold necklace: the Tauren's head took its motion. The rig read the donor head as
+bone_neck > Bone_head > **Bone_Necklace** (marker), because the name rule calls anything containing "neck" a Neck joint; the
+necklace hangs from the neck (via Point003), not from the head. Fix: `poseNonAnatomyName` (pose-ik.js), the list of worn
+things that are never body joints (chain, cloth, cape, banner...), now includes necklace, amulet and pendant. Exports change only
+on 16 and on random-10 (ungraded; its Kroxigor Hero recipient has the same bone, now read as bone_neck > Bone_head) across all
+four sheets (123 pairs). Pose and transfer tests: 157/157 pass.
+
+Next sheet `cases-weapons15.json` (launcher `GRADE - XFER weapons 15.cmd`): 16 plus every weapons-14 row under 10 (15, 17,
+19, 25, 28, 33), all donated animations.

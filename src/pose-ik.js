@@ -128,7 +128,7 @@ export function separatePoseChains(model, draft, existing) {
 
 const poseNameKey = node => String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
 /** Names the reader rules out as anatomy (chains, reins, guards, cameras, cloth...). */
-export const poseNonAnatomyName = node => /chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(poseNameKey(node));
+export const poseNonAnatomyName = node => /chain|rein|guard|camera|over\s*head|cloth|cape|banner|necklace|amulet|pendant/.test(poseNameKey(node));
 
 export function poseNodeRole(node) {
   const name = poseNameKey(node);
