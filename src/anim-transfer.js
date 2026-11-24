@@ -159,7 +159,7 @@ function completeTransferLimbs(model, info, pose) {
         && feet.every(ids => tree.byId.get(ids.at(-1)).PivotPoint[2] < tree.byId.get(ids[0]).PivotPoint[2]))
       for (const ids of feet) pose.chains.push(path(ids, 'leg', 'Foot'));
   }
-  if (pose.chains.some(chain => chain.label === 'Wing')) return;
+  if (info.inferWings === false || pose.chains.some(chain => chain.label === 'Wing')) return;
   const descendants = id => transforms.filter(n => n.ObjectId !== id && tree.isAncestor(n.ObjectId,id));
   const wings = [];
   for (const root of transforms) {
@@ -188,6 +188,7 @@ function completeTransferLimbs(model, info, pose) {
       a.sign*(a.root.PivotPoint[1]-w.root.PivotPoint[1]) > 0);
     if (!b) continue;
     if (![a,b].every(w => w.named || (poseSkinFlatness(model,{descendants},w.ids) ?? 1) < .30)) continue;
+    info.inferredWings = true;
     for (const w of [a,b]) {
       if (w.existing) w.existing.label = 'Wing';
       else pose.chains.push(path(w.ids, 'arm', 'Wing'));
@@ -198,6 +199,21 @@ function completeTransferLimbs(model, info, pose) {
       pose.body = a.root.Parent;
     break;
   }
+}
+
+// Keep the recipient's original POSE chains when only it has inferred wings.
+// A separate model identity gives every nested rig read the same interpretation
+// without changing the shared model or its cached reading for other donors.
+export function recipientForDonorWings(model, donorRig) {
+  if (donorRig.parts.wingL && donorRig.parts.wingR) return model;
+  const info = modelInfo(model);
+  if (!info.pose) transferRig(model);
+  if (!info.inferredWings) return model;
+  if (!info.unpairedWingModel) {
+    info.unpairedWingModel = { ...model };
+    modelInfo(info.unpairedWingModel).inferWings = false;
+  }
+  return info.unpairedWingModel;
 }
 
 function defaultSequence(model) {

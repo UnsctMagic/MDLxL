@@ -1362,3 +1362,27 @@ what still fails (weapons, rider legs on 38, stretch on 50).
    Stop with `CHECKPOINT 11b READY — <this file>`.
 
 Weapons (group C) get their own checkpoint after the owner grades this sheet. Do not start them now.
+
+### CP11b · Grade-10 gryphon wingbeat restored
+
+Case 39 again produces the exact CP10 export with **Keep donor motion** checked. Both files are 352,223 bytes and have SHA-256 `dbf7c7fa47cdc0579c03f81dc793207dc8de8d5ede2cb0cc80f65f9a1c8f669a`. The regenerated grading sheet also selects Keep donor motion. [Export and donor-switch checks](../../out/cp11b/wing39-export-proof.json)
+
+When the recipient’s extra wing recognition finds a pair and the donor lacks a matching pair, the transplant uses the original recipient wing reading. Selecting a donor with matching wings on that same recipient still gives the CP11 export. Switching back restores the CP10 bytes.
+
+The table gives visible skin travel divided by donor travel. Case 39 matched CP10 at every sampled phase. Cases 40–47 matched the accepted CP11 trajectories and travel ratios at all 25 phases across each clip. Cases 44 and 45 are four-legged controls. Dashes mark unmatched landmarks. The check covered 57 clip records. [Per-clip comparison](../../out/cp11b/wing-motion-comparison.json)
+
+| Pair | Walk | Stand | Attack |
+|---|---|---|---|
+| 39 Bronzebeard Gryphon Rider → Wind Rider Undead | 1.13 / 1.14 | 1.30 / 1.34 | 1.17 / 1.13 |
+| 40 Black Legion Gryphon Rider → Apothecary Bat Mount | 0.87 / 0.88 | 0.97 / 1.01 | 0.91 / 0.94 |
+| 41 Elven Dire Dragonhawk → Warsong Wyvern Rider | 1.08 / 1.11 | 1.15 / 1.21 | 1.03 / 1.08 |
+| 42 Far Seer Wyvern → Hero Gnome Dragonrider | 0.85 / 0.66 | 0.86 / 0.52 | 0.79 / 1.29 |
+| 43 Gryphon Rider → Dragonhawk Rider | 1.25 / 1.15 | 1.35 / 1.34 | 1.18 / 1.14 |
+| 44 Dire Wolf → Fel Stalker | 1.18 / 0.85 / 1.22 / 1.00 | 2.11 / 1.65 / 2.00 / 0.99 | 1.22 / 4.57 / 3.86 / 1.86 |
+| 45 Cold One Riderless → Snap Dragon | 1.04 / 0.74 / — / — | 1.01 / 0.78 / — / — | 1.44 / 1.00 / — / — |
+| 46 Red Dragon → Wind Rider (Riderless) | 0.96 / 0.93 | 0.94 / 0.91 | 0.95 / 0.92 |
+| 47 Frost Wyrm → Von Carstein Zombie Dragon | 1.21 / 1.22 | 1.52 / 1.48 | 1.52 / 1.48 |
+
+The offline package build verified 1,684 runtime and asset files and 55 locales. All 1,547 installed engine and renderer files matched the staged build. All 31 fixes-sheet suggestions were recomputed with their original options. Only case 39’s default ticks changed. The owner’s answers and case order were preserved. All 18 targeted wing and mounted tests passed. Verification covered the model engine and the packaged viewer. Warcraft III gameplay was not exercised. [Package verification](../../out/cp11b/package-verification.json) · [Sheet verification](../../out/cp11b/sheet-verification.json) · [Focused tests](../../out/cp11b/wing-mounted-tests.log)
+
+The hidden packaged run reopened case 39 with its regenerated defaults. The Walk (334 ms) and Attack (834 ms) model panes matched the CP10 captures pixel for pixel. The comparison and grading screenshots below replace the CP11 captures for this pair. [Before and after](../../out/cp11/before-after/reasonable-39.png) · [Grading sheet, Walk](../../out/cp11/fixes/reasonable-39-default.png) · [Grading sheet, Attack](../../out/cp11/fixes/reasonable-39-attack.png) · [Capture verification](../../out/cp11b/screenshot-verification.json)

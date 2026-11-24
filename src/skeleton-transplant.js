@@ -69,7 +69,7 @@ import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_S
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
-  jointMap, rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
+  jointMap, recipientForDonorWings, rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
 } from './anim-transfer.js';
 
 const JOINT_KEYS = ['Bones', 'Helpers'];
@@ -921,16 +921,20 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   if (jointless(donor)) throw new Error('The donor has no skeleton to transplant onto (it has no bones or helpers).');
   if (jointless(model)) throw new Error('This model has no skeleton to transplant (it has no bones or helpers).');
   const ownStand = standSequenceIndex(model);
-  let rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined });
   const donorStand0 = standSequenceIndex(donor);
   let rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined });
+  let recipient = model;
+  model = recipientForDonorWings(recipient, rigA0);
+  let rigB = transferRig(model, { sequence: ownStand });
   // `markers`: where a model's Hand or Weapon marker is off the item its arm holds, the weapon fit below reads the
   // measured grip and tip instead, from private copies of the two models (the caller's models are never changed).
   if (fix?.markers && rigB.ok && rigA0.ok) {
     const corrected = fixMarkers(model, donor, rigB, rigA0);
     if (corrected) {
-      if (corrected.model !== model) { model = corrected.model; rigB = transferRig(model, { sequence: ownStand >= 0 ? ownStand : undefined }); }
+      if (corrected.model !== model) recipient = corrected.model;
       if (corrected.donor !== donor) { donor = corrected.donor; rigA0 = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined }); }
+      model = recipientForDonorWings(recipient, rigA0);
+      rigB = transferRig(model, { sequence: ownStand });
       markersCorrected = true;
     }
   }
@@ -955,6 +959,10 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const reflected = mirror === true ? mirrorModel(donor) : donor;
   if (mirror === true) clearTransferCache(reflected);
   let rigA = mirror === true ? transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor }) : rigA0;
+  if (donorActor !== 'both' || mirror === true) {
+    model = recipientForDonorWings(recipient, rigA);
+    rigB = transferRig(model, { sequence: ownStand });
+  }
   if (fix?.arms && rigB.parts?.armL && rigB.parts.armR && !rigB.parts.armL2 && !rigB.parts.armR2 && rigA.parts?.armL2 && rigA.parts.armR2) {
     const preferred = transferRig(reflected, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: donorActor, mainArms: true });
     if (preferred.parts.armL.marker !== rigA.parts.armL.marker || preferred.parts.armR.marker !== rigA.parts.armR.marker) {
