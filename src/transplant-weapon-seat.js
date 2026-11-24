@@ -567,6 +567,7 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
           g.SkinWeights?.length && (g.SkinWeights.length!==g.Vertices.length/3*8 || hand>(result.Version>=1400?65535:255))) return null;
     }
     const fit=gripFit(own,result,donor,item,wanted,hand,palm,turn,destination);
+    if (fit) plantFoot(result,own,donor,item,wanted,target,stand,si,hand,turn,destination,fit);
     moves.push({item,wanted,hand,turn,destination,fit});
   }
   const report = [];
@@ -641,6 +642,46 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
 // hands are still not gripping the shaft ... during walk"). The two-bone arm
 // solve moves the upper arm and forearm only; arms already on the shaft and
 // moments when the donor lets go keep their motion.
+// The lowest visible point of a pose, leaving out the given parts (the item itself).
+function lowestVisible(model,frame,skip) {
+  const omit=new Map();
+  for (const p of skip) { if (!omit.has(p.gi)) omit.set(p.gi,new Set()); for (const v of p.vertices) omit.get(p.gi).add(v); }
+  let low=Infinity;
+  for (const [gi,g] of model.Geosets.entries()) {
+    if (!g.Faces?.length || sampleGeosetAnimation(model,gi,frame.frame,frame.sequence).alpha<.25) continue;
+    const out=omit.get(gi);
+    for (let v=0;v<g.Vertices.length/3;v++) if (!out?.has(v)) low=Math.min(low,frame.point(gi,v).z);
+  }
+  return low;
+}
+// A staff whose foot rests on the ground in the donor's Stand rests on the
+// ground here too (owner 24 Nov 2026, case 28: "holding his staff too high -
+// look at his original own pose"). The grip slides along the shaft until the
+// seated foot reaches this model's ground in Stand.
+function plantFoot(result,own,donor,item,wanted,target,stand,si,hand,turn,destination,fit) {
+  if (!item.ends || !wanted.ends) return;
+  const df=target.reading, [da,db]=wanted.ends.map(end => endAt(end,df));
+  const donorAxis=db.clone().sub(da);
+  if (donorAxis.length()<1e-5 || donorAxis.clone().normalize().z<.5) return;
+  const donorGround=lowestVisible(donor,df,wanted.parts), donorTop=Math.max(da.z,db.z);
+  if (!(da.z-donorGround<.06*Math.max(1e-5,donorTop-donorGround))) return;
+  const ends=item.ends.map(end => mean(end.map(({gi,v}) => at(own.Geosets[gi].Vertices,v))));
+  const axis=ends[1].clone().sub(ends[0]), length=axis.length();
+  if (length<1e-5) return;
+  axis.normalize();
+  const world=stand.world.get(hand);
+  const place=p => p.clone().sub(fit.grip).applyQuaternion(turn).add(destination).applyMatrix4(world);
+  const foot=place(ends[0]), up=place(ends[0].clone().add(axis)).sub(foot);
+  if (up.z<.3) return;
+  const ground=lowestVisible(result,stand,item.parts);
+  if (!Number.isFinite(ground)) return;
+  const along=(foot.z-ground)/up.z;
+  const level=fit.grip.clone().sub(ends[0]).dot(axis)+along;
+  const clamped=Math.max(.05*length,Math.min(.95*length,level));
+  fit.grip.addScaledVector(axis,clamped-fit.grip.clone().sub(ends[0]).dot(axis));
+  fit.planted={footAbove:foot.z-ground,fraction:clamped/length};
+}
+
 const ON_SHAFT = .12, OFF_SHAFT = .3, ALREADY = .1;
 // The point of the item's surface, at fraction t from base to head, nearest the palm.
 function surfaceAt(frame,parts,base,head,t,palm) {
@@ -682,24 +723,48 @@ function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,
     for (let f=a; f<z; f+=33) times.add(Math.round(f));
     for (const n of nodes) for (const k of n.Rotation?.Keys || []) if (k.Frame>=a && k.Frame<=z) times.add(k.Frame);
     const frames = [...times].sort((x,y) => x-y), values = [new Map(),new Map()];
-    for (const frame of frames) {
+    // First the wanted pull at each moment, then a smooth blend over neighbouring
+    // moments, so the arm eases on and off the shaft instead of snapping.
+    const wants = frames.map(frame => {
       const phase = z>a ? (frame-a)/(z-a) : 0;
       const df = pose(donor,di,phase), rf = pose(result,si,phase);
       const [da,db] = wanted.ends.map(end => endAt(end,df));
       const dpalm = palmAt(donorOther,df), touch = contacts(donor,df,wanted.parts,dpalm);
-      if (!touch) continue;
+      if (!touch) return {rf,weight:0,shift:vector(),off:0};
       const donorGrip = segment(da,db,touch.world), gap = touch.gap/reach;
-      const weight = gap<=ON_SHAFT ? 1 : gap>=OFF_SHAFT ? 0 : (OFF_SHAFT-gap)/(OFF_SHAFT-ON_SHAFT);
-      if (!weight) continue;
+      const contact = gap<=ON_SHAFT ? 1 : gap>=OFF_SHAFT ? 0 : (OFF_SHAFT-gap)/(OFF_SHAFT-ON_SHAFT);
+      if (!contact) return {rf,weight:0,shift:vector(),off:0};
       const [ra,rb] = item.ends.map(end => endAt(end,rf)), rpalm = palmAt(ownOther,rf);
       const spot = surfaceAt(rf,item.parts,ra,rb,donorGrip.t,rpalm);
-      if (!spot) continue;
+      if (!spot) return {rf,weight:0,shift:vector(),off:0};
       const off = rpalm.distanceTo(spot)/reach;
-      if (off<=ALREADY) continue;
+      const need = off<=ALREADY*.4 ? 0 : off>=ALREADY ? 1 : (off-ALREADY*.4)/(ALREADY*.6);
+      return {rf,weight:contact*need,shift:spot.sub(rpalm),off};
+    });
+    if (!wants.some(w => w.weight>0)) continue;
+    const SPAN = 4;
+    const eased = wants.map((_,k) => {
+      let weight=0, total=0;
+      const shift=vector();
+      for (let j=Math.max(0,k-SPAN); j<=Math.min(wants.length-1,k+SPAN); j++) {
+        const fall = 1-Math.abs(j-k)/(SPAN+1);
+        weight += fall*wants[j].weight; total += fall;
+        shift.addScaledVector(wants[j].shift,fall*wants[j].weight);
+      }
+      const sum = wants.slice(Math.max(0,k-SPAN),k+SPAN+1).reduce((n,w,i) => n+(1-Math.abs(Math.max(0,k-SPAN)+i-k)/(SPAN+1))*w.weight,0);
+      return {weight:weight/total, shift:sum>1e-6 ? shift.divideScalar(sum) : shift};
+    });
+    for (const [k,frame] of frames.entries()) {
+      const {rf,off} = wants[k], {weight,shift} = eased[k];
+      if (weight<1e-3) { for (let i=0;i<2;i++) values[i].set(frame, v => v); continue; }
       const [root,middle,end] = nodes.map(n => vector().fromArray(nodePivot(result,n,n.ObjectId)).applyMatrix4(rf.world.get(n.ObjectId)));
       const lengths = [root.distanceTo(middle),middle.distanceTo(end)];
-      if (Math.min(...lengths)<1e-5) continue;
-      const goal = end.clone().addScaledVector(spot.clone().sub(rpalm),weight);
+      if (Math.min(...lengths)<1e-5) { for (let i=0;i<2;i++) values[i].set(frame, v => v); continue; }
+      const goal = end.clone().addScaledVector(shift,weight);
+      // Never lock the arm straight: near full reach a tiny change of target
+      // swings the elbow. Ease the reach toward 97% of the arm's length.
+      const full = lengths[0]+lengths[1], soft = .88*full, cap = .97*full, far = root.distanceTo(goal);
+      if (far>soft) goal.sub(root).setLength(soft+(cap-soft)*(1-Math.exp(-(far-soft)/(cap-soft)))).add(root);
       const solved = solveTwoBone({root,middle,end,lengths,tolerance:1e-5},goal);
       const turn = (from,to) => new Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
       const deltas = [turn(middle.clone().sub(root),solved.middle.clone().sub(root)),turn(end.clone().sub(middle),solved.end.clone().sub(solved.middle))];
@@ -710,7 +775,7 @@ function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,
         values[i].set(frame, v => local.clone().multiply(new Quaternion().fromArray(v)).normalize().toArray());
         parentDelta = deltas[i];
       }
-      moments++; before+=off; after+=solved.end.distanceTo(goal)/reach + (1-weight)*off;
+      if (wants[k].weight>0) { moments++; before+=off; after+=Math.max(0,off-shift.length()*weight/reach); }
     }
     if (values[0].size) for (let i=0;i<2;i++) rewriteTrack(result,nodes[i],si,frames,values[i],'Rotation');
   }

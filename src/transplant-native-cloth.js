@@ -14,7 +14,7 @@ const notCloth = /weapon|sword|axe|blade|shield|bow|quiver|arrow|bolt|gun|rifle|
 const MAX_SAMPLES = 40, STEP = 50;
 
 // Best similarity transform taking points p onto q (Horn, unit quaternions).
-function similarity(p, q) {
+export function similarity(p, q) {
   const n = p.length, cp = new Vector3(), cq = new Vector3();
   for (let i = 0; i < n; i++) { cp.add(p[i]); cq.add(q[i]); }
   cp.divideScalar(n); cq.divideScalar(n);

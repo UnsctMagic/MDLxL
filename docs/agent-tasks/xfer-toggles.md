@@ -1671,3 +1671,17 @@ his staff too high - look at his original own pose, its a mirror", 33 9.
 15, 17, 19 and 28 export byte-identical files to weapons-14: the drops come from the animations the earlier sheets hid
 (weapons-14 showed 15 only Walk/Attack - 1/Stand). Open: 15 arm twitch and head tilt in the newly shown animations; 28 staff
 height against the model's own (mirror-image) pose; 17/19 the loaded arrow/bolt must fly or vanish like the donor's.
+
+#### CP14d · 15 arm twitch, 28 staff height
+
+- **15 twitch (mine, CP14b).** The second-hand pull switched on and off in hard steps (frames with the hand already "close
+  enough" skipped while neighbours were pulled) and locked the arm straight at full reach. Skin jerk in Stand 56.6 / Stand 2 81.5
+  (2.5 / 14.3 without the step). Fix: the pull fades in with contact and need, is blended over ±4 moments (±130 ms), every moment
+  of a touched clip gets a key, and the reach is eased to at most 97% of the arm. Now Stand 5.7, Stand 2 16.2, grip gap .02 arm
+  lengths. 18 Attack - 1 jerk 41.8 (36.7 in the build graded 10).
+- **15 head tilt.** Head pitch against the torso (skin fits) matches the donor in Stand/Stand 2 but leans ~10-18° further in Stand
+  Ready and both Attacks, with every toggle off too; CP12 leaned +21°. Cause not found yet.
+- **28 staff too high.** The hand took the donor's grip fraction (.45); Furion's staff is longer for its body, so the foot hung
+  at hip height. New `plantFoot`: when the donor's upright item rests its foot on the ground in Stand (within 6% of its height),
+  the grip slides along the shaft until the seated foot reaches this model's lowest visible point in Stand (28: fraction .76).
+- Exports: weapons-14 sheet changes 12, 15, 16, 18, 19, 20, 22 (smoothing) and 28; the other three sheets are byte-identical.
