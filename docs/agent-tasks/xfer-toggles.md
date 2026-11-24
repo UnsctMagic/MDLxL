@@ -1232,3 +1232,119 @@ CP11. Work in this order. One checkpoint report at the end:
 - **Then** rebuild `transfer-xl-35`. Make a sheet `cases-fix11.json` with every pair graded 6 or below plus 5 of the 10s, and the launcher `GRADE - XFER fixes 11.cmd`.
   Prove it with hidden screenshots in `out/cp11/`. Report as `### CP11 · …`. Stop with `CHECKPOINT 11 READY`.
 - Budget: if one group fails twice, write down what was measured and move to the next group. Do not loop.
+
+### CP11 · Reasonable-50 transfer fixes and owner review
+
+The offline fixes sheet is ready for grading. The case-34 cloak and suggestion eligibility improved. The final build still has measured stretching, limb, weapon and rider failures, including a lost wingbeat on grade-10 case 39. Invented torn edges fell from 1,346 to 995 across the 50 pairs, while edges that stretched beyond the donor rose from 90 to 118. The owner’s 50 original grades supplied the selection.
+
+#### A. Stretching
+
+The donor seam script measured all 50 CP10 results and all 50 packaged-engine results at their respective sheet defaults. The adapter only redirected its retired source-import directory. Each result used the same recipient and the donor reflected as specified in the manifest. An edge enters the torn list when its stretch exceeds 1.5× the recipient’s own observed maximum. The script compares matching donor seams at 1.25× tolerance. The scan counts each flagged edge once.
+
+| Scan | Edges examined | Torn | Donor-like | Beyond donor | Invented rigid | Invented seam | Kept node | Same-node scale |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| CP10 | 81565 | 2184 | 113 | 90 | 896 | 450 | 582 | 53 |
+| CP11 | 81565 | 1693 | 137 | 118 | 600 | 395 | 362 | 81 |
+
+| Pair | Donor pose | Torn before → after | Beyond donor | Invented |
+|---|---|---:|---:|---:|
+| 36 | Off | 183 → 17 | 0 → 1 | 4 → 3 |
+| 36 | On | 4 → 17 | 0 → 1 | 4 → 3 |
+| 50 | Off | 71 → 58 | 28 → 28 | 31 → 18 |
+| 50 | On | 43 → 41 | 7 → 7 | 8 → 6 |
+
+- **36, Donor pose off.** In Attack - 1, hammer-hand excursion changed from 0.00× to 0.98× donor. Peak rider-head edge stretch changed from 34.45× to 1.80× native length. 3 of 346 head edges still exceeded 1.5×.
+- **36, Donor pose on.** In Attack - 1, hammer-hand excursion changed from 0.00× to 0.98× donor. Peak rider-head edge stretch changed from 1.00× to 1.80× native length. 3 of 346 head edges still exceeded 1.5×.
+- **50.** Separately hinged front and rear supports can keep their original trunk pivots. This reduced invented tearing in the focused trial. The residual seams above still fail the no-warp criterion. **49.** Both hand trajectories matched CP10 at 1 ms and 60 Hz in the same-tick comparison. The reported snap remained. [motion-current-checked-49-44.json](../../out/cp11/motion-current-checked-49-44.json)
+
+Case 36 had selected the mount while losing the separately rooted rider. Recovering the walking body restored the rider’s arm with both Donor pose settings. The blended head edges and case 50 still stretch. [seams-old-all.jsonl](../../out/cp11/seams-old-all.jsonl) · [seams-final-all.jsonl](../../out/cp11/seams-final-all.jsonl) · [seams-final-focus.jsonl](../../out/cp11/seams-final-focus.jsonl)
+
+#### B. Legs and wings
+
+The missing foot chains use abbreviated left/right names. Several flyer wings were read as arms or omitted. The engine now recognizes bilateral joint chains with matching sockets and motion, and maps coincident wing-finger joints to their donor tip. Each cell gives visible distal skin excursion divided by the donor’s excursion at 25 matched phases, normalized by the corresponding limb length. 1.00 is equal travel. The two or four numbers follow the landmark order in the linked JSON. A dash marks a missing counterpart or negligible donor motion.
+
+| Pair | Walk | Stand | Attack |
+|---|---|---|---|
+| 03 Dire Footman → Dismounted Bronzebeard Gryphon Warrior | 1.05 / 0.79 | 0.52 / 0.41 | 0.49 / 1.01 |
+| 23 Hero Wizard → Tzeentch Shaman | 1.36 / 1.20 | 3.03 / 1.60 | 0.72 / 0.85 |
+| 30 Hero Grey Wizard → Bray Shaman | 1.04 / 0.98 | 2.01 / 1.02 | 0.50 / 0.99 |
+| 40 Black Legion Gryphon Rider → Apothecary Bat Mount | 0.87 / 0.88 | 0.97 / 1.01 | 0.91 / 0.94 |
+| 41 Elven Dire Dragonhawk → Warsong Wyvern Rider | 1.08 / 1.11 | 1.15 / 1.21 | 1.03 / 1.08 |
+| 42 Far Seer Wyvern → Hero Gnome Dragonrider | 0.85 / 0.66 | 0.86 / 0.52 | 0.79 / 1.29 |
+| 43 Gryphon Rider → Dragonhawk Rider | 1.25 / 1.15 | 1.35 / 1.34 | 1.18 / 1.14 |
+| 44 Dire Wolf → Fel Stalker | 1.18 / 0.85 / 1.22 / 1.00 | 2.11 / 1.65 / 2.00 / 0.99 | 1.22 / 4.57 / 3.86 / 1.86 |
+| 45 Cold One Riderless → Snap Dragon | 1.04 / 0.74 / — / — | 1.01 / 0.78 / — / — | 1.44 / 1.00 / — / — |
+| 46 Red Dragon → Wind Rider (Riderless) | 0.96 / 0.93 | 0.94 / 0.91 | 0.95 / 0.92 |
+| 47 Frost Wyrm → Von Carstein Zombie Dragon | 1.21 / 1.22 | 1.52 / 1.48 | 1.52 / 1.48 |
+
+The original left/right Walk excursions on 03, 23 and 30 were respectively 0.18× / 0.40×, zero / zero and 0.20× / 0.20× donor. All three gained Walk travel. Several Stand and Attack excursions still diverge from the donor. Case 45 has no matching donor forefeet for two recipient landmarks. The second wing trial improved case 47’s phase error across all three clips, while travel still overshot in Stand and Attack. All sampled clip variants and per-phase donor and result trajectories are in [motion-f2-suggested-all.json](../../out/cp11/motion-f2-suggested-all.json). The original trajectories are in [motion-baseline-checked-all.json](../../out/cp11/motion-baseline-checked-all.json).
+
+#### C. Weapons
+
+Fixed grip-to-palm distances are measured in model units on the same skinned material patches through Attack. The table reports median / peak. A dash denotes a hand without a tracked grip patch. The directed shaft angle compares the result with the donor at matched phases, in degrees. Bow 17 uses the unsigned shaft angle because either bow-axis endpoint defines the same orientation. Shaft-to-hand distances, native controls, sampled coordinates and accessory selections accompany the table.
+
+| Pair | Frames | Donor R grip | Result R grip | Donor L grip | Result L grip | Weapon angle error |
+|---|---:|---:|---:|---:|---:|---:|
+| 12 Reikland Halberdier → Bretonnian Pikeman | 82 | 11.8 / 25.7 | 45.9 / 54.1 | 17.6 / 33.3 | 56.3 / 65.1 | 29.4 / 29.4 |
+| 13 Black Fur Great Knight → Reikland Greatsword | 89 | 34.7 / 54.2 | 16.4 / 18.8 | 24.5 / 42.0 | 65.3 / 103.3 | 4.0 / 8.5 |
+| 15 Minotaur → Tauren Chieftain | 98 | 90.3 / 155.6 | 114.6 / 288.7 | 28.1 / 44.8 | 36.9 / 40.4 | 7.0 / 15.8 |
+| 16 Kroxigor → Tauren | 178 | 27.1 / 63.5 | 86.2 / 86.4 | 112.6 / 122.1 | 82.6 / 115.7 | 114.9 / 178.0 |
+| 17 Bretonnian Archer → Night Elf Archer | 41 | 8.6 / 9.1 | — | — | 7.8 / 7.8 | 48.0 / 86.4 |
+| 18 Arbalester → Crossbowman | 126 | 60.5 / 74.0 | 66.8 / 88.5 | 10.9 / 33.7 | 15.3 / 15.6 | 72.7 / 80.6 |
+| 19 Gnoll Assassin → Bronzebeard Crossbowman | 61 | 7.7 / 10.5 | 5.2 / 5.2 | 12.3 / 18.0 | 50.8 / 53.8 | 103.6 / 108.5 |
+| 20 Bronzebeard Rifleman → Dire Rifleman | 36 | 7.4 / 12.2 | 5.9 / 10.2 | 15.5 / 16.8 | 34.9 / 37.0 | 61.1 / 61.1 |
+| 21 Skaven Ratling Gunner → Repeater Handgunner | 95 | 1.2 / 3.2 | 43.8 / 68.1 | 18.0 / 28.5 | 3.9 / 3.9 | 151.0 / 166.3 |
+| 22 Arquebus Handgunner → Reikland Handgunner | 47 | 1.7 / 2.2 | 4.5 / 7.2 | 13.2 / 14.0 | 11.8 / 16.7 | 29.3 / 29.3 |
+| 25 Bronzebeard Mage → Skink High Priest | 44 | — | 7.1 / 13.7 | 7.9 / 7.9 | — | 32.9 / 81.9 |
+| 28 Fel Orc Warlock → Furion | 44 | 26.7 / 29.3 | 40.5 / 40.5 | — | 164.6 / 176.9 | 67.6 / 70.2 |
+| 33 Swan Knight → Polish Lancer | 45 | 24.1 / 25.1 | 55.6 / 57.4 | — | — | 38.6 / 38.6 |
+
+The first repair reattached the marked rigid item in 13 and improved its Attack angle. The broader second repair made 19’s crossbow face about 172° from its donor and worsened individual palm contacts in 15–18 and 21. The retained repair requires a marked weapon on both models and a material grip farther than a full arm’s reach from either palm for most of the clip. It reuses the existing support-hand solver for proven two-handed contact. With final defaults and a serialized MDX round trip, 13’s median angle improved from 87.5° to 4.0°. The result’s left-hand fixed grip still peaked at 103.3 units. Case 20’s right median grip improved from 64.2 to 5.9 units, but its median angle error rose from 43.6° to 61.1°. The broad trial’s near-reversal on 19 did not ship. Several grips and angles above remain wrong. [grip-trial1-comparison.txt](../../out/cp11/grip-trial1-comparison.txt) · [grip-trial2-comparison.txt](../../out/cp11/grip-trial2-comparison.txt) · [grip-final-all.json](../../out/cp11/grip-final-all.json)
+
+#### D. Riders
+
+**38 is not recovered in the final package.** The first rider trial isolated the seated waist and weighted boot, improving Walk rider-relative foot travel from 0.00× / 4.13× to 0.85× / 0.75× donor, with hind mount feet remaining at 0.66× / 0.91×. The later restriction used to preserve the accepted cavalry pair on 35 removed this gain. In the packaged result both rider-local feet have effectively zero travel in Walk and Attack. Relative to the mount they still travel 0.47× / 0.23× donor in Walk, showing that mount movement cannot serve as proof of independent rider motion. Both old ticks and final ticks reproduce this failure. Case 34 sends the donor tail’s motion to the recipient’s chest-mounted cloak when the donor has no cloak. Its initially still cloak reached 0.99× / 0.84× / 0.86× donor tail travel in Stand / Walk / Attack. [motion-dtrial1-checked-34-38.json](../../out/cp11/motion-dtrial1-checked-34-38.json)
+
+#### E. Suggested toggles
+
+Rest pose fit and Weapon on bones remain available for manual use and are excluded from default suggestions. Two-hand grip requires both models to show two distinct palm contacts on the same visible rigid item. All 50 suggestions were recomputed with the original transplant options. Rest pose fit is visible on 45 and suggested on zero. Weapon on bones is visible on seven and suggested on zero. Two-hand grip is visible on 11 and suggested only on 22, where both models qualify. Cases 20 and 27 leave it off. [suggestions.json](../../out/cp11/suggestions.json)
+
+#### F. The 19 grades of 9–10
+
+**No-loss criterion failed on 39.** The wing changes on this grade-10 gryphon/wyvern pair persist even when the old repair ticks are restored. The repaired reader recognizes the recipient’s wings, while the donor still has no corresponding wing pair in its transfer rig. Left/right excursion changed from 1.14× / 1.14× donor to 0.07× / 0.00× in Walk, from 1.31× / 1.34× to 0.07× / 0.00× in Stand, and from 1.17× / 1.13× to 0.05× / 0.00× in Attack. Both high-grade attempts left that loss. [CP10 measurements](../../out/cp11/motion-baseline-checked-39.json) · [CP11 measurements](../../out/cp11/motion-f2-suggested-39.json)
+
+Each image pairs the CP10 and CP11 packaged After panes at identical default and Attack frames, with the actual default ticks of each build. Twelve pairs have identical exported MDX bytes **and** zero changed model pixels in both captures. For the six changes caused only by new defaults, the CP11 engine still exports the exact CP10 MDX with the old ticks. The owner had manually adjusted some ticks while grading. This comparison uses the defaults as requested. [Frame and pixel measurements](../../out/cp11/before-after/comparison.json) · [Three-way export hashes, repair ticks and grades](../../out/cp11/high-three-way-mdx.json)
+
+| Pair | Visible result and cause |
+|---|---|
+| [01 High Elf Footman → Blood Elf Lieutenant](../../out/cp11/before-after/reasonable-01.png) | The sword and shield shift slightly relative to the hand. Weapon on bones drops out of the defaults, matching the owner’s grading selection. |
+| [02 Bretonnian Swordsman → Royal Soldier](../../out/cp11/before-after/reasonable-02.png) | Identical MDX and both frames. |
+| [04 Black Knight → Dismounted Knight of the Blazing Sun](../../out/cp11/before-after/reasonable-04.png) | The shield sits lower and the sword extends farther in Walk. Rest pose fit drops out, as the owner requested. |
+| [05 Khorne Berserker → Mountain King](../../out/cp11/before-after/reasonable-05.png) | Identical MDX and both frames. |
+| [06 Fel Orc Grunt → Gor Axeman](../../out/cp11/before-after/reasonable-06.png) | Identical MDX and both frames. |
+| [07 Footman → Footman Sergeant](../../out/cp11/before-after/reasonable-07.png) | The shield changes angle behind the shoulder and the sword sits flatter in Attack. Rest pose fit drops out. The owner’s comment grades this pair 10 with it off. |
+| [08 Footman Leader → Elf Death Knight](../../out/cp11/before-after/reasonable-08.png) | Identical MDX and both frames. |
+| [09 Skeletal Orc → Greenskin Orc1](../../out/cp11/before-after/reasonable-09.png) | Identical MDX and both frames. |
+| [11 Skink Spearman → Northrend Murloc Spearman](../../out/cp11/before-after/reasonable-11.png) | Identical MDX and both frames. |
+| [14 Hero Tauren Warbeast → Bestigor](../../out/cp11/before-after/reasonable-14.png) | Identical MDX and both frames. |
+| [24 Hero Dwarf Grand Mage → Bronzebeard Priest](../../out/cp11/before-after/reasonable-24.png) | Identical MDX and both frames. |
+| [26 Hero Murgul Warlock → Northrend Murloc Warlock](../../out/cp11/before-after/reasonable-26.png) | The warlock’s torso and arms sit higher and the weapon line changes. The owner graded this pair with Rest pose fit on. The new default leaves it off, and this changed pose awaits owner grading. |
+| [27 Forest Troll Shadow Priest → Forest Troll High Priest](../../out/cp11/before-after/reasonable-27.png) | The staff crosses the torso in Walk and lies diagonally in Attack. Weapon on bones and Two-hand grip both drop out. The owner flagged Two-hand grip on this pair. |
+| [29 Furbolg Elder Shaman → Wendigo Shaman](../../out/cp11/before-after/reasonable-29.png) | Identical MDX and both frames. |
+| [31 Orc Warg Rider → Thrall](../../out/cp11/before-after/reasonable-31.png) | Identical MDX and both frames. |
+| [32 Arkain Cavalry Sergeant → French Dragoon Cavalry](../../out/cp11/before-after/reasonable-32.png) | The rider’s raised arm and blade change angle in Walk and Attack. The owner graded with Rest pose fit and Hanging parts. Only Hanging parts remains on by default. |
+| [35 Arkain Knight Of Kome → Undivided Chaos Knight](../../out/cp11/before-after/reasonable-35.png) | Identical MDX and both frames. |
+| [39 Bronzebeard Gryphon Rider → Wind Rider Undead](../../out/cp11/before-after/reasonable-39.png) | The wings lie low and one side stops flapping. The engine change is measurable with both sets of repair ticks. The new suggested ticks are Hanging parts and Keep own torso. |
+| [44 Dire Wolf → Fel Stalker](../../out/cp11/before-after/reasonable-44.png) | Identical MDX and both frames. |
+
+The first high-grade pass also found case 44’s trunk pivots displaced by 8.58 and 13.35 model units. Limiting the correction to builds with separate articulated support parents restored the entire grade-10 result. The final pass also restored the original engine outputs on 06, 07, 09, 32 and 35 at their old ticks. Default-tick changes on 07 and 32 are listed above. [Case 44 pivot audit](../../out/cp11/motion-44-source-route.json)
+
+#### Offline fixes sheet
+
+Rebuilt and verified 1,684 package runtime and asset files and 55 locales. The installed engine and renderer matched all 1,547 staged source and distribution files. The owner’s original answers retain SHA-256 `bdbc84a7b26dbaee6a91497746178717c7a9a67fa669bd2f761e6caf42a18a63`. The packaged grade sheet opened on 1 / 31 with Donor, Own, Before and After. Its 26 pairs graded 0–6 are followed by five grade-10 controls (02, 08, 27, 39 and 44). The 31 grading checks wrote to a separate scratch answers file. The new owner answer file starts empty.
+
+- Launcher [GRADE - XFER fixes 11.cmd](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER fixes 11.cmd>).
+- Manifest [cases-fix11.json](D:/Claude/MDLxL/TestBuilds/transfer-xl-35/cases-fix11.json).
+- Hidden packaged screenshots for all 31 pairs [fixes/](../../out/cp11/fixes/) and [fixes-launcher.png](../../out/cp11/fixes-launcher.png). A normal mouse drag rotated all four linked cameras by 66.69° on the first pair. [fixes/captures.json](../../out/cp11/fixes/captures.json) · [package-verification.json](../../out/cp11/package-verification.json)
+
+Targeted source verification covered 280 tests. The first pass returned 265 passes and 15 failures. Eleven of those failures also occurred on the exact CP10 source and recurred in the final targeted run (P9, P2, P4, T6, T12, WS4, Q3, V2, V3, HG1 and detached pipe). The four new failures (P1, G1, Q2 and FB1 Grunt/Murloc) all passed on the final source. These counts reuse the original passing checks. The full suite, Warcraft III gameplay and a fresh owner grade were outside this checkpoint. [Targeted results](../../out/cp11/targeted-tests.log) · [Baseline replay](../../out/cp11/old-failing-replay.log) · [Final focused reruns](../../out/cp11/cp11-specific-trial2.log) · [Final existing failures](../../out/cp11/final-known-failures.log)

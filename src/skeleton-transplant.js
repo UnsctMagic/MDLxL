@@ -61,7 +61,7 @@ import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment, seatLooseGrip } from './transplant-props.js';
 import { readHeldItem } from './held-item.js';
-import { orientHeldSurface } from './transplant-held-orientation.js';
+import { fitAttackGrip, orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
 import { finishDonorPose, storedPoseClearance } from './transplant-donor-pose.js';
@@ -1266,6 +1266,24 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       }
     }
   }
+  // Seated legs take the other rider's joints even when the mounts have
+  // different numbers of walking limbs. Keep their skin out of the gait map.
+  const mountLegCount = rig => Object.values(rig.parts).filter(part => part.limbKind === 'leg').length;
+  if (bothMounted && !riderSeat && mountLegCount(rigB) !== mountLegCount(rigA)) {
+    const b = transferRig(model,{actor:'seated',sequence:ownStand});
+    const a = transferRig(reflected,{actor:'seated',sequence:donorStand0});
+    for (const key of ['legL','legR']) {
+      const mine=b.parts[key], theirs=a.parts[key];
+      if (!mine || !theirs || b.actor!=='seated' || a.actor!=='seated') continue;
+      mine.joints.forEach((id,i)=>{
+        const j=theirs.joints[Math.min(i,theirs.joints.length-1)];
+        jointTarget.set(id,j);
+        pairedOwn.set(j,id);
+        socketMap.set(id,j);
+        ownPartOf.set(id,'hips');
+      });
+    }
+  }
   // POSE ends a tail at its handle. Serial tail joints beyond it still carry
   // skin and authored motion, even when different proportions move the tips apart.
   let ownTip = rigB.parts.tail?.joints.at(-1), donorTip = rigA.parts.tail?.joints.at(-1);
@@ -1468,8 +1486,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // Own extras riding the donor's matching chain (class E1, filled once the donor's joints are placed, below):
   // own extra bone -> donor joint.
   const secondary = rigB.ok && rigA.ok ? secondarySurfaces(model,D,rigA,treeB,treeA,partJoint,keepSet,fix?.hangingChains ? rigB : null) : new Map();
-  const fabric = fix?.chains && rigB.ok && rigA.ok ? fabricMotion(model,D,rigB,rigA,treeB,treeA,keepSet,jointTarget) : new Map();
-  if (fabric.size) fixed.chains = true;
+  const cloak = n => /cape|cloak/i.test(n.Name);
+  const cloakToTail = bothMounted && !!rigA.parts.tail && (treeB.children.get(rigB.parts.chest?.marker) || []).some(cloak) &&
+    ![...treeA.byId.values()].some(cloak);
+  const fabric = (fix?.chains || cloakToTail) && rigB.ok && rigA.ok ? fabricMotion(model,D,rigB,rigA,treeB,treeA,keepSet,jointTarget,cloakToTail) : new Map();
+  if (fabric.size && fix?.chains) fixed.chains = true;
   if (fix?.extraMotion) {
     let nativePoses;
     const shoulderPoses = () => nativePoses ??= model.Sequences.flatMap((s,i) => /^(stand|walk|attack)/i.test(s.Name)
@@ -2184,6 +2205,21 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       posture.neck = angle(neck);
     }
   }
+  // Identical four-leg joint layouts can have very different shell and belly
+  // shapes. Keep the authored hinge positions where the paired trunk (including
+  // its parent links) already exists instead of projecting it between the feet.
+  const sameSupports = limbEntries.filter(e => e.own.limbKind === 'leg');
+  const sharedHinges = new Set();
+  if (!mountedPair && sameSupports.length === 4 && sameSupports.every(({own,theirs}) =>
+      treeB.parentOf(own.joints[0]) !== rigB.body && treeA.parentOf(theirs.joints[0]) !== rigA.body &&
+      own.joints.length === theirs.joints.length && own.joints.every((id,i) => ownById.get(id).Name === donorById.get(theirs.joints[i]).Name))) {
+    for (const [joint, own] of pairedOwn) {
+      const parent = treeA.parentOf(joint), nativeParent = treeB.parentOf(own);
+      if (parent == null ? nativeParent != null : pairedOwn.get(parent) !== nativeParent) continue;
+      sharedHinges.add(joint);
+      placed.set(joint, pB(own));
+    }
+  }
   const trunkJoint = id => { const key = partOfDonor.get(id); return key != null && rigA.parts[key]?.kind === 'trunk'; };
   const correctionOf = id => {
     if (correction.has(id)) return correction.get(id);
@@ -2373,7 +2409,9 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const armJoints = heldArm != null ? (rigA.parts[heldArm].joints || []).filter(j => placed.has(j)) : [];
     const armA = armJoints.reduce((sum, j, i) => i ? sum + pA(j).distanceTo(pA(armJoints[i - 1])) : 0, 0), armB = armJoints.reduce((sum, j, i) => i ? sum + placed.get(j).distanceTo(placed.get(armJoints[i - 1])) : 0, 0);
     const held = heldArm == null ? null : armA > 1e-6 ? armB / armA : size;
-    const scale = sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA
+    const sharedLength = sharedHinges.has(id) && sharedHinges.has(parentId) ? pA(id).distanceTo(pA(parentId)) : 0;
+    const scale = sharedLength > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / sharedLength
+      : sameLimb && lengthA > 1e-6 ? placed.get(id).distanceTo(placed.get(parentId)) / lengthA
       : rootOnTrunk ? Math.min(Math.max(travel, Math.min(trunkScale.s1, trunkScale.s2)), Math.max(trunkScale.s1, trunkScale.s2)) : held != null ? held : travel;
     // A trunk joint the donor's trunk was fitted into this trunk with (fitTrunk), below the top hips joint (which carries
     // the body's travel) and under another such joint: its move is mapped as its place was, the donor's trunk frame
@@ -2457,6 +2495,18 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // A two-joint arm may finish at its forearm, with only an attachment at the
   // wrist. Skin mounted directly on that forearm (the Footman's shield) must
   // keep its forearm frame even when the donor also has an articulated hand.
+  // Several wing fingers may fork at the same wrist pivot. Their skin goes
+  // with the donor's distal wing, including fingers outside the POSE chain.
+  const wingFingers = new Map();
+  for (const {own,theirs} of limbEntries) {
+    if (own.limbKind !== 'wing' || theirs.limbKind !== 'wing') continue;
+    for (const sibling of treeB.children.get(treeB.parentOf(own.marker)) ?? []) {
+      if (sibling.ObjectId === own.marker || !ownVertexCount.has(sibling.ObjectId) ||
+          pB(sibling.ObjectId).distanceTo(pB(own.marker)) > own.length * .001) continue;
+      for (const id of ownVertexCount.keys()) if (treeB.isAncestor(id,sibling.ObjectId) && !keptExtra(id))
+        wingFingers.set(id,theirs.marker);
+    }
+  }
   const forearmSkin = new Map();
   const independentWeapon = weaponRides && !treeA.ancestors(donorWeapon,true)
     .some(id => rigA.parts[partOfDonor.get(id)]?.limbKind === 'arm');
@@ -2478,6 +2528,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   /** Donor joints ({ joint }) or a node that stays ({ own }) for one own bone of a vertex at `point` (bind space). */
   const jointsOf = (id, point, { trunk = true } = {}) => {
     if (droppedWeapon?.used && id === droppedWeapon.own) return [{joint:droppedWeapon.driver}];
+    if (wingFingers.has(id)) return [{joint:wingFingers.get(id)}];
     if (wristPieces.has(id)) return [{joint:wristPieces.get(id)}];
     if (seatSkin && (id===seatSkin.own || rideOf.get(id)===seatSkin.own)) return [{joint:seatSkin.joint}];
     if (forearmSkin.has(id)) return [{joint:forearmSkin.get(id)}];
@@ -3153,7 +3204,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
       }
     }
   }
-  if (fabric.size && rigB.parts.tail && floor === 'bend' && ground) {
+  if (!cloakToTail && fabric.size && rigB.parts.tail && floor === 'bend' && ground) {
     const joints=[...fabric.keys()].filter(id=>fabric.get(id).root || model.Nodes[id].Rotation?.Keys?.length).map(id=>remap.get(id));
     const legs=Object.values(rigA.parts).filter(p=>p.limbKind==='leg').map(p=>({key:p.key,joints:p.joints.map(j=>donorMap[j]).filter(j=>j!=null)}));
     const source=[...fabric.values()].find(match=>match.root).source;
@@ -3212,6 +3263,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     anchors, partOfSkin,
   });
   if (!donorPose.enabled || donorPose.retainedOwn) for (const id of Object.keys(reposeOut)) delete reposeOut[id];
+  if (rigA.ok && rigB.ok && !fix?.surfaceGrip && !fixed.seatLooseGrip && !weaponSwap.length && !keepSet.size)
+    fitAttackGrip(M,model,reflected,rigB,rigA,donorMap);
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);

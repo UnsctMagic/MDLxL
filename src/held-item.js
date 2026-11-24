@@ -2,6 +2,7 @@ import { Triangle, Vector3 } from 'three';
 import { nodePivot, sampleGeosetAnimation, sampleNodeMatrices } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { vertexBones } from './part-bones.js';
+import { isWeaponName } from './rig-names.js';
 
 function rigidSurfaces(model, reference) {
   const surfaces = [];
@@ -25,6 +26,73 @@ function rigidSurfaces(model, reference) {
     for (const surface of byBone.values()) if (surface.triangles.length) surfaces.push(surface);
   }
   return surfaces;
+}
+
+const contactCache = new WeakMap();
+
+// The marked rigid item, measured against both palms on its visible Attack skin.
+// Store material coordinates so the same handle can be followed through a clip.
+export function heldContact(model, rig) {
+  if (contactCache.has(model)) return contactCache.get(model);
+  const contact = measureHeldContact(model, rig);
+  contactCache.set(model, contact);
+  return contact;
+}
+
+function measureHeldContact(model, rig) {
+  const refs = (model.Attachments || []).filter(n => /^weapon\b/i.test(n.Name));
+  const arms = [rig.parts?.armL, rig.parts?.armR];
+  if (refs.length > 1 || !arms.every(Boolean)) return null;
+  const tree = nodeIndex(model), root = refs[0]?.Parent;
+  const bodyJoint = id => Object.values(rig.parts).some(p=>p.joints.includes(id));
+  const si = model.Sequences.findIndex(s => /^attack\b/i.test(s.Name.trim()));
+  if (si < 0) return null;
+  const [lo,hi] = model.Sequences[si].Interval, frame = Math.round((lo+hi)/2);
+  const visible = rigidSurfaces(model,{frame,sequence:si});
+  let surfaces = root != null && !bodyJoint(root) ? visible.filter(s => tree.isAncestor(s.id,root)) : [];
+  const marked = surfaces.length > 0;
+  if (!marked) {
+    // A marker can be on a hidden alternate weapon. Read the rigid weapon
+    // actually drawn in Attack. A single named carrier avoids guessing
+    // between a bow, a projectile and equipment on the other hand.
+    const named = visible.filter(s => !bodyJoint(s.id) && isWeaponName(tree.byId.get(s.id)?.Name || ''));
+    const ids = new Set(named.map(s=>s.id));
+    if (ids.size===1) surfaces=named;
+    else {
+      const read=readHeldItem(model,rig);
+      if (read && !bodyJoint(read.carrier)) surfaces=visible.filter(s=>s.id===read.carrier);
+    }
+  }
+  const surface = surfaces.sort((a,b) => dimensions(b.points).length-dimensions(a.points).length)[0];
+  if (!surface) return null;
+  const {length, a, b} = dimensions(surface.points);
+  if (length < .55*Math.min(...arms.map(arm => arm.length))) return null;
+  const hands = arms.map(arm => model.Attachments.find(n => /^hand\b/i.test(n.Name) && n.Parent===arm.marker)?.ObjectId ?? arm.marker);
+  const samples = hands.map(()=>[]);
+  for (let i=0;i<=8;i++) {
+    const w = sampleNodeMatrices(model,Math.round(lo+(hi-lo)*i/8),si), carrier = w.get(surface.id);
+    if (!carrier || Math.abs(carrier.determinant()) < 1e-8) continue;
+    const inverse = carrier.clone().invert();
+    hands.forEach((hand,side) => {
+      const palm = new Vector3().fromArray(nodePivot(model,model.Nodes[hand])).applyMatrix4(w.get(hand)).applyMatrix4(inverse);
+      let near, gap=Infinity;
+      for (const triangle of surface.triangles) {
+        const p = triangle.closestPointToPoint(palm,new Vector3()), d = p.distanceTo(palm);
+        if (d < gap) {gap=d;near=p;}
+      }
+      if (near) samples[side].push({gap,near});
+    });
+  }
+  if (samples.some(s=>s.length<5)) return null;
+  for (const s of samples) s.sort((a,b)=>a.gap-b.gap);
+  const med = samples.map(s=>s[s.length>>1]);
+  const onArm = arms.findIndex(arm=>tree.isAncestor(surface.id,arm.marker));
+  const side = onArm>=0 ? onArm : med[0].gap<med[1].gap ? 0 : 1;
+  const held = samples.map((s,i)=>s.filter(x=>x.gap<=.22*arms[i].length).length >= Math.ceil(s.length*.65));
+  if (!held[side] && med[side].gap > .55*arms[side].length) return null;
+  const grip = med[side].near, tip = a.distanceToSquared(grip)>b.distanceToSquared(grip)?a:b;
+  return {marked,carrier:surface.id,hand:hands[side],arm:arms[side].key,grip,tip,length,support:med[1-side].near,
+    twoHands:held.every(Boolean) && med[0].near.distanceTo(med[1].near) > .06*length};
 }
 
 function dimensions(points) {

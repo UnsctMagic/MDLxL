@@ -108,10 +108,27 @@ function orbit(q,p) {
   return new Matrix4().makeRotationFromQuaternion(q).setPosition(p.clone().sub(p.clone().applyQuaternion(q)));
 }
 
-export function fabricMotion(own,donor,rigB,rigA,tB,tA,keep,jointTarget) {
-  const output=new Map(), B=pose(own,rigB), targets=hems(own,rigB,tB,B);
+export function fabricMotion(own,donor,rigB,rigA,tB,tA,keep,jointTarget,cloakToTail=false) {
+  const output=new Map(), B=pose(own,rigB);
+  const cloak=n=>/cape|cloak/i.test(n?.Name || '');
+  let targets;
+  if(cloakToTail) {
+    const chest=rigB.parts.chest?.marker;
+    const roots=(tB.children.get(chest)||[]).filter(cloak);
+    if(roots.length!==1) return output;
+    targets=[{root:roots[0].ObjectId,host:chest,tail:true}];
+  } else targets=hems(own,rigB,tB,B);
   if(!targets.length)return output;
-  const A=pose(donor,rigA), sources=fabric(donor,rigA,tA,A);
+  const A=pose(donor,rigA);
+  let sources;
+  if(cloakToTail){
+    const root=rigA.parts.tail.joints[0], host=tA.parentOf(root), ids=new Set(under(tA,root));
+    const points=surface(donor,A).filter(v=>v.ids.every(id=>ids.has(id)));
+    if(host==null || points.length<3)return output;
+    const start=pivot(donor,root).applyMatrix4(A.get(root));
+    const tips=points.slice().sort((a,b)=>b.p.distanceToSquared(start)-a.p.distanceToSquared(start)).slice(0,Math.max(3,Math.ceil(points.length*.12)));
+    sources=[{root,host,start,end:mean(tips.map(v=>v.p)),points,tips,active:[...ids].filter(id=>moving(tA.byId.get(id)))}];
+  } else sources=fabric(donor,rigA,tA,A);
   if(!sources.length)return output;
   const skin=surface(own,B), hip=pivot(own,rigB.body).applyMatrix4(B.get(rigB.body));
   const pelvis=pivot(donor,rigA.body).applyMatrix4(A.get(rigA.body));
@@ -140,7 +157,7 @@ export function fabricMotion(own,donor,rigB,rigA,tB,tA,keep,jointTarget) {
     const b=[...sources].sort((a,c)=>score(c)-score(a))[0];
     // A single side panel cannot establish the motion of a centreline tail.
     // Use the bind geometry here: a complete cape can swing across the body.
-    if(target.tail && sources.length===1 && Math.abs(pivot(own,target.root).y-pivot(own,rigB.body).y)<.15*rigB.hipHeight){
+    if(!cloakToTail && target.tail && sources.length===1 && Math.abs(pivot(own,target.root).y-pivot(own,rigB.body).y)<.15*rigB.hipHeight){
       const lower=[...b.points].sort((a,c)=>a.g.Vertices[a.v*3+2]-c.g.Vertices[c.v*3+2]).slice(0,Math.ceil(b.points.length/2));
       const centre=pivot(donor,rigA.body).y, margin=.03*rigA.hipHeight;
       if(!lower.some(v=>v.g.Vertices[v.v*3+1]<centre-margin) || !lower.some(v=>v.g.Vertices[v.v*3+1]>centre+margin))return output;

@@ -6,7 +6,7 @@ import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, isGlobalTrack, keysInInterval, nodePivot, sampleTrack, skinGeoset, visitTracks } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { poseChainIds, poseNodeRole, suggestPoseBody, suggestPoseRig } from './pose-ik.js';
-import { poseLimbStart } from './pose-recognition.js';
+import { poseLimbStart, poseSkinFlatness } from './pose-recognition.js';
 import { createSequence, standSequenceIndex } from './sequence-editor.js';
 import { makeKey } from './animation-tracks.js';
 import { trackValueError } from './optimizexl-animation.js';
@@ -108,7 +108,25 @@ function worldPos(model, sample, id) {
  * it the model's Stand decides. */
 export function transferRig(model, { sequence, actor, mainArms = false } = {}) {
   const info = modelInfo(model);
-  if (info.pose === undefined) info.pose = readPose(model);
+  if (info.pose === undefined) {
+    info.pose = readPose(model);
+    const pose = info.pose.pose;
+    if (pose?.body != null) {
+      completeTransferLimbs(model, info, pose);
+      // A separately rooted rider can win the POSE body vote. Find the walking
+      // skeleton under its feet before assigning animation keys to either actor.
+      const under = id => info.tree.isAncestor(id, pose.body);
+      const riderLegs = pose.chains.filter(chain => legChain(chain) && under(chain.root));
+      const outside = pose.chains.filter(chain => legChain(chain) && info.tree.root(chain.root) !== info.tree.root(pose.body));
+      if (riderLegs.length === 2 && outside.length === 4 && pose.chains.some(chain => armChain(chain) && under(chain.root))
+          && outside.every(chain => info.tree.root(chain.root) === info.tree.root(outside[0].root))) {
+        const walker = suggestPoseBody(model, outside, info.tree), si = defaultSequence(model);
+        const ref = sampleAt(model, si, model.Sequences[si]?.Interval[0] ?? 0), pos = id => worldPos(model, ref, id);
+        if (Math.max(...outside.map(chain => pos(chain.end).z)) < Math.min(...riderLegs.map(chain => pos(chain.end).z))
+            && seatedAssemblies(model, info, walker, pos, si).some(item => info.tree.isAncestor(pose.body, item.top))) pose.body = walker;
+      }
+    }
+  }
   if (!info.pose.pose) return info.rigs.get(null) || (info.rigs.set(null, failedRig(info.pose.error)), info.rigs.get(null));
   const skeleton = skeletonFor(model, info, Number.isInteger(sequence) && model.Sequences?.[sequence]?.Interval ? sequence : defaultSequence(model));
   // 'both' is the plain reading; 'seated' and 'walker' read one of two creatures alone and
@@ -120,6 +138,66 @@ export function transferRig(model, { sequence, actor, mainArms = false } = {}) {
     info.rigs.set(key, rig.actor === wanted || wanted === 'both' ? rig : transferRig(model, { sequence }));
   }
   return info.rigs.get(key);
+}
+
+// Fill paired articulated feet and wings missed by the handle reader. Both
+// sides must agree on the same socket and motion-bearing skeleton.
+function completeTransferLimbs(model, info, pose) {
+  const {tree, joints} = info;
+  const transforms = [...joints].map(id => tree.byId.get(id));
+  const path = (ids, kind, label) => ({key:'limb:' + ids.at(-1), root:ids[0], middle:ids[1],
+    end:ids.at(-1), joints:ids, kind, label, short:ids.length < 3});
+  if (!pose.chains.some(legChain)) {
+    const feet = ['L','R'].map(side => {
+      const foot = transforms.find(n => n.Name.trim().toUpperCase() === side+'F');
+      if (!foot) return null;
+      const line = tree.ancestors(foot.ObjectId).filter(id => new RegExp('^'+side+'L[0-9]*$', 'i').test(tree.byId.get(id).Name));
+      if (!line.length || tree.parentOf(foot.ObjectId) !== line[0]) return null;
+      return [...line.reverse(), foot.ObjectId];
+    });
+    if (feet.every(Boolean) && tree.parentOf(feet[0][0]) === tree.parentOf(feet[1][0])
+        && feet.every(ids => tree.byId.get(ids.at(-1)).PivotPoint[2] < tree.byId.get(ids[0]).PivotPoint[2]))
+      for (const ids of feet) pose.chains.push(path(ids, 'leg', 'Foot'));
+  }
+  if (pose.chains.some(chain => chain.label === 'Wing')) return;
+  const descendants = id => transforms.filter(n => n.ObjectId !== id && tree.isAncestor(n.ObjectId,id));
+  const wings = [];
+  for (const root of transforms) {
+    if (!root.Rotation?.Keys?.length || !root.PivotPoint) continue;
+    const ids = [root.ObjectId], x = root.PivotPoint[0], y = root.PivotPoint[1], z = root.PivotPoint[2];
+    const named = /^wing[\s_.-]*[lr]/i.test(root.Name);
+    let width = 0;
+    while (ids.length < 10) {
+      const children = (tree.children.get(ids.at(-1)) ?? []).filter(n => joints.has(n.ObjectId) && n.Rotation?.Keys?.length
+          && !ids.includes(n.ObjectId) && Math.abs(n.PivotPoint[1] - y) > width + 1e-3);
+      const next = children.sort((a,b) => Math.abs(b.PivotPoint[1]-y) - Math.abs(a.PivotPoint[1]-y))[0];
+      if (!next) break;
+      ids.push(next.ObjectId);
+      width = Math.abs(next.PivotPoint[1] - y);
+    }
+    if (ids.length < 3) continue;
+    const end = tree.byId.get(ids.at(-1)).PivotPoint;
+    if (width < 1.3 * Math.hypot(end[0]-x, end[2]-z) || /hand|leg|arm|foot|cape|cloth/i.test(root.Name)) continue;
+    const existing = pose.chains.find(chain => poseChainIds(chain).some(id => ids.includes(id)));
+    if (existing && (existing.kind === 'leg' || existing.cloth)) continue;
+    wings.push({root,ids,width,named,existing,sign:Math.sign(end[1]-y)});
+  }
+  for (const a of wings) {
+    const b = wings.find(w => w.sign === -a.sign && w.root.Parent === a.root.Parent &&
+      Math.min(a.width,w.width) > .7*Math.max(a.width,w.width) &&
+      a.sign*(a.root.PivotPoint[1]-w.root.PivotPoint[1]) > 0);
+    if (!b) continue;
+    if (![a,b].every(w => w.named || (poseSkinFlatness(model,{descendants},w.ids) ?? 1) < .30)) continue;
+    for (const w of [a,b]) {
+      if (w.existing) w.existing.label = 'Wing';
+      else pose.chains.push(path(w.ids, 'arm', 'Wing'));
+    }
+    // A separate rider's arms can be the only handles found before reading
+    // the mount's wings. Both actors then live under the wing socket.
+    if (tree.isAncestor(pose.body,a.root.Parent) && pose.body !== a.root.Parent)
+      pose.body = a.root.Parent;
+    break;
+  }
 }
 
 function defaultSequence(model) {
@@ -341,9 +419,25 @@ function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {
       }
     }
   }
+  // A weighted riding boot may end at the shin. Both thighs still belong
+  // to the seated waist, even when only one foot produced a POSE handle.
+  let shortRiderLegs = [];
+  if (seatTops.length===1) {
+    const waist = tree.parentOf(seatTops[0]);
+    if (/rider.*(?:waist|hip|pelvis)/i.test(byId.get(waist)?.Name || '')) {
+      const thighs=(tree.children.get(waist) || []).filter(n=>/thigh|upper.?leg/i.test(n.Name));
+      if (thighs.length===2 && (pos(thighs[0].ObjectId).y-pos(waist).y)*(pos(thighs[1].ObjectId).y-pos(waist).y)<0) {
+        seatTops=[waist];
+        shortRiderLegs=thighs.filter(n=>!pose.chains.some(c=>tree.isAncestor(c.end,n.ObjectId))).flatMap(n=>{
+          const shin=(tree.children.get(n.ObjectId)||[]).find(c=>/shin|lower.?leg/i.test(c.Name));
+          return shin?[{root:n.ObjectId,middle:shin.ObjectId,end:shin.ObjectId,joints:[n.ObjectId,shin.ObjectId],short:true,kind:'leg',key:'limb:'+shin.ObjectId}]:[];
+        });
+      }
+    }
+  }
   const seatedId = id => seatTops.some(top => tree.isAncestor(id, top));
   const walkerBody = body;
-  const seatedChains = seatTops.length ? seatLegs(seatTops).chains : [];
+  const seatedChains = seatTops.length ? [...seatLegs(seatTops).chains,...shortRiderLegs] : [];
   // The recogniser's own upper body of this creature (a Reforged turret over its pelvis, `uppers`) is no rider.
   const carried = seatTops.length > 0 && seatTops.every(top => (pose.uppers?.[body] || []).includes(tree.root(top)));
   let actor = seatTops.length && !carried ? wanted : 'both';

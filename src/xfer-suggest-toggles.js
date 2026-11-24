@@ -2,6 +2,7 @@ import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
 import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror } from './transplant-autofix.js';
+import { heldContact } from './held-item.js';
 import { rigFor } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { verdict } from './xfer-look-verdict.js';
@@ -71,7 +72,11 @@ export function suggestToggles(model, donor, options = {}, {
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
     // Owner: "most times seamfix was used it made things worse".
-    if (key === 'seamFix') continue;
+    if (['seamFix', 'skinLandmarks', 'gripRouting'].includes(key)) continue;
+    if (key === 'surfaceGrip') {
+      const holdsWithBothHands = (m, rig) => heldContact(m, rig ?? rigFor(m, Math.max(0, standSequenceIndex(m))))?.twoHands;
+      if (!holdsWithBothHands(model, ownRig) || !holdsWithBothHands(donor, donorRig)) continue;
+    }
     const change = compared(scores[key], scores.plain);
     // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
     if (key === 'donorPose' && !usableDonorPose.get(key)) continue;
