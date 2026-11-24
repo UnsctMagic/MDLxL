@@ -56,6 +56,7 @@ import { supportLegSkin } from './transplant-support-skin.js';
 import { fabricMotion } from './transplant-fabric.js';
 import { secondarySurfaces, secondaryMotion, fitSplitCape, fitTailPlate } from './transplant-secondary.js';
 import { nativeCloth } from './transplant-native-cloth.js';
+import { ammoFollowsDonor } from './transplant-ammo.js';
 import { rigidLivingForm } from './transplant-forms.js';
 import { fitArmSurfaces } from './transplant-surface-arms.js';
 import { fitHeadSkin } from './transplant-head.js';
@@ -3288,6 +3289,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (seating) fixed.seatWeapon = seating;
   }
   const cloth = nativeCloth(M,model,rigB,rigA,donorMap);
+  const ammo = ammoFollowsDonor(M,model,reflected,rigA,rigB,donorMap);
+  if (ammo) fixed.ammunition = ammo;
   if (cloth.vertices) fixed.nativeCloth = cloth.chains;
   const clothTops = new Set([...keepSet,...cloth.chains.flatMap(c => c.tops)]);
   if (rigA.ok && rigB.ok && rigB.parts.chest && rigA.parts.chest)

@@ -1685,3 +1685,10 @@ height against the model's own (mirror-image) pose; 17/19 the loaded arrow/bolt 
   at hip height. New `plantFoot`: when the donor's upright item rests its foot on the ground in Stand (within 6% of its height),
   the grip slides along the shaft until the seated foot reaches this model's lowest visible point in Stand (28: fraction .76).
 - Exports: weapons-14 sheet changes 12, 15, 16, 18, 19, 20, 22 (smoothing) and 28; the other three sheets are byte-identical.
+- **17/19 arrow and bolt (CP14e, `transplant-ammo.js` `ammoFollowsDonor`, engine).** When both models carry ammunition on a
+  bone named arrow/bolt/quarrel/missile/ammo/projectile/dart, the model's own ammunition (own geometry, own size) is bound to a
+  new parentless "Ammunition" bone baked per 33 ms: placed against the result's hand the way the donor's sits against its
+  nearest hand at its first visible Attack moment, following the donor ammunition's travel against that hand, and scaled to 0
+  whenever the donor's is hidden. A geoset holding only ammunition stays visible (the bone hides it). 17: shown/hidden exactly
+  like the donor's arrow (gone at the shot, back on the next draw). 19: the bolt now shows only in the donor's reload, so the
+  crossbow looks unloaded between shots (it was always loaded before) — owner to judge. Exports change only on 17 and 19.
