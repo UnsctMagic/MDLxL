@@ -1639,3 +1639,14 @@ two-hand Stand grip). Only runs with Seat weapon like donor ticked: the reasonab
 to the previous commit; on weapons-13 it changes 12, 15, 16, 18, 19, 20 and 22.
 
 `GRADE - XFER weapons 14.cmd` now has 13 rows: 15, 17, 18, 19, then 12 and 16 (10s, to confirm) and 20, 21, 22, 25, 27, 28, 33.
+
+#### Owner's weapons-14 grades (24 Nov) and open points
+
+13 rows, mean 8.7: 15 9, 17 8, 18 10, 19 6, 12 10, 16 5, 20 10, 21 10, 22 10, 25 8, 27 10, 28 9, 33 8. Only comment, 16: "the motion
+of his amulet became the motion of the head = unwanted". 16's export differs from the CP13 build (graded 10) only in the left arm
+(CP14b second hand); no neck or head skin changed, so the amulet motion predates CP14. Claude could not identify the amulet: the
+head-bound plates under the jaw sit on head skin (teeth/tusks), and the separate chest band (geoset 1) moves with the hips; asked
+the owner to point it out.
+
+Owner: the next grading sheet shows every donated animation. Sheets made by `out/claude-cp14/make-sheet.cjs` now omit
+`sequences`, so the sheet lists all of the donor's animations (`TransferPicks.jsx` uses the donor's names when the list is empty).
