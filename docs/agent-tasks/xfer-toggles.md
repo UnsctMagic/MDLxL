@@ -1472,3 +1472,49 @@ Each link shows all four textured grading panes at the same paused Attack moment
 Open [GRADE - XFER weapons 12.cmd](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER weapons 12.cmd>). The [19-pair sheet](D:/Claude/MDLxL/TestBuilds/transfer-xl-35/cases-weapons12.json) writes to weapons12/answers.json. The install verification checked 1,550 engine and renderer files and the existing profile and grades. [Package and sheet verification](../../out/cp12/package-verification.json)
 
 The focused suite finished with 52 passing checks and one failure also reproduced on the unmodified CP11b baseline. The detached pipe stretches in a scaling donor’s Death clip. All three legacy Archer checks passed after routing Two-hand grip through a single bow alignment. Warcraft III gameplay was not exercised. [Test summary](../../out/cp12/test-verification.txt)
+
+### Owner's weapons-12 grades and CP13 instructions (Claude)
+
+All 19 graded (`TestBuilds\transfer-xl-35\weapons12\answers.json`), all with Seat weapon like donor ticked. Mean 6.5, up from 5.5
+on the same 19 in the reasonable-50 round. Better: 12 (5→7), 13 (5→6), 16 (5→7), 20 (0→5), 21 (3→8), 25 (3→7), 28 (5→7), 33 (6→7).
+Kept at 10: 02, 04, 05, 06, 27. Worse: 01 (9→8), 15 (5→4). Still 0: 17, 18, 19.
+
+The owner's comments, grouped:
+1. **Twins ruined, the worst result (17, 18, 19, all 0).** "Look at the donor and own - they are ALMOST THE SAME!!! then you
+   transplant" and it is ruined. 19: "just mirroring the original donor gives you ALMOST identical animations." 18: "I am not sure
+   what is being compared here." 17: the bow seems to move to the wrong hand, as if the body is mirrored and the weapon placed wrong;
+   the cloak "ruins everything".
+2. **The grip is in the wrong place or the weapon points the wrong way (13, 15, 16, 28, 33).** 13 holds the sword backwards: "it
+   should be compared vs his ORIGINAL pose/animations to determine where the hilt is and not guess." 28: staff upside down.
+   16: hold it by its end like the donor. 15: donor and model have near-identical weapons and proportions, so "they should end up
+   looking 100% identical". 33: the new angle is right but the weapon is no longer in the hand.
+   The owner to Claude: "this cannot become a CASE specific".
+3. **Neck warping on 15:** "EXCESSIVE NECK WARPING to the point its UGLY, you can LIFT slightly but not like this."
+4. **Cloaks:** 17's cloak balloons; 20's cloak has no motion.
+5. **22's gun looks deformed.** CP12 measured the seated weapon edges within 2.7e-6 of native, so the deformation comes from
+   somewhere else. Find it.
+6. **Suggestion:** 06 "I wouldnt suggest it" (still a 10). 01 dropped to 8 with Seat on (its Attack angle peak rose from 1.8° to 27.8°).
+
+CP13. One checkpoint report at the end. Everything is a general rule measured on every pair, never a per-case patch.
+- **A. Twins first (17, 18, 19).** Add an engine-wide check: compare the model's own animation with the donor's, plain and mirrored.
+  When one of them is close, that tells the engine which way the donor maps onto the model (mirror or not, which hand holds the weapon).
+  The result must then end up close to both. Find why the current result is far from both on 17, 18 and 19 and fix the cause.
+  - Proof: for every pair in the 19, a pose distance (result vs donor, result vs own) per clip. On 17–19 the result is at least as
+    close to the donor as the own model is.
+- **B. Grip from the model's own animation.** Seat weapon like donor finds the model's own grip point and the weapon's head end
+  from the model's own Stand/Walk/Attack (where its own palm holds its own weapon), not from geometry guesses. Where along the shaft
+  the hand sits follows the donor's grip, as a fraction of the donor's weapon length. The angle follows the donor. The grip stays
+  in the palm through the whole clip.
+  - Proof: grip-to-palm distance, grip fraction along the shaft and head direction against the donor for 13, 15, 16, 28 and 33.
+    15 must look the same as the donor.
+- **C. Neck on 15.** Same no-stretch rule as CP11 A: no edge stretches beyond the donor's or the model's own maximum. Show the neck
+  edge stretch before and after.
+- **D. Cloaks.** A model cloak follows the donor cloak's motion (20). It never balloons past the donor cloak's reach (17).
+- **E. 22's gun.** Find what deforms it, then fix it or report the cause.
+- **F. Suggestion.** Suggest Seat weapon like donor only when it brings the weapon measurably closer to the donor than leaving it off
+  (06 and 01 should come out unsuggested if that is what the measurement says).
+- **No losses:** 02, 04, 05, 06 and 27 stay at 10. Show each Before/After at default ticks and name any visible change.
+- **Then** rebuild `transfer-xl-35`, make `cases-weapons13.json` with the same 19 pairs and the launcher
+  `GRADE - XFER weapons 13.cmd`, prove it with hidden screenshots in `out/cp13/`, report as `### CP13 · …` and stop with
+  `CHECKPOINT 13 READY — <this file>`.
+- Budget: if a group fails twice, record what was measured and move on. Do not loop.
