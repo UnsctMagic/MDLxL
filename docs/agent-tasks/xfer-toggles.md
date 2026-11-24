@@ -1692,3 +1692,25 @@ height against the model's own (mirror-image) pose; 17/19 the loaded arrow/bolt 
   whenever the donor's is hidden. A geoset holding only ammunition stays visible (the bone hides it). 17: shown/hidden exactly
   like the donor's arrow (gone at the shot, back on the next draw). 19: the bolt now shows only in the donor's reload, so the
   crossbow looks unloaded between shots (it was always loaded before) — owner to judge. Exports change only on 17 and 19.
+
+### What the owner's comments say, all rounds together (Claude, 25 Nov)
+
+Owner, 25 Nov: grades are noisy ("sometimes I rate a regression 0"); work from the trends in the comments, not the 1-10 numbers.
+All 97 written comments across 24 answer files (`out/claude-cp14/all-comments.txt`), grouped:
+
+| Fault | Comments | Typical words | Engine step behind it |
+|---|---:|---|---|
+| Weapon not held like the donor (floating, one hand not two, wrong hand, rotated, upside down, too high, disappears) | ~32 | "weapon not held by two hands - biggest reoccuring issue", "compare vs his ORIGINAL pose ... not guess" | held-item reading + seat, patched per case |
+| Limbs or wings do not move | ~20 | "legs dont move", "no wing motion flyer to flyer" | body-part pairing across shapes |
+| Body bent out of shape (neck, head, stored pose, curled, too high) | ~15 | "why are you changing geosets pose to begin with?? this is an animation/bone transfer", "you should not allow such warpings" | bending the stored mesh into the donor's pose |
+| A repair checkbox made it worse | ~12 | Seam fix, Rest pose fit, Weapon on bones, Two-hand grip, Seat weapon | toggles tuned on few cases |
+| Near-twins ruined | 6 | "donor and own are ALMOST THE SAME ... then the implant ruins it" | no check against the model's own animation |
+| Jitter, twitch, snappy | 6 | "arm is twitching" | per-moment corrections without easing |
+| Cloth, cape, amulet move wrong | 5 | "cloak ruins everything" | hanging parts mapped by name/nearest joint |
+| Arrows, props | 4 | "arrow doesnt react/disappear" | ammunition left on its own bone |
+| Riders | 3 | "rider collapses inside body" | two-creature reading |
+
+The owner's standard, read from these: (1) the body never changes shape; (2) every limb moves like the donor's matching limb;
+(3) the weapon sits in the same hand(s), at the same place and angle as the donor's, worked out from the model's own animations;
+(4) when the two models already animate alike, the result looks like them; (5) no jitter; (6) a fix may never break a pair
+that worked. Each is measurable on every pair without the owner's grade.
