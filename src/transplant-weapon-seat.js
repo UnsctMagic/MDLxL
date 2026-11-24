@@ -9,6 +9,8 @@ import { nodeIndex } from './node-hierarchy.js';
 import { vertexBones } from './part-bones.js';
 import { isWeaponName } from './rig-names.js';
 import { standSequenceIndex } from './sequence-editor.js';
+import { solveTwoBone } from './pose-ik.js';
+import { rewriteTrack } from './transplant-floor.js';
 
 const vector = () => new Vector3();
 const at = (values, v) => vector().fromArray(values, 3*v);
@@ -627,5 +629,90 @@ export function seatWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries
       secondPalmToShaft:shaftDistance ?? null,carrier:item.carrier,donorCarrier:wanted.carrier,donorHand:wanted.hand.id,hand,side:wanted.hand.arm.key,
       vertices:item.parts.reduce((n,p) => n+p.vertices.length,0),donorSupportGap:wanted.support?.gap ?? null,secondPalmDistance:supportGap ?? null});
   }
+  for (const move of moves) {
+    const held = holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,move);
+    if (held) report.find(r => r.carrier===move.item.carrier && r.hand===move.hand).support = held;
+  }
   return report.length ? report : null;
+}
+
+// Where the donor's other palm holds its shaft, the result's other palm holds
+// the seated shaft at the same place along it (CP14, owner 24 Nov 2026: "the
+// hands are still not gripping the shaft ... during walk"). The two-bone arm
+// solve moves the upper arm and forearm only; arms already on the shaft and
+// moments when the donor lets go keep their motion.
+const ON_SHAFT = .12, OFF_SHAFT = .3, ALREADY = .1;
+// The point of the item's surface, at fraction t from base to head, nearest the palm.
+function surfaceAt(frame,parts,base,head,t,palm) {
+  const axis=head.clone().sub(base), length2=Math.max(1e-8,axis.lengthSq()), band=.05;
+  const tri=new Triangle(), nearest=vector();
+  let best=null,gap=Infinity;
+  for (const {gi,faces} of parts) for (let i=0;i<faces.length;i+=3) {
+    const ps=[0,1,2].map(j => frame.point(gi,faces[i+j]));
+    tri.set(...ps);
+    if (tri.getArea()<1e-7) continue;
+    tri.closestPointToPoint(palm,nearest);
+    const f=nearest.clone().sub(base).dot(axis)/length2;
+    if (Math.abs(f-t)>band) continue;
+    const d=nearest.distanceToSquared(palm);
+    if (d<gap) { gap=d; best=nearest.clone(); }
+  }
+  return best;
+}
+function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,wanted}) {
+  if (!item.ends || !wanted.ends || !wanted.support) return null;
+  const donorOther = target.hands.find(h => h!==wanted.hand && h.patch?.length);
+  if (!donorOther) return null;
+  const paired = limbEntries.find(e => e.theirs.marker===donorOther.arm.marker)?.own;
+  const ownOther = source.hands.find(h => h.arm.marker===paired?.marker);
+  if (!ownOther?.patch?.length) return null;
+  const joints = donorOther.arm.joints.slice(-3).map(id => donorMap[id] ?? null);
+  if (joints.length<3 || joints.some(id => id==null || !result.Nodes[id])) return null;
+  const nodes = joints.map(id => result.Nodes[id]);
+  const reach = donorOther.arm.length;
+  const segment = (a,b,p) => {
+    const ab=b.clone().sub(a), t=Math.max(0,Math.min(1,p.clone().sub(a).dot(ab)/Math.max(1e-8,ab.lengthSq())));
+    return {t,point:a.clone().addScaledVector(ab,t)};
+  };
+  let moments=0, before=0, after=0;
+  for (const [di,seq] of donor.Sequences.entries()) {
+    const si = result.Sequences.findIndex(s => s.Name===seq.Name && s.Interval[0]===seq.Interval[0] && s.Interval[1]===seq.Interval[1]);
+    if (si<0 || /^(death|decay|dissipate|portrait)/i.test(seq.Name.trim())) continue;
+    const [a,z] = seq.Interval, times = new Set([a,z]);
+    for (let f=a; f<z; f+=33) times.add(Math.round(f));
+    for (const n of nodes) for (const k of n.Rotation?.Keys || []) if (k.Frame>=a && k.Frame<=z) times.add(k.Frame);
+    const frames = [...times].sort((x,y) => x-y), values = [new Map(),new Map()];
+    for (const frame of frames) {
+      const phase = z>a ? (frame-a)/(z-a) : 0;
+      const df = pose(donor,di,phase), rf = pose(result,si,phase);
+      const [da,db] = wanted.ends.map(end => endAt(end,df));
+      const dpalm = palmAt(donorOther,df), touch = contacts(donor,df,wanted.parts,dpalm);
+      if (!touch) continue;
+      const donorGrip = segment(da,db,touch.world), gap = touch.gap/reach;
+      const weight = gap<=ON_SHAFT ? 1 : gap>=OFF_SHAFT ? 0 : (OFF_SHAFT-gap)/(OFF_SHAFT-ON_SHAFT);
+      if (!weight) continue;
+      const [ra,rb] = item.ends.map(end => endAt(end,rf)), rpalm = palmAt(ownOther,rf);
+      const spot = surfaceAt(rf,item.parts,ra,rb,donorGrip.t,rpalm);
+      if (!spot) continue;
+      const off = rpalm.distanceTo(spot)/reach;
+      if (off<=ALREADY) continue;
+      const [root,middle,end] = nodes.map(n => vector().fromArray(nodePivot(result,n,n.ObjectId)).applyMatrix4(rf.world.get(n.ObjectId)));
+      const lengths = [root.distanceTo(middle),middle.distanceTo(end)];
+      if (Math.min(...lengths)<1e-5) continue;
+      const goal = end.clone().addScaledVector(spot.clone().sub(rpalm),weight);
+      const solved = solveTwoBone({root,middle,end,lengths,tolerance:1e-5},goal);
+      const turn = (from,to) => new Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
+      const deltas = [turn(middle.clone().sub(root),solved.middle.clone().sub(root)),turn(end.clone().sub(middle),solved.end.clone().sub(solved.middle))];
+      let parentDelta = new Quaternion();
+      for (let i=0;i<2;i++) {
+        const parent = rotation(rf.world.get(nodes[i].Parent) || new Matrix4());
+        const local = parent.clone().invert().multiply(parentDelta.clone().invert()).multiply(deltas[i]).multiply(parent);
+        values[i].set(frame, v => local.clone().multiply(new Quaternion().fromArray(v)).normalize().toArray());
+        parentDelta = deltas[i];
+      }
+      moments++; before+=off; after+=solved.end.distanceTo(goal)/reach + (1-weight)*off;
+    }
+    if (values[0].size) for (let i=0;i<2;i++) rewriteTrack(result,nodes[i],si,frames,values[i],'Rotation');
+  }
+  return moments ? {moments,palmGapBefore:before/moments,palmGapAfter:after/moments} : null;
 }

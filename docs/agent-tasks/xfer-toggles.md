@@ -1622,3 +1622,20 @@ and the Seat suggestion on 05/06 (owner prefers it off).
 Grading build: `transfer-xl-35` reinstalled with this source (old dist/src kept in `out/claude-cp14/installed-cp13`). Sheet
 `cases-weapons14.json` = 17, 18, 19 plus the seven ungraded weapons-13 rows (20, 21, 22, 25, 27, 28, 33), launcher
 `GRADE - XFER weapons 14.cmd`. Hidden run opened all 10 rows with zero page errors (`out/claude-cp14/smoke`).
+
+#### CP14b · second hand on the shaft (owner: "Yes, fix 15")
+
+15's donor carries the axe with both hands in Walk; the result held it with one. New step in `seatWeapon` (`holdSupport`): when
+the donor holds its item with two hands in its Stand reading (`wanted.support`), at every moment (33 ms) where the donor's other
+palm touches its weapon surface (within .12 arm length, fading out by .30), the result's other palm is moved onto the seated
+weapon's surface at the same fraction along the shaft (`surfaceAt`), by the two-bone arm solve already used for planted palms
+(upper arm and forearm rotation keys via `rewriteTrack`). Arms already within .1 arm length, and moments when the donor lets go,
+keep their motion. Measuring against the end-to-end line instead of the surface failed first (the axe blade pulls that line off
+the haft: donor gap read .40 instead of .03).
+
+Mean result palm gap at those moments, in arm lengths, before → after: 15 .24 → .01 (214 moments), 12 .23 → .06, 16 .39 → .04,
+18 .61 → .07, 19 .61 → .02, 20 .53 → .04, 22 .41 → .08. Bows (17), single-hand items and 21/25 are untouched (the donor has no
+two-hand Stand grip). Only runs with Seat weapon like donor ticked: the reasonable-50, new30 and random30 sheets are byte-identical
+to the previous commit; on weapons-13 it changes 12, 15, 16, 18, 19, 20 and 22.
+
+`GRADE - XFER weapons 14.cmd` now has 13 rows: 15, 17, 18, 19, then 12 and 16 (10s, to confirm) and 20, 21, 22, 25, 27, 28, 33.
