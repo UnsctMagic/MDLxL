@@ -1181,3 +1181,54 @@ Captured every default view using the existing CP8 grading build. All 200 panes 
 | 48 | Dreadlord | Succubus | winged beast (biped demon) | brute/unarmed | large | Both horned winged demons stand upright and reach forward with a free hand to attack. |
 | 49 | Elder Voidwalker | Lava Spawn (Level 1) | legless (elemental) | caster empty-handed | man-sized | Both hover on a legless lower body and cast through a free hand. |
 | 50 | Sea Turtle | Lightning Lizard | four-legged beast (armored reptile) | brute/unarmed | large | Both are low, armored reptiles that brace on four feet and attack from the snout. |
+
+### Owner's reasonable-50 grades, grouped by Claude, and CP11 instructions
+
+All 50 graded (`TestBuilds\transfer-xl-35\reasonable50\answers.json`). Mean 5.8: 19 pairs at 9–10, 23 at 5 or below, 12 zeros. The owner:
+"There are repeated issues with transplant involving weapon placement, winged units wing motion and some other things. also I still see
+warped poses/looks after transplant - this is also unwanted, a transplant should never cause weird body part stretching etc."
+
+Faults, grouped (case numbers are reasonable-NN):
+1. **Held weapons, the biggest group (14 pairs).**
+   - Two-handed weapon not held by both hands: 12, 16, 20 ("the biggest reoccuring issue so far"). Only 22 works, with Two-hand grip.
+   - Bows, crossbows and guns ruined: 17, 18, 19, 20, 21.
+   - Weapon floats out of the hand: 13, 15.
+   - Wrong rotation, not held like the donor: 16, 25, 28, 33 (angle during Attack).
+2. **Winged flyers get no wing motion; total failure (6 pairs, all 0):** 40, 41, 42, 43, 46, 47. The owner: flyer to flyer "should be a
+   perfect transfer". 42's recipient even has its own flying animations.
+3. **Legs don't move; total failure:** 03 (Dire Footman → Dismounted Gryphon Warrior), 23 (Wizard → Tzeentch Shaman), 30 (Grey Wizard
+   → Bray Shaman).
+4. **Warping and stretching, never acceptable:**
+   - 36: head warped with Donor pose OFF, fixed with it ON, but then the attack arm doesn't move.
+   - 50: Sea Turtle → Lightning Lizard, "overly warped and stretched".
+   - 49: snappy motion.
+   Suspect the CP8 off-mode key conversion on blended vertices first; 36 is the proof case.
+5. **Riders:**
+   - 38: mount motion leaks into the rider's legs ("if a rider is transplanted into a rider there is no reason for mount motion to go
+     to rider legs").
+   - 34: the cloak points up; it should take the tail motion.
+6. **Suggestion lessons:**
+   - Rest pose fit made it worse on 04, 07 and 16, and helped only on 08, where the owner added it himself.
+   - Weapon on bones made it worse on 01 and 23.
+   - Two-hand grip made it worse on 20 and 27, and helped on 22.
+
+CP11. Work in this order. One checkpoint report at the end:
+- **A. Stretching (group 4).** A transplant may never stretch skin beyond what the donor or the model itself does. Measure every pair
+  with `D:\Claude\xfer-look\diagnosis\scripts\donorseam.mjs` ("invented" and "beyond donor" tears). Fix the cause in the engine, not as a toggle.
+  - Proof: 36 with no head warp and the attack arm moving, with Donor pose off and on; 50 not warped.
+- **B. Legs (group 3) and wings (group 2).** Find why the legs and the wings receive no motion on 03/23/30 and 40–47. Fix them in the
+  engine. Flyer to flyer and biped to biped must move like the donor.
+  - Proof: leg and wing travel against the donor in Walk/Stand/Attack for every listed pair.
+- **C. Weapons (group 1).** Two-handed, bow, crossbow and gun grips: the weapon sits in the same hand(s) as on the donor, at the donor's angle,
+  through Attack. Floating weapons: the grip stays on the palm.
+  - Reuse Seat loose grip and Two-hand grip where they already work.
+  - Proof: grip-to-palm distance and weapon angle against the donor for 12, 13, 15–21, 25, 28 and 33.
+- **D. Riders.** On 38, the rider's legs keep the donor rider's leg motion and never take the mount's. On 34, a cloak with no donor cloak takes
+  the donor's tail motion.
+- **E. Suggester.** Stop auto-suggesting Rest pose fit and Weapon on bones; they stay as toggles. Suggest Two-hand grip only when both
+  donor and model hold one item with two hands.
+- **F. No losses on the 19 pairs graded 9–10.** With the default ticks, show each one Before/After in screenshots. Name every one that
+  changes visibly, and say why.
+- **Then** rebuild `transfer-xl-35`. Make a sheet `cases-fix11.json` with every pair graded 6 or below plus 5 of the 10s, and the launcher `GRADE - XFER fixes 11.cmd`.
+  Prove it with hidden screenshots in `out/cp11/`. Report as `### CP11 · …`. Stop with `CHECKPOINT 11 READY`.
+- Budget: if one group fails twice, write down what was measured and move to the next group. Do not loop.
