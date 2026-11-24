@@ -1392,3 +1392,83 @@ The hidden packaged run reopened case 39 with its regenerated defaults. The Walk
 Case 39 exports byte-identical to CP10 at its old ticks, its panes match CP10 pixel for pixel, and 40–47 keep their wing gains. Claude
 spot-checked fixes captures 03, 23, 41, 47, 13 and 39: all four views are textured, with the repair row in place. Codex: wait for the owner's
 grades on `GRADE - XFER fixes 11.cmd`. Weapons are the next checkpoint after that.
+
+### CP12 · Seat weapon like donor
+
+The new checkbox places the recipient’s stored weapon vertices at the donor’s grip orientation after Mirror. It rotates the normals and binds the selected weapon pieces at full weight to the copied main hand. The measured grip is the closest point on a visible Stand triangle to the palm. A matching wrist helper can become a bone at its existing ID and pivot. The report records the donor’s hand-space axis, face, contact point, and the secondary palm’s distance where it finds support. The rigid move keeps the recipient weapon’s size.
+
+Both transfer views use the label **Seat weapon like donor** and the tooltip “Moves this model's weapon in its geoset pose so it sits in the hand like the donor's weapon.” Both pieces must be recognized for the suggestion. Rest pose fit, Weapon on bones and the older grip controls remain available. The previous automatic Attack and grip-travel passes were removed. The independent bow palm-switch pass now runs only through the manual Two-hand grip checkbox.
+
+**Result for owner grading.** All 19 rows suggest the new checkbox. The complete under-15° angle gate passed on 5/19 pairs (04, 15, 22, 27, 33). Case 06 was below 15° on all visible samples, with one unavailable Walk sample. At least one measured angle reached 15° on each of 01, 02, 05, 12, 13, 16, 17, 18, 19, 20, 21, 25, 28. Primary grip median improved on 15/19 in Attack and 15/19 in Walk. Case 18’s primary grip stayed within 0.1 model unit, while its angle error peaked at 121.1° in Attack and 141.1° in Walk. Case 25’s staff pointed almost opposite the donor at 179.3°. Case 15’s support palm reached a 202.9-unit gap during Attack, where the donor’s own support gap peaked at 160.3 units.
+
+The initial implementation seated 11 of the 19, selected case 04’s shield hand and omitted case 02’s hilt. Correcting the piece boundary, the hand selection and the transverse crossbow measurement seated all 19. Case 05 now seats two weapons. Texture inspection identified a loaded arrow on the same bone as case 18’s stock and a separate bolt on case 19. Both keep their original bindings. Remaining angle and support misses are recorded for grading. [First comparison](../../out/cp12/grip-pass1-summary.txt)
+
+The independent mesh check compared serialized and reopened outputs with only seatWeapon changed. All 1,497 changed positions belong to the audited weapons. No body skin moved in 481,915 sampled vertex moments. All 73 audited ammunition vertices kept their positions and weights, and every selected weapon vertex ended on one hand. Across 2,725 weapon edges, the largest relative difference from native length was 2.71e-6. Animation tracks, pivots and hierarchy matched. [Mesh and binding audit](../../out/cp12/mesh-isolation-final-summary.json)
+
+Distances below are model units. Each cell reports median / maximum. The first condition has seating off, the second on, with every other sheet default held constant. The independent check followed fixed barycentric grip points from each native model’s first Stand. It sampled every Attack and Walk sequence at intervals of at most about 25 ms, with at least 21 phases per clip. The angle is directed away from the grip for shafts with a distinct far end. Symmetric shafts and bows use their unsigned angle, explicitly marked. Support distance uses the finite shaft segment. Donor and recipient measurements retain their original scales. [Full method and Stand results](../../out/cp12/grip-final.md) · [Per-sample measurements](../../out/cp12/grip-final.json)
+
+#### Attack
+
+| Pair | Donor → native primary | Axis samples | Axis off → on | Gate on | Primary off → on | Primary donor / native | Support shaft off → on | Support donor / native |
+|---|---|---:|---|---|---|---|---|---|
+| 01 | L → L | 200 / 200 of 200 | 0.4 / 1.8° → 1.0 / 27.8° | fails | 1.2 / 2.2 → 2.0 / 2.0 | 4.3 / 5.3 · 1.4 / 1.4 | — | — |
+| 02 | R → R | 123 / 123 of 123 | 35.8 / 101.2° → 26.2 / 68.5° | fails | 1.9 / 2.3 → 1.1 / 1.6 | 8.1 / 14.0 · 1.7 / 2.0 | — | — |
+| 04 | L → L | 200 / 200 of 200 | 7.0 / 35.5° → 9.2 / 11.5° | passes | 4.1 / 5.1 → 0.9 / 2.9 | 1.1 / 1.7 · 1.9 / 2.4 | — | — |
+| 05 left axe | L → L | 82 / 82 of 82 | 19.3 / 32.8° → 37.9 / 50.3° | fails | 1.7 / 2.0 → 0.5 / 0.6 | 2.0 / 2.0 · 1.8 / 2.9 | — | — |
+| 05 right axe | R → R | 82 / 82 of 82 | 10.5 / 46.2° → 23.5 / 48.1° (symmetric) | fails | 2.1 / 2.4 → 0.8 / 1.0 | 3.9 / 4.1 · 2.2 / 2.8 | — | — |
+| 06 | L → R | 80 / 80 of 80 | 65.2 / 155.6° → 5.3 / 5.3° | passes | 65.4 / 92.6 → 7.0 / 9.6 | 3.9 / 3.9 · 5.1 / 18.7 | — | — |
+| 12 | R → R | 82 / 82 of 82 | 29.4 / 29.4° → 1.4 / 16.7° | fails | 4.4 / 7.5 → 0.0 / 0.0 | 4.0 / 12.9 · 34.8 / 41.5 | 23.5 / 37.4 → 8.7 / 16.3 | 5.4 / 11.4 · 2.5 / 8.5 |
+| 13 | R → R | 89 / 89 of 89 | 84.5 / 93.8° → 23.3 / 82.4° | fails | 134.2 / 158.8 → 0.1 / 0.2 | 29.7 / 49.1 · 6.1 / 23.1 | 170.1 / 188.7 → 15.1 / 53.7 | 9.7 / 17.6 · 11.0 / 30.4 |
+| 15 | L → R | 98 / 98 of 98 | 70.3 / 89.5° → 1.7 / 1.7° (symmetric) | passes | 107.9 / 188.0 → 0.7 / 1.8 | 17.3 / 46.9 · 11.6 / 41.4 | 47.0 / 190.8 → 41.6 / 202.9 | 31.0 / 160.3 · 16.1 / 26.8 |
+| 16 | R → R | 178 / 178 of 178 | 65.5 / 134.1° → 4.3 / 30.5° | fails | 9.2 / 11.6 → 0.0 / 0.0 | 4.8 / 56.6 · 38.2 / 76.9 | 48.3 / 80.1 → 16.5 / 40.4 | 9.4 / 26.5 · 26.4 / 88.5 |
+| 17 | R → L | 41 / 41 of 41 | 48.0 / 86.4° → 0.8 / 0.8° (bow) | passes | 52.9 / 74.1 → 4.0 / 4.0 | 2.4 / 3.3 · 2.9 / 2.9 | — | — |
+| 18 | R → R | 126 / 126 of 126 | 120.4 / 176.0° → 109.6 / 121.1° | fails | 42.5 / 67.2 → 0.0 / 0.0 | 10.6 / 34.2 · 7.9 / 11.7 | 37.8 / 37.8 → 42.3 / 50.6 | 10.0 / 19.9 · 2.0 / 4.1 |
+| 19 | L → R | 61 / 61 of 61 | 103.6 / 108.5° → 17.7 / 54.0° | fails | 17.0 / 22.6 → 5.2 / 5.2 | 11.2 / 18.1 · 7.4 / 11.6 | 6.4 / 6.4 → 16.1 / 22.3 | 9.4 / 12.4 · 8.9 / 12.7 |
+| 20 | R → R | 36 / 36 of 36 | 61.1 / 61.1° → 5.9 / 12.3° | passes | 3.4 / 5.5 → 1.9 / 1.9 | 7.4 / 11.6 · 3.8 / 7.4 | 30.4 / 33.8 → 13.0 / 16.8 | 4.3 / 7.1 · 66.8 / 88.0 |
+| 21 | R → R | 95 / 95 of 95 | 151.0 / 166.3° → 18.8 / 19.2° | fails | 46.7 / 72.0 → 1.4 / 2.3 | 8.8 / 10.2 · 2.3 / 2.9 | 9.1 / 9.1 → 13.0 / 25.1 | 20.2 / 23.6 · 9.4 / 10.6 |
+| 22 | R → R | 47 / 47 of 47 | 62.4 / 62.4° → 9.2 / 10.6° | passes | 3.0 / 5.2 → 4.1 / 4.1 | 1.7 / 2.2 · 4.8 / 5.7 | 12.4 / 20.5 → 13.1 / 14.3 | 7.3 / 7.8 · 5.0 / 5.6 |
+| 25 | L → R | 44 / 44 of 44 | 148.7 / 179.5° → 179.3 / 179.3° | fails | 44.4 / 72.0 → 24.5 / 26.4 | 1.0 / 1.0 · 5.1 / 8.7 | — | — |
+| 27 | R → R | 50 / 50 of 50 | 115.1 / 115.1° → 6.5 / 6.5° | passes | 3.9 / 3.9 → 6.5 / 6.5 | 1.4 / 1.4 · 3.9 / 3.9 | — | — |
+| 28 | R → R | 44 / 44 of 44 | 112.5 / 116.5° → 30.8 / 48.1° | fails | 2.0 / 2.0 → 9.4 / 9.4 | 4.4 / 6.8 · 2.0 / 22.4 | — | — |
+| 33 | R → R | 45 / 45 of 45 | 38.6 / 38.6° → 1.5 / 1.5° | passes | 7.1 / 11.4 → 3.3 / 4.3 | 1.2 / 1.4 · 6.3 / 7.2 | — | — |
+
+#### Walk
+
+| Pair | Donor → native primary | Axis samples | Axis off → on | Gate on | Primary off → on | Primary donor / native | Support shaft off → on | Support donor / native |
+|---|---|---:|---|---|---|---|---|---|
+| 01 | L → L | 56 / 56 of 56 | 0.4 / 0.4° → 1.0 / 1.0° | passes | 1.2 / 1.2 → 2.0 / 2.0 | 4.2 / 4.2 · 1.4 / 1.4 | — | — |
+| 02 | R → R | 84 / 84 of 84 | 45.5 / 54.7° → 44.0 / 44.0° | fails | 2.1 / 2.1 → 1.1 / 1.1 | 6.5 / 11.9 · 1.8 / 1.8 | — | — |
+| 04 | L → L | 56 / 56 of 56 | 7.0 / 7.0° → 9.2 / 9.2° | passes | 4.9 / 4.9 → 0.1 / 0.5 | 1.0 / 1.0 · 1.9 / 2.0 | — | — |
+| 05 left axe | L → L | 33 / 33 of 33 | 10.8 / 13.6° → 40.4 / 40.4° | fails | 1.6 / 1.7 → 0.5 / 0.6 | 2.2 / 2.3 · 1.7 / 1.7 | — | — |
+| 05 right axe | R → R | 33 / 33 of 33 | 10.5 / 10.7° → 23.5 / 23.6° (symmetric) | fails | 2.3 / 2.4 → 0.7 / 0.7 | 1.4 / 1.4 · 2.6 / 2.6 | — | — |
+| 06 | L → R | 27 / 27 of 28 | 39.9 / 101.5° → 4.2 / 4.2° | partial | 66.3 / 77.3 → 5.3 / 5.5 | 3.8 / 3.8 · 5.4 / 7.8 | — | — |
+| 12 | R → R | 33 / 33 of 33 | 29.4 / 29.4° → 1.4 / 1.4° | passes | 1.1 / 1.1 → 0.0 / 0.0 | 2.1 / 2.1 · 3.0 / 3.0 | 27.7 / 28.2 → 7.1 / 8.1 | 2.7 / 4.5 · 3.9 / 5.0 |
+| 13 | R → R | 32 / 32 of 32 | 92.5 / 92.5° → 0.4 / 0.6° | passes | 106.3 / 106.3 → 0.1 / 0.1 | 3.8 / 4.2 · 8.2 / 8.2 | 113.7 / 160.5 → 91.3 / 96.3 | 72.9 / 77.7 · 75.2 / 77.3 |
+| 15 | L → R | 29 / 29 of 29 | 70.6 / 74.9° → 1.7 / 1.7° (symmetric) | passes | 121.5 / 128.4 → 0.4 / 1.0 | 4.0 / 4.0 · 1.6 / 2.2 | 41.1 / 54.8 → 23.5 / 27.9 | 22.8 / 24.4 · 16.2 / 16.7 |
+| 16 | R → R | 41 / 41 of 41 | 54.5 / 57.1° → 4.1 / 6.1° | passes | 9.4 / 10.1 → 0.0 / 0.0 | 2.3 / 5.9 · 5.5 / 6.4 | 51.8 / 57.1 → 23.3 / 26.3 | 11.1 / 14.9 · 82.4 / 89.7 |
+| 17 | R → L | 35 / 35 of 35 | 49.4 / 86.7° → 6.1 / 30.9° (bow) | fails | 45.1 / 57.5 → 4.0 / 4.0 | 1.0 / 1.4 · 2.9 / 2.9 | — | — |
+| 18 | R → R | 33 / 33 of 33 | 117.6 / 133.8° → 115.7 / 141.1° | fails | 34.8 / 39.2 → 0.0 / 0.0 | 6.8 / 10.2 · 7.3 / 10.3 | 37.8 / 37.8 → 28.0 / 33.4 | 5.9 / 14.0 · 3.3 / 5.0 |
+| 19 | L → R | 67 / 67 of 67 | 121.6 / 121.6° → 4.4 / 4.4° | passes | 30.6 / 32.7 → 5.2 / 5.2 | 1.4 / 1.4 · 7.9 / 11.0 | 6.4 / 6.4 → 13.7 / 19.2 | 10.8 / 13.3 · 8.7 / 13.2 |
+| 20 | R → R | 35 / 35 of 35 | 61.1 / 61.1° → 16.8 / 21.7° | fails | 4.6 / 9.7 → 1.9 / 1.9 | 7.9 / 11.0 · 2.8 / 2.8 | 33.7 / 35.8 → 6.4 / 11.7 | 2.3 / 6.6 · 73.2 / 73.2 |
+| 21 | R → R | 41 / 41 of 41 | 50.1 / 71.8° → 9.3 / 9.3° | passes | 32.9 / 38.3 → 0.1 / 0.2 | 6.6 / 6.8 · 2.6 / 2.9 | 9.3 / 9.3 → 15.9 / 23.1 | 17.2 / 19.8 · 9.9 / 10.7 |
+| 22 | R → R | 41 / 41 of 41 | 62.4 / 62.4° → 9.9 / 10.5° | passes | 3.2 / 4.3 → 4.1 / 4.1 | 2.0 / 2.3 · 0.6 / 0.6 | 21.7 / 23.6 → 12.7 / 13.5 | 7.3 / 7.8 · 2.1 / 5.7 |
+| 25 | L → R | 33 / 33 of 33 | 109.8 / 164.8° → 179.3 / 179.3° | fails | 42.7 / 50.4 → 23.8 / 28.4 | 1.0 / 1.0 · 4.8 / 6.6 | — | — |
+| 27 | R → R | 28 / 28 of 28 | 115.1 / 115.1° → 6.5 / 6.5° | passes | 3.9 / 3.9 → 6.5 / 6.5 | 1.4 / 1.4 · 14.8 / 14.8 | — | — |
+| 28 | R → R | 28 / 28 of 28 | 124.8 / 136.1° → 27.6 / 32.1° | fails | 2.0 / 2.0 → 9.4 / 9.4 | 5.3 / 18.5 · 2.0 / 2.0 | — | — |
+| 33 | R → R | 24 / 24 of 24 | 38.6 / 38.6° → 1.5 / 1.5° | passes | 6.5 / 6.5 → 3.8 / 3.8 | 1.1 / 1.1 · 7.2 / 7.2 | — | — |
+
+#### Hidden Attack captures
+
+Each link shows all four textured grading panes at the same paused Attack moment. Read the rightmost After pane to compare the unchecked and checked conditions. Across all 38 screenshots, the donor, recipient and plain transfer comparison panes had zero pixels differing by more than three channel levels. [Captured frames and ticks](../../out/cp12/captures.json) · [Screenshot comparison](../../out/cp12/screenshot-verification.json)
+
+- 01 [off](../../out/cp12/reasonable-01-attack-before.png) · [on](../../out/cp12/reasonable-01-attack-after.png)  |  02 [off](../../out/cp12/reasonable-02-attack-before.png) · [on](../../out/cp12/reasonable-02-attack-after.png)  |  04 [off](../../out/cp12/reasonable-04-attack-before.png) · [on](../../out/cp12/reasonable-04-attack-after.png)  |  05 [off](../../out/cp12/reasonable-05-attack-before.png) · [on](../../out/cp12/reasonable-05-attack-after.png)
+- 06 [off](../../out/cp12/reasonable-06-attack-before.png) · [on](../../out/cp12/reasonable-06-attack-after.png)  |  12 [off](../../out/cp12/reasonable-12-attack-before.png) · [on](../../out/cp12/reasonable-12-attack-after.png)  |  13 [off](../../out/cp12/reasonable-13-attack-before.png) · [on](../../out/cp12/reasonable-13-attack-after.png)  |  15 [off](../../out/cp12/reasonable-15-attack-before.png) · [on](../../out/cp12/reasonable-15-attack-after.png)
+- 16 [off](../../out/cp12/reasonable-16-attack-before.png) · [on](../../out/cp12/reasonable-16-attack-after.png)  |  17 [off](../../out/cp12/reasonable-17-attack-before.png) · [on](../../out/cp12/reasonable-17-attack-after.png)  |  18 [off](../../out/cp12/reasonable-18-attack-before.png) · [on](../../out/cp12/reasonable-18-attack-after.png)  |  19 [off](../../out/cp12/reasonable-19-attack-before.png) · [on](../../out/cp12/reasonable-19-attack-after.png)
+- 20 [off](../../out/cp12/reasonable-20-attack-before.png) · [on](../../out/cp12/reasonable-20-attack-after.png)  |  21 [off](../../out/cp12/reasonable-21-attack-before.png) · [on](../../out/cp12/reasonable-21-attack-after.png)  |  22 [off](../../out/cp12/reasonable-22-attack-before.png) · [on](../../out/cp12/reasonable-22-attack-after.png)  |  25 [off](../../out/cp12/reasonable-25-attack-before.png) · [on](../../out/cp12/reasonable-25-attack-after.png)
+- 27 [off](../../out/cp12/reasonable-27-attack-before.png) · [on](../../out/cp12/reasonable-27-attack-after.png)  |  28 [off](../../out/cp12/reasonable-28-attack-before.png) · [on](../../out/cp12/reasonable-28-attack-after.png)  |  33 [off](../../out/cp12/reasonable-33-attack-before.png) · [on](../../out/cp12/reasonable-33-attack-after.png)
+
+#### Offline grading build
+
+Open [GRADE - XFER weapons 12.cmd](<D:/Claude/MDLxL/TestBuilds/_START HERE/GRADE - XFER weapons 12.cmd>). The [19-pair sheet](D:/Claude/MDLxL/TestBuilds/transfer-xl-35/cases-weapons12.json) writes to weapons12/answers.json. The install verification checked 1,550 engine and renderer files and the existing profile and grades. [Package and sheet verification](../../out/cp12/package-verification.json)
+
+The focused suite finished with 52 passing checks and one failure also reproduced on the unmodified CP11b baseline. The detached pipe stretches in a scaling donor’s Death clip. All three legacy Archer checks passed after routing Two-hand grip through a single bow alignment. Warcraft III gameplay was not exercised. [Test summary](../../out/cp12/test-verification.txt)

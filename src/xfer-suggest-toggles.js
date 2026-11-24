@@ -15,7 +15,7 @@ export const SUGGESTION_SAMPLING = Object.freeze({
 // Targeted repairs changed at most ten of the forty smoke pairs.
 export const TARGETED_KEYS = new Set([
   'hand', 'markers', 'detached', 'trunk', 'arms', 'chains', 'looseAxis', 'gripRouting', 'surfaceGrip',
-  'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier', 'wristGrip', 'sewnTorso', 'riderSeat',
+  'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier', 'wristGrip', 'sewnTorso', 'riderSeat', 'seatWeapon',
 ]);
 
 const compared = (a, b) => a[0] - b[0] || a[1] - b[1];
@@ -50,7 +50,7 @@ export function suggestToggles(model, donor, options = {}, {
     const built = transplantSkeleton(model, donor, { ...plainOptions, mirror, autoFix });
     const pose = built.report.donorPose;
     usableDonorPose.set(keys.join(','), !!pose?.enabled && !pose.retainedOwn && !Object.keys(pose.added).length);
-    return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer, looseGripSeated: built.report.autoFix?.seatLooseGrip };
+    return { model: built.model, mirrored: mirror ?? built.report.mirrorOffer, weaponSeated: !!built.report.autoFix?.seatWeapon, looseGripSeated: built.report.autoFix?.seatLooseGrip };
   }
 
   let reflected;
@@ -65,10 +65,11 @@ export function suggestToggles(model, donor, options = {}, {
   for (const key of AUTO_FIX_KEYS) {
     const result = build([key]);
     if (key === 'seatLooseGrip' && !result.looseGripSeated) continue;
+    if (key === 'seatWeapon' && !result.weaponSeated) continue;
     const identical = baseBytes.equals(generateCompatibleMdx(result.model));
-    if (identical && key !== 'donorPose') continue;
+    if (identical && key !== 'donorPose' && key !== 'seatWeapon') continue;
     visible.push(key);
-    if (identical) continue;
+    if (identical && key !== 'seatWeapon') continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
     // Owner: "most times seamfix was used it made things worse".
@@ -80,13 +81,14 @@ export function suggestToggles(model, donor, options = {}, {
     const change = compared(scores[key], scores.plain);
     // A targeted repair only acts where its own fault test fires: it qualifies unless it adds a look-check reason.
     if (key === 'donorPose' && !usableDonorPose.get(key)) continue;
-    if (change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
+    if (key === 'seatWeapon' || change < 0 || TARGETED_KEYS.has(key) && scores[key][0] <= scores.plain[0]) candidates.push(key);
   }
   // A stronger key takes its clash group first. Ties prefer the original six, then inventory order.
   candidates.sort((a, b) => compared(scores[a], scores[b]) ||
     Number(LEGACY_AUTO_FIX_KEYS.includes(b)) - Number(LEGACY_AUTO_FIX_KEYS.includes(a)));
   const combo = new Set();
   for (const key of candidates) {
+    if (key === 'surfaceGrip' && candidates.includes('seatWeapon')) continue;
     const group = TOGGLE_CLASHES.find(group => group.includes(key));
     if (group?.some(other => combo.has(other))) continue;
     combo.add(key);

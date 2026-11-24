@@ -17,7 +17,7 @@ export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
-  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat', 'donorPose',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
 ]);
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
@@ -71,6 +71,7 @@ export const AUTO_FIX_LABELS = Object.freeze({
   seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
   seatLooseGrip: ['Seat loose grip', 'Keeps a detached weapon’s grip on the palm during the animation.'],
   riderSeat: ["Keep rider seated", "Keeps the rider sitting in this model's own saddle while the bodies move."],
+  seatWeapon: ['Seat weapon like donor', "Moves this model's weapon in its geoset pose so it sits in the hand like the donor's weapon."],
   donorPose: ["Donor pose", "Bends this model's stored pose into the donor's resting pose."],
 });
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */

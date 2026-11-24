@@ -61,7 +61,8 @@ import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment, seatLooseGrip } from './transplant-props.js';
 import { readHeldItem } from './held-item.js';
-import { fitAttackGrip, orientHeldSurface } from './transplant-held-orientation.js';
+import { seatWeapon } from './transplant-weapon-seat.js';
+import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
 import { finishDonorPose, storedPoseClearance } from './transplant-donor-pose.js';
@@ -3163,7 +3164,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const held = holdNonFinite(M, model);
   if (held.vertices || held.pivots || held.keys) notes.push(`Parts of the result were not a number (${held.vertices} vertices, ${held.pivots} pivots, ${held.keys} keys): they are held at rest.`);
   let bowHands = null;
-  if (bowBones.size && independentWeapon && !weaponHeld && !weaponSwap.length && weaponVia != null) {
+  if (fix?.surfaceGrip && bowBones.size && independentWeapon && !weaponHeld && !weaponSwap.length && weaponVia != null) {
     const arms = Object.values(rigA.parts).filter(p=>p.limbKind==='arm' && donorMap[p.marker]!=null)
       .map(p=>({id:p.marker,result:donorMap[p.marker],own:limbEntries.find(e=>e.theirs.marker===p.marker)?.own.marker}));
     bowHands = fitIndependentBowGrip({model:M,own:model,donor:D,ownStand,stand:resultStand,ownBones:bowBones,
@@ -3222,7 +3223,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   }
   if (matchingFourLinkLegs) fitTailPlate(M, model, rigB, treeB, trackMode);
   if (droppedWeapon?.used && donorMap[droppedWeapon.driver] != null) fitDroppedBlade(M,reflected,droppedWeapon,donorMap[droppedWeapon.driver],travel);
-  if (fix?.surfaceGrip && !mountedPair && !weaponHeld && !weaponSwap.length) {
+  if (fix?.surfaceGrip && !bowHands && !mountedPair && !weaponHeld && !weaponSwap.length) {
     orientHeldSurface({model:M, own:model, donor:D, rigA, rigB, treeA, donorWeapon, donorMap,
       weaponVertices, remap, ownHand:weaponVia, donorStand:donorStandD, resultStand, trackMode});
   }
@@ -3271,8 +3272,10 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     anchors, partOfSkin,
   });
   if (!donorPose.enabled || donorPose.retainedOwn) for (const id of Object.keys(reposeOut)) delete reposeOut[id];
-  if (rigA.ok && rigB.ok && !fix?.surfaceGrip && !fixed.seatLooseGrip && !weaponSwap.length && !keepSet.size)
-    fitAttackGrip(M,model,reflected,rigB,rigA,donorMap);
+  if (fix?.seatWeapon && rigA.ok && rigB.ok) {
+    const seating = seatWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
+    if (seating) fixed.seatWeapon = seating;
+  }
   if (extents) for (let i = 0; i < M.Sequences.length; i++) newSequenceExtents(M, i);
   holdExtents(M);
   updateCounts(M);

@@ -251,7 +251,6 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
   const about = (from,to,q) => new Matrix4().makeTranslation(to.x,to.y,to.z).multiply(new Matrix4().makeRotationFromQuaternion(q))
     .multiply(new Matrix4().makeTranslation(-from.x,-from.y,-from.z));
   const correction=about(sourceGrip,targetGrip,turn);
-  fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm:gripCarrier,ref,rigA,rigB});
 
   // Reflect the change about the opposite grip. The original shield keeps
   // its authored offset on that forearm, including an asymmetric shield boss.
@@ -295,61 +294,6 @@ export function fitHeldEquipment({model,own,donor,gripBranches,weaponVertices,we
     }
   }
   return correction;
-}
-
-function fitGripTravel({model,donor,wrist,donorWeapon,donorMap,matrices,targetGrip,palm,ref,rigA,rigB}) {
-  const id=donorMap[donorWeapon], node=model.Nodes[id], parent=node.Parent;
-  if (parent==null || isGlobalTrack(node.Translation,model)) return;
-  const hand=donor.Attachments.find(n=>/hand/i.test(n.Name) && n.Parent===wrist);
-  const triangles=[];
-  for (const [gi,g] of donor.Geosets.entries()) {
-    const faces=[];
-    for(let i=0;i<g.Faces.length;i+=3) {
-      const ids=g.Faces.subarray(i,i+3);
-      if (ids.every(v=>vertexBones(g,v).length===1 && vertexBones(g,v)[0]===donorWeapon))
-        faces.push(new Triangle(...Array.from(ids,v=>new Vector3().fromArray(g.Vertices,v*3))));
-    }
-    if(faces.length) triangles.push({gi,faces});
-  }
-  if (!triangles.length) return;
-  const localGrip=targetGrip.clone().applyMatrix4(matrices.get(id).clone().invert());
-  const posed=(m,n,w)=>new Vector3().fromArray(nodePivot(m,n,n.ObjectId)).applyMatrix4(w.get(n.ObjectId));
-  const gripInDonor=posed(donor,hand,ref).applyMatrix4(ref.get(donorWeapon).clone().invert());
-  const reach=rigB.hipHeight/rigA.hipHeight;
-  const keys=new Map(),candidate=new Vector3();
-  for(const [si,s] of model.Sequences.entries()) {
-    if(!s.Interval || !donor.Sequences[si]?.Interval) continue;
-    const [lo,hi]=s.Interval,times=new Set([lo,hi]);
-    for(let k=1;lo+Math.round(k*1000/60)<hi;k++) times.add(lo+Math.round(k*1000/60));
-    for(const n of [node,donor.Nodes[donorWeapon],donor.Nodes[wrist]]) for(const key of ['Translation','Rotation','Scaling'])
-      for(const k of n[key]?.Keys||[]) if(k.Frame>=lo && k.Frame<=hi) times.add(k.Frame);
-    for(const f of times) {
-      const w=sampleNodeMatrices(donor,f,si), m=sampleNodeMatrices(model,f,si), bone=w.get(donorWeapon);
-      const original=sampleTrack(node.Translation,f,{interval:s.Interval,globalSequences:model.GlobalSequences,fallback:[0,0,0]});
-      if(Math.abs(bone.determinant())<1e-8 || Math.abs(m.get(parent).determinant())<1e-8){keys.set(f,new Float32Array(original));continue;}
-      const h=posed(donor,hand,w), near=h.clone().applyMatrix4(bone.clone().invert());
-      let distance=Infinity,point=null;
-      for(const {gi,faces} of triangles) {
-        if (sampleGeosetAnimation(donor,gi,f,si).alpha<.25) continue;
-        for(const tri of faces) {
-          tri.closestPointToPoint(near,candidate).applyMatrix4(bone);
-          const d=candidate.distanceToSquared(h);
-          if(d<distance){distance=d; point=candidate.clone();}
-        }
-      }
-      if(!point){keys.set(f,new Float32Array(original));continue;}
-      // A hand can slide along a haft. Preserve actual release only when
-      // the donor's moving weapon surface has cleared the palm.
-      const radius=.075*rigA.hipHeight;
-      const gap=Math.sqrt(distance), released=Math.min(1,Math.max(0,(gap-radius)/radius));
-      const offset=gripInDonor.clone().applyMatrix4(bone).sub(h).multiplyScalar(reach*released);
-      const wanted=posed(model,palm,m).add(offset);
-      const invParent=m.get(parent).clone().invert();
-      const delta=wanted.applyMatrix4(invParent).sub(localGrip.clone().applyMatrix4(m.get(id)).applyMatrix4(invParent));
-      keys.set(f,new Float32Array(delta.add(new Vector3().fromArray(original)).toArray()));
-    }
-  }
-  if(keys.size) node.Translation={LineType:1,GlobalSeqId:null,Keys:[...keys].sort((a,b)=>a[0]-b[0]).map(([Frame,Vector])=>({Frame,Vector}))};
 }
 
 function skinNames(geoset, nodes) {

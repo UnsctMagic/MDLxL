@@ -44,7 +44,7 @@ function contactFixture() {
     ownHands[side] = solidContactFaces(own, ownRig.parts[side].marker, { hand: true, excludeRoot: ownRoot });
     donorHands[side] = solidContactFaces(donor, donorRig.parts[side].marker, { hand: true, excludeRoot: donorRoot });
   }
-  const shaft = solidContactFaces(donor, donorRoot), made = transplantSkeleton(own, donor, { mirror: false });
+  const shaft = solidContactFaces(donor, donorRoot), made = transplantSkeleton(own, donor, { mirror: false, autoFix: { surfaceGrip: true } });
   assert.equal(new Set(shaft.flatMap(f => f.ids.map(i => f.gi + ':' + i))).size, 16);
   return { own, donor, ownRig, donorRig, grip, ownHands, donorHands, shaft, ...made };
 }

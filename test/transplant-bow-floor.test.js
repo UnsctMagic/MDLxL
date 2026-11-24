@@ -44,8 +44,8 @@ test('Archer bow clearance follows the holding shoulder after palm fitting witho
 }, () => {
   const [own, donor] = files.map(file => openDocument(new Uint8Array(fs.readFileSync(file)), file).model);
   const ownRig = transferRig(own), donorRig = transferRig(donor);
-  const { model, report } = transplantSkeleton(own, donor, { mirror: false });
-  const free = transplantSkeleton(own, donor, { mirror: false, floor: 'free' }).model;
+  const { model, report } = transplantSkeleton(own, donor, { mirror: false, autoFix: { surfaceGrip: true } });
+  const free = transplantSkeleton(own, donor, { mirror: false, floor: 'free', autoFix: { surfaceGrip: true } }).model;
   const stand = standSequenceIndex(donor), ownStand = standSequenceIndex(own);
   const legRoots = rig => new Set(Object.values(rig.parts).filter(p => p.limbKind === 'leg').flatMap(p => p.joints));
   const ownLegs = vertices(own, legRoots(ownRig)), donorLegs = vertices(donor, legRoots(donorRig));
