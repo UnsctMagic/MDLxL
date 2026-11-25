@@ -108,3 +108,18 @@ the skin it carries, slide an unreachable spot toward the main hand, run on any 
 the weapon 30% of the time) brought 19's second hand from 13% to 60% of held moments and 12, 16, new-02, new-24 up, but over
 all 110 pairs: two rule results passed (new-05 movement, new-02 jitter) and two failed (new-05, new-02 near-twin). Weapon
 count unchanged. Reverted; engine back to a29ce894 behaviour.
+
+### Round 1 result: the suggester follows the six rules (kept)
+
+- Ruler: the shape allowance is now the donor's own stretch **per animation** (99.9th percentile of its edges), as the plan
+  says ("beyond what the donor does"), not its typical stretch over all animations; shape limits re-derived from the
+  accepted pairs (0.009 share, 1.391 worst over). Baseline with live ticks: shape 52, all rules 19/110 (`out/scorecard/live2`).
+  Each stretched edge now records the two body parts it joins (`seams`); most stretch sits where skin blends two parts.
+- Trial reverted: seam skin weighted like the donor's matching seam (`transplant-seam-weights.js`) — no gain, one pair worse.
+- Checkbox sweep (`toggle-sweep.mjs`, 667 pair x checkbox trials, `pick-toggles.mjs`): on 30 pairs a checkbox flip passes a
+  rule and fails none. All together: **19 -> 24 pairs pass every rule, 34 rule results start passing, 0 start failing.**
+- Kept: the measuring moved into `src/xfer-scorecard.js` (`scoreResult`, `judgeResult`, frozen `SCORE_LIMITS`), the script
+  `score.mjs` is a thin wrapper (identical numbers checked on 3 pairs). `suggestToggles` (the app's live suggestion) ends with a
+  six-rule step: each shown checkbox is flipped when that passes a rule and fails none; flips applied together, falling back to
+  the best single flip if together they fail a rule. Re-run over all 110 pairs with the app's own suggester: 24/110, the same 34
+  gains, 0 losses (`out/scorecard/live3`). Cost: one transplant and score per shown checkbox (about 2-3 s each) in the worker.

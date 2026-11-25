@@ -1,7 +1,8 @@
 import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
-import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
+import { SCORE_RULES, judgeResult, scoreResult } from './xfer-scorecard.js';
 import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
@@ -31,6 +32,7 @@ export function suggestToggles(model, donor, options = {}, {
   plain = null,
   automaticMirror = options.mirror == null,
   check = createLookCheck(SUGGESTION_SAMPLING),
+  rules = true,
 } = {}) {
   const ownRig = automaticMirror ? rigFor(model, Math.max(0, standSequenceIndex(model))) : null;
   const donorRig = automaticMirror ? rigFor(donor, Math.max(0, standSequenceIndex(donor))) : null;
@@ -126,6 +128,36 @@ export function suggestToggles(model, donor, options = {}, {
         items.reduce((sum,item)=>sum+item.before-item.after,0)<=.01*items.length) {
       suggested=suggested.filter(key=>key!=='seatWeapon');
       comboScore=scoreCombo(suggested);
+    }
+  }
+  // The owner's six rules (src/xfer-scorecard.js, docs/agent-tasks/xfer-finish-line.md): a shown checkbox is flipped when
+  // that passes at least one more rule and fails none that passed. The helpful flips are applied together; if together
+  // they fail a rule that passed, only the flip passing the most rules is kept.
+  if (rules) {
+    const judged = keys => { const built = build(keys); return judgeResult(scoreResult(model, donor, built.model, built.mirrored === true)); };
+    const ticks = suggested.filter(key => key !== 'donorPose'), pose = suggested.includes('donorPose');
+    const before = judged(ticks);
+    const change = r => ({
+      gained: SCORE_RULES.filter(k => before.rules[k].pass === false && r.rules[k].pass === true).length,
+      lost: SCORE_RULES.filter(k => before.rules[k].pass === true && r.rules[k].pass === false).length,
+    });
+    const helpful = [];
+    for (const key of visible) {
+      if (key === 'donorPose') continue;
+      const checked = !ticks.includes(key), flipped = toggleRepair(ticks, key, checked);
+      const { gained, lost } = change(judged(flipped));
+      if (gained && !lost) helpful.push({ key, checked, gained });
+    }
+    if (helpful.length) {
+      let keys = ticks;
+      for (const { key, checked } of helpful) keys = toggleRepair(keys, key, checked);
+      if (helpful.length > 1 && change(judged(keys)).lost) {
+        const best = helpful.sort((a, b) => b.gained - a.gained)[0];
+        keys = toggleRepair(ticks, best.key, best.checked);
+      }
+      suggested = pose ? toggleRepair(keys, 'donorPose', true) : keys;
+      comboScore = scoreCombo(suggested);
+      scores.rules = helpful.map(({ key, checked, gained }) => ({ key, checked, gained }));
     }
   }
   scores.suggested = comboScore;
