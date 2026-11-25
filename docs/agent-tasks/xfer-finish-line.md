@@ -126,3 +126,21 @@ count unchanged. Reverted; engine back to a29ce894 behaviour.
 - A second flip round over the new picks finds 2 more rule passes on 2 pairs (24 -> 25), at about twice the suggestion time;
   left out. Round 1 page: `out/scorecard/round1-page/index.html`. Round 2 (last before the final sheet): parts that move
   wrong (41 pairs) and stretching (46 pairs) in the engine itself.
+
+## Round 2 and final numbers (25-26 Nov)
+
+Round 2 looked for an engine cause behind "parts move wrong". Most of it was the ruler: parts were measured against the
+torso skin (a torso with swaying cloth made a still head look like it moved) and by distance (heads whose centre sits near
+the neck joint looked stiff). The rule now compares turning angles: the donor's part joint against the joint it hangs from,
+and the result's visible part skin (fitted as a rigid turn) against the same joint in the result; donor parts turning less
+than 0.05 rad RMS are skipped. Movement limit re-derived from the accepted pairs (0.115). The remaining movement failures are
+spread thin (tails, weapon arms in some attacks, a few special animations); no general engine fault was found, so round 2
+made no engine change, as the plan's hard stop allows.
+
+`SCORE_LIMITS` in `src/xfer-scorecard.js` synced with `limits.json`. Final run, same ruler for both
+(`out/scorecard/start` = the app's suggestions before this work, `out/scorecard/final` = the six-rule suggester):
+
+| Rule | Before | After |
+|---|---|---|
+| All six rules | 18 / 110 | **25 / 110** |
+| Started passing / failing | | 32 / **0** |

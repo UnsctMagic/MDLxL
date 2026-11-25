@@ -1,8 +1,9 @@
 // XFER scorecard (docs/agent-tasks/xfer-finish-line.md): the owner's six rules measured on one transplant result,
 // every donated animation. Used by scripts/xfer-scorecard (all test pairs) and by the toggle suggester.
-import { Vector3 } from 'three';
+import { Matrix4, Quaternion, Vector3 } from 'three';
 import * as A from './animation.js';
 import { mirrorModel } from './skeleton-transplant.js';
+import { similarity } from './transplant-native-cloth.js';
 import { transferRig, sameKindSequence } from './anim-transfer.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { vertexBones } from './part-bones.js';
@@ -10,7 +11,7 @@ import { nodeIndex } from './node-hierarchy.js';
 import * as seat from './transplant-weapon-seat.js';
 
 /** Fixed limits: the level of the pairs the owner accepted (scripts/xfer-scorecard/limits.json). */
-export const SCORE_LIMITS = Object.freeze({"shapeShare": 0.009, "shapeOver": 1.391, "motionOff": 0.5416666666666666, "weaponHand": 0.938, "weaponAngle": 20.63, "weaponSecond": 0.8, "twinsWorse": 0, "jitterShare": 0.09090909090909091});
+export const SCORE_LIMITS = Object.freeze({"shapeShare":0.009,"shapeOver":1.391,"motionOff":0.11538461538461539,"weaponHand":0.938,"weaponAngle":20.63,"weaponSecond":0.8,"twinsWorse":0,"jitterShare":0.09090909090909091});
 export const SCORE_RULES = Object.freeze(['shape', 'motion', 'weapon', 'twins', 'jitter']);
 
 const rigOf = m => transferRig(m, Math.max(0, standSequenceIndex(m)));
@@ -139,17 +140,37 @@ export function scoreResult(own, donor0, M, mirror) {
   // Rule 2: every part moves like the donor's matching part. RMS travel of the part's tip skin around its clip mean,
   // against the torso, divided by body height; ratio result / donor within 0.7-1.4.
   {
-    const travel = (m, si, frames, tips, torso, h) => {
-      const ps = frames.map(f => { const sn = snap(m, si, f), a = centroid(sn, tips), b = torso.length ? centroid(sn, torso) : new Vector3(); return a && b ? a.sub(b) : null; }).filter(Boolean);
-      if (ps.length < 3) return null;
-      const mean = ps.reduce((s, p) => s.add(p), new Vector3()).divideScalar(ps.length);
-      return Math.sqrt(ps.reduce((s, p) => s + p.distanceToSquared(mean), 0) / ps.length) / h;
+    // How far the part turns against the body joint it hangs from (its anchor): the RMS angle, in radians, of the
+    // part's tip skin against its pose at the clip's start, fitted as a rigid turn. Angles do not depend on the size or
+    // shape of the two bodies; a torso with swaying cloth does not count as the part moving.
+    const rigid = mat => { const t = new Vector3(), q = new Quaternion(), sc = new Vector3(); mat.decompose(t, q, sc); return new Matrix4().compose(t, q, new Vector3(1, 1, 1)).invert(); };
+    const travel = (m, si, frames, tips, torso, h, anchor) => {
+      const shapes = frames.map(f => {
+        const sn = snap(m, si, f);
+        const ref = anchor != null && sn.world.get(anchor) ? rigid(sn.world.get(anchor)) : null;
+        const base = ref ? null : torso.length ? centroid(sn, torso) : null;
+        const pts = tips.filter(([gi]) => sn.shown(gi)).map(([gi, v]) => { const p = sn.point(gi, v); return ref ? p.applyMatrix4(ref) : base ? p.sub(base) : p; });
+        return pts.length === tips.length ? pts : null;
+      }).filter(Boolean);
+      if (shapes.length < 3 || shapes[0].length < 3) return null;
+      const angles = shapes.slice(1).map(pts => { const fit = similarity(shapes[0], pts); if (!fit) return null; const q = new Quaternion(); fit.decompose(new Vector3(), q, new Vector3()); return 2 * Math.acos(Math.min(1, Math.abs(q.w))); }).filter(x => x != null);
+      return angles.length ? Math.sqrt(angles.reduce((s2, a) => s2 + a * a, 0) / angles.length) : null;
+    };
+    // The donor's part as its joint turns against the anchor joint (its own skin can carry extra moving pieces).
+    const jointTurn = (m, si, frames, joint, anchor) => {
+      if (joint == null || anchor == null) return null;
+      const rel = frames.map(f => { const w = A.sampleNodeMatrices(m, f, si), a = w.get(anchor), j = w.get(joint); if (!a || !j) return null; const qa = new Quaternion(), qj = new Quaternion(); a.decompose(new Vector3(), qa, new Vector3()); j.decompose(new Vector3(), qj, new Vector3()); return qa.invert().multiply(qj); }).filter(Boolean);
+      if (rel.length < 3) return null;
+      const angles = rel.slice(1).map(q => rel[0].angleTo(q));
+      return Math.sqrt(angles.reduce((s2, a) => s2 + a * a, 0) / angles.length);
     };
     const rows = [];
     for (const c of clips) for (const k of keysBoth) {
-      const fr = framesOf(M, c.si), dT = travel(donor, c.di, fr, SD.tips[k], torsoD, bD);
-      if (dT == null || dT < .02) continue;
-      const rT = travel(M, c.si, fr, SO.tips[k], torsoO, bM);
+      const anchorD = rigD.parts[k]?.anchor ?? null, anchorO = rigO.parts[k]?.anchor ?? null;
+      const anchorM = anchorD == null ? null : A.allNodes(M).find(n => n.Name === donor.Nodes[anchorD]?.Name)?.ObjectId ?? null;
+      const fr = framesOf(M, c.si), dT = jointTurn(donor, c.di, fr, rigD.parts[k]?.marker ?? null, anchorD) ?? travel(donor, c.di, fr, SD.tips[k], torsoD, bD, anchorM == null ? null : anchorD);
+      if (dT == null || dT < .05) continue;
+      const rT = travel(M, c.si, fr, SO.tips[k], torsoO, bM, anchorM);
       if (rT == null) continue;
       rows.push({ clip: c.name, part: k, ratio: r3(rT / dT), donor: r3(dT) });
     }
