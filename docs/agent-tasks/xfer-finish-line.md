@@ -144,3 +144,20 @@ made no engine change, as the plan's hard stop allows.
 |---|---|---|
 | All six rules | 18 / 110 | **25 / 110** |
 | Started passing / failing | | 32 / **0** |
+
+## Known limits at the hard stop (final scorecard, 110 pairs, default ticks)
+
+| Rule still failing | Pairs | Where |
+|---|---:|---|
+| Body stretches beyond what the donor and the model do | 46 | Death 14, Stand 9, Attack 7, Spell 7, Walk 6; mostly skin blended between two parts |
+| A part turns differently from the donor's | 36 | legs or arms turning less (16), tails turning less (4), legs turning more (4) |
+| Weapon not held like the donor's | 14 | second hand off the weapon 6, shaft angle 5, weapon leaves the hand 3 |
+| Near-twins drift from each other | 19 | |
+| Jitter | 29 | spread over Spell, Stand, Walk |
+
+Tried this round and reverted because a pair got worse: second hand reaching the donor's spot (reachability, free arm from
+the skin), seam skin weighted like the donor's seams. Ruler limit: a contact measure cannot see a hand lying along a haft
+instead of closed around it (15, CP13).
+
+Final sheet for the owner's one look: `cases-final.json`, launcher `GRADE - XFER final.cmd` — the 27 pairs whose default
+ticks changed, every donated animation, new ticks as defaults. Answers: `transfer-xl-35\final\answers.json`.
