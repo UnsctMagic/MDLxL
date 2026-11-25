@@ -77,3 +77,11 @@ and parts move too little (32) more often than too much (19); weapons fail by le
 off (6); jitter mostly in Stand (14). 35 pairs fail two rules, 27 three, 10 four.
 
 First fix round, by the plan's order: weapons (rule 3), starting with the weapon leaving the hand.
+
+### Same scorecard on earlier versions (owner asked: "so the whole engine has now regressed again?")
+
+Same pairs, same frozen limits: Codex's CP13 (b7c7f078) 15/110 all rules; the weapons-14 build (50612c6e, owner's weapon
+grades averaged 8.7) 15/110; current (a29ce894 code) 15/110. No overall regression, and no overall gain: from CP13 to now two
+rule results started passing (17 movement, 16 shape) and three started failing (17 jitter, 18 near-twin, 18 jitter). Weapon on
+18: second hand 12% -> 96% of held moments, angle 23° -> 30° (fails either way). Known weakness of the ruler: 15's second hand
+measures 99% "on the shaft" in CP13 although the owner saw it off in Walk; the 0.2-arm-length contact tolerance is too loose.
