@@ -85,3 +85,26 @@ grades averaged 8.7) 15/110; current (a29ce894 code) 15/110. No overall regressi
 rule results started passing (17 movement, 16 shape) and three started failing (17 jitter, 18 near-twin, 18 jitter). Weapon on
 18: second hand 12% -> 96% of held moments, angle 23° -> 30° (fails either way). Known weakness of the ruler: 15's second hand
 measures 99% "on the shaft" in CP13 although the owner saw it off in Walk; the 0.2-arm-length contact tolerance is too loose.
+
+## Round 1 (weapons), 25 Nov
+
+**Ruler fixes first.** The grip hand is now whichever palm is nearer the weapon at each moment (the old check assumed the
+donor's side and missed mirrored pairs). Contact stays at 20% of an arm's length: a gripping palm's centre sits about a
+hand's thickness from the haft, and a 6% tolerance failed the owner's accepted pairs. "Same place along the shaft" is not
+compared: base and head ends are not read the same way round on every weapon. Known limit: 15 in CP13 measures both hands on
+the haft (23% and 75% along it, donor 22% and 66%); the owner saw them off in Walk. Up close they lie along the haft rather
+than closed around it, which a contact measure cannot see. Weapon limits re-derived from the accepted pairs (in hand 0.938,
+angle 20.6°); the other limits unchanged.
+
+**The real baseline uses the app's live ticks.** The sheets store suggestions made before the weapon seat existed; the app
+suggests live (`src/xfer-suggest-toggles.js` in the transplant worker). `scripts/xfer-scorecard/live-suggest.mjs` records them
+(seat suggested on 66 of 110 pairs); `score.mjs --keys-from`. With live ticks: shape 49, movement 61, weapon **54/70**, twins
+33/54, jitter 73, **all rules 21/110** (stored ticks gave 15). Page: `out/scorecard/live-page/index.html`.
+
+**Tried and reverted (rule 6).** Remaining weapon failures (16): second hand off the weapon (8), shaft angle 28-52° (8).
+Second hand: the step measured the result in the donor's arm lengths, and on mirrored pairs could pick the arm already
+holding; on 19 the dwarf's arm also cannot reach the gnoll's second-hand spot. Fixes (result's own arm lengths, free arm from
+the skin it carries, slide an unreachable spot toward the main hand, run on any clip where the donor's second hand stays on
+the weapon 30% of the time) brought 19's second hand from 13% to 60% of held moments and 12, 16, new-02, new-24 up, but over
+all 110 pairs: two rule results passed (new-05 movement, new-02 jitter) and two failed (new-05, new-02 near-twin). Weapon
+count unchanged. Reverted; engine back to a29ce894 behaviour.

@@ -42,7 +42,7 @@ if (!flag('no-pictures')) for (const r of rows) {
   const m = worstMoment(r), file = path.join(outDir, 'pictures', r.id + '.png');
   if (!m || fs.existsSync(file)) continue;
   try {
-    execFileSync(process.execPath, [path.resolve('scripts/xfer-scorecard/render.mjs'), r.id, path.resolve(file), '--manifest', sheetOf(r.id), '--seq', m.clip, '--n', '1', '--phase', String(m.phase), '--size', '240'], { cwd: path.resolve('scripts/xfer-scorecard'), stdio: 'ignore', timeout: 120000 });
+    execFileSync(process.execPath, [path.resolve('scripts/xfer-scorecard/render.mjs'), r.id, path.resolve(file), '--manifest', sheetOf(r.id), '--toggles', (r.keys || []).join(','), '--seq', m.clip, '--n', '1', '--phase', String(m.phase), '--size', '240'], { cwd: path.resolve('scripts/xfer-scorecard'), stdio: 'ignore', timeout: 120000 });
   } catch { /* picture is optional */ }
 }
 

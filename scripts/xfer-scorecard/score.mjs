@@ -24,6 +24,10 @@ for (const sheet of SHEETS) for (const row of JSON.parse(fs.readFileSync(ROOT + 
   if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, title: row.question, t, keys: (row.suggestion?.suggested || []).filter(k => k !== 'donorPose') });
 }
 let todo = pairs;
+// --keys-from live.jsonl: use these ticks per pair (the app's live suggestion) instead of the sheet's stored ones.
+if (opt('keys-from')) { const live = new Map(fs.readFileSync(opt('keys-from'), 'utf8').trim().split(/\r?\n/).map(l => JSON.parse(l)).filter(l => l.keys).map(l => [l.id, l.keys])); for (const p of pairs) if (live.has(p.id)) p.keys = [...live.get(p.id)]; }
+// --add seatWeapon: tick these too on every pair (trial of a suggestion change).
+if (opt('add')) for (const p of pairs) for (const k of opt('add').split(',')) if (!p.keys.includes(k)) p.keys.push(k);
 if (opt('only')) { const only = new Set(opt('only').split(',')); todo = todo.filter(p => only.has(p.id) || only.has(p.id.replace(/^reasonable-/, ''))); }
 if (opt('shard')) { const [k, n] = opt('shard').split('/').map(Number); todo = todo.filter((_, i) => i % n === k); }
 
@@ -34,6 +38,8 @@ const quantile = (xs, q) => { const s = xs.filter(Number.isFinite).sort((a, b) =
 const r3 = x => x == null ? null : Math.round(x * 1000) / 1000;
 const SKIP_CLIP = /^(decay|dissipate)/i;
 const SAMPLES = 16;
+// A palm counts as on the weapon within this share of its arm's length (or as close as the donor's own palm).
+const GRIP = .2, SPOT = Infinity; // place along the shaft is not compared: base/head ends are not read the same way round on every weapon
 
 // One pose of a model: world matrices, skinned positions per geoset (cached), visibility per geoset.
 function snap(m, si, f) {
@@ -183,21 +189,29 @@ async function scorePair(pair) {
       for (const c of clips) for (const f of framesOf(M, c.si)) {
         const dn = snap(donor, c.di, f), rn = snap(M, c.si, f);
         if (!want.parts.some(p => dn.shown(p.gi)) || !item.parts.some(p => rn.shown(p.gi))) continue;
-        const dp = palm(dn, want.hand), rp = palm(rn, ownHand);
-        const dc = dp && seat.contacts(donor, dn, want.parts.filter(p => p.faces?.length), dp), rc = rp && seat.contacts(M, rn, item.parts.filter(p => p.faces?.length), rp);
-        if (!dc || !rc || dc.gap / reachD > .15) continue;
+        // Which hand holds the weapon is read from where it is: the nearer palm grips, the other is the second hand.
+        // Each palm: its gap to the weapon surface and where along the shaft (0 base, 1 head) that touch is.
+        const gaps = (m, sn, hands, parts, it) => {
+          const s2 = shaft(sn, it);
+          return hands.filter(h => h?.patch?.length).map(h => {
+            const c = seat.contacts(m, sn, parts, palm(sn, h)); if (!c) return { gap: Infinity, at: null };
+            const at = s2 ? c.world.clone().sub(s2[0]).dot(s2[1].clone().sub(s2[0])) / Math.max(1e-8, s2[1].distanceToSquared(s2[0])) : null;
+            return { gap: c.gap / (h.arm.length || 1), at };
+          }).sort((x, y) => x.gap - y.gap);
+        };
+        const dg = gaps(donor, dn, wd.hands, want.parts.filter(p => p.faces?.length), want), rg = gaps(M, rn, wo.hands, item.parts.filter(p => p.faces?.length), item);
+        if (!dg.length || !rg.length || dg[0].gap > .15) continue;
         held++;
-        const gap = rc.gap / reachO;
-        if (gap <= .2) gripped++; else if (!worst || gap > worst.gap) worst = { gap: r3(gap), clip: c.name, frame: f, phase: r3((f - M.Sequences[c.si].Interval[0]) / Math.max(1, M.Sequences[c.si].Interval[1] - M.Sequences[c.si].Interval[0])) };
+        // A donor palm on the weapon is matched by a result palm touching at the same place along the shaft.
+        const used = new Set();
+        const match = d => { const k = rg.findIndex((r, i) => !used.has(i) && r.gap <= Math.max(GRIP, d.gap) && (d.at == null || r.at == null || Math.abs(d.at - r.at) <= SPOT)); if (k >= 0) used.add(k); return k >= 0; };
+        if (match(dg[0])) gripped++; else if (!worst || rg[0].gap > worst.gap) worst = { gap: r3(rg[0].gap), clip: c.name, frame: f, phase: r3((f - M.Sequences[c.si].Interval[0]) / Math.max(1, M.Sequences[c.si].Interval[1] - M.Sequences[c.si].Interval[0])) };
         const ds = shaft(dn, want), rs = shaft(rn, item);
         if (ds && rs) angles.push(local(ds[1].clone().sub(ds[0]).normalize(), fD).angleTo(local(rs[1].clone().sub(rs[0]).normalize(), fO)) * 180 / Math.PI);
-        if (want.support && donOther?.patch?.length && ownOther?.patch?.length) {
-          const dop = palm(dn, donOther), dsc = seat.contacts(donor, dn, want.parts.filter(p => p.faces?.length), dop);
-          if (dsc && dsc.gap / (donOther.arm.length || reachD) <= .15) {
-            support++;
-            const rop = palm(rn, ownOther), rsc = seat.contacts(M, rn, item.parts.filter(p => p.faces?.length), rop);
-            if (rsc && rsc.gap / (ownOther.arm.length || reachO) <= .2) supported++;
-          }
+        if (want.support && dg.length > 1 && dg[1].gap <= .15) {
+          support++;
+          if (process.env.GAPS) console.error('gap2', c.name, 'donor', r3(dg[0].at), r3(dg[1].at), 'result', rg.map(r => r3(r.gap) + '@' + r3(r.at)).join(' '));
+          if (match(dg[1])) supported++;
         }
       }
       const angle = median(angles);
