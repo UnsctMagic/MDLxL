@@ -123,3 +123,6 @@ count unchanged. Reverted; engine back to a29ce894 behaviour.
   six-rule step: each shown checkbox is flipped when that passes a rule and fails none; flips applied together, falling back to
   the best single flip if together they fail a rule. Re-run over all 110 pairs with the app's own suggester: 24/110, the same 34
   gains, 0 losses (`out/scorecard/live3`). Cost: one transplant and score per shown checkbox (about 2-3 s each) in the worker.
+- A second flip round over the new picks finds 2 more rule passes on 2 pairs (24 -> 25), at about twice the suggestion time;
+  left out. Round 1 page: `out/scorecard/round1-page/index.html`. Round 2 (last before the final sheet): parts that move
+  wrong (41 pairs) and stretching (46 pairs) in the engine itself.
