@@ -136,7 +136,7 @@ function rolled(geometry, points) {
   return {...geometry,wide,width:right-left};
 }
 
-function contacts(model, reading, parts, palm) {
+export function contacts(model, reading, parts, palm) {
   let best = null, distance = Infinity;
   const nearest = vector(), bary = vector();
   for (const {gi,faces} of parts) {

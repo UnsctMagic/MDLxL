@@ -1,0 +1,33 @@
+{
+ "basedOn": [
+  "reasonable-04",
+  "reasonable-08",
+  "reasonable-26",
+  "reasonable-32",
+  "reasonable-01",
+  "reasonable-05",
+  "reasonable-09",
+  "reasonable-14",
+  "reasonable-29",
+  "reasonable-27",
+  "reasonable-02",
+  "reasonable-06",
+  "reasonable-35",
+  "reasonable-39",
+  "reasonable-07",
+  "reasonable-11",
+  "reasonable-24",
+  "reasonable-31",
+  "reasonable-44"
+ ],
+ "made": "2026-11-25T14:41:59.380Z",
+ "shapeShare": 0.024,
+ "shapeOver": 1.718,
+ "motionOff": 0.5416666666666666,
+ "weaponHand": 0.807,
+ "weaponAngle": 20.63,
+ "weaponSecond": 0.8,
+ "twinsWorse": 0,
+ "jitterShare": 0.09090909090909091,
+ "note": "weaponSecond set to 0.8 by Claude: no accepted pair had a two-handed grip measured"
+}

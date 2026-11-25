@@ -52,3 +52,28 @@ any rule still failing is listed as a known limit instead of another round.
 
 About four sessions of Claude's own work: scorecard and baseline, two fix rounds, final sheet and merge. No Fable, no
 Codex. The owner's time: read the baseline page, look at one final sheet.
+
+## Baseline scorecard (25 Nov, owner said "Go")
+
+Tools: [scripts/xfer-scorecard](../../scripts/xfer-scorecard/README.md). Run on revision with this note, 110 pairs, every donated
+animation except Decay, default ticks; about 2 s per pair. Page: `out/scorecard/baseline-page/index.html` (local).
+
+Calibration: fixed limits stopped every pair, including the owner's 10s, so each limit now sits at the level of the pairs the
+owner accepted (80th percentile of the 19 pairs graded 9-10 in reasonable-50; grades used only as a group). The measurements
+separate his high and low groups: stretched edges 0.9% vs 1.9%, part-moves off the donor's 36% vs 52%, near-twin drift 0% vs 25%.
+The weapon numbers do not separate them (those grades predate the weapon seat). Limits are frozen in `limits.json`.
+
+| Rule | Pass / judged |
+|---|---|
+| Body keeps its shape | 51 / 110 |
+| Parts move like the donor | 59 / 110 |
+| Weapon held like the donor | 28 / 70 |
+| Near-twins stay alike | 33 / 54 |
+| No jitter | 69 / 110 |
+| **All rules** | **15 / 110** |
+
+Patterns: stretching sits mostly in Death (21), Attack (12) and Spell (11); the head is the part most often moving wrong (19),
+and parts move too little (32) more often than too much (19); weapons fail by leaving the hand (21), angle (15), second hand
+off (6); jitter mostly in Stand (14). 35 pairs fail two rules, 27 three, 10 four.
+
+First fix round, by the plan's order: weapons (rule 3), starting with the weapon leaving the hand.
