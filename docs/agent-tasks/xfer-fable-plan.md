@@ -4,7 +4,9 @@ Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`
 Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f95`, approved). Step 4 done (`a12a7bc0`,
 approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Step 5b done (`af6def6b`, `10b7c6d2`, baseline `b0d6fd03`; approved by reading: the
 walk itself was then looked at from the side: see "Step 5b finding"). Step 6 built (`e48baec7`): approved with one fix
-("Step 6 fix"). Next: the step 6 fix and the Mirror legs experiment, then step 8. Step 7 waits for the owner.
+("Step 6 fix", done `5336de33`, approved). Step 8's sheet built (`ebc2b809`, approved with the control ticks seeded).
+Next: step 5c (the wolf's posture, one attempt), then the rest of step 8. Step 7 waits for the owner.
+Owner, 26 Nov: "keep going without him"; Fable decides and writes each decision under "Decisions made without the owner".
 From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
@@ -558,6 +560,58 @@ the snap-dragon - front legs get animated as arms."
   placed by the existing ground fit for copied legs; whether they slide at some slider values is judged by picture, and
   the slider is there for the owner to settle it. Attack and Stand are not retimed.
 
+### Step 5c. Mirror legs: a four-legged body stays level on a two-legged donor (one attempt)
+
+**Why the wolf hunches** (Opus's reading of `legs-01`, Footman -> Timber Wolf). The wolf has no chest; its trunk is one
+chain, `Bone Center > Bone Wolf Neck`, the back legs under the first and the front legs under the second. The transplant
+pairs that chain with the Footman's `Bone_Root > Bone_Pelvis`, turns the wolf's level, forward-running chain onto the
+Footman's downward one (front half pitches down), and hangs all four legs from the one pelvis (the front-leg copies take
+the parent of the back legs' roots, `src/transplant-gait.js` line 94). The head follows the Footman's head on an upright
+chest the wolf does not have.
+
+**Design: two hips in tandem.** With Mirror legs a four-legged body is carried as two leg-carriers one behind the other:
+the back legs keep the donor's pelvis, the front legs get a **copy of the donor's pelvis** (same keys, mirrored and shifted
+by Leg timing exactly as the front-leg copies are), and the body between them keeps this model's own direction.
+
+- **Scope.** Every change is behind one flag, `tandem` = Mirror legs ticked **and** `spareFrontLegs(...)` **and** this
+  model has no chest part. With the flag off no line of the engine may behave differently.
+- **Opus codes.**
+  1. `src/transplant-gait.js`, `duplicateGaitChains`: for the mirrored front-leg copies, also copy their anchor (the donor
+     joint the back legs' roots hang from) **once**, parented to that joint's own parent, with the same reflection and the
+     same `shiftLoopKeys` shift; both front-leg copies hang from the copy. Return its id with the rig.
+  2. `src/skeleton-transplant.js`, the socket block at 1238-1253 (today for `mountedPair || fourSupports`): run it for
+     `tandem` too, so this model's back-leg carrier (the joint both back leg roots hang from) takes the donor's pelvis and
+     its front-leg carrier takes the pelvis copy. Where the back-leg carrier is the first hips joint, do not let the third
+     `link` (first hips joint to the donor's first hips joint) undo that.
+  3. Same file, the trunk turn: under `tandem` the hips chain is **not** turned onto the donor's chord (the turn Opus found
+     at 1888-1890) and no spine posture correction is set for the trunk joints (2101-2105 and its siblings); the two
+     carriers keep the direction they have in this model's own stored pose. The head chain keeps its own direction too (no
+     neck or head posture turn).
+  4. Nothing in the window: no new box, no new text. Mirror legs simply behaves this way on such a body.
+  5. A small reader for the checker, `scripts/xfer-scorecard/four-legs.mjs <pair id> <ticks> [--leg-timing n]`: per Walk
+     moment, (a) the pitch of the body line (middle of the back-leg-carrier skin to middle of the front-leg-carrier skin)
+     against the same line in the model's own Stand, in degrees; (b) the distance along the facing between the middle of
+     the two front soles and the middle of the two back soles, as a share of that distance in the model's own Stand.
+  6. Tests (fail first, on the `corpus-sd` Timber Wolf and Footman already used by `test/transplant-gait.test.js`): with
+     Mirror legs the body-line pitch over Walk stays within 15 deg of the wolf's own Stand line (today it does not), and the
+     front soles stay at least 0.6 of the own front-to-back distance ahead of the back soles; without Mirror legs the
+     export equals today's.
+- **The checker runs.**
+  1. `regress.mjs --check --all` (suggester re-run): only `legs-01` differs (export, ticks unchanged). reasonable-45 with
+     Use arms keeps the hash `1939f6eb...`. `--check`: 8 of 8.
+  2. `four-legs.mjs legs-01` at Leg timing 0, 25, 50 and with no box (the "before" row).
+  3. Pictures into `out/fable-plan/step-5c/`: `legs-01` Walk from the side (`--yaw 90 --n 8 --size 240`) at 0, 25, 50, and
+     Stand and Attack once at 25; the hole reading for the three.
+  4. The gait, skeleton-transplant and transplant-support test files, known failures named.
+- **Accepted when** the side views show a level back with the head forward and the four feet under shoulders and hips, the
+  pitch stays within 15 deg and the spread at 0.6 or more, no holes get worse, and the regression is as in 1. Fable reads
+  the pictures.
+- **If not after this one attempt:** revert the step 5c commit, keep step 5b as it is, rewrite nothing in the baseline,
+  and the note to the owner carries decision 3's line. No second round without the owner.
+- **Said plainly.** This was designed from reading, not from a trial: the engine's pairing of unpaired donor joints
+  (`Bone_Root` then has no joint of the wolf) and the head's hang point may need a choice Fable could not foresee. Opus
+  reports any such choice instead of improvising beyond the three changes above.
+
 ### Step 6. Seat weapon is suggested only where there is something to repair
 
 - **Files.** `src/xfer-suggest-toggles.js`; a small exported reader in `src/transplant-weapon-seat.js`;
@@ -610,15 +664,8 @@ the snap-dragon - front legs get animated as arms."
   hunched nose-down with an arched back and its four feet bunched under it. No slider value makes that a four-legged walk.
   The cause is older than step 5b: a four-legged body takes an upright two-legged donor's trunk, and both leg pairs follow
   that donor's one pelvis.
-- **Experiment first (checker, a few renders, no code):** `legs-01` Walk from the side (`--yaw 90 --n 8 --size 240`) with
-  `mirrorLegs` plus each existing posture box in turn: `keepTorso`, `trunk`, `skinLandmarks`, `rootHeight`, and
-  `keepTorso,skinLandmarks`. Fable reads them.
-- **Then one of two.** If a box gives a level back and legs under the shoulders and hips: Opus makes the suggester add
-  that box whenever it suggests Mirror legs (a few lines, in `frontLegPick`'s caller). If none does: an engine step, to be
-  specified after Opus has read the trunk pairing: with Mirror legs the trunk (hips, chest, head, tail) keeps this model's
-  own standing posture and takes only the donor's travel, and the copied front legs hang from the donor joint that carries
-  this model's front leg roots, not from the pelvis. Until then the sheet row for `legs-01` is shown as it is, and the
-  report to the owner says so in one line.
+- **Next: step 5c** (one engine attempt, specified after Opus read the trunk pairing). The experiment with the existing
+  posture boxes is dropped: none of them touches this pairing.
 
 ### Step 6 fix. The roll test compares with the model's own grip (Fable's review of `e48baec7`)
 
@@ -697,6 +744,22 @@ unseated one is the model's own grip; condition 1 never checked that.
   after side by side. Fable reads the pictures of every row first and removes nothing silently: a row that looks bad is
   fixed or listed as a known limit before the owner opens the sheet.
 - Add the row for this plan to `docs/agent-tasks/README.md`; keep the step reports in [xfer-toggles.md](xfer-toggles.md).
+
+## Decisions made without the owner (26 Nov, on his instruction)
+
+1. **reasonable-31 (Orc Warg Rider -> Thrall) stays without Seat weapon.** Measured against Thrall's own grip the unseated
+   hammer is turned 0 deg and the seated one 89 deg; what looked turned in one Stand picture is his hand's pose under the
+   donor, not the grip. The owner graded this pair 10 in the reasonable-50 round, before Seat existed, so the unseated
+   version is the one he accepted. Same rule and same reading as reasonable-32, which he rejected with Seat.
+2. **The eight control rows open at the ticks he graded.** The sheet maker writes those ticks into the answers file for the
+   control rows (new-01 opens with Rest pose fit and Hanging parts, as he graded it, not with the suggester's Hanging parts
+   alone). The suggestion marks stay what the suggester says.
+3. **The wolf's posture gets one engine attempt (step 5c).** If the pictures after that attempt do not show a level back and
+   four feet under the shoulders and hips, step 5c is reverted and the sheet goes out with this line in the note to the
+   owner: "Mirror legs: the timing slider works, but a four-legged model on a two-legged donor still hunches (the wolf).
+   Keeping its body level needs more engine work and is not in this build."
+4. **The Mirror legs experiment with the existing posture boxes is dropped.** Opus's reading shows no box touches the
+   pairing that causes the hunch, so the renders would cost time for nothing.
 
 ## Test set: reasonable pairs only
 
@@ -842,3 +905,12 @@ slider) and Use arms. Step 5b.
 ## The owner's answer on Seam fix
 
 Asked: keep the checkbox (never ticked) or remove it from the window? Answered 26 Nov: "Remove it". Step 2b.
+
+## Owner, 26 Nov 13:56 (after trying Footman -> Timber Wolf in the app)
+
+"the results with use arms are great." "Waste less time trying to get imperfect pairs perfect - e.g a wolf and a footman is
+a RIDICLOUS pair, this is PRETTY FUCKING GOOD for a pair like that." He does not like: weapons in wrong places, floating,
+seams open, deformed looks. Excellent pairing = similar bodies, very different animations (Footman <-> HerrDave's orcs).
+Knight <-> Footman is ridiculous (no horse). Decision: the wolf Mirror-legs posture fix is dropped; Use arms is accepted
+as is. Remaining effort goes to similar-body pairs and those four faults. The Fable run was stopped by the owner at this
+point (last commit 5336de33); README.md and make-final-sheet.cjs edits were left uncommitted.
