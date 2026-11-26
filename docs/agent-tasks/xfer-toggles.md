@@ -1744,3 +1744,19 @@ that worked. Each is measurable on every pair without the owner's grade.
 - Live suggestion at 918aaa11 vs the last accepted run (`out/scorecard/final/suggestions.jsonl`): 53 of 58 unchanged;
   the 5 that changed all lost only Seam fix (step 1): reasonable-38 (Keep torso kept), reasonable-40, reasonable-45,
   reasonable-46, new-26. Shown checkboxes unchanged on all 58.
+
+### Fable plan step 2b (Opus, 26 Nov): Seam fix removed (owner: "Remove it")
+
+- `seamFix` is gone from `AUTO_FIX_KEYS`, its clash group (now Keep own torso / Torso seams) and `AUTO_FIX_LABELS`. The
+  engine block in `skeleton-transplant.js` and the seam repair in `transplant-skin.js` (and its two now unused imports) are
+  deleted; the code is in Git up to `e5718d53`. Both catalog entries removed from de/es/fr/ru/zh.
+- `OWNER_REJECTED_KEYS` stays, empty; `suggestToggles` takes `{ rejected }` for tests. `RETIRED_REPAIR_KEYS = ['seamFix']` and
+  `knownRepairKeys`: old cases files that name Seam fix open (it is dropped from `visible`/`suggested`; an unknown key still
+  fails); old answers are not rewritten, saved ticks are filtered where they are used (`TransferPicks.jsx`, `withGrade` for
+  the entry being written).
+- The Transfer window keeps its ticks in memory only (`tpRepairs`, `useState`); nothing is saved in the profile, so there is
+  nothing to migrate.
+- `pairs-reasonable.json`: Seam fix stripped from 55 `visible` lists; no `suggested` list or baseline tick held it, and
+  `regression-baseline.json` is unchanged.
+- Old sheets: a grade given with Seam fix ticked now sits beside a result built without it; the saved answer still says which
+  ticks were graded. The C1 pictures can only be reproduced at `e5718d53` or earlier.

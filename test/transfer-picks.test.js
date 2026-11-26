@@ -164,3 +164,30 @@ test('a live transplant sheet keeps view order and the chosen repairs with the g
     grade:8, comment:'blade moved', toggles:['detached','looseAxis'], suggested:['detached'], at:'graded',
   });
 });
+
+// Seam fix was removed on the owner's word (26 Nov 2026, "Remove it"); old sheets and answers still name it.
+const oldSheet = (visible, suggested) => {
+  const donor = 'D:/models/RedDragon.mdx';
+  const transplant = { recipient: 'D:/models/Wyvern.mdx', donor, options: { mirror: false } };
+  return JSON.stringify({ answers: 'D:/review/answers.json', cases: [{
+    id: 'reasonable-46', question: 'Red Dragon to Wind Rider', grade: true, model: donor,
+    variants: [{ id:'donor', file:donor }, { id:'before', transplant }, { id:'after', transplant }],
+    suggestion: { visible, suggested },
+  }] });
+};
+
+test('an old sheet that names the retired Seam fix opens without it; a key that never existed still fails', () => {
+  const [item] = parseCases(oldSheet(['rootHeight', 'seamFix', 'donorPose'], ['seamFix', 'seatWeapon'])).cases;
+  assert.deepEqual(item.suggestion.visible, ['rootHeight', 'donorPose']);
+  assert.deepEqual(item.suggestion.suggested, ['seatWeapon']);
+  assert.throws(() => parseCases(oldSheet(['rootHeight', 'madeUpFix'], [])), /a saved repair suggestion is required/);
+});
+
+test('grading an old answer drops the retired Seam fix for that pair only', () => {
+  const [item] = parseCases(oldSheet(['seamFix', 'seatWeapon'], ['seamFix', 'seatWeapon'])).cases;
+  const saved = { 'reasonable-46': { grade: 0, comment: 'holes', toggles: ['seamFix', 'seatWeapon'], suggested: ['seamFix', 'seatWeapon'], at: 'old' },
+    'random-03': { grade: 0, comment: 'ogre chest', toggles: ['seamFix'], suggested: ['seamFix'], at: 'old' } };
+  const next = withGrade(saved, item, { grade: 2 }, 'new');
+  assert.deepEqual(next['reasonable-46'].toggles, ['seatWeapon']);
+  assert.deepEqual(next['random-03'], saved['random-03'], 'another pair\'s saved answer is written back untouched');
+});

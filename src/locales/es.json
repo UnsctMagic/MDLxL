@@ -8944,8 +8944,6 @@
   "Keeps the recipient’s torso bends where they already fit.": "Mantiene los pliegues del torso que ya encajan.",
   "Torso seams": "Costuras del torso",
   "Keeps the torso skin together where two donor joints would pull it apart.": "Mantiene unida la malla del torso si dos articulaciones del donante la separarían.",
-  "Seam fix": "Reparar costuras",
-  "Keeps the skin from pulling apart where the donor never bends.": "Evita que la malla se separe donde el donante no se flexiona.",
   "Seat loose grip": "Asentar el agarre",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Mantiene el agarre de un arma suelta en la palma durante la animación.",
   "Keep rider seated": "Mantener al jinete sentado",

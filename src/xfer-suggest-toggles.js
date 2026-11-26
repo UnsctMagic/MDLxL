@@ -33,10 +33,11 @@ export function suggestToggles(model, donor, options = {}, {
   automaticMirror = options.mirror == null,
   check = createLookCheck(SUGGESTION_SAMPLING),
   rules = true,
+  rejected = OWNER_REJECTED_KEYS,
 } = {}) {
   // The owner's verdict outranks every measurement: a blocked key is never a candidate, never flipped on by the rules
   // step, and is filtered from the result last, so no stage can add it back. It stays in `visible` for the user to tick.
-  const blocked = new Set(OWNER_REJECTED_KEYS);
+  const blocked = new Set(rejected);
   const allowed = keys => keys.filter(key => !blocked.has(key));
   const ownRig = automaticMirror ? rigFor(model, Math.max(0, standSequenceIndex(model))) : null;
   const donorRig = automaticMirror ? rigFor(donor, Math.max(0, standSequenceIndex(donor))) : null;
@@ -79,7 +80,6 @@ export function suggestToggles(model, donor, options = {}, {
     if (identical && key !== 'seatWeapon') continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
-    // Owner: "most times seamfix was used it made things worse" (now OWNER_REJECTED_KEYS).
     if (blocked.has(key) || ['skinLandmarks', 'gripRouting'].includes(key)) continue;
     if (key === 'surfaceGrip') {
       const holdsWithBothHands = (m, rig) => heldContact(m, rig ?? rigFor(m, Math.max(0, standSequenceIndex(m))))?.twoHands;

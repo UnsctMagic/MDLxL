@@ -2,7 +2,7 @@
 // Contract: docs/agent-tasks/transfer-xl.md "Pick sheet as built".
 
 import { allNodes } from './animation.js';
-import { AUTO_FIX_KEYS, defaultRepairKeys } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, RETIRED_REPAIR_KEYS, defaultRepairKeys, knownRepairKeys } from './transplant-autofix.js';
 
 export const LETTERS = ['A', 'B', 'C', 'D'];
 /** Viewing speeds a look may ask for: the strip's own list, so its menu always shows the value. */
@@ -13,7 +13,9 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 const RESERVED = new Set(['same', 'none']);
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
 const modelFile = file => typeof file === 'string' && ABSOLUTE.test(file) && MODEL_FILE.test(file);
-const repairList = keys => Array.isArray(keys) && new Set(keys).size === keys.length && keys.every(key => AUTO_FIX_KEYS.includes(key));
+// Old sheets may name a retired repair (RETIRED_REPAIR_KEYS); it is read and dropped. Any other unknown key is an error.
+const repairList = keys => Array.isArray(keys) && new Set(keys).size === keys.length &&
+  keys.every(key => AUTO_FIX_KEYS.includes(key) || RETIRED_REPAIR_KEYS.includes(key));
 const isIndex = value => Number.isInteger(value) && value >= 0;
 const text = value => typeof value === 'string' && value.trim().length > 0;
 
@@ -88,10 +90,10 @@ export function parseCases(source) {
           own && (own.id !== 'own' || own.file !== before.transplant.recipient)) {
         throw new Error(where + ': expected Donor, optional Own, Before and After for the same transplant pair.');
       }
-      const suggestion = item.suggestion;
-      if (!isObject(suggestion) || !repairList(suggestion.visible) || !repairList(suggestion.suggested)) {
+      if (!isObject(item.suggestion) || !repairList(item.suggestion.visible) || !repairList(item.suggestion.suggested)) {
         throw new Error(where + ': a saved repair suggestion is required.');
       }
+      const suggestion = { ...item.suggestion, visible: knownRepairKeys(item.suggestion.visible), suggested: knownRepairKeys(item.suggestion.suggested) };
       return { id: item.id, question: item.question.trim(), hint: typeof item.hint === 'string' ? item.hint.trim() : '',
         model: item.model, donors: { ...donors }, kind: 'transplant', variants, suggestion, ...compareFields(item, where, 'transplant', variantIds) };
     }
@@ -217,7 +219,7 @@ export function withGrade(answers, item, { grade, comment, toggles } = {}, at = 
   const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
     comment: comment !== undefined ? String(comment) : old.comment ?? '', at };
   if (item.kind === 'transplant') {
-    entry.toggles = [...(toggles ?? old.toggles ?? defaultRepairKeys(item.suggestion.suggested))];
+    entry.toggles = knownRepairKeys(toggles ?? old.toggles ?? defaultRepairKeys(item.suggestion.suggested));
     entry.suggested = [...item.suggestion.suggested];
   }
   return { ...answers, [item.id]: entry };

@@ -13,7 +13,7 @@ import { corpseAndBackgroundGeosets, geosetMaterialLayers, hasOnlyAdditiveLayers
 import { buildTransfer, sameKindSequence, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { defaultRepairKeys, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
+import { defaultRepairKeys, knownRepairKeys, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
@@ -153,7 +153,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
   }, [item?.id]);
   const ready = !!item && loaded?.id === item.id && !loaded.error;
 
-  const checked = transplantCase ? answers[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested) : [];
+  const checked = transplantCase ? knownRepairKeys(answers[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested)) : [];
   const liveRequest = (variant, keys) => ready && transplantCase ? {
     key: item.id + '|' + variant.id + '|' + keys.join(','),
     model: loaded.own.model, donor: loaded.donor.model,
@@ -351,7 +351,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
     write(next).then(() => setProblem(''), error => setProblem(`The comment was not saved: ${error.message}`));
   };
   const changeRepair = (key, enabled) => {
-    const toggles = toggleRepair(answersRef.current[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested), key, enabled);
+    const toggles = toggleRepair(knownRepairKeys(answersRef.current[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested)), key, enabled);
     const next = withGrade(answersRef.current, item, { toggles });
     answersRef.current = next; setAnswers(next);
     write(next).then(() => setProblem(''), error => setProblem('The repairs were not saved: ' + error.message));

@@ -42,7 +42,7 @@ import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices,
 import { nodeIndex } from './node-hierarchy.js';
 import { vertexBones, vertexBoneWeights } from './part-bones.js';
 import { physicalSurfaceComponents } from './geoset-operations.js';
-import { SKIN_BAND, donorSkinCarriers, legTravelRatio, repairDonorSeams, splitJoints, transplantRuns } from './transplant-skin.js';
+import { SKIN_BAND, donorSkinCarriers, legTravelRatio, splitJoints, transplantRuns } from './transplant-skin.js';
 import { standSequenceIndex, fillSequenceExtents } from './sequence-editor.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
 import { updateCounts } from './editor-document.js';
@@ -2889,28 +2889,6 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     geoset.Groups = groups;
     geoset.VertexGroup = like(geoset.VertexGroup || new Uint8Array(count), vertexGroup);
     geoset.TotalGroupsCount = groups.reduce((sum, group) => sum + group.length, 0);
-  }
-  if (fix?.seamFix) {
-    const excluded = new Map();
-    for (const [geo, vertex] of weaponVertices) {
-      if (!excluded.has(geo)) excluded.set(geo, new Set());
-      excluded.get(geo).add(vertex);
-    }
-    for (const [gi, item] of itemCarrier) {
-      const geo = M.Geosets[gi];
-      if (!excluded.has(geo)) excluded.set(geo, new Set());
-      for (const vertex of item.keys()) excluded.get(geo).add(vertex);
-    }
-    const changed = repairDonorSeams(M, model, D, id => keepDonor.has(id) && isDonorJoint(id) ? newId(id) : null,
-      id => placed.get(id - offset) ?? pA(id - offset), excluded);
-    if (changed) {
-      fixed.seamFix = changed;
-      skinned.clear();
-      for (const geo of M.Geosets) for (let v = 0; v < geo.Vertices.length / 3; v++) {
-        for (const id of vertexBones(geo, v)) skinned.add(id);
-        for (const id of geo.Groups[geo.VertexGroup[v]] || []) skinned.add(id);
-      }
-    }
   }
   if ((M.BindPoses || []).length) { notes.push('The open model has bind poses (Reforged skinning); they are left out of the result.'); M.BindPoses = []; }
   if (rigB.ok && rigA.ok && !(rigB.hipMeasured && rigA.hipMeasured)) notes.push("Sized by the bodies' overall size: one of them does not stand on legs.");

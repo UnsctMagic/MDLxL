@@ -17,18 +17,24 @@ export const AUTO_FIX_KEYS = Object.freeze([
   ...LEGACY_AUTO_FIX_KEYS,
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
-  'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
+  'wristGrip', 'keepTorso', 'sewnTorso', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
 ]);
-// Checkboxes the owner has rejected by eye: still shown and tickable, never suggested by any stage of suggestToggles.
-// Keys are added here only on the owner's word. Seam fix, 26 Nov 2026: "SEAM FIX IS CAUSING HOLES IN EVERY MODEL IT TOUCHES".
-export const OWNER_REJECTED_KEYS = Object.freeze(['seamFix']);
+// Checkboxes the owner has rejected by eye but wants kept: still shown and tickable, never suggested by any stage of
+// suggestToggles. Keys are added here only on the owner's word. Seam fix was the first entry (26 Nov 2026) and was then
+// removed outright on the owner's word (see RETIRED_REPAIR_KEYS).
+export const OWNER_REJECTED_KEYS = Object.freeze([]);
+// Repairs removed from the app. Old cases and answers files still name them; readers drop them with knownRepairKeys.
+// seamFix, owner 26 Nov 2026: "SEAM FIX IS CAUSING HOLES IN EVERY MODEL IT TOUCHES", then "Remove it". The code is in Git
+// up to e5718d53.
+export const RETIRED_REPAIR_KEYS = Object.freeze(['seamFix']);
+export const knownRepairKeys = keys => keys.filter(key => AUTO_FIX_KEYS.includes(key));
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
   ['markers', 'wristGrip'],
   ['surfaceGrip', 'looseAxis'],
   ['chains', 'hangingChains', 'extraMotion'],
   ['trackWindow', 'authoredMotion'],
-  ['keepTorso', 'sewnTorso', 'seamFix'],
+  ['keepTorso', 'sewnTorso'],
   ['trunk', 'skinLandmarks'],
 ].map(group => Object.freeze(group)));
 export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']), seatLooseGrip: Object.freeze(['detached']) });
@@ -71,7 +77,6 @@ export const AUTO_FIX_LABELS = Object.freeze({
   wristGrip: ['Wrist grip', 'Holds the weapon at the wrist when the model’s grip point is far from the hand.'],
   keepTorso: ['Keep own torso', 'Keeps the recipient’s torso bends where they already fit.'],
   sewnTorso: ['Torso seams', 'Keeps the torso skin together where two donor joints would pull it apart.'],
-  seamFix: ['Seam fix', 'Keeps the skin from pulling apart where the donor never bends.'],
   seatLooseGrip: ['Seat loose grip', 'Keeps a detached weapon’s grip on the palm during the animation.'],
   riderSeat: ["Keep rider seated", "Keeps the rider sitting in this model's own saddle while the bodies move."],
   seatWeapon: ['Seat weapon like donor', "Moves this model's weapon in its geoset pose so it sits in the hand like the donor's weapon."],

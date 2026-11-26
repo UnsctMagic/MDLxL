@@ -18,7 +18,7 @@ import { mirrorModel, transplantSkeleton } from '../src/skeleton-transplant.js';
 import { rigFor, transplantOptions } from '../src/transfer-window.js';
 import { detachedSurface } from '../src/transplant-props.js';
 import { nodeIndex } from '../src/node-hierarchy.js';
-import { AUTO_FIX_KEYS, autoFixMirror, autoFixOptions, heldSide } from '../src/transplant-autofix.js';
+import { AUTO_FIX_KEYS, autoFixMirror, autoFixOptions, heldSide, toggleRepair } from '../src/transplant-autofix.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const ALL = ['08', '10', '12', '15', '16', '17', '18', '33', '34'];
@@ -357,7 +357,7 @@ test('trunk: the controls pair-08, pair-16 and the two-legged pair-33 come out e
 
 // ============================================================ 6. The option and the held-side refusals
 test('autoFixOptions keeps the original checkbox and selects individual repairs', () => {
-  for (const off of [false, null, undefined, {}, { hand: false }, { seamFix: false }]) {
+  for (const off of [false, null, undefined, {}, { hand: false }, { sewnTorso: false }, { seamFix: true }]) {
     assert.equal(autoFixOptions(off), null, JSON.stringify(off));
   }
   const active = options => {
@@ -366,8 +366,11 @@ test('autoFixOptions keeps the original checkbox and selects individual repairs'
   };
   assert.deepEqual(active(true), ['hand', 'markers', 'detached', 'trunk', 'arms', 'chains']);
   assert.deepEqual(active({ markers: true, trunk: 'yes' }), ['markers']);
-  assert.deepEqual(active({ seamFix: true }), ['seamFix']);
+  assert.deepEqual(active({ sewnTorso: true }), ['sewnTorso']);
   assert.deepEqual(active({ looseAxis: true }), ['detached', 'looseAxis']);
+  // Seam fix was removed on the owner's word (26 Nov 2026): no checkbox, and an old caller's key is ignored.
+  assert.ok(!AUTO_FIX_KEYS.includes('seamFix'));
+  assert.deepEqual(toggleRepair(['keepTorso'], 'sewnTorso', true), ['sewnTorso'], 'Torso seams still unticks Keep own torso');
 });
 
 // No copied model has two arms holding items without a weapon name. The Dwarf Stonemason (pair-16) holds measured items in

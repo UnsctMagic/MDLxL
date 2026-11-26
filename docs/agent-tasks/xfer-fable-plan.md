@@ -1,6 +1,7 @@
 # XFER transplant: Fable's review and fix plan (26 Nov 2026)
 
-Status: plan only. No source changed, nothing committed. Waiting for the owner's "go".
+Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
+Next: step 2b (the owner's answer on Seam fix, 26 Nov: "Remove it"), then step 3.
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
 Brief: [xfer-fable-review-brief.md](xfer-fable-review-brief.md). History: [xfer-toggles.md](xfer-toggles.md), [xfer-finish-line.md](xfer-finish-line.md).
@@ -9,7 +10,7 @@ Brief: [xfer-fable-review-brief.md](xfer-fable-review-brief.md). History: [xfer-
 
 Four causes found, each checked on your own pairs by picture and by measurement.
 
-- **Seam fix** tears the skin at every seam it touches. It came back because the last suggester step ticks anything a number likes. It goes out of suggestions for good, by a list no number can override.
+- **Seam fix** tears the skin at every seam it touches. It came back because the last suggester step ticks anything a number likes. It went out of suggestions (step 1) and, on your word "Remove it", the checkbox goes out of the window (step 2b).
 - **Elf Death Knight (crossed fists, sword not belted):** the engine read his sword as his hand. One rule fixes both.
 - **Snap Dragon:** the front legs copied the back legs. A two-line rule makes them the Cold One's arms. Tried here: it works.
 - **Seat weapon** replaces a good grip with the donor's (sabre turned flat, hand slid up the lance). It will only be suggested where the weapon is not already held properly.
@@ -60,8 +61,9 @@ after Fable has looked at every picture first.
   checkbox (`for (const key of visible)`, 145-150) and flips any that passes one more scorecard rule. The scorecard
   (`src/xfer-scorecard.js`) has no hole measure, so Seam fix "passed" a stretch rule and was ticked. The owner's verdict lived
   only in a comment inside an earlier `if`; nothing stopped a later stage.
-- **Can Seam fix itself be repaired?** Not honestly in this plan. It has never improved a pair the owner graded. It stays an
-  untouched checkbox (toggles, not gates) and is never suggested. Question for the owner at the end.
+- **Can Seam fix itself be repaired?** Not honestly in this plan. It has never improved a pair the owner graded. Step 1
+  took it out of suggestions; the owner then answered the plan's question with "Remove it" (26 Nov), so step 2b removes the
+  checkbox and the code behind it.
 
 ### C2. Elf Death Knight (reasonable-08): fists crossed, Stand 2 keeps the sword the donor belts
 
@@ -147,7 +149,8 @@ and it changes the grip.
 
 ## Hard rules for every step
 
-1. **Seam fix is never suggested.** The checkbox stays; no code path ticks it.
+1. **Seam fix is gone.** Never suggested (step 1) and, on the owner's word "Remove it" (26 Nov), no longer a checkbox
+   or an engine path (step 2b). Old sheets and answers that name it still open.
 2. **The owner's verdict outranks numbers, structurally.** A checkbox on the owner-rejected list cannot be suggested by any
    stage of `suggestToggles`, present or future (step 1 makes this one filter at the function's single exit, with a test).
    Measurements may **withhold** a suggestion. No measurement may add a rejected checkbox back.
@@ -183,6 +186,9 @@ Shared commands (Git Bash, from `D:\Codex\xfer-toggles`; `M` is the pair list fr
 
 ### Step 1. Seam fix never suggested; an owner-rejected list the suggester cannot override
 
+**Done: `918aaa11`, approved.** One accepted difference: reasonable-38 keeps Keep own torso (Seam fix used to untick it
+through their shared clash group); measured better (stretched edges 45 to 10, worst stretch in Death 2.85x to 1.26x).
+
 - **Files.** `src/transplant-autofix.js`, `src/xfer-suggest-toggles.js`, new `test/xfer-suggest-toggles.test.js`.
 - **Change.**
   1. In `transplant-autofix.js` export `OWNER_REJECTED_KEYS = Object.freeze(['seamFix'])`, with the owner's words and date in
@@ -208,6 +214,10 @@ Shared commands (Git Bash, from `D:\Codex\xfer-toggles`; `M` is the pair list fr
 
 ### Step 2. The reasonable test set, in the permanent collection, with a byte-for-byte regression check
 
+**Done: `e5718d53`, approved.** 58 pairs in `scripts/xfer-scorecard/pairs-reasonable.json`, 83 model folders copied into
+`MDLxL-TestModels\xfer-reasonable\`, baseline written at `918aaa11`. `regress.mjs` also takes `--jobs n` and
+`--suggestions <live.jsonl>`; a `--check --all` that is used as proof must run the suggester itself (no `--suggestions`).
+
 - **Files.** New folder `D:\Claude\MDLxL-TestModels\xfer-reasonable\` (add only); `D:\Claude\MDLxL-TestModels\README.txt`
   (one added line); new `scripts/xfer-scorecard/pairs-reasonable.json`, `scripts/xfer-scorecard/regress.mjs`,
   `scripts/xfer-scorecard/regression-baseline.json`; `score.mjs` and `live-suggest.mjs` (read the pair list);
@@ -228,6 +238,97 @@ Shared commands (Git Bash, from `D:\Codex\xfer-toggles`; `M` is the pair list fr
 - **Check.** `regress.mjs --check --all` right after writing: 0 differences. `render.mjs reasonable-05 ... --manifest $M`
   draws from the new paths. No source test needed (no product code).
 
+### Step 2b. Remove the Seam fix checkbox (owner, 26 Nov: "Remove it")
+
+Small step, run next. Seam fix stops being a repair: not shown in the Transfer window, not shown on the grading sheet, not
+built by the engine. Nothing else about the suggester or the engine changes.
+
+- **Files.**
+  - `src/transplant-autofix.js`: the key, its label, its clash entry, the owner list, a new retired list.
+  - `src/skeleton-transplant.js`: the import on line 45 and the block at 2893-2914.
+  - `src/transplant-skin.js`: lines 123-282 (the seam repair and its helpers).
+  - `src/transfer-picks.js`: the sheet's cases reader and `withGrade`.
+  - `app/TransferPicks.jsx`: the two places saved ticks are read (lines 156 and 354).
+  - `src/locales/de.json`, `es.json`, `fr.json`, `ru.json`, `zh.json`: two entries each.
+  - `scripts/xfer-scorecard/pairs-reasonable.json`: the stored `suggestion.visible` lists.
+  - Tests: `test/transplant-autofix.test.js`, `test/xfer-suggest-toggles.test.js`, `test/transfer-picks.test.js`.
+  - Not touched: `app/TransplantToggles.jsx` and `app/Transfer.jsx` (they draw whatever keys they are given; with the key
+    gone from the list there is nothing to draw), `src/xfer-suggest-toggles.js` except the test option below.
+- **Change.**
+  1. *The key.* In `transplant-autofix.js` remove `'seamFix'` from `AUTO_FIX_KEYS` (line 20), from the clash group at line 31
+     (it becomes `['keepTorso', 'sewnTorso']`) and its entry in `AUTO_FIX_LABELS` (line 74). The suggester loops over
+     `AUTO_FIX_KEYS`, so the Transfer window no longer gets the key and shows no box. The sheet draws the keys saved in its
+     cases file, and `TransplantToggles.jsx` reads `AUTO_FIX_LABELS[key]` for each: a retired key reaching it would throw.
+     Item 6 below is what keeps old sheets from crashing; it is not optional.
+  2. *The owner list stays, empty.* `OWNER_REJECTED_KEYS = Object.freeze([])`. It is the mechanism of hard rule 2 and steps
+     3 and 6 use the same `blocked` set, so the list and the exit filter in `suggestToggles` are kept. Comment: Seam fix was
+     the first entry (26 Nov) and was then removed outright on the owner's word; the list is for a checkbox the owner
+     rejects but wants kept.
+  3. *A retired list for old files.* Export `RETIRED_REPAIR_KEYS = Object.freeze(['seamFix'])` and
+     `knownRepairKeys = keys => keys.filter(key => AUTO_FIX_KEYS.includes(key))`. Comment with the owner's words and the last
+     commit that still has the code (`e5718d53`).
+  4. *The engine.* Delete the `if (fix?.seamFix) { ... }` block in `skeleton-transplant.js` (2893-2914) and
+     `repairDonorSeams` from its import. Delete from `transplant-skin.js` what only that block used: `repairDonorSeams`,
+     `repairSeamGeoset`, `donorSeams`, `meshNeighbours`, `jointSet`, `seamKey`, `additive` (lines 123-282), then any import
+     at the top of the file that nothing else uses. Check each name with a search before deleting it; anything used
+     elsewhere stays. The work is not lost: it is in Git at `e5718d53`. Reason for deleting rather than leaving it: no key
+     can reach it any more, and it is the code that tore the meshes.
+     `autoFixOptions` already reads only the keys in `AUTO_FIX_KEYS`, so `{ seamFix: true }` from an old caller is ignored
+     and gives the plain result. No throw.
+  5. *Labels and translations.* Remove the two English keys `"Seam fix"` and
+     `"Keeps the skin from pulling apart where the donor never bends."` from all five catalogs (de 9062-9063, es 8947-8948,
+     fr 9062-9063, ru 8937-8938, zh 8843-8844). Search first that no other screen uses either sentence. No new text
+     anywhere (AGENTS.md: no flavour text).
+  6. *Old sheets must open.* `parseCases` in `transfer-picks.js` checks every saved key against `AUTO_FIX_KEYS`
+     (`repairList`, line 16, used at line 92) and would now reject every existing sheet under `TestBuilds` with "a saved
+     repair suggestion is required". Change: `repairList` accepts keys from `AUTO_FIX_KEYS` or `RETIRED_REPAIR_KEYS`
+     (anything else is still an error), and the parsed `suggestion` is returned with `visible` and `suggested` passed
+     through `knownRepairKeys`.
+  7. *Old answers must open and must not be rewritten.* Answers files keep `toggles` and `suggested` per pair, some with
+     `seamFix` (final sheet: reasonable-45, reasonable-46, random-03). `parseAnswers` stays as it is: the saved record of
+     what the owner graded is not edited. Where saved ticks are **used**, pass them through `knownRepairKeys`:
+     `TransferPicks.jsx` line 156 (`checked`) and line 354 (`toggleRepair(...)`), and in `withGrade`
+     (`transfer-picks.js` 214-224) for the entry being written (`entry.toggles`). Entries of other pairs are written back
+     untouched.
+  8. *The Transfer window.* Its ticks live in memory only (`tpRepairs`, `useState` in `Transfer.jsx` 602); nothing about
+     repairs is saved in the profile, so there is nothing to migrate. Say so in the step report after checking.
+  9. *The pair list.* Strip `seamFix` from every `suggestion.visible` in `pairs-reasonable.json` with a one-off script (it
+     is in no `suggested` list and in no baseline tick; checked by Fable). `regression-baseline.json` is **not** rewritten.
+  10. *A test option for the owner list.* With the list empty, its test would prove nothing. Give `suggestToggles` an
+      option `rejected` (default `OWNER_REJECTED_KEYS`) in its fourth argument and build `blocked` from it, so a test can
+      pass a living key.
+- **Must not change.** Any export at any ticks that do not contain `seamFix`; any suggestion; the order of the remaining
+  checkboxes; the other 25 labels and their translations; `parseAnswers`; old answers on disk.
+- **Tests (each fails on today's code first).**
+  - `test/transplant-autofix.test.js` (lines 360-369): `AUTO_FIX_KEYS` has no `seamFix`; `autoFixOptions({ seamFix: true })`
+    is `null`; replace the old `active({ seamFix: true })` line by a living key (`sewnTorso`); `toggleRepair(['keepTorso'],
+    'sewnTorso', true)` still unticks Keep own torso.
+  - `test/transfer-picks.test.js`: a cases file whose `suggestion.visible` and `suggested` hold `seamFix` parses, and the
+    parsed lists do not hold it; a key that never existed still throws; `withGrade` on an old answer
+    `{ toggles: ['seamFix', 'seatWeapon'] }` writes `['seatWeapon']` for that pair and leaves another pair's saved
+    `['seamFix']` as it was.
+  - `test/xfer-suggest-toggles.test.js`: replace the two Seam fix tests. Red Dragon onto the riderless Wind Rider:
+    `seamFix` is in neither `visible` nor `suggested`. Furbolg Elder Shaman onto Wendigo Shaman with
+    `{ rejected: ['skinLandmarks'] }`: `skinLandmarks` is in `visible` and not in `suggested` (without the option it is
+    suggested). Keep the file at three pairs.
+  - Commands: `node --test test/transplant-autofix.test.js test/transfer-picks.test.js test/xfer-suggest-toggles.test.js`
+    and the catalog tests `node --test test/localization-catalogs.test.js test/localization-current.test.js
+    test/localization-quality.test.js test/localization-ui-gaps.test.js`.
+- **Measure.**
+  - `node scripts/xfer-scorecard/regress.mjs --check --all --jobs 4` with the suggester run again: **58 checked, 0 differ**
+    (no suggestion and no baseline tick holds `seamFix`, and the deleted engine block only ran with that key), and
+    `--check`: 8 checked, 0 differ. Any difference means something other than Seam fix was removed: stop and report.
+  - A search for `seamFix`, `Seam fix`, `repairDonorSeams` and `repairSeamGeoset` under `src/`, `app/`, `scripts/` and `test/`
+    finds only `RETIRED_REPAIR_KEYS`, its comment, the tests of this step, and the comment in `test/helpers/fixtures.cjs`.
+  - `pnpm run build` passes.
+- **By eye / in the app.** No picture changes, so no renders. The window itself is clicked in step 8 on the packaged build
+  (added there): the Transfer window on Red Dragon -> Wind Rider riderless shows the repair row without Seam fix, and the old
+  final sheet (`TestBuilds\transfer-xl-35\cases-final.json`, whose saved ticks name Seam fix) opens with no error, shows no
+  Seam fix box, and reasonable-46 opens with no box ticked.
+- **Said plainly.** On the old sheets, a grade the owner gave with Seam fix ticked now sits beside a result built without
+  it; the saved answer still says which ticks he graded. The pictures in C1 can only be reproduced at `e5718d53` or
+  earlier.
+
 ### Step 3. A hole check in the scorecard (it can only veto)
 
 - **Files.** `src/xfer-scorecard.js` (`scoreResult`, `judgeResult`, `SCORE_RULES`), `src/xfer-suggest-toggles.js`,
@@ -245,8 +346,9 @@ Shared commands (Git Bash, from `D:\Codex\xfer-toggles`; `M` is the pair list fr
     is never "helpful". After the six-rule step, if the suggested set fails `holes` while the plain result passes, drop the
     key whose removal restores the pass and add it to `blocked` for this pair.
 - **Must not change.** Any export. The limits of the other five rules.
-- **Test (fails first).** `scoreResult` on Knight of Slaanesh Axe -> Ogre built with `seamFix`: `rules.holes.pass === false`
-  (today the rule does not exist); built without: `true`.
+- **Test (fails first).** After step 2b no checkbox makes holes, so the test makes one: build Red Dragon -> Wind Rider
+  riderless plain (`rules.holes.pass === true`), then in a copy of the result rebind one side of 20 welded pairs to the
+  root bone and score again: `rules.holes.pass === false`, `torn >= 20`. Today the rule does not exist.
 - **Measure.** `score.mjs` over the 58 pairs at their ticks: expected `holes` passes on all (reasonable-38 reads 47 of 807
   pairs at 2.4% without Seam fix: it must still pass by the `worst` limit and the 5.8% share must be looked at; if it
   fails, report it, do not change the limit). The eight 9-10 pairs: 0 torn. Time per pair before and after (report it).
@@ -378,8 +480,9 @@ Shared commands (Git Bash, from `D:\Codex\xfer-toggles`; `M` is the pair list fr
 - `pnpm run test:source` once; fix only what this work broke; rerun only failed and related files.
 - `pnpm run build`, package into `TestBuilds\transfer-xl-35` as the brief describes (app closed, `profile` kept, TEMP on D:).
 - Hidden click-through on the exact package (`scripts/hidden-run.ps1`, separate hidden desktop): open the Transfer window on
-  a named model `TestBuilds\test-models\TEST XFER 36.mdx`, tick and untick Seam fix, Seat weapon and Two-hand grip once
-  each: no crash, no page error.
+  a named model `TestBuilds\test-models\TEST XFER 36.mdx`, tick and untick Seat weapon and Two-hand grip once
+  each: no crash, no page error. Step 2b's two checks: the repair row has no Seam fix box, and the old final sheet
+  (`cases-final.json`) opens with no error.
 - Sheet `cases-reasonable.json` from `pairs-reasonable.json`: the pairs whose export or default ticks changed since the
   final sheet, plus the eight 9-10 pairs as controls; every donated animation; the reviews show donor, own, before and
   after side by side. Fable reads the pictures of every row first and removes nothing silently: a row that looks bad is
@@ -502,8 +605,8 @@ pair on any sheet (noisy; a guide, not a target).
   owner's look, and says to stop rather than ship twitching.
 - **Earlier "rejected" checkboxes.** Rest pose fit and Weapon on bones were taken out of suggestions on the owner's
   reasonable-50 comments, then ticked again by the six-rule step, and the owner graded those pairs 9-10 on the final sheet
-  (reasonable-05, reasonable-29, new-05) and added Rest pose fit himself on new-01. So only Seam fix goes on the
-  owner-rejected list now. If he means the others too, they are one line each.
+  (reasonable-05, reasonable-29, new-05) and added Rest pose fit himself on new-01. So neither went on the
+  owner-rejected list (which is empty after step 2b). If he means them too, they are one line each.
 - **reasonable-38 has small openings without Seam fix** (47 of 807 welded pairs, 2.4% of height). Either real small gaps
   between the rider's parts or pieces that are meant to separate in an animation the own model never plays. Step 3 reports
   it; I have not looked at where they are.
@@ -514,7 +617,6 @@ pair on any sheet (noisy; a guide, not a target).
 - **Grades are noisy** (owner, 25 Nov). The 9-10 pairs are held byte-identical, which is safe but also means nothing in
   this plan can improve them.
 
-## One question for the owner (not blocking)
+## The owner's answer on Seam fix
 
-Seam fix: keep the checkbox (never ticked for you) or remove it from the window? The plan keeps it, because your rule is
-toggles, not gates. Removing it is a five-minute change.
+Asked: keep the checkbox (never ticked) or remove it from the window? Answered 26 Nov: "Remove it". Step 2b.

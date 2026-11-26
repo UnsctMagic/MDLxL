@@ -8934,8 +8934,6 @@
   "Keeps the recipient’s torso bends where they already fit.": "Сохраняет подходящие изгибы торса исходной модели.",
   "Torso seams": "Швы торса",
   "Keeps the torso skin together where two donor joints would pull it apart.": "Скрепляет поверхность торса там, где два сустава донора могли бы её разорвать.",
-  "Seam fix": "Исправить швы",
-  "Keeps the skin from pulling apart where the donor never bends.": "Не даёт поверхности разойтись там, где донор не сгибается.",
   "Seat loose grip": "Зафиксировать хват",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Удерживает рукоять отдельного оружия у ладони во время анимации.",
   "Keep rider seated": "Удерживать всадника в седле",
