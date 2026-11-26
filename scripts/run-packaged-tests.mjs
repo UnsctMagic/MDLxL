@@ -141,9 +141,12 @@ export const SKIP = {
   'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
+  // ANIM is switched off in the app (owner, 26 Nov 2026; src/switched-off.js). Remove these when it returns.
+  'anim-xl': 'ANIM is switched off (owner, 26 Nov 2026)',
+  'anim-xl-filmstrip': 'ANIM is switched off (owner, 26 Nov 2026)',
 };
 // Rendering-, timing- and layout-heavy tests that are worth running under every variant.
-export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'anim-xl', 'model-tabs'];
+export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'model-tabs'];
 
 const testDir = path.join(root, 'test');
 const files = fs.readdirSync(testDir).filter(file => file.endsWith('.cjs'));

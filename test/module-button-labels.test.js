@@ -13,7 +13,6 @@ test('every module icon keeps its action and carries a visible short label',()=>
     ['forge','forge-tool','FRG'],
     ['bitsAndParts','bits-tool','BITZ'],
     ['optimizeModel','optimizer-tool','OPXL'],
-    ['animXL','animxl-tool','ANIM'],
     ['transfer','transfer-tool','XFER'],
     ['learn','learner-tool','LER'],
   ]){
@@ -57,7 +56,6 @@ test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, on
     ['.optimizer-tool .module-icon-badge','#8fe07f'],
     ['.emitter-tool .module-icon-badge','#5fe0cf'],
     ['.surface-effects-tool .module-icon-badge','#b6f2ff'],
-    ['.animxl-tool .module-icon-badge','#ff8574'],
     ['.transfer-tool .module-icon-badge','#8c9bff'],
     ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffa257'],
     ['.learner-tool .module-icon-badge','#f2e35c'],

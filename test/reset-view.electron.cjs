@@ -54,11 +54,7 @@ const watchdog = setTimeout(() => { console.error('reset-view timed out'); proce
     const fx = page.getByRole('dialog', { name: 'Surface Effects' }); await fx.waitFor(); await page.waitForTimeout(2500);
     await preview('Surface Effects', fx.locator('.game-preview-root').first());
     await closeDialog(fx);
-    // AnimXL.
-    await page.locator('button.animxl-tool, [data-hotkey="animXL"]').first().click();
-    const anim = page.getByRole('dialog', { name: 'AnimXL' }); await anim.waitFor(); await page.waitForTimeout(2500);
-    await preview('AnimXL', anim.locator('.game-preview-root').first());
-    await closeDialog(anim);
+    // AnimXL is switched off (owner, 26-27 Nov 2026); its preview is not checked while it is off.
     // A panel a window lays over a preview covers the button too: the Particle Editor opens with its
     // library over the stage, and the stage's button must not show through it.
     await page.locator('button.emitter-tool').click();

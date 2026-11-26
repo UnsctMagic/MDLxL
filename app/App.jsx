@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
+import { switchedOff } from '../src/switched-off.js';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
@@ -1600,6 +1601,7 @@ export default function App() {
     'ai:open': () => document.querySelector('[data-hotkey="ai:open"]')?.click(),
   };
   function commandEnabled(id) {
+    if (switchedOff(id)) return false;
     if (!doc) {
       if (id === 'exit') return !!window.desktop;
       if (id === 'undo' || id === 'redo') return mode === 'showcase' && showcaseHistoryState[id];
