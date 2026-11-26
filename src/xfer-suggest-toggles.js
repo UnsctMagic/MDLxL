@@ -7,7 +7,7 @@ import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { spareFrontLegs } from './transplant-gait.js';
-import { gripReading, readWeapon, rollFromOwn, seatWithheld, shaftAngle, weaponTurn } from './transplant-weapon-seat.js';
+import { gripReading, readWeapon, rollFromOwn, seatWithheld, secondHandShare, shaftAngle, TWO_HANDED_SHARE, weaponTurn } from './transplant-weapon-seat.js';
 import { worldPivot, sampleNodeMatrices } from './animation.js';
 import { verdict } from './xfer-look-verdict.js';
 
@@ -30,9 +30,9 @@ function keysWithNeeds(keys) {
   return AUTO_FIX_KEYS.filter(key => chosen.has(key));
 }
 
-// Front legs (Mirror legs / Use arms) are a choice, picked by rule, not scored: a donor that leans like a beast (the line
-// from the middle of its leg roots to the middle of its arm roots 45 deg or more from upright at its Stand reference)
-// lends its arms; an upright one its legs, mirrored. Measured: Cold One 76, Ghoul 74, Abomination 30, Kobold 11,
+// Front legs (Mirror legs / Use arms) are a choice, picked by rule, not scored: Use arms wherever it applies (frontLegPick).
+// The donor's lean (the line from the middle of its leg roots to the middle of its arm roots, from upright at its Stand
+// reference) was the step 5b rule and is still read for the record: Cold One 76, Ghoul 74, Abomination 30, Kobold 11,
 // Footman 5, Grunt 4.
 export const BEAST_LEAN = 45;
 
@@ -51,12 +51,12 @@ export function bodyLean(model, rig) {
   return line.lengthSq() > 1e-12 ? Math.acos(Math.min(1, Math.max(-1, line.z / line.length()))) * 180 / Math.PI : null;
 }
 
-/** Which front-leg checkbox to suggest. Only when this model has spare front legs on both sides, no arms of its own,
- * and the donor has arms: Use arms for a donor leaning BEAST_LEAN or more, else Mirror legs. Otherwise none (a rider on
- * a four-legged mount has arms: Mirror legs is shown, not suggested). */
-export function frontLegPick({ spare, ownArms, donorArms, lean }) {
-  if (!spare || ownArms || !donorArms || lean == null) return null;
-  return lean >= BEAST_LEAN ? 'useArms' : 'mirrorLegs';
+/** Which front-leg checkbox to suggest: Use arms whenever this model has spare front legs on both sides, no arms of its
+ * own, and the donor has arms (owner, 26 Nov: "the results with use arms are great"; decision 6). Mirror legs is never
+ * suggested; it stays a box the user can tick. A rider on a four-legged mount has arms: nothing is suggested. `lean` is
+ * kept in the reading for the record only. */
+export function frontLegPick({ spare, ownArms, donorArms }) {
+  return spare && !ownArms && donorArms ? 'useArms' : null;
 }
 
 /** Rules gained and lost from one judged result to another. Holes only veto: closing holes gains nothing, and a result
@@ -212,7 +212,8 @@ export function suggestToggles(model, donor, options = {}, {
     const change = r => ruleChange(before, r);
     const helpful = [];
     for (const key of visible) {
-      if (key === 'donorPose' || blocked.has(key) || FRONT_LEG_KEYS.includes(key)) continue;
+      // Two-hand grip is decided in one place below (plan step 7), not by the six rules.
+      if (key === 'donorPose' || key === 'surfaceGrip' || blocked.has(key) || FRONT_LEG_KEYS.includes(key)) continue;
       const checked = !ticks.includes(key), flipped = toggleRepair(ticks, key, checked);
       const { gained, lost } = change(judged(flipped));
       if (gained && !lost) helpful.push({ key, checked, gained });
@@ -241,6 +242,25 @@ export function suggestToggles(model, donor, options = {}, {
         suggested = toggleRepair(suggested, culprit, false);
         comboScore = scoreCombo(suggested);
         scores.holes = { dropped: culprit, torn: holes.torn, worst: holes.worst };
+      }
+    }
+    // Two-hand grip (plan step 7): built with and without it on the final ticks; suggested only when the donor holds its
+    // weapon with both hands in some animation (TWO_HANDED_SHARE of its moments), the result's second hand gains 0.1 or more
+    // of those moments, and no rule is lost (jitter, near-twin and holes included).
+    if (visible.includes('surfaceGrip') && !suggested.includes('surfaceGrip') && !blocked.has('surfaceGrip')) {
+      const ticks = suggested.filter(key => key !== 'donorPose'), withGrip = toggleRepair(ticks, 'surfaceGrip', true);
+      const without = build(ticks), gripped = build(withGrip);
+      const shownDonor = without.mirrored === true ? reflected ??= mirrorModel(donor) : donor;
+      const shareWithout = secondHandShare(model, shownDonor, without.model), shareWith = secondHandShare(model, shownDonor, gripped.model);
+      const twoHanded = !!shareWith?.clips.some(clip => clip.donorOn >= TWO_HANDED_SHARE);
+      const gain = (shareWith?.share ?? 0) - (shareWithout?.share ?? 0);
+      const judge = built => judgeResult(scoreResult(model, donor, built.model, built.mirrored === true));
+      const { lost } = twoHanded && gain >= .1 ? ruleChange(judge(without), judge(gripped)) : { lost: null };
+      const take = twoHanded && gain >= .1 && lost === 0;
+      scores.secondHand = { twoHanded, without: shareWithout?.share ?? null, with: shareWith?.share ?? null, lost, suggested: take };
+      if (take) {
+        suggested = toggleRepair(suggested, 'surfaceGrip', true);
+        comboScore = scoreCombo(suggested);
       }
     }
   }

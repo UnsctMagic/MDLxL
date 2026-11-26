@@ -91,12 +91,12 @@ test('ruleChange: holes never gain a rule, and lose one only when the mesh tears
   assert.equal(holesWorse({ pass: null, note: 'other geosets' }, hole(9, 100, false)), false);
 });
 
-// Front legs are picked by rule (plan step 5b): a donor leaning like a beast lends its arms, an upright one its legs.
-test('frontLegPick: the six measured leans, and no pick without spare legs, with own arms or without donor arms', () => {
+// Front legs are picked by rule: Use arms wherever it applies, whatever the donor's lean (owner, 26 Nov, after trying
+// Footman -> Timber Wolf: "the results with use arms are great"; plan decision 6). Mirror legs is never suggested.
+test('frontLegPick: Use arms at every measured lean, and no pick without spare legs, with own arms or without donor arms', () => {
   const pick = lean => frontLegPick({ spare: true, ownArms: false, donorArms: true, lean });
-  assert.deepEqual([76, 74, 30, 11, 5, 4].map(pick), ['useArms', 'useArms', 'mirrorLegs', 'mirrorLegs', 'mirrorLegs', 'mirrorLegs'], 'Cold One, Ghoul, Abomination, Kobold, Footman, Grunt');
+  assert.deepEqual([76, 74, 30, 11, 5, 4, null].map(pick), Array(7).fill('useArms'), 'Cold One, Ghoul, Abomination, Kobold, Footman, Grunt, unread');
   assert.equal(frontLegPick({ spare: false, ownArms: false, donorArms: true, lean: 76 }), null);
   assert.equal(frontLegPick({ spare: true, ownArms: true, donorArms: true, lean: 76 }), null, 'a rider on a four-legged mount has arms: nothing suggested');
   assert.equal(frontLegPick({ spare: true, ownArms: false, donorArms: false, lean: 76 }), null);
-  assert.equal(frontLegPick({ spare: true, ownArms: false, donorArms: true, lean: null }), null);
 });

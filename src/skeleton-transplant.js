@@ -63,7 +63,7 @@ import { fitHeadSkin } from './transplant-head.js';
 import { fitIndependentBowGrip } from './transplant-bow-grip.js';
 import { alignLooseItem, rigidItemSocket, detachedSurface, detachedGrip, transplantPropVisibility, fitHeldEquipment, seatLooseGrip } from './transplant-props.js';
 import { readHeldItem } from './held-item.js';
-import { animationMirror, seatWeapon } from './transplant-weapon-seat.js';
+import { animationMirror, seatWeapon, secondHandOnWeapon } from './transplant-weapon-seat.js';
 import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
@@ -3268,6 +3268,12 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   if (fix?.seatWeapon && rigA.ok && rigB.ok) {
     const seating = seatWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
     if (seating) fixed.seatWeapon = seating;
+  }
+  // Two-hand grip (plan step 7): the other hand onto the weapon in the animations where the donor holds it with both
+  // hands, unless Seat's own second hand already acted.
+  if (fix?.surfaceGrip && rigA.ok && rigB.ok && !fixed.seatWeapon?.some(item => item.support)) {
+    const second = secondHandOnWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
+    if (second) fixed.secondHand = second;
   }
   const cloth = nativeCloth(M,model,rigB,rigA,donorMap);
   const ammo = ammoFollowsDonor(M,model,reflected,rigA,rigB,donorMap);

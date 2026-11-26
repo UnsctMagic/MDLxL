@@ -1,6 +1,6 @@
 import { Matrix4, Quaternion, Triangle, Vector3 } from 'three';
 import { nodePivot, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from './animation.js';
-import { sameKindSequence } from './anim-transfer.js';
+import { sameKindSequence, transferRig } from './anim-transfer.js';
 import { bindVertices } from './editor-commands.js';
 import { physicalSurfaceComponents } from './geoset-operations.js';
 import { geosetMaterialLayers, isAdditiveLayer } from './geoset-extras.js';
@@ -701,8 +701,11 @@ function surfaceAt(frame,parts,base,head,t,palm) {
   }
   return best;
 }
-function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,wanted}) {
-  if (!item.ends || !wanted.ends || !wanted.support) return null;
+// perClip (plan step 7, Two-hand grip): instead of the donor's Stand reading two hands, each animation is treated when the
+// donor's other palm is on its weapon (within ON_SHAFT) in at least TWO_HANDED_SHARE of its sampled moments.
+export const TWO_HANDED_SHARE = .3;
+function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,wanted},{perClip=false}={}) {
+  if (!item.ends || !wanted.ends || !perClip && !wanted.support) return null;
   const donorOther = target.hands.find(h => h!==wanted.hand && h.patch?.length);
   if (!donorOther) return null;
   const paired = limbEntries.find(e => e.theirs.marker===donorOther.arm.marker)?.own;
@@ -731,17 +734,19 @@ function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,
       const df = pose(donor,di,phase), rf = pose(result,si,phase);
       const [da,db] = wanted.ends.map(end => endAt(end,df));
       const dpalm = palmAt(donorOther,df), touch = contacts(donor,df,wanted.parts,dpalm);
-      if (!touch) return {rf,weight:0,shift:vector(),off:0};
+      if (!touch) return {rf,weight:0,shift:vector(),off:0,on:false};
       const donorGrip = segment(da,db,touch.world), gap = touch.gap/reach;
+      const on = gap<=ON_SHAFT;
       const contact = gap<=ON_SHAFT ? 1 : gap>=OFF_SHAFT ? 0 : (OFF_SHAFT-gap)/(OFF_SHAFT-ON_SHAFT);
-      if (!contact) return {rf,weight:0,shift:vector(),off:0};
+      if (!contact) return {rf,weight:0,shift:vector(),off:0,on};
       const [ra,rb] = item.ends.map(end => endAt(end,rf)), rpalm = palmAt(ownOther,rf);
       const spot = surfaceAt(rf,item.parts,ra,rb,donorGrip.t,rpalm);
-      if (!spot) return {rf,weight:0,shift:vector(),off:0};
+      if (!spot) return {rf,weight:0,shift:vector(),off:0,on};
       const off = rpalm.distanceTo(spot)/reach;
       const need = off<=ALREADY*.4 ? 0 : off>=ALREADY ? 1 : (off-ALREADY*.4)/(ALREADY*.6);
-      return {rf,weight:contact*need,shift:spot.sub(rpalm),off};
+      return {rf,weight:contact*need,shift:spot.sub(rpalm),off,on};
     });
+    if (perClip && wants.filter(w => w.on).length < TWO_HANDED_SHARE*wants.length) continue;
     if (!wants.some(w => w.weight>0)) continue;
     const SPAN = 4;
     const eased = wants.map((_,k) => {
@@ -781,6 +786,62 @@ function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,
     if (values[0].size) for (let i=0;i<2;i++) rewriteTrack(result,nodes[i],si,frames,values[i],'Rotation');
   }
   return moments ? {moments,palmGapBefore:before/moments,palmGapAfter:after/moments} : null;
+}
+
+/** Two-hand grip (plan step 7): the result's other hand onto the model's weapon wherever it is (seated on the hand or riding
+ * the donor's weapon bone), in each animation where the donor holds its weapon with both hands (holdSupport perClip).
+ * Items are paired as seatWeapon pairs them; an item on bones the user keeps is left alone. -> [{carrier, ...}] or null */
+export function secondHandOnWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries, keep) {
+  const source = readWeapon(own,rigB), target = source && readWeapon(donor,rigA);
+  if (!target) return null;
+  const matched = new Set(), report = [];
+  for (const item of source.items) {
+    if (item.parts.some(p => [...p.ids].some(id => source.tree.ancestors(id,true).some(ancestor => keep.has(ancestor))))) continue;
+    const available = target.items.filter(t => !matched.has(t));
+    if (!available.length) break;
+    const wanted = available.find(t => t.hand.arm.key===item.hand.arm.key) ?? available[0];
+    matched.add(wanted);
+    const held = holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,wanted},{perClip:true});
+    if (held) report.push({carrier:item.carrier,...held});
+  }
+  return report.length ? report : null;
+}
+
+/** How often the result's other hand holds the weapon where the donor's does (plan step 7): over the moments where the
+ * donor's other palm is on its weapon (within ON_SHAFT), the share where the result's other palm is within 0.2 arm of the
+ * model's weapon. `donor` as built (mirrored when the build was). -> { share, moments, clips: [{name, donorOn, share}] }
+ * or null without both weapons and a second hand on each. */
+export function secondHandShare(own, donor, mesh) {
+  const rigOf = m => transferRig(m,{sequence:Math.max(0,standSequenceIndex(m))});
+  const source = readWeapon(own,rigOf(own)), target = source && readWeapon(donor,rigOf(donor));
+  const item = source?.items?.[0];
+  if (!item || !target?.items?.length) return null;
+  const wanted = target.items.find(t => t.hand.arm.key===item.hand.arm.key) ?? target.items[0];
+  const donorOther = target.hands.find(h => h!==wanted.hand && h.patch?.length);
+  const ownOther = source.hands.find(h => h!==item.hand && h.patch?.length && h.arm.side===donorOther?.arm.side) ?? source.hands.find(h => h!==item.hand && h.patch?.length);
+  if (!donorOther || !ownOther) return null;
+  const clips = [];
+  let moments = 0, held = 0;
+  for (const [di,seq] of donor.Sequences.entries()) {
+    const si = mesh.Sequences.findIndex(s => s.Name===seq.Name && s.Interval[0]===seq.Interval[0] && s.Interval[1]===seq.Interval[1]);
+    if (si<0 || /^(death|decay|dissipate|portrait)/i.test(seq.Name.trim()) || !(seq.Interval[1]>seq.Interval[0])) continue;
+    const [a,z] = seq.Interval, times = new Set([a,z]);
+    for (let f=a; f<z; f+=33) times.add(Math.round(f));
+    let samples = 0, on = 0, kept = 0;
+    for (const frame of times) {
+      const phase = (frame-a)/(z-a), df = pose(donor,di,phase);
+      samples++;
+      const touch = contacts(donor,df,wanted.parts,palmAt(donorOther,df));
+      if (!touch || touch.gap/donorOther.arm.length > ON_SHAFT) continue;
+      on++;
+      const rf = pose(mesh,si,phase), mine = contacts(mesh,rf,item.parts.filter(p => p.faces?.length),palmAt(ownOther,rf));
+      if (mine && mine.gap/ownOther.arm.length <= .2) kept++;
+    }
+    if (!on) continue;
+    clips.push({name:seq.Name.trim(),donorOn:on/samples,share:kept/on});
+    moments += on; held += kept;
+  }
+  return {share:moments ? held/moments : null,moments,clips};
 }
 
 // ------------------------------------------------------------ is there something for Seat to repair? (plan step 6)
