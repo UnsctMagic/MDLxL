@@ -62,6 +62,7 @@ export const SCREEN_NAMES = [
   e(['OptimizeXL', 'Insanity Fixer', 'Irregularities Fixer', 'Sphereomancer', 'Nuclear Polygon Destroyer'], ['optimizexl-run.optimizeModelStage', 'optimizexl-run.planToSize', 'optimizexl.runOptimizeStage'], { command: 'optimizeModel' }),
   e(['Emitter Editor', 'Particle Editor', 'EMTR', 'Glow Up'], ['particle-recipes.placeParticleRecipe', 'glow-up.glowUp', 'particle-editing.particlePreviewModel'], { command: 'particles' }),
   e(['Surface Effects', 'FX'], ['global-animation-model.compileAnimation', 'fx-own-looks.stackFromOwnLook', 'fx-tattoo.tattooTriangles'], { command: 'surfaceEffects' }),
+  e(['Transfer: take animation from another model', 'Transfer', 'XFER', 'Transplant', 'Retarget'], ['skeleton-transplant.transplantSkeleton', 'anim-transfer.buildTransfer'], { use: 'Transplant: method A (Rotation), B (Position) or mix per part; Retarget: a recipe of parts from donors.' }),
   e(['AnimXL'], ['anim-xl.buildAnimXL', 'anim-xl.applyAnimXL', 'anim-xl.ANIMXL_PRESETS'], { command: 'animXL' }),
   e(['Auto Corpse', 'CORP'], ['auto-corpse.autoCorpse', 'corpse-geometry.buildCorpseGeometry'], { command: 'autoCorpse' }),
   e(['Citadel Paint', 'Paint'], ['paint-project.createPaintProject', 'paint-decal.projectPaintDecal', 'paint-materials.applyPaintMaterials'], { command: 'paint' }),
