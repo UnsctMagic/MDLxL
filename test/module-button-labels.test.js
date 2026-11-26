@@ -14,6 +14,7 @@ test('every module icon keeps its action and carries a visible short label',()=>
     ['bitsAndParts','bits-tool','BITZ'],
     ['optimizeModel','optimizer-tool','OPXL'],
     ['animXL','animxl-tool','ANIM'],
+    ['transfer','transfer-tool','XFER'],
     ['learn','learner-tool','LER'],
   ]){
     assert.match(app,new RegExp(`action="${action}" className="${className}"[^>]*badge="${label}"`));
@@ -30,6 +31,7 @@ test('classic (VIS) labels keep their transparent, distinct high-contrast colors
   assert.match(css,/\.classic-modules \.forge-tool \.module-icon-badge\{color:#54c8ff\}/);
   assert.match(css,/\.classic-modules \.bits-tool \.module-icon-badge\{color:#f0f3f5\}/);
   assert.match(css,/\.classic-modules \.optimizer-tool \.module-icon-badge\{color:#72ef66\}/);
+  assert.match(css,/\.classic-modules \.transfer-tool \.module-icon-badge\{color:#8c9bff\}/);
   assert.match(css,/\.classic-modules \.pressed-keys-tool>span,\.classic-modules \.module-icon-badge\{[^}]*background:transparent/);
 });
 
@@ -56,6 +58,7 @@ test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, on
     ['.emitter-tool .module-icon-badge','#5fe0cf'],
     ['.surface-effects-tool .module-icon-badge','#b6f2ff'],
     ['.animxl-tool .module-icon-badge','#ff8574'],
+    ['.transfer-tool .module-icon-badge','#8c9bff'],
     ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffa257'],
     ['.learner-tool .module-icon-badge','#f2e35c'],
     ['.vis-toggle>.module-icon-badge','#ff8fd0'],

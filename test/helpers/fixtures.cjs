@@ -31,9 +31,145 @@ const FIXTURES = {
   'sd-bandit': ['MDLXL_SD_BANDIT', testModel('corpus-sd/creeps__bandit.mdx')], // HandRight (a mesh node) is gripped by its skin on +Y
   raider: ['MDLXL_RAIDER', testModel('bone-namer/Raider.mdx')], // owner's wolf rider: renamed helpers, badly named mesh pieces on each joint
   'sd-orc-wolfrider': ['MDLXL_SD_ORC_WOLFRIDER', testModel('corpus-sd/orc__wolfrider.mdx')], // rightfoot is gripped by its skin at Y -22.9
+  'sd-orc-kodo': ['MDLXL_SD_ORC_KODO', testModel('corpus-sd/orc__kotobeast.mdx')], // its Weapon Ref hangs from the kodo's head (WH1)
   'sd-chaos-orc': ['MDLXL_SD_CHAOS_ORC', testModel('corpus-sd/critters__chaosspaceorc.mdx')], // a keyed light, attachments, an emitter, SND/FPT/SPL and an odd SPN event
   lahmian: ['MDLXL_LAHMIAN', testModel('corpse-fixtures/Lahmian_SD_14.mdx')], // two bodies (Caspette portrait rig, Root sway), cloth chains
+  'transfer-footman': ['MDLXL_TRANSFER_FOOTMAN', testModel('corpus-sd/human__footman.mdx')], // SD Footman: weapon arm Arm1_L > Arm2_L > Hand_R, right arm ends at Hand Right Ref
+  'transfer-grunt': ['MDLXL_TRANSFER_GRUNT', testModel('corpus-sd/orc__grunt.mdx')], // SD Grunt: axe on the +Y arm, Attack - 1 non-looping
+  'transfer-lord-of-change': ['MDLXL_TRANSFER_LORD_OF_CHANGE', testModel('pose-wings/Lord_of_Changes_Repaired.mdx')], // v800 winged demon, shared shoulder helpers, global FX ribbons
+  'transfer-demon-hunter': ['MDLXL_TRANSFER_DEMON_HUNTER', testModel('corpus-sd/nightelf__herodemonhunter.mdx')], // two skeletons: Attack moves the plain one, "... Alternate" is the demon form
+  'transfer-abomination': ['MDLXL_TRANSFER_ABOMINATION', testModel('corpus-sd/undead__abomination.mdx')],
+  'transfer-dryad': ['MDLXL_TRANSFER_DRYAD', testModel('corpus-sd/nightelf__dryad.mdx')], // horse body: BONE_CHEST carries the front legs and the rider torso
+  'transfer-sorceress': ['MDLXL_TRANSFER_SORCERESS', testModel('corpus-sd/human__sorceress.mdx')],
+  'transfer-knight': ['MDLXL_TRANSFER_KNIGHT', testModel('corpus-sd/human__knight.mdx')], // rider on a horse: three leg pairs
+  'transfer-ghoul': ['MDLXL_TRANSFER_GHOUL', testModel('corpus-sd/undead__ghoul.mdx')], // long toes skinned to Foot1/Foot2 under the foot joints
+  'transfer-kobold': ['MDLXL_TRANSFER_KOBOLD', testModel('corpus-sd/creeps__kobold.mdx')], // shoulders moved by translation keys (Arm1_R 7.4 in toward the chest in Stand -1)
+  'transfer-troll-trapper': ['MDLXL_TRANSFER_TROLL_TRAPPER', testModel('corpus-sd/creeps__foresttrolltrapper.mdx')],
+  'transfer-dreadlord': ['MDLXL_TRANSFER_DREADLORD', testModel('corpus-sd/undead__herodreadlord.mdx')], // its only Cinematic animation is a death (Cinematic death)
+  'transfer-aspiring-hero': ['MDLXL_TRANSFER_ASPIRING_HERO', testModel('transfer-humanoid/WH_WOC_AspiringHero01.mdx')],
+  'transfer-satyr': ['MDLXL_TRANSFER_SATYR', testModel('corpus-sd/creeps__satyr.mdx')], // all trunk skin on Bone_Chest, whose pivot sits at hip height: it bows from the hips
+  'transfer-zombie-dragon': ['MDLXL_TRANSFER_ZOMBIE_DRAGON', testModel('transfer-crosskind/WH_VC_ZombieDragon02.mdx')], // two legs, two wings, no arms: its body lies level
+  'transfer-chaos-dragon-rider': ['MDLXL_TRANSFER_CHAOS_DRAGON_RIDER', testModel('fx-performance/ChaosDragonSkeleton_08.mdx')], // a rider on a dragon read as one body: dragon legs, rider arms, the rider's hips rock by position keys
+  'transfer-skeleton-mage': ['MDLXL_TRANSFER_SKELETON_MAGE', testModel('corpus-sd/undead__skeletonmage.mdx')], // straight legs slanted back: the thigh points nearer a digitigrade donor's hock than its knee
+  'transfer-brown-wolf': ['MDLXL_TRANSFER_BROWN_WOLF', testModel('corpus-sd/critters__brownwolf.mdx')], // a wolf whose back slopes otherwise than the Dire Wolf's
+  'transfer-rock-golem': ['MDLXL_TRANSFER_ROCK_GOLEM', testModel('corpus-sd/creeps__rockgolem.mdx')], // its chest flies 71 into place in Birth from an offset of 1.3
+  'transfer-spirit-pig': ['MDLXL_TRANSFER_SPIRIT_PIG', testModel('corpus-sd/creeps__spiritpig.mdx')],
+  'transfer-bronze-whelp': ['MDLXL_TRANSFER_BRONZE_WHELP', testModel('corpus-sd/creeps__bronzedragonwelp.mdx')], // four legs, its wings on the body (no chest); read as arms until cross-kind r2 WG1
+  'transfer-lobstrokk': ['MDLXL_TRANSFER_LOBSTROKK', testModel('corpus-sd/creeps__lobstrokkgreen.mdx')], // four legs under an upright upper body with two claws
+  'transfer-eredar-warlock': ['MDLXL_TRANSFER_EREDAR_WARLOCK', testModel('corpus-sd/demon__eredarwarlock.mdx')], // ground ring on three unparented roots that only scale, by keys of its own (not global)
+  'transfer-chaos-blademaster': ['MDLXL_TRANSFER_CHAOS_BLADEMASTER', testModel('corpus-sd/demon__herochaosblademaster.mdx')], // Dissipate: rises out of sight, the pelvis turns 72 deg
+  'transfer-ogre-armored': ['MDLXL_TRANSFER_OGRE_ARMORED', testModel('corpus-sd/creeps__ogreoneheadedarmored.mdx')],
+  'transfer-kiljaeden-cin': ['MDLXL_TRANSFER_KILJAEDEN_CIN', testModel('corpus-sd/demon__kiljaedencin.mdx')], // body joint Bone_Root bobs by position keys on a global sequence
+  'transfer-witch-hunter': ['MDLXL_TRANSFER_WITCH_HUNTER', testModel('transfer-humanoid/WarhammerWitchHunter.mdx')], // left arm of two joints (ShoulderL > LowArmL), its hand ref on the forearm
+  'transfer-troll-priest': ['MDLXL_TRANSFER_TROLL_PRIEST', testModel('corpus-sd/creeps__foresttrollshadowpriest.mdx')],
+  'transfer-forsaken-paladin': ['MDLXL_TRANSFER_FORSAKEN_PALADIN', testModel('corpus-sd/creeps__heroforsakenpaladin.mdx')], // HD: its body joint local_C0_0_jnt moves by stepped (DontInterp) position keys
+  'transfer-skeleton-orc': ['MDLXL_TRANSFER_SKELETON_ORC', testModel('corpus-sd/creeps__skeletonorc.mdx')], // straight legs slanting back: its thigh points nearer the Tauren's hip-to-hock than hip-to-knee
+  'transfer-kurgan': ['MDLXL_TRANSFER_KURGAN', testModel('pose-complex-fixtures/WH_WOC_KurganWarlord02.mdx')], // two-handed hammer: one hand in Stand - 1, both in Stand Ready
+  'transfer-nurgle-knight': ['MDLXL_TRANSFER_NURGLE_KNIGHT', testModel('fx-owner/variety/WH_WOC_KnightNurgle16.mdx')], // the rider hangs from a second mount root, not under the horse's body
+  'transfer-nurgle-warrior': ['MDLXL_TRANSFER_NURGLE_WARRIOR', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // a belly chain that shares skin with the chest, a cape, shoulder bones
+  'transfer-nurgle': ['MDLXL_TRANSFER_NURGLE', testModel('surface-effects/WH_WOC_WarriorNurgle02.mdx')], // shield and axe
+  'transfer-dragon-rider': ['MDLXL_TRANSFER_DRAGON_RIDER', testModel('pose-heads/WH_VC_ZombieDragonVCarsteinHero01.mdx')], // rider under the dragon's chest, beside its wings, neck and head
+  'transfer-nightmare-rider': ['MDLXL_TRANSFER_NIGHTMARE_RIDER', testModel('transfer-riders/BloodDragonNightmare_Polished_2_1.mdx')], // rider on a four-footed mount whose forelimbs read as arms; cloth strips on the rider's chest read as legs
+  'transfer-cold-one-rider': ['MDLXL_TRANSFER_COLD_ONE_RIDER', testModel('transfer-riders/Cold_One_Rider_UNIT.mdx')], // rider on its own root over a two-legged mount that has arms
+  'transfer-magnataur': ['MDLXL_TRANSFER_MAGNATAUR', testModel('corpus-sd/creeps__magnataur.mdx')], // one creature: a torso on a four-legged body, hanging from a joint read as a neck
+  'transfer-khorne-knight': ['MDLXL_TRANSFER_KHORNE_KNIGHT', testModel('transfer-riders/WH_WOC_KnightKhorneAxe03.mdx')], // the rider's leg has a joint whose pivot sits at the body's middle, off the leg
+  'transfer-bray-shaman': ['MDLXL_TRANSFER_BRAY_SHAMAN', testModel('transfer-riders/bray_shaman_unit.mdx')], // one creature: mirrored strips of scroll hang from the chest the arms hang from
+  'transfer-bray-shaman-hero': ['MDLXL_TRANSFER_BRAY_SHAMAN_HERO', testModel('transfer-riders/bray_shaman_hero.mdx')], // the hero version of the same rig
+  'transfer-tauren': ['MDLXL_TRANSFER_TAUREN', testModel('corpus-sd/orc__tauren.mdx')], // four-joint limbs: a collar above each arm, a thigh above each hoofed leg's handle chain
+  'transfer-hermit-crab': ['MDLXL_TRANSFER_HERMIT_CRAB', testModel('corpus-sd/critters__hermitcrab.mdx')], // its root bone hangs from the Origin Ref attachment
+  'transfer-villager': ['MDLXL_TRANSFER_VILLAGER', testModel('corpus-sd/critters__villagerman.mdx')],
+  'transfer-red-dragon': ['MDLXL_TRANSFER_RED_DRAGON', testModel('corpus-sd/creeps__reddragon.mdx')], // the root scales to zero in Death: the whole body goes
+  'transfer-orc-warlock': ['MDLXL_TRANSFER_ORC_WARLOCK', testModel('corpus-sd/creeps__orcwarlock.mdx')], // hips of two joints stacked on each other: the piece between them points nowhere in particular
+  'transfer-shadow-hunter': ['MDLXL_TRANSFER_SHADOW_HUNTER', testModel('corpus-sd/orc__heroshadowhunter.mdx')], // its Walk has moments with both feet up while its hips stand far higher than in its Stand
+  'transfer-hellscream': ['MDLXL_TRANSFER_HELLSCREAM', testModel('corpus-sd/orc__hellscream.mdx')], // two-handed axe on the right arm
+  'transfer-archnathid': ['MDLXL_TRANSFER_ARCHNATHID', testModel('corpus-sd/creeps__archnathidgreen.mdx')], // claws on a collar joint, anchored on a helper, no chest part
+  'transfer-corrupted-ent': ['MDLXL_TRANSFER_CORRUPTED_ENT', testModel('corpus-sd/creeps__corruptedent.mdx')], // all its skin is on joints outside the read body that follow the body's joints
+  'transfer-gargoyle': ['MDLXL_TRANSFER_GARGOYLE', testModel('corpus-sd/undead__gargoyle.mdx')], // its body joint Bone_Root hangs under Dummy01, a parentless joint
+  'transfer-naga': ['MDLXL_TRANSFER_NAGA', testModel('corpus-sd/naga__nagamyrmidon.mdx')], // no legs: a snake tail under the body
+  'transfer-felhound': ['MDLXL_TRANSFER_FELHOUND', testModel('corpus-sd/demon__felhound.mdx')], // the node named Body is a still skin bone beside the legs' driver
+  'transfer-spider': ['MDLXL_TRANSFER_SPIDER', testModel('corpus-sd/creeps__spider.mdx')], // splayed legs: the first leg joint is level with the feet
+  'transfer-wisp': ['MDLXL_TRANSFER_WISP', testModel('corpus-sd/nightelf__wisp.mdx')], // one floating mesh, no limbs that stand
+  'transfer-necromancer': ['MDLXL_TRANSFER_NECROMANCER', testModel('corpus-sd/undead__necromancer.mdx')], // robed: no legs read
+  'transfer-ogre-twin': ['MDLXL_TRANSFER_OGRE_TWIN', testModel('transfer-gore/WH_WOC_Ogre10.mdx')], // LowPolyWorks Ogre: an off-hand weapon on a second left arm whose joints sit on the real arm's
+  'transfer-skeleton': ['MDLXL_TRANSFER_SKELETON', testModel('corpus-sd/undead__skeleton.mdx')], // swaps bodies in Death; the death body is not on a twin skeleton
+  'transfer-berserker': ['MDLXL_TRANSFER_BERSERKER', testModel('transfer-posture/WH_WOC_WarriorKhorneBerserker03.mdx')], // LowPolyWorks Khorne Berserker: upright, the owner's model on the hunched Ghoul (transplant posture)
+  'transfer-penguin': ['MDLXL_TRANSFER_PENGUIN', testModel('corpus-sd/critters__penguin.mdx')], // corpse and portrait geosets: shown only in Decay or Portrait
+  'transfer-rat': ['MDLXL_TRANSFER_RAT', testModel('corpus-sd/critters__rat.mdx')], // no legs read: the whole rat rides the body
+  'transfer-direwolf': ['MDLXL_TRANSFER_DIREWOLF', testModel('corpus-sd/creeps__direwolf.mdx')], // read with three legs: no legs pair with a two- or no-legged model
+  'transfer-banshee': ['MDLXL_TRANSFER_BANSHEE', testModel('corpus-sd/undead__banshee.mdx')], // no legs, hovers: its body rises and falls
+  'transfer-plague-cloud': ['MDLXL_TRANSFER_PLAGUE_CLOUD', testModel('corpus-sd/undead__plaguecloud.mdx')], // an effect model: no bone or helper
+  'transfer-undead-car': ['MDLXL_TRANSFER_UNDEAD_CAR', testModel('corpus-sd/other__undeadcar.mdx')], // its skinned master root is the parent of its hips and follows them
+  'transfer-revenant': ['MDLXL_TRANSFER_REVENANT', testModel('corpus-sd/creeps__revenant.mdx')],
+  'transfer-skink-priest': ['MDLXL_TRANSFER_SKINK_PRIEST', testModel('transfer-throws/skink_high_priest_hero_swimless.mdx')], // a staff bone; the hand Wrist1 carries no skin
+  'transfer-far-seer': ['MDLXL_TRANSFER_FAR_SEER', testModel('corpus-sd/orc__herofarseer.mdx')], // an animation "nothing" from 4294967129 to 0
+  'transfer-white-wolf': ['MDLXL_TRANSFER_WHITE_WOLF', testModel('corpus-sd/creeps__whitewolf.mdx')],
+  'transfer-faerie-dragon': ['MDLXL_TRANSFER_FAERIE_DRAGON', testModel('corpus-sd/nightelf__faeriedragon.mdx')], // hovers; its dangling legs swing through its Stand
+  'transfer-zergling': ['MDLXL_TRANSFER_ZERGLING', testModel('corpus-sd/critters__zergling.mdx')], // wolf rig: the front right leg's joints carry no part name
+  'transfer-grizzly': ['MDLXL_TRANSFER_GRIZZLY', testModel('corpus-sd/creeps__grizzlybear.mdx')], // the front left paw holds Hand Left Ref; the front right ends at a skin bone named Foot
+  'transfer-rabbit': ['MDLXL_TRANSFER_RABBIT', testModel('corpus-sd/critters__easterrabbit.mdx')], // Hand refs on the front shins, above the named front feet
+  'transfer-pig': ['MDLXL_TRANSFER_PIG', testModel('corpus-sd/critters__pig.mdx')], // one bone per leg: the hind pair hangs from one hip mesh
+  'transfer-sheep': ['MDLXL_TRANSFER_SHEEP', testModel('corpus-sd/critters__sheep.mdx')], // one bone per leg, Foot and Hand refs under them
+  'transfer-wyvern-rider': ['MDLXL_TRANSFER_WYVERN_RIDER', testModel('corpus-sd/orc__wyvernrider.mdx')], // numbered joints: both legs and the tail hang from one hip joint, both arms from the chest
+  'transfer-seal': ['MDLXL_TRANSFER_SEAL', testModel('corpus-sd/critters__seal.mdx')], // flippers of one and two bones; Hand Left Ref has no parent
+  'transfer-steamtank': ['MDLXL_TRANSFER_STEAMTANK', testModel('transfer-r2/SteamTank_Normal.mdx')], // a commander's arms hang down over the tank's wheels; no legs
+  'transfer-hydralisk': ['MDLXL_TRANSFER_HYDRALISK', testModel('corpus-sd/critters__hydralisk.mdx')], // rests on its tail: Foot refs on the tail joints
+  'transfer-snapdragon': ['MDLXL_TRANSFER_SNAPDRAGON', testModel('corpus-sd/naga__snapdragon.mdx')], // the back left shin has a copy at its place; only the copy carries the toe
+  'transfer-green-dragon': ['MDLXL_TRANSFER_GREEN_DRAGON', testModel('corpus-sd/creeps__greendragon.mdx')], // four legs; its wings hang from the body joint the legs hang from, unnamed joints with WingR_/WingL_ skin carriers
+  'transfer-frost-wyrm': ['MDLXL_TRANSFER_FROST_WYRM', testModel('corpus-sd/undead__frostwyrm.mdx')], // two legs; its wings are unnamed sheets on the body joint the legs hang from
+  'transfer-harpy': ['MDLXL_TRANSFER_HARPY', testModel('corpus-sd/creeps__harpy.mdx')], // feathered arms that end in named hands
+  'transfer-timber-wolf': ['MDLXL_TRANSFER_TIMBER_WOLF', testModel('corpus-sd/creeps__timberwolf.mdx')], // four legs, a tail on its waist
+  'transfer-undead-arthas': ['MDLXL_TRANSFER_UNDEAD_ARTHAS', testModel('corpus-sd/undead__undeadarthas.mdx')], // a rider on a horse whose back legs and tail hang from one joint (Bone Hor11) under the body
+  'transfer-dragonspawn': ['MDLXL_TRANSFER_DRAGONSPAWN', testModel('corpus-sd/creeps__dragonspawnblue.mdx')], // four legs and two arms on an upright chest
+  'transfer-chaos-warlord': ['MDLXL_TRANSFER_CHAOS_WARLORD', testModel('corpus-sd/demon__chaoswarlord.mdx')], // a rider (own root) on a four-legged demon horse
+  'transfer-crypt-fiend': ['MDLXL_TRANSFER_CRYPT_FIEND', testModel('corpus-sd/undead__cryptfiend.mdx')], // four spider legs under an upright chest with two arms and a head
+  'transfer-orc-shaman': ['MDLXL_TRANSFER_ORC_SHAMAN', testModel('corpus-sd/orc__shaman.mdx')],
+  'transfer-mountain-king': ['MDLXL_TRANSFER_MOUNTAIN_KING', testModel('corpus-sd/human__heromountainking.mdx')],
+  'transfer-graveguard-03': ['MDLXL_TRANSFER_GRAVEGUARD_03', testModel('graveguard/WH_VC_Graveguard03.mdx')],
+  'transfer-murloc': ['MDLXL_TRANSFER_MURLOC', testModel('corpus-sd/creeps__murloc.mdx')], // forearm skin bones Wrist1/Wrist2 beside the moving hands, as the Ghoul's
+  'transfer-arthas-sword': ['MDLXL_TRANSFER_ARTHAS_SWORD', testModel('corpus-sd/human__arthaswithsword.mdx')], // Stand Fourth/Fifth: a hammer in the sword hand (sword hidden), let fall in Fifth
+  'transfer-pikeman': ['MDLXL_TRANSFER_PIKEMAN', testModel('transfer-humanoid/Bretonnian_Pikeman.mdx')], // LowPolyWorks pikeman: a pike far longer than Arthas's sword (dips under the floor on him)
+  'transfer-headhunter': ['MDLXL_TRANSFER_HEADHUNTER', testModel('corpus-sd/orc__headhunter.mdx')], // no neck joint: the head joint hangs from the chest
+  'transfer-gnoll': ['MDLXL_TRANSFER_GNOLL', testModel('corpus-sd/creeps__gnoll.mdx')], // neck joint above the shoulders, the head juts forward and down from it (45 deg off the chest)
+  'transfer-demonette': ['MDLXL_TRANSFER_DEMONETTE', testModel('transfer-humanoid/WH_DOC_Demonette02.mdx')], // a neck joint whose run is 12% of its chest-to-head distance (the Gnoll's 59%)
+  // XFER transplant Auto fix (owner's graded pairs, 22 Nov 2026; xfer-auto-fix/README.md): donor and native recipient of each pair
+  'autofix-841-own': ['MDLXL_AUTOFIX_841_OWN', testModel('xfer-auto-fix/skink_blowpipe_orange.mdx')],
+  'autofix-841-donor': ['MDLXL_AUTOFIX_841_DONOR', testModel('corpus-sd/creeps__facelessone.mdx')],
+  'autofix-09-own': ['MDLXL_AUTOFIX_09_OWN', testModel('corpus-sd/undead__kelthuzad.mdx')],
+  'autofix-09-donor': ['MDLXL_AUTOFIX_09_DONOR', testModel('corpus-sd/creeps__herotinker.mdx')],
+  'autofix-08-donor': ['MDLXL_AUTOFIX_08_DONOR', testModel('xfer-auto-fix/pair08-donor-EarthLich.mdx')], // control: staff named and measured on both
+  'autofix-08-own': ['MDLXL_AUTOFIX_08_OWN', testModel('xfer-auto-fix/pair08-recipient-Minion_Archivist.mdx')],
+  'autofix-10-donor': ['MDLXL_AUTOFIX_10_DONOR', testModel('xfer-auto-fix/pair10-donor-ObsidianReaver.mdx')],
+  'autofix-10-own': ['MDLXL_AUTOFIX_10_OWN', testModel('xfer-auto-fix/pair10-recipient-NRP_MurlocAssassin.mdx')], // Hand Right Ref at foot level (markers)
+  'autofix-12-donor': ['MDLXL_AUTOFIX_12_DONOR', testModel('xfer-auto-fix/pair12-donor-DemonHag.mdx')], // staff on its own top-level bone, held in the left hand (hand)
+  'autofix-12-own': ['MDLXL_AUTOFIX_12_OWN', testModel('xfer-auto-fix/pair12-recipient-WH_VC_LahmianVampire01.mdx')],
+  'autofix-15-donor': ['MDLXL_AUTOFIX_15_DONOR', testModel('xfer-auto-fix/pair15-donor-Bretonnian_Archer.mdx')], // an empty helper named Sword on the right arm, bow on the left (hand)
+  'autofix-15-own': ['MDLXL_AUTOFIX_15_OWN', testModel('xfer-auto-fix/pair15-recipient-Ungor_bow.mdx')],
+  'autofix-16-donor': ['MDLXL_AUTOFIX_16_DONOR', testModel('xfer-auto-fix/pair16-donor-Hero_ArchBishop.mdx')], // control: items on both arms, names agree
+  'autofix-16-own': ['MDLXL_AUTOFIX_16_OWN', testModel('xfer-auto-fix/pair16-recipient-DwarfStonemason.mdx')],
+  'autofix-17-donor': ['MDLXL_AUTOFIX_17_DONOR', testModel('xfer-auto-fix/pair17-donor-Greenskin_Goblin0.mdx')],
+  'autofix-17-own': ['MDLXL_AUTOFIX_17_OWN', testModel('xfer-auto-fix/pair17-recipient-Dullahan_red.mdx')], // no legs, hip-to-shoulder line 4% of its height (trunk)
+  'autofix-18-donor': ['MDLXL_AUTOFIX_18_DONOR', testModel('xfer-auto-fix/pair18-donor-ForestTrollPillager.mdx')], // Hand/Weapon markers 133 deg off its sword (markers)
+  'autofix-18-own': ['MDLXL_AUTOFIX_18_OWN', testModel('xfer-auto-fix/pair18-recipient-Luc_Valonforth.mdx')],
+  'autofix-33-donor': ['MDLXL_AUTOFIX_33_DONOR', testModel('xfer-auto-fix/pair33-donor-Archelect_TheGodslayer.mdx')],
+  'autofix-33-own': ['MDLXL_AUTOFIX_33_OWN', testModel('xfer-auto-fix/pair33-recipient-clanrat29.mdx')], // control: two legs, hip-to-shoulder line 5% of its height (trunk stays)
+  'autofix-34-donor': ['MDLXL_AUTOFIX_34_DONOR', testModel('xfer-auto-fix/pair34-donor-Knightess.mdx')],
+  'autofix-34-own': ['MDLXL_AUTOFIX_34_OWN', testModel('xfer-auto-fix/pair34-recipient-WH_Unsanctioned_Paladin.mdx')], // sword on its own bone named sord (detached)
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  // XFER reasonable test set (scripts/xfer-scorecard/pairs-reasonable.json): pairs the suggester and transplant tests use.
+  'xfer-r46-own': ['MDLXL_XFER_R46_OWN', testModel('reasonable-50/orc__riderlesswyvern-a9e3ab42/riderlesswyvern.mdx')], // reasonable-46: Seam fix was suggested (holes)
+  'xfer-r46-donor': ['MDLXL_XFER_R46_DONOR', testModel('reasonable-50/creeps__reddragon-8fbd9325/reddragon.mdx')],
+  'xfer-r29-own': ['MDLXL_XFER_R29_OWN', testModel('reasonable-50/creeps__wendigoshaman-2445ff6f/wendigoshaman.mdx')], // reasonable-29, graded 10
+  'xfer-r29-donor': ['MDLXL_XFER_R29_DONOR', testModel('reasonable-50/creeps__furbolgshaman-1aa9291f/furbolgshaman.mdx')],
+  'xfer-r44-own': ['MDLXL_XFER_R44_OWN', testModel('reasonable-50/demon__felhound-09aca38c/felhound.mdx')], // reasonable-44, graded 10
+  'xfer-r44-donor': ['MDLXL_XFER_R44_DONOR', testModel('reasonable-50/creeps__direwolf-bbc7dc3d/direwolf.mdx')],
+  'xfer-r08-own': ['MDLXL_XFER_R08_OWN', testModel('xfer-reasonable/Elf_DeathKnight-d080b1d6/Elf_DeathKnight.mdx')], // reasonable-08: right arm read to its sword bone
+  'xfer-r08-donor': ['MDLXL_XFER_R08_DONOR', testModel('xfer-reasonable/Footman_Leader-992d24c9/Footman Leader.mdx')],
+  'xfer-r45-own': ['MDLXL_XFER_R45_OWN', testModel('reasonable-50/naga__snapdragon-b3ced23c/snapdragon.mdx')], // reasonable-45: front legs should become arms
+  'xfer-r45-donor': ['MDLXL_XFER_R45_DONOR', testModel('xfer-reasonable/Cold_One_Riderless-d2eca444/Cold_One_Riderless.mdx')],
+  'xfer-r32-own': ['MDLXL_XFER_R32_OWN', testModel('xfer-reasonable/FrenchDragoonCavalry-3c93ab4d/FrenchDragoonCavalry.mdx')], // reasonable-32: Seat turned the sabre flat (owner: "the before is a better transfer")
+  'xfer-r32-donor': ['MDLXL_XFER_R32_DONOR', testModel('xfer-reasonable/Arkain_CavalrySergeant-840af16a/Arkain_CavalrySergeant.mdx')],
+  'xfer-r43-own': ['MDLXL_XFER_R43_OWN', testModel('reasonable-50/human__bloodelfdragonhawk-a175aae4/bloodelfdragonhawk.mdx')], // reasonable-43: a legless flyer bobbed on the winged Gryphon Rider
+  'xfer-r43-donor': ['MDLXL_XFER_R43_DONOR', testModel('reasonable-50/human__gryphonrider-fe21e8ec/gryphonrider.mdx')],
   'uv-fit-nurgle': ['MDLXL_UV_FIT_NURGLE', testModel('uv-fit-layout/WH_WOC_KnightNurgleHeavy06.mdx')], // geoset 46: two UV rings folded on one patch
   'uv-fit-archer': ['MDLXL_UV_FIT_ARCHER', testModel('uv-fit-layout/Bretonnian_Archer.mdx')], // geoset 11: three quads on one UV spot
   'uv-fit-orc': ['MDLXL_UV_FIT_ORC', testModel('uv-fit-layout/Greenskin_Orc1.mdx')], // geoset 5: a folded piece and two mirrored quads

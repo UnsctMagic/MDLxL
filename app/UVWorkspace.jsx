@@ -379,6 +379,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
           uvGrid={uvGrid} showTextureFrame={display.textureFrame} textureFrameColor={preferences?.visuals?.uvSelection}
           onSelectVertices={selectCombined} onChange={values => applyCombined(values)} onPreviewChange={values => values ? applyCombined(values, true) : onPreviewChanges?.(null)} marking={markingHandlers || null} />
           : <div className="classic-empty-view">Select textured vertices before opening the UV wrapper.</div>}
+        {combined?.eligibleVertices.length > 0 && <button type="button" className="preview-reset-view" aria-label="Reset view" title="Reset view" onClick={() => dispatch('reset-view')}><span aria-hidden="true">↺</span></button>}
         {marking ? <div className="uv-fit-bar" role="toolbar" aria-label="Fit area">
           {['polygon', 'lasso', 'wand'].map(mode => <button key={mode} type="button" aria-pressed={marking.mode === mode} data-hotkey={'uv-fit:' + mode} data-hotkey-manual data-hotkey-label={paintMessage('paint.select.' + mode)} onClick={() => fitMode(mode)}>{paintMessage('paint.select.' + mode)}</button>)}
           {marking.mode === 'wand' && <label>{paintMessage('paint.tolerance')}<RangeInput aria-label="Fit wand tolerance" min="0" max="255" value={fitTolerance} onChange={event => setFitTolerance(+event.target.value)}/>{fitTolerance}</label>}

@@ -1,0 +1,656 @@
+{
+ "revision": "d559d03e",
+ "pairs": "pairs-reasonable.json",
+ "regression": {
+  "reasonable-05": {
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso"
+   ],
+   "sha256": "9ac7158ef0a24bc5828b5c48e65f1641883484707d2fa60132ab7cef90af055c"
+  },
+  "reasonable-29": {
+   "ticks": [
+    "skinLandmarks"
+   ],
+   "sha256": "23695440672f79bb7fb5e38d6d5b1ddfb5be212d2d3072501f10c1e586462ec7"
+  },
+  "new-01": {
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains"
+   ],
+   "sha256": "4b206405b446c79dcf3556379718690e7fcf1af483fe8daff834b64379a277a2"
+  },
+  "new-02": {
+   "ticks": [],
+   "sha256": "6f9f4647825d9d53852f66e51c2f7e6a8c971bdf5d64b9fe5abb8df8fb84337b"
+  },
+  "new-05": {
+   "ticks": [
+    "gripRouting"
+   ],
+   "sha256": "12250e8613c9a3637441eb2c1ebe3672b2985b1f947900e39cdcf945359dc96f"
+  },
+  "new-08": {
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso",
+    "seatWeapon"
+   ],
+   "sha256": "050495cb0df4b605ec6fcb4a338261ccd3093a3db07df6fdbb579a1c81f1d7a6"
+  },
+  "random-10": {
+   "ticks": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "ba4c59cd70ca43f279db4b4b14e843b6e7d10f23134d3bca47159defa6edf00e"
+  },
+  "random-21": {
+   "ticks": [
+    "heldGeometry",
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "d20f59ee4fa28f3a1d002b15131f98cd77931d3f79f20374e33b140d2544d76d"
+  }
+ },
+ "all": {
+  "reasonable-01": {
+   "suggested": [
+    "authoredMotion"
+   ],
+   "ticks": [
+    "authoredMotion"
+   ],
+   "sha256": "5d4128ca2e3b2bfb6181bb78ec311ab36a57edfef5c63178b5a137e3a7aa9645"
+  },
+  "reasonable-02": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "607f9b7054bb937d765a3ec31a585304d5086500060fd707594d3ce650b530a3"
+  },
+  "reasonable-03": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "38bb903094a24cfdfe8a64af10c311e35a69706913a55986bdb9a5da3f4145bd"
+  },
+  "reasonable-04": {
+   "suggested": [
+    "trackWindow",
+    "donorPose",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "c1c3c8144fb82f88aa324adcd43067c4885d594761b4936fcd6914c5f6b42a22"
+  },
+  "reasonable-05": {
+   "suggested": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso"
+   ],
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso"
+   ],
+   "sha256": "9ac7158ef0a24bc5828b5c48e65f1641883484707d2fa60132ab7cef90af055c"
+  },
+  "reasonable-06": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "ac5eaf033a769e5fae4241362f053f04f592b3b39b1fb6b96f4927b5e2db40ae"
+  },
+  "reasonable-07": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "00555d1a952bc17bb5335e6fd08c35e9445020323b16999a38e602813d5257bd"
+  },
+  "reasonable-08": {
+   "suggested": [
+    "surfaceGrip",
+    "skinLandmarks",
+    "trackWindow",
+    "keepTorso",
+    "gripInHand"
+   ],
+   "ticks": [
+    "surfaceGrip",
+    "skinLandmarks",
+    "trackWindow",
+    "keepTorso",
+    "gripInHand"
+   ],
+   "sha256": "e234fbccd8128806d1dc4a6a1f72741f3eda3896e8aada92927f7484bb03bafd"
+  },
+  "reasonable-09": {
+   "suggested": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "a1fe4e1c29cfbb4c1bd233f2412ef49ee8dfc74a74a854c6d0e017fb4d1fddda"
+  },
+  "reasonable-10": {
+   "suggested": [
+    "authoredMotion"
+   ],
+   "ticks": [
+    "authoredMotion"
+   ],
+   "sha256": "a86fe7074bdfeca7d4cc0fa684eddfe5fc4b6d6501b77cff09a3df3245d5122f"
+  },
+  "reasonable-11": {
+   "suggested": [
+    "authoredMotion",
+    "donorPose"
+   ],
+   "ticks": [
+    "authoredMotion"
+   ],
+   "sha256": "b12d69f22d49c630c3fe87cad60150ebc998aeb99a383f8614225914c404e519"
+  },
+  "reasonable-12": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "ec625d5c561ef6bac687add1608e249dcc68f70b0a5fd248a674e0ed189a9363"
+  },
+  "reasonable-13": {
+   "suggested": [
+    "surfaceGrip",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "surfaceGrip",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "f35ea641422a8b25cba31c112bf60bfe1f01d89fd0939d99a9910edcc0c0be52"
+  },
+  "reasonable-14": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "06527616fd358202487a4058ef8854282f53396e4235ef8f521dd1be455321a8"
+  },
+  "reasonable-15": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "0f7c929cad171e8522e58cb23d1d8d36007d8b8668619852974770edeab06b5d"
+  },
+  "reasonable-16": {
+   "suggested": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "0f7f743effa2f312328aad5abbda6bc8c3a60e9d99efc58a5634b09ce76fbab9"
+  },
+  "reasonable-17": {
+   "suggested": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "d3ad10e9a7bac9abb2e648f640747c2ded55731cfcf547624b77cd5bc6b0d603"
+  },
+  "reasonable-19": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "495161353ae485a4e854295b6f74d016459c116191aa2473ac7f03d08e5a4880"
+  },
+  "reasonable-20": {
+   "suggested": [
+    "hangingChains",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "hangingChains",
+    "seatWeapon"
+   ],
+   "sha256": "482b8efc04be60e2e570112cb4ef136b2301a7174b46bce97589d69a3d0e90fb"
+  },
+  "reasonable-21": {
+   "suggested": [
+    "surfaceGrip",
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "surfaceGrip",
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "e84dc788d33df0f85857b4202c57f38f7a1d66c441b472d0fbcf7aca21eb7f50"
+  },
+  "reasonable-22": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "7583590144a9ac25fd140beddc5669660398e173c31cbc43856e24ee12f9d3f9"
+  },
+  "reasonable-23": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "df930ede165c2d9664ed60ab06a86a7555e064d5e1a30683f4b4223cb99f798c"
+  },
+  "reasonable-24": {
+   "suggested": [
+    "rootHeight",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "rootHeight",
+    "seatWeapon"
+   ],
+   "sha256": "ec9127ca8f34becc9399004335661122d3205abebb6c12d48f57e773423afa7c"
+  },
+  "reasonable-25": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "9e7ed4a1930fef3e3aea643895f73e12e9c9cb81980b47dd276aac3577284bc3"
+  },
+  "reasonable-26": {
+   "suggested": [
+    "trackWindow",
+    "donorPose"
+   ],
+   "ticks": [
+    "trackWindow"
+   ],
+   "sha256": "324a8f115d77680a4c347ea6d20080bf61c7d0b9ec9f3d4c0b9ebb6c16f05006"
+  },
+  "reasonable-27": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "12736f883c9877f2bfcf8d93cd90d3a9ae2298eeb0361c595161bba2b63d1aac"
+  },
+  "reasonable-28": {
+   "suggested": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "cceaab1845ecce53f9a2fa8077a1af03f06277221714f6a03cdc9705b3b1543e"
+  },
+  "reasonable-29": {
+   "suggested": [
+    "skinLandmarks"
+   ],
+   "ticks": [
+    "skinLandmarks"
+   ],
+   "sha256": "23695440672f79bb7fb5e38d6d5b1ddfb5be212d2d3072501f10c1e586462ec7"
+  },
+  "reasonable-30": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "9a8d898e6ba6734aa1c675ae4bdb59fde81bb1f4dab64dd27147c4a272cf24ce"
+  },
+  "reasonable-31": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "cd574a74c3c8f76b7b947443c2efb709d3aea51967c3fdcdafd214c632df4971"
+  },
+  "reasonable-32": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "896307d703b5ebc09e3b95a653c2537a7a294fc891a3ab54e9aa5f4dffd78f35"
+  },
+  "reasonable-33": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "141478d206cb41887a3a68398d4e5c21c77c3537aeaa60fcaebc4e76fa75eb7d"
+  },
+  "reasonable-34": {
+   "suggested": [
+    "saddleDriver",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "saddleDriver",
+    "seatWeapon"
+   ],
+   "sha256": "1703edc3af8c281d2f259c24c81b09f7f4bbe96b1bdc5135a1ccb990237bf8e5"
+  },
+  "reasonable-35": {
+   "suggested": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "620aa89b166a8c21067c4addf78ae9bc6ac9ad4b653fbf002489436df483159d"
+  },
+  "reasonable-36": {
+   "suggested": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "f455fc95ddd67f6deacc8af0112cab4b1988a33b2053a8f1d7b0d7e4f547503e"
+  },
+  "reasonable-37": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "aa77d64b447cc26a6a76e961deae4c8b0d6ac65be2f1517e666b5ed018935ad1"
+  },
+  "reasonable-38": {
+   "suggested": [
+    "authoredMotion",
+    "keepTorso"
+   ],
+   "ticks": [
+    "authoredMotion",
+    "keepTorso"
+   ],
+   "sha256": "49959b45df415158bb6478fd9a7e431daa21917d4bc2d0a6de9491f4ef2abe8b"
+  },
+  "reasonable-39": {
+   "suggested": [
+    "authoredMotion"
+   ],
+   "ticks": [
+    "authoredMotion"
+   ],
+   "sha256": "dbf7c7fa47cdc0579c03f81dc793207dc8de8d5ede2cb0cc80f65f9a1c8f669a"
+  },
+  "reasonable-40": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "18e1e0b9468a2eb40e346cd5d2f3ac80895359383f05c219da4b5e3cf46edb65"
+  },
+  "reasonable-41": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "e74305b27ae4cf56588ca47d32354e571b5ebc548390e93390f91afcf31a28a6"
+  },
+  "reasonable-42": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "7087b48ef05b82a4483e835af77e6f8f74d9ff59768832d7e2cc15669d913429"
+  },
+  "reasonable-43": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "3051d7555f5638e8228cd01e3d4766c396592cc2a671112a76b6adce04c140b1"
+  },
+  "reasonable-44": {
+   "suggested": [
+    "authoredMotion"
+   ],
+   "ticks": [
+    "authoredMotion"
+   ],
+   "sha256": "84a611889845472ba9d3393b3101fd878af1d4a6a9a6679c0496ad8e21bd7db6"
+  },
+  "reasonable-45": {
+   "suggested": [
+    "skinLandmarks",
+    "authoredMotion",
+    "useArms"
+   ],
+   "ticks": [
+    "skinLandmarks",
+    "authoredMotion",
+    "useArms"
+   ],
+   "sha256": "1939f6ebcb4a7c85cfb92b8f67ea4b24d348fb100420798d98970a6bc36616b5"
+  },
+  "reasonable-46": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "55dce630a111cf4b09f039e06f00271dec9ac15037ba587a131e0f48d3eb6683"
+  },
+  "reasonable-47": {
+   "suggested": [
+    "donorPose"
+   ],
+   "ticks": [],
+   "sha256": "680af5edf6c1d5c1e5487d7eea59085eda421824a629e628695caaea0af79ba5"
+  },
+  "reasonable-48": {
+   "suggested": [
+    "extraMotion",
+    "trackWindow",
+    "keepTorso"
+   ],
+   "ticks": [
+    "extraMotion",
+    "trackWindow",
+    "keepTorso"
+   ],
+   "sha256": "46b95f2c0b48eec0643630d8c374fbd764693eb4d08a1ee6553f7d543a1cfcfc"
+  },
+  "reasonable-49": {
+   "suggested": [],
+   "ticks": [],
+   "sha256": "e48a188ca52938aea0d44221cb5271aa3d7c062eb084e0c43e82b5adae169562"
+  },
+  "reasonable-50": {
+   "suggested": [
+    "keepTorso",
+    "donorPose"
+   ],
+   "ticks": [
+    "keepTorso"
+   ],
+   "sha256": "c5c9519ac3eef9a45b3c907296d936fdea83836e6f2eb3bced83b366e5c212b4"
+  },
+  "new-01": {
+   "suggested": [
+    "hangingChains"
+   ],
+   "ticks": [
+    "hangingChains"
+   ],
+   "sha256": "a2b32819433ffe551600ae7e49919c1023123fb8c159b486f0567df6c42a676a"
+  },
+  "new-02": {
+   "suggested": [
+    "surfaceGrip"
+   ],
+   "ticks": [
+    "surfaceGrip"
+   ],
+   "sha256": "8abe90b416dfdba1505a21f847b84727665597773a799efa2a44951364d81505"
+  },
+  "new-04": {
+   "suggested": [
+    "seatWeapon"
+   ],
+   "ticks": [
+    "seatWeapon"
+   ],
+   "sha256": "c21ace4aa0d2cc414ac682a5c3b28a7d79ce7492206e2f4267f3240cf9706392"
+  },
+  "new-05": {
+   "suggested": [
+    "gripRouting"
+   ],
+   "ticks": [
+    "gripRouting"
+   ],
+   "sha256": "12250e8613c9a3637441eb2c1ebe3672b2985b1f947900e39cdcf945359dc96f"
+  },
+  "new-08": {
+   "suggested": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso",
+    "donorPose",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso",
+    "seatWeapon"
+   ],
+   "sha256": "050495cb0df4b605ec6fcb4a338261ccd3093a3db07df6fdbb579a1c81f1d7a6"
+  },
+  "new-26": {
+   "suggested": [
+    "trackWindow"
+   ],
+   "ticks": [
+    "trackWindow"
+   ],
+   "sha256": "345da34aadd7e2c100e17fb81c55c6e2d13a04aa68f305c94b127cb275c83c89"
+  },
+  "random-10": {
+   "suggested": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "ba4c59cd70ca43f279db4b4b14e843b6e7d10f23134d3bca47159defa6edf00e"
+  },
+  "random-17": {
+   "suggested": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ],
+   "sha256": "9c9d75871783150e0748748211242fe597d6c9bfdccd406c34e9d25a5d8e6936"
+  },
+  "random-21": {
+   "suggested": [
+    "heldGeometry",
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "ticks": [
+    "heldGeometry",
+    "authoredMotion",
+    "seatWeapon"
+   ],
+   "sha256": "d20f59ee4fa28f3a1d002b15131f98cd77931d3f79f20374e33b140d2544d76d"
+  },
+  "legs-01": {
+   "suggested": [
+    "hangingChains",
+    "useArms"
+   ],
+   "ticks": [
+    "hangingChains",
+    "useArms"
+   ],
+   "sha256": "b6726b49748e1a4dd5762fb9c04c5dc07890b7b6856654471690467453a8c2bf"
+  }
+ }
+}

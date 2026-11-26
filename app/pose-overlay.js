@@ -139,6 +139,18 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appear
     else if (isPoseMaskSet(appearance.symbolSet)) drawPoseMask(context, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color);
     else drawPoseSymbol(context, appearance.symbolSet, poseSymbolName(handle.label), handle.x, handle.y, appearance.symbolColor ?? color, appearance.background, appearance.filled === false);
     context.restore();
+    if (handle.mark) {
+      // Transfer's method marks: Match a filled dot, Copy a ring (shape differs as well as colour), a warning a red "!".
+      const css = name => (typeof document !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue(name).trim()) || null;
+      context.save(); context.translate(handle.x - 11, handle.y - 11);
+      context.beginPath(); context.arc(0, 0, 6, 0, Math.PI * 2);
+      if (handle.mark === 'warn') {
+        context.fillStyle = css('--ui-danger') || '#c62828'; context.fill();
+        context.fillStyle = '#fff'; context.font = 'bold 10px Tahoma, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText('!', 0, 0.5);
+      } else if (handle.mark === 'match') { context.fillStyle = css('--ui-accent') || '#71b5f3'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = appearance.outline; context.stroke(); }
+      else { context.fillStyle = appearance.background; context.fill(); context.lineWidth = 2; context.strokeStyle = css('--ui-text') || '#16191e'; context.stroke(); }
+      context.restore();
+    }
     if (handle.pinned) {
       // A pin remains legible after selection moves to the body or another limb.
       pinPath ||= new Path2D(posePinPath);

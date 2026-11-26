@@ -717,9 +717,10 @@ test('configuration import keeps the receiving profile’s preset library', () =
 
 test('two thin IPC channels, editor only, same size limit as the module', () => {
   const main = source('electron/main.cjs'), preload = source('electron/preload.cjs');
-  assert.match(main, /ipcMain\.handle\('preset:openFile',async event=>\{\s*editorOnly\(event/);
+  // The open dialog takes an optional { title } (Transfer's setups say setup, not preset).
+  assert.match(main, /ipcMain\.handle\('preset:openFile',async(?: event|\(event,options\))=>\{\s*editorOnly\(event/);
   assert.match(main, /ipcMain\.handle\('preset:saveFile',async\(event,payload\)=>\{\s*editorOnly\(event/);
-  assert.match(preload, /openPresetFile: \(\)=>call\('preset:openFile'\)/);
+  assert.match(preload, /openPresetFile: (?:\(\)|options)=>call\('preset:openFile'(?:,options)?\)/);
   assert.match(preload, /savePresetFile: payload=>call\('preset:saveFile',payload\)/);
   const limit = /const MAX_PRESET_FILE=(\d+)\*(\d+)\*(\d+);/.exec(main);
   assert.ok(limit); assert.equal(Number(limit[1]) * Number(limit[2]) * Number(limit[3]), MAX_PRESET_FILE_BYTES);

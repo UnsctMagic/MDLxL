@@ -31,5 +31,8 @@
 .uv-tool-row{grid-column:1/-1;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px}.uv-tool-row .uv-tool.classic-tool{min-height:32px;padding:3px}
 .uv-toolbox{container-type:inline-size}
 @container(max-width:650px){.uv-tool-grid{grid-template-columns:repeat(3,minmax(54px,1fr))}.uv-fold-control{grid-column:span 2;grid-row:auto}}
+
+.uv-map-pane>.uv-texture-caption{max-width:calc(100% - 48px)}
+.uv-map-pane>.preview-reset-view{z-index:1}
 /* Fit marking: the caption's place while an area is marked, wrapping onto a second line when narrow. */
 .uv-fit-bar{position:absolute;left:7px;right:7px;bottom:6px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 6px;background:#111d;color:#fff;font-size:11px}.uv-fit-bar button{min-height:22px;padding:2px 8px;font-size:11px}.uv-fit-bar button[aria-pressed=true]{outline:2px solid #ffe664;outline-offset:-2px}.uv-fit-bar label{display:flex;align-items:center;gap:4px}.uv-fit-bar span{flex:1 1 220px;min-width:0}

@@ -8,6 +8,13 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| XFER transplant fix plan (owner, 26 Nov: "Fable reviews and plans, Opus writes, builds, tests"): Seam fix removed, reasonable test set with byte check, hole veto, hand trim, front legs (Use arms / Mirror legs), Seat only where needed | Steps 1-6 built; step 8 sheet `cases-reasonable.json` made, packaging and hidden click with the checker; step 7 after the owner's grades; local on `codex/xfer-toggles` | [Fable plan](xfer-fable-plan.md), reports in [XFER toggles](xfer-toggles.md) / Fable plans, Opus codes |
+| XFER toggles: every repair a switch, suggested combo, no gating (owner, 23 Nov) | Contract written; CP1 next; local on `codex/xfer-toggles` | [XFER toggles](xfer-toggles.md) / Codex builds, Claude Code reviews each checkpoint |
+| Transfer (XFER): animation between models by body part | Engine and window built on local branch `claude/transfer-xl`; not online | [Transfer](transfer-xl.md) / Claude Code |
+| Recognition: limb or hanging cloth, in the shared POSE recogniser | A to D built (engine answer; the rig carries it as a bone chain marked cloth; Transfer leaves cloth out of the limbs); awaits the owner's look in POSE, Bone Namer and Transfer; local on `claude/transfer-xl` | [Limb or cloth](recognition-limb-or-cloth.md) / Claude Code |
+| XFER both ways: retargeting and skeleton transplant (owner: "XFER needs to offer both") | Stage 1 built (bones pair by role, hips keep their stance); stages 2 to 5 planned; test build `transfer-xl-16`; local on `claude/transfer-xl` | [XFER both ways](xfer-both-ways.md) / Claude Code |
+| XFER Transplant: Auto fix (owner: "offer users an AUTO FIX ... as an option") | Step 1 built (weapon hand, markers, loose weapon, legless trunk; checkbox off by default); test build `transfer-xl-32`; awaits the owner's grades; local on `claude/xfer-auto-fix` | [Auto fix](xfer-auto-fix.md) / Claude Code |
+| XFER look check: catch broken transplants before the owner sees them (owner: "Yes, build the check") | Built and tuned on 295 graded results (held out: 37 of 59 bad caught, 23 of 139 good flagged); sweep of 888 pairs running; local on `claude/xfer-look-check` | [Look check](xfer-look-check.md) / Claude Code |
 | Review fix 1, Part B: FX window (A3–A5) | FX redesign merged in PR #645 (956e0259) instead of `claude/fx-editor`; A3–A5 not rechecked against it; Part A merged in PR #635 | [Contract 1](review-1-fx-references.md) / Codex |
 | AI hook learning facts, case 2 (owner edits, every-clip checks, rig/size review, standing requirements) | Study done; not acted on | [AI hook learning facts](ai-hook-learning-facts.md) / Claude Code |
 

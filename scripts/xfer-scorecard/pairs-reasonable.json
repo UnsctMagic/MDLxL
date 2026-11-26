@@ -1,0 +1,5479 @@
+{
+ "cases": [
+  {
+   "id": "reasonable-01",
+   "question": "High Elf Footman → Blood Elf Lieutenant",
+   "grade": true,
+   "hint": "Both are armored elf infantry who step behind a shield and cut with a one-handed sword.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HighElfFootman-4859392a\\HighElfFootman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HighElfFootman-4859392a\\HighElfFootman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\other__bloodelflieutenant-4e36f0c2\\bloodelflieutenant.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\other__bloodelflieutenant-4e36f0c2\\bloodelflieutenant.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HighElfFootman-4859392a\\HighElfFootman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\other__bloodelflieutenant-4e36f0c2\\bloodelflieutenant.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HighElfFootman-4859392a\\HighElfFootman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 93 ms",
+     "sequence": "Walk",
+     "from": 93,
+     "to": 582,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-02",
+   "question": "Bretonnian Swordsman → Royal Soldier",
+   "grade": true,
+   "hint": "Both are shield infantry who carry a short sword and attack from the front foot.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Swordsman-936bce4a\\Bretonnian_Swordsman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Swordsman-936bce4a\\Bretonnian_Swordsman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\RoyalSoldier-c0183011\\RoyalSoldier.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\RoyalSoldier-c0183011\\RoyalSoldier.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Swordsman-936bce4a\\Bretonnian_Swordsman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\RoyalSoldier-c0183011\\RoyalSoldier.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Swordsman-936bce4a\\Bretonnian_Swordsman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 149 ms",
+     "sequence": "Walk",
+     "from": 149,
+     "to": 933,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-03",
+   "question": "Dire Footman → Dismounted Bronzebeard Gryphon Warrior",
+   "grade": true,
+   "hint": "Both dwarves brace a shield and swing a short hammer or mace around it.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Footman-545f7840\\Dire_Footman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Footman-545f7840\\Dire_Footman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardDismountedGryphonWarrior_bakr-a8f95118\\BronzebeardDismountedGryphonWarrior_bakr.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardDismountedGryphonWarrior_bakr-a8f95118\\BronzebeardDismountedGryphonWarrior_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Footman-545f7840\\Dire_Footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardDismountedGryphonWarrior_bakr-a8f95118\\BronzebeardDismountedGryphonWarrior_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Footman-545f7840\\Dire_Footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 120 ms",
+     "sequence": "Walk",
+     "from": 120,
+     "to": 750,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1209,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-04",
+   "question": "Black Knight → Dismounted Knight of the Blazing Sun",
+   "grade": true,
+   "hint": "Both are armored foot knights who use a shield and a one-handed blade.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackKnight-d1b34590\\BlackKnight.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackKnight-d1b34590\\BlackKnight.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\KnightOfTheBlazingSunDismounted-bdbd9311\\KnightOfTheBlazingSunDismounted.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\KnightOfTheBlazingSunDismounted-bdbd9311\\KnightOfTheBlazingSunDismounted.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackKnight-d1b34590\\BlackKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\KnightOfTheBlazingSunDismounted-bdbd9311\\KnightOfTheBlazingSunDismounted.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackKnight-d1b34590\\BlackKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 93 ms",
+     "sequence": "Walk",
+     "from": 93,
+     "to": 582,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "donorPose",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-05",
+   "question": "Khorne Berserker → Mountain King",
+   "grade": true,
+   "hint": "Both carry a short weapon in each hand and swing from a wide infantry stance.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_WarriorKhorneBerserker03-ed8a78ee\\WH_WOC_WarriorKhorneBerserker03.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_WarriorKhorneBerserker03-ed8a78ee\\WH_WOC_WarriorKhorneBerserker03.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__heromountainking-b52747fc\\heromountainking.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__heromountainking-b52747fc\\heromountainking.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_WarriorKhorneBerserker03-ed8a78ee\\WH_WOC_WarriorKhorneBerserker03.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__heromountainking-b52747fc\\heromountainking.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_WarriorKhorneBerserker03-ed8a78ee\\WH_WOC_WarriorKhorneBerserker03.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 128 ms",
+     "sequence": "Walk",
+     "from": 128,
+     "to": 800,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack 1 · 160 ms",
+     "sequence": "Attack 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "skinLandmarks",
+     "hangingChains",
+     "trackWindow",
+     "keepTorso"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso"
+   ]
+  },
+  {
+   "id": "reasonable-06",
+   "question": "Fel Orc Grunt → Gor Axeman",
+   "grade": true,
+   "hint": "Both use a broad stance and a one-handed axe as their main attack.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__chaosgrunt-158dc9da\\chaosgrunt.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__chaosgrunt-158dc9da\\chaosgrunt.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\gor_axe_NOglow-531837b7\\gor_axe_NOglow.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\gor_axe_NOglow-531837b7\\gor_axe_NOglow.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__chaosgrunt-158dc9da\\chaosgrunt.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\gor_axe_NOglow-531837b7\\gor_axe_NOglow.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__chaosgrunt-158dc9da\\chaosgrunt.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "walk · 107 ms",
+     "sequence": "walk",
+     "from": 107,
+     "to": 666,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_chest",
+      "Bone_Headx"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 155 ms",
+     "sequence": "Attack - 1",
+     "from": 155,
+     "to": 967,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_chest",
+      "Bone_Headx"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-07",
+   "question": "Footman → Footman Sergeant",
+   "grade": true,
+   "hint": "Both are armored footmen with a sword, shield, and broad forward step.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__footman-fa74ae72\\footman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__footman-fa74ae72\\footman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Sargeant-63aee91a\\Sargeant.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Sargeant-63aee91a\\Sargeant.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__footman-fa74ae72\\footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Sargeant-63aee91a\\Sargeant.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__footman-fa74ae72\\footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 128 ms",
+     "sequence": "Walk",
+     "from": 128,
+     "to": 800,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-08",
+   "question": "Footman Leader → Elf Death Knight",
+   "grade": true,
+   "hint": "Both are tall armored foot fighters who slash with a long sword in one hand.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Footman_Leader-992d24c9\\Footman Leader.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Footman_Leader-992d24c9\\Footman Leader.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Elf_DeathKnight-d080b1d6\\Elf_DeathKnight.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Elf_DeathKnight-d080b1d6\\Elf_DeathKnight.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Footman_Leader-992d24c9\\Footman Leader.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Elf_DeathKnight-d080b1d6\\Elf_DeathKnight.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Footman_Leader-992d24c9\\Footman Leader.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "keepTorso"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-09",
+   "question": "Skeletal Orc → Greenskin Orc1",
+   "grade": true,
+   "hint": "Both have a broad orc stance and swing a single weapon down from the shoulder.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__skeletonorc-a9c3bdee\\skeletonorc.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__skeletonorc-a9c3bdee\\skeletonorc.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Greenskin_Orc1-49f7d59d\\Greenskin_Orc1.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Greenskin_Orc1-49f7d59d\\Greenskin_Orc1.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__skeletonorc-a9c3bdee\\skeletonorc.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Greenskin_Orc1-49f7d59d\\Greenskin_Orc1.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__skeletonorc-a9c3bdee\\skeletonorc.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack Spell - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 187 ms",
+     "sequence": "Walk",
+     "from": 187,
+     "to": 1167,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack Spell - 1 · 160 ms",
+     "sequence": "Attack Spell - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-10",
+   "question": "Templar Exemplar → Captain",
+   "grade": true,
+   "hint": "Both are armored shield infantry who deliver a one-handed strike past the shield.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\TemplarExemplar-63b20f51\\TemplarExemplar.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\TemplarExemplar-63b20f51\\TemplarExemplar.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__thecaptain-7b551366\\thecaptain.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__thecaptain-7b551366\\thecaptain.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\TemplarExemplar-63b20f51\\TemplarExemplar.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__thecaptain-7b551366\\thecaptain.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\TemplarExemplar-63b20f51\\TemplarExemplar.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand Portrait - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 120 ms",
+     "sequence": "Walk",
+     "from": 120,
+     "to": 750,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 260 ms",
+     "sequence": "Attack - 1",
+     "from": 260,
+     "to": 1625,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-11",
+   "question": "Skink Spearman → Northrend Murloc Spearman",
+   "grade": true,
+   "hint": "Both are small tailed infantry who drive a long spear forward with a planted stride.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_spear_final-ee0d924e\\skink_spear_final.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_spear_final-ee0d924e\\skink_spear_final.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRW_MurlocSpearman-183144f2\\NRW_MurlocSpearman.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRW_MurlocSpearman-183144f2\\NRW_MurlocSpearman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_spear_final-ee0d924e\\skink_spear_final.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRW_MurlocSpearman-183144f2\\NRW_MurlocSpearman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_spear_final-ee0d924e\\skink_spear_final.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand",
+    "Spell Throw"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 136 ms",
+     "sequence": "Attack - 1",
+     "from": 136,
+     "to": 850,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "donorPose"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-12",
+   "question": "Reikland Halberdier → Bretonnian Pikeman",
+   "grade": true,
+   "hint": "Both brace a long polearm across the body and step into a two-handed thrust.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHalberdier-d5c5d41a\\ReiklandHalberdier.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHalberdier-d5c5d41a\\ReiklandHalberdier.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Pikeman-6adaf835\\Bretonnian_Pikeman.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Pikeman-6adaf835\\Bretonnian_Pikeman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHalberdier-d5c5d41a\\ReiklandHalberdier.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Pikeman-6adaf835\\Bretonnian_Pikeman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHalberdier-d5c5d41a\\ReiklandHalberdier.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 128 ms",
+     "sequence": "Walk",
+     "from": 128,
+     "to": 800,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-13",
+   "question": "Black Fur Great Knight → Reikland Greatsword",
+   "grade": true,
+   "hint": "Both armored foot fighters swing a long, heavy weapon across the body with two hands.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackFurGreatKnight-959c55fd\\BlackFurGreatKnight.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackFurGreatKnight-959c55fd\\BlackFurGreatKnight.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandGreatsword-d1b26f1a\\ReiklandGreatsword.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandGreatsword-d1b26f1a\\ReiklandGreatsword.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackFurGreatKnight-959c55fd\\BlackFurGreatKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandGreatsword-d1b26f1a\\ReiklandGreatsword.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackFurGreatKnight-959c55fd\\BlackFurGreatKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 123 ms",
+     "sequence": "Walk",
+     "from": 123,
+     "to": 766,
+     "speed": 50,
+     "bones": [
+      "Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "skinLandmarks",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-14",
+   "question": "Hero Tauren Warbeast → Bestigor",
+   "grade": true,
+   "hint": "Both are horned heavy infantry that swing a long-handled axe.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroTaurenWarbeast-c4eb9404\\HeroTaurenWarbeast.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroTaurenWarbeast-c4eb9404\\HeroTaurenWarbeast.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bestigor10_noglow-6f9274be\\bestigor10_noglow.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bestigor10_noglow-6f9274be\\bestigor10_noglow.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroTaurenWarbeast-c4eb9404\\HeroTaurenWarbeast.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bestigor10_noglow-6f9274be\\bestigor10_noglow.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroTaurenWarbeast-c4eb9404\\HeroTaurenWarbeast.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack -3",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 149 ms",
+     "sequence": "Walk",
+     "from": 149,
+     "to": 933,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_neck"
+     ]
+    },
+    {
+     "label": "Attack -3 · 155 ms",
+     "sequence": "Attack -3",
+     "from": 155,
+     "to": 967,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_neck"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-15",
+   "question": "Minotaur → Tauren Chieftain",
+   "grade": true,
+   "hint": "Both are bulky bovine infantry that swing a large axe across the body.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Minotaur-85350aaa\\Minotaur.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Minotaur-85350aaa\\Minotaur.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__herotaurenchieftain-8a02a1dc\\herotaurenchieftain.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__herotaurenchieftain-8a02a1dc\\herotaurenchieftain.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Minotaur-85350aaa\\Minotaur.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__herotaurenchieftain-8a02a1dc\\herotaurenchieftain.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Minotaur-85350aaa\\Minotaur.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 112 ms",
+     "sequence": "Walk",
+     "from": 112,
+     "to": 700,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest2",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 192 ms",
+     "sequence": "Attack - 1",
+     "from": 192,
+     "to": 1200,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest2",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-16",
+   "question": "Kroxigor → Tauren",
+   "grade": true,
+   "hint": "Both heavy infantry swing a long, blunt weapon with two hands.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\kroxigor_unit_xtent_fix-36f57762\\kroxigor_unit_xtent_fix.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\kroxigor_unit_xtent_fix-36f57762\\kroxigor_unit_xtent_fix.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__tauren-dac60423\\tauren.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__tauren-dac60423\\tauren.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\kroxigor_unit_xtent_fix-36f57762\\kroxigor_unit_xtent_fix.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__tauren-dac60423\\tauren.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\kroxigor_unit_xtent_fix-36f57762\\kroxigor_unit_xtent_fix.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "bone_chest",
+      "Bone_Necklace"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "bone_chest",
+      "Bone_Necklace"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-17",
+   "question": "Bretonnian Archer → Night Elf Archer",
+   "grade": true,
+   "hint": "Both are foot archers who draw a hand bow from a planted stance.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Archer-39884eb9\\Bretonnian_Archer.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Archer-39884eb9\\Bretonnian_Archer.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__archer-bbaa371a\\archer.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__archer-bbaa371a\\archer.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Archer-39884eb9\\Bretonnian_Archer.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__archer-bbaa371a\\archer.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Bretonnian_Archer-39884eb9\\Bretonnian_Archer.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-19",
+   "question": "Gnoll Assassin → Bronzebeard Crossbowman",
+   "grade": true,
+   "hint": "Both are short, stocky crossbow users who shoot from a low stance.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__gnollarcher-003001dd\\gnollarcher.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__gnollarcher-003001dd\\gnollarcher.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardCrossbowman_bakr-67a8433c\\BronzebeardCrossbowman_bakr.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardCrossbowman_bakr-67a8433c\\BronzebeardCrossbowman_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__gnollarcher-003001dd\\gnollarcher.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardCrossbowman_bakr-67a8433c\\BronzebeardCrossbowman_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__gnollarcher-003001dd\\gnollarcher.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 171 ms",
+     "sequence": "Walk",
+     "from": 171,
+     "to": 1067,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 240 ms",
+     "sequence": "Attack - 1",
+     "from": 240,
+     "to": 1500,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-20",
+   "question": "Bronzebeard Rifleman → Dire Rifleman",
+   "grade": true,
+   "hint": "Both are dwarf riflemen who raise a long gun to shoot from a braced stance.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardRifleman_bakr-19090b77\\BronzebeardRifleman_bakr.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardRifleman_bakr-19090b77\\BronzebeardRifleman_bakr.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Rifleman-b8290e4d\\Dire_Rifleman.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Rifleman-b8290e4d\\Dire_Rifleman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardRifleman_bakr-19090b77\\BronzebeardRifleman_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_Rifleman-b8290e4d\\Dire_Rifleman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardRifleman_bakr-19090b77\\BronzebeardRifleman_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 139 ms",
+     "sequence": "Attack",
+     "from": 139,
+     "to": 867,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "surfaceGrip",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "hangingChains",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-21",
+   "question": "Skaven Ratling Gunner → Repeater Handgunner",
+   "grade": true,
+   "hint": "Both are foot gunners who brace a heavy multibarrel gun with two hands.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ratling_unit-78117503\\ratling_unit.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ratling_unit-78117503\\ratling_unit.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_repeater-c2ddeec3\\handgunner_repeater.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_repeater-c2ddeec3\\handgunner_repeater.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ratling_unit-78117503\\ratling_unit.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_repeater-c2ddeec3\\handgunner_repeater.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ratling_unit-78117503\\ratling_unit.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "K_head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 178 ms",
+     "sequence": "Attack - 1",
+     "from": 178,
+     "to": 1110,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "K_head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-22",
+   "question": "Arquebus Handgunner → Reikland Handgunner",
+   "grade": true,
+   "hint": "Both are human handgunners who bring a long gun down out of an upright carry to shoot.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_arquebus-8b548da0\\handgunner_arquebus.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_arquebus-8b548da0\\handgunner_arquebus.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHandgunner-86c8fb6f\\ReiklandHandgunner.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHandgunner-86c8fb6f\\ReiklandHandgunner.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_arquebus-8b548da0\\handgunner_arquebus.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ReiklandHandgunner-86c8fb6f\\ReiklandHandgunner.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\handgunner_arquebus-8b548da0\\handgunner_arquebus.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand",
+    "Spell Throw"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 181 ms",
+     "sequence": "Attack - 1",
+     "from": 181,
+     "to": 1133,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "surfaceGrip",
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-23",
+   "question": "Hero Wizard → Tzeentch Shaman",
+   "grade": true,
+   "hint": "Both stand upright and sweep a tall magical staff outward with one hand.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Wizard-ac8a4103\\Hero_Wizard.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Wizard-ac8a4103\\Hero_Wizard.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\tzeench_shaman_unit-f50f769e\\tzeench_shaman_unit.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\tzeench_shaman_unit-f50f769e\\tzeench_shaman_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Wizard-ac8a4103\\Hero_Wizard.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\tzeench_shaman_unit-f50f769e\\tzeench_shaman_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Wizard-ac8a4103\\Hero_Wizard.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack · 193 ms",
+     "sequence": "Attack",
+     "from": 193,
+     "to": 1209,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-24",
+   "question": "Hero Dwarf Grand Mage → Bronzebeard Priest",
+   "grade": true,
+   "hint": "Both are dwarven casters who thrust a short casting rod forward.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_DwarfGrandMage-1ffc98f7\\Hero_DwarfGrandMage.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_DwarfGrandMage-1ffc98f7\\Hero_DwarfGrandMage.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardPriest_bakr-8bf2d2fe\\BronzebeardPriest_bakr.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardPriest_bakr-8bf2d2fe\\BronzebeardPriest_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_DwarfGrandMage-1ffc98f7\\Hero_DwarfGrandMage.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardPriest_bakr-8bf2d2fe\\BronzebeardPriest_bakr.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_DwarfGrandMage-1ffc98f7\\Hero_DwarfGrandMage.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 193 ms",
+     "sequence": "Walk",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1209,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "rootHeight",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-25",
+   "question": "Bronzebeard Mage → Skink High Priest",
+   "grade": true,
+   "hint": "Both small ground casters extend a glowing staff in one hand.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardMage_bakr-9ed883b9\\BronzebeardMage_bakr.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardMage_bakr-9ed883b9\\BronzebeardMage_bakr.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_high_priest_unit-5dbd9f60\\skink_high_priest_unit.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_high_priest_unit-5dbd9f60\\skink_high_priest_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardMage_bakr-9ed883b9\\BronzebeardMage_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\skink_high_priest_unit-5dbd9f60\\skink_high_priest_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardMage_bakr-9ed883b9\\BronzebeardMage_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 128 ms",
+     "sequence": "Walk",
+     "from": 128,
+     "to": 800,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 171 ms",
+     "sequence": "Attack",
+     "from": 171,
+     "to": 1067,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-26",
+   "question": "Hero Murgul Warlock → Northrend Murloc Warlock",
+   "grade": true,
+   "hint": "Both small amphibious warlocks bend into a cast with a staff in one hand.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroMurgulWarlock-f4d64dab\\HeroMurgulWarlock.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroMurgulWarlock-f4d64dab\\HeroMurgulWarlock.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRO_MurlocWarlock-985ea5a9\\NRO_MurlocWarlock.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRO_MurlocWarlock-985ea5a9\\NRO_MurlocWarlock.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroMurgulWarlock-f4d64dab\\HeroMurgulWarlock.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\NRO_MurlocWarlock-985ea5a9\\NRO_MurlocWarlock.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroMurgulWarlock-f4d64dab\\HeroMurgulWarlock.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 666,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack · 193 ms",
+     "sequence": "Attack",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose"
+    ],
+    "suggested": [
+     "trackWindow",
+     "donorPose"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-27",
+   "question": "Forest Troll Shadow Priest → Forest Troll High Priest",
+   "grade": true,
+   "hint": "Both troll priests reach forward with a short staff from a bent-knee pose.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ForestTrollShadowPriest-f80842b0\\ForestTrollShadowPriest.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ForestTrollShadowPriest-f80842b0\\ForestTrollShadowPriest.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__foresttrollshadowpriest-22f1c69d\\foresttrollshadowpriest.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__foresttrollshadowpriest-22f1c69d\\foresttrollshadowpriest.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ForestTrollShadowPriest-f80842b0\\ForestTrollShadowPriest.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__foresttrollshadowpriest-22f1c69d\\foresttrollshadowpriest.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ForestTrollShadowPriest-f80842b0\\ForestTrollShadowPriest.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack · 193 ms",
+     "sequence": "Attack",
+     "from": 193,
+     "to": 1208,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "heldGeometry",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-28",
+   "question": "Fel Orc Warlock → Furion",
+   "grade": true,
+   "hint": "Both carry a staff upright in one hand and extend it to cast.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FelOrcWarlock-8a3f4d5d\\FelOrcWarlock.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FelOrcWarlock-8a3f4d5d\\FelOrcWarlock.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__furion-9b694098\\furion.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__furion-9b694098\\furion.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FelOrcWarlock-8a3f4d5d\\FelOrcWarlock.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\nightelf__furion-9b694098\\furion.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FelOrcWarlock-8a3f4d5d\\FelOrcWarlock.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack -1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack -1 · 171 ms",
+     "sequence": "Attack -1",
+     "from": 171,
+     "to": 1067,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-29",
+   "question": "Furbolg Elder Shaman → Wendigo Shaman",
+   "grade": true,
+   "hint": "Both heavy furred shamans stand and attack with their hands free.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__furbolgshaman-1aa9291f\\furbolgshaman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__furbolgshaman-1aa9291f\\furbolgshaman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__wendigoshaman-2445ff6f\\wendigoshaman.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__wendigoshaman-2445ff6f\\wendigoshaman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__furbolgshaman-1aa9291f\\furbolgshaman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__wendigoshaman-2445ff6f\\wendigoshaman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__furbolgshaman-1aa9291f\\furbolgshaman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack spell",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "SpineLow",
+      "Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack spell · 160 ms",
+     "sequence": "Attack spell",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "SpineLow",
+      "Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": [
+     "skinLandmarks"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "skinLandmarks"
+   ]
+  },
+  {
+   "id": "reasonable-30",
+   "question": "Hero Grey Wizard → Bray Shaman",
+   "grade": true,
+   "hint": "Both foot casters extend a long staff from the side into a forward cast.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_GreyWizard-1c798ba7\\Hero_GreyWizard.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_GreyWizard-1c798ba7\\Hero_GreyWizard.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bray_shaman_unit-72644e0e\\bray_shaman_unit.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bray_shaman_unit-72644e0e\\bray_shaman_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_GreyWizard-1c798ba7\\Hero_GreyWizard.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\bray_shaman_unit-72644e0e\\bray_shaman_unit.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_GreyWizard-1c798ba7\\Hero_GreyWizard.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack · 193 ms",
+     "sequence": "Attack",
+     "from": 193,
+     "to": 1209,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-31",
+   "question": "Orc Warg Rider → Thrall",
+   "grade": true,
+   "hint": "Both wolf riders swing a one-handed hammer beside the mount's shoulder.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\OrcWargRider-20b96db2\\OrcWargRider.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\OrcWargRider-20b96db2\\OrcWargRider.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__thrall-e8b81916\\thrall.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__thrall-e8b81916\\thrall.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\OrcWargRider-20b96db2\\OrcWargRider.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__thrall-e8b81916\\thrall.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\OrcWargRider-20b96db2\\OrcWargRider.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 80 ms",
+     "sequence": "Walk",
+     "from": 80,
+     "to": 500,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-32",
+   "question": "Arkain Cavalry Sergeant → French Dragoon Cavalry",
+   "grade": true,
+   "hint": "Both cavalrymen make a one-handed saber cut beside a horse's neck.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_CavalrySergeant-840af16a\\Arkain_CavalrySergeant.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_CavalrySergeant-840af16a\\Arkain_CavalrySergeant.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchDragoonCavalry-3c93ab4d\\FrenchDragoonCavalry.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchDragoonCavalry-3c93ab4d\\FrenchDragoonCavalry.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_CavalrySergeant-840af16a\\Arkain_CavalrySergeant.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchDragoonCavalry-3c93ab4d\\FrenchDragoonCavalry.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_CavalrySergeant-840af16a\\Arkain_CavalrySergeant.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 91 ms",
+     "sequence": "Walk",
+     "from": 91,
+     "to": 567,
+     "speed": 50,
+     "bones": [
+      "BONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 133 ms",
+     "sequence": "Attack",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "BONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-33",
+   "question": "Swan Knight → Polish Lancer",
+   "grade": true,
+   "hint": "Both horse riders level a long lance for a forward strike.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\SwanKnight-70c4e072\\SwanKnight.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\SwanKnight-70c4e072\\SwanKnight.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishCavalry_2_Lance-75cdcf9c\\PolishCavalry_2(Lance).mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishCavalry_2_Lance-75cdcf9c\\PolishCavalry_2(Lance).mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\SwanKnight-70c4e072\\SwanKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishCavalry_2_Lance-75cdcf9c\\PolishCavalry_2(Lance).mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\SwanKnight-70c4e072\\SwanKnight.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 91 ms",
+     "sequence": "Walk",
+     "from": 91,
+     "to": 567,
+     "speed": 50,
+     "bones": [
+      "Bone HorseBONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 176 ms",
+     "sequence": "Attack - 1",
+     "from": 176,
+     "to": 1100,
+     "speed": 50,
+     "bones": [
+      "Bone HorseBONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-34",
+   "question": "Black Rock Rider → Arthas (mounted, undead)",
+   "grade": true,
+   "hint": "Both riders cut with a long blade from the saddle of a four-legged mount.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Black_Rock_RiderV1_0-01d66965\\Black Rock RiderV1.0.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Black_Rock_RiderV1_0-01d66965\\Black Rock RiderV1.0.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__undeadarthas-935d2338\\undeadarthas.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__undeadarthas-935d2338\\undeadarthas.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Black_Rock_RiderV1_0-01d66965\\Black Rock RiderV1.0.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__undeadarthas-935d2338\\undeadarthas.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Black_Rock_RiderV1_0-01d66965\\Black Rock RiderV1.0.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 80 ms",
+     "sequence": "Walk",
+     "from": 80,
+     "to": 500,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "rootHeight",
+     "saddleDriver",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "saddleDriver",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-35",
+   "question": "Arkain Knight Of Kome → Undivided Chaos Knight",
+   "grade": true,
+   "hint": "Both heavy cavalry units make a close one-handed sword strike from a shielded horse.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_KnightOfKome-03d21799\\Arkain_KnightOfKome.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_KnightOfKome-03d21799\\Arkain_KnightOfKome.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightUndividedSword07-6c335aab\\WH_WOC_KnightUndividedSword07.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightUndividedSword07-6c335aab\\WH_WOC_KnightUndividedSword07.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_KnightOfKome-03d21799\\Arkain_KnightOfKome.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightUndividedSword07-6c335aab\\WH_WOC_KnightUndividedSword07.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Arkain_KnightOfKome-03d21799\\Arkain_KnightOfKome.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 2",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 91 ms",
+     "sequence": "Walk",
+     "from": 91,
+     "to": 567,
+     "speed": 50,
+     "bones": [
+      "Bone Horse",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 155 ms",
+     "sequence": "Attack",
+     "from": 155,
+     "to": 967,
+     "speed": 50,
+     "bones": [
+      "Bone Horse",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-36",
+   "question": "WH WOC Knight Khorne Axe03 → Paladin Horse1.02",
+   "grade": true,
+   "hint": "Both armored riders swing a heavy one-handed weapon in front of the horse's shoulder.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightKhorneAxe03-7907efb9\\WH_WOC_KnightKhorneAxe03.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightKhorneAxe03-7907efb9\\WH_WOC_KnightKhorneAxe03.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PaladinHorse1_02-5febf0c7\\PaladinHorse1.02.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PaladinHorse1_02-5febf0c7\\PaladinHorse1.02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightKhorneAxe03-7907efb9\\WH_WOC_KnightKhorneAxe03.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PaladinHorse1_02-5febf0c7\\PaladinHorse1.02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightKhorneAxe03-7907efb9\\WH_WOC_KnightKhorneAxe03.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 91 ms",
+     "sequence": "Walk",
+     "from": 91,
+     "to": 567,
+     "speed": 50,
+     "bones": [
+      "Bone HorseBONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 176 ms",
+     "sequence": "Attack - 1",
+     "from": 176,
+     "to": 1100,
+     "speed": 50,
+     "bones": [
+      "Bone HorseBONE_PELVIS",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-37",
+   "question": "Stolio the Lancer → Tzeentch Lance Knight",
+   "grade": true,
+   "hint": "Both heavy cavalry models attack by leveling a lance over a horse's shoulder.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Stolio-b297c452\\Stolio.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Stolio-b297c452\\Stolio.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightTzeentchLance07-7ad03a7b\\WH_WOC_KnightTzeentchLance07.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightTzeentchLance07-7ad03a7b\\WH_WOC_KnightTzeentchLance07.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Stolio-b297c452\\Stolio.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_WOC_KnightTzeentchLance07-7ad03a7b\\WH_WOC_KnightTzeentchLance07.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Stolio-b297c452\\Stolio.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk Spell",
+    "Attack",
+    "Stand -1"
+   ],
+   "looks": [
+    {
+     "label": "Walk Spell · 91 ms",
+     "sequence": "Walk Spell",
+     "from": 91,
+     "to": 567,
+     "speed": 50,
+     "bones": [
+      "HorseChest",
+      "RiderChest",
+      "RiderHead"
+     ]
+    },
+    {
+     "label": "Attack · 160 ms",
+     "sequence": "Attack",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "HorseChest",
+      "RiderChest",
+      "RiderHead"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "hangingChains",
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": []
+   }
+  },
+  {
+   "id": "reasonable-38",
+   "question": "Cold One Rider → Lizardman Raiding Cavalry",
+   "grade": true,
+   "hint": "Both attack with a spear held forward while riding a long-tailed reptile.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Rider_UNIT-56eb708c\\Cold_One_Rider_UNIT.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Rider_UNIT-56eb708c\\Cold_One_Rider_UNIT.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\LizardmanRaidingCavalry-03441e1b\\LizardmanRaidingCavalry.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\LizardmanRaidingCavalry-03441e1b\\LizardmanRaidingCavalry.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Rider_UNIT-56eb708c\\Cold_One_Rider_UNIT.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\LizardmanRaidingCavalry-03441e1b\\LizardmanRaidingCavalry.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Rider_UNIT-56eb708c\\Cold_One_Rider_UNIT.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis_Coldone",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis_Coldone",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "keepTorso",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-39",
+   "question": "Bronzebeard Gryphon Rider → Wind Rider Undead",
+   "grade": true,
+   "hint": "Both wind up for a one-handed throw while their mounts hover and beat their wings.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardGryphonRider_bakr-27c8ff9f\\BronzebeardGryphonRider_bakr.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardGryphonRider_bakr-27c8ff9f\\BronzebeardGryphonRider_bakr.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WindRiderUndeadV1_00-63dc1654\\WindRiderUndeadV1.00.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WindRiderUndeadV1_00-63dc1654\\WindRiderUndeadV1.00.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardGryphonRider_bakr-27c8ff9f\\BronzebeardGryphonRider_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WindRiderUndeadV1_00-63dc1654\\WindRiderUndeadV1.00.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BronzebeardGryphonRider_bakr-27c8ff9f\\BronzebeardGryphonRider_bakr.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 267 ms",
+     "sequence": "Attack",
+     "from": 267,
+     "to": 1667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-40",
+   "question": "Black Legion Gryphon Rider → Apothecary Bat Mount",
+   "grade": true,
+   "hint": "Both riders lob a held projectile overhand from the saddle of a winged mount.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackLegionGryphonRiderV2-c3990817\\BlackLegionGryphonRiderV2.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackLegionGryphonRiderV2-c3990817\\BlackLegionGryphonRiderV2.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ApothecaryBatMountV1_02-40a7eb7c\\ApothecaryBatMountV1.02.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ApothecaryBatMountV1_02-40a7eb7c\\ApothecaryBatMountV1.02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackLegionGryphonRiderV2-c3990817\\BlackLegionGryphonRiderV2.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ApothecaryBatMountV1_02-40a7eb7c\\ApothecaryBatMountV1.02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\BlackLegionGryphonRiderV2-c3990817\\BlackLegionGryphonRiderV2.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk - 1",
+    "Attack",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk - 1 · 107 ms",
+     "sequence": "Walk - 1",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 267 ms",
+     "sequence": "Attack",
+     "from": 267,
+     "to": 1667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-41",
+   "question": "Elven Dire Dragonhawk → Warsong Wyvern Rider",
+   "grade": true,
+   "hint": "Both riders reach forward with a spear while their mounts remain airborne.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ElvenDireDragonhawk-5a414d4e\\ElvenDireDragonhawk.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ElvenDireDragonhawk-5a414d4e\\ElvenDireDragonhawk.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Warsong_WyvernRiderV2-98c6eaed\\Warsong_WyvernRiderV2.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Warsong_WyvernRiderV2-98c6eaed\\Warsong_WyvernRiderV2.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ElvenDireDragonhawk-5a414d4e\\ElvenDireDragonhawk.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Warsong_WyvernRiderV2-98c6eaed\\Warsong_WyvernRiderV2.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ElvenDireDragonhawk-5a414d4e\\ElvenDireDragonhawk.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 267 ms",
+     "sequence": "Attack",
+     "from": 267,
+     "to": 1667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-42",
+   "question": "Far Seer Wyvern → Hero Gnome Dragonrider",
+   "grade": true,
+   "hint": "Both riders aim a staff forward from a flying reptile's saddle.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FarSeerWyvernV2_02-0700890b\\FarSeerWyvernV2.02.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FarSeerWyvernV2_02-0700890b\\FarSeerWyvernV2.02.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroGnomeDragonrider-90f63ebd\\HeroGnomeDragonrider.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroGnomeDragonrider-90f63ebd\\HeroGnomeDragonrider.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FarSeerWyvernV2_02-0700890b\\FarSeerWyvernV2.02.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\HeroGnomeDragonrider-90f63ebd\\HeroGnomeDragonrider.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FarSeerWyvernV2_02-0700890b\\FarSeerWyvernV2.02.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk - 1",
+    "Attack",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk - 1 · 160 ms",
+     "sequence": "Walk - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone19",
+      "Bone_chest",
+      "Bone_head"
+     ]
+    },
+    {
+     "label": "Attack · 213 ms",
+     "sequence": "Attack",
+     "from": 213,
+     "to": 1334,
+     "speed": 50,
+     "bones": [
+      "Bone19",
+      "Bone_chest",
+      "Bone_head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": []
+   }
+  },
+  {
+   "id": "reasonable-43",
+   "question": "Gryphon Rider → Dragonhawk Rider",
+   "grade": true,
+   "hint": "Both riders bring a one-handed weapon forward for a ranged attack as their mounts bank.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__gryphonrider-fe21e8ec\\gryphonrider.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__gryphonrider-fe21e8ec\\gryphonrider.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__bloodelfdragonhawk-a175aae4\\bloodelfdragonhawk.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__bloodelfdragonhawk-a175aae4\\bloodelfdragonhawk.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__gryphonrider-fe21e8ec\\gryphonrider.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__bloodelfdragonhawk-a175aae4\\bloodelfdragonhawk.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\human__gryphonrider-fe21e8ec\\gryphonrider.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 267 ms",
+     "sequence": "Attack",
+     "from": 267,
+     "to": 1667,
+     "speed": 50,
+     "bones": [
+      "Bone Griffon Butt",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-44",
+   "question": "Dire Wolf → Fel Stalker",
+   "grade": true,
+   "hint": "Both are long-bodied canine beasts that brace on four feet and attack headfirst.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__direwolf-bbc7dc3d\\direwolf.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__direwolf-bbc7dc3d\\direwolf.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__felhound-09aca38c\\felhound.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__felhound-09aca38c\\felhound.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__direwolf-bbc7dc3d\\direwolf.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__felhound-09aca38c\\felhound.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__direwolf-bbc7dc3d\\direwolf.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 144 ms",
+     "sequence": "Walk",
+     "from": 144,
+     "to": 900,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Head",
+      "Bone Object67"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 107 ms",
+     "sequence": "Attack - 1",
+     "from": 107,
+     "to": 666,
+     "speed": 50,
+     "bones": [
+      "Bone Wolf Neck",
+      "Bone_Head",
+      "Bone Object67"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "rootHeight",
+     "authoredMotion",
+     "donorPose"
+    ],
+    "suggested": [
+     "authoredMotion"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-45",
+   "question": "Cold One Riderless → Snap Dragon",
+   "grade": true,
+   "hint": "Both long-snouted reptiles plant four legs and thrust their jaws forward.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Riderless-d2eca444\\Cold_One_Riderless.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Riderless-d2eca444\\Cold_One_Riderless.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\naga__snapdragon-b3ced23c\\snapdragon.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\naga__snapdragon-b3ced23c\\snapdragon.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Riderless-d2eca444\\Cold_One_Riderless.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\naga__snapdragon-b3ced23c\\snapdragon.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Cold_One_Riderless-d2eca444\\Cold_One_Riderless.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis_Coldone",
+      "Bone_Chest_Coldone",
+      "Bone_Head_Coldone"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 160 ms",
+     "sequence": "Attack - 1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis_Coldone",
+      "Bone_Chest_Coldone",
+      "Bone_Head_Coldone"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "authoredMotion",
+     "donorPose"
+    ],
+    "suggested": [
+     "skinLandmarks",
+     "authoredMotion"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-46",
+   "question": "Red Dragon → Wind Rider (Riderless)",
+   "grade": true,
+   "hint": "Both are flying reptiles with a long tail and two wings that attack headfirst.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__reddragon-8fbd9325\\reddragon.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__reddragon-8fbd9325\\reddragon.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__riderlesswyvern-a9e3ab42\\riderlesswyvern.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__riderlesswyvern-a9e3ab42\\riderlesswyvern.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__reddragon-8fbd9325\\reddragon.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\orc__riderlesswyvern-a9e3ab42\\riderlesswyvern.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__reddragon-8fbd9325\\reddragon.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack 1",
+    "Stand - 1",
+    "Spell Slam"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone_Butt",
+      "Bone_Head",
+      "Bone_ck L Foot "
+     ]
+    },
+    {
+     "label": "Attack 1 · 240 ms",
+     "sequence": "Attack 1",
+     "from": 240,
+     "to": 1500,
+     "speed": 50,
+     "bones": [
+      "Bone_Butt",
+      "Bone_Head",
+      "Bone_ck L Foot "
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": []
+   }
+  },
+  {
+   "id": "reasonable-47",
+   "question": "Frost Wyrm → Von Carstein Zombie Dragon",
+   "grade": true,
+   "hint": "Both are undead dragons that fly on skeletal wings and attack forward with their jaws.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__frostwyrm-1f00494f\\frostwyrm.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__frostwyrm-1f00494f\\frostwyrm.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_VC_ZombieDragon02-bd69b285\\WH_VC_ZombieDragon02.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_VC_ZombieDragon02-bd69b285\\WH_VC_ZombieDragon02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__frostwyrm-1f00494f\\frostwyrm.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\WH_VC_ZombieDragon02-bd69b285\\WH_VC_ZombieDragon02.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__frostwyrm-1f00494f\\frostwyrm.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack 1",
+    "Stand - 1",
+    "Spell Slam"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 144 ms",
+     "sequence": "Walk",
+     "from": 144,
+     "to": 900,
+     "speed": 50,
+     "bones": [
+      "Bone_Butt",
+      "Bone_Head",
+      "Bone_ck L Foot "
+     ]
+    },
+    {
+     "label": "Attack 1 · 144 ms",
+     "sequence": "Attack 1",
+     "from": 144,
+     "to": 900,
+     "speed": 50,
+     "bones": [
+      "Bone_Butt",
+      "Bone_Head",
+      "Bone_ck L Foot "
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": [
+     "donorPose"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-48",
+   "question": "Dreadlord → Succubus",
+   "grade": true,
+   "hint": "Both horned winged demons stand upright and reach forward with a free hand to attack.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__herodreadlord-c5ef9019\\herodreadlord.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__herodreadlord-c5ef9019\\herodreadlord.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__demoness-649aaa9d\\demoness.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__demoness-649aaa9d\\demoness.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__herodreadlord-c5ef9019\\herodreadlord.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\demon__demoness-649aaa9d\\demoness.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\undead__herodreadlord-c5ef9019\\herodreadlord.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 160 ms",
+     "sequence": "Walk",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 176 ms",
+     "sequence": "Attack - 1",
+     "from": 176,
+     "to": 1100,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "surfaceGrip",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose"
+    ],
+    "suggested": [
+     "extraMotion",
+     "trackWindow",
+     "keepTorso"
+    ]
+   }
+  },
+  {
+   "id": "reasonable-49",
+   "question": "Elder Voidwalker → Lava Spawn (Level 1)",
+   "grade": true,
+   "hint": "Both hover on a legless lower body and cast through a free hand.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__voidwalker-6ef9d442\\voidwalker.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__voidwalker-6ef9d442\\voidwalker.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__lavaspawn-6ff3e1cb\\lavaspawn.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__lavaspawn-6ff3e1cb\\lavaspawn.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__voidwalker-6ef9d442\\voidwalker.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__lavaspawn-6ff3e1cb\\lavaspawn.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__voidwalker-6ef9d442\\voidwalker.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 1"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 834,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 160 ms",
+     "sequence": "Attack",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "extraMotion",
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": []
+   }
+  },
+  {
+   "id": "reasonable-50",
+   "question": "Sea Turtle → Lightning Lizard",
+   "grade": true,
+   "hint": "Both are low, armored reptiles that brace on four feet and attack from the snout.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__seaturtle-b1f2b661\\seaturtle.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__seaturtle-b1f2b661\\seaturtle.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__thunderlizard-f8e878c9\\thunderlizard.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__thunderlizard-f8e878c9\\thunderlizard.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__seaturtle-b1f2b661\\seaturtle.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__thunderlizard-f8e878c9\\thunderlizard.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\reasonable-50\\creeps__seaturtle-b1f2b661\\seaturtle.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 267 ms",
+     "sequence": "Walk",
+     "from": 267,
+     "to": 1667,
+     "speed": 50,
+     "bones": [
+      "Bone Koto Neck02",
+      "Bone Koto Head01",
+      "Bone Object68"
+     ]
+    },
+    {
+     "label": "Attack · 160 ms",
+     "sequence": "Attack",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone Koto Neck02",
+      "Bone Koto Head01",
+      "Bone Object68"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "rootHeight",
+     "keepTorso",
+     "donorPose"
+    ],
+    "suggested": [
+     "keepTorso",
+     "donorPose"
+    ]
+   }
+  },
+  {
+   "id": "new-01",
+   "question": "Nether Dragon → Makrura Pooldweller",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__netherdragon-7351839c\\netherdragon.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__netherdragon-7351839c\\netherdragon.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__lobstrokkred-c14da854\\lobstrokkred.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__lobstrokkred-c14da854\\lobstrokkred.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__netherdragon-7351839c\\netherdragon.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__lobstrokkred-c14da854\\lobstrokkred.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\new-30\\creeps__netherdragon-7351839c\\netherdragon.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "attack",
+    "Stand",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 666,
+     "speed": 50,
+     "bones": [
+      "Bone00_root",
+      "Bone01",
+      "Bone03"
+     ]
+    },
+    {
+     "label": "attack · 160 ms",
+     "sequence": "attack",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone00_root",
+      "Bone01",
+      "Bone03"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose"
+    ],
+    "suggested": [
+     "hangingChains"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains"
+   ]
+  },
+  {
+   "id": "new-02",
+   "question": "French Rifleman → Polish Partisan WWII Sapper",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchWW1Sapper-3f6255b9\\FrenchWW1Sapper.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchWW1Sapper-3f6255b9\\FrenchWW1Sapper.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishPartisanSapper-8c3f7975\\PolishPartisanSapper.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishPartisanSapper-8c3f7975\\PolishPartisanSapper.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchWW1Sapper-3f6255b9\\FrenchWW1Sapper.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\PolishPartisanSapper-8c3f7975\\PolishPartisanSapper.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\FrenchWW1Sapper-3f6255b9\\FrenchWW1Sapper.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell Throw"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 133 ms",
+     "sequence": "Walk",
+     "from": 133,
+     "to": 833,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 139 ms",
+     "sequence": "Attack",
+     "from": 139,
+     "to": 867,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": []
+   },
+   "regression": true,
+   "ticks": []
+  },
+  {
+   "id": "new-04",
+   "question": "Italian Officer WWI → CCP Chinese Shocktroop",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianOfficerWWI-eb3eb113\\ItalianOfficerWWI.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianOfficerWWI-eb3eb113\\ItalianOfficerWWI.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ChineseCCP_Shocktroop-3d610f80\\ChineseCCP_Shocktroop.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ChineseCCP_Shocktroop-3d610f80\\ChineseCCP_Shocktroop.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianOfficerWWI-eb3eb113\\ItalianOfficerWWI.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ChineseCCP_Shocktroop-3d610f80\\ChineseCCP_Shocktroop.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianOfficerWWI-eb3eb113\\ItalianOfficerWWI.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand - 2",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 149 ms",
+     "sequence": "Walk",
+     "from": 149,
+     "to": 933,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 139 ms",
+     "sequence": "Attack",
+     "from": 139,
+     "to": 867,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "rootHeight",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "new-05",
+   "question": "Italian Airborn SMG → Dire Orc Death Knight",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianAirborn_SMG-98eb0e9a\\ItalianAirborn_SMG.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianAirborn_SMG-98eb0e9a\\ItalianAirborn_SMG.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_GruntDead-ee32f22b\\Dire_GruntDead.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_GruntDead-ee32f22b\\Dire_GruntDead.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianAirborn_SMG-98eb0e9a\\ItalianAirborn_SMG.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Dire_GruntDead-ee32f22b\\Dire_GruntDead.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ItalianAirborn_SMG-98eb0e9a\\ItalianAirborn_SMG.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack",
+    "Stand",
+    "Spell Throw"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 117 ms",
+     "sequence": "Walk",
+     "from": 117,
+     "to": 733,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack · 155 ms",
+     "sequence": "Attack",
+     "from": 155,
+     "to": 967,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "gripRouting",
+     "surfaceGrip",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "gripRouting"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "gripRouting"
+   ]
+  },
+  {
+   "id": "new-08",
+   "question": "Hero Berserker → Druid of the Talon (Night Elf Form)",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Berserker-4acc1c0f\\Hero_Berserker.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Berserker-4acc1c0f\\Hero_Berserker.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\new-30\\nightelf__druidofthetalon-edea56bb\\druidofthetalon.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\new-30\\nightelf__druidofthetalon-edea56bb\\druidofthetalon.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Berserker-4acc1c0f\\Hero_Berserker.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\new-30\\nightelf__druidofthetalon-edea56bb\\druidofthetalon.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\Hero_Berserker-4acc1c0f\\Hero_Berserker.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 107 ms",
+     "sequence": "Walk",
+     "from": 107,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 193 ms",
+     "sequence": "Attack - 1",
+     "from": 193,
+     "to": 1209,
+     "speed": 50,
+     "bones": [
+      "Hip",
+      "Chest",
+      "Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "skinLandmarks",
+     "hangingChains",
+     "trackWindow",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "skinLandmarks",
+    "hangingChains",
+    "trackWindow",
+    "keepTorso",
+    "seatWeapon"
+   ]
+  },
+  {
+   "id": "new-26",
+   "question": "Dire Gnoll Hero → In Land Murloc Spear Man Purple",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\DireGnoll-466b1801\\DireGnoll.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\DireGnoll-466b1801\\DireGnoll.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ILP_MurlocSpearman-94e16265\\ILP_MurlocSpearman.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ILP_MurlocSpearman-94e16265\\ILP_MurlocSpearman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\DireGnoll-466b1801\\DireGnoll.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\ILP_MurlocSpearman-94e16265\\ILP_MurlocSpearman.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\DireGnoll-466b1801\\DireGnoll.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": true
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack -1",
+    "Stand Ready",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 117 ms",
+     "sequence": "Walk",
+     "from": 117,
+     "to": 733,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack -1 · 160 ms",
+     "sequence": "Attack -1",
+     "from": 160,
+     "to": 1000,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose"
+    ],
+    "suggested": [
+     "trackWindow"
+    ]
+   }
+  },
+  {
+   "id": "random-10",
+   "question": "Saurus Oldblood Hero → Kroxigor Hero",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\e3533207a5b0378b\\Oldblood_hero.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\e3533207a5b0378b\\Oldblood_hero.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\18c1dc9673e4b407\\kroxigor_hero_xtent_fix.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\18c1dc9673e4b407\\kroxigor_hero_xtent_fix.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\e3533207a5b0378b\\Oldblood_hero.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\18c1dc9673e4b407\\kroxigor_hero_xtent_fix.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\e3533207a5b0378b\\Oldblood_hero.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 149 ms",
+     "sequence": "Walk",
+     "from": 149,
+     "to": 933,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 128 ms",
+     "sequence": "Attack - 1",
+     "from": 128,
+     "to": 800,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "skinLandmarks",
+     "trackWindow",
+     "seatWeapon"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "skinLandmarks",
+    "trackWindow",
+    "seatWeapon"
+   ]
+  },
+  {
+   "id": "random-17",
+   "question": "Shaman → Skink Chief (Hero)",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\9edbbf8be272a140\\orc__shaman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\9edbbf8be272a140\\orc__shaman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\f25101fecc65628d\\skink_chief_hero.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\f25101fecc65628d\\skink_chief_hero.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\9edbbf8be272a140\\orc__shaman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\f25101fecc65628d\\skink_chief_hero.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\9edbbf8be272a140\\orc__shaman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack -1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 138 ms",
+     "sequence": "Walk",
+     "from": 138,
+     "to": 866,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack -1 · 186 ms",
+     "sequence": "Attack -1",
+     "from": 186,
+     "to": 1166,
+     "speed": 50,
+     "bones": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "extraMotion",
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "trackWindow",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "skinLandmarks",
+     "trackWindow",
+     "seatWeapon"
+    ]
+   }
+  },
+  {
+   "id": "random-21",
+   "question": "Dark Elf Slavemaster (Unit) → Empire Handgunners (Scoped)",
+   "grade": true,
+   "model": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\c520ac4cbad1d5c0\\Dark_Elf_Slavemaster_unit_opt.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\c520ac4cbad1d5c0\\Dark_Elf_Slavemaster_unit_opt.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\cdde947153c43e36\\handgunner_scope.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\cdde947153c43e36\\handgunner_scope.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\c520ac4cbad1d5c0\\Dark_Elf_Slavemaster_unit_opt.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\cdde947153c43e36\\handgunner_scope.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\xfer-reasonable\\c520ac4cbad1d5c0\\Dark_Elf_Slavemaster_unit_opt.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Attack - 1",
+    "Stand - 1",
+    "Spell"
+   ],
+   "looks": [
+    {
+     "label": "Walk · 106 ms",
+     "sequence": "Walk",
+     "from": 106,
+     "to": 667,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    },
+    {
+     "label": "Attack - 1 · 138 ms",
+     "sequence": "Attack - 1",
+     "from": 138,
+     "to": 867,
+     "speed": 50,
+     "bones": [
+      "Bone_Pelvis",
+      "Bone_Chest",
+      "Bone_Head"
+     ]
+    }
+   ],
+   "suggestion": {
+    "visible": [
+     "heldGeometry",
+     "skinLandmarks",
+     "rootHeight",
+     "authoredMotion",
+     "keepTorso",
+     "donorPose",
+     "seatWeapon"
+    ],
+    "suggested": [
+     "heldGeometry",
+     "authoredMotion",
+     "seatWeapon"
+    ]
+   },
+   "regression": true,
+   "ticks": [
+    "heldGeometry",
+    "authoredMotion",
+    "seatWeapon"
+   ]
+  },
+  {
+   "id": "legs-01",
+   "question": "Footman → Timber Wolf",
+   "grade": true,
+   "choice": true,
+   "hint": "Front legs: try Mirror legs with its Leg timing slider, and Use arms.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Stand",
+    "Attack"
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "mirrorLegs",
+     "useArms"
+    ],
+    "suggested": [
+     "hangingChains",
+     "mirrorLegs"
+    ]
+   }
+  }
+ ]
+}

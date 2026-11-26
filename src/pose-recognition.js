@@ -1,6 +1,8 @@
-import { isWeaponName } from './rig-names.js';
-import { Quaternion, Vector3 } from 'three';
-import { nodePivot } from './animation.js';
+import { isClothName, isWeaponName, nameLimbTop, nameRegion } from './rig-names.js';
+import { Matrix4, Quaternion, Vector3 } from 'three';
+import { allNodes, nodePivot, sampleNodeMatrices } from './animation.js';
+import { poseNodeRole } from './pose-ik.js';
+import { standSequenceIndex } from './sequence-editor.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { nodeIndex } from './node-hierarchy.js';
 import { vertexBones } from './part-bones.js';
@@ -170,6 +172,17 @@ export function inferPoseBranches(evidence, roleOf, occupied, model = null, clue
     const start = pivot(evidence.byId.get(branch.ids[0])), end = pivot(evidence.byId.get(branch.ids.at(-1)));
     if (end.z > bottom + start.distanceTo(end) * .3) branch.kind = 'arm';
   }
+  // Hands that hang down are no feet: a branch that hangs from the joint its head or neck also hangs from (a chest), and
+  // ends higher above the lowest skinned joint of its skeleton than the branch is long, is an arm (R2: the Steam Tank
+  // commander's arms over the tank's wheels; a four-legged body's front legs reach its lowest joints and stay legs).
+  if (clues) for (const branch of result.filter(branch => branch.kind === 'leg')) {
+    const first = byId.get(branch.ids[0]), parent = byId.get(first?.Parent);
+    if (!parent || !(children.get(parent.ObjectId) || []).some(node => ['Head', 'Neck'].includes(roleOf(node)))) continue;
+    const top = rootOf(branch.ids[0]), skinned = nodes.filter(node => rootOf(node.ObjectId) === top && supported(node));
+    const bottom = Math.min(...skinned.map(node => pivot(node).z)), start = pivot(first), end = pivot(byId.get(branch.ids.at(-1)));
+    const length = branch.ids.slice(1).reduce((sum, id, i) => sum + pivot(byId.get(id)).distanceTo(pivot(byId.get(branch.ids[i]))), 0);
+    if (Number.isFinite(bottom) && end.z > bottom + Math.max(length, start.distanceTo(end))) branch.kind = 'arm';
+  }
   // A branch the names alone would have hidden, whose skin is a sheet, is a wing.
   if (model) for (const branch of isNew) if (branch.kind === 'arm') {
     const flat = poseSkinFlatness(model, evidence, branch.ids);
@@ -283,4 +296,131 @@ export function posePartGaps({ evidence, tree, chains, roles, roleOf, body, chai
     for (const id of between) if (!hasRole(id) && !limbJoints.has(id) && moving(byId.get(id))) out[id] = 'Neck';
   }
   return out;
+}
+
+// The poses poseLimbOrCloth reads, kept with the evidence they belong to (one
+// snapshot of the model, as the evidence is).
+const limbOrClothPoses = new WeakMap();
+function limbOrClothPose(model, evidence, sequence) {
+  const sequences = model.Sequences || [];
+  let stand = Number.isInteger(sequence) && sequences[sequence]?.Interval ? sequence : standSequenceIndex(model);
+  if (!(stand >= 0 && sequences[stand]?.Interval)) stand = sequences.findIndex(item => item?.Interval);
+  let byStand = limbOrClothPoses.get(evidence);
+  if (!byStand) limbOrClothPoses.set(evidence, byStand = new Map());
+  if (byStand.has(stand)) return byStand.get(stand);
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
+  const bind = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
+  const reference = stand >= 0 ? sampleNodeMatrices(model, sequences[stand].Interval[0], stand) : null;
+  const walk = sequences.findIndex(item => item?.Interval && /^\s*walk/i.test(item.Name || ''));
+  const steps = walk < 0 ? null : Array.from({ length: 16 }, (_, i) => { const [a, z] = sequences[walk].Interval; return sampleNodeMatrices(model, a + (z - a) * i / 16, walk); });
+  const at = (id, matrices) => bind(id).applyMatrix4(matrices?.get(id) || reference?.get(id) || new Matrix4());
+  const result = { byId, bind, reference, steps, at };
+  byStand.set(stand, result);
+  return result;
+}
+
+/** Whether a chain the rig reads as a leg is a limb or hanging cloth, from several clues.
+ * -> { kind: 'limb' | 'cloth' | 'unsure', score, clues: { attach, flat, reach, phase, name } }
+ * Clues (cloth positive, limb negative), measured over a real corpus first
+ * (docs/agent-tasks/recognition-limb-or-cloth.md, part A):
+ * - attach: the chain hangs from the joint the arms hang from (the nearest common
+ *   ancestor of the arms' roots on its skeleton) while another leg does not: +2.
+ * - flat: its skin is a sheet (`poseSkinFlatness` under .3): +2; a tube (over .5): -2.
+ * - reach: its end, in the first frame of Stand, reaches the floor (within 5% of the
+ *   skeleton's height of its lowest leg end): -2; stops short (over 15%) while
+ *   another leg reaches it: +1.
+ * - phase: in Walk, its end swings forward with its mirrored partner's (correlation
+ *   over .5): +1; against it (under -.5): -2.
+ * - name: a cloth word: +2; a leg, foot or hoof name: -3.
+ * `cloth` needs a score of 3 or more from at least two clues that agree; 0 or less is
+ * `limb`; between is `unsure`, which every caller treats as `limb` (today's reading).
+ * `suggestPoseRig` asks this for every leg and carries a `cloth` answer on the chain.
+ * `sequence` is the Stand to read the floor in (default: the model's Stand). */
+export function poseLimbOrCloth(model, rig, chain, { evidence, sequence } = {}) {
+  evidence ||= poseRecognitionEvidence(model);
+  const { tree } = evidence, { byId, bind, reference, steps, at } = limbOrClothPose(model, evidence, sequence);
+  const idsOf = item => item?.joints || [item?.root, item?.middle, item?.end];
+  // A chain the rig already carries as cloth (`suggestPoseRig`) is measured with the legs and is
+  // none of the arms, so the answer is the same on a rig read before or after it was marked.
+  const leg = item => item.kind === 'leg' && item.label !== 'Wing' || item.cloth === true, arm = item => item.kind === 'arm' && item.label !== 'Wing' && !item.cloth;
+  const skeleton = tree.root(chain.root), legs = (rig.chains || []).filter(item => leg(item) && tree.root(item.root) === skeleton);
+  if (!legs.includes(chain)) legs.push(chain);
+  const lengthOf = item => { const ids = idsOf(item); let sum = 0; for (let i = 1; i < ids.length; i++) sum += bind(ids[i]).distanceTo(bind(ids[i - 1])); return sum; };
+  const commonAncestor = ids => { if (!ids.length) return null; for (const id of tree.ancestors(ids[0])) if (ids.every(other => other !== id && tree.isAncestor(other, id))) return id; return null; };
+  // Attach: under the arms' joint, while another leg of this skeleton is not (not a flat rig).
+  const armRoots = (rig.chains || []).filter(item => arm(item) && tree.root(item.root) === skeleton).map(item => item.root);
+  const junction = armRoots.length >= 2 ? commonAncestor(armRoots) : null;
+  const underJunction = item => junction != null && item.root !== junction && tree.isAncestor(item.root, junction);
+  const attach = junction == null || legs.every(underJunction) ? null : underJunction(chain) ? 1 : 0;
+  const ids = idsOf(chain), flat = poseSkinFlatness(model, evidence, ids);
+  // Reach: height above the skeleton's lowest leg end, over the skeleton's joint height.
+  let reach = null, othersReach = false;
+  if (reference) {
+    const heights = evidence.nodes.filter(node => tree.root(node.ObjectId) === skeleton).map(node => at(node.ObjectId, reference).z);
+    const height = Math.max(...heights) - Math.min(...heights), ends = new Map(legs.map(item => [item, at(item.end, reference).z])), lowest = Math.min(...ends.values());
+    const reachOf = item => (ends.get(item) - lowest) / height;
+    if (height > 1e-6) { reach = reachOf(chain); othersReach = legs.some(item => item !== chain && reachOf(item) < .05); }
+  }
+  // Phase: the forward swing of this end against its mirrored partner's, in Walk.
+  let phase = null;
+  if (steps) {
+    const length = lengthOf(chain);
+    let partner = null, best = Infinity;
+    for (const other of legs) {
+      if (other === chain) continue;
+      const otherLength = lengthOf(other);
+      if (Math.min(length, otherLength) / Math.max(length, otherLength) <= .65) continue;
+      const origin = commonAncestor([chain.root, other.root]);
+      if (origin == null) continue;
+      const span = Math.max(length, otherLength), error = evidence.mirrorError(bind(chain.end), bind(other.end), bind(origin), span) + evidence.mirrorError(bind(chain.root), bind(other.root), bind(origin), span);
+      if (error < .4 && error < best) { best = error; partner = other; }
+    }
+    if (partner) {
+      const swing = item => steps.map(matrices => at(item.end, matrices).sub(at(item.root, matrices)));
+      const a = swing(chain), b = swing(partner), moves = list => Math.max(...list.map(p => p.distanceTo(list[0])));
+      if (moves(a) >= .05 * length && moves(b) >= .05 * lengthOf(partner)) {
+        const x = a.map(p => p.x), y = b.map(p => p.x), mx = x.reduce((s, v) => s + v, 0) / x.length, my = y.reduce((s, v) => s + v, 0) / y.length;
+        let sxy = 0, sxx = 0, syy = 0;
+        for (let i = 0; i < x.length; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; }
+        phase = sxx < 1e-12 || syy < 1e-12 ? null : sxy / Math.sqrt(sxx * syy);
+      }
+    }
+  }
+  const roleOf = id => rig.roles?.[id] || poseNodeRole(byId.get(id));
+  const name = ids.some(id => nameRegion(byId.get(id)?.Name) === 'leg' || ['Foot', 'Hoof'].includes(roleOf(id))) ? 'limb' : ids.some(id => isClothName(byId.get(id)?.Name)) ? 'cloth' : null;
+  const parts = [];
+  if (attach === 1) parts.push(2);
+  if (flat != null) parts.push(flat < .3 ? 2 : flat > .5 ? -2 : 0);
+  if (reach != null) parts.push(reach < .05 ? -2 : reach > .15 && othersReach ? 1 : 0);
+  if (phase != null) parts.push(phase > .5 ? 1 : phase < -.5 ? -2 : 0);
+  if (name) parts.push(name === 'cloth' ? 2 : -3);
+  const score = parts.reduce((sum, value) => sum + value, 0), agree = parts.filter(value => value > 0).length;
+  return { kind: score >= 3 && agree >= 2 ? 'cloth' : score <= 0 ? 'limb' : 'unsure', score, clues: { attach, flat, reach, phase, name } };
+}
+
+/** Where a limb itself starts among the joints that lead to it. A handle chain is the last three
+ * joints (top, bend, end); a joint above its top is either a piece of the girdle (collar,
+ * shoulder, hip) or the limb's own upper part (a thigh above a hock chain, an upper arm above a
+ * split forearm). `points` are the joints' rest positions from the trunk outward, `names` their
+ * names, `top` and `end` the indices of the chain's top and end, `kind` 'arm' or 'leg'.
+ * Returns the index of the limb's first joint (`top` or less).
+ * Clues per joint above, measured over 1,200 models (docs/agent-tasks/xfer-both-ways.md):
+ * - length: its length against the limb below it; .45 or more: +2, else -2.
+ * - line: it lies along the limb (within 35 degrees of the line to the end): +1; over 60: -1.
+ * - name: an upper-arm or thigh word: +1; a collar or shoulder word: -1.
+ * Part of the limb needs a score of 2 or more from at least two clues that agree; anything
+ * else stays above the limb (the reading before this rule). No single clue decides. */
+export function poseLimbStart(points, names, top, end, kind) {
+  let start = top;
+  while (start > 0) {
+    const from = points[start], segment = from.clone().sub(points[start - 1]);
+    let reach = 0;
+    for (let j = start; j < end; j++) reach += points[j + 1].distanceTo(points[j]);
+    if (!(reach > 1e-6) || segment.length() < 1e-6) break;
+    const angle = segment.angleTo(points[end].clone().sub(from)) * 180 / Math.PI, says = nameLimbTop(names[start - 1], kind);
+    const clues = [segment.length() / reach >= .45 ? 2 : -2, angle < 35 ? 1 : angle > 60 ? -1 : 0, says === 'limb' ? 1 : says === 'girdle' ? -1 : 0];
+    if (clues.reduce((sum, value) => sum + value, 0) < 2 || clues.filter(value => value > 0).length < 2) break;
+    start--;
+  }
+  return start;
 }

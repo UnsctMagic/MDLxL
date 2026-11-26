@@ -126,6 +126,9 @@ const poseSetupModel = testModel('pose-setup-fixture/WH_VC_VonCarsteinLord07.mdx
 SPECIAL['pose-setup'] = { env: { MDLXL_POSE_FIXTURE: poseSetupModel }, needs: [poseSetupModel, testModel('pose-setup-fixture/Textures')] };
 for (const name of ['optimizexl-opening', 'optimizexl-cleanup']) SPECIAL[name] = { env: { MDLXL_OPENING_MODEL: openingModel }, needs: [openingModel] };
 SPECIAL['ai-multi-tab'].needs = [footman];
+// Transfer: stories A and B plus a click-through of the window (MDLXL_TRANSFER_SWEEP); the three story models and the plague cloud.
+const transferModels = ['transfer-footman', 'transfer-grunt', 'transfer-lord-of-change'].map(fixturePath);
+SPECIAL.transfer = { env: { MDLXL_TRANSFER_OUT: out('transfer-ui'), MDLXL_TRANSFER_SWEEP: '1' }, needs: transferModels, timeout: 20 * 60 * 1000 };
 // Development build only: these replace electron/main.cjs with a stubbed wrapper entry before starting it, which a
 // packaged MDLxL.exe cannot load. They get no MDLXL_TEST_EXE and always start the development Electron with dist/.
 export const DEV_ONLY = ['welcome-prompt', 'close-prompt', 'model-close', 'showcase', 'showcase-effects', 'showcase-layout', 'showcase-queue', 'showcase-recording-particles', 'showcase-text', 'startup', 'update-popup-fallback', 'update-shredder', 'updater', 'updater-bootstrap', 'updater-packaged'];

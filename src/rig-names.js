@@ -22,6 +22,28 @@ export function isWeaponName(name, extraWords = []) {
   return nameTokens(name).some(token => weapons.has(token) || extraWords.includes(token));
 }
 
+// Words for things that hang and swing rather than walk. One clue among several
+// for POSE recognition (`poseLimbOrCloth`); never a rule on its own.
+export const CLOTH_WORDS = Object.freeze([
+  'cloth', 'cape', 'cloak', 'banner', 'scroll', 'ribbon', 'strap', 'tassel', 'skirt',
+  'tabard', 'loin', 'fur', 'panel', 'flap', 'sash', 'hair', 'beard', 'braid',
+]);
+const cloths = new Set(CLOTH_WORDS);
+
+export function isClothName(name) {
+  return nameTokens(name).some(token => cloths.has(token));
+}
+
+/** What a name says about a joint above a limb's handle chain: the limb's own upper part
+ * ('limb': an upper arm, a thigh) or a piece of the girdle ('girdle': a collar, a shoulder).
+ * One clue among several for `poseLimbStart`; never a rule on its own. Hip words say nothing:
+ * measured, long joints named Hip are thighs. */
+export function nameLimbTop(name, kind) {
+  const text = String(name || '').toLowerCase();
+  if (kind === 'arm') return /upper.?arm|up.?arm|arm.?1|bicep|humer/.test(text) ? 'limb' : /clav|collar|shoulder|scap/.test(text) ? 'girdle' : null;
+  return /upper.?leg|up.?leg|thigh|leg.?1|femur/.test(text) ? 'limb' : null;
+}
+
 /** Explicit side words win over initials, then the compact handr/rhand forms. */
 export function nameSide(name) {
   const tokens = nameTokens(name), compact = tokens.join('');

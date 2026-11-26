@@ -55,6 +55,7 @@ export const COMMANDS = coreHotkeyDefaults([
   ...group('Modules', [['launcher','Search commands','Ctrl+F2'],['showcase','Showcase'],['autoCorpse','Auto Corpse']]),
   ...group('Settings', [['toolbarCycle','Next toolbar style','Shift+F3'],['visToggle','VIS look']]),
   ...group('View', [['vertexAnimated','Animated','Shift+Space']]),
+  ...group('Modules', [['transfer','Transfer','F11']]),
   ...group('Help', [['reportProblem','Report a problem']]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);
 

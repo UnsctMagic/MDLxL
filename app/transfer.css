@@ -1,0 +1,228 @@
+/* Transfer: the FX window's three columns (surface-effects.css) over the whole editor area, in the MDLxL theme.
+   From list left, donor and result with the transport under them in the middle, parts right. */
+.resource-editor.transfer-xl .xf-window{position:fixed;left:var(--xf-x,auto);top:var(--xf-y,auto);width:var(--xf-w,1140px);height:var(--xf-h,740px);min-width:820px;min-height:520px;max-width:100vw;max-height:100vh;resize:both;overflow:hidden}
+.transfer-xl .xf-body{display:grid;grid-template-columns:210px minmax(300px,1fr) 270px;flex:1;min-height:0;padding:8px;gap:8px}
+.transfer-xl .xf-from,.transfer-xl .xf-controls{display:flex;flex-direction:column;min-height:0;gap:5px}
+.transfer-xl .xf-heading{font-size:12px}
+.transfer-xl .xf-list{display:flex;flex-direction:column;gap:0;overflow:auto;min-height:0;background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-from>.xf-list:first-of-type{flex:none;max-height:40%}
+.transfer-xl .xf-animations{flex:1}
+.transfer-xl .xf-list .gf-row{position:relative;width:100%;min-height:24px;height:24px;padding:0 6px;border:0;border-radius:0;box-shadow:none;background:transparent;text-align:left;font-weight:normal;font-size:12px;gap:5px;display:flex;align-items:center;justify-content:flex-start;color:var(--ui-text,#16191e)}
+.transfer-xl .xf-list .gf-row:hover{background:var(--ui-hover,#e7e3db)}
+.transfer-xl .xf-list .gf-row.selected{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-list .gf-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-xl .xf-list .gf-twist{display:none}
+.transfer-xl .xf-list .xf-action{color:var(--ui-muted,#444)}
+.transfer-xl .xf-empty{padding:6px}
+/* Stage: two views side by side, each with a one-line caption; the transport directly under them. */
+.transfer-xl .xf-center{min-width:0;display:flex;flex-direction:column;gap:7px}
+.transfer-xl .xf-stage{flex:1;min-height:150px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.transfer-xl .xf-view{min-width:0;min-height:0;display:flex;flex-direction:column;gap:3px}
+.transfer-xl .xf-caption{display:flex;align-items:center;gap:6px;min-height:24px;color:var(--ui-text,#16191e)}
+.transfer-xl .xf-caption>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:bold}
+.transfer-xl .xf-caption>button{flex:none}
+.transfer-xl .xf-preview{flex:1;min-height:0;position:relative;overflow:hidden;border:1px solid var(--ui-border,#888);background:#222}
+.transfer-xl .xf-preview>div:not(.xf-overlay-note):not(.xf-placeholder):not(.xf-chip){position:absolute;inset:0}
+.transfer-xl .xf-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;background:var(--ui-surface,var(--ui-panel,#f0f0f0));color:var(--ui-muted,#444)}
+.transfer-xl .xf-overlay-note{position:absolute;left:6px;right:6px;bottom:6px;z-index:5;padding:4px 8px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-overlay-note p{margin:0}
+.transfer-xl .xf-message{top:6px;bottom:auto}
+.transfer-xl .xf-note{color:var(--ui-muted,#444);margin:0}
+.transfer-xl .xf-preview>.xf-note{position:absolute;left:6px;top:6px;color:#ccc}
+.transfer-xl .xf-transport{display:flex;gap:5px;align-items:center}
+.transfer-xl .xf-scrub{flex:1;min-width:80px}
+.transfer-xl .xf-time{min-width:48px;font-variant-numeric:tabular-nums;color:var(--ui-muted,#333)}
+/* Parts column. */
+.transfer-xl .xf-controls{overflow:auto;padding:0 4px 0 2px}
+.transfer-xl .xf-field{display:flex;align-items:center;gap:5px}
+.transfer-xl .xf-field select{flex:1;min-width:0}
+.transfer-xl .xf-row-buttons{display:flex;gap:4px}
+.transfer-xl .xf-row-buttons>button{flex:1 1 auto;min-width:0;padding:3px 4px;white-space:nowrap}
+.transfer-xl .xf-clip-name{margin-left:6px;font-weight:normal;color:var(--ui-muted,#555)}
+.transfer-xl .xf-reason{font-size:11px}
+.transfer-xl .xf-parts{flex:none}
+.transfer-xl .xf-list .xf-part{height:auto;min-height:21px;padding:0 4px;gap:4px}
+.transfer-xl .xf-part>input{flex:none;margin:0}
+.transfer-xl .xf-list .xf-all{border-bottom:1px solid var(--ui-border,#8b8b87)}
+.transfer-xl .xf-list .xf-all>.xf-part-name{font-weight:bold;padding-left:20px}
+.transfer-xl .xf-list .xf-all>.xf-part-name:disabled{color:var(--ui-muted,#777)!important;font-weight:normal}
+.transfer-xl .xf-list .xf-part-name{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:flex-start;gap:6px;padding:3px 2px;border:0;border-radius:0;background:transparent!important;box-shadow:none!important;color:inherit!important;text-align:left;font-size:12px}
+.transfer-xl .xf-part-name>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
+.transfer-xl .xf-part.selected .xf-part-name>small{color:inherit}
+.transfer-xl .xf-part-controls{display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--ui-border,#8b8b87);padding-top:4px}
+.transfer-xl .xf-part-title{display:flex;align-items:center;gap:6px;min-height:22px}
+.transfer-xl .xf-part-title>b{flex:1}
+.transfer-xl .xf-part-controls>button{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Single-row sliders in the parts column: name, track, value; Mine / Theirs under the track. */
+.transfer-xl .xf-slider .range-field.range-field{width:100%;display:grid;grid-template-columns:58px minmax(0,1fr) 40px;align-items:center;column-gap:5px;row-gap:0;font-size:11px}
+.transfer-xl .xf-slider .range-field-head{display:contents}
+.transfer-xl .xf-slider .range-field-head>span:first-child{grid-column:1;grid-row:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-xl .xf-slider .range-field-head>output{grid-column:3;grid-row:1;text-align:right;font-variant-numeric:tabular-nums}
+.transfer-xl .xf-slider .range-input{grid-column:2;grid-row:1;min-width:0;margin:0;height:16px}
+.transfer-xl .xf-slider .range-field-ends{grid-column:2;grid-row:2;font-size:9px;line-height:1;margin-top:-2px}
+.transfer-xl .xf-repairs{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;flex:none;min-width:0;min-height:18px;font-size:11px}
+.transfer-xl .xf-repairs .xf-check{flex:none}
+.transfer-xl .xf-engines{display:inline-flex;flex-wrap:wrap;gap:2px 6px;align-items:center;flex:0 1 auto;min-width:0;max-width:100%}
+.transfer-xl .xf-suggested{color:var(--ui-muted,#555);cursor:help}
+.transfer-xl .xf-check{display:flex;gap:4px;align-items:center;font-size:11px;min-height:18px}
+.transfer-xl .xf-timing{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
+.transfer-xl .xf-timing>summary{cursor:pointer;font-weight:bold;padding:2px 0}
+.transfer-xl .xf-timing>summary>:is(svg,.spacer){display:none}
+.transfer-xl .xf-timing>.section-body{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+/* Mirror, Other side and Original stay visibly pressed in every look. */
+.resource-editor.transfer-xl .xf-window :is(.xf-caption,.xf-transport,.xf-part-title)>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-problems{flex:1;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e)}
+.transfer-xl .xf-footer{display:flex;gap:7px;align-items:center;padding:8px 10px;border-top:1px solid var(--ui-border,#999)}
+.transfer-xl .xf-name{display:inline-flex;align-items:center;gap:5px}
+.transfer-xl .xf-name input{width:200px;min-width:0}
+.transfer-xl .xf-spacer{flex:1}
+.transfer-xl .xf-added{color:var(--ui-muted,#333);white-space:nowrap}
+.resource-editor.transfer-xl .xf-window .xf-add{font-weight:bold;padding:5px 18px}
+@media(max-width:1000px){.transfer-xl .xf-body{grid-template-columns:160px minmax(260px,1fr) 215px}}
+/* The Library picker opens over Transfer. */
+.xf-library .xf-library-header{justify-content:space-between}
+.xf-library .xf-library-header>span{color:var(--ui-text,#16191e);font-weight:bold;font-size:13px}
+/* Clip timeline under the stage (TransferTimeline.jsx): label column, track, readout column. */
+.transfer-xl .xt-timeline{--xt-label:150px;--xt-tail:104px;display:flex;flex-direction:column;gap:2px;flex:none;font-size:11px;color:var(--ui-text,#16191e)}
+.transfer-xl .xt-head,.transfer-xl .xt-lane{display:grid;grid-template-columns:var(--xt-label) minmax(0,1fr) var(--xt-tail);align-items:center;gap:0 4px}
+.transfer-xl .xt-head .xt-play{justify-self:start;min-width:56px}
+.transfer-xl .xt-ruler{position:relative;height:20px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-field,#fff);cursor:pointer;touch-action:none;overflow:hidden}
+.transfer-xl .xt-ruler>span{position:absolute;top:1px;transform:translateX(2px);font-size:9px;color:var(--ui-muted,#555);pointer-events:none;border-left:1px solid var(--ui-border,#8b8b87);padding-left:2px;height:17px;margin-left:-2px}
+.transfer-xl .xt-head-cursor,.transfer-xl .xt-cursor{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ui-accent,#71b5f3);pointer-events:none;z-index:3}
+.transfer-xl .xt-tail{display:flex;align-items:center;gap:4px;justify-content:flex-end;min-width:0}
+.transfer-xl .xt-readout{font-variant-numeric:tabular-nums;color:var(--ui-muted,#333);white-space:nowrap}
+.transfer-xl .xt-lanes{display:flex;flex-direction:column;gap:2px;max-height:calc(4 * 19px);overflow-y:auto;overflow-x:hidden}
+.transfer-xl .xt-lane{height:17px}
+.transfer-xl .xt-label{height:17px;min-height:0!important;padding:0 4px!important;display:flex;align-items:center;gap:4px;justify-content:flex-start;text-align:left;overflow:hidden;white-space:nowrap;font-size:11px!important;border-radius:0!important}
+.transfer-xl .xt-label>span{overflow:hidden;text-overflow:ellipsis;font-weight:bold;flex:none;max-width:60%}
+.transfer-xl .xt-label>small{overflow:hidden;text-overflow:ellipsis;color:var(--ui-muted,#555);font-size:10px}
+.transfer-xl .xt-body .xt-label{opacity:1;color:var(--ui-muted,#555)}
+.transfer-xl .xt-lane.selected .xt-label{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xt-cells{position:relative;height:17px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-panel,#f0f0f0);touch-action:none;overflow:hidden;cursor:pointer}
+.transfer-xl .xt-clip{position:absolute;top:1px;bottom:1px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-surface,#e4e4e4);overflow:hidden;box-sizing:border-box}
+.transfer-xl .xt-body .xt-clip{background:var(--ui-hover,#ddd);border-style:dashed}
+.transfer-xl .xt-clip.xt-main{background:var(--ui-accent,#71b5f3);border-color:var(--ui-text,#16191e);cursor:grab;z-index:1}
+.transfer-xl .xt-lane.selected .xt-clip.xt-main{box-shadow:inset 0 0 0 1px var(--ui-text,#16191e)}
+.transfer-xl .xt-clip.xt-repeat{opacity:.55}
+.transfer-xl .xt-edge{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize;background:var(--ui-text,#16191e);opacity:.35}
+.transfer-xl .xt-edge-left{left:0;right:auto}
+/* A trimmed end: a lighter, dashed cap, so a cut clip reads differently from a whole one. */
+.transfer-xl .xt-clip.xt-cut-left{border-left:2px dashed var(--ui-text,#16191e)}
+.transfer-xl .xt-clip.xt-cut-right{border-right:2px dashed var(--ui-text,#16191e)}
+.transfer-xl .xt-cut-left>.xt-edge-left,.transfer-xl .xt-cut-right>.xt-edge-right{background:var(--ui-panel,#f0f0f0);opacity:.75}
+.transfer-xl .xt-chained .xt-label{padding-left:12px!important}
+.transfer-xl .xt-remove{min-height:0!important;height:17px;width:20px;padding:0!important;line-height:1;font-size:12px}
+.transfer-xl .xt-ease{position:absolute;top:0;bottom:0;pointer-events:none;background:var(--ui-text,#16191e);opacity:.25}
+.transfer-xl .xt-ease-in{left:0;clip-path:polygon(0 0,100% 0,0 100%)}
+.transfer-xl .xt-ease-out{right:0;clip-path:polygon(0 0,100% 0,100% 100%)}
+.transfer-xl .xt-fix{position:absolute;top:2px;width:11px;height:11px;min-height:0!important;margin-left:-6px;padding:0!important;transform:rotate(45deg);background:#ffd23f!important;border:1px solid #6b4e00!important;z-index:4;cursor:pointer}
+.transfer-xl .xt-fix:focus-visible{outline:2px solid var(--ui-accent,#71b5f3)}
+/* Add all is the second choice next to Add animation. */
+.resource-editor.transfer-xl .xf-window .xf-add-all{font-weight:normal;color:var(--ui-muted,#444)}
+.transfer-xl .xf-scope{display:flex;gap:3px;flex-wrap:wrap}
+.transfer-xl .xf-scope>button{flex:1 1 auto;min-width:0;padding:2px 6px}
+.resource-editor.transfer-xl .xf-window .xf-scope>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-holds{font-style:italic}
+/* Playback strip under each view (TransferViewStrip.jsx): one ~24 px row taken from the view's height. */
+.transfer-xl .xs-strip{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-height:24px;flex:none;min-width:0}
+.transfer-xl .xs-strip .xs-play{flex:none;min-width:50px;padding:1px 6px}
+.transfer-xl .xs-strip .xs-scrub{order:-2;flex:1 0 calc(100% - 30px);min-width:0;margin:0;height:14px}
+.transfer-xl .xs-strip .xs-reset{order:-1;flex:none;width:24px;min-width:0;height:18px;padding:0;line-height:1;font-size:13px}
+.transfer-xl .xs-strip .xs-speed{flex:none;width:58px;min-width:0;padding:1px 2px}
+.transfer-xl .xs-strip .xs-animation{flex:1 1 120px;min-width:70px;padding:1px 2px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+/* The timeline while the result view shows another animation: dimmed; using it brings the new animation back. */
+.transfer-xl .xt-timeline.xt-dimmed{opacity:.45}
+.transfer-xl .xt-head>.xt-readout{justify-self:start;padding-left:4px}
+
+/* Pick sheet (test builds only): the variants of one case side by side, one strip under them. */
+.transfer-picks .xp-body{display:flex;flex-direction:column;flex:1;min-height:0;padding:8px;gap:6px}
+.transfer-picks .xp-head{display:flex;align-items:flex-start;gap:12px;color:var(--ui-text,#16191e)}
+.transfer-picks .xp-question{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.transfer-picks .xp-question>b{font-size:15px}
+.transfer-picks .xp-question>span{color:var(--ui-muted,#444)}
+.transfer-picks .xp-count{font-variant-numeric:tabular-nums;font-weight:bold;white-space:nowrap}
+.transfer-picks .xp-transplant{grid-template-rows:auto minmax(0,1fr)}
+.transfer-picks .xp-transplant .xp-view{display:grid;grid-row:1/-1;grid-template-rows:subgrid}
+.transfer-picks .xp-transplant .xf-repairs{grid-row:1}
+.transfer-picks .xp-transplant .xf-preview{grid-row:2}
+.transfer-picks .xp-transplant .xp-label{top:4px}
+.transfer-picks .xp-views{flex:1;min-height:0;display:grid;gap:6px}
+.transfer-picks .xp-view{min-width:0;min-height:0;display:flex;flex-direction:column;gap:4px}
+.transfer-picks .xp-letter{position:absolute;left:8px;top:4px;z-index:6;font-size:34px;font-weight:bold;line-height:1;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:2px 8px;pointer-events:none}
+.transfer-picks .xp-failed{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e)}
+.resource-editor.transfer-picks .xf-window .xp-pick{font-weight:bold;padding:5px 10px}
+.resource-editor.transfer-picks .xf-window :is(.xp-pick,.xp-footer>button)[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-picks .xp-loading{position:static;grid-column:1/-1}
+.transfer-picks .xp-footer{display:flex;gap:7px;align-items:center}
+.transfer-picks .xp-grades{display:flex;flex-wrap:wrap;gap:4px}
+.resource-editor.transfer-picks .xf-window .xp-grades>button{min-width:34px;padding:5px 8px}
+.resource-editor.transfer-picks .xf-window .xp-grades>button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-picks .xp-comment{display:flex;gap:6px;align-items:flex-start;color:var(--ui-text,#16191e)}
+.transfer-picks .xp-comment>textarea{flex:1;min-width:0;box-sizing:border-box;resize:vertical;min-height:44px}
+.transfer-picks .xp-message{flex:1;display:flex;flex-direction:column;gap:8px;padding:16px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);grid-column:1/-1}
+.transfer-picks .xp-message p{margin:0}
+.transfer-picks .xp-path{color:var(--ui-muted,#444);overflow-wrap:anywhere}
+.transfer-picks .xp-problem{margin:0;color:var(--ui-danger,#b00000)}
+/* Compare sheet: animation and look rows, labels, Flip (one place, two variants stacked). */
+.transfer-picks .xp-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.transfer-picks .xp-row-name{min-width:70px;font-weight:bold;color:var(--ui-text,#16191e)}
+.resource-editor.transfer-picks .xf-window .xp-row button[aria-pressed="true"],.resource-editor.transfer-picks .xf-window .xp-answer[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.resource-editor.transfer-picks .xf-window .xp-answer{font-weight:bold;padding:5px 14px}
+.transfer-picks .xp-auto{display:flex;align-items:center;gap:4px;color:var(--ui-text,#16191e)}
+.transfer-picks .xp-label{position:absolute;left:8px;top:46px;z-index:6;font-weight:bold;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
+.transfer-picks .xp-missing{position:absolute;left:8px;bottom:6px;z-index:6;color:var(--ui-text,#16191e);background:var(--ui-panel,#f0f0f0);border:1px solid var(--ui-border,#8b8b87);padding:1px 6px;pointer-events:none}
+.transfer-picks .xp-flipping .xp-view{grid-area:1/1}
+.transfer-picks .xp-transplant.xp-flipping .xp-view{grid-area:1 / 1 / 3 / 2}
+.transfer-picks .xp-view.xp-off{visibility:hidden}
+
+/* Own features (round 8): one switch per feature of the open model, about six rows before it scrolls. */
+/* The same fold look as Timing. */
+.transfer-xl .xf-features-box{flex:none;border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
+.transfer-xl .xf-features-box>summary{cursor:pointer;font-weight:bold;padding:2px 0}
+.transfer-xl .xf-features-box>summary>:is(svg,.spacer){display:none}
+.transfer-xl .xf-features-box>.section-body{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+.transfer-xl .xf-features{flex:none;max-height:calc(6 * 21px + 2px);overflow-y:auto}
+.transfer-xl .xf-list .xf-feature{height:21px;min-height:21px;padding:0 4px;gap:5px;cursor:default}
+.transfer-xl .xf-feature>input{flex:none;margin:0}
+.transfer-xl .xf-feature-name{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.transfer-xl .xf-feature>small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ui-muted,#555)}
+.transfer-xl .xf-list .xf-feature.xf-off{opacity:.5}
+/* Transplant / Retarget: a segmented switch in the caption bar; Transplant's settings in the right column. */
+.transfer-xl .xf-transplant .xf-feature-name{max-width:none;flex:1;min-width:0}
+.transfer-xl .xf-poor{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-panel,#f0f0f0)}
+.transfer-xl .xf-poor>b{font-size:12px}
+.transfer-xl .xf-caption-title{display:flex;align-items:center;gap:14px;min-width:0}
+.transfer-xl .xf-mode-switch{display:inline-flex;border:1px solid var(--ui-border,#8b8b87);border-radius:7px;overflow:hidden;background:var(--ui-field,#fff)}
+:root .transfer-xl .xf-mode-switch>button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;min-width:128px;height:auto;min-height:34px;margin:0;padding:3px 14px;border:0;border-radius:0;box-shadow:none!important;background:var(--ui-field,#fff)!important;color:var(--ui-text,#16191e)!important;text-align:left;cursor:pointer}
+:root .transfer-xl .xf-mode-switch>button+button{border-left:1px solid var(--ui-border,#8b8b87)}
+:root .transfer-xl .xf-mode-switch>button:not([aria-pressed=true]):hover{background:var(--ui-hover,#e7e3db)!important}
+:root .transfer-xl .xf-mode-switch>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important;color:oklch(from var(--ui-accent,#71b5f3) clamp(0, (0.62 - l) * 1000, 1) 0 0)!important}
+.transfer-xl .xf-mode-switch>button>b{font-size:13px;font-weight:700;line-height:1.2}
+.transfer-xl .xf-mode-switch>button>small{font-size:11px;font-weight:400;line-height:1.2;opacity:.85}
+/* Method row and part chip (contract docs/agent-tasks/xfer-controls-design.md). */
+.transfer-xl .xf-methods{gap:4px 10px}
+.transfer-xl .xf-method-switch{display:inline-flex;align-items:center;gap:6px}
+.transfer-xl .xf-method-switch>button{min-width:58px;padding:1px 10px;border:1px solid var(--ui-border,#8b8b87);border-radius:0;margin:0}
+.transfer-xl .xf-method-switch>button:first-child{border-radius:6px 0 0 6px}
+.transfer-xl .xf-method-switch>button:nth-child(3){border-radius:0 6px 6px 0}
+.transfer-xl .xf-method-switch>button+button{margin-left:-7px}
+:root .transfer-xl .xf-method-switch>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important}
+.transfer-xl .xf-warn-count{color:var(--ui-danger,#b00000);font-weight:700;margin-left:4px}
+.transfer-xl .xf-method-scope{flex-wrap:nowrap}
+.transfer-xl .xf-more{position:relative;margin-left:auto}
+.transfer-xl .xf-more-button{padding:1px 6px}
+.transfer-xl .xf-more-menu{position:absolute;right:0;top:100%;z-index:20;display:flex;flex-direction:column;gap:2px;padding:4px;min-width:150px;background:var(--ui-panel,#f4f2ee);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0004}
+:root .transfer-xl .xf-more-menu>button[aria-pressed=true]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-chip{position:absolute;z-index:15;display:flex;flex-direction:column;gap:3px;padding:5px 6px;width:max-content;height:auto;max-width:200px;font-size:11px;background:var(--ui-panel,#f4f2ee);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0005}
+.transfer-xl .xf-chip-title{font-size:12px}
+.transfer-xl .xf-chip-row{display:flex;gap:3px;align-items:center}
+.transfer-xl .xf-chip-row>button{flex:1 1 auto;padding:1px 8px}
+:root .transfer-xl .xf-chip-row>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important}
+.transfer-xl .xf-chip-name{min-width:48px}
+.transfer-xl .xf-chip-reason{margin:0;color:var(--ui-danger,#b00000)}
+.transfer-xl .xf-chip-front{display:flex;flex-direction:column;gap:3px}
+.transfer-xl .xf-other-form{opacity:.5}
+.transfer-xl .xf-warn-count{background:none!important;border:0!important;padding:0 2px;cursor:pointer}
+.transfer-xl .xf-warn-list{left:0;right:auto;min-width:220px;font-size:11px}
+.transfer-xl .xf-method-switch .xf-more{margin-left:0}
+.transfer-xl .xf-method-switch>button,.transfer-xl .xf-chip-row>button,.transfer-xl .xf-method-scope>button{white-space:nowrap}

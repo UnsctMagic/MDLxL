@@ -1546,7 +1546,7 @@ export default function App() {
     vertexAnimated: () => changeVertexAnimation(),
     launcher: () => setLauncherQuery(''), toolbarCycle: () => changePreferences(previous => ({ ...previous, toolbarMode: nextToolbarMode(previous.toolbarMode) })),
     showcase: () => selectMode('showcase'), autoCorpse: () => setAutoCorpseOpen(true), visToggle: () => setVisUI(value => !value),
-    forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), surfaceEffects:()=>setDialog({type:'surfaceEffects'}), animXL:()=>setDialog({type:'animXL'}),
+    forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), surfaceEffects:()=>setDialog({type:'surfaceEffects'}), animXL:()=>setDialog({type:'animXL'}), transfer:()=>setDialog({type:'transfer'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
     addons: () => setAddonsOpen(true), exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
@@ -1611,12 +1611,12 @@ export default function App() {
     if (bitReplacement && (
       id !== 'exit' && COMMANDS.some(command => command.id === id && command.category === 'File') ||
       ['recent', 'openRecent', 'bones', 'uv', 'animation', 'animations', 'managers', 'paint', 'showcase', 'forge', 'bitsAndParts',
-        'textureLibrary', 'particles', 'animXL', 'surfaceEffects', 'ai:open', 'autoCorpse', 'optimizeModel', 'convertVersion'].includes(id)
+        'textureLibrary', 'particles', 'animXL', 'transfer', 'surfaceEffects', 'ai:open', 'autoCorpse', 'optimizeModel', 'convertVersion'].includes(id)
     )) return false;
     if (id === 'vertexAnimated') return vertexAnimationAvailable && !uvEditing && !saving;
     if (id === 'toolbarCycle' || id === 'ai:open' || id.startsWith('toolbar:')) return !visUI;
     if (id === 'autoCorpse') return !doc.readOnly && !saving && !dialog && !settingsTab && mode !== 'paint' && mode !== 'showcase';
-    if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
+    if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'transfer', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='surfaceEffects')return !doc.readOnly&&!saving&&mode!=='showcase'&&mode!=='paint'&&model.Geosets.length>0;
     if(id==='particles')return !saving;
     if(id==='paint')return !doc.readOnly&&!saving&&model.Version===800;
@@ -1643,7 +1643,7 @@ export default function App() {
     if (['undo','redo'].includes(id)&&mode==='showcase')return showcaseHistoryState[id];
     if (['undo','redo'].includes(id)) { if (mode==='paint') return !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length; const sketches = sketchStore.get(); return (id==='undo'?doc.canUndo:doc.canRedo) || sketches.visible && sketchStore.canStep(session.id, id==='redo', { drawingsOnly: !!sketches.tool }); }
     if (mode === 'animation' && ['Collapse','Delete vertices'].includes(id)) return !doc.readOnly && !saving;
-    if(['forge','bitsAndParts','particles','animXL','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
+    if(['forge','bitsAndParts','particles','animXL','transfer','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
     if(id.startsWith('shape:'))return !doc.readOnly&&!saving&&selectable.size>0;
     if(id.startsWith('keyframe:'))return ['animation','uv'].includes(mode)&&!doc.readOnly&&!saving;
     if(id==='paste'&&mode==='animation')return !doc.readOnly&&!saving;

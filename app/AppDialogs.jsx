@@ -1,5 +1,5 @@
 import { usePreferencesContext } from './PreferencesContext.jsx';
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import DetachedWindow from './DetachedWindow.jsx';
 import Dialog, { LoadingWindow } from './Dialog.jsx';
 import UpdatePrompt, { OfficialWebsite } from './UpdatePrompt.jsx';
@@ -24,6 +24,14 @@ const OptimizeXL = lazy(() => import('./OptimizeXL.jsx'));
 const ShapingDialog = lazy(() => import('./ShapingDialog.jsx'));
 const Settings = lazy(() => import('./Settings.jsx'));
 const AnimXL = lazy(() => import('./AnimXL.jsx'));
+const Transfer = lazy(() => import('./Transfer.jsx'));
+const TransferPicks = lazy(() => import('./TransferPicks.jsx'));
+/** The Transfer pick sheet exists only when the app was started with --transfer-picks (test builds). */
+function PickSheetLauncher({ teamColor }) {
+  const [found, setFound] = useState(null);
+  useEffect(() => { window.desktop?.transferPicks?.().then(value => { if (value) setFound(value); }, error => setFound({ error: error.message })); }, []);
+  return found ? <Suspense fallback={null}><TransferPicks found={found} teamColor={teamColor}/></Suspense> : null;
+}
 const MODEL_NAME_TIP = 'The name stored inside the model, separate from the file name.';
 
 /** Dialogs, popups, detached windows and the geoset context menu rendered at the end of App.
@@ -57,6 +65,7 @@ export default function AppDialogs({
     {dialog?.type==='forge' && <Suspense fallback={<LoadingWindow title="Loading Forge…"/>}><Forge onSensitivityChange={value=>changePreferences({...preferences,scrollSensitivity:value})} onPointerSensitivityChange={value=>changePreferences({...preferences,pointerSensitivity:value})} editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<LoadingWindow title="Loading BitsAndParts…"/>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart} onStageReplacement={stageBitReplacement}/></Suspense>}
     {dialog?.type==='animXL' && <Suspense fallback={<LoadingWindow title="Loading AnimXL…"/>}><AnimXL doc={doc} edit={edit} sequenceIndex={sequence} textureAssets={session.assets} teamColor={teamColor} modelPath={session.path} selectedNodeIds={selectedNodeIds} poseRig={session.pose?.initialized ? session.pose : null} onClose={()=>setDialog(null)}/></Suspense>}
+    {dialog?.type==='transfer' && <Suspense fallback={<LoadingWindow title="Loading Transfer…"/>}><Transfer doc={doc} edit={edit} textureAssets={session.assets} teamColor={teamColor} modelPath={session.path} otherModels={(latest.current?.sessions || []).filter(item => item !== session && item.doc?.model)} onClose={()=>setDialog(null)}/></Suspense>}
     {dialog?.type==='surfaceEffects' && <Suspense fallback={<LoadingWindow title="Loading Surface Effects…"/>}><SurfaceEffects onOpenEmitter={openParticles} doc={doc} edit={edit} initialGeoset={activeGeoset} initialGroup={[...(selectable||[])].sort((a,b)=>a-b)} textureAssets={session.assets} modelPath={session.path} preferences={preferences} changePreferences={changePreferences} teamColor={teamColor} sequenceIndex={sequence} quickViews={session.fxQuickViews} onKeepQuickViews={views=>{session.fxQuickViews=views;}} onClose={()=>setDialog(null)} onPlaced={(assets,geoset)=>{session.assets=new Map([...session.assets,...assets]);setActiveGeoset(geoset);refresh();}}/></Suspense>}
     {dialog?.type==='particles' && <Suspense fallback={<LoadingWindow title="Loading Particle Editor…"/>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} initialView={dialog.initialView} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
     {dialog?.type==='shape' && <Suspense fallback={<LoadingWindow title="Loading shaping tools…"/>}><ShapingDialog editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} selectedGeosets={[...selectable]} selectionByGeoset={validSelection} initialTool={dialog.tool} onClose={()=>setDialog(null)} onApply={async(options,selection,working)=>{const {shapeGeosetsWithSupport}=await import('../src/shaping-support.js');return edit('Shape geosets',['Geosets','Info'],m=>{if(working!==model)m.Geosets=structuredClone(working.Geosets);return shapeGeosetsWithSupport(m,selection,options);});}}/></Suspense>}
@@ -121,6 +130,7 @@ export default function AppDialogs({
     }} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
     {settingsTab && <Suspense fallback={null}><Settings visUI={visUI} onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
     {notice && <Dialog title={notice.title || "HD models"} onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : notice.saveAs ? <><button onClick={() => { setNotice(null); notice.saveAs(); }}>Save as</button><button onClick={() => setNotice(null)}>Cancel</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
+    <PickSheetLauncher teamColor={teamColor}/>
     {updates.open && <UpdatePrompt helmetEffects={updates.effects} status={updates.status} onInstall={updates.install} onClose={updates.close} disableSounds={preferences.disableSounds} onDisableSounds={disableSounds => changePreferences(previous => ({ ...previous, disableSounds }))}/> }
   </>;
 }

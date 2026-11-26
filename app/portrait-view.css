@@ -1,4 +1,10 @@
 .game-preview-root{position:relative;width:100%;height:100%;background:#ccc;overflow:hidden}
+/* Reset view: the small corner button of every tool-window preview and of the UV map. A preview
+   that has it keeps its layers to itself (isolation), so the button is above the preview's own
+   canvases and still under any panel a window lays over the preview (the Particle Library). */
+.game-preview-root.preview-with-reset{isolation:isolate}
+.preview-reset-view{position:absolute;right:6px;bottom:6px;z-index:60;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:22px;height:22px;min-width:0;min-height:0;padding:0;border:1px solid var(--ui-border,#8b8b87);border-radius:4px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);font-size:14px;line-height:1;opacity:.65;cursor:pointer}
+.preview-reset-view:hover,.preview-reset-view:focus-visible{opacity:1}
 .game-preview-stage{position:absolute;inset:0}
 .game-preview-surface,.game-preview-selection-layer{position:absolute;inset:0}
 .game-preview-selection-layer{z-index:75;pointer-events:none}

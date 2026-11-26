@@ -17,7 +17,7 @@ import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
 import { drawCollisionShapes } from './optimizexl-overlays.js';
 import { ModelRenderer } from 'war3-model';
-import { guardRendererDestroy } from './war3-model-patches.js';
+import { guardRendererDestroy, previewTextureLayers } from './war3-model-patches.js';
 import { advanceShowcaseModel } from './showcase-playback.js';
 import { showcaseOrbitRadius, setShowcaseOrbitCamera, showcaseFraming } from './showcase-orbit.js';
 import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js';
@@ -326,6 +326,7 @@ export default function GamePreview(inputProps) {
     };
     canvas.addEventListener('click', swallowSketchClick, true); canvas.addEventListener('dblclick', swallowSketchClick, true);
     const ownedModel = structuredClone(rendererModel);
+    for (const material of ownedModel.Materials) material.Layers = previewTextureLayers(material.Layers);
     if (uvRestPose) applyUVRestAppearance(ownedModel);
     // New Forge items have no material yet; the private clone shows them as clay.
     const clayPixels = addClayPreviewMaterials(ownedModel);
@@ -410,7 +411,24 @@ export default function GamePreview(inputProps) {
       const key = [...viewMatrix, ...projectionMatrix].map(value => value.toFixed(6)).join(',');
       if (key !== projectionKey) { projectionKey = key; latest.current.onProjectionViewChange?.({ viewMatrix, projectionMatrix }); }
     };
-    let syncingCamera = false, compareRegistered = false, collisionCanvas = null, externalSeek;
+    let syncingCamera = false, compareRegistered = false, turnRegistered = false, collisionCanvas = null, externalSeek;
+    // Reset view: the camera as it was before the user's first own gesture since the view was last
+    // framed by the program (opening, Fit, a newly framed part). Views on one compareCamera share it.
+    const ownHome = { home: null }, homeStore = () => latest.current.compareCamera || ownHome;
+    let userGesture = false, resettingView = false;
+    controls.addEventListener('start', () => { userGesture = true; const store = homeStore(); if (!store.home) store.home = snapshotCamera(); });
+    controls.addEventListener('end', () => { userGesture = false; });
+    // turnCamera (Transfer): views that turn together. Only the viewing direction is shared, as a
+    // unit vector from the target to the camera; each view keeps its own target, distance and zoom,
+    // and world up stays up, so a sideways drag never tilts the horizon.
+    const viewDirection = () => { const d = camera.position.clone().sub(controls.target); return d.lengthSq() > 1e-9 ? d.normalize().toArray() : null; };
+    const receiveTurn = direction => {
+      if (state.portraitActive || !direction) return;
+      syncingCamera = true;
+      const distance = Math.max(.001, camera.position.distanceTo(controls.target));
+      camera.up.set(0, 0, 1); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(...direction), distance); camera.lookAt(controls.target);
+      controls.update(); reportProjectionView(); invalidate(); syncingCamera = false;
+    };
     const snapshotCamera = () => ({ ...snapshotPreviewCamera(camera, perspective, ortho, controls), portraitActive: state.portraitActive, portraitDetached: !!latest.current.portraitMode && state.cameraDetached });
     const receiveCamera = saved => {
       // Each pane owns its pre-portrait backup. Do not replace that view while
@@ -427,9 +445,16 @@ export default function GamePreview(inputProps) {
     const cameraReport = createFrameCoalescer(() => latest.current.onCameraAnglesChange?.(reportedAngles), { request: requestPreviewFrame, cancel: cancelPreviewFrame });
     const cameraChanged = () => {
       reportedAngles = editorCameraAngles(camera); cameraReport.schedule(); reportProjectionView(); invalidate();
+      // The program framed the view again: that framing is what Reset view returns to from now on.
+      if (!userGesture && !syncingCamera && !resettingView) homeStore().home = null;
       if(latest.current.showcase)latest.current.onShowcaseViewChange?.();
       const bus = latest.current.compareCamera;
       if (bus && compareRegistered && !syncingCamera) { bus.saved = snapshotCamera(); for (const receive of bus.listeners) if (receive !== receiveCamera) receive(bus.saved); }
+      const turn = latest.current.turnCamera;
+      if (turn && turnRegistered && !syncingCamera) {
+        const direction = viewDirection(), old = turn.saved;
+        if (direction && (!old || Math.abs(old[0] - direction[0]) + Math.abs(old[1] - direction[1]) + Math.abs(old[2] - direction[2]) > 1e-6)) { turn.saved = direction; for (const receive of turn.listeners) if (receive !== receiveTurn) receive(direction); }
+      }
     };
     controls.addEventListener('change', cameraChanged);
     let leftGesture = null, previewSelectHeld = false;
@@ -1070,7 +1095,21 @@ export default function GamePreview(inputProps) {
       if (!low || !high || low.length < 3 || high.length < 3) return null;
       const a = new THREE.Vector3(low[0], low[1], low[2]), b = new THREE.Vector3(high[0], high[1], high[2]), size = b.clone().sub(a);
       if (!(size.x > 0 && size.y > 0 && size.z > 0) || !Number.isFinite(size.lengthSq())) return null;
-      return { center: a.add(b).multiplyScalar(.5).toArray(), radius: size.length() / 2 * 1.3 };
+      return { center: a.clone().add(b).multiplyScalar(.5).toArray(), radius: size.length() / 2 * 1.3, box: [a, b] };
+    };
+    // fitBox (Transfer): the camera distance at which the framed box itself fills the view,
+    // instead of the sphere around it, so wide or tall units sit large in a small pane.
+    const boxFitDistance = (box, direction, width, height) => {
+      const [a, b] = box, middle = a.clone().add(b).multiplyScalar(.5), forward = direction.clone().negate();
+      const points = box.points || [a.x, b.x].flatMap(x => [a.y, b.y].flatMap(y => [a.z, b.z].map(z => new THREE.Vector3(x, y, z))));
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 0, 1)).normalize(), up = new THREE.Vector3().crossVectors(right, forward).normalize();
+      const tanV = Math.tan(perspective.fov * Math.PI / 360) * .8, tanH = tanV * width / height;
+      let distance = 1;
+      for (const at of points) {
+        const corner = at.clone().sub(middle), toward = corner.dot(direction);
+        distance = Math.max(distance, toward + Math.abs(corner.dot(right)) / tanH, toward + Math.abs(corner.dot(up)) / tanV);
+      }
+      return distance;
     };
     const fitRadius = () => {
       const p = latest.current, gridVisible = p.overlays?.grid ?? !!p.showGrid;
@@ -1138,6 +1177,37 @@ export default function GamePreview(inputProps) {
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
+    // fitBox: the box around the visible mesh as it is posed now (null before the first frame).
+    function posedBox() {
+      const nodes = native.rendererData?.nodes || [];
+      if (!nodes.some(node => node?.matrix)) return null;
+      const matrices = new Map(nodes.flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : [])), box = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []), points = [];
+      const step = Math.max(1, Math.ceil(ownedModel.Geosets.reduce((sum, geoset) => sum + geoset.Vertices.length / 3, 0) / 4000));
+      ownedModel.Geosets.forEach((geoset, index) => {
+        const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+        if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) return;
+        const vertices = skinGeoset(geoset, matrices);
+        for (let i = 0, n = 0; i < vertices.length; i += 3, n++) { box.expandByPoint(point.set(vertices[i], vertices[i + 1], vertices[i + 2])); if (n % step === 0) points.push(point.clone()); }
+      });
+      if (box.isEmpty()) return null;
+      const result = [box.min.clone(), box.max.clone()]; result.points = points; return result;
+    }
+    // fitBox="rest" (Transfer compare sheet): the box around the mesh in its rest pose, with the geosets
+    // shown at the start of the chosen animation. It does not depend on the moment the view first draws,
+    // so views of one model frame alike however their animations have moved on. The whole box (its corners,
+    // with a margin) is framed, since the animation reaches past the rest pose: crouches, lunges, the floor.
+    function restBox() {
+      const p = latest.current, hidden = new Set(p.hiddenGeosets || []), box = new THREE.Box3();
+      const sequence = ownedModel.Sequences?.[p.sequenceIndex], frame = sequence?.Interval?.[0] ?? 0;
+      ownedModel.Geosets.forEach((geoset, index) => {
+        const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+        if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, frame, sequence ? p.sequenceIndex : -1, frame)[3] > .001)) return;
+        for (let i = 0; i + 2 < geoset.Vertices.length; i += 3) box.expandByPoint(point.fromArray(geoset.Vertices, i));
+      });
+      if (box.isEmpty()) return null;
+      const size = box.getSize(new THREE.Vector3()); box.expandByScalar(.1 * Math.max(size.x, size.y, size.z));
+      return [box.min.clone(), box.max.clone()];
+    }
     // Where the selection is in the current pose: the selected vertices, or else
     // the selected bones and nodes. Model-space points [x,y,z,...].
     function selectionPoints() {
@@ -1181,8 +1251,10 @@ export default function GamePreview(inputProps) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
-      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit()),fitCenter=effect?new THREE.Vector3(...effect.center):center;
-      perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
+      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit());
+      const shared = latest.current.turnCamera?.saved, direction = shared ? new THREE.Vector3(...shared) : new THREE.Vector3(1, -1.5, .9).normalize(), fitBox = latest.current.fitBox && !focus ? (latest.current.fitBox === 'rest' && restBox()) || (!initialize && posedBox()) || effect?.box || [bounds.min.clone(), bounds.max.clone()] : null;
+      const fitCenter = fitBox ? fitBox[0].clone().add(fitBox[1]).multiplyScalar(.5) : effect ? new THREE.Vector3(...effect.center) : center;
+      perspective.position.copy(fitCenter).add(direction.multiplyScalar(fitBox ? boxFitDistance(fitBox, direction, width, height) : perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
       controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? (exact ? Math.max(1, radius) / focus.radius : Math.max(1, radius / focus.radius)) : 1; resize(); setView(latest.current.view || 'perspective');
     }
     function centerShowcaseModel(crop, fullOrbit = false, horizontal = 1, vertical = 1) {
@@ -1363,10 +1435,19 @@ export default function GamePreview(inputProps) {
       if (saved && saved.view === view) { camera = restorePreviewCamera(saved, perspective, ortho, controls); reportProjectionView(); }
       // The first browsed model is framed again once its animation choice has arrived.
       else if (latest.current.glideCamera) { glidedKey.current = latest.current.glideKey; glideFrame = requestPreviewFrame(() => { if (!disposed) fit(); }); }
+      // fitBox: frame the posed mesh once its first frame is drawn (a new model only; rebuilds keep the camera).
+      else if (latest.current.fitBox) {
+        let tries = 0;
+        const stopRefit = () => { cancelPreviewFrame(glideFrame); controls.removeEventListener('start', stopRefit); };
+        const refit = () => { if (disposed) return; if (posedBox() || ++tries > 120) { stopRefit(); fit(); return; } glideFrame = requestPreviewFrame(refit); };
+        controls.addEventListener('start', stopRefit); glideFrame = requestPreviewFrame(refit);
+      }
     }
     if (latest.current.portraitMode) enterPortrait(evaluateModelCamera(model, model?.Cameras?.[latest.current.portraitCameraIndex], latest.current.time, sequenceIndex, latest.current.time));
     const compareCamera = latest.current.compareCamera;
     if (compareCamera) { if (compareCamera.saved) receiveCamera(compareCamera.saved); else compareCamera.saved = snapshotCamera(); compareCamera.listeners.add(receiveCamera); compareRegistered = true; }
+    const turnCamera = latest.current.turnCamera;
+    if (turnCamera) { if (turnCamera.saved) receiveTurn(turnCamera.saved); else turnCamera.saved = viewDirection(); turnCamera.listeners.add(receiveTurn); turnRegistered = true; }
     const checker = new Uint8ClampedArray(8 * 8 * 4);
     for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const value = ((x >> 1) + (y >> 1)) % 2 ? 135 : 90; checker.set([value, value, value, 255], (y * 8 + x) * 4); }
     const assets = textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {}));
@@ -1767,6 +1848,10 @@ export default function GamePreview(inputProps) {
 
         updateRevealStrip(poseVisible && !p.poseConfig.picking ? (p.poseConfig.hidden || []).flatMap(id => { const handle = poseHandles.find(item => item.hidden && poseHandleKey(item) === id); return handle ? [{ id, label: handle.label }] : []; }) : [], width, controllerAppearance.symbolSet);
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
+        // Method marks (Transfer: Copy / Match / a warning per part) ride on a limb's end handle; `dotsOnly` keeps its bend handle out.
+        const marks = p.poseConfig?.marks;
+        if (runtime.current) runtime.current.poseHandles = poseHandles; // read by the hidden app checks (test hook)
+        if (marks) for (const handle of poseHandles) { handle.mark = handle.kind === 'endpoint' ? marks[handle.key] : undefined; if (p.poseConfig.dotsOnly && handle.kind === 'bend') handle.quiet = true; }
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const handleMode = p.transformMode || 'rotate', workplaneHidesHandles = p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(handleMode);
@@ -1813,11 +1898,16 @@ export default function GamePreview(inputProps) {
         nodeCanvas.dataset.rotationSign = shownRotation?.circle ? String(shownRotation.sign) : '';
         nodeCanvas.dataset.rotationDirection = shownRotation?.tangent ? `${shownRotation.tangent.x},${shownRotation.tangent.y}` : '';
         if (ping) invalidate();
-        if (poseVisible && p.poseConfig.inspectIds?.length) {
+        // inspectIds: one joint path; inspectPaths: several (Transfer marks taken parts), in inspectColor; inspectThin draws those thinner.
+        const inspected = poseVisible ? [[p.poseConfig.inspectIds, controllerAppearance.skeleton, false], ...(p.poseConfig.inspectPaths || []).map(path => [path, p.poseConfig.inspectColor || controllerAppearance.skeleton, !!p.poseConfig.inspectThin])].filter(([path]) => path?.length) : [];
+        if (inspected.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
-          const joints = p.poseConfig.inspectIds.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
-          context.strokeStyle = controllerAppearance.skeleton; context.lineWidth = 2; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
-          for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, 9, 0, Math.PI * 2); context.stroke(); } context.restore();
+          for (const [path, color, thin] of inspected) {
+            const joints = path.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
+            context.lineWidth = thin ? 1 : 2; context.strokeStyle = color; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
+            for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, thin ? 5 : 9, 0, Math.PI * 2); context.stroke(); }
+          }
+          context.restore();
         }
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);
       } else { if (pinButton) { pinButton.remove(); pinButton = null; } updateRevealStrip([], 0); nodePoints = []; nodeHandles = []; if (gizmoHoverAxis !== null) clearGizmoHover(); poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
@@ -1880,7 +1970,7 @@ export default function GamePreview(inputProps) {
       },
       previewMaterialLayers(index,layers) {
         if(disposed||!ownedModel.Materials[index])return;
-        ownedModel.Materials[index].Layers=layers;invalidate();
+        ownedModel.Materials[index].Layers=previewTextureLayers(layers);invalidate();
       },
       // A live fitting control re-uploads only this geoset's first UV set.
       previewGeosetUV(index,uv) {
@@ -1909,6 +1999,18 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
+      /** Where the POSE handles are drawn now, in view pixels (a window places its popups clear of them). */
+      handlePoints() { return poseHandles.filter(handle => handle.visible && !handle.hidden && !handle.quiet).map(handle => ({ x: handle.x, y: handle.y })); },
+      // Back to the view as the window framed it, before the user turned, zoomed or moved it.
+      resetView() {
+        if (disposed) return;
+        const turn = latest.current.turnCamera;
+        // Views that turn together (Transfer) go back to the opening direction and frame the model again.
+        if (turn) { turn.saved = null; fit(); controls.update(); cameraChanged(); return; }
+        const home = homeStore().home; if (!home) return;
+        resettingView = true;
+        try { camera = restorePreviewCamera(home, perspective, ortho, controls); resize(); reportProjectionView(); invalidate(); cameraChanged(); } finally { resettingView = false; }
+      },
       frameGeosets,
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
@@ -1921,6 +2023,13 @@ export default function GamePreview(inputProps) {
       setCameraView(view) { camera = perspective; controls.object = camera; state.cameraDetached = true; applyEvaluatedModelCamera(camera, controls, view, canvas.width / canvas.height); invalidate(); },
       modelCenter() { return center.toArray(); },
       // Canvas pixels of model-space points [x,y,z,...] in the current view, as [x,y,inFront,...].
+      // The pointer's ray in model space, for a window that drags something of its own in the view (Transfer's aim).
+      ray(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
+        camera.updateMatrixWorld();
+        raycaster.setFromCamera(new THREE.Vector2((clientX - rect.left) / Math.max(1, rect.width) * 2 - 1, -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1), camera);
+        return { origin: raycaster.ray.origin.toArray(), direction: raycaster.ray.direction.toArray() };
+      },
       project(points) {
         const out = new Float32Array(points.length), point = new THREE.Vector3();
         camera.updateMatrixWorld();
@@ -2044,7 +2153,7 @@ export default function GamePreview(inputProps) {
         ? { ...snapshotPreviewCamera(portraitBackup.camera === 'ortho' ? portraitBackup.ortho : portraitBackup.perspective, portraitBackup.perspective, portraitBackup.ortho, { target: portraitBackup.target }), view: portraitBackup.appliedView }
         : { ...snapshotPreviewCamera(camera, perspective, ortho, controls), view: state.appliedView };
       if (latest.current.cameraHandoff) latest.current.cameraHandoff.current = cameraMemory.current;
-      compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
+      compareCamera?.listeners.delete(receiveCamera); turnCamera?.listeners.delete(receiveTurn); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
       canvas.removeEventListener('pointerleave', clearGizmoHover);
@@ -2083,10 +2192,13 @@ export default function GamePreview(inputProps) {
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.collisionMovePlane, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;
+  // Reset view: every tool-window preview has the small button in its corner (presentation="preview",
+  // or resetViewButton where a window uses another presentation). false leaves it to the window.
+  const resetViewButton = (props.resetViewButton ?? (props.presentation === 'preview' && !props.showcase)) && !props.portraitMode;
   const frame = portraitFrame.current, portrait = !!props.portraitMode, framed = portraitHasFrame(props), hasCamera = !!model?.Cameras?.[props.portraitCameraIndex];
   const composition = portraitComposition(props), crop = portraitCompositionRect(portraitArea.width,portraitArea.height);
   const guideStyle = composition ? {left:crop.x,top:crop.y,width:crop.width,height:crop.height,'--portrait-mask':props.portraitSettings.mask} : {left:'calc(100% * 8 / 184)',top:'calc(100% * 9 / 184)',width:'calc(100% * 167 / 184)',height:'calc(100% * 170 / 184)'};
-  return <div ref={root} className={`game-preview-root${framed ? ' portrait-preview-root' : ''}`} style={{ minHeight: props.presentation === 'preview' ? 0 : 180, background: props.showcase && portrait ? viewportBackground.color : undefined }}>
+  return <div ref={root} className={`game-preview-root${framed ? ' portrait-preview-root' : ''}${resetViewButton ? ' preview-with-reset' : ''}`} style={{ minHeight: props.presentation === 'preview' ? 0 : 180, background: props.showcase && portrait ? viewportBackground.color : undefined }}>
     <div ref={stage} className={`game-preview-stage${composition ? ' portrait-composition-stage' : framed ? ' portrait-preview-stage' : ''}`} style={framed && !composition ? { width: portraitSize, height: portraitSize } : undefined}>
       <div ref={host} className={`game-preview-surface${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`} />
       {selectionBox && <div className={`game-preview-selection-layer${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`}><div data-selection-marquee="" style={{ position: 'absolute', zIndex: 90, pointerEvents: 'none', boxSizing: 'border-box', border: `1px dashed ${marqueeColor}`, background: `${marqueeColor}24`, boxShadow: '0 0 0 1px #fff', ...selectionBox }} /></div>}
@@ -2097,6 +2209,7 @@ export default function GamePreview(inputProps) {
       {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status" data-alert="">{frame.error}</div>}
     </div>
+    {resetViewButton && <button type="button" className="preview-reset-view" aria-label="Reset view" title="Reset view" onPointerDown={event => event.stopPropagation()} onClick={() => runtime.current?.captureApi?.resetView()}><span aria-hidden="true">↺</span></button>}
     <SensitivityIndicator value={adjustingSensitivity} />
     {gestureLabel && <div role="status" style={{ position:'absolute', top:8, left:8, padding:'4px 7px', background:'#182638', color:'#fff', fontSize:12 }}>{gestureLabel}</div>}
     {warnings.length>0&&<div role="status" style={{position:'absolute',bottom:3,left:4,fontSize:11,color:'#500'}}>{warnings.join(' ')}</div>}

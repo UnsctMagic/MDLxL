@@ -15,6 +15,7 @@ export const MANUAL_WINDOWS = Object.freeze({
   'particle-library': { group: 'Particle Editor', category: 'Particle Library' },
   'particle-picture': { group: 'Particle Editor', category: 'Particle Editor' },
   animxl: { group: 'animxl', category: 'AnimXL' },
+  transfer: { group: 'transfer', category: 'Transfer' },
   'texture-library': { group: 'texture-library', category: 'Texture Library' },
   'game-files': { group: 'texture-library', category: 'Game files' },
   showcase: { group: 'editor', category: 'Showcase' },

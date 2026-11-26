@@ -239,6 +239,14 @@ leg-only junction sits beside or above it). A moving role-less joint strictly
 between an outermost head and the first chest, spine, pelvis, body or
 limb-carrying joint above it becomes a neck. A name the reader already rules out
 as anatomy never receives either role.
+A chain read as a leg can be hanging cloth (scrolls or fur strips on a chest).
+`poseLimbOrCloth` weighs five clues: it hangs from the joint the arms hang from, its
+skin is a sheet, it stops short of the floor, it swings with its mirrored partner
+instead of against it, its name. Cloth needs two clues that agree; no single clue
+decides, a name least of all, and an unsure chain stays a leg. A cloth chain keeps
+its handle as a plain bone chain (kind `arm`, label `Chain`, marked `cloth: true`),
+so every tool treats it as it treats a Chain. Contract and corpus measurements:
+[limb or cloth](agent-tasks/recognition-limb-or-cloth.md).
 
 Bodies come first, names second. The bodies are found from their limbs; a bone
 named like a head, neck, chest, spine, pelvis, body, tail or wing is that part
