@@ -25,8 +25,9 @@ option `engine: 2` (+ `regions`). It runs engine 1, then re-poses limbs on its r
 ## Engine per region (owner 26 Nov: "let users pick themselves")
 
 `regions = {armL, armR, legL, legR, weapon}`, each 1 or 2. Spine and head follow engine 1 in both engines. A tail follows the
-legs (engine 2 only when both legs are). Weapon 1 = the weapon hand goes where engine 1 puts it; 2 = the donor's spot
-scaled. Every region on 1 gives engine 1's result byte for byte (checked on 6 pairs). `suggestEngineRegions` suggests
+legs (engine 2 only when both legs are). The arm's box decides where its hand goes; the weapon box only how the weapon sits in
+the hand (2: the hand turns so the weapon points the way the donor's weapon points; 1: engine 1's turn). Before 26 Nov
+evening the weapon box placed the weapon hand and the arm box did nothing on that arm (owner, pair 1 of sheet 2b). Every region on 1 gives engine 1's result byte for byte (checked on 6 pairs). `suggestEngineRegions` suggests
 engine 2 where proportions differ (hip spacing vs leg length off by 25%, arm vs leg length off by 20%), else engine 1;
 the weapon follows the arms. UI: one "Engine 2:" group of boxes in the repair row (app/TransplantToggles.jsx), in the
 Transfer window (starts at the suggestion, kept per pair) and in the pick sheet (`engineOptions` in transfer-window.js).

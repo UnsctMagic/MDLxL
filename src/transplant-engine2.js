@@ -11,7 +11,8 @@
 // 3. with both legs on engine 2 the body stands as high above the ground as the donor's, times the leg length ratio, and
 //    travels by the same ratio, so a planted donor foot stays planted;
 // 4. a limb end (hand, foot) keeps engine 1's world turn, which is the donor's: what the hand holds keeps the donor's angle.
-//    The weapon region decides where the weapon hand goes: engine 1's spot, or the donor's spot scaled (engine 2).
+//    The arm's region decides where its hand goes. The weapon region decides only how the weapon sits in the hand: engine 1
+//    keeps the hand's turn, engine 2 turns the hand so the weapon points the way the donor's weapon points.
 // Spine and head turn as engine 1 turns them in both engines. Bone lengths never change (rotations only, plus the body's
 // position), so the mesh keeps its shape and regions meet without tearing. Every region on 1 leaves engine 1's result as is.
 // Written keys are linear and dense (every 1/30 s and every key of the limb and the joints above it), so nothing between
@@ -90,7 +91,11 @@ export function engine2Pose(M, D, { limbs, donorMap, rigA, rigB, model, regions 
     if (!ids.every(editable)) continue;
     const lenM = chainLength(ids, pM), lenD = chainLength(donor, pD);
     if (!(lenM > 1e-6 && lenD > 1e-6)) continue;
-    chains.push({ key: theirs.key, kind: theirs.limbKind, side: theirs.side, donor, ids, ratio: lenM / lenD, lenD, weapon: !!theirs.weapon || !!rigA.parts?.[theirs.key]?.weapon });
+    const held = rigA.parts?.[theirs.key]?.weapon ? rigA.parts[theirs.key] : theirs.weapon ? theirs : null;
+    chains.push({ key: theirs.key, kind: theirs.limbKind, side: theirs.side, donor, ids, ratio: lenM / lenD, lenD, weapon: !!held,
+      // the weapon's line (butt to tip, at rest) in this model and in the donor, and the donor joint that carries the donor's
+      ownLine: own.weapon?.butt && own.weapon?.tip ? v3(own.weapon.tip).sub(v3(own.weapon.butt)) : null,
+      donorLine: held?.weapon?.butt && held.weapon.tip ? v3(held.weapon.tip).sub(v3(held.weapon.butt)) : null, donorHand: held?.marker ?? null });
   }
   const legs = chains.filter(c => c.kind === 'leg'), arms = chains.filter(c => c.kind === 'arm');
   const both = (a, b) => pick[a] === 2 && pick[b] === 2 ? 2 : 1;
@@ -102,7 +107,8 @@ export function engine2Pose(M, D, { limbs, donorMap, rigA, rigB, model, regions 
   for (const chain of chains) { chain.engine = regionOf(chain); chain.group = byD.get(chain.donor[0])?.Parent ?? -1; }
   // The weapon arm: the main pair's first (a mount's forelimb read as a second pair of arms can carry a weapon reading too).
   const weaponArm = arms.find(c => c.weapon && /^arm[LR]?$/.test(c.key)) ?? arms.find(c => c.weapon) ?? null, weaponEngine = pick.weapon ?? weaponArm?.engine ?? 1;
-  for (const chain of chains) chain.moves = chain.engine === 2 || (chain === weaponArm && weaponEngine === 2);
+  // The arm's own box decides where the arm and hand go; the weapon box only how the weapon sits in the hand.
+  for (const chain of chains) chain.moves = chain.engine === 2 || (chain === weaponArm && weaponEngine === 2 && !!chain.ownLine && !!chain.donorLine);
   const shiftBody = legs.length > 0 && legs.every(c => c.engine === 2);
   const report = { chains: chains.length, regions: pick, suggested };
   if (!chains.some(c => c.moves)) return report;
@@ -164,7 +170,7 @@ export function engine2Pose(M, D, { limbs, donorMap, rigA, rigB, model, regions 
       const scaleOf = chain => { const r = shoulders.get(chain.group).ratios; return r.reduce((x, y) => x + y, 0) / r.length; };
       const handTarget = chain => { const group = shoulders.get(chain.group); return mid(group.m).add(posD(chain.donor.at(-1)).sub(mid(group.d)).multiplyScalar(scaleOf(chain))); };
       // The weapon hand's spot: engine 1's (moved with the body) or the donor's scaled.
-      const weaponSpot = weaponArm ? (weaponEngine === 2 ? handTarget(weaponArm) : posM(weaponArm.ids.at(-1)).add(delta)) : null;
+      const weaponSpot = weaponArm ? (weaponArm.engine === 2 ? handTarget(weaponArm) : posM(weaponArm.ids.at(-1)).add(delta)) : null;
       const world = new Map();
       for (const chain of moving) {
         const { ids, donor } = chain, n = ids.length - 1;
@@ -182,10 +188,10 @@ export function engine2Pose(M, D, { limbs, donorMap, rigA, rigB, model, regions 
           local.set(local.x * legRatio, sign * halfOut + legRatio * (local.y - sign * halfD), local.z * legRatio);
           target = hipM.clone().add(local.applyQuaternion(heading));
         } else if (chain.kind === 'arm') {
-          target = chain === weaponArm ? weaponSpot.clone() : handTarget(chain);
+          target = chain.engine !== 2 ? null : chain === weaponArm ? weaponSpot.clone() : handTarget(chain);
           // A second hand on the weapon: from the weapon hand's spot, as far as the donor's two hands are apart (scaled),
           // blended in as the donor's hands come together so the grip never snaps on or off.
-          if (weaponArm && chain !== weaponArm && chain.group === weaponArm.group) {
+          if (target && weaponArm && chain !== weaponArm && chain.group === weaponArm.group) {
             const apart = posD(donor[n]).sub(posD(weaponArm.donor.at(-1))), share = clamp01((0.45 * chain.lenD - apart.length()) / (0.2 * chain.lenD));
             if (share > 0) target.lerp(weaponSpot.clone().add(apart.multiplyScalar(scaleOf(chain))), share);
           }
@@ -218,6 +224,9 @@ export function engine2Pose(M, D, { limbs, donorMap, rigA, rigB, model, regions 
           turn[0] = arc(off[0].clone().applyQuaternion(turn[0]), target.clone().sub(at[0])).multiply(turn[0]);
         }
         turn[n] = Q[n];
+        // Weapon on engine 2: the hand turns so the weapon points the way the donor's weapon points (its twist stays).
+        if (chain === weaponArm && weaponEngine === 2 && chain.ownLine && chain.donorLine && WD.get(chain.donorHand))
+          turn[n] = arc(chain.ownLine.clone().applyQuaternion(Q[n]), chain.donorLine.clone().applyQuaternion(rotationOf(WD.get(chain.donorHand)))).multiply(Q[n]);
         ids.forEach((id, k) => world.set(id, turn[k]));
       }
       const newWorld = id => {

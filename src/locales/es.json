@@ -8958,5 +8958,5 @@
   "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Mantiene el arma no más lejos de la mano que el arma del donante de la mano del donante.",
   "Engine 2": "Motor 2",
   "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.": "Marcado: el motor 2 coloca esta parte. Sus huesos apuntan como los del donante y su mano o pie va al punto del donante, a la escala de este cuerpo. Sin marcar: el motor 1 copia los giros de las articulaciones del donante.",
-  "Ticked: the weapon hand goes to the donor's spot, scaled to this body (engine 2). Unticked: where engine 1 puts it.": "Marcado: la mano del arma va al punto del donante, a la escala de este cuerpo (motor 2). Sin marcar: donde la pone el motor 1."
+  "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.": "Marcado: la mano gira para que el arma apunte como el arma del donante (motor 2). Sin marcar: la mano conserva el giro del motor 1. Dónde va la mano lo decide la casilla del brazo."
 }

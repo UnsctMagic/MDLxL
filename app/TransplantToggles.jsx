@@ -8,7 +8,7 @@ const MIRROR_TIP = 'Swap left and right for this whole donor. On by itself when 
 // Engine per region (src/transplant-engine2.js): a ticked part is posed by engine 2.
 const ENGINE_LABELS = { armL: 'Left arm', armR: 'Right arm', legL: 'Left leg', legR: 'Right leg', weapon: 'Weapon' };
 const ENGINE_TIP = "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.";
-const ENGINE_WEAPON_TIP = "Ticked: the weapon hand goes to the donor's spot, scaled to this body (engine 2). Unticked: where engine 1 puts it.";
+const ENGINE_WEAPON_TIP = "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.";
 
 export default function TransplantToggles({ visible = [], suggested = [], checked = [], onChange, suggesting, error, legTiming = LEG_TIMING.default, onLegTiming, mirror = false, mirrorSuggested = false, onMirror, engineRegions = [], engines = {}, enginesSuggested = {}, onEngine }) {
   if (suggesting || error) return <div className="xf-repairs" data-transplant-repairs="" role="status">{translate(suggesting ? 'Suggesting…' : error)}</div>;
