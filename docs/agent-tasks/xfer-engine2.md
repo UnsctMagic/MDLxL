@@ -85,6 +85,8 @@ degrees apart); per-animation engine wanted (29). Also found while checking: swo
   with Copy / Match (Shift: both sides), the weapon row on the weapon arm, the front-leg choice, Same as all; form buttons
   (Normal / Alternate, else Form n) and Both / Rider / Mount in the donor caption in Transplant too; other-form animations
   dimmed; "•" on animations with their own choice. Retarget: the same row (no scope), dots and chip on taken limbs.
+- Starting method (owner 26 Nov: "Suggested method"): Transplant starts on `suggestEngineRegions`; a Retarget part without
+  its own `method` builds with its region's suggestion. Both already did; no code change.
 - Not done from the contract: the M / X keys (buttons carry hotkey ids, so keys can be assigned in Settings); the
   "outlined donor limb" when a part is picked; a warning mark on a part the result has no handle for (it is in the "! N"
   list instead). The repair suggester still runs (automatically) to pick the repairs, as the contract says.

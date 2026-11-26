@@ -160,7 +160,7 @@ Tooltips (English; add to all five catalogs in catalog order):
 8. Retarget: the same row, dots and chip on taken parts; method saved in setups.
 9. Six-language catalog entries; tooltips; `TEST XFER CONTROLS 01.mdx` click-through of every new control in the packaged build (hidden).
 
-## Open point for the owner
+## Decided: starting method
 
-Starting method: this contract starts each new pair on the suggested method (✦) and never changes it afterwards.
-The other option is to always start on Match. Say so if you prefer that; nothing else depends on it.
+Owner, 26 Nov: "Suggested method". Every new pair starts on the suggested method (✦), in Transplant and in Retarget,
+and the app never changes it after the user touches it.
