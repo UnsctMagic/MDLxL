@@ -1795,3 +1795,22 @@ that worked. Each is measurable on every pair without the owner's grade.
 - Model-free test of `ruleChange` / `holesWorse` (fails first: no such exports on 6571275b, whose inline count gave
   reasonable-28 a gained rule). `regress.mjs --check --all` (suggester re-run): 58 checked, 0 differ, reasonable-28 back to
   trackWindow, seatWeapon; `--check` 8 of 8. Build passes.
+
+### Fable plan step 4 (Opus, 26 Nov): an arm ends at its hand, not at the weapon bone (reasonable-08)
+
+- `transferRig` (anim-transfer.js, limb loop): an arm of 3+ joints whose last joint carries a `Weapon...` attachment, the
+  joint before a `Hand...` attachment and the last none, drops its last joint (tip null, left out of `line`); the part keeps
+  it as non-enumerable `handEnd`. pose-ik.js and the donor-side trim are untouched.
+- Test (skeleton-transplant.test.js): Elf Death Knight's right arm ends at `RH`, `report.weapon.vertices >= 200`; fails
+  first on 43c16f95 ("right arm ends at Weapon").
+- Scope: of the 116 models of the 58 pairs (own and donor) the trim fires once: reasonable-08 own, Elf Death Knight armR.
+- `regress.mjs --check --all` (suggester re-run): 57 of 58 same; reasonable-08 ticks trackWindow, keepTorso ->
+  skinLandmarks, trackWindow, keepTorso (Seat weapon not suggested). `--check` 8 of 8.
+- weapon.mjs at trackWindow,keepTorso: right palm gap 0.009-0.011 in Stand - 1 and Walk; Stand - 2 rises to 0.40-0.49
+  mid-clip and back to 0.009 at the ends; Attack - 1 right palm 0.12-0.31 mid-clip (donor 0.001-0.08), left 0.21-0.34
+  (step 7). Holes on reasonable-08: 1 of 505 (8.2%), the thigh touching point, as before.
+- Pictures `out/fable-plan/step-4/`: r08-old-* (trackWindow,keepTorso) and r08-new-* (new ticks), every donated animation
+  (a: Stand/Attack/Walk, b: Spell/Spin/Death/Portrait) and close looks of Stand - 2 / Attack - 1 at yaw 35 and -55.
+  Stand - 2: the sword goes to the hip with the donor's, no longer over the shoulder.
+- Related tests (anim-transfer, skeleton-transplant, transplant-autofix): 223, 211 pass, 12 fail. The same 12 fail on
+  6cfed3a6 (before step 1) and 43c16f95: detached pipe, P9, P2, P4, T6, T12, WS4, Q3, V2, V3, RR1, HG1.

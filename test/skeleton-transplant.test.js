@@ -1688,3 +1688,15 @@ test('WH1 Kodo Beast on the Khorne Knight: the kodo\'s head is no weapon (its We
   assert.equal(inHand, 0, `${inHand} of the kodo's ${head} head vertices hang from the knight's arms`);
   assert.ok(!(report.weapon?.extras || []).includes(headTop), `the kodo's neck is listed as the weapon (${JSON.stringify(report.weapon)})`);
 });
+
+// An arm ends at its hand, not at the weapon bone below it (plan step 4; Elf Death Knight, owner 26 Nov 2026): his right
+// arm runs RA1 > RA2 > RA3 > RH > Weapon, RH carries "Hand Right Ref" and Weapon carries "Weapon Ref" and the sword.
+test('the Elf Death Knight\'s right arm ends at RH and his sword rides the donor\'s weapon bone', { skip: missing('xfer-r08-own', 'xfer-r08-donor') }, () => {
+  clearTransferCache();
+  const own = load('xfer-r08-own'), donor = load('xfer-r08-donor');
+  const rig = transferRig(own, Math.max(0, standSequenceIndex(own)));
+  const name = id => allNodes(own).find(node => node.ObjectId === id)?.Name;
+  assert.equal(name(rig.parts.armR.marker), 'RH', `right arm ends at ${name(rig.parts.armR.marker)}`);
+  const result = transplantSkeleton(own, donor, { events: true, emitters: false, keep: [], mirror: false });
+  assert.ok(result.report.weapon.vertices >= 200, `vertices on the donor's weapon bone: ${result.report.weapon.vertices}`);
+});
