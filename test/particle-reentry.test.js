@@ -13,7 +13,7 @@ function open(model, selectedNodeIds = [], id) {
   const action = new Function('doc', 'effectNodes', 'model', 'selectedNodeIds', 'selectedBone', 'singleRigNode', 'validSelection', 'setPlaying', 'setDialog', 'id', 'initialView', body);
   const before = structuredClone(model);
   action({ model }, effectNodes, model, selectedNodeIds, selectedBone, singleRigNode, selection, value => playing.push(value), value => dialogs.push(value), id);
-  assert.deepEqual(model, before); assert.deepEqual(playing, [false]);
+  assert.deepEqual(model, before); assert.deepEqual(playing, []); // playback auto-pauses while a tool is open, not here
   const expected=[...(model.Bones||[]),...(model.Helpers||[]),...(model.Attachments||[])].find(n=>n===singleRigNode)?.ObjectId;assert.equal(dialogs[0].attachmentId, expected); assert.equal(dialogs[0].selection, selection);
   return dialogs[0].nodeId;
 }

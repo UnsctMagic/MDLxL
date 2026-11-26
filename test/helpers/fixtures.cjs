@@ -71,4 +71,15 @@ function tempDir(prefix = 'mdlxl-', env = process.env) {
   return fs.mkdtempSync(path.join(base, prefix));
 }
 
-module.exports = { FIXTURES, fixturePath, testModel, modelsRoot, gameFolder, tempDir };
+// Wraps node:test so a test whose model from the collection is missing skips instead of failing
+// (CI and other PCs have no D:/Claude/MDLxL-TestModels).
+function skipWithoutModels(test) {
+  return (name, fn) => test(name, async t => {
+    try { return await fn(t); } catch (error) {
+      if (error?.code === 'ENOENT' && path.resolve(String(error.path)).startsWith(modelsRoot())) return t.skip('test model not on this machine');
+      throw error;
+    }
+  });
+}
+
+module.exports = { FIXTURES, fixturePath, testModel, modelsRoot, gameFolder, tempDir, skipWithoutModels };
