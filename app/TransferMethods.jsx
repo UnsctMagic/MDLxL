@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { RangeField } from './Fields.jsx';
 import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { LEG_TIMING } from '../src/transplant-autofix.js';
@@ -76,7 +76,20 @@ export function PartChip({ chip, onPick, onClose, sameAsAll, frontLegs }) {
     {[[1, 'Copy'], [2, 'Match']].map(([v, label]) => <button key={v} aria-pressed={value === v} disabled={!!locked && v === 2} title={locked && v === 2 ? translate(locked) : key === 'weapon' && v === 2 ? translate('The hand turns so the weapon points the way the donor\'s weapon points.') : undefined}
       onClick={event => onPick(key, v, event.shiftKey)}>{translate(label)}</button>)}
   </span>;
-  return <div className="xf-chip" ref={box} role="dialog" aria-label={translate(chip.label)} style={{ left: chip.x, top: chip.y }}>
+  // Next to the clicked dot, never over it, kept inside the view.
+  const [place, setPlace] = useState({ left: chip.x + 16, top: chip.y - 12 });
+  useLayoutEffect(() => {
+    const element = box.current, view = element?.parentElement;
+    if (!element || !view) return;
+    const width = element.offsetWidth, height = element.offsetHeight, room = view.clientWidth, tall = view.clientHeight;
+    // Above, below, right or left of the dot (in that order), the first that covers no dot; else the one covering fewest.
+    const clamp = (x, y) => ({ left: Math.max(4, Math.min(room - width - 4, x)), top: Math.max(4, Math.min(tall - height - 4, y)) });
+    const spots = [clamp(chip.x - 12, chip.y - 18 - height), clamp(chip.x - 12, chip.y + 18), clamp(chip.x + 18, chip.y - height / 2), clamp(chip.x - 18 - width, chip.y - height / 2)];
+    const dots = [{ x: chip.x, y: chip.y }, ...(chip.avoid || [])];
+    const covers = spot => dots.filter(dot => dot.x >= spot.left - 14 && dot.x <= spot.left + width + 14 && dot.y >= spot.top - 14 && dot.y <= spot.top + height + 14).length;
+    setPlace(spots.reduce((best, spot) => covers(spot) < covers(best) ? spot : best));
+  }, [chip.x, chip.y, chip.region, chip.weapon, chip.reason, !!frontLegs, !!sameAsAll]);
+  return <div className="xf-chip" ref={box} role="group" aria-label={translate(chip.label)} style={place}>
     <b className="xf-chip-title">{translate(chip.label)}</b>
     {chip.region && row(chip.region, chip.value, chip.locked)}
     {chip.weapon && row('weapon', chip.weaponValue)}

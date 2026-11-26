@@ -1772,6 +1772,7 @@ export default function GamePreview(inputProps) {
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
         // Method marks (Transfer: Copy / Match / a warning per part) ride on a limb's end handle; `dotsOnly` keeps its bend handle out.
         const marks = p.poseConfig?.marks;
+        if (runtime.current) runtime.current.poseHandles = poseHandles; // read by the hidden app checks (test hook)
         if (marks) for (const handle of poseHandles) { handle.mark = handle.kind === 'endpoint' ? marks[handle.key] : undefined; if (p.poseConfig.dotsOnly && handle.kind === 'bend') handle.quiet = true; }
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
@@ -1918,6 +1919,8 @@ export default function GamePreview(inputProps) {
       },
       invalidate() { state.scheduler.invalidate(); },
       fit(points) { fit({ points, exact: true }); },
+      /** Where the POSE handles are drawn now, in view pixels (a window places its popups clear of them). */
+      handlePoints() { return poseHandles.filter(handle => handle.visible && !handle.hidden && !handle.quiet).map(handle => ({ x: handle.x, y: handle.y })); },
       // Back to the view as the window framed it, before the user turned, zoomed or moved it.
       resetView() {
         if (disposed) return;

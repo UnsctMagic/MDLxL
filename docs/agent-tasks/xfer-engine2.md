@@ -85,6 +85,13 @@ degrees apart); per-animation engine wanted (29). Also found while checking: swo
   with Copy / Match (Shift: both sides), the weapon row on the weapon arm, the front-leg choice, Same as all; form buttons
   (Normal / Alternate, else Form n) and Both / Rider / Mount in the donor caption in Transplant too; other-form animations
   dimmed; "•" on animations with their own choice. Retarget: the same row (no scope), dots and chip on taken limbs.
+- Round 5 (owner: "wtf is this"): the part chip was a huge empty panel (a stylesheet rule stretched every div in the preview;
+  `.xf-chip` is now excluded) and now picks the side that covers no dot (`handlePoints()` on the preview's capture API);
+  the Transplant result view framed by the animation's box (smaller than the mesh, so zoomed in) and kept it: it now
+  frames the shown pose of the whole model when a pair or form first shows (`resetView`), then keeps the camera; dots hide
+  while building; Retarget's donor view showed handles of every skeleton in the file (crow, death body), now only the
+  read form's. Checked hidden with the Druid of the Talon, Grunt and Ghoul as donors (Mix, a dot click, Escape, rebuild,
+  animation change, Retarget).
 - Starting method (owner 26 Nov: "Suggested method"): Transplant starts on `suggestEngineRegions`; a Retarget part without
   its own `method` builds with its region's suggestion. Both already did; no code change.
 - Not done from the contract: the M / X keys (buttons carry hotkey ids, so keys can be assigned in Settings); the

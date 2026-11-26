@@ -22,7 +22,7 @@
 .transfer-xl .xf-caption>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:bold}
 .transfer-xl .xf-caption>button{flex:none}
 .transfer-xl .xf-preview{flex:1;min-height:0;position:relative;overflow:hidden;border:1px solid var(--ui-border,#888);background:#222}
-.transfer-xl .xf-preview>div:not(.xf-overlay-note):not(.xf-placeholder){position:absolute;inset:0}
+.transfer-xl .xf-preview>div:not(.xf-overlay-note):not(.xf-placeholder):not(.xf-chip){position:absolute;inset:0}
 .transfer-xl .xf-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;background:var(--ui-surface,var(--ui-panel,#f0f0f0));color:var(--ui-muted,#444)}
 .transfer-xl .xf-overlay-note{position:absolute;left:6px;right:6px;bottom:6px;z-index:5;padding:4px 8px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
 .transfer-xl .xf-overlay-note p{margin:0}
@@ -213,7 +213,7 @@
 .transfer-xl .xf-more-button{padding:1px 6px}
 .transfer-xl .xf-more-menu{position:absolute;right:0;top:100%;z-index:20;display:flex;flex-direction:column;gap:2px;padding:4px;min-width:150px;background:var(--ui-panel,#f4f2ee);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0004}
 :root .transfer-xl .xf-more-menu>button[aria-pressed=true]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
-.transfer-xl .xf-chip{position:absolute;z-index:15;transform:translate(14px,-50%);display:flex;flex-direction:column;gap:3px;padding:5px 6px;max-width:230px;font-size:11px;background:var(--ui-panel,#f4f2ee);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0005}
+.transfer-xl .xf-chip{position:absolute;z-index:15;display:flex;flex-direction:column;gap:3px;padding:5px 6px;width:max-content;height:auto;max-width:200px;font-size:11px;background:var(--ui-panel,#f4f2ee);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0005}
 .transfer-xl .xf-chip-title{font-size:12px}
 .transfer-xl .xf-chip-row{display:flex;gap:3px;align-items:center}
 .transfer-xl .xf-chip-row>button{flex:1 1 auto;padding:1px 8px}

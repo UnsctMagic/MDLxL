@@ -444,12 +444,13 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const setPartMethods = (keys, value) => { const parts = { ...recipe.parts }; for (const key of keys) if (parts[key]) parts[key] = { ...parts[key], method: value }; change({ ...recipe, parts }); };
   const chooseRtMethod = id => { setRtMix(id === 'mix'); if (id !== 'mix') setPartMethods(methodLimbs, id); };
   const [rtChip, setRtChip] = useState(null), rtPointer = useRef({ x: 0, y: 0 });
-  const openRtChip = key => { if (rtMethod === 'mix' && methodLimbs.includes(key)) setRtChip({ key, x: rtPointer.current.x, y: rtPointer.current.y }); };
+  const openRtChip = key => { if (rtMethod === 'mix' && methodLimbs.includes(key)) setRtChip({ key, x: rtPointer.current.x, y: rtPointer.current.y, avoid: capture.current?.handlePoints?.() || [] }); };
   const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: hoverJoints?.length ? [hoverJoints] : selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT, ...(rtMethod === 'mix' ? { marks: Object.fromEntries(methodLimbs.map(key => [partHandle(rigB, poseB, key)?.key, partMethod(key, recipe.parts[key]) === 'B' ? 'match' : 'copy']).filter(([chain]) => chain != null)) } : {}) }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(','), hoverJoints, rtMethod, JSON.stringify(methodLimbs.map(key => partMethod(key, recipe.parts[key])))]);
   const donorPose = useMemo(() => {
     if (!poseA || !donor) return null;
     const shown = selectedPart && !donorLacks(selected) ? feedsFrom(selected) : null;
-    const handles = rigA.actors?.length > 1 ? takenPoseConfig(poseA, rigA, Object.keys(rigA.parts)) || poseA : poseA;
+    // Only the parts of the body read (the shown form, the chosen rider or mount): never handles of a skeleton not shown.
+    const handles = takenPoseConfig(poseA, rigA, Object.keys(rigA.parts)) || poseA;
     return { ...handles, enabled: true, picking: null, pins: handles.pins || [], target: shown ? partHandle(rigA, poseA, shown) : null, inspectPaths: selectedFrom && rigA.parts[selectedFrom] ? [rigA.parts[selectedFrom].joints] : [], inspectColor: HIGHLIGHT };
   }, [poseA, rigA, donor?.id, donorMirror, selected, selectedFrom, takenSummary(effective)]);
   const limb = selectedPart?.kind === 'limb' && selectedTaken;
@@ -733,6 +734,15 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     const config = takenPoseConfig(poseM, rigM, keys);
     return config && { ...config, enabled: true, picking: null, pins: [], target: null, marks, dotsOnly: true, body: -1, nodes: [] };
   }, [rigM, poseM, tpWarnings, shownMethod, JSON.stringify(tpEngines), methodParts.join(',')]);
+  // The result view frames the whole model when a pair (or a donor form) first shows, and never again for that pair: method,
+  // part, rebuild and animation changes keep the user's camera (preserveCameraView).
+  const framedPair = useRef(null);
+  useEffect(() => {
+    const pair = tpDonor && tpShown && !tpShowsModel ? `${tpDonor.id}|${tpDonor.revision}|${doc.revision}|${donorForm?.key ?? ''}` : null;
+    if (!pair || framedPair.current === pair || !capture.current) return;
+    framedPair.current = pair;
+    capture.current.resetView();
+  }, [tpDonor?.id, tpDonor?.revision, doc.revision, donorForm?.key, !!tpShown, tpShowsModel]);
   const [tpChip, setTpChip] = useState(null), tpPointer = useRef({ x: 0, y: 0 });
   useEffect(() => { setTpChip(null); }, [tpContext, shownMethod === 'mix']);
   const tpWeaponSide = rigB.weaponSide;
@@ -741,7 +751,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!key) return;
     const warn = tpReport?.parts?.[key], region = regionOfPart(key);
     if (shownMethod !== 'mix' && !(warn && (!warn.matched || warn.still))) return;
-    setTpChip({ key, region: shownMethod === 'mix' && methodParts.includes(region) ? region : null, x: tpPointer.current.x, y: tpPointer.current.y,
+    setTpChip({ key, region: shownMethod === 'mix' && methodParts.includes(region) ? region : null, x: tpPointer.current.x, y: tpPointer.current.y, avoid: capture.current?.handlePoints?.() || [],
       reason: !warn ? null : warn.still ? translate('This part did not follow the donor.') : !warn.matched ? translate('The donor has no {0}. Keeps its own movement.').replace('{0}', () => translate(transferPartLabel(key)).toLowerCase()) : null, weapon: shownMethod === 'mix' && methodParts.includes('weapon') && region === 'arm' + tpWeaponSide });
   };
   latestHandlers.current.tpHandle = openTpChip;
@@ -876,10 +886,10 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                 animation={engineAnimation} more={moreItems} onMore={changeRepair} warnings={tpWarnings.map(([key, part]) => ({ key, label: translate(transferPartLabel(key)), reason: part.still ? translate('This part did not follow the donor.') : translate('The donor has no {0}. Keeps its own movement.').replace('{0}', () => translate(transferPartLabel(key)).toLowerCase()) }))} disabled={!methodParts.length}/>}
               <div className="xf-preview" data-transplant-view="" onPointerDownCapture={event => { const rect = event.currentTarget.getBoundingClientRect(); tpPointer.current = { x: event.clientX - rect.left, y: event.clientY - rect.top }; }}>
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                  <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
-                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={tpShowsModel ? null : tpMarks} poseDocumentModel={tpShown.model} onPoseSelect={onTpHandle} onPoseCommit={noop} onCaptureReady={onResultCapture}/>
+                  <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
+                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={tpShowsModel || tpBuilding ? null : tpMarks} poseDocumentModel={tpShown.model} onPoseSelect={onTpHandle} onPoseCommit={noop} onCaptureReady={onResultCapture}/>
                 </Suspense> : <div className="xf-placeholder">{!tpDonor ? 'Choose a model under From.' : tpBuilding ? 'Building…' : 'Loading preview…'}</div>}
-                {tpChip && <PartChip chip={{ label: transferPartLabel(tpChip.key), x: tpChip.x, y: tpChip.y, region: tpChip.region, value: tpEngines[tpChip.region] === 2 ? 2 : 1, weapon: tpChip.weapon, weaponValue: tpEngines.weapon === 2 ? 2 : 1, reason: tpChip.reason }}
+                {tpChip && <PartChip chip={{ label: transferPartLabel(tpChip.key), x: tpChip.x, y: tpChip.y, avoid: tpChip.avoid, region: tpChip.region, value: tpEngines[tpChip.region] === 2 ? 2 : 1, weapon: tpChip.weapon, weaponValue: tpEngines.weapon === 2 ? 2 : 1, reason: tpChip.reason }}
                   onPick={choosePart} onClose={() => setTpChip(null)} sameAsAll={methodScope === 'this' && engineOwn ? sameAsAll : null}
                   frontLegs={frontLegChoice && /^leg/.test(tpChip.key) && (tpChip.reason || /2$/.test(tpChip.key)) ? <FrontLegs mirrorLegs={selectedRepairs.includes('mirrorLegs')} useArms={selectedRepairs.includes('useArms')} onChange={changeRepair}
                     legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })} labels={AUTO_FIX_LABELS}/> : null}/>}
@@ -904,7 +914,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                     cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={viewSeq == null ? resultPose : null} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={viewSeq == null ? resultOverlay : undefined}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
-                {rtChip && <PartChip chip={{ label: transferPartLabel(rtChip.key), x: rtChip.x, y: rtChip.y, region: rtChip.key, value: partMethod(rtChip.key, recipe.parts[rtChip.key]) === 'B' ? 2 : 1 }}
+                {rtChip && <PartChip chip={{ label: transferPartLabel(rtChip.key), x: rtChip.x, y: rtChip.y, avoid: rtChip.avoid, region: rtChip.key, value: partMethod(rtChip.key, recipe.parts[rtChip.key]) === 'B' ? 2 : 1 }}
                   onPick={(key, value, both) => setPartMethods(both && /^(arm|leg)[LR]/.test(key) ? methodLimbs.filter(other => other.slice(0, 3) === key.slice(0, 3)) : [key], value === 2 ? 'B' : 'A')} onClose={() => setRtChip(null)}/>}
               </div>
               <TransferViewStrip name="Result view" playing={playing} onPlay={() => setPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
