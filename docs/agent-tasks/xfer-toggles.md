@@ -1992,3 +1992,15 @@ that worked. Each is measurable on every pair without the owner's grade.
   specified, marked todo. Thresholds not moved.
 - Self-check (live suggestion): only reasonable-08 gains the box; the eight controls, reasonable-19 (Seat), -31, -32, -42
   unchanged. Box unticked: reasonable-08's export equals the baseline hash.
+
+### Fable plan step 10 fix (Opus, 26 Nov): the winged-donor hover rises by the standing heights
+
+- `solesDown` takes the standing-height ratio (visible Stand height of this model over the donor's, as Jump height reads
+  it) and uses it for the new case (legless model, winged donor with feet); the footless-donor hover keeps `travel`.
+- Body range ratio, result range / (donor range x standing-height ratio), Stand and Walk: reasonable-40 0.95 -> 1.00,
+  reasonable-43 0.99 -> 1.00 (travel 0.86 and 1.18 against height ratios 0.91 and 1.19). By the visible Stand heights the
+  travel version was already within 5%; a "1.7x" reading needs another height (stored geometry: reasonable-43 101.7 vs
+  188.2).
+- Test tightened to the standing-height ratio (passes; it also passes on cf7ce6a7, the two ratios being close there).
+  `regress.mjs --check --all --only reasonable-40,reasonable-43,new-08`: -40 and -43 differ, new-08 identical; `--check`
+  8 of 8. Build passes.

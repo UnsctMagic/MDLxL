@@ -3093,7 +3093,9 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     // stand on: this model's own soles go down, as G1's.
     const shortLegs = [rigB, rigA].some(rig => Object.values(rig.parts || {}).some(part => part.limbKind === 'leg' && part.short));
     if (!whole.reason && !shortLegs && hasLegs(rigB) && hasLegs(rigA) && hasLegs(rigM)) { feetDown(M, D, rigB, rigA, rigM, loose, travel, trackMode); ground = 'feet'; }
-    else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode);
+    // A legless flyer on a winged donor rises with the donor's body by the standing heights' ratio (as Jump height does):
+    // the leg-travel ratio means nothing between bodies whose legs do not pair (plan step 10 fix).
+    else ground = solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode, () => visibleStandHeight(model) / visibleStandHeight(D));
     // A rider on a root of its own comes down to the ground where the donor's does (riderDown).
     if (ground === 'feet') riderDown(M, D, rigA, rigB, id => remap.get(newId(id)), treeA, 0.01 * rigB.hipHeight);
   }
@@ -3424,7 +3426,7 @@ function feetDown(M, D, rigB, rigA, rigM, loose, travel, trackMode) {
  * The sole: the lowest vertex this model's legs carry, else (no legs) the 2nd percentile of its living body's heights.
  * A donor whose legs are short (one or two joints, R1: a rat's legs end at the shin) has no foot joint either: its rise
  * is its own sole's (the same reading) above where that sole stands in its Stand. */
-function solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode) {
+function solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode, standRatio = () => travel) {
   clearTransferCache(M);
   if (!rigM.ok) return null;
   const ownStand = standSequenceIndex(model), donorStand = standSequenceIndex(D);
@@ -3482,10 +3484,12 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode) {
     // A wingtip, a trailing tentacle or a moving hem is not a supporting foot.
     // Follow the actual donor body's rise from Stand, using one fixed clearance.
     const body = m => v3(nodePivot(M,M.Nodes[rigM.body],rigM.body)).applyMatrix4(m).z;
+    // A footless donor keeps the leg-travel ratio; a winged donor with feet (this model legless) the standing heights'.
+    const ratio = feetA.length ? standRatio() : travel, rise = ratio > 0 && Number.isFinite(ratio) ? ratio : travel;
     const si = standSequenceIndex(M), at = M.Sequences[si].Interval[0];
     const base = body(sampleNodeMatrices(M,at,si).get(rigM.body));
     heightPerMoment(M,D,rigM,loose,0.01*rigB.hipHeight,(index,donorIndex) => frame =>
-      base + (pivotZ(donorBody,sampleNodeMatrices(D,frame,donorIndex))-bodyRest)*travel -
+      base + (pivotZ(donorBody,sampleNodeMatrices(D,frame,donorIndex))-bodyRest)*rise -
       body(sampleNodeMatrices(M,frame,index).get(rigM.body)), null, trackMode);
     return 'hover';
   }
