@@ -1876,3 +1876,22 @@ that worked. Each is measurable on every pair without the owner's grade.
 - Fail-first on 22e994a7 (new tests copied in): gait 4 fail (Timber Wolf default, Snap Dragon no box = copy, shiftLoopKeys,
   timing 25 vs 50 paths), transfer-picks Leg timing fails, frontLegPick missing. Working tree: gait 5/5, the two others pass.
   Build passes. --check --all, related suites, renders and the sheet: handed to the checker.
+
+### Fable plan step 6 (Opus, 26 Nov): Seat weapon suggested only where there is something to repair
+
+- transplant-weapon-seat.js (readers ported from the review helpers gapsum, plane, roll): `gripReading(weapon, mesh)`
+  (palm gap median/largest in arm lengths, place along the shaft, Stand/Walk/Attack 7 moments), `shaftAngle(result,
+  weapon, donor, donorWeapon)` (median world angle to the donor's shaft at 40% of each shared clip, donor as built),
+  `weaponTurn(plain, seated, weapon)` (rigid fit at the first Stand moment: shaft turn, roll about the shaft folded to
+  0-90, `flat`), and the pure `seatWithheld(numbers)` with the fixed `SEAT_WITHHELD` numbers (0.05, 0.08, 35 deg, 0.25,
+  0.10, flat 2, 45 deg). `seatWeapon` itself is unchanged.
+- xfer-suggest-toggles.js: whenever Seat is shown, the suggested ticks are built without and with it once, before the
+  six-rule step; withheld -> `seatWeapon` blocked for the pair and dropped; numbers in `scores.seat` (live-suggest writes them).
+- Tests `test/xfer-seat-withheld.test.js` (kept out of xfer-suggest-toggles.test.js, which stays at three suggester runs):
+  seatWithheld on the C4 pairs, and reasonable-32 (fixtures `xfer-r32-own/-donor`) Seat shown and not suggested. Both fail
+  first on b0d6fd03.
+- Live suggestion on the 45 pairs that show Seat (`out/fable-plan/step-6/live.jsonl`, `table.md`): withheld on
+  reasonable-32 (rolls the blade: roll 85, flat 2.4, shaft 17) and reasonable-38 (slide 0.11 -> 0.30, shaft 31) as planned;
+  kept on reasonable-40 (shaft 88), new-08, random-10, random-21, random-17. **Also withheld, for Fable's pictures:**
+  reasonable-10 (slide 0.17 -> 0.27, exactly the 0.10), reasonable-31 (roll 87, flat 2.2, shaft 21), reasonable-39
+  (slide 0.12 -> 0.44), reasonable-43 (slide 0.03 -> 0.53). Thresholds not moved.

@@ -11,6 +11,7 @@ import { isWeaponName } from './rig-names.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { solveTwoBone } from './pose-ik.js';
 import { rewriteTrack } from './transplant-floor.js';
+import { similarity } from './transplant-native-cloth.js';
 
 const vector = () => new Vector3();
 const at = (values, v) => vector().fromArray(values, 3*v);
@@ -780,4 +781,107 @@ function holdSupport(result,donor,rigA,donorMap,limbEntries,source,target,{item,
     if (values[0].size) for (let i=0;i<2;i++) rewriteTrack(result,nodes[i],si,frames,values[i],'Rotation');
   }
   return moments ? {moments,palmGapBefore:before/moments,palmGapAfter:after/moments} : null;
+}
+
+// ------------------------------------------------------------ is there something for Seat to repair? (plan step 6)
+// Readers ported from the Fable review helpers (gapsum, plane, roll). `weapon` is readWeapon(own): its item and palm
+// patches use the model's vertex numbers, which are valid on a transplant result of that model.
+const GRIP_CLIPS = /^(stand|walk|attack)/i;
+const median = xs => { const s = [...xs].sort((a,b) => a-b); return s.length ? s[s.length>>1] : null; };
+const endPoints = (item, point) => item.ends.map(end => mean(end.map(({gi,v}) => point(gi,v))));
+
+/** How `mesh` holds the model's weapon over its Stand, Walk and Attack animations (7 moments each, weapon shown): the
+ * nearest palm's gap to the weapon surface in arm lengths (median, largest) and its place along the shaft (median, 0 butt
+ * to 1 head). Null without a weapon or a palm patch. */
+export function gripReading(weapon, mesh) {
+  const item = weapon?.items?.[0];
+  if (!item) return null;
+  const gaps = [], places = [];
+  for (const [si,s] of mesh.Sequences.entries()) {
+    if (!GRIP_CLIPS.test(String(s.Name).trim()) || !(s.Interval[1] > s.Interval[0])) continue;
+    for (let k=0;k<7;k++) {
+      const f = Math.round(s.Interval[0] + (s.Interval[1]-s.Interval[0])*k/6);
+      if (!item.parts.some(p => sampleGeosetAnimation(mesh,p.gi,f,si).alpha > .25)) continue;
+      const world = sampleNodeMatrices(mesh,f,si), skin = new Map();
+      const point = (gi,v) => { if (!skin.has(gi)) skin.set(gi,skinGeoset(mesh.Geosets[gi],world)); return at(skin.get(gi),v); };
+      const reading = {world,frame:f,sequence:si,point};
+      let best = null;
+      for (const hand of weapon.hands.filter(h => h.patch?.length)) {
+        const palm = mean(hand.patch.map(({gi,v}) => point(gi,v)));
+        const c = contacts(mesh,reading,item.parts.filter(p => p.faces?.length),palm);
+        if (c && (!best || c.gap/hand.arm.length < best.gap)) best = {gap:c.gap/hand.arm.length,world:c.world};
+      }
+      if (!best) continue;
+      gaps.push(best.gap);
+      if (item.ends) {
+        const [a,b] = endPoints(item,point);
+        places.push(best.world.clone().sub(a).dot(b.clone().sub(a))/Math.max(1e-8,b.distanceToSquared(a)));
+      }
+    }
+  }
+  return gaps.length ? {gap:median(gaps),gapMax:Math.max(...gaps),place:median(places)} : null;
+}
+
+// The shaft (butt to head) and the widest direction across it, at one moment.
+function weaponLineAt(mesh, item, si, phase) {
+  const {point} = pose(mesh,si,phase);
+  const [b,h] = endPoints(item,point), axis = h.clone().sub(b).normalize();
+  const points = item.parts.flatMap(p => p.vertices.map(v => point(p.gi,v))), centre = mean(points.map(p => p.clone()));
+  const across = points.map(p => { const d = p.clone().sub(centre); return d.addScaledVector(axis,-d.dot(axis)); });
+  let wide = new Vector3(1,.37,.21); wide.addScaledVector(axis,-wide.dot(axis)).normalize();
+  for (let i=0;i<40;i++) { const n = vector(); for (const d of across) n.addScaledVector(d,d.dot(wide)); if (n.lengthSq() < 1e-12) break; wide = n.normalize(); }
+  const thin = new Vector3().crossVectors(axis,wide).normalize();
+  const spread = dir => Math.sqrt(across.reduce((sum,d) => sum + d.dot(dir)**2,0)/across.length);
+  return {axis,wide,points,flat:spread(wide)/Math.max(1e-6,spread(thin))};
+}
+
+/** Median angle (deg) between the result's shaft and the donor's, world space, at 40% of each Stand, Walk and Attack the
+ * two share (same name and start). `donor` is the donor as built (mirrored when the build was). Null without both ends. */
+export function shaftAngle(result, weapon, donor, donorWeapon) {
+  const item = weapon?.items?.[0], theirs = donorWeapon?.items?.[0];
+  if (!item?.ends || !theirs?.ends) return null;
+  const angles = [];
+  for (const [di,s] of donor.Sequences.entries()) {
+    if (!GRIP_CLIPS.test(String(s.Name).trim()) || !(s.Interval[1] > s.Interval[0])) continue;
+    const si = result.Sequences.findIndex(x => x.Name === s.Name && x.Interval[0] === s.Interval[0]);
+    if (si < 0) continue;
+    angles.push(weaponLineAt(donor,theirs,di,.4).axis.angleTo(weaponLineAt(result,item,si,.4).axis)*180/Math.PI);
+  }
+  return median(angles);
+}
+
+/** How Seat moved the weapon from the plain result to the seated one at the first Stand moment: the rigid fit of its
+ * vertices split into the turn of the shaft and the roll about it (deg, roll folded to 0-90: a blade has no front), and
+ * `flat`, the weapon's widest cross-section spread over its thinnest. Null without a weapon, its ends or a Stand. */
+export function weaponTurn(plain, seated, weapon) {
+  const item = weapon?.items?.[0], si = standSequenceIndex(plain);
+  if (!item?.ends || si < 0 || standSequenceIndex(seated) !== si) return null;
+  const before = weaponLineAt(plain,item,si,0), after = weaponLineAt(seated,item,si,0);
+  const matrix = similarity(before.points,after.points);
+  if (!matrix) return null;
+  const rotation = new Quaternion(), scale = vector(), offset = vector();
+  matrix.decompose(offset,rotation,scale);
+  const axis = before.axis, turned = axis.clone().applyQuaternion(rotation);
+  const along = rotation.x*axis.x + rotation.y*axis.y + rotation.z*axis.z;
+  const twist = new Quaternion(axis.x*along,axis.y*along,axis.z*along,rotation.w);
+  const roll = twist.lengthSq() > 1e-12 ? 2*Math.acos(Math.min(1,Math.abs(twist.normalize().w)))*180/Math.PI : 0;
+  return {turn:axis.angleTo(turned)*180/Math.PI,roll:Math.min(roll,180-roll),flat:before.flat};
+}
+
+// The fixed numbers of plan step 6 (what they mean, not fitted): an end handle, a visible slide, a blade turned on its side,
+// a shaft roughly like the donor's, the margin of "holds it as its own animations do".
+export const SEAT_WITHHELD = Object.freeze({ gapMargin: .05, placeMargin: .08, shaftDegrees: 35, endHandle: .25, slide: .10, flat: 2, rollDegrees: 45 });
+
+/** Seat weapon is withheld (a reason) when all three hold: (1) the plain result already holds the weapon as the model's own
+ * animations do and points it within 35 deg of the donor's shaft, (2) Seat slides the hand off an end handle or rolls a flat
+ * weapon 45 deg or more, (3) Seat gains no second hand. Otherwise null (Seat may be suggested). Pure.
+ * numbers: { own, plain, seated: gripReading-like { gapMax, place }, shaft, roll, flat, support } */
+export function seatWithheld({ own, plain, seated, shaft, roll, flat, support } = {}, limits = SEAT_WITHHELD) {
+  if (!own || !plain || !seated || shaft == null) return null;
+  const holds = plain.gapMax <= own.gapMax + limits.gapMargin && own.place != null && plain.place != null &&
+    Math.abs(plain.place - own.place) <= limits.placeMargin && shaft < limits.shaftDegrees;
+  if (!holds || support) return null;
+  if (own.place < limits.endHandle && seated.place != null && seated.place - own.place >= limits.slide) return 'slides the hand off the handle';
+  if (flat != null && roll != null && flat >= limits.flat && roll >= limits.rollDegrees) return 'rolls the blade';
+  return null;
 }

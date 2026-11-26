@@ -166,6 +166,8 @@ const FIXTURES = {
   'xfer-r08-donor': ['MDLXL_XFER_R08_DONOR', testModel('xfer-reasonable/Footman_Leader-992d24c9/Footman Leader.mdx')],
   'xfer-r45-own': ['MDLXL_XFER_R45_OWN', testModel('reasonable-50/naga__snapdragon-b3ced23c/snapdragon.mdx')], // reasonable-45: front legs should become arms
   'xfer-r45-donor': ['MDLXL_XFER_R45_DONOR', testModel('xfer-reasonable/Cold_One_Riderless-d2eca444/Cold_One_Riderless.mdx')],
+  'xfer-r32-own': ['MDLXL_XFER_R32_OWN', testModel('xfer-reasonable/FrenchDragoonCavalry-3c93ab4d/FrenchDragoonCavalry.mdx')], // reasonable-32: Seat turned the sabre flat (owner: "the before is a better transfer")
+  'xfer-r32-donor': ['MDLXL_XFER_R32_DONOR', testModel('xfer-reasonable/Arkain_CavalrySergeant-840af16a/Arkain_CavalrySergeant.mdx')],
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
 

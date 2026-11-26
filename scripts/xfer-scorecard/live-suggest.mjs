@@ -22,7 +22,7 @@ for (const { id, t } of todo) {
   let line;
   try {
     const s = suggestToggles(load(t.recipient), load(t.donor), { ...t.options });
-    line = { id, suggested: s.suggested, keys: defaultRepairKeys(s.suggested), visible: s.visible };
+    line = { id, suggested: s.suggested, keys: defaultRepairKeys(s.suggested), visible: s.visible, ...(s.scores.seat ? { seat: s.scores.seat } : {}) };
   } catch (e) { line = { id, error: String(e.message || e).slice(0, 200) }; }
   fs.appendFileSync(outFile, JSON.stringify(line) + '\n');
   process.stderr.write(id + '\n');

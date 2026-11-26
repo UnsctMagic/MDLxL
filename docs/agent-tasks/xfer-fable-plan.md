@@ -2,7 +2,8 @@
 
 Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
 Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f95`, approved). Step 4 done (`a12a7bc0`,
-approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Next: step 5b (the owner's two checkboxes for front legs), then step 6.
+approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Step 5b done (`af6def6b`, `10b7c6d2`, baseline `b0d6fd03`; approved by reading: the
+walk itself still needs a side view and foot timings, listed in the step 6 checks). Next: step 6.
 From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.

@@ -7,6 +7,7 @@ import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { spareFrontLegs } from './transplant-gait.js';
+import { gripReading, readWeapon, seatWithheld, shaftAngle, weaponTurn } from './transplant-weapon-seat.js';
 import { worldPivot, sampleNodeMatrices } from './animation.js';
 import { verdict } from './xfer-look-verdict.js';
 
@@ -174,6 +175,29 @@ export function suggestToggles(model, donor, options = {}, {
         items.reduce((sum,item)=>sum+item.before-item.after,0)<=.01*items.length) {
       suggested=suggested.filter(key=>key!=='seatWeapon');
       comboScore=scoreCombo(suggested);
+    }
+  }
+  // Seat weapon only where there is something to repair (plan step 6, owner on reasonable-32: "the before is a better
+  // transfer"): whenever it is shown, the suggested ticks are built without and with it once; when the plain result already
+  // holds the weapon as the model's own animations do and Seat changes that grip without gaining a second hand
+  // (seatWithheld), Seat is blocked for this pair, so no later stage can tick it. Its numbers are kept in scores.seat.
+  if (visible.includes('seatWeapon')) {
+    const without = suggested.filter(key => key !== 'seatWeapon' && key !== 'donorPose');
+    const plainSeat = build(without), seated = build(toggleRepair(without, 'seatWeapon', true));
+    const weapon = readWeapon(model, ownRig ?? rigFor(model, Math.max(0, standSequenceIndex(model))));
+    const shownDonor = plainSeat.mirrored === true ? reflected ??= mirrorModel(donor) : donor;
+    const donorWeapon = readWeapon(shownDonor, rigFor(shownDonor, Math.max(0, standSequenceIndex(shownDonor))));
+    const turn = weapon ? weaponTurn(plainSeat.model, seated.model, weapon) : null;
+    const numbers = {
+      own: weapon && gripReading(weapon, model), plain: weapon && gripReading(weapon, plainSeat.model),
+      seated: weapon && gripReading(weapon, seated.model), shaft: weapon ? shaftAngle(plainSeat.model, weapon, shownDonor, donorWeapon) : null,
+      turn: turn?.turn ?? null, roll: turn?.roll ?? null, flat: turn?.flat ?? null, support: !!seated.weaponSeated?.some(item => item.support),
+    };
+    const reason = seatWithheld(numbers);
+    scores.seat = { ...numbers, withheld: reason };
+    if (reason) {
+      blocked.add('seatWeapon');
+      if (suggested.includes('seatWeapon')) { suggested = suggested.filter(key => key !== 'seatWeapon'); comboScore = scoreCombo(suggested); }
     }
   }
   // The owner's six rules (src/xfer-scorecard.js, docs/agent-tasks/xfer-finish-line.md): a shown checkbox is flipped when
