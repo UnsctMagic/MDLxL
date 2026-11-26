@@ -1,6 +1,6 @@
 # XFER engine 2
 
-Status: round 3 built (26 Nov 2026): owner stopped sheets ("keeps repeating"); he plays with XFER via
+Status: round 4 built (26 Nov 2026, late): shown form, methods A/B/Mix, new controls. Round 3: owner stopped sheets ("keeps repeating"); he plays with XFER via
 `TestBuilds\_START HERE\PLAY - XFER.cmd` (TEST XFER PLAY 01, a Footman copy). No more grading sheets.
 Branch `claude/xfer-engine2-1cdbdc` (local only), cut from `codex/xfer-toggles` at `f2cf9b90`.
 
@@ -64,6 +64,30 @@ box (owner: legs on 1 in Walk, 2 in Attack); unticked, the boxes edit the choice
 Micro shaking (05: loose parentless planes bobbed with the body); weapon swings in Walk (random-10: the receiver's club
 rides the donor's own club bone, same in engine 1, not changed); hammer inside the body with weapon on 2 (31: grips 90
 degrees apart); per-animation engine wanted (29). Also found while checking: sword spike (07) and wing shake (39).
+
+## Round 4 (26 Nov late): what you see is what you get, methods, controls
+
+- Shown form: `skeletonFor` (src/anim-transfer.js) picks the skeleton carrying the skin the animation shows (`shownIn`);
+  a skeleton shown with the body in under half of the animations showing either is a second form, not a rider
+  (`skeletonRoot`). `transferForm(model, sequence)` gives the form's key, animations (a morph is in neither; death and decay
+  bodies go by name tag) and Stand. Proven: Druid of the Talon (night elf: legs; crow: wings), Druid of the Claw (bear:
+  four legs), Demon Hunter and Illidan (demon form: tail). Footman <- Druid of the Talon now walks with both methods.
+  The owner's eight 9-10 pairs: engine 1 byte for byte unchanged (`regress.mjs --check`).
+- Transplant options (`transplantSkeleton`): `donorSequence` (the donor view's animation: its form is read and only its
+  animations are donated), `method` 'A' | 'B' | 'mix' with `mix` {armL, armR, legL, legR, weapon, animations}, `actor`
+  ('both' | 'seated' | 'walker'). `report.parts` per receiver part: matched, donor part, reason; `still` when a matched
+  limb did not move although the donor's did (`followCheck`). `report.form`: the form's animations and the ones left out.
+- Retarget: `recipe.method` / `part.method` ('A' | 'B'); B turns each taken limb bone toward the donor's paired bone after
+  the method A turn. Planted feet and the aimed weapon arm end at the same spots in both (Retarget's own later steps).
+- Window (contract xfer-controls-design.md): method row (app/TransferMethods.jsx) with Copy / Match / Mix, All animations /
+  This animation, More (Donor pose, Keep own torso, Keep donor motion when they apply), "! N" with the list of parts and
+  reasons; Mix dots and warning marks on the result's POSE handles (`poseConfig.marks`, app/pose-overlay.js); part chip
+  with Copy / Match (Shift: both sides), the weapon row on the weapon arm, the front-leg choice, Same as all; form buttons
+  (Normal / Alternate, else Form n) and Both / Rider / Mount in the donor caption in Transplant too; other-form animations
+  dimmed; "•" on animations with their own choice. Retarget: the same row (no scope), dots and chip on taken limbs.
+- Not done from the contract: the M / X keys (buttons carry hotkey ids, so keys can be assigned in Settings); the
+  "outlined donor limb" when a part is picked; a warning mark on a part the result has no handle for (it is in the "! N"
+  list instead). The repair suggester still runs (automatically) to pick the repairs, as the contract says.
 
 ## Known limits
 

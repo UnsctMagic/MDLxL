@@ -401,16 +401,22 @@ export function transferForm(model, sequence) {
   // A form: a skeleton with limbs shown in a living animation. One shown only in death or decay is a corpse.
   const living = new Set((model.Sequences || []).flatMap((seq, index) => seq?.Interval && !ending(index) ? formsIn(index) : []));
   const tagged = index => /alternate|alt\b/i.test(named(index)), shownTag = tagged(at);
+  // An animation showing no living form (a death body, a decay) belongs to the living form whose animations carry its name tag.
+  let form = skeleton;
+  if (living.size && !living.has(form)) {
+    const tagOf = root => (model.Sequences || []).some((seq, index) => seq?.Interval && !ending(index) && formsIn(index)[0] === root && formsIn(index).length === 1 && tagged(index) === shownTag);
+    form = [...living].find(tagOf) ?? [...living][0];
+  }
   const sequences = [];
   (model.Sequences || []).forEach((seq, index) => {
     if (!seq?.Interval) return;
     const forms = formsIn(index).filter(root => living.has(root));
     if (forms.length > 1) return; // a transition between forms (a morph)
     // No living form shown (a corpse, a decay, a portrait): the form whose name tag it carries.
-    if (forms.length ? forms[0] === skeleton : living.size < 2 || tagged(index) === shownTag) sequences.push(index);
+    if (forms.length ? forms[0] === form : living.size < 2 || tagged(index) === shownTag) sequences.push(index);
   });
   const stand = sequences.find(index => /^stand\b/i.test(named(index)) && !/portrait|work|ready|victory|channel/i.test(named(index))) ?? sequences.find(index => /^stand/i.test(named(index))) ?? sequences[0] ?? -1;
-  return { key: skeleton == null ? null : String(skeleton), sequences, stand };
+  return { key: form == null ? null : String(form), sequences, stand };
 }
 
 function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {

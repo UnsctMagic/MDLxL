@@ -199,3 +199,29 @@
 :root .transfer-xl .xf-mode-switch>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important;color:oklch(from var(--ui-accent,#71b5f3) clamp(0, (0.62 - l) * 1000, 1) 0 0)!important}
 .transfer-xl .xf-mode-switch>button>b{font-size:13px;font-weight:700;line-height:1.2}
 .transfer-xl .xf-mode-switch>button>small{font-size:11px;font-weight:400;line-height:1.2;opacity:.85}
+/* Method row and part chip (contract docs/agent-tasks/xfer-controls-design.md). */
+.transfer-xl .xf-methods{gap:4px 10px}
+.transfer-xl .xf-method-switch{display:inline-flex;align-items:center;gap:6px}
+.transfer-xl .xf-method-switch>button{min-width:58px;padding:1px 10px;border:1px solid var(--ui-border,#8b8b87);border-radius:0;margin:0}
+.transfer-xl .xf-method-switch>button:first-child{border-radius:6px 0 0 6px}
+.transfer-xl .xf-method-switch>button:nth-child(3){border-radius:0 6px 6px 0}
+.transfer-xl .xf-method-switch>button+button{margin-left:-7px}
+:root .transfer-xl .xf-method-switch>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important}
+.transfer-xl .xf-warn-count{color:var(--ui-danger,#b00000);font-weight:700;margin-left:4px}
+.transfer-xl .xf-method-scope{flex-wrap:nowrap}
+.transfer-xl .xf-more{position:relative;margin-left:auto}
+.transfer-xl .xf-more-button{padding:1px 6px}
+.transfer-xl .xf-more-menu{position:absolute;right:0;top:100%;z-index:20;display:flex;flex-direction:column;gap:2px;padding:4px;min-width:150px;background:var(--ui-panel,#f4f2ee);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0004}
+:root .transfer-xl .xf-more-menu>button[aria-pressed=true]{background:var(--ui-selected,#c5d6ec)!important;color:var(--ui-selected-text,#101820)!important}
+.transfer-xl .xf-chip{position:absolute;z-index:15;transform:translate(14px,-50%);display:flex;flex-direction:column;gap:3px;padding:5px 6px;max-width:230px;font-size:11px;background:var(--ui-panel,#f4f2ee);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87);border-radius:6px;box-shadow:0 3px 10px #0005}
+.transfer-xl .xf-chip-title{font-size:12px}
+.transfer-xl .xf-chip-row{display:flex;gap:3px;align-items:center}
+.transfer-xl .xf-chip-row>button{flex:1 1 auto;padding:1px 8px}
+:root .transfer-xl .xf-chip-row>button[aria-pressed=true]{background:var(--ui-accent,#71b5f3)!important;color:#101820!important}
+.transfer-xl .xf-chip-name{min-width:48px}
+.transfer-xl .xf-chip-reason{margin:0;color:var(--ui-danger,#b00000)}
+.transfer-xl .xf-chip-front{display:flex;flex-direction:column;gap:3px}
+.transfer-xl .xf-other-form{opacity:.5}
+.transfer-xl .xf-warn-count{background:none!important;border:0!important;padding:0 2px;cursor:pointer}
+.transfer-xl .xf-warn-list{left:0;right:auto;min-width:220px;font-size:11px}
+.transfer-xl .xf-method-switch .xf-more{margin-left:0}

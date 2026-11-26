@@ -1770,6 +1770,9 @@ export default function GamePreview(inputProps) {
 
         updateRevealStrip(poseVisible && !p.poseConfig.picking ? (p.poseConfig.hidden || []).flatMap(id => { const handle = poseHandles.find(item => item.hidden && poseHandleKey(item) === id); return handle ? [{ id, label: handle.label }] : []; }) : [], width, controllerAppearance.symbolSet);
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
+        // Method marks (Transfer: Copy / Match / a warning per part) ride on a limb's end handle; `dotsOnly` keeps its bend handle out.
+        const marks = p.poseConfig?.marks;
+        if (marks) for (const handle of poseHandles) { handle.mark = handle.kind === 'endpoint' ? marks[handle.key] : undefined; if (p.poseConfig.dotsOnly && handle.kind === 'bend') handle.quiet = true; }
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const handleMode = p.transformMode || 'rotate', workplaneHidesHandles = p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(handleMode);

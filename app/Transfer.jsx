@@ -6,7 +6,7 @@ import { RangeField, Section } from './Fields.jsx';
 import GameLibraryRow from './GameLibraryRow.jsx';
 import TransferTimeline from './TransferTimeline.jsx';
 import TransferViewStrip from './TransferViewStrip.jsx';
-import TransplantToggles from './TransplantToggles.jsx';
+import { FrontLegs, METHOD_PARTS, MethodRow, PartChip, methodOf } from './TransferMethods.jsx';
 import { createFrameCoalescer } from './viewport-performance.js';
 import { exposeTransferForTests } from './test-hook.js';
 import { openDocument } from '../src/editor-document.js';
@@ -18,9 +18,10 @@ import { PresetNameRow, writePresetFile } from './PresetBar.jsx';
 import { sanitizePresetName } from '../src/settings-presets.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
+import { transferForm } from '../src/anim-transfer.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { defaultRepairKeys, LEG_TIMING, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
+import { AUTO_FIX_LABELS, defaultRepairKeys, LEG_TIMING, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { createTransplantBuilder } from './transplant-builder.js';
 import { engineOptions, replaceModelContents, transplantOptions, transplantRepairOptions, transplantSequence } from '../src/transfer-window.js';
 import { suggestEngineRegions } from '../src/transplant-engine2.js';
@@ -154,6 +155,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // A base animation removed by an Undo in the editor falls back to the first one.
   useEffect(() => { if (!sequences[recipe.base.sequence] && sequences.length) change({ ...recipe, base: { ...recipe.base, sequence: initialBase } }); }, [doc.revision]);
   const effective = draft || recipe;
+  // Every taken part builds with its method: its own, else the suggestion for its region (Retarget; see rtSuggestion).
+  const methodDefaults = useRef(() => null);
+  const withMethods = value => value && { ...value, parts: Object.fromEntries(Object.entries(value.parts || {}).map(([key, part]) => [key, part?.method ? part : { ...part, method: methodDefaults.current(key) || 'A' }])) };
 
   // The open model's rig as its body animation moves it. An edit (Add animation, Undo) starts afresh.
   const rigB = useMemo(() => { clearTransferCache(model); return rigFor(model, recipe.base.sequence, recipe.base.actor); }, [model, doc.revision, recipe.base.sequence, recipe.base.actor]);
@@ -279,11 +283,25 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   const setBase = sequence => change({ ...recipe, base: { ...recipe.base, sequence } });
 
+  // The donor's forms (a druid and its crow): each with its animations; shown as buttons when there are two or more.
+  const donorForms = useMemo(() => {
+    if (!donor?.model) return [];
+    const forms = new Map();
+    (donor.model.Sequences || []).forEach((_, index) => { try { const form = transferForm(donor.model, index); if (form.key != null && form.sequences.includes(index) && !forms.has(form.key)) forms.set(form.key, form); } catch { /* unreadable: no form */ } });
+    const tagged = form => /alternate/i.test(donor.model.Sequences[form.stand]?.Name || '');
+    const list = [...forms.values()].sort((x, y) => Number(tagged(x)) - Number(tagged(y)));
+    const named = list.length === 2 && tagged(list[0]) !== tagged(list[1]);
+    return list.length > 1 ? list.map((form, i) => ({ ...form, label: named ? (tagged(form) ? 'Alternate' : 'Normal') : null, number: i + 1 })) : [];
+  }, [donor?.model, donor?.revision]);
+  const shownForm = donorForms.find(form => form.sequences.includes(donorSeq)) ?? null;
+  const rtSuggestion = useMemo(() => { if (transplanting || !donor || !rigA?.ok || !rigB.ok) return null; try { return suggestEngineRegions(model, rigB, donor.model, rigA); } catch { return null; } }, [transplanting, rigA, rigB]);
+  const regionOfKey = key => /^(arm|wing)L/.test(key) ? 'armL' : /^(arm|wing)R/.test(key) ? 'armR' : /^legL/.test(key) ? 'legL' : /^legR/.test(key) ? 'legR' : null;
+  methodDefaults.current = key => rtSuggestion?.suggested?.[regionOfKey(key)] === 2 ? 'B' : 'A';
   // Built motion. Slider drags change `draft` at most once per display frame.
   const outcome = useMemo(() => {
     if (!rigB.ok) return { error: '' };
-    try { return { built: buildTransfer(model, sources, effective) }; } catch (error) { return { error: error.message }; }
-  }, [model, rigB, sources, effective]);
+    try { return { built: buildTransfer(model, sources, withMethods(effective)) }; } catch (error) { return { error: error.message }; }
+  }, [model, rigB, sources, effective, rtSuggestion]);
   const built = outcome.built;
 
   // The result view plays a private copy. It is rebuilt only when the body animation or
@@ -416,7 +434,18 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Own features is a fold like Timing, closed at first; its header says how many there are and how many are kept.
   const keptCount = features.filter(feature => recipe.features?.[feature.id]?.keep).length;
   const keepFeature = (id, on) => { const kept = { ...(recipe.features || {}) }; if (on) kept[id] = { keep: 1 }; else delete kept[id]; change({ ...recipe, features: kept }); };
-  const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: hoverJoints?.length ? [hoverJoints] : selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(','), hoverJoints]);
+  // Retarget method (contract xfer-controls-design.md): stored on each taken part (`method`: 'A' Copy, 'B' Match, travels with
+  // setups); a part without one takes the suggestion for its region. The row's switch is a view of the parts' methods.
+  const partMethod = (key, part) => part?.method === 'A' || part?.method === 'B' ? part.method : rtSuggestion?.suggested?.[regionOfKey(key)] === 2 ? 'B' : 'A';
+  const methodLimbs = taken.filter(key => rigB.parts[key]?.kind === 'limb');
+  const [rtMix, setRtMix] = useState(false);
+  const rtMethod = rtMix ? 'mix' : methodOf(Object.fromEntries(methodLimbs.map(key => [key, partMethod(key, recipe.parts[key]) === 'B' ? 2 : 1])), methodLimbs);
+  const rtSuggested = rtSuggestion && methodLimbs.length ? methodOf(Object.fromEntries(methodLimbs.map(key => [key, rtSuggestion.suggested?.[regionOfKey(key)] ?? 1])), methodLimbs) : null;
+  const setPartMethods = (keys, value) => { const parts = { ...recipe.parts }; for (const key of keys) if (parts[key]) parts[key] = { ...parts[key], method: value }; change({ ...recipe, parts }); };
+  const chooseRtMethod = id => { setRtMix(id === 'mix'); if (id !== 'mix') setPartMethods(methodLimbs, id); };
+  const [rtChip, setRtChip] = useState(null), rtPointer = useRef({ x: 0, y: 0 });
+  const openRtChip = key => { if (rtMethod === 'mix' && methodLimbs.includes(key)) setRtChip({ key, x: rtPointer.current.x, y: rtPointer.current.y }); };
+  const resultPose = useMemo(() => { const own = takenPoseConfig(poseB, rigB, taken); return own && { ...own, enabled: true, picking: null, pins: own.pins || [], target: selectedTaken ? partHandle(rigB, poseB, selected) : null, inspectPaths: hoverJoints?.length ? [hoverJoints] : selectedTaken ? [rigB.parts[selected].joints] : [], inspectColor: HIGHLIGHT, ...(rtMethod === 'mix' ? { marks: Object.fromEntries(methodLimbs.map(key => [partHandle(rigB, poseB, key)?.key, partMethod(key, recipe.parts[key]) === 'B' ? 'match' : 'copy']).filter(([chain]) => chain != null)) } : {}) }; }, [poseB, rigB, selected, !!selectedTaken, taken.join(','), hoverJoints, rtMethod, JSON.stringify(methodLimbs.map(key => partMethod(key, recipe.parts[key])))]);
   const donorPose = useMemo(() => {
     if (!poseA || !donor) return null;
     const shown = selectedPart && !donorLacks(selected) ? feedsFrom(selected) : null;
@@ -447,7 +476,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!rigB.parts[key]) { setMessage(`This model has no ${transferPartLabel(key)}.`); return; }
     setMessage(''); take(key);
   };
-  latestHandlers.current.resultHandle = target => { const key = handlePart(rigB, poseB, target); if (key) select(key); };
+  latestHandlers.current.resultHandle = target => { const key = handlePart(rigB, poseB, target); if (key) { select(key); openRtChip(key); } };
   const onDonorHandle = useCallback(target => latestHandlers.current.donorHandle(target), []);
   const onResultHandle = useCallback(target => latestHandlers.current.resultHandle(target), []);
 
@@ -551,7 +580,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const add = () => {
     if (!built || !taken.length || doc.readOnly) return;
     const finalName = shownName.trim() || built.suggestedName, current = recipeRef.current;
-    const result = edit(`Transfer: add ${finalName}`, SECTIONS, m => { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, current), current, { name: finalName }); });
+    const result = edit(`Transfer: add ${finalName}`, SECTIONS, m => { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, withMethods(current)), current, { name: finalName }); });
     clearTransferCache(model);
     if (result === false) return;
     addedRecipe.current = JSON.stringify(current); setAdded({ name: finalName }); setName(null);
@@ -571,7 +600,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     requestAnimationFrame(() => setTimeout(() => {
       try {
         const result = edit(`Transfer: add ${clips.length} animations`, gone.length ? [...SECTIONS, 'Info'] : SECTIONS, m => {
-          for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, clip.recipe), clip.recipe, { name: clip.name }); }
+          for (const clip of clips) { clearTransferCache(m); applyTransfer(m, buildTransfer(m, sources, withMethods(clip.recipe)), clip.recipe, { name: clip.name }); }
           for (const index of gone) deleteSequence(m, index);
         });
         clearTransferCache(model);
@@ -617,22 +646,35 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!tpContext || !rigA?.ok) return null;
     try { return suggestEngineRegions(model, rigB, tpDonor.model, rigA); } catch { return null; }
   }, [tpContext, rigA]);
-  // The choice: `base` for every animation, `animations` for the ones with their own ("This animation only").
-  const engineState = engineChoice.context != null && engineChoice.context === tpContext && engineChoice.value ? engineChoice.value : { base: engineSuggestion?.suggested || {}, animations: {} };
+  // Method per part (contract xfer-controls-design.md): `base` for every animation, `animations` for those with their own
+  // (scope This animation), `mix` while Mix is pressed. The suggestion until the user changes it; kept per pair.
+  const engineState = engineChoice.context != null && engineChoice.context === tpContext && engineChoice.value ? engineChoice.value : { base: engineSuggestion?.suggested || {}, animations: {}, mix: false };
   const engineAnimation = String(tpDonor?.model?.Sequences?.[donorSeq]?.Name || '').trim();
+  const [methodScope, setMethodScope] = useState('all');
   const engineOwn = !!engineAnimation && Object.hasOwn(engineState.animations, engineAnimation);
   const tpEngines = engineOwn ? engineState.animations[engineAnimation] : engineState.base;
   const tpEngine = engineOptions(engineState.base, engineState.animations);
-  const changeEngine = (key, value) => setEngineChoice({ context: tpContext, value: engineOwn
-    ? { ...engineState, animations: { ...engineState.animations, [engineAnimation]: { ...tpEngines, [key]: value } } }
-    : { ...engineState, base: { ...engineState.base, [key]: value } } });
-  const changeEngineOwn = own => {
-    const animations = { ...engineState.animations };
-    if (own) animations[engineAnimation] = { ...engineState.base }; else delete animations[engineAnimation];
-    setEngineChoice({ context: tpContext, value: { ...engineState, animations } });
+  const methodParts = engineSuggestion?.present || [];
+  const shownMethod = engineState.mix ? 'mix' : methodOf(tpEngines, methodParts);
+  const writeChoice = next => setEngineChoice({ context: tpContext, value: methodScope === 'this' && engineAnimation
+    ? { ...engineState, animations: { ...engineState.animations, [engineAnimation]: next } } : { ...engineState, base: next } });
+  const chooseMethod = id => {
+    const current = methodScope === 'this' && engineOwn ? tpEngines : methodScope === 'this' ? { ...engineState.base } : engineState.base;
+    const next = id === 'mix' ? current : Object.fromEntries(methodParts.map(key => [key, id === 'B' ? 2 : 1]));
+    setEngineChoice({ context: tpContext, value: { ...(methodScope === 'this' && engineAnimation ? { ...engineState, animations: { ...engineState.animations, [engineAnimation]: next } } : { ...engineState, base: next }), mix: id === 'mix' } });
   };
-  const tpOptions = { ...transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false, legTiming: tpLegTiming }), ...tpEngine };
-  const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}${selectedRepairs.includes('mirrorLegs') ? '|' + tpLegTiming : ''}${tpEngine.engine ? '|engines:' + JSON.stringify(tpEngine.regions) : ''}` : null;
+  const choosePart = (key, value, bothSides) => {
+    const next = { ...(methodScope === 'this' && engineOwn ? tpEngines : methodScope === 'this' ? engineState.base : engineState.base) };
+    for (const part of bothSides && /^(arm|leg)[LR]$/.test(key) ? [key.slice(0, 3) + 'L', key.slice(0, 3) + 'R'] : [key]) next[part] = value;
+    writeChoice(next);
+  };
+  const sameAsAll = () => { const animations = { ...engineState.animations }; delete animations[engineAnimation]; setEngineChoice({ context: tpContext, value: { ...engineState, animations } }); };
+  // What the donor view shows is used: its form (the shown animation's) and, for rider and mount, its reading.
+  const donorForm = useMemo(() => { try { return tpDonor ? transferForm(tpDonor.model, donorSeq) : null; } catch { return null; } }, [tpDonor?.model, donorSeq]);
+  const tpActor = tpDonor ? recipe.sources?.[tpDonor.id]?.actor : null;
+  const tpOptions = { ...transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false, legTiming: tpLegTiming }), ...tpEngine,
+    ...(donorForm?.key != null && donorForm.stand >= 0 ? { donorSequence: donorForm.stand } : {}), ...(tpActor ? { actor: tpActor } : {}) };
+  const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}${selectedRepairs.includes('mirrorLegs') ? '|' + tpLegTiming : ''}${tpEngine.engine ? '|engines:' + JSON.stringify(tpEngine.regions) : ''}|form:${donorForm?.key ?? ''}|actor:${tpActor ?? ''}` : null;
   const tpBuilder = useRef(null), tpResult = useRef(null), tpSuggestion = useRef(null);
   tpResult.current = next => setTpBuilt(next);
   tpSuggestion.current = next => {
@@ -672,6 +714,40 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const changeMirror = value => { if (!!value !== !!shownMirror) toggleMirror(); };
   const changeRepair = (key, checked) => setTpRepairs(old => old?.context === tpContext
     ? { ...old, checked: toggleRepair(old.checked, key, checked) } : old);
+  // The result's parts as dots (Mix) and warning marks (always): POSE handles of the shown result, marked per part.
+  const rigM = useMemo(() => { if (!tpShown?.model) return null; try { const stand = standSequenceIndex(tpShown.model); return rigFor(tpShown.model, stand >= 0 ? stand : 0); } catch { return null; } }, [tpShown?.model]);
+  const poseM = useMemo(() => { try { return rigM?.ok ? suggestPoseRig(tpShown.model, rigM.reference.frame, Math.max(0, rigM.reference.sequence)) : null; } catch { return null; } }, [rigM]);
+  const regionOfPart = key => /^(arm|wing)L/.test(key) ? 'armL' : /^(arm|wing)R/.test(key) ? 'armR' : /^legL/.test(key) ? 'legL' : /^legR/.test(key) ? 'legR' : null;
+  const tpWarnings = useMemo(() => Object.entries(tpReport?.parts || {}).filter(([, part]) => !part.matched || part.still), [tpReport]);
+  const tpMarks = useMemo(() => {
+    if (!rigM?.ok || !poseM) return null;
+    const marks = {}, keys = [];
+    for (const key of Object.keys(rigM.parts)) {
+      const warned = tpWarnings.find(([own]) => own === key), region = regionOfPart(key);
+      const chain = partHandle(rigM, poseM, key);
+      if (chain?.kind !== 'endpoint') continue;
+      if (warned) { marks[chain.key] = 'warn'; keys.push(key); }
+      else if (shownMethod === 'mix' && region && methodParts.includes(region)) { marks[chain.key] = tpEngines[region] === 2 ? 'match' : 'copy'; keys.push(key); }
+    }
+    if (!keys.length) return null;
+    const config = takenPoseConfig(poseM, rigM, keys);
+    return config && { ...config, enabled: true, picking: null, pins: [], target: null, marks, dotsOnly: true, body: -1, nodes: [] };
+  }, [rigM, poseM, tpWarnings, shownMethod, JSON.stringify(tpEngines), methodParts.join(',')]);
+  const [tpChip, setTpChip] = useState(null), tpPointer = useRef({ x: 0, y: 0 });
+  useEffect(() => { setTpChip(null); }, [tpContext, shownMethod === 'mix']);
+  const tpWeaponSide = rigB.weaponSide;
+  const openTpChip = target => {
+    const key = handlePart(rigM, poseM, target);
+    if (!key) return;
+    const warn = tpReport?.parts?.[key], region = regionOfPart(key);
+    if (shownMethod !== 'mix' && !(warn && (!warn.matched || warn.still))) return;
+    setTpChip({ key, region: shownMethod === 'mix' && methodParts.includes(region) ? region : null, x: tpPointer.current.x, y: tpPointer.current.y,
+      reason: !warn ? null : warn.still ? translate('This part did not follow the donor.') : !warn.matched ? translate('The donor has no {0}. Keeps its own movement.').replace('{0}', () => translate(transferPartLabel(key)).toLowerCase()) : null, weapon: shownMethod === 'mix' && methodParts.includes('weapon') && region === 'arm' + tpWeaponSide });
+  };
+  latestHandlers.current.tpHandle = openTpChip;
+  const onTpHandle = useCallback(target => latestHandlers.current.tpHandle?.(target), []);
+  const moreItems = ['donorPose', 'keepTorso', 'authoredMotion'].map(key => ({ key, label: AUTO_FIX_LABELS[key]?.[0] || key, tip: AUTO_FIX_LABELS[key]?.[1] || '', visible: !!activeRepairs?.visible?.includes(key), on: selectedRepairs.includes(key) }));
+  const frontLegChoice = !!activeRepairs?.visible?.some(key => key === 'mirrorLegs' || key === 'useArms');
   const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
   const tpInterval = tpShown?.model?.Sequences?.[tpSeq]?.Interval;
   const [tpTime, setTpTime] = useState(0), [tpPlaying, setTpPlaying] = useState(true), [tpSpeed, setTpSpeed] = useState(100);
@@ -772,7 +848,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
           </div>
           <b className="xf-heading">Animations</b>
           <div className="gf-tree xf-list xf-animations" role="group" aria-label="Donor animations">
-            {donor ? (donor.model.Sequences || []).map((s, i) => <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '')} aria-pressed={i === donorSeq} title="Play this animation in the donor view." name={sequenceName(donor.model, i)} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>)
+            {donor ? (donor.model.Sequences || []).map((s, i) => { const other = transplanting && shownForm && !shownForm.sequences.includes(i), own = transplanting && Object.hasOwn(engineState.animations, String(s.Name || '').trim());
+              return <GameLibraryRow as="button" key={i} data-animation={i} className={'gf-row xf-row' + (i === donorSeq ? ' selected' : '') + (other ? ' xf-other-form' : '')} aria-pressed={i === donorSeq} title={other ? translate('Other form. Not transferred.') : 'Play this animation in the donor view.'} name={sequenceName(donor.model, i) + (own ? ' •' : '')} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: i }))}/>; })
               : <span className="xf-note xf-empty">Choose a model above.</span>}
           </div>
         </aside>
@@ -781,7 +858,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             <section className="xf-view" aria-label="Donor">
               <div className="xf-caption">{donor ? <span translate="no">{nameOf(donor.id)}</span> : <span>Donor</span>}
                 {donor && <button data-hotkey="transfer:mirror" data-hotkey-manual data-hotkey-label="Mirror" aria-pressed={transplanting ? shownMirror : donorMirror} disabled={!rigA?.ok} title="Swap left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands." onClick={toggleMirror}>Mirror</button>}
-                {donor && !transplanting && rigA?.actors?.length > 1 && <>
+                {donorForms.length > 1 && donorForms.map(form => <button key={form.key} data-form={form.number} aria-pressed={shownForm?.key === form.key} title={translate('The donor form to show and use.')} onClick={() => setDonorSeqs(old => ({ ...old, [donor.id]: form.stand }))}>{form.label ? translate(form.label) : translate('Form {0}').replace('{0}', String(form.number))}</button>)}
+                {donor && rigA?.actors?.length > 1 && <>
                   <button data-hotkey="transfer:donor-both" data-hotkey-manual data-hotkey-label="Donor: Both" data-actor="both" aria-pressed={donorActor === 'both'} title={ACTORS[0][2]} onClick={() => chooseActor('both')}>Both</button>
                   <button data-hotkey="transfer:donor-rider" data-hotkey-manual data-hotkey-label="Donor: Rider" data-actor="seated" aria-pressed={donorActor === 'seated'} title={ACTORS[1][2]} onClick={() => chooseActor('seated')}>Rider</button>
                   <button data-hotkey="transfer:donor-mount" data-hotkey-manual data-hotkey-label="Donor: Mount" data-actor="walker" aria-pressed={donorActor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseActor('walker')}>Mount</button>
@@ -793,17 +871,18 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </section>
             {transplanting ? <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
-              {!tpShowsModel && <TransplantToggles visible={activeRepairs?.visible} suggested={activeRepairs?.suggested} checked={selectedRepairs}
-                onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}
-                legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })}
-                mirror={!!shownMirror} mirrorSuggested={mirrorSuggested} onMirror={rigA?.ok ? changeMirror : undefined}
-                engineRegions={engineSuggestion?.present || []} engines={tpEngines} enginesSuggested={engineSuggestion?.suggested || {}} onEngine={changeEngine}
-                engineAnimation={engineAnimation} engineOwn={engineOwn} onEngineOwn={engineAnimation ? changeEngineOwn : undefined}/>}
-              <div className="xf-preview" data-transplant-view="">
+              {!tpShowsModel && <MethodRow method={shownMethod} suggested={engineSuggestion ? methodOf(engineSuggestion.suggested, methodParts) : null} onMethod={chooseMethod}
+                scope={methodScope} onScope={value => { setMethodScope(value); if (value === 'this' && engineAnimation && !engineOwn) setEngineChoice({ context: tpContext, value: { ...engineState, animations: { ...engineState.animations, [engineAnimation]: { ...engineState.base } } } }); }}
+                animation={engineAnimation} more={moreItems} onMore={changeRepair} warnings={tpWarnings.map(([key, part]) => ({ key, label: translate(transferPartLabel(key)), reason: part.still ? translate('This part did not follow the donor.') : translate('The donor has no {0}. Keeps its own movement.').replace('{0}', () => translate(transferPartLabel(key)).toLowerCase()) }))} disabled={!methodParts.length}/>}
+              <div className="xf-preview" data-transplant-view="" onPointerDownCapture={event => { const rect = event.currentTarget.getBoundingClientRect(); tpPointer.current = { x: event.clientX - rect.left, y: event.clientY - rect.top }; }}>
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
-                    cleanAnimationPreview emptyDragRotates transformMode="select" onCaptureReady={onResultCapture}/>
+                    cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={tpShowsModel ? null : tpMarks} poseDocumentModel={tpShown.model} onPoseSelect={onTpHandle} onPoseCommit={noop} onCaptureReady={onResultCapture}/>
                 </Suspense> : <div className="xf-placeholder">{!tpDonor ? 'Choose a model under From.' : tpBuilding ? 'Building…' : 'Loading preview…'}</div>}
+                {tpChip && <PartChip chip={{ label: transferPartLabel(tpChip.key), x: tpChip.x, y: tpChip.y, region: tpChip.region, value: tpEngines[tpChip.region] === 2 ? 2 : 1, weapon: tpChip.weapon, weaponValue: tpEngines.weapon === 2 ? 2 : 1, reason: tpChip.reason }}
+                  onPick={choosePart} onClose={() => setTpChip(null)} sameAsAll={methodScope === 'this' && engineOwn ? sameAsAll : null}
+                  frontLegs={frontLegChoice && /^leg/.test(tpChip.key) && (tpChip.reason || /2$/.test(tpChip.key)) ? <FrontLegs mirrorLegs={selectedRepairs.includes('mirrorLegs')} useArms={selectedRepairs.includes('useArms')} onChange={changeRepair}
+                    legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })} labels={AUTO_FIX_LABELS}/> : null}/>}
                 {tpDonor && tpBuilt?.key === tpKey && tpBuilt.error && <div className="xf-overlay-note" role="status">{tpBuilt.error}</div>}
                 {tpDonor && tpShown && tpBuilding && <div className="xf-overlay-note xf-message" role="status" data-transplant-building="">Building…</div>}
               </div>
@@ -818,12 +897,15 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                   <button data-hotkey="transfer:model-rider" data-hotkey-manual data-hotkey-label="This model: Rider" data-actor="seated" aria-pressed={recipe.base.actor === 'seated'} title={OWN_RIDER_TIP} onClick={() => chooseBaseActor('seated')}>Rider</button>
                   <button data-hotkey="transfer:model-mount" data-hotkey-manual data-hotkey-label="This model: Mount" data-actor="walker" aria-pressed={recipe.base.actor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseBaseActor('walker')}>Mount</button>
                 </>}</div>
-              <div className="xf-preview" onPointerDownCapture={aimDown} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
+              {methodLimbs.length > 0 && <MethodRow method={rtMethod} suggested={rtSuggested} onMethod={chooseRtMethod}/>}
+              <div className="xf-preview" onPointerDownCapture={event => { const rect = event.currentTarget.getBoundingClientRect(); rtPointer.current = { x: event.clientX - rect.left, y: event.clientY - rect.top }; aimDown(event); }} onPointerMoveCapture={aimMove} onPointerUpCapture={aimUp} onPointerCancelCapture={aimUp}>
                 {preview && <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={preview.model} revision={preview.shape} textureAssets={textureAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={viewSeq ?? preview.sequenceIndex} time={time} onTimeChange={setTime} playing={playing} onPlayingChange={setPlaying} playbackSpeed={resultSpeed} liveNodeTracks={liveTracks} turnCamera={turnCamera.current}
                     cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={viewSeq == null ? resultPose : null} poseDocumentModel={preview.model} onPoseSelect={onResultHandle} onPoseCommit={noop} onCaptureReady={onResultCapture} overlayPaths={viewSeq == null ? resultOverlay : undefined}/>
                 </Suspense>}
                 {outcome.error && <div className="xf-overlay-note" role="status">{outcome.error}</div>}
+                {rtChip && <PartChip chip={{ label: transferPartLabel(rtChip.key), x: rtChip.x, y: rtChip.y, region: rtChip.key, value: partMethod(rtChip.key, recipe.parts[rtChip.key]) === 'B' ? 2 : 1 }}
+                  onPick={(key, value, both) => setPartMethods(both && /^(arm|leg)[LR]/.test(key) ? methodLimbs.filter(other => other.slice(0, 3) === key.slice(0, 3)) : [key], value === 2 ? 'B' : 'A')} onClose={() => setRtChip(null)}/>}
               </div>
               <TransferViewStrip name="Result view" playing={playing} onPlay={() => setPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
                 interval={preview ? preview.model.Sequences[viewSeq ?? preview.sequenceIndex]?.Interval : null} time={time} onSeek={value => { setPlaying(false); setTime(value); }} speed={resultSpeed} onSpeed={setResultSpeed}
