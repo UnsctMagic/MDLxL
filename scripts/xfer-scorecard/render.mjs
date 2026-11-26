@@ -25,7 +25,8 @@ const toggles = opt('toggles', null);
 const keys = toggles == null ? (row.suggestion?.suggested || []).filter(k => k !== 'donorPose') : toggles.split(',').filter(Boolean);
 const mirrorArg = opt('mirror', null);
 const keepArg = opt('keep', null);
-const options = { ...after.options, ...(keepArg ? { keep: keepArg.split(',').map(Number) } : {}), ...(mirrorArg == null ? {} : { mirror: mirrorArg === 'auto' ? null : mirrorArg === 'true' }), autoFix: keys.length ? repairFlags(keys) : false };
+const legTimingArg = opt('leg-timing', null); // Mirror legs' Leg timing slider (0-100), with --toggles ...mirrorLegs
+const options = { ...after.options, ...(keepArg ? { keep: keepArg.split(',').map(Number) } : {}), ...(mirrorArg == null ? {} : { mirror: mirrorArg === 'auto' ? null : mirrorArg === 'true' }), ...(legTimingArg == null ? {} : { legTiming: Number(legTimingArg) }), autoFix: keys.length ? repairFlags(keys) : false };
 const t0 = Date.now();
 const made = transplantSkeleton(load(after.recipient), load(after.donor), transplantRepairOptions(own, donor, options));
 const result = made.model || made.result || made;
