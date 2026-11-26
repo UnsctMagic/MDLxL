@@ -1,5 +1,5 @@
 {
- "revision": "918aaa11",
+ "revision": "a12a7bc0 (src changed)",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -136,14 +136,16 @@
   },
   "reasonable-08": {
    "suggested": [
+    "skinLandmarks",
     "trackWindow",
     "keepTorso"
    ],
    "ticks": [
+    "skinLandmarks",
     "trackWindow",
     "keepTorso"
    ],
-   "sha256": "ebfe541514b86f78c27c87a250a5b9bc30a6a172c37e55bf6620748dc4fd22df"
+   "sha256": "a7bd8461f389027d62f78f29d0513ba88bd3194f26141bb0867a0bf8b993f8e8"
   },
   "reasonable-09": {
    "suggested": [

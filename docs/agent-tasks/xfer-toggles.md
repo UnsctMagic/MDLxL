@@ -1814,3 +1814,12 @@ that worked. Each is measurable on every pair without the owner's grade.
   Stand - 2: the sword goes to the hip with the donor's, no longer over the shoulder.
 - Related tests (anim-transfer, skeleton-transplant, transplant-autofix): 223, 211 pass, 12 fail. The same 12 fail on
   6cfed3a6 (before step 1) and 43c16f95: detached pipe, P9, P2, P4, T6, T12, WS4, Q3, V2, V3, RR1, HG1.
+
+### Housekeeping after step 4 (Opus, 26 Nov)
+
+- The unused `handEnd` part property is removed from `transferRig` (the trim itself is unchanged).
+- `regression-baseline.json`: reasonable-08 rewritten with `regress.mjs --write --all --only reasonable-08` (ticks
+  skinLandmarks, trackWindow, keepTorso; new hash); git diff: only that entry and the revision line changed.
+  `regress.mjs --check --all` (suggester re-run) on this source: 58 of 58 against the rewritten baseline. (The write ran
+  while that check was still running and the check reads the baseline at its end, so it compared against the new file;
+  since only reasonable-08's entry changed, against the old baseline exactly reasonable-08 differs.)

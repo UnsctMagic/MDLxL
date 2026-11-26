@@ -1,8 +1,8 @@
 # XFER transplant: Fable's review and fix plan (26 Nov 2026)
 
 Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
-Step 2b done (`d7e96680`, approved). Step 3 built (`6571275b`): approved with one fix, written under step 3 ("Step 3 fix").
-Next: the step 3 fix, then step 4.
+Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f95`, approved). Step 4 done (`a12a7bc0`,
+approved). Next: step 5.
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
 Brief: [xfer-fable-review-brief.md](xfer-fable-review-brief.md). History: [xfer-toggles.md](xfer-toggles.md), [xfer-finish-line.md](xfer-finish-line.md).
@@ -410,6 +410,12 @@ reasonable-28's split hand is a real engine fault and is added to the risks list
 
 ### Step 4. An arm ends at its hand, not at the weapon bone (reasonable-08)
 
+**Done: `a12a7bc0`, approved.** Only reasonable-08 changed. Its suggestion gained Rest pose fit; by picture that is better
+(shoulders no longer up around the head in Stand and Walk), accepted. Two things it did **not** solve, seen in the pictures:
+in Stand - 2 the sword now leaves the hand and goes down to the hip as the donor's does, but it lies through the torso with
+its hilt up by the fists (see risks); in Attack - 1 the right palm is 0.12-0.31 arm lengths off the grip mid-swing (donor
+0.00-0.08) and the left hand is off the sword (step 7).
+
 - **File.** `src/anim-transfer.js`, `transferRig`, the limb loop at lines 502-512. New case in
   `test/skeleton-transplant.test.js` (or `anim-transfer.test.js`).
 - **Change.** After `limb` is built and before `limbs.push`, for arm chains (not legs, not wings) of three or more joints:
@@ -667,6 +673,11 @@ pair on any sheet (noisy; a guide, not a target).
   animations: probably not a weapon at all. The pair is out of the set; the misreading in `readWeapon` is not investigated.
 - **The scorecard's shaft angle** read 45 deg on reasonable-38 with Seat while the shaft matches the donor's within 1 deg
   in world space (`plane.mjs`). One of the two readings is wrong; I did not find which. Step 6 does not rely on it.
+- **reasonable-08, Stand - 2: the belted sword lies through the body.** The donor's sword bone hangs from the donor's
+  **hand** and is moved to the belt by keys relative to that hand. The Elf Death Knight's fists end up at shoulder height
+  (the donor folds its arms at the chest), so the sword hangs from there: hilt by the fists, blade through the torso to the
+  hip. Step 4 made it follow the donor's sword at all; placing a weapon that has left the hand against the body it rests on
+  (the hips) instead of against the hand is a separate engine change, not in this plan. The owner will see this on the sheet.
 - **reasonable-28: half of Furion's left hand is carried as a weapon piece** (found by the hole rule in step 3, seen in the
   picture). Not fixed by any step here. Find held weapon closes it but turns the stance round; the owner has not seen
   either version since the staff-foot fix.

@@ -508,18 +508,18 @@ function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {
     for (let parent = tree.parentOf(limb[0]); parent != null && joints.has(parent) && !trunkIds.has(parent) && chainsBelow(parent) === 1; parent = tree.parentOf(parent)) limb.unshift(parent);
     if (!limb.length) continue;
     const kind = chain.label === 'Wing' ? 'wing' : chain.kind === 'leg' ? 'leg' : 'arm';
-    let tip = chain.end !== endJoint ? pos(chain.end) : null, line = ids, handEnd = null;
+    let tip = chain.end !== endJoint ? pos(chain.end) : null, line = ids;
     // An arm ends at its hand, not at the weapon bone below it (Elf Death Knight, owner 26 Nov 2026: RA1 > RA2 > RA3 > RH >
     // Weapon, "Hand Right Ref" on RH, "Weapon Ref" and the sword on Weapon). Read as the arm's last joint, the sword bone
     // took the donor's hand and the hand the donor's forearm. Trimmed, it is an ordinary bone below the hand, read as the
     // held weapon. The same pattern as the donor-side trim in skeleton-transplant.js.
     const attached = (id, pattern) => (model.Attachments || []).some(node => node.Parent === id && pattern.test(node.Name));
     if (kind === 'arm' && limb.length >= 3 && attached(limb.at(-1), /^weapon/i) && attached(limb.at(-2), /^hand/i) && !attached(limb.at(-1), /^hand/i)) {
-      handEnd = limb.pop();
+      const weaponBone = limb.pop();
       tip = null;
-      line = ids.filter(id => id !== handEnd);
+      line = ids.filter(id => id !== weaponBone);
     }
-    limbs.push({ kind, joints: limb, tip, line, short: chain.short === true, handEnd });
+    limbs.push({ kind, joints: limb, tip, line, short: chain.short === true });
   }
   // Tail: the path from the first non-trunk joint down to a Tail-role joint.
   for (const id of [...joints].filter(id => under(id) && !ridden(id) && roleOf(id) === 'Tail' && !limbIds.has(id))) {
@@ -577,7 +577,6 @@ function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {
     Object.defineProperty(parts[key], 'limbKind', { value: limb.kind, enumerable: false });
     Object.defineProperty(parts[key], 'named', { value: named, enumerable: false });
     if (limb.short) Object.defineProperty(parts[key], 'short', { value: true, enumerable: false });
-    if (limb.handEnd != null) Object.defineProperty(parts[key], 'handEnd', { value: limb.handEnd, enumerable: false });
   });
   // Which hand holds the weapon (automatic Mirror) stays a naming rule: a
   // geometric weapon is also found where no node is named (and none on a shield).
