@@ -237,11 +237,13 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const clipName = part => `${nameOf(part.source)} - ${sequenceName(modelOf(part.source), part.sequence)}`;
   const shareClip = (parts, part) => Object.values(parts).filter(other => other.source === part.source && other.sequence === part.sequence).length > 1;
 
+  // A newly taken Retarget part starts at Pose 50%, halfway between Mine and Theirs (owner 27 Nov); Reset goes back there.
+  const newPart = (key, whole) => withPose(defaultTransferPart(rigB, key, whole), rigB.parts[key]?.kind, 0.5);
   const take = key => {
     if (!donor || donorLacks(key) || donorSeq < 0) return;
     const old = recipe.parts[key];
     const seat = seatedMatch(donorActor, key), match = seat != null ? { match: seat } : {};
-    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq, clip: old.source === donor.id && old.sequence === donorSeq ? old.clip ?? null : null, ...match } : { ...defaultTransferPart(rigB, key, false), source: donor.id, sequence: donorSeq, ...match } } });
+    change({ ...recipe, parts: { ...recipe.parts, [key]: old ? { ...old, source: donor.id, sequence: donorSeq, clip: old.source === donor.id && old.sequence === donorSeq ? old.clip ?? null : null, ...match } : { ...newPart(key, false), source: donor.id, sequence: donorSeq, ...match } } });
     select(key);
   };
   const remove = keys => { const parts = { ...recipe.parts }; for (const key of keys) delete parts[key]; change({ ...recipe, parts }); };
@@ -250,7 +252,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const takeWhole = () => {
     if (!donor || donorSeq < 0 || !whole.parts.length) return;
     const parts = { ...recipe.parts };
-    for (const key of whole.parts) { const seat = seatedMatch(donorActor, key); parts[key] = { ...defaultTransferPart(rigB, key, true), source: donor.id, sequence: donorSeq, ...(seat != null ? { match: seat } : {}) }; }
+    for (const key of whole.parts) { const seat = seatedMatch(donorActor, key); parts[key] = { ...newPart(key, true), source: donor.id, sequence: donorSeq, ...(seat != null ? { match: seat } : {}) }; }
     change({ ...recipe, parts }); setWholeReason(whole.reason || ''); select('all');
   };
   const clearAll = () => { remove(Object.keys(recipe.parts)); setWholeReason(''); };
@@ -280,7 +282,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const addAfter = () => {
     if (!canAddAfter) return;
     const keys = afterKeys, start = Math.max(0, built.length - HAND_OVER), parts = { ...recipe.parts };
-    for (const key of keys) { const part = parts[key], seat = seatedMatch(donorActor, key); parts[key] = { ...part, next: [...(part.next || []), { ...chainedClip(part, defaultTransferPart(rigB, key, false), donor.id, donorSeq, start, HAND_OVER), ...(seat != null ? { match: seat } : {}) }] }; }
+    for (const key of keys) { const part = parts[key], seat = seatedMatch(donorActor, key); parts[key] = { ...part, next: [...(part.next || []), { ...chainedClip(part, newPart(key, false), donor.id, donorSeq, start, HAND_OVER), ...(seat != null ? { match: seat } : {}) }] }; }
     change({ ...recipe, parts });
     select(keys.length > 1 ? 'all' : keys[0], partClips(parts[keys[0]]).length - 1);
   };
@@ -564,7 +566,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // Double-click: every target back to its own default.
   const resetField = field => {
     const base = recipeRef.current, parts = { ...base.parts };
-    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), field.reset(defaultTransferPart(rigB, key, shareClip(base.parts, parts[key])), rigB.parts[key]?.kind), rigB.parts[key]?.kind));
+    for (const key of targets) if (clipOfPart(parts[key], at) && applies(field, key)) parts[key] = withClip(parts[key], at, field.set(clipOfPart(parts[key], at), field.reset(newPart(key, shareClip(base.parts, parts[key])), rigB.parts[key]?.kind), rigB.parts[key]?.kind));
     endDrag(); change({ ...base, parts });
   };
   // With All, a slider shows the shared value, or stays empty ('–') when the parts differ.
