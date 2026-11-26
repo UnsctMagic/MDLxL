@@ -20,9 +20,10 @@ const pairsFile = opt('pairs') ?? new URL('./pairs-reasonable.json', import.meta
 const pairs = [];
 for (const row of JSON.parse(fs.readFileSync(pairsFile)).cases) {
   const t = row.variants.find(v => v.transplant)?.transplant;
-  if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, title: row.question, t, keys: (row.suggestion?.suggested || []).filter(k => k !== 'donorPose') });
+  if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, title: row.question, t, choice: row.choice === true, keys: (row.suggestion?.suggested || []).filter(k => k !== 'donorPose') });
 }
-let todo = pairs;
+// A `choice` row (legs-01: there for the owner to try the front-leg boxes) is left out of the counts unless named by --only.
+let todo = opt('only') ? pairs : pairs.filter(p => !p.choice);
 // --keys-from live.jsonl: use these ticks per pair (the app's live suggestion) instead of the sheet's stored ones.
 if (opt('keys-from')) { const live = new Map(fs.readFileSync(opt('keys-from'), 'utf8').trim().split(/\r?\n/).map(l => JSON.parse(l)).filter(l => l.keys).map(l => [l.id, l.keys])); for (const p of pairs) if (live.has(p.id)) p.keys = [...live.get(p.id)]; }
 // --add seatWeapon: tick these too on every pair (trial of a suggestion change).

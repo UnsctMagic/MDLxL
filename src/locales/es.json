@@ -8947,5 +8947,11 @@
   "Seat loose grip": "Asentar el agarre",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Mantiene el agarre de un arma suelta en la palma durante la animación.",
   "Keep rider seated": "Mantener al jinete sentado",
-  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Mantiene al jinete en la silla de este modelo mientras ambos cuerpos se mueven."
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Mantiene al jinete en la silla de este modelo mientras ambos cuerpos se mueven.",
+  "Mirror legs": "Reflejar patas",
+  "Front legs walk with the back legs' motion, mirrored and shifted in time.": "Las patas delanteras caminan con el movimiento de las traseras, reflejado y desplazado en el tiempo.",
+  "Use arms": "Usar brazos",
+  "Front legs move as the donor's arms.": "Las patas delanteras se mueven como los brazos del donante.",
+  "Leg timing": "Ritmo de patas",
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Cuándo pisan las patas delanteras: 0 con la pata trasera del mismo lado, 50 con la del lado opuesto."
 }

@@ -9062,5 +9062,11 @@
   "Seat loose grip": "Griff fixieren",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Hält den Griff einer losen Waffe während der Animation an der Handfläche.",
   "Keep rider seated": "Reiter im Sattel halten",
-  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Hält den Reiter im eigenen Sattel dieses Modells, während sich beide Körper bewegen."
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Hält den Reiter im eigenen Sattel dieses Modells, während sich beide Körper bewegen.",
+  "Mirror legs": "Beine spiegeln",
+  "Front legs walk with the back legs' motion, mirrored and shifted in time.": "Vorderbeine gehen mit der Bewegung der Hinterbeine, gespiegelt und zeitlich versetzt.",
+  "Use arms": "Arme nutzen",
+  "Front legs move as the donor's arms.": "Vorderbeine bewegen sich wie die Arme des Spenders.",
+  "Leg timing": "Beintakt",
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Wann die Vorderbeine treten: 0 mit dem Hinterbein derselben Seite, 50 mit dem gegenüberliegenden."
 }

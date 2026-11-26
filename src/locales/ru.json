@@ -8937,5 +8937,11 @@
   "Seat loose grip": "Зафиксировать хват",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Удерживает рукоять отдельного оружия у ладони во время анимации.",
   "Keep rider seated": "Удерживать всадника в седле",
-  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Удерживает всадника в родном седле этой модели во время движения."
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Удерживает всадника в родном седле этой модели во время движения.",
+  "Mirror legs": "Зеркальные ноги",
+  "Front legs walk with the back legs' motion, mirrored and shifted in time.": "Передние ноги идут движением задних, отражённым и сдвинутым по времени.",
+  "Use arms": "Использовать руки",
+  "Front legs move as the donor's arms.": "Передние ноги двигаются как руки донора.",
+  "Leg timing": "Ритм ног",
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Когда ступают передние ноги: 0 — вместе с задней ногой той же стороны, 50 — с противоположной."
 }

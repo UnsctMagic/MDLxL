@@ -1848,6 +1848,31 @@ that worked. Each is measurable on every pair without the owner's grade.
   `after-close.png` (Walk, Death, yaw 70). Before, the front legs stood on the ground; after, they are held up as the Cold
   One's arms in every Stand, Walk and Attack, tucked in Death; no dragging, nothing through the chest seen. The donor has
   no Spell. The portrait rows are unreadable: the donor's portrait card stretches the frame.
-- Related tests (gait, support, skeleton-transplant): 137, 123 pass, 14 fail, all failing on 6cfed3a6 too: the 10 known
+- Related tests (gait, support, skeleton-transplant): 137, 123 pass, 14 fail, all failing on 6cfed3a6 too: the 11 known
   skeleton-transplant ones and three transplant-support ones not run before this step (Bear slam upper arm on orc__tauren,
   Tauren rear shin width, Chieftain rear hock width).
+
+### Fable plan step 5b (Opus, 26 Nov): front legs, Mirror legs (with Leg timing) and Use arms
+
+- Keys `mirrorLegs`, `useArms` (after `seatWeapon`, one clash group), labels in the owner's words, `FRONT_LEG_KEYS`,
+  `LEG_TIMING = { 0..100, step 5, default 25 }`, `legTimingValue` (clamp) in transplant-autofix.js.
+- transplant-gait.js: `spareFrontLegs`; `transplantGait(..., { useArms, mirrorLegs, legTiming })`: no box = the leg copy
+  (before step 5); Use arms = step 5's rule; Mirror legs = the diagonal assignment with `shift = (legTiming - 50) / 100`.
+  `duplicateGaitChains` applies the shift to the mirrored copy's Translation/Rotation/Scaling in each looping Walk through the
+  pure `shiftLoopKeys(track, interval, share)` (keys wrap round the loop, sampled end keys close it).
+- skeleton-transplant.js: option `legTiming` (default 25), the flags passed to `transplantGait`. transfer-window.js
+  `transplantOptions` passes `legTiming` only with Mirror legs ticked.
+- xfer-suggest-toggles.js: the two keys are never candidates, skipped by the six-rule loop and the hole veto; picked last
+  by rule: `frontLegPick` (spare legs on both sides, no own arms, donor arms) with `bodyLean` of the donor (leg roots to
+  arm roots, from upright): `useArms` at 45 deg or more, else `mirrorLegs`. Measured with bodyLean: Cold One 76.2,
+  Ghoul 73.8, Abomination 30.1, Kobold 10.9, Footman 4.8, Grunt 4.3.
+- UI: `TransplantToggles.jsx` shows a `RangeField` "Leg timing" (tooltip, `NN%`, `onCommit`) right after Mirror legs while
+  it is ticked; Transfer.jsx keeps `legTiming` per pair context and puts it in the build key; the sheet saves `legTiming` in
+  the answer (`withGrade`) and in the live request key. Six strings in de/es/fr/ru/zh.
+- pairs-reasonable.json: `legs-01` Footman -> Timber Wolf (corpus-sd), `choice: true`, suggestion hangingChains,
+  mirrorLegs; score.mjs leaves `choice` rows out unless named by `--only`. gait test: Timber Wolf default back to same-side.
+- reasonable-45 hashes: before (22e994a7, skinLandmarks,authoredMotion) 1939f6eb...; now with `useArms` added the same
+  1939f6eb...; now with no box a21ccec1..., the baseline's (before step 5).
+- Fail-first on 22e994a7 (new tests copied in): gait 4 fail (Timber Wolf default, Snap Dragon no box = copy, shiftLoopKeys,
+  timing 25 vs 50 paths), transfer-picks Leg timing fails, frontLegPick missing. Working tree: gait 5/5, the two others pass.
+  Build passes. --check --all, related suites, renders and the sheet: handed to the checker.

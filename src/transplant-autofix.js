@@ -18,6 +18,7 @@ export const AUTO_FIX_KEYS = Object.freeze([
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
   'wristGrip', 'keepTorso', 'sewnTorso', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
+  'mirrorLegs', 'useArms',
 ]);
 // Checkboxes the owner has rejected by eye but wants kept: still shown and tickable, never suggested by any stage of
 // suggestToggles. Keys are added here only on the owner's word. Seam fix was the first entry (26 Nov 2026) and was then
@@ -36,6 +37,7 @@ export const TOGGLE_CLASHES = Object.freeze([
   ['trackWindow', 'authoredMotion'],
   ['keepTorso', 'sewnTorso'],
   ['trunk', 'skinLandmarks'],
+  ['mirrorLegs', 'useArms'],
 ].map(group => Object.freeze(group)));
 export const TOGGLE_NEEDS = Object.freeze({ looseAxis: Object.freeze(['detached']), seatLooseGrip: Object.freeze(['detached']) });
 
@@ -81,7 +83,16 @@ export const AUTO_FIX_LABELS = Object.freeze({
   riderSeat: ["Keep rider seated", "Keeps the rider sitting in this model's own saddle while the bodies move."],
   seatWeapon: ['Seat weapon like donor', "Moves this model's weapon in its geoset pose so it sits in the hand like the donor's weapon."],
   donorPose: ["Donor pose", "Bends this model's stored pose into the donor's resting pose."],
+  mirrorLegs: ['Mirror legs', "Front legs walk with the back legs' motion, mirrored and shifted in time."],
+  useArms: ['Use arms', "Front legs move as the donor's arms."],
 });
+// Front legs (owner, 26 Nov 2026): Mirror legs and Use arms are a choice for a model with more legs than the donor, not a
+// scored repair (src/xfer-suggest-toggles.js). The Leg timing slider (shown with Mirror legs) shifts the mirrored front legs
+// in looping Walk animations: 0 with the back leg on the same side, 25 a four-beat walk, 50 the plain mirror.
+export const FRONT_LEG_KEYS = Object.freeze(['mirrorLegs', 'useArms']);
+export const LEG_TIMING = Object.freeze({ min: 0, max: 100, step: 5, default: 25 });
+export const legTimingValue = value => Number.isFinite(+value) && value !== null && value !== ''
+  ? Math.min(LEG_TIMING.max, Math.max(LEG_TIMING.min, +value)) : LEG_TIMING.default;
 /** A marker is off its item past these: the grip marker 30% of a hip height from the real grip, or the marker line 30 deg off the item. */
 export const MARKER_GRIP_SHARE = 0.3, MARKER_TIP_DEGREES = 30;
 /** A detached item is held by the hand it stays within this share of the standing height of, and at most half as far as the other hand. */

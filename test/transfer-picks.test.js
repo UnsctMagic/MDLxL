@@ -191,3 +191,13 @@ test('grading an old answer drops the retired Seam fix for that pair only', () =
   assert.deepEqual(next['reasonable-46'].toggles, ['seatWeapon']);
   assert.deepEqual(next['random-03'], saved['random-03'], 'another pair\'s saved answer is written back untouched');
 });
+
+// Mirror legs carries the Leg timing slider; the sheet keeps its value beside the ticks.
+test('an answer keeps the Leg timing beside the ticks', () => {
+  const [item] = parseCases(oldSheet(['mirrorLegs', 'useArms'], ['mirrorLegs'])).cases;
+  const set = withGrade({}, item, { toggles: ['mirrorLegs'], legTiming: 35 }, 't1');
+  assert.equal(set['reasonable-46'].legTiming, 35);
+  const graded = withGrade(set, item, { grade: 7 }, 't2');
+  assert.deepEqual(graded['reasonable-46'], { grade: 7, comment: '', at: 't2', toggles: ['mirrorLegs'], suggested: ['mirrorLegs'], legTiming: 35 });
+  assert.equal(withGrade({}, item, { grade: 5 }, 't3')['reasonable-46'].legTiming, undefined, 'no slider value is written until one is set');
+});

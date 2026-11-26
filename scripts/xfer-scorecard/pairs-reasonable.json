@@ -5407,6 +5407,73 @@
     "authoredMotion",
     "seatWeapon"
    ]
+  },
+  {
+   "id": "legs-01",
+   "question": "Footman → Timber Wolf",
+   "grade": true,
+   "choice": true,
+   "hint": "Front legs: try Mirror legs with its Leg timing slider, and Use arms.",
+   "model": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+   "variants": [
+    {
+     "id": "donor",
+     "label": "Donor",
+     "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx"
+    },
+    {
+     "id": "own",
+     "label": "Own",
+     "file": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx"
+    },
+    {
+     "id": "before",
+     "label": "Before",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    },
+    {
+     "id": "after",
+     "label": "After",
+     "transplant": {
+      "recipient": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\creeps__timberwolf.mdx",
+      "donor": "D:\\Claude\\MDLxL-TestModels\\corpus-sd\\human__footman.mdx",
+      "options": {
+       "events": true,
+       "emitters": false,
+       "keep": [],
+       "mirror": false
+      }
+     }
+    }
+   ],
+   "sequences": [
+    "Walk",
+    "Stand",
+    "Attack"
+   ],
+   "suggestion": {
+    "visible": [
+     "skinLandmarks",
+     "hangingChains",
+     "rootHeight",
+     "donorPose",
+     "mirrorLegs",
+     "useArms"
+    ],
+    "suggested": [
+     "hangingChains",
+     "mirrorLegs"
+    ]
+   }
   }
  ]
 }

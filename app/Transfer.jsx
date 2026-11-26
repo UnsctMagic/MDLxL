@@ -20,7 +20,7 @@ import { suggestPoseRig } from '../src/pose-ik.js';
 import { deleteSequence, standSequenceIndex } from '../src/sequence-editor.js';
 import { applyTransfer, buildTransfer, clearTransferCache, defaultTransferPart, transferAim, transferEndPoint, transferFeatures, transferNodeTracks, transferPartLabel, transferPreviewModel, transferRestoreTracks } from '../src/anim-transfer.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { defaultRepairKeys, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
+import { defaultRepairKeys, LEG_TIMING, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { createTransplantBuilder } from './transplant-builder.js';
 import { replaceModelContents, transplantOptions, transplantRepairOptions, transplantSequence } from '../src/transfer-window.js';
 import { poseOf, withPose, sequenceIndexAfter, PART_WIDE, partsLostByReading, seatedMatch, chainedClip, clipOfPart, partClips, withClip, withoutClip, withPartWide, addAllPlan, chipOrder, parseSetup, recipeFromSetup, setupFromRecipe, clipBlocks, clipLanes, dropPoint, handlePart, jointPath, partHandle, pathMarker, rigFor, sourcePartKey, takenPoseConfig, takenSummary, wholeBodyParts, withNodeTracks } from '../src/transfer-window.js';
@@ -600,6 +600,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // rebuilds it, and a newer setting stops the build still running (app/transplant-builder.js).
   const [tpBuilt, setTpBuilt] = useState(null), [tpApplied, setTpApplied] = useState(null), [tpWorking, setTpWorking] = useState(false);
   const [tpRepairs, setTpRepairs] = useState(null);
+  // Leg timing (shown with Mirror legs): kept per pair, reset with the repair list.
+  const [legTiming, setLegTiming] = useState({ context: null, value: LEG_TIMING.default });
   const tpDonor = transplanting && donor && donor.id !== 'self' ? donor : null;
   const tpMirrorOverride = tpDonor ? recipe.sources?.[tpDonor.id]?.mirror : null;
   const tpChoice = tpDonor ? `${tpDonor.id}|${tpDonor.revision}|${JSON.stringify(tpSettings)}|${tpMirrorOverride ?? ''}` : null;
@@ -607,8 +609,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const tpContext = tpChoice && rigB.ok && !tpShowsModel ? `${tpChoice}|${doc.revision}|${donorMirror}` : null;
   const activeRepairs = tpRepairs?.context === tpContext ? tpRepairs : null;
   const selectedRepairs = activeRepairs?.checked ?? [];
-  const tpOptions = transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false });
-  const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}` : null;
+  const tpLegTiming = legTiming.context === tpContext ? legTiming.value : LEG_TIMING.default;
+  const tpOptions = transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false, legTiming: tpLegTiming });
+  const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}${selectedRepairs.includes('mirrorLegs') ? '|' + tpLegTiming : ''}` : null;
   const tpBuilder = useRef(null), tpResult = useRef(null), tpSuggestion = useRef(null);
   tpResult.current = next => setTpBuilt(next);
   tpSuggestion.current = next => {
@@ -764,7 +767,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             {transplanting ? <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
               {!tpShowsModel && <TransplantToggles visible={activeRepairs?.visible} suggested={activeRepairs?.suggested} checked={selectedRepairs}
-                onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}/>}
+                onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}
+                legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })}/>}
               <div className="xf-preview" data-transplant-view="">
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}

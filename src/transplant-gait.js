@@ -1,4 +1,4 @@
-import { allNodes, nodePivot } from './animation.js';
+import { allNodes, globalSequenceId, nodePivot, sampleTrack } from './animation.js';
 import { nodeIndex } from './node-hierarchy.js';
 
 const legs = (rig, side) => Object.values(rig.parts).filter(p => p.limbKind === 'leg' && p.side === side);
@@ -25,15 +25,28 @@ export function frontBodySupport(model, rig) {
   return carrier == null ? null : { carrier, legs: [left[1], right[1]] };
 }
 
-export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody = null) {
+/** True when this model has more legs than the donor on both sides (the donor has at least one on each): the front
+ * legs are spare, and Mirror legs / Use arms apply. */
+export function spareFrontLegs(own, donor, ownRig, donorRig) {
+  return !!ownRig?.ok && !!donorRig?.ok && ['L','R'].every(side =>
+    ordered(ownRig,own,side).length > ordered(donorRig,donor,side).length && ordered(donorRig,donor,side).length > 0);
+}
+
+/** `useArms`, `mirrorLegs`: the two front-leg checkboxes (transplant-autofix.js FRONT_LEG_KEYS); `legTiming` the
+ * slider (0-100) shown with Mirror legs. Neither ticked: the spare front legs copy the back legs on their side. */
+export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody = null, { useArms = false, mirrorLegs = false, legTiming = 50 } = {}) {
   const assignments = new Map();
   if (!choice || !ownRig.ok || !donorRig.ok) return assignments;
-  // Spare front legs take the donor's arms (owner, 26 Nov 2026, Cold One onto Snap Dragon: "why did the front legs not
-  // become the arms of the beast? ... this is possible"): this model has more legs on a side than the donor and no arm
-  // there, the donor has one. Only when both sides qualify, so the body stays symmetric. The reverse of the foreleg rule below.
-  const armsFromLegs = choice === 'back-and-arms' && ['L','R'].every(side =>
-    ordered(ownRig,own,side).length > ordered(donorRig,donor,side).length && ordered(donorRig,donor,side).length > 0 &&
-    !ownRig.parts['arm'+side] && donorRig.parts['arm'+side]);
+  const spare = spareFrontLegs(own, donor, ownRig, donorRig);
+  // Use arms: spare front legs take the donor's arms (owner, 26 Nov 2026, Cold One onto Snap Dragon: "why did the front
+  // legs not become the arms of the beast? ... this is possible"): this model has no arm on either side, the donor has
+  // both. Both sides or neither, so the body stays symmetric. The reverse of the foreleg rule below.
+  const armsFromLegs = useArms && spare && ['L','R'].every(side => !ownRig.parts['arm'+side] && donorRig.parts['arm'+side]);
+  // Mirror legs: the spare front legs take the mirrored opposite back leg (the diagonal gait), shifted in looping Walk
+  // animations by the Leg timing slider: (legTiming - 50) % of the clip.
+  const mirrored = mirrorLegs && spare;
+  if (mirrored) choice = 'diagonal';
+  const shift = mirrored ? (legTiming - 50) / 100 : 0;
   for (const side of ['L','R']) {
     const mine = ordered(ownRig,own,side), theirs = ordered(donorRig,donor,side);
     if (!mine.length || !theirs.length || mine.length === theirs.length) continue;
@@ -44,7 +57,7 @@ export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody =
       const reflected = additional && choice === 'diagonal' && index % 2 === 1 && other.length > 0;
       if (reflected) source = other[Math.min(index,other.length-1)];
       if (mine.length === 1 && (choice === 'front' || (frontBody && choice === 'back-and-arms' && ownRig.parts.armL && ownRig.parts.armR))) source = theirs.at(-1);
-      assignments.set(part.key,{from:source.key,copy:additional,reflected});
+      assignments.set(part.key,{from:source.key,copy:additional,reflected,...(reflected && shift ? {shift} : {})});
     }
     if (armsFromLegs) assignments.set(mine.at(-1).key,{from:'arm'+side});
     // Use a spare foreleg only when the recipient arm has no actual donor arm.
@@ -102,6 +115,12 @@ export function duplicateGaitChains(model, rig, entries, assignments) {
             if(field==='Rotation') {v[0]*=-1; v[1]*=-1; v[2]*=-1;}
           }
       }
+      // Mirror legs: the copy's motion in each looping Walk is shifted by the Leg timing slider.
+      if (spec.shift) for (const s of model.Sequences || []) {
+        if (!/^walk/i.test(String(s.Name).trim()) || s.NonLooping || !(s.Interval?.[1] > s.Interval?.[0])) continue;
+        for (const field of ['Translation','Rotation','Scaling']) if (copy[field]?.Keys?.length && globalSequenceId(copy[field], model) === null)
+          copy[field] = shiftLoopKeys(copy[field], s.Interval, spec.shift, { quaternion: field === 'Rotation' });
+      }
       const collection=model.Bones.includes(original)?model.Bones:model.Helpers;
       collection.push(copy);
       model.Nodes[newId]=copy;
@@ -113,4 +132,34 @@ export function duplicateGaitChains(model, rig, entries, assignments) {
     parts[entry.key]=part;
   }
   return Object.assign(Object.create(rig),{parts});
+}
+
+/** A track's keys inside one looping animation `interval` [a, b], moved `share` of the clip later (wrapping round):
+ * a key at t goes to a + ((t - a + share * L) mod L). Keys are added at both ends, sampled from the original at the
+ * wrapped time, so the loop closes. Keys outside the interval are kept. Pure: returns a new track. */
+export function shiftLoopKeys(track, interval, share, { quaternion = false } = {}) {
+  const [a, b] = interval, L = b - a, keys = track?.Keys || [];
+  const wrapped = ((share % 1) + 1) % 1;
+  if (!(L > 0) || !keys.length || wrapped === 0) return track;
+  const inside = keys.filter(key => key.Frame >= a && key.Frame <= b);
+  if (!inside.length) return track;
+  const original = t => sampleTrack(track, t, { interval, quaternion, fallback: null });
+  const cubic = track.LineType === 2 || track.LineType === 3;
+  // A sampled end key has no authored tangents: flat ones (the value itself; for Hermite translation, zero slope).
+  const endKey = frame => {
+    const v = Float32Array.from(original(a + ((frame - a - wrapped * L) % L + L) % L));
+    const key = { Frame: frame, Vector: v };
+    if (cubic) {
+      const flat = quaternion || track.LineType === 3 ? Float32Array.from(v) : new Float32Array(v.length);
+      key.InTan = flat; key.OutTan = Float32Array.from(flat);
+    }
+    return key;
+  };
+  const moved = inside.filter(key => key.Frame < b).map(key => ({ ...key, Frame: Math.round(a + ((key.Frame - a + wrapped * L) % L)) }))
+    .filter(key => key.Frame > a && key.Frame < b);
+  const start = endKey(a), end = { ...endKey(b), Vector: Float32Array.from(start.Vector) };
+  if (cubic) { end.InTan = Float32Array.from(start.InTan); end.OutTan = Float32Array.from(start.OutTan); }
+  const byFrame = new Map(moved.map(key => [key.Frame, key]));
+  const shifted = [start, ...[...byFrame.values()].sort((x, y) => x.Frame - y.Frame), end];
+  return { ...track, Keys: [...keys.filter(key => key.Frame < a), ...shifted, ...keys.filter(key => key.Frame > b)] };
 }

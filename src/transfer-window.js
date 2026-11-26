@@ -6,7 +6,7 @@ import { allNodes, nodePivot, sampleNodeMatrices } from './animation.js';
 import { transferRig, transferWholeBody } from './anim-transfer.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { animationMirror } from './transplant-weapon-seat.js';
-import { autoFixMirror } from './transplant-autofix.js';
+import { autoFixMirror, legTimingValue } from './transplant-autofix.js';
 
 const CHIP_ORDER = ['head', 'chest', 'hips', 'armL', 'armR', 'legL', 'legR', 'wingL', 'wingR', 'tail'];
 
@@ -378,9 +378,11 @@ export function recipeFromSetup(setup, model, rig, donors, fallbackBase, feature
 /** The transplant engine's options from the Transplant settings: Sounds (the donor's events, on),
  * Effects (the donor's particle effects, off), Keep (own extras whose bone stays; only ids the
  * engine's report lists, when it is given) and the donor caption's Mirror. */
-export function transplantOptions({ sounds = true, effects = false, keep = [], mirror = false, autoFix = false } = {}, extras = null) {
+export function transplantOptions({ sounds = true, effects = false, keep = [], mirror = false, autoFix = false, legTiming = null } = {}, extras = null) {
   const offered = extras ? new Set(extras.map(extra => extra.id)) : null;
-  return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror, ...(autoFix ? { autoFix } : {}) };
+  // Leg timing only goes with Mirror legs, so no other build gets a new field.
+  return { events: !!sounds, emitters: !!effects, keep: [...new Set(keep)].filter(id => !offered || offered.has(id)).sort((a, b) => a - b), mirror: !!mirror, ...(autoFix ? { autoFix } : {}),
+    ...(autoFix?.mirrorLegs && legTiming != null ? { legTiming: legTimingValue(legTiming) } : {}) };
 }
 
 /** Use the same automatic Mirror choice for the trial and the result it recommends. */

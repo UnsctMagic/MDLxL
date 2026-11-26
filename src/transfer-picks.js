@@ -213,7 +213,7 @@ export const GRADES = Array.from({ length: 11 }, (_, i) => i);
 
 /** The answers with a grade case's grade and/or comment changed: { grade: 0-10 or null, comment, at }; the part not
  * given keeps its saved value. */
-export function withGrade(answers, item, { grade, comment, toggles } = {}, at = new Date().toISOString()) {
+export function withGrade(answers, item, { grade, comment, toggles, legTiming } = {}, at = new Date().toISOString()) {
   if (grade !== undefined && grade !== null && !GRADES.includes(grade)) throw new Error('The grade must be a whole number from 0 to 10.');
   const old = answers[item.id] || {};
   const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
@@ -221,6 +221,9 @@ export function withGrade(answers, item, { grade, comment, toggles } = {}, at = 
   if (item.kind === 'transplant') {
     entry.toggles = knownRepairKeys(toggles ?? old.toggles ?? defaultRepairKeys(item.suggestion.suggested));
     entry.suggested = [...item.suggestion.suggested];
+    // The Leg timing slider (with Mirror legs) is kept beside the ticks once it has been set.
+    const timing = legTiming ?? old.legTiming;
+    if (timing != null) entry.legTiming = timing;
   }
   return { ...answers, [item.id]: entry };
 }

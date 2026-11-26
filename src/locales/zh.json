@@ -8843,5 +8843,11 @@
   "Seat loose grip": "固定武器握点",
   "Keeps a detached weapon’s grip on the palm during the animation.": "在动画中让独立武器的握点贴合手掌。",
   "Keep rider seated": "让骑手留在鞍上",
-  "Keeps the rider sitting in this model's own saddle while the bodies move.": "在双方身体运动时，让骑手坐在此模型原有的鞍上。"
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "在双方身体运动时，让骑手坐在此模型原有的鞍上。",
+  "Mirror legs": "镜像腿",
+  "Front legs walk with the back legs' motion, mirrored and shifted in time.": "前腿使用后腿的动作，镜像并在时间上错开。",
+  "Use arms": "使用手臂",
+  "Front legs move as the donor's arms.": "前腿按供体的手臂动作移动。",
+  "Leg timing": "腿部节奏",
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "前腿何时落步：0 与同侧后腿同步，50 与对侧后腿同步。"
 }

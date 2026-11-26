@@ -68,7 +68,7 @@ import { orientHeldSurface } from './transplant-held-orientation.js';
 import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplant-extra-motion.js';
 import { bindLandmarks } from './transplant-bind-landmarks.js';
 import { finishDonorPose, storedPoseClearance } from './transplant-donor-pose.js';
-import { autoFixMirror, autoFixOptions, fixMarkers, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
+import { autoFixMirror, autoFixOptions, fixMarkers, LEG_TIMING, legTimingValue, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -909,7 +909,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null } = {}) {
+function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -1003,7 +1003,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   const frontBody = frontBodySupport(D, rigA);
   const lowerBodyOnly = frontBody && legPairs(rigB) === 2 && !rigB.parts.armL && !rigB.parts.armR && !(rigB.actors?.length > 1);
   if (lowerBodyOnly) whole.parts = whole.parts.filter(key => key !== 'head' && key !== 'chest');
-  const gaitSources = whole.reason ? transplantGait(model,D,rigB,rigA,gait,frontBody) : new Map();
+  // Front legs (Mirror legs with its Leg timing, Use arms): transplant-gait.js.
+  const gaitSources = whole.reason ? transplantGait(model,D,rigB,rigA,gait,frontBody,{ useArms: !!fix?.useArms, mirrorLegs: !!fix?.mirrorLegs, legTiming: legTimingValue(legTiming) }) : new Map();
   if (gaitSources.size) {
     whole.parts.push(...gaitSources.keys());
     if (rigB.parts.hips && rigA.parts.hips) whole.parts.push('hips');

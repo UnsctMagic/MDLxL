@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { openDocument } from '../src/editor-document.js';
 import { OWNER_REJECTED_KEYS } from '../src/transplant-autofix.js';
-import { ruleChange, suggestToggles } from '../src/xfer-suggest-toggles.js';
+import { frontLegPick, ruleChange, suggestToggles } from '../src/xfer-suggest-toggles.js';
 import { holesWorse, scoreResult, weldedPairs } from '../src/xfer-scorecard.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
 import { vertexBones } from '../src/part-bones.js';
@@ -89,4 +89,14 @@ test('ruleChange: holes never gain a rule, and lose one only when the mesh tears
   assert.equal(holesWorse(hole(47, 807, false), hole(136, 807, false)), true);
   assert.equal(holesWorse(hole(0, 505, true), hole(1, 505, false)), false);
   assert.equal(holesWorse({ pass: null, note: 'other geosets' }, hole(9, 100, false)), false);
+});
+
+// Front legs are picked by rule (plan step 5b): a donor leaning like a beast lends its arms, an upright one its legs.
+test('frontLegPick: the six measured leans, and no pick without spare legs, with own arms or without donor arms', () => {
+  const pick = lean => frontLegPick({ spare: true, ownArms: false, donorArms: true, lean });
+  assert.deepEqual([76, 74, 30, 11, 5, 4].map(pick), ['useArms', 'useArms', 'mirrorLegs', 'mirrorLegs', 'mirrorLegs', 'mirrorLegs'], 'Cold One, Ghoul, Abomination, Kobold, Footman, Grunt');
+  assert.equal(frontLegPick({ spare: false, ownArms: false, donorArms: true, lean: 76 }), null);
+  assert.equal(frontLegPick({ spare: true, ownArms: true, donorArms: true, lean: 76 }), null, 'a rider on a four-legged mount has arms: nothing suggested');
+  assert.equal(frontLegPick({ spare: true, ownArms: false, donorArms: false, lean: 76 }), null);
+  assert.equal(frontLegPick({ spare: true, ownArms: false, donorArms: true, lean: null }), null);
 });

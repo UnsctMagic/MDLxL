@@ -1,11 +1,13 @@
 import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
-import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, OWNER_REJECTED_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, FRONT_LEG_KEYS, LEGACY_AUTO_FIX_KEYS, OWNER_REJECTED_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
 import { SCORE_RULES, holesWorse, judgeResult, scoreResult } from './xfer-scorecard.js';
 import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
+import { spareFrontLegs } from './transplant-gait.js';
+import { worldPivot, sampleNodeMatrices } from './animation.js';
 import { verdict } from './xfer-look-verdict.js';
 
 export const SUGGESTION_SAMPLING = Object.freeze({
@@ -25,6 +27,35 @@ function keysWithNeeds(keys) {
   const chosen = new Set(keys);
   for (const key of keys) for (const need of TOGGLE_NEEDS[key] ?? []) chosen.add(need);
   return AUTO_FIX_KEYS.filter(key => chosen.has(key));
+}
+
+// Front legs (Mirror legs / Use arms) are a choice, picked by rule, not scored: a donor that leans like a beast (the line
+// from the middle of its leg roots to the middle of its arm roots 45 deg or more from upright at its Stand reference)
+// lends its arms; an upright one its legs, mirrored. Measured: Cold One 76, Ghoul 74, Abomination 30, Kobold 11,
+// Footman 5, Grunt 4.
+export const BEAST_LEAN = 45;
+
+/** Degrees from upright of the line from the middle of the rig's leg roots to the middle of its arm roots; null
+ * without both. */
+export function bodyLean(model, rig) {
+  const parts = Object.values(rig?.parts || {});
+  const legs = parts.filter(p => p.limbKind === 'leg'), arms = parts.filter(p => p.limbKind === 'arm' && /^arm[LR]$/.test(p.key));
+  if (!rig?.ok || !legs.length || arms.length < 2) return null;
+  const world = sampleNodeMatrices(model, rig.reference?.frame ?? 0, Math.max(0, rig.reference?.sequence ?? 0));
+  const middle = list => {
+    const points = list.map(p => worldPivot(model, p.joints[0], world, model.Nodes[p.joints[0]]));
+    return points.slice(1).reduce((sum, point) => sum.add(point), points[0].clone()).divideScalar(points.length);
+  };
+  const line = middle(arms).sub(middle(legs));
+  return line.lengthSq() > 1e-12 ? Math.acos(Math.min(1, Math.max(-1, line.z / line.length()))) * 180 / Math.PI : null;
+}
+
+/** Which front-leg checkbox to suggest. Only when this model has spare front legs on both sides, no arms of its own,
+ * and the donor has arms: Use arms for a donor leaning BEAST_LEAN or more, else Mirror legs. Otherwise none (a rider on
+ * a four-legged mount has arms: Mirror legs is shown, not suggested). */
+export function frontLegPick({ spare, ownArms, donorArms, lean }) {
+  if (!spare || ownArms || !donorArms || lean == null) return null;
+  return lean >= BEAST_LEAN ? 'useArms' : 'mirrorLegs';
 }
 
 /** Rules gained and lost from one judged result to another. Holes only veto: closing holes gains nothing, and a result
@@ -91,7 +122,7 @@ export function suggestToggles(model, donor, options = {}, {
     if (identical && key !== 'seatWeapon') continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
-    if (blocked.has(key) || ['skinLandmarks', 'gripRouting'].includes(key)) continue;
+    if (blocked.has(key) || FRONT_LEG_KEYS.includes(key) || ['skinLandmarks', 'gripRouting'].includes(key)) continue;
     if (key === 'surfaceGrip') {
       const holdsWithBothHands = (m, rig) => heldContact(m, rig ?? rigFor(m, Math.max(0, standSequenceIndex(m))))?.twoHands;
       if (!holdsWithBothHands(model, ownRig) || !holdsWithBothHands(donor, donorRig)) continue;
@@ -155,7 +186,7 @@ export function suggestToggles(model, donor, options = {}, {
     const change = r => ruleChange(before, r);
     const helpful = [];
     for (const key of visible) {
-      if (key === 'donorPose' || blocked.has(key)) continue;
+      if (key === 'donorPose' || blocked.has(key) || FRONT_LEG_KEYS.includes(key)) continue;
       const checked = !ticks.includes(key), flipped = toggleRepair(ticks, key, checked);
       const { gained, lost } = change(judged(flipped));
       if (gained && !lost) helpful.push({ key, checked, gained });
@@ -178,7 +209,7 @@ export function suggestToggles(model, donor, options = {}, {
     // Worse needs more than two torn seams, so the plain result is scored only then.
     const plainHoles = finalTicks.length && holes?.torn > 2 ? scoreResult(model, donor, base.model, baseMirror === true).rules.holes : holes;
     if (holesWorse(plainHoles, holes)) {
-      const culprit = finalTicks.find(key => !holesWorse(plainHoles, judged(toggleRepair(finalTicks, key, false)).rules.holes));
+      const culprit = finalTicks.find(key => !FRONT_LEG_KEYS.includes(key) && !holesWorse(plainHoles, judged(toggleRepair(finalTicks, key, false)).rules.holes));
       if (culprit) {
         blocked.add(culprit);
         suggested = toggleRepair(suggested, culprit, false);
@@ -187,8 +218,17 @@ export function suggestToggles(model, donor, options = {}, {
       }
     }
   }
-  const kept = allowed(suggested);
-  if (kept.length !== suggested.length) comboScore = scoreCombo(kept);
+  // The front-leg choice is added last, by rule (frontLegPick), when its box is shown.
+  let chosen = suggested.filter(key => !FRONT_LEG_KEYS.includes(key));
+  if (FRONT_LEG_KEYS.some(key => visible.includes(key))) {
+    const mine = ownRig ?? rigFor(model, Math.max(0, standSequenceIndex(model)));
+    const theirs = donorRig ?? rigFor(donor, Math.max(0, standSequenceIndex(donor)));
+    const pick = frontLegPick({ spare: spareFrontLegs(model, donor, mine, theirs), ownArms: !!(mine?.parts?.armL || mine?.parts?.armR),
+      donorArms: !!(theirs?.parts?.armL && theirs?.parts?.armR), lean: bodyLean(donor, theirs) });
+    if (pick && visible.includes(pick)) chosen = toggleRepair(chosen, pick, true);
+  }
+  const kept = allowed(chosen);
+  if (kept.join(',') !== suggested.join(',')) comboScore = scoreCombo(kept);
   scores.suggested = comboScore;
   return { visible, suggested: kept, scores };
 }

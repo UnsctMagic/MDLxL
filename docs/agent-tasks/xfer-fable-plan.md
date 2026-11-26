@@ -2,7 +2,8 @@
 
 Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
 Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f95`, approved). Step 4 done (`a12a7bc0`,
-approved). Next: step 5.
+approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Next: step 5b (the owner's two checkboxes for front legs), then step 6.
+From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
 Brief: [xfer-fable-review-brief.md](xfer-fable-review-brief.md). History: [xfer-toggles.md](xfer-toggles.md), [xfer-finish-line.md](xfer-finish-line.md).
@@ -440,6 +441,15 @@ its hilt up by the fists (see risks); in Attack - 1 the right palm is 0.12-0.31 
 
 ### Step 5. Spare front legs take the donor's free arms (reasonable-45)
 
+**Done: `22e994a7`, approved.** Of the 58 pairs only reasonable-45 changes; in every donated animation the Snap Dragon's
+front legs read as the Cold One's arms (Fable looked at all four picture sheets). The rule is general, as planned: it also
+fires on pairings outside the test set. Checked on one, Timber Wolf taking the Footman (`out/fable-review/step-5/wolf-*.png`):
+before, the wolf stayed on four legs with its front legs copying the back legs' walk; now it stands up like the Footman
+with its front legs as arms. Measured, that is the cleaner result (stretched edges 7 to 2, worst stretch 1.48x to 1.04x, no
+holes), and it is what "the mesh takes the donor's skeleton whole" means. It is still a visible change of behaviour for
+every four-legged model without arms that takes a two-legged donor with arms. The owner answered with two checkboxes
+(step 5b), so it becomes the user's choice.
+
 - **File.** `src/transplant-gait.js`, `transplantGait` (lines 29-49). `test/transplant-gait.test.js`.
 - **Change.** After the per-leg loop of a side, mirroring the existing rule at 44-47: when `choice === 'back-and-arms'`,
   this model has more legs on that side than the donor (`mine.length > theirs.length`), this model has **no** arm on that
@@ -464,6 +474,87 @@ its hilt up by the fists (see risks); in Attack - 1 the right palm is 0.12-0.31 
 - **Limit, said plainly.** With a rider on the mount (reasonable-38) the rule does not fire, because the model has arms
   (the rider's). Giving the mount's front legs the donor mount's arms needs the arms told apart by who carries them; not in
   this plan.
+
+### Step 5b. Front legs: two checkboxes, Mirror legs (with a timing slider) and Use arms (owner, 26 Nov)
+
+Owner: "Give users a toggle 1) Allows to mirror legs - but also calculates the new animation so that the walk will be a
+real walk on 4 legs - not 2 pers of legs copying eachother, it has to re-use the same motion and offset it to create a good
+walk on 4 legs - give users a slider to adjust it rather than rely on a 1-shot result. 2) Use arms - does what I asked for
+the snap-dragon - front legs get animated as arms."
+
+- **Behaviour.**
+  - *No box ticked:* as before step 5 (front legs copy the back legs on the same side). Step 5's rule now needs its box.
+  - *Use arms* (`useArms`): exactly step 5. Applies when this model has more legs on both sides than the donor, no arms,
+    and the donor has arms.
+  - *Mirror legs* (`mirrorLegs`): the spare front legs take the mirrored motion of the opposite back leg (the engine's
+    existing `diagonal` gait), and in looping Walk animations that motion is shifted in time by the slider. Applies when
+    this model has more legs on both sides than the donor.
+  - *Leg timing* slider, shown only while Mirror legs is ticked: 0 to 100 (% of the walk cycle), step 5, default 25.
+    0 = front leg steps with the back leg on its own side, 25 = four-beat walk, 50 = with the opposite back leg (the plain
+    mirror). The engine shifts the mirrored copy by `(value - 50)%` of the clip. Only looping animations whose name starts
+    with Walk are shifted; in every other animation Mirror legs is the plain mirror.
+  - The two boxes exclude each other (one clash group).
+- **Files and changes.**
+  1. `src/transplant-autofix.js`: add `mirrorLegs`, `useArms` to `AUTO_FIX_KEYS` (after `seatWeapon`), the clash group
+     `['mirrorLegs', 'useArms']`, labels in the owner's words:
+     `mirrorLegs: ['Mirror legs', 'Front legs walk with the back legs' motion, mirrored and shifted in time.']`,
+     `useArms: ['Use arms', "Front legs move as the donor's arms."]`. Export `LEG_TIMING = { min: 0, max: 100, step: 5, default: 25 }`.
+  2. `src/transplant-gait.js`: `transplantGait(..., { useArms, mirrorLegs })`: the `armsFromLegs` rule of step 5 only with
+     `useArms`; with `mirrorLegs` the spare legs use the `diagonal` assignment whatever `choice` says. `duplicateGaitChains`
+     takes the shift (a share of the clip, `(legTiming - 50) / 100`) and applies it to the copied chain's Rotation,
+     Translation and Scaling keys inside each looping Walk interval: key time `a + ((t - a + shift * L) mod L)`, with keys
+     added at both ends of the interval sampled from the original at the wrapped time, so the loop closes. Put the shift in
+     one exported pure function (`shiftLoopKeys(track, interval, share)`) so it can be tested without models. Because the
+     copies are shifted in the donor copy before anything else, feet planting and ground fitting treat them as legs as today.
+  3. `src/skeleton-transplant.js` (`transplantRun`): read `fix.useArms`, `fix.mirrorLegs` and a new option `legTiming`
+     (number, default `LEG_TIMING.default`, clamped) and pass them to the two functions. The leg filters added in step 5
+     stay.
+  4. `src/transfer-window.js` `transplantOptions`: pass `legTiming` through, only when Mirror legs is ticked (so no other
+     export gets a new field).
+  5. `src/xfer-suggest-toggles.js`: the two keys are a **choice**, not a scored repair: never a first-stage candidate,
+     skipped by the six-rule loop, never dropped by the hole veto. They are shown by the existing rule (their result differs
+     from plain). One is suggested only in the step 5 situation (no own arms, donor has arms, more legs on both sides):
+     `useArms` when the donor leans like a beast (the line from the middle of its leg roots to the middle of its arm roots
+     is 45 deg or more from upright at its Stand reference), else `mirrorLegs`. Measured: Cold One 76, Ghoul 74,
+     Abomination 30, Kobold 11, Footman 5, Grunt 4. Put the pick in an exported pure function. Where the model has arms of
+     its own (a rider on a four-legged mount, reasonable-38) Mirror legs is shown and not suggested.
+  6. `app/TransplantToggles.jsx`: when `mirrorLegs` is in `checked`, a `RangeField` from `app/Fields.jsx` directly after
+     that checkbox in the same row (never a bare range input; it carries the - and +): label `Leg timing`, tooltip
+     `When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.`, `output` as `25%`,
+     `onCommit` (one rebuild per release or step, not per pointer event). New props `legTiming`, `onLegTiming`. No other
+     layout change, no new panel.
+  7. `app/Transfer.jsx`: `legTiming` state beside `tpRepairs` (reset with the pair), into `transplantOptions`.
+     `app/TransferPicks.jsx` and `src/transfer-picks.js`: the sheet saves `legTiming` in the pair's answer next to `toggles`
+     (`withGrade`), reads it back, and puts it in the live request key.
+  8. Translations: both labels, both tooltips, the slider label and its tooltip in `de`, `es`, `fr`, `ru`, `zh`.
+  9. `test/transplant-gait.test.js`: the Timber Wolf default goes back to `same-side` (the line step 5 changed).
+  10. Pair list: add `legs-01` Footman -> Timber Wolf (both stock, `corpus-sd`) to `pairs-reasonable.json`, marked
+      `choice: true`; it is there for the owner to try the boxes, not as a reasonable pairing, and is left out of scorecard
+      counts.
+- **Must not change.** Every export with neither box ticked equals the export before step 5 (the baseline still holds
+  reasonable-45 from before step 5: do not rewrite it first). reasonable-45 with Use arms equals step 5's export byte for
+  byte. No pair of the 58 other than reasonable-45 changes ticks or bytes. The eight 9-10 pairs: 8 of 8.
+- **Tests (fail first).** `shiftLoopKeys`: shift 0 and shift 1 give the original samples, shift 0.5 equals the original
+  sampled half a clip later, first and last key agree. `transplantGait` on the reasonable-45 fixtures: no flag = leg copy,
+  `useArms` = arms, `mirrorLegs` = mirrored opposite leg. Footman -> Timber Wolf: front-foot paths in Walk at timing 25
+  and 50 differ, and each front foot still swings. The pick function on the six measured leans. `transfer-picks`: an
+  answer keeps `legTiming`. `test/ui-primitives.test.js` passes (no bare slider). Catalog tests as in step 2b.
+- **Checks to run (Opus or a cheaper agent; Fable reads the output).**
+  1. Before any change: the SHA-256 of reasonable-45's export at `skinLandmarks, authoredMotion` on `22e994a7` (step 5).
+  2. After: `regress.mjs --check --all` (suggester re-run): only `reasonable-45: ticks changed: ... -> ..., useArms`; and
+     its export at the new ticks has the hash from 1. `--check`: 8 of 8.
+  3. Then `--write --all --only reasonable-45,legs-01` from a clean tree, with `git diff` showing only those two entries
+     and the revision line.
+  4. The related test files, with the known failures named (skeleton-transplant 11, transplant-support 3, detached pipe,
+     2 catalog size tests).
+- **Pictures** (`out/fable-plan/step-5b/`, at most three rows of animations per PNG, `--n 8` for Walk so the phases show):
+  reasonable-45 Walk with no box, Use arms, Mirror legs 25; `legs-01` Walk with no box, Mirror legs at 0, 25 and 50, Use
+  arms; plus Stand and Attack once for each box on both pairs.
+- **Sheet (step 8).** Rows for reasonable-45 (default Use arms) and `legs-01` (default Mirror legs, 25) so the owner can
+  try both boxes and the slider. Hidden click: tick each box once, press the slider's - and + once.
+- **Said plainly.** The body keeps the donor's two-legged rhythm (hips, bob); only the front legs are retimed. Feet are
+  placed by the existing ground fit for copied legs; whether they slide at some slider values is judged by picture, and
+  the slider is there for the owner to settle it. Attack and Stand are not retimed.
 
 ### Step 6. Seat weapon is suggested only where there is something to repair
 
@@ -683,6 +774,11 @@ pair on any sheet (noisy; a guide, not a target).
   either version since the staff-foot fix.
 - **Grades are noisy** (owner, 25 Nov). The 9-10 pairs are held byte-identical, which is safe but also means nothing in
   this plan can improve them.
+
+## The owner's answer on front legs
+
+Asked: front legs as arms for every such pairing, or only for beasts? Answered 26 Nov: two checkboxes, Mirror legs (with a
+slider) and Use arms. Step 5b.
 
 ## The owner's answer on Seam fix
 

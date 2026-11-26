@@ -13,7 +13,7 @@ import { corpseAndBackgroundGeosets, geosetMaterialLayers, hasOnlyAdditiveLayers
 import { buildTransfer, sameKindSequence, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
 import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
-import { defaultRepairKeys, knownRepairKeys, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
+import { defaultRepairKeys, knownRepairKeys, LEG_TIMING, legTimingValue, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
@@ -154,11 +154,13 @@ function PickSheet({ sheet, teamColor, onClose }) {
   const ready = !!item && loaded?.id === item.id && !loaded.error;
 
   const checked = transplantCase ? knownRepairKeys(answers[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested)) : [];
+  const legTiming = transplantCase ? legTimingValue(answers[item.id]?.legTiming ?? LEG_TIMING.default) : LEG_TIMING.default;
+  // Leg timing goes into the build (and its key) only with Mirror legs ticked.
   const liveRequest = (variant, keys) => ready && transplantCase ? {
-    key: item.id + '|' + variant.id + '|' + keys.join(','),
+    key: item.id + '|' + variant.id + '|' + keys.join(',') + (keys.includes('mirrorLegs') ? '|' + legTiming : ''),
     model: loaded.own.model, donor: loaded.donor.model,
     modelKey: variant.transplant.recipient, donorKey: variant.transplant.donor,
-    options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false },
+    options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false, ...(keys.includes('mirrorLegs') ? { legTiming } : {}) },
   } : null;
   const beforeRequest = liveRequest(beforeVariant, []);
   const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked);
@@ -356,6 +358,11 @@ function PickSheet({ sheet, teamColor, onClose }) {
     answersRef.current = next; setAnswers(next);
     write(next).then(() => setProblem(''), error => setProblem('The repairs were not saved: ' + error.message));
   };
+  const changeLegTiming = value => {
+    const next = withGrade(answersRef.current, item, { toggles: checked, legTiming: legTimingValue(value) });
+    answersRef.current = next; setAnswers(next);
+    write(next).then(() => setProblem(''), error => setProblem('The leg timing was not saved: ' + error.message));
+  };
   const back = () => { setProblem(''); setIndex(i => Math.max(0, i - 1)); };
   const picked = item ? answers[item.id]?.pick : null;
   const graded = item?.grade ? answers[item.id]?.grade : null;
@@ -419,7 +426,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
               const overlay = marked?.found.length ? marked.found.map(path => ({ points: path.points, motion: true, width: 3, alpha: .95, marker: pathMarker(path.frames, time) })) : undefined;
               return <section key={`${item.id}:${view.id}`} className={`xp-view${shown ? '' : ' xp-off'}`} aria-label={transplantCase ? view.label : `Variant ${view.letter}`} aria-hidden={shown ? undefined : true}
                 style={transplantCase && !flip ? { gridColumn: position+1 } : undefined} data-transplant-pane={transplantCase ? view.id : undefined} data-transplant-revision={view.revision}>
-                {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair}/> }
+                {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair} legTiming={legTiming} onLegTiming={changeLegTiming}/> }
                 <div className="xf-preview">
                   {!transplantCase && <span className="xp-letter" aria-hidden="true">{view.letter}</span>}
                   {view.label && <span className="xp-label">{view.label}</span>}

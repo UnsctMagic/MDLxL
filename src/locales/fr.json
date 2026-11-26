@@ -9062,5 +9062,11 @@
   "Seat loose grip": "Caler la poignée",
   "Keeps a detached weapon’s grip on the palm during the animation.": "Maintient la poignée d’une arme détachée dans la paume pendant l’animation.",
   "Keep rider seated": "Garder le cavalier en selle",
-  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Garde le cavalier dans la selle de ce modèle pendant le mouvement des deux corps."
+  "Keeps the rider sitting in this model's own saddle while the bodies move.": "Garde le cavalier dans la selle de ce modèle pendant le mouvement des deux corps.",
+  "Mirror legs": "Pattes en miroir",
+  "Front legs walk with the back legs' motion, mirrored and shifted in time.": "Les pattes avant marchent avec le mouvement des pattes arrière, en miroir et décalé dans le temps.",
+  "Use arms": "Utiliser les bras",
+  "Front legs move as the donor's arms.": "Les pattes avant bougent comme les bras du donneur.",
+  "Leg timing": "Rythme des pattes",
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Quand les pattes avant se posent : 0 avec la patte arrière du même côté, 50 avec celle du côté opposé."
 }
