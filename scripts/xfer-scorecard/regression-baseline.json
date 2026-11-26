@@ -1,5 +1,5 @@
 {
- "revision": "a12a7bc0 (src changed)",
+ "revision": "10b7c6d2",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -499,13 +499,15 @@
   "reasonable-45": {
    "suggested": [
     "skinLandmarks",
-    "authoredMotion"
+    "authoredMotion",
+    "useArms"
    ],
    "ticks": [
     "skinLandmarks",
-    "authoredMotion"
+    "authoredMotion",
+    "useArms"
    ],
-   "sha256": "a21ccec1ffbe687a8b122fcde1f9c07900a2a79e6d09904ef3bf8cb6166af852"
+   "sha256": "1939f6ebcb4a7c85cfb92b8f67ea4b24d348fb100420798d98970a6bc36616b5"
   },
   "reasonable-46": {
    "suggested": [],
@@ -644,6 +646,17 @@
     "seatWeapon"
    ],
    "sha256": "d20f59ee4fa28f3a1d002b15131f98cd77931d3f79f20374e33b140d2544d76d"
+  },
+  "legs-01": {
+   "suggested": [
+    "hangingChains",
+    "mirrorLegs"
+   ],
+   "ticks": [
+    "hangingChains",
+    "mirrorLegs"
+   ],
+   "sha256": "44261ca444aa9261807818a515dbd69b73d65a9fcb046f45f26f365a9a3b6d85"
   }
  }
 }
