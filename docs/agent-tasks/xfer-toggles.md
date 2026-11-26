@@ -1823,3 +1823,31 @@ that worked. Each is measurable on every pair without the owner's grade.
   `regress.mjs --check --all` (suggester re-run) on this source: 58 of 58 against the rewritten baseline. (The write ran
   while that check was still running and the check reads the baseline at its end, so it compared against the new file;
   since only reasonable-08's entry changed, against the old baseline exactly reasonable-08 differs.)
+
+### Fable plan step 5 (Opus, 26 Nov): spare front legs take the donor's arms (reasonable-45)
+
+- `transplantGait` (transplant-gait.js): with `back-and-arms`, when on **both** sides this model has more legs than the
+  donor, no arm, and the donor has an arm (and at least one leg), the front-most own leg takes `{ from: 'arm' + side }`.
+- Downstream (skeleton-transplant.js), read before trusting: `fourSupports` needs `arm*` gait keys, so stays false; the
+  ground code works on `mappedRig` (the donor's legs), where these limbs are arms, so no foot is planted for them. Filtered
+  on `e.theirs.limbKind === 'leg'` in two places where a leg-to-arm entry would be wrong: `legStretches` (the body's travel
+  ratio comes from walking legs) and `walkingLegs` (sole fitting reads the donor end as a sole). Left as they are:
+  `sameSupports` and `matchingFourLinkLegs` (need four legs with the same joint names; with the filter on `walkingLegs` the
+  latter sees only real legs), the rest-pose turn at the chain end (identity for both).
+- Tests (transplant-gait.test.js): new Snap Dragon / Cold One test (front legs take armL/armR, back legs the donor's legs,
+  not copies), fails first ("legL2 (front) takes legL, copy"). Updated: "Gait choices ... creeps__timberwolf on
+  human__footman" compared the default gait with same-side (the leg copy); the Timber Wolf now takes the Footman's arms on
+  its front legs, so the default is compared with back-and-arms, with the owner's sentence as the reason.
+- Scope: fires on reasonable-45 only of the 58; reasonable-38 untouched (the model has arms: the rider's).
+- `regress.mjs --check --all` (suggester re-run): 57 of 58 same; reasonable-45 export differs at unchanged ticks
+  skinLandmarks, authoredMotion. `--check` 8 of 8. Baseline not rewritten.
+- score.mjs reasonable-45 before -> after: shape fails both (8 -> 7 stretched edges, share 0.008 -> 0.007, worst over 1.231
+  -> 1.212, both in Death); motion 0 of 37 off both; jitter 0 both; holes 0 of 228 both.
+- Pictures `out/fable-plan/step-5/before-1..4.png` / `after-1..4.png` (three animations each: Stand/Walk/Stand Ready,
+  Stand - 2/Stand - 3/Death, Attack - 1/Attack - 2/Portrait - 1, Portrait - 2/Portrait Talk - 1/Portrait Talk - 2) and
+  `after-close.png` (Walk, Death, yaw 70). Before, the front legs stood on the ground; after, they are held up as the Cold
+  One's arms in every Stand, Walk and Attack, tucked in Death; no dragging, nothing through the chest seen. The donor has
+  no Spell. The portrait rows are unreadable: the donor's portrait card stretches the frame.
+- Related tests (gait, support, skeleton-transplant): 137, 123 pass, 14 fail, all failing on 6cfed3a6 too: the 10 known
+  skeleton-transplant ones and three transplant-support ones not run before this step (Bear slam upper arm on orc__tauren,
+  Tauren rear shin width, Chieftain rear hock width).

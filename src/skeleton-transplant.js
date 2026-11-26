@@ -1908,7 +1908,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (from.lengthSq()>1e-6 && to.lengthSq()>1e-6) correction.set(a,arc(from,to));
   }
   // The body's travel (position keys outside transplanted limbs, MoveSpeed): by the fitted legs (contract 4.5).
-  const legStretches = transplanted.filter(entry => entry.own.limbKind === 'leg').map(entry => {
+  // A leg that takes the donor's arm (transplant-gait.js, spare front legs) does not walk: it sets no travel.
+  const legStretches = transplanted.filter(entry => entry.own.limbKind === 'leg' && entry.theirs.limbKind === 'leg').map(entry => {
     const joints = entry.theirs.joints.filter(id => placed.has(id)), own = [], theirs = [], along = [];
     for (let j = 0; j + 1 < joints.length; j++) { own.push(placed.get(joints[j + 1]).clone().sub(placed.get(joints[j]))); theirs.push(pA(joints[j + 1]).sub(pA(joints[j]))); along.push(chordOf.get(joints[j]) ?? theirs[j]); }
     return { own, donor: theirs, along };
@@ -3097,7 +3098,8 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   }
   // The terminal marker on some four-link legs is a moving skin carrier.
   // Its pivot can stand well above the mesh sole on only one rig.
-  const walkingLegs=limbEntries.filter(e=>e.own.limbKind==='leg');
+  // A leg that takes the donor's arm is no walking leg: its donor end is a hand, not a sole.
+  const walkingLegs=limbEntries.filter(e=>e.own.limbKind==='leg' && e.theirs.limbKind==='leg');
   const matchingFourLinkLegs = walkingLegs.length === 4 && walkingLegs.every(({own, theirs}) =>
     own.joints.length === 4 && theirs.joints.length === 4 &&
     own.joints.every((id, k) => ownById.get(id).Name === donorById.get(theirs.joints[k]).Name));

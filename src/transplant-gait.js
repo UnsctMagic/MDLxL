@@ -28,6 +28,12 @@ export function frontBodySupport(model, rig) {
 export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody = null) {
   const assignments = new Map();
   if (!choice || !ownRig.ok || !donorRig.ok) return assignments;
+  // Spare front legs take the donor's arms (owner, 26 Nov 2026, Cold One onto Snap Dragon: "why did the front legs not
+  // become the arms of the beast? ... this is possible"): this model has more legs on a side than the donor and no arm
+  // there, the donor has one. Only when both sides qualify, so the body stays symmetric. The reverse of the foreleg rule below.
+  const armsFromLegs = choice === 'back-and-arms' && ['L','R'].every(side =>
+    ordered(ownRig,own,side).length > ordered(donorRig,donor,side).length && ordered(donorRig,donor,side).length > 0 &&
+    !ownRig.parts['arm'+side] && donorRig.parts['arm'+side]);
   for (const side of ['L','R']) {
     const mine = ordered(ownRig,own,side), theirs = ordered(donorRig,donor,side);
     if (!mine.length || !theirs.length || mine.length === theirs.length) continue;
@@ -40,6 +46,7 @@ export function transplantGait(own, donor, ownRig, donorRig, choice, frontBody =
       if (mine.length === 1 && (choice === 'front' || (frontBody && choice === 'back-and-arms' && ownRig.parts.armL && ownRig.parts.armR))) source = theirs.at(-1);
       assignments.set(part.key,{from:source.key,copy:additional,reflected});
     }
+    if (armsFromLegs) assignments.set(mine.at(-1).key,{from:'arm'+side});
     // Use a spare foreleg only when the recipient arm has no actual donor arm.
     const armKey = 'arm'+side;
     if (choice === 'back-and-arms' && theirs.length > mine.length && ownRig.parts[armKey] && !donorRig.parts[armKey])

@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { Matrix4, Vector3 } from 'three';
-import { allNodes, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { transferRig } from '../src/anim-transfer.js';
 import { openDocument } from '../src/editor-document.js';
 import { vertexBones } from '../src/part-bones.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { frontBodySupport, transplantGait } from '../src/transplant-gait.js';
+import { standSequenceIndex } from '../src/sequence-editor.js';
 
-const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const { fixturePath, testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const load = file => openDocument(new Uint8Array(fs.readFileSync(file)), file).model;
 
 function footPaths(own, donor, result, report) {
@@ -62,10 +64,29 @@ for (const [ownName,donorName,choices] of [
     }
     const differs=curves[0].some((f,i)=>f.path.some((p,j)=>p.distanceTo(curves[1][i].path[j])>1));
     assert.ok(differs,'the first two choices produce visibly different foot paths');
-    const selected = ownName === 'orc__hellscream' ? 'back-and-arms' : 'same-side';
+    // The default is back-and-arms for both. The Timber Wolf (four legs, no arms) on the Footman used to equal same-side (its
+    // front legs copied the back legs' walk); now its front legs take the Footman's arms. Owner, 26 Nov 2026: "why did the
+    // front legs not become the arms of the beast? ... this is possible".
+    const selected = 'back-and-arms';
     const automatic = transplantSkeleton(own,donor,{extents:false}).model;
     const explicit = transplantSkeleton(own,donor,{gait:selected,extents:false}).model;
     assert.deepEqual(automatic.Geosets,explicit.Geosets,'default uses the selected gait skin');
     assert.deepEqual(automatic.Helpers,explicit.Helpers,'default uses the selected animation drivers');
   });
 }
+
+// Owner, 26 Nov 2026, on the Cold One taking the Snap Dragon: "why did the front legs not become the arms of the
+// beast? ... this is possible". A model with more legs than the donor and no arms takes the donor's arms on its front legs.
+test('Snap Dragon taking the riderless Cold One: front legs take the donor\'s arms, back legs its legs', { skip: ['xfer-r45-own', 'xfer-r45-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false }, () => {
+  const own = load(fixturePath('xfer-r45-own')), donor = load(fixturePath('xfer-r45-donor'));
+  const rigOf = m => transferRig(m, Math.max(0, standSequenceIndex(m)));
+  const ownRig = rigOf(own), donorRig = rigOf(donor);
+  const assignments = transplantGait(own, donor, ownRig, donorRig, 'back-and-arms', frontBodySupport(donor, donorRig));
+  for (const side of ['L', 'R']) {
+    const along = part => { const id = part.line?.[0] ?? part.joints[0], p = nodePivot(own, own.Nodes[id], id); return p[0] * ownRig.facing[0] + p[1] * ownRig.facing[1]; };
+    const [back, front] = Object.values(ownRig.parts).filter(p => p.limbKind === 'leg' && p.side === side).sort((a, b) => along(a) - along(b));
+    assert.equal(assignments.get(front.key)?.from, 'arm' + side, `${front.key} (front) takes ${JSON.stringify(assignments.get(front.key))}`);
+    assert.equal(assignments.get(back.key)?.from, 'leg' + side, `${back.key} (back) takes ${JSON.stringify(assignments.get(back.key))}`);
+    assert.ok(!assignments.get(back.key).copy, 'the back leg is the donor leg itself');
+  }
+});
