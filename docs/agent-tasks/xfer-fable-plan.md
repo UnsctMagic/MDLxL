@@ -831,6 +831,27 @@ Spell, where the donor itself throws or drops the weapon (new-02 Death: donor 3.
   pair the largest excess and the share of moments at 0.15 or more. The pairs that would qualify are named before any
   code is written.
 
+**Built `34a458b7`. Suggestion side approved** (only reasonable-08 gains the box; no control, no 10; box unticked equals
+the baseline). **Engine: one change, then decide by picture.** It closes about two thirds of the gap on reasonable-08
+(excess over the donor: Attack - 3 0.39 to 0.14, Attack - 1 0.31 to 0.12), not the 0.05 asked for; half an arm became a
+fist-width or two, which he would still see.
+
+- *Engine change (`keepInHand`):* (1) each moment uses **its own** shift toward the palm; only the on/off **weight** is
+  eased over `SPAN`, the shift vectors of neighbouring moments are no longer averaged. (2) After the keys are written the
+  result is posed again and the remaining excess measured at the same moments; what is left is added, up to three passes
+  or until the worst excess is 0.02 or less. Allowance, fade and skipped animations stay as they are.
+- *Stand - 2: my earlier expectation was wrong, the rule is right.* The donor's hand is only 0.17 arm from its belted
+  sword, so by "no further than the donor's" the result's sword comes to about that distance (0.47 to about 0.20), still
+  out of the hand. The test reads: in Stand - 2 the result's gap stays within 0.06 of the donor's at each moment and above
+  0.10 mid-clip. For Attack - 1 and Attack - 3: worst excess 0.05 or less.
+- *If the change adds a jitter animation or a picture shows the sword snapping:* go back to `34a458b7` as committed
+  (eased, two thirds) and say so to the owner in one line. No third variant.
+- *Seen in the checker's pictures of `34a458b7` (Attack - 3, close, at 0.2 and 0.3 of the clip):* without the box the sword
+  floats above the fists at both moments; with it the sword is in the fists at 0.3 and still a little above them at 0.2
+  (worst gap 0.50 to 0.22, in-hand share 0.954 to 0.992). Jitter, shape, near-twin and holes read the same with and
+  without. So the committed version is already a visible gain with nothing added; the engine change above is to close the
+  rest, and the fallback is safe to ship.
+
 Owner: "Weapon leaves hand ... but only in 1 anim". In his screenshot (Attack - 3, about a quarter in) the donor holds its
 sword at head height with the hilt in its hands; the result's sword sits at that height while its fists are at the chest.
 The model's weapon rides the donor's weapon bone, which the donor moves against its own hand; on other arms that offset
@@ -1016,6 +1037,12 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
     the defaults of new-02, new-05, new-08 and two more 10s on steady Stand and Walk offsets he had accepted. If even
     the narrow rule touches a control or a 10, the box is never suggested and only seeded on reasonable-08's sheet row.
     Bow regression of step 7: fixed in `78ecbfa3` (second-hand step skipped where the bow grip fit acted).
+19. **Step 10 scales the hover by body height** (approved with that fix): the owner's 22 Nov rule is height as a ratio of
+    body size; the leg-travel ratio left the Dragonhawk Rider bobbing 1.7 times the gryphon's share. reasonable-40's
+    stretched edges and reasonable-43's near-twin miss are the same before and after step 10: older faults, not from it.
+20. **Weapon in hand: one engine change (per-moment shift, re-measure passes), and Stand - 2 follows the rule, not my first
+    expectation.** Fallback fixed in advance: the committed two-thirds version.
+
 
 
 
