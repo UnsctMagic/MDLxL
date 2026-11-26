@@ -133,7 +133,7 @@ test('only explicitly HD materials bypass the weighted Classic adapter', () => {
 test('cutout coverage follows model-framebuffer samples while the editor canvas stays Classic', () => {
   for (const samples of [0, 4]) {
     const { gl, native, model, clock } = fixture(), enabled = [];
-    gl.SAMPLES = 99; gl.getParameter = key => { assert.equal(key, gl.SAMPLES); return samples; };
+    gl.SAMPLES = 99; gl.getParameter = key => { if (key === gl.FRAMEBUFFER_BINDING) return null; assert.equal(key, gl.SAMPLES); return samples; };
     gl.enable = value => enabled.push(value);
     const adapter = installWarcraftPreviewAdapter(gl, model, () => clock); adapter.ready(native);
     native.render([], [], {});

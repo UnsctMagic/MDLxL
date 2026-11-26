@@ -1,4 +1,4 @@
-import test from 'node:test';
+import nodeTest from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -12,7 +12,9 @@ import { isGlobalTrack } from '../src/animation.js';
 import { classifyHiveFindings } from '../src/optimizexl-diagnostics.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 import { sanityTest } from './helpers/hive.mjs';
-import { testModel } from './helpers/fixtures.cjs';
+import { testModel, skipWithoutModels } from './helpers/fixtures.cjs';
+
+const test = skipWithoutModels(nodeTest);
 
 // Calculate extents on Classic/SD models: "Full" keeps a box per animation on every geoset, "Necessary only"
 // leaves those out and grows each geoset's own box over every animation that shows it (as Blizzard's files do).

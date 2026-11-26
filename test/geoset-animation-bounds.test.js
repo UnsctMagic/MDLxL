@@ -2,7 +2,7 @@
 // (geoset.Anims = []) keeps none, and no tool quietly adds them. A model with full
 // tables is untouched by the rule. Every writer is driven on the real SD Footman and
 // (for the animation, Forge and portrait tools) on the big ChaosDragonSkeleton_13.
-import test from 'node:test';
+import nodeTest from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -21,7 +21,8 @@ import { GLOBAL_LOOKS, LAYER_CHOICES, partFrame } from '../src/global-animation-
 import { compileAnimation, FX_SECTIONS } from '../src/global-animation-model.js';
 import { authoredStack } from './helpers/fx-authored-stack.js';
 
-const { fixturePath, testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const { fixturePath, testModel, skipWithoutModels } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const test = skipWithoutModels(nodeTest);
 
 // Parsed once; every test works on its own structuredClone.
 const loaded = {};
