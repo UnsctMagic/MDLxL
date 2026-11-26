@@ -1,8 +1,6 @@
 # XFER engine 2
 
-Status: round 4 built (26 Nov 2026, late): shown form, methods A/B/Mix, new controls. Round 3: owner stopped sheets ("keeps repeating"); he plays with XFER via
-`TestBuilds\_START HERE\PLAY - XFER.cmd` (TEST XFER PLAY 01, a Footman copy). No more grading sheets.
-Branch `claude/xfer-engine2-1cdbdc` (local only), cut from `codex/xfer-toggles` at `f2cf9b90`.
+Status: completed 27 Nov 2026, merged into main through PR #699 (UnsctMagic/MDLxL). Rounds 1-6 below; follow-ups go in a new note.
 
 ## What it is
 
