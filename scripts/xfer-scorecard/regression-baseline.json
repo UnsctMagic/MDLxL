@@ -1,5 +1,5 @@
 {
- "revision": "10b7c6d2",
+ "revision": "7d7d0ae9",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -160,14 +160,12 @@
   },
   "reasonable-10": {
    "suggested": [
-    "authoredMotion",
-    "seatWeapon"
+    "authoredMotion"
    ],
    "ticks": [
-    "authoredMotion",
-    "seatWeapon"
+    "authoredMotion"
    ],
-   "sha256": "802fc162fd09b7a64f5327691a6eba1ea51f92b93703d89e59100381aa6b4895"
+   "sha256": "a86fe7074bdfeca7d4cc0fa684eddfe5fc4b6d6501b77cff09a3df3245d5122f"
   },
   "reasonable-11": {
    "suggested": [
@@ -365,22 +363,14 @@
    "sha256": "9a8d898e6ba6734aa1c675ae4bdb59fde81bb1f4dab64dd27147c4a272cf24ce"
   },
   "reasonable-31": {
-   "suggested": [
-    "seatWeapon"
-   ],
-   "ticks": [
-    "seatWeapon"
-   ],
-   "sha256": "fae5d56cfc3c40b831684c965494be3003519abff48dcfbf97da3a7910fac774"
+   "suggested": [],
+   "ticks": [],
+   "sha256": "cd574a74c3c8f76b7b947443c2efb709d3aea51967c3fdcdafd214c632df4971"
   },
   "reasonable-32": {
-   "suggested": [
-    "seatWeapon"
-   ],
-   "ticks": [
-    "seatWeapon"
-   ],
-   "sha256": "2cffe9766c82bbd79bb67e4db95f95163c9e0b3e173b7c63c68ac9441b163fe2"
+   "suggested": [],
+   "ticks": [],
+   "sha256": "896307d703b5ebc09e3b95a653c2537a7a294fc891a3ab54e9aa5f4dffd78f35"
   },
   "reasonable-33": {
    "suggested": [
@@ -434,26 +424,22 @@
   "reasonable-38": {
    "suggested": [
     "authoredMotion",
-    "keepTorso",
-    "seatWeapon"
+    "keepTorso"
    ],
    "ticks": [
     "authoredMotion",
-    "keepTorso",
-    "seatWeapon"
+    "keepTorso"
    ],
-   "sha256": "e43e032af919702c851577b298e83f103cf64457f6faacd648794f0241afe081"
+   "sha256": "49959b45df415158bb6478fd9a7e431daa21917d4bc2d0a6de9491f4ef2abe8b"
   },
   "reasonable-39": {
    "suggested": [
-    "authoredMotion",
-    "seatWeapon"
+    "authoredMotion"
    ],
    "ticks": [
-    "authoredMotion",
-    "seatWeapon"
+    "authoredMotion"
    ],
-   "sha256": "c8fd4786c8c865c8dde7207f19b6af09817f5d3edd0dbfd5556237602f26fe8c"
+   "sha256": "dbf7c7fa47cdc0579c03f81dc793207dc8de8d5ede2cb0cc80f65f9a1c8f669a"
   },
   "reasonable-40": {
    "suggested": [
@@ -479,13 +465,9 @@
    "sha256": "7087b48ef05b82a4483e835af77e6f8f74d9ff59768832d7e2cc15669d913429"
   },
   "reasonable-43": {
-   "suggested": [
-    "seatWeapon"
-   ],
-   "ticks": [
-    "seatWeapon"
-   ],
-   "sha256": "5623b401cfd356ec2696cf36feca851f9467f9ef43d7d0d676d7009891f6e260"
+   "suggested": [],
+   "ticks": [],
+   "sha256": "0c1c345d9366d6c4ef477acc5f2cb029cd673328527359152bf5f96141fb3009"
   },
   "reasonable-44": {
    "suggested": [
