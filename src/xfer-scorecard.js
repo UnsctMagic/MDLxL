@@ -12,7 +12,11 @@ import * as seat from './transplant-weapon-seat.js';
 
 /** Fixed limits: the level of the pairs the owner accepted (scripts/xfer-scorecard/limits.json). */
 export const SCORE_LIMITS = Object.freeze({"shapeShare":0.009,"shapeOver":1.391,"motionOff":0.11538461538461539,"weaponHand":0.938,"weaponAngle":20.63,"weaponSecond":0.8,"twinsWorse":0,"jitterShare":0.09090909090909091});
-export const SCORE_RULES = Object.freeze(['shape', 'motion', 'weapon', 'twins', 'jitter']);
+export const SCORE_RULES = Object.freeze(['shape', 'motion', 'weapon', 'twins', 'jitter', 'holes']);
+// Holes (docs/agent-tasks/xfer-fable-plan.md, step 3): fixed from the geometry, a crack you can see, not from grades.
+// A welded pair is torn when it opens more than HOLE_OPEN of the model's height beyond the model's own largest opening;
+// the rule fails when more than HOLE_SHARE of the welded pairs are torn or one opens more than HOLE_WORST. Do not tune.
+export const HOLE_OPEN = 0.015, HOLE_SHARE = 0.01, HOLE_WORST = 0.03;
 
 const rigOf = m => transferRig(m, Math.max(0, standSequenceIndex(m)));
 const median = xs => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[s.length >> 1] : null; };
@@ -69,6 +73,39 @@ function edgesOf(m) {
     }
   });
   return out;
+}
+/** Points of the stored mesh used by a face that sit on the same spot (grid 0.1% of the model's height), within and
+ * across geosets: consecutive members of each cluster -> [[gi, v], [gi, v]][] */
+export function weldedPairs(m) {
+  const grid = 1e-3 * height(m), clusters = new Map();
+  m.Geosets.forEach((g, gi) => {
+    for (const v of new Set(g.Faces)) {
+      const key = [0, 1, 2].map(c => Math.round(g.Vertices[3 * v + c] / grid)).join(',');
+      if (!clusters.has(key)) clusters.set(key, []);
+      clusters.get(key).push([gi, v]);
+    }
+  });
+  const pairs = [];
+  for (const list of clusters.values()) for (let i = 1; i < list.length; i++) pairs.push([list[0], list[i]]);
+  return pairs;
+}
+// The largest distance of each welded pair over a model's animations (9 moments each, Decay and Dissipate left out, both
+// geosets shown), as a share of `h`.
+function pairOpenings(m, pairs, h) {
+  const worst = new Float32Array(pairs.length);
+  for (const [si, s] of m.Sequences.entries()) {
+    if (SKIP_CLIP.test(s.Name.trim()) || !(s.Interval[1] > s.Interval[0])) continue;
+    for (const f of framesOf(m, si, 9)) {
+      const sn = snap(m, si, f);
+      pairs.forEach(([[ga, a], [gb, b]], i) => {
+        if (!sn.shown(ga) || !sn.shown(gb)) return;
+        const p = sn.arr(ga), q = sn.arr(gb);
+        const d = Math.hypot(p[3 * a] - q[3 * b], p[3 * a + 1] - q[3 * b + 1], p[3 * a + 2] - q[3 * b + 2]) / h;
+        if (d > worst[i]) worst[i] = d;
+      });
+    }
+  }
+  return worst;
 }
 const ratioAt = (s, [gi, a, b, L]) => { const p = s.arr(gi); return Math.hypot(p[3 * a] - p[3 * b], p[3 * a + 1] - p[3 * b + 1], p[3 * a + 2] - p[3 * b + 2]) / L; };
 
@@ -283,6 +320,17 @@ export function scoreResult(own, donor0, M, mirror) {
       if (r.value > allow) rows.push({ clip: c.name, result: r3(r.value), allow: r3(allow), frame: r.frame, phase: r3((r.frame - M.Sequences[c.si].Interval[0]) / Math.max(1, M.Sequences[c.si].Interval[1] - M.Sequences[c.si].Interval[0])) });
     }
     result.rules.jitter = { pass: !rows.length, clipsOver: rows.length, worst: rows.sort((a, b) => b.result / b.allow - a.result / a.allow)[0] || null };
+  }
+
+  // Rule 6: no holes. Welded points the model's own animations keep together stay together in every donated animation.
+  if (M.Geosets.length !== own.Geosets.length || M.Geosets.some((g, gi) => g.Vertices.length !== own.Geosets[gi].Vertices.length)) {
+    result.rules.holes = { pass: null, note: 'the result has other geosets than the model' };
+  } else {
+    const pairs = weldedPairs(own), allowance = pairOpenings(own, pairs, hO), open = pairOpenings(M, pairs, hO);
+    let torn = 0, worst = 0;
+    open.forEach((x, i) => { const over = x - allowance[i]; if (over > HOLE_OPEN) torn++; if (over > worst) worst = over; });
+    const share = torn / Math.max(1, pairs.length);
+    result.rules.holes = { pass: share <= HOLE_SHARE && worst <= HOLE_WORST, pairs: pairs.length, torn, share: r3(share), worst: r3(worst) };
   }
   return result;
 }

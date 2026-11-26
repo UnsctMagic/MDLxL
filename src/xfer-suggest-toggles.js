@@ -163,6 +163,19 @@ export function suggestToggles(model, donor, options = {}, {
       comboScore = scoreCombo(suggested);
       scores.rules = helpful.map(({ key, checked, gained }) => ({ key, checked, gained }));
     }
+    // Holes only veto (plan step 3): when the suggested ticks tear the mesh and the plain result does not, the tick whose
+    // removal closes the holes is dropped and blocked for this pair.
+    const finalTicks = suggested.filter(key => key !== 'donorPose');
+    const holes = (helpful.length ? judged(finalTicks) : before).rules.holes;
+    if (holes?.pass === false && scoreResult(model, donor, base.model, baseMirror === true).rules.holes?.pass === true) {
+      const culprit = finalTicks.find(key => judged(toggleRepair(finalTicks, key, false)).rules.holes?.pass === true);
+      if (culprit) {
+        blocked.add(culprit);
+        suggested = toggleRepair(suggested, culprit, false);
+        comboScore = scoreCombo(suggested);
+        scores.holes = { dropped: culprit, torn: holes.torn, worst: holes.worst };
+      }
+    }
   }
   const kept = allowed(suggested);
   if (kept.length !== suggested.length) comboScore = scoreCombo(kept);

@@ -1,5 +1,5 @@
-// Scorecard page: one row per pair, the six rules, a picture of each failing pair's worst moment.
-//   node out/scorecard/page.mjs <scores.jsonl> <out folder> [--before <scores.jsonl>] [--title "..."] [--no-pictures]
+// Scorecard page: one row per pair, the rules, a picture of each failing pair's worst moment.
+//   node scripts/xfer-scorecard/page.mjs <scores.jsonl> <out folder> [--before <scores.jsonl>] [--title "..."] [--no-pictures] [--pairs <file>]
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -13,14 +13,16 @@ const rows = read(scoresFile);
 const before = opt('before') ? new Map(read(opt('before')).map(r => [r.id, r])) : null;
 fs.mkdirSync(path.join(outDir, 'pictures'), { recursive: true });
 
-const SHEETS = ['weapons14', 'reasonable50', 'new30', 'random30'].map(s => `D:/Claude/MDLxL/TestBuilds/transfer-xl-35/cases-${s}.json`);
-const sheetOf = id => SHEETS.find(f => JSON.parse(fs.readFileSync(f)).cases.some(c => c.id === id));
+// Pictures are drawn from the same pair list score.mjs reads (default pairs-reasonable.json).
+const pairsFile = path.resolve(opt('pairs') ?? 'scripts/xfer-scorecard/pairs-reasonable.json');
+const sheetOf = () => pairsFile;
 const RULES = [
   ['shape', 'Body keeps its shape'],
   ['motion', 'Parts move like the donor'],
   ['weapon', 'Weapon held like the donor'],
   ['twins', 'Near-twins stay alike'],
   ['jitter', 'No jitter'],
+  ['holes', 'No holes'],
 ];
 const pct = x => Math.round(x * 100) + '%';
 const words = {
@@ -29,6 +31,7 @@ const words = {
   weapon: r => r.note ? r.note : `in hand ${pct(r.inHand)}, angle off ${Math.round(r.angle)}°${r.secondHand != null ? `, second hand ${pct(r.secondHand)}` : ''}`,
   twins: r => r.note ? r.note : r.worst ? `${r.worse} of ${r.twinClips} alike animations drift; ${r.worst.clip}: own ${Math.round(r.worst.own)}° from donor, result ${Math.round(r.worst.result)}°` : `${r.twinClips} alike animations stay alike`,
   jitter: r => r.worst ? `${r.clipsOver} animations jerk; worst ${r.worst.clip}` : 'smooth',
+  holes: r => r.note ? r.note : `${r.torn} of ${r.pairs} seams open; widest ${pct(r.worst)} of the height`,
 };
 const worstMoment = r => {
   for (const key of ['shape', 'weapon', 'jitter', 'motion', 'twins']) {

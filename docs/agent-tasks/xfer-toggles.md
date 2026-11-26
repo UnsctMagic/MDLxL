@@ -1760,3 +1760,27 @@ that worked. Each is measurable on every pair without the owner's grade.
   `regression-baseline.json` is unchanged.
 - Old sheets: a grade given with Seam fix ticked now sits beside a result built without it; the saved answer still says which
   ticks were graded. The C1 pictures can only be reproduced at `e5718d53` or earlier.
+
+### Fable plan step 3 (Opus, 26 Nov): hole check in the scorecard
+
+- `scoreResult` gets `rules.holes` (port of `out/fable-review/tears.mjs`): `weldedPairs` (same spot, grid 0.1% of height,
+  used by a face, within and across geosets), allowance = the model's own largest opening (9 moments per animation, Decay
+  and Dissipate out, both geosets shown), torn = more than 1.5% of height beyond it; pass = torn share <= 1% and worst <= 3%
+  (`HOLE_OPEN`, `HOLE_SHARE`, `HOLE_WORST`, fixed, not calibrated; no limits.json entry). `null` when the geosets differ.
+  `'holes'` is in `SCORE_RULES`. The suggester drops and blocks the tick whose removal closes the holes when the suggested
+  ticks fail holes and the plain result passes.
+- Test: Red Dragon -> riderless Wind Rider plain passes; a copy with one side of 20 welded pairs rebound to the skeleton's
+  root fails with torn >= 20 (scored directly). Fails first on d7e96680. The reasonable-44 test is gone; 3 suggester runs.
+- score.mjs over 58 pairs at their ticks: the eight 9-10 pairs read 0 torn; the other five rules are identical before/after
+  on all 58. Holes fails on 9, and each fails the same plain and at every tick subset (so the veto never fires):
+  reasonable-28 3/780 worst 51.6%, reasonable-16 12/278 13%, reasonable-08 1/505 8.2%, reasonable-24 2/651 5.3%,
+  reasonable-41 4/1856 4.6%, reasonable-02 1/317 3.6%, reasonable-04 2/187 (1.1%) 2.8%, reasonable-22 6/225 (2.7%) 2.6%,
+  reasonable-38 47/807 (5.8%) 2.4% (fails the share limit, as expected; limit not changed).
+- Time: score.mjs per pair 2337 ms before, 2383 ms after (58 pairs, 4 shards). Suggester: reasonable-46 8785 -> 8707 ms,
+  reasonable-22 24585 -> 25883 ms.
+- `regress.mjs --check --all` (suggester re-run): 57 of 58 same; **reasonable-28 ticks changed** trackWindow, seatWeapon ->
+  heldGeometry, trackWindow, seatWeapon: the six-rule step now counts `holes` as a gained rule (heldGeometry closes its 3
+  torn pairs, loses no rule), so the hole rule added a tick rather than only vetoing. Baseline not rewritten; for Fable.
+  `--check`: 8 of 8 same.
+- page.mjs (No holes column; pictures from pairs-reasonable.json), calibrate.mjs, compare.mjs, pick-toggles.mjs (optional
+  chaining for score files without `holes`) each ran once on a 3-pair run.

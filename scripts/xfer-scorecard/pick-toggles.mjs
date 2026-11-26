@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 const [liveFile, baseFile, sweepDir, outFile] = process.argv.slice(2);
 const read = f => fs.readFileSync(f, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
 const calibrated = file => { const tmp = file + '.cal'; execFileSync(process.execPath, [path.resolve('scripts/xfer-scorecard/calibrate.mjs'), file, tmp], { stdio: 'ignore' }); const r = new Map(read(tmp).map(x => [x.id, x])); fs.unlinkSync(tmp); return r; };
-const RULES = ['shape', 'motion', 'weapon', 'twins', 'jitter'];
+const RULES = ['shape', 'motion', 'weapon', 'twins', 'jitter', 'holes'];
 const base = calibrated(baseFile);
 const live = new Map(read(liveFile).filter(l => l.keys).map(l => [l.id, l]));
 const flips = new Map();
@@ -24,8 +24,8 @@ for (const [t, files] of byToggle) {
   const after = calibrated(merged);
   for (const [id, r] of after) {
     const o = base.get(id); if (!o?.rules || !r.rules) continue;
-    const gained = RULES.filter(k => o.rules[k].pass === false && r.rules[k].pass === true);
-    const lost = RULES.filter(k => o.rules[k].pass === true && r.rules[k].pass === false);
+    const gained = RULES.filter(k => o.rules[k]?.pass === false && r.rules[k]?.pass === true);
+    const lost = RULES.filter(k => o.rules[k]?.pass === true && r.rules[k]?.pass === false);
     if (gained.length && !lost.length) { if (!flips.has(id)) flips.set(id, []); flips.get(id).push({ t, gained }); }
   }
 }

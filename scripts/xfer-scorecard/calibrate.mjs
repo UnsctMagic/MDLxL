@@ -38,5 +38,6 @@ for (const r of rows) {
 }
 fs.writeFileSync(outFile, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 console.log('limits', JSON.stringify(Object.fromEntries(Object.entries(limits).filter(([k]) => k in metric))));
-for (const k of ['shape', 'motion', 'weapon', 'twins', 'jitter']) console.log(k.padEnd(7), 'pass', rows.filter(r => r.rules?.[k]?.pass === true).length, 'fail', rows.filter(r => r.rules?.[k]?.pass === false).length);
+// holes has fixed limits of its own (src/xfer-scorecard.js HOLE_*): its pass is kept as scored, not calibrated.
+for (const k of ['shape', 'motion', 'weapon', 'twins', 'jitter', 'holes']) console.log(k.padEnd(7), 'pass', rows.filter(r => r.rules?.[k]?.pass === true).length, 'fail', rows.filter(r => r.rules?.[k]?.pass === false).length);
 console.log('all rules pass', rows.filter(r => r.rules && Object.values(r.rules).every(x => x.pass !== false)).length, 'of', rows.length);
