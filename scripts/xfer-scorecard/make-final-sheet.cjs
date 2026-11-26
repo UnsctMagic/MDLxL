@@ -1,10 +1,13 @@
 // A grading sheet: the chosen pairs, every donated animation, today's suggested ticks as defaults, and its launcher.
 //   node scripts/xfer-scorecard/make-final-sheet.cjs                     the final sheet (26 Nov), from out/scorecard/final
 //   node scripts/xfer-scorecard/make-final-sheet.cjs --pairs scripts/xfer-scorecard/pairs-reasonable.json
-//        --ids a,b,c --live <live-suggest.jsonl> --name reasonable --model <file> [--leg-timing legs-01=25]
+//        --ids a,b,c --live <live-suggest.jsonl> --name reasonable --model <file> [--controls] [--leg-timing id=25]
 //     rows from the pair list (in --ids order) with the live suggestion of each; cases-<name>.json and answers in <name>\,
-//     launcher "_START HERE\GRADE - XFER <name>.cmd" opening <model>. --leg-timing seeds that pair's saved Leg timing in
-//     a new answers file (an existing answers file is never touched).
+//     launcher "_START HERE\GRADE - XFER <name>.cmd" opening <model>. Seeds in the answers file (grade null, no comment):
+//     --controls opens every row marked `regression` in the pair list at the ticks the owner graded (`ticks`), and
+//     --leg-timing seeds a saved Leg timing. An answer the owner has touched (a grade or a comment) is never changed; a
+//     seed nobody touched is replaced, and dropped when its row left the sheet. To add pairs later (step 7's), run again
+//     with them in --ids and a --live file that has them.
 const fs = require('fs');
 const path = require('path');
 const root = 'D:/Claude/MDLxL/TestBuilds/transfer-xl-35/';
@@ -50,15 +53,17 @@ if (!opt('pairs')) {
   const folder = root + name + '/', answers = win(folder + 'answers.json'), cases = win(root + `cases-${name}.json`);
   fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(cases, JSON.stringify({ answers, cases: rows }, null, 1));
-  if (opt('leg-timing') && !fs.existsSync(answers)) {
-    const seeded = {};
-    for (const item of opt('leg-timing').split(',')) {
-      const [id, value] = item.split('=');
-      const s = live.get(id);
-      seeded[id] = { grade: null, comment: '', at: new Date().toISOString(), toggles: s.suggested.filter(k => k !== 'donorPose'), suggested: s.suggested, legTiming: Number(value) };
-    }
-    fs.writeFileSync(answers, JSON.stringify(seeded, null, 1));
-  }
+  const old = fs.existsSync(answers) ? JSON.parse(fs.readFileSync(answers, 'utf8')) : {};
+  const touched = entry => entry && (Number.isInteger(entry.grade) || String(entry.comment || '').trim() || entry.pick != null);
+  const seeded = Object.fromEntries(Object.entries(old).filter(([, entry]) => touched(entry)));
+  const seed = (id, fields) => {
+    if (seeded[id] || !ids.includes(id)) return;
+    const s = live.get(id);
+    seeded[id] = { grade: null, comment: '', at: new Date().toISOString(), toggles: s.suggested.filter(k => k !== 'donorPose'), suggested: s.suggested, ...fields };
+  };
+  if (args.includes('--controls')) for (const id of ids) if (pairs.get(id).regression) seed(id, { toggles: [...pairs.get(id).ticks] });
+  for (const item of (opt('leg-timing') || '').split(',').filter(Boolean)) { const [id, value] = item.split('='); seed(id, { legTiming: Number(value) }); }
+  if (Object.keys(seeded).length || fs.existsSync(answers)) fs.writeFileSync(answers, JSON.stringify(seeded, null, 1));
   const launcher = path.join('D:/Claude/MDLxL/TestBuilds/_START HERE', `GRADE - XFER ${name}.cmd`);
   fs.writeFileSync(launcher, `@echo off\r\nrem ${rows.length} transplant pairs to grade: the pairs this round changed, the eight 9-10 pairs as controls, and legs-01 (try Mirror legs, its Leg timing slider, and Use arms).\r\n` +
     `start "" "${exe}" "${win(model)}" "--transfer-picks=${cases}"\r\n`);

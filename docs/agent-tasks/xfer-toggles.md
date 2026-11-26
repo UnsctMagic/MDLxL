@@ -1924,3 +1924,29 @@ that worked. Each is measurable on every pair without the owner's grade.
   already in `test-models\Textures`).
 - Control new-01 opens at the suggester's `hangingChains` (as in the baseline since step 1), not the graded
   skinLandmarks, hangingChains; left for Fable.
+
+### Fable plan step 7 (Opus, 26 Nov): HELD by stop rule 1
+
+- Built per the coding brief on the local side branch `codex/xfer-toggles-step7` (commit bf9b4c8c on top of 40b24490),
+  not on `codex/xfer-toggles`: `holdSupport` option `perClip` (TWO_HANDED_SHARE 0.3 of an animation's moments with the
+  donor's other palm within ON_SHAFT), `secondHandOnWeapon`, the call after Seat when Two-hand grip is ticked and Seat's own
+  second hand did not act (`fixed.secondHand`), `secondHandShare`, Two-hand grip decided after the vetoes (donor two-handed
+  in some animation, share +0.1, no rule lost) and out of the six-rule loop, `frontLegPick` -> useArms wherever it applies.
+- Tests `test/xfer-second-hand.test.js` (fail first on 40b24490): reasonable-08 at its ticks, Attack - 1 share 0.50 -> 1.00
+  with the tick, right palm unchanged; Seat's own second hand still needs a Stand two-handed donor. Brief's "near 0
+  without" holds only with no ticks at all (0.16); with Two-hand grip alone Attack - 1 reaches 0.37.
+- Live suggestion on the eight controls + reasonable-08 + legs-01: **new-02 (graded 9) gains Two-hand grip**: share 0 ->
+  0.61, donor two-handed, no rule lost. Stop rule 1. The other seven controls unchanged; reasonable-08 gains it
+  (0.85 -> 0.98); legs-01 hangingChains, mirrorLegs -> hangingChains, useArms. For Fable.
+
+### Fable plan step 8 sheet (Opus, 26 Nov): rows per decision 8, controls at their graded ticks, sheet-smoke
+
+- Sheet regenerated without step 7 (15 rows): reasonable-08, -45, -40, new-26, reasonable-10, -31, -32, -39, -43, controls
+  reasonable-05, -29, random-10, random-21, new-05, new-02 (legs-01, reasonable-38, -46, new-01, new-08 dropped; they stay
+  in the regression). `make-final-sheet.cjs --controls` seeds the controls' graded ticks; an answer the owner touched is
+  never changed; untouched seeds of dropped rows go. Pairs added later: rerun with them in `--ids` and a `--live` file.
+- `scripts/xfer-scorecard/sheet-smoke.cjs`: part 1 without the app (passes now); `--app`: 2a the launcher's own command
+  line (first row loads), 2b + 3 a copy of the cases file whose answers are `answers-smoke.json`: a repair box ticked and
+  unticked, every row opened in turn by grading the copy, smoke files deleted, real answers file checked unchanged. The
+  sheet moves forward only by grading, so walking every row on the launcher's own command line would write the owner's
+  answers; that walk runs on the copy.
