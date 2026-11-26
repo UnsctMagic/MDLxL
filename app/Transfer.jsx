@@ -643,6 +643,12 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
   const tpReport = tpShown?.report || null;
   const shownMirror = tpMirrorOverride ?? tpReport?.mirrored ?? donorMirror;
+  // The Mirror checkbox in the repair row shows the caption button's state; its suggested mark is the automatic choice,
+  // remembered from the last build without an override for this donor.
+  const autoMirror = useRef(null);
+  if (tpMirrorOverride == null && tpReport && tpDonor) autoMirror.current = { donor: tpDonor.id, value: !!tpReport.mirrored };
+  const mirrorSuggested = !!tpDonor && autoMirror.current?.donor === tpDonor.id && autoMirror.current.value;
+  const changeMirror = value => { if (!!value !== !!shownMirror) toggleMirror(); };
   const changeRepair = (key, checked) => setTpRepairs(old => old?.context === tpContext
     ? { ...old, checked: toggleRepair(old.checked, key, checked) } : old);
   const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
@@ -768,7 +774,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
               {!tpShowsModel && <TransplantToggles visible={activeRepairs?.visible} suggested={activeRepairs?.suggested} checked={selectedRepairs}
                 onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}
-                legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })}/>}
+                legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })}
+                mirror={!!shownMirror} mirrorSuggested={mirrorSuggested} onMirror={rigA?.ok ? changeMirror : undefined}/>}
               <div className="xf-preview" data-transplant-view="">
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}

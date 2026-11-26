@@ -1950,3 +1950,17 @@ that worked. Each is measurable on every pair without the owner's grade.
   unticked, every row opened in turn by grading the copy, smoke files deleted, real answers file checked unchanged. The
   sheet moves forward only by grading, so walking every row on the launcher's own command line would write the owner's
   answers; that walk runs on the copy.
+
+### Fable plan step 11 (Opus, 26 Nov): Mirror is a checkbox in the repair row
+
+- `app/TransplantToggles.jsx`: props `mirror`, `mirrorSuggested`, `onMirror`; with `onMirror` a `Mirror` checkbox first in
+  the row (`data-repair="mirror"`), tooltip the caption button's sentence, suggested mark; the row shows even with no repair
+  box. Both strings were already in all five catalogs: no new text.
+- Sheet: `answerMirror(item, answer)` (transfer-picks.js): the answer's `mirror` when saved, else the row's own
+  `options.mirror` (its suggestion and mark); `withGrade` keeps `mirror` beside the ticks; the After build and its key use
+  the answer's value. Transfer window: the checkbox shows `shownMirror` and toggles through `toggleMirror` (the caption
+  button stays, same state); the mark is the automatic choice remembered from the last build without an override.
+- Engine and suggester untouched. Test in transfer-picks.test.js fails first ("Mirror unticked on a row whose options say
+  true").
+- `sheet-smoke.cjs --row-timeout <s>` (default 180): each row waits until its After view has finished (grades enabled), and
+  a row that does not finish in time fails with its id and ends the walk.

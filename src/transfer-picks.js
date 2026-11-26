@@ -213,7 +213,7 @@ export const GRADES = Array.from({ length: 11 }, (_, i) => i);
 
 /** The answers with a grade case's grade and/or comment changed: { grade: 0-10 or null, comment, at }; the part not
  * given keeps its saved value. */
-export function withGrade(answers, item, { grade, comment, toggles, legTiming } = {}, at = new Date().toISOString()) {
+export function withGrade(answers, item, { grade, comment, toggles, legTiming, mirror } = {}, at = new Date().toISOString()) {
   if (grade !== undefined && grade !== null && !GRADES.includes(grade)) throw new Error('The grade must be a whole number from 0 to 10.');
   const old = answers[item.id] || {};
   const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
@@ -224,8 +224,18 @@ export function withGrade(answers, item, { grade, comment, toggles, legTiming } 
     // The Leg timing slider (with Mirror legs) is kept beside the ticks once it has been set.
     const timing = legTiming ?? old.legTiming;
     if (timing != null) entry.legTiming = timing;
+    // Mirror (a checkbox in the repair row) is kept beside the ticks once it has been set.
+    const mirrored = mirror ?? old.mirror;
+    if (typeof mirrored === 'boolean') entry.mirror = mirrored;
   }
   return { ...answers, [item.id]: entry };
+}
+
+/** The Mirror a transplant row builds with: the answer's choice, else the row's own options (its suggestion). */
+export function answerMirror(item, answer) {
+  if (typeof answer?.mirror === 'boolean') return answer.mirror;
+  const after = item?.variants?.find(variant => variant.id === 'after')?.transplant;
+  return !!after?.options?.mirror;
 }
 
 /** The answers with one case answered: a variant id, 'same' or 'none'. */

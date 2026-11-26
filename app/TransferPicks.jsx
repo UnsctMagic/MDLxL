@@ -14,7 +14,7 @@ import { buildTransfer, sameKindSequence, transferPreviewModel, transferRig } fr
 import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
 import { defaultRepairKeys, knownRepairKeys, LEG_TIMING, legTimingValue, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
-import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
+import { answerMirror, caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
 import './transfer.css';
 
@@ -155,15 +155,18 @@ function PickSheet({ sheet, teamColor, onClose }) {
 
   const checked = transplantCase ? knownRepairKeys(answers[item.id]?.toggles ?? defaultRepairKeys(item.suggestion.suggested)) : [];
   const legTiming = transplantCase ? legTimingValue(answers[item.id]?.legTiming ?? LEG_TIMING.default) : LEG_TIMING.default;
+  // Mirror: the row's own options are the suggestion; the answer's choice (the checkbox) builds the After view.
+  const rowMirror = transplantCase ? answerMirror(item, undefined) : false;
+  const mirror = transplantCase ? answerMirror(item, answers[item.id]) : false;
   // Leg timing goes into the build (and its key) only with Mirror legs ticked.
-  const liveRequest = (variant, keys) => ready && transplantCase ? {
-    key: item.id + '|' + variant.id + '|' + keys.join(',') + (keys.includes('mirrorLegs') ? '|' + legTiming : ''),
+  const liveRequest = (variant, keys, mirrored = null) => ready && transplantCase ? {
+    key: item.id + '|' + variant.id + '|' + keys.join(',') + (keys.includes('mirrorLegs') ? '|' + legTiming : '') + (mirrored == null ? '' : '|mirror:' + mirrored),
     model: loaded.own.model, donor: loaded.donor.model,
     modelKey: variant.transplant.recipient, donorKey: variant.transplant.donor,
-    options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false, ...(keys.includes('mirrorLegs') ? { legTiming } : {}) },
+    options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false, ...(keys.includes('mirrorLegs') ? { legTiming } : {}), ...(mirrored == null ? {} : { mirror: mirrored }) },
   } : null;
   const beforeRequest = liveRequest(beforeVariant, []);
-  const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked);
+  const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked, mirror);
   const before = useTransplantView(beforeRequest), after = useTransplantView(afterRequest);
   const afterReady = afterRequest && after?.key === afterRequest.key && !!after.model;
 
@@ -358,6 +361,11 @@ function PickSheet({ sheet, teamColor, onClose }) {
     answersRef.current = next; setAnswers(next);
     write(next).then(() => setProblem(''), error => setProblem('The repairs were not saved: ' + error.message));
   };
+  const changeMirror = value => {
+    const next = withGrade(answersRef.current, item, { toggles: checked, mirror: !!value });
+    answersRef.current = next; setAnswers(next);
+    write(next).then(() => setProblem(''), error => setProblem('The mirror choice was not saved: ' + error.message));
+  };
   const changeLegTiming = value => {
     const next = withGrade(answersRef.current, item, { toggles: checked, legTiming: legTimingValue(value) });
     answersRef.current = next; setAnswers(next);
@@ -426,7 +434,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
               const overlay = marked?.found.length ? marked.found.map(path => ({ points: path.points, motion: true, width: 3, alpha: .95, marker: pathMarker(path.frames, time) })) : undefined;
               return <section key={`${item.id}:${view.id}`} className={`xp-view${shown ? '' : ' xp-off'}`} aria-label={transplantCase ? view.label : `Variant ${view.letter}`} aria-hidden={shown ? undefined : true}
                 style={transplantCase && !flip ? { gridColumn: position+1 } : undefined} data-transplant-pane={transplantCase ? view.id : undefined} data-transplant-revision={view.revision}>
-                {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair} legTiming={legTiming} onLegTiming={changeLegTiming}/> }
+                {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair} legTiming={legTiming} onLegTiming={changeLegTiming}
+                  mirror={mirror} mirrorSuggested={rowMirror} onMirror={changeMirror}/> }
                 <div className="xf-preview">
                   {!transplantCase && <span className="xp-letter" aria-hidden="true">{view.letter}</span>}
                   {view.label && <span className="xp-label">{view.label}</span>}

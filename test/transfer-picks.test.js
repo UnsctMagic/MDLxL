@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
+import { answerMirror, caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 
 const recipe = (amount = 1) => ({ base: { sequence: 0 }, length: null, sources: {}, parts: { armL: { source: 'd0', sequence: 2, amount, future: { kept: true } } } });
 const sheet = (change = data => data) => JSON.stringify(change({
@@ -200,4 +200,22 @@ test('an answer keeps the Leg timing beside the ticks', () => {
   const graded = withGrade(set, item, { grade: 7 }, 't2');
   assert.deepEqual(graded['reasonable-46'], { grade: 7, comment: '', at: 't2', toggles: ['mirrorLegs'], suggested: ['mirrorLegs'], legTiming: 35 });
   assert.equal(withGrade({}, item, { grade: 5 }, 't3')['reasonable-46'].legTiming, undefined, 'no slider value is written until one is set');
+});
+
+// Mirror is a checkbox in the repair row (plan step 11; owner: "there is no checkbox allowing me to cancel this").
+test('the sheet keeps the Mirror choice beside the ticks; an old answer reads as the row\'s own mirror', () => {
+  const donor = 'D:/models/Gnoll.mdx', transplant = { recipient: 'D:/models/Murloc.mdx', donor, options: { mirror: true } };
+  const [item] = parseCases(JSON.stringify({ answers: 'D:/review/answers.json', cases: [{
+    id: 'new-26', question: 'Dire Gnoll Hero to Murloc', grade: true, model: donor,
+    variants: [{ id:'donor', file:donor }, { id:'before', transplant }, { id:'after', transplant }],
+    suggestion: { visible: ['trackWindow'], suggested: ['trackWindow'] },
+  }] })).cases;
+  const other = { 'random-10': { grade: 10, comment: '', toggles: ['seatWeapon'], suggested: ['seatWeapon'], at: 'old', mirror: true } };
+  const unticked = withGrade(other, item, { toggles: ['trackWindow'], mirror: false }, 't1');
+  assert.equal(unticked['new-26'].mirror, false, 'Mirror unticked on a row whose options say true');
+  assert.equal(withGrade(unticked, item, { grade: 8 }, 't2')['new-26'].mirror, false, 'kept when the grade is saved');
+  assert.deepEqual(unticked['random-10'], other['random-10'], 'another pair\'s answer is untouched');
+  assert.equal(answerMirror(item, unticked['new-26']), false);
+  assert.equal(answerMirror(item, { grade: 5, toggles: ['trackWindow'] }), true, 'an old answer without the field: the row\'s value');
+  assert.equal(answerMirror(item, undefined), true);
 });
