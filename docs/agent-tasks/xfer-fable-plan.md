@@ -802,6 +802,25 @@ Checker: say which cases file and which build the graded sheet came from.
 
 ### Step 9. The weapon stays in the hand as far as the donor's does (reasonable-08, Attack - 3)
 
+**Measured (checker, `out/fable-plan/step-9-10-pre/`), and the spec amended by it; where the text below differs, this wins.**
+reasonable-08 at his ticks, right hand, result gap against the donor's: Attack - 3 0.50 vs 0.11, Attack - 1 0.34 vs 0.03,
+Stand - 2 0.50 vs 0.18; every other animation within 0.03. Over all pairs the largest excesses are mostly in Death and
+Spell, where the donor itself throws or drops the weapon (new-02 Death: donor 3.27), and on pairs with Seat ticked
+(new-08 Spell 2.32). So:
+
+- *Engine, `keepInHand`:* acts only while the donor holds its weapon: full strength where the donor's own gap is 0.15 arm
+  or less, fading to nothing at 0.30 (the same on/off fade `holdSupport` uses), so a thrown, dropped or far-belted weapon
+  is left alone. Death, Decay, Dissipate and Portrait are skipped. Never with Seat ticked.
+- *Suggestion:* measured on Stand, Walk and Attack animations only, and only over the moments where the donor's gap is
+  0.15 or less. Suggested when in some such animation at least a tenth of those moments exceed the donor's gap by 0.15
+  or more, the box brings that excess down by 0.1 or more, and `ruleChange` reports nothing lost. Never when Seat is
+  suggested.
+- *Stop rule added:* the defaults of the 9-10 pairs stay as they are. If the box becomes suggested on any of the eight
+  controls or on any pair graded 10 on the reasonable sheet, do not merge: report the pair and its numbers.
+- *Checker, before Opus codes:* `pre910.mjs` again with that filter (Stand, Walk, Attack; donor gap 0.15 or less): per
+  pair the largest excess and the share of moments at 0.15 or more. The pairs that would qualify are named before any
+  code is written.
+
 Owner: "Weapon leaves hand ... but only in 1 anim". In his screenshot (Attack - 3, about a quarter in) the donor holds its
 sword at head height with the hilt in its hands; the result's sword sits at that height while its fists are at the chest.
 The model's weapon rides the donor's weapon bone, which the donor moves against its own hand; on other arms that offset
@@ -844,6 +863,9 @@ lands elsewhere.
 
 ### Step 10. A legless flyer on a winged donor keeps the donor's steadiness (reasonable-40, -43)
 
+**Cause confirmed by measurement:** both pairs run in `soles` mode; the body joint's vertical range against the donor's is
+2.2x in Stand and 4.4x in Walk on reasonable-40, 4.8x and 9.2x on reasonable-43. The spec below stands unchanged.
+
 Owner: "jumps up and down while the donor remains stable", "model bobs up and down.... happened before."
 
 - **Likely cause (from reading `solesDown`, `src/skeleton-transplant.js` 3420-3492; to be confirmed by the check).** Both
@@ -871,6 +893,10 @@ Owner: "jumps up and down while the donor remains stable", "model bobs up and do
   (`--yaw 90 --n 8 --size 240`), before and after; the hole reading; the regression as above.
 
 ### Step 11. Mirror is a checkbox in the repair row (new-26, reasonable-10)
+
+**Done: `7983a463`, approved by diff.** Checkbox first in the row in the sheet and the Transfer window, the caption
+button's own label and tooltip, the answer keeps `mirror`, no engine or suggester change. Still to run: the hidden
+check in the packaged app (below).
 
 Owner: "Why is he mirrored?... there is no checkbox allowing me to cancel this, its good but I would like this to be
 optional." "again mirror is defaulted for me."
@@ -958,6 +984,13 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
 14. **Mirror gets a box in the row and the caption button stays.** The owner asked for the box; the button also serves
     retargeting and its hotkey. Two controls, one state; if he wants the button gone in transplant mode it is one line.
 15. **Checks come before code on steps 9 and 10:** the causes were read from the code and one screenshot, not measured.
+16. **Weapon in hand never changes a 9-10 pair's default.** The owner's instruction after new-02; made a stop rule of
+    step 9 rather than a per-pair exception, with the suggestion narrowed to the animations and moments where the donor
+    really holds its weapon.
+17. **Step 7's broken bow test is fixed before anything else merges** ("Archer bow grip follows actual shaft-contact
+    palms"). Expected fix: the second-hand step does not run where the bow grip fit already placed the hands
+    (`bowHands`). Seat exports and reasonable-08's gain must stay as they are; the checker re-runs the regression after it.
+
 
 
 ## Test set: reasonable pairs only
