@@ -9,17 +9,65 @@ import {
   prepareAiEdit,
   applyAiEdit,
   encodeAiValue,
+  limitAiOutput,
+  newSaveProblems,
+  fileEditScope,
+  mergeFileModel,
 } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
-import { aiAssets, validateAiAssets } from './ai-assets.js';
+import { animationEditReport } from '../src/ai-motion-style.js';
+import { mdxSizeBreakdown } from '../src/ai-model-size.js';
+import { meshHealth } from '../src/mesh-health.js';
+import { checkSanity } from '../src/sanity-check.js';
+import { sanityForAi } from '../src/ai-sanity.js';
+import { hiveSanity } from './optimizexl-hive.js';
+import { aiAssets, validateAiAssets, loadTextureAsset } from './ai-assets.js';
+import { gamePathKey } from '../src/game-path.js';
+import {
+  clampZoom,
+  groupGeosetsByTexture,
+  markedUvPoints,
+  uvArray,
+  uvBounds,
+  uvEdges,
+  uvPictureGeosets,
+  uvPictureSize,
+  uvRange,
+  uvTiles,
+  uvIslands,
+  layerText,
+} from '../src/ai-uv-picture.js';
+import {
+  TRAIL_COLORS,
+  TRAIL_NAMES,
+  checkPictureOptions,
+  concatPoints,
+  drawnGeosets,
+  filmstripFrames,
+  filmstripLayout,
+  frameCaption,
+  hasEffects,
+  motionTrails,
+  picturePose,
+  posedPoints,
+  poseMatrices,
+  trailNodeIds,
+} from '../src/ai-picture.js';
+import { motionPathMarker } from '../src/motion-path.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 import { createVersionStore } from '../src/ai-versions.js';
+import { screenEngineHint } from '../src/ai-screen-names.js';
+import { createWatchFollower, spreadVertices, tabToShow, watchLook, watchTargetRule } from './ai-watch.js';
+import { aiReplay } from './ai-replay.js';
+import { forgetReplayPictures } from './ai-replay-stage.js';
+import { centerOf } from '../src/ai-replay.js';
+import { MESH_ACTIONS, GEOSET_ACTIONS, CUT_ACTION, applyMeshAction, applyGeosetAction, applyCut, remapGeosetSet, workplaneAxis } from '../src/mesh-actions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -43,10 +91,67 @@ const viewSnapshot = state => ({
 });
 const LEFT_TAB = "The user left this model's tab before this step could run. Try it again; it waits until they return.";
 // Steps that need MDLxL's own buttons, windows or timeline on screen.
-const needsScreen = (name, args) =>
-  name === 'mdlxl_ui' ||
-  (name === 'mdlxl_command' && !['undo', 'redo'].includes(args.id)) ||
-  (name === 'mdlxl_select' && !!args.keyframes);
+// Editor commands that also run on a model tab that is not showing, or on the job's
+// private copy: Undo/Redo, the mesh tools, selection commands and view commands (the
+// task's own view). Commands that open a window or need the screen wait for the tab.
+const VIEW_COMMANDS = {
+  ...Object.fromEntries(['perspective', 'orthographic', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(view => [view, { view }])),
+  frame: { renderMode: 'textured' },
+  frameSelection: { renderMode: 'solid' },
+  wireframe: { renderMode: 'wireframe' },
+  fit: {},
+  fitSelection: {},
+  ...Object.fromEntries(['vertices', 'uv', 'bones'].map(mode => [mode, { mode }])),
+  animation: { mode: 'animation' },
+};
+const SELECTION_COMMANDS = ['selectAll', 'clear', 'invertSelection'];
+const runsOffScreen = id => ['undo', 'redo'].includes(id) || MESH_ACTIONS.includes(id) || Object.hasOwn(GEOSET_ACTIONS, id) || id === CUT_ACTION || SELECTION_COMMANDS.includes(id) || Object.hasOwn(VIEW_COMMANDS, id);
+// The engines behind tool windows, for scripts on a model that is not on screen.
+const WINDOW_ENGINES = {
+  optimizeModel: 'optimizexl-run.optimizeModelStage / planToSize (search capabilities for "optimize")',
+  uv: 'uv-actions and the UV modules (search capabilities for "uv")',
+  animXL: 'anim-xl.buildAnimXL / applyAnimXL and the animation modules (search capabilities for "animation")',
+  surfaceEffects: 'the FX modules (search capabilities for "fx")',
+  autoCorpse: 'auto-corpse.autoCorpse (search capabilities for "corpse")',
+  forge: 'forge-vertex-run and the forge modules (search capabilities for "forge")',
+  bitsAndParts: 'bits-and-parts (mdlxl_assets source parts)',
+  paint: 'the painting modules (search capabilities for "paint")',
+  sanityCheck: 'sanity-check.checkSanity',
+  particles: 'particle-recipes, glow-up and the particle modules (search capabilities for "particle")',
+  textureLibrary: 'material-presets and texture-references (search capabilities for "material")',
+};
+// What to use instead when a screen-only step meets the job's private copy.
+const screenOnly = (name, args) => {
+  const engine = name === 'mdlxl_command' && (screenEngineHint(args.id) || WINDOW_ENGINES[args.id]);
+  return 'This step needs the model on screen, and this job now works on a private copy because the user changed the model. ' +
+    (engine ? 'Use ' + engine + ' in mdlxl_script instead.' : 'Use mdlxl_script with the editor modules instead; mesh tools, selection and view commands run here too.');
+};
+// Optional numbers of the mesh tools: Extrude distance, the Mirror/Collapse/Weld pivot, the Rotate normals angle.
+const meshParameters = args => {
+  const out = {};
+  if (args.distance !== undefined) { if (!Number.isFinite(args.distance)) throw Error('distance must be a number.'); out.distance = args.distance; }
+  if (args.angle !== undefined) { if (!Number.isFinite(args.angle)) throw Error('angle must be a number of degrees.'); out.normalAngle = args.angle; }
+  if (args.pivot !== undefined) { if (!Array.isArray(args.pivot) || args.pivot.length !== 3 || !args.pivot.every(Number.isFinite)) throw Error('pivot must be [x, y, z].'); out.pivot = args.pivot; }
+  return out;
+};
+// After an edit that changed animation data: which animations changed, how many stayed identical and
+// the motion warnings the edit added. Information for the AI, never a refusal.
+function animationNotes(before, after) {
+  try {
+    const animation = animationEditReport(before, after);
+    return animation ? { animation } : {};
+  } catch {
+    return {};
+  }
+}
+// Where the saved MDX bytes go (validate), for size limits such as "under 250 KB".
+function sizeOf(bytes, model) {
+  try {
+    return { size: mdxSizeBreakdown(bytes, model) };
+  } catch {
+    return {};
+  }
+}
 // Model-space positions of the marked vertices, posed at the picture's frame.
 function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
   // The kept original of an edited model can have fewer vertices than the selection names.
@@ -67,6 +172,49 @@ function markedPositions(model, selection = {}, sequence, globalSequence, frame)
     return [];
   }
 }
+const needsScreen = (name, args) =>
+  name === 'mdlxl_ui' ||
+  (name === 'mdlxl_command' && !runsOffScreen(args.id)) ||
+  (name === 'mdlxl_select' && !!args.keyframes);
+// At most this many UV islands get a number in a UV picture.
+const MAX_ISLAND_NUMBERS = 40;
+const loadPicture = async url => {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  return image;
+};
+// One picture of several frames: each cell shrunk into a grid, its caption in the top-left corner.
+async function composeFilmstrip(urls, captions) {
+  const layout = filmstripLayout(urls.length),
+    canvas = document.createElement('canvas');
+  canvas.width = layout.width;
+  canvas.height = layout.height;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#202020';
+  context.fillRect(0, 0, layout.width, layout.height);
+  context.font = 'bold 15px Tahoma, sans-serif';
+  context.textBaseline = 'top';
+  for (const [i, url] of urls.entries()) {
+    const { x, y } = layout.cells[i],
+      picture = await loadPicture(url),
+      // Whole picture in its cell, shape kept (a portrait-shaped camera picture is narrower).
+      fit = Math.min(layout.cellWidth / picture.naturalWidth, layout.cellHeight / picture.naturalHeight),
+      w = picture.naturalWidth * fit,
+      h = picture.naturalHeight * fit;
+    context.drawImage(picture, x + (layout.cellWidth - w) / 2, y + (layout.cellHeight - h) / 2, w, h);
+    context.strokeStyle = '#202020';
+    context.lineWidth = 2;
+    context.strokeRect(x + 1, y + 1, layout.cellWidth - 2, layout.cellHeight - 2);
+    const text = `${i + 1}: ${captions[i]}`,
+      width = context.measureText(text).width;
+    context.fillStyle = 'rgba(0,0,0,0.7)';
+    context.fillRect(x + 4, y + 4, width + 10, 21);
+    context.fillStyle = '#ffffff';
+    context.fillText(text, x + 9, y + 7);
+  }
+  return canvas.toDataURL('image/png');
+}
 function checkView(args, model) {
   if (
     args.sequence !== undefined &&
@@ -82,9 +230,47 @@ function checkView(args, model) {
   if (args.globalSequence != null && args.sequence !== undefined)
     throw Error('Choose a local or global animation, not both.');
 }
+// Checks a capture sample's close-up, wireframe and UV-layout options.
+function checkSample(sample, model) {
+  for (const key of ['uv', 'wireframe'])
+    if (sample[key] !== undefined && typeof sample[key] !== 'boolean') throw Error('Invalid ' + key + ' option.');
+  if (sample.zoom !== undefined && !(Number.isFinite(sample.zoom) && sample.zoom >= 1 && sample.zoom <= 8))
+    throw Error('Zoom is 1 to 8.');
+  if (sample.uvSet !== undefined && !Number.isInteger(sample.uvSet)) throw Error('Invalid UV set.');
+  if (sample.uvSet !== undefined && !(sample.uvSet >= 0)) throw Error('Invalid UV set.');
+  for (const [gi, ids] of Object.entries(sample.vertices || {}))
+    if (
+      !/^\d+$/.test(gi) ||
+      !model.Geosets[gi] ||
+      !Array.isArray(ids) ||
+      !ids.length ||
+      ids.some(i => !Number.isInteger(i) || i < 0 || i >= model.Geosets[gi].Vertices.length / 3)
+    )
+      throw Error('Invalid vertices: use geoset index -> vertex ids that exist in this model.');
+  checkPictureOptions(sample, model);
+}
+// The open model with the edits an MDL or MDX file makes to it (for example a file a
+// Python script wrote from an export). The file is read through the normal opener and
+// compared with the open model as that format reads it back, so only real edits count.
+async function modelFromFile(path, doc, before) {
+  if (typeof path !== 'string' || !path) throw Error('Give the MDL or MDX file to apply.');
+  const record = await window.desktop.aiReadModel({ path });
+  const file = openDocument(record.bytes, record.name);
+  if (file.readOnly) throw Error('This file can only be opened read-only, so it cannot be applied.');
+  const format = String(record.name).toLowerCase().endsWith('.mdl') ? 'mdl' : 'mdx';
+  let base = before;
+  try {
+    base = openDocument((await prepareModelSaveAsync(doc, format)).bytes, 'base.' + format).model;
+  } catch {
+    // Without a read-back the file is compared with the open model itself.
+  }
+  return mergeFileModel(before, base, file.model);
+}
 export class AiEditorBridge {
   constructor(host) {
     this.host = host;
+    this.saveBaselines = new WeakMap();
+    this.reportedSaveIssues = new WeakSet();
     this.targets = new Map();
     this.chats = new Map();
     this.controls = new Map();
@@ -99,6 +285,105 @@ export class AiEditorBridge {
       this.listeners.add(listener);
       return () => this.listeners.delete(listener);
     };
+    // View AI work: off unless the console's switch is on and the console is open.
+    this.watch = false;
+    this.watchState = { shown: null };
+    this.follower = createWatchFollower(request => this.applyFollow(request));
+  }
+  // The console turns View AI work on or off; it applies from the next tool call.
+  setWatching(on) {
+    if (this.watch === !!on) return;
+    this.watch = !!on;
+    this.watchState.shown = null;
+    if (!on) {
+      this.follower.cancel();
+      aiReplay.stop();
+    }
+    this.editorChanged();
+  }
+  // View AI work replay: before an edit on the model tab on screen, the views keep their
+  // picture and the model's state is remembered; after it, the step replays from that
+  // state to the new one. Display only, and the AI's call never waits for it.
+  armReplay(env) {
+    if (!env?.live) return null;
+    try {
+      return { token: aiReplay.arm(env.session.id, env.doc.revision), documentId: env.session.id, revision: env.doc.revision, before: structuredClone(env.doc.model) };
+    } catch {
+      return null;
+    }
+  }
+  playReplay(armed, env, result) {
+    try {
+      if (!this.watch || !env?.live || env.session.id !== armed.documentId || env.doc.revision === armed.revision) return aiReplay.disarm(armed.token);
+      const s = this.state();
+      aiReplay.play(armed.token, armed.before, env.doc.model, { documentId: armed.documentId, revision: env.doc.revision, assets: result?.assets, sequence: s.globalSeqId == null ? s.sequence : -1 });
+    } catch {
+      aiReplay.disarm(armed.token);
+    }
+  }
+  watching() {
+    return this.watch;
+  }
+  // After a tool call while watching: show the AI's model tab (once per target change) and
+  // queue what the call looked at for the live editor, applied once per display frame.
+  follow(name, args, result, liveBefore) {
+    try {
+      const target = args.target && this.targets.get(args.target);
+      if (!target) return;
+      const s = this.state(),
+        session = this.env(target).session,
+        isTab = s.sessions.includes(session);
+      const show = tabToShow(this.watchState, session.id, s.session.id, isTab);
+      if (show) this.host().showTab(show);
+      // A view change on the tab being shown already moved the live viewport.
+      const look = name === 'mdlxl_view' && liveBefore ? null : watchLook(name, args, result);
+      if (look && isTab) this.follower.push({ documentId: session.id, target: args.target, look });
+    } catch {}
+  }
+  async applyFollow({ documentId, target: id, look }) {
+    const host = this.host();
+    if (!this.watch || this.state().session.id !== documentId) return;
+    const { focus, ...timing } = look;
+    if (Object.keys(timing).length) {
+      await host.view(timing);
+      // The new view and frame are drawn before the part is checked against them.
+      await host.afterPaint(1);
+    }
+    const target = this.targets.get(id), s = this.state();
+    if (!focus || !target || !this.watch || s.session.id !== documentId) return;
+    const model = s.model;
+    const marks = focus.vertices
+      ? focus.vertices
+      : focus.geosets
+        ? Object.fromEntries(focus.geosets.filter(g => model.Geosets[g]).map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)]))
+        : s.selection;
+    const spread = spreadVertices(marks);
+    if (!Object.keys(spread).length) return;
+    const sequence = s.globalSeqId == null ? s.sequence : -1;
+    const posed = markedPositions(model, spread, sequence, s.globalSeqId, s.time), rest = markedPositions(model, spread, -1, null, 0);
+    host.followFit({ posed, rest });
+    // The marker hovers over the part the AI just looked at.
+    if (rest?.length >= 3) aiReplay.look(documentId, s.doc.revision, centerOf(rest), posed?.length >= 3 ? centerOf(posed) : null);
+  }
+  // An edit step's changed part, flashed on the model on screen with the geoset highlight.
+  flashGeoset(index) {
+    return this.host().flashGeoset(index);
+  }
+  // While watching, a job that had to move to a private copy (the user edited the model)
+  // offers the existing "Open as new model" at once instead of at the end of the job.
+  forkedDraft(documentId) {
+    if (!this.watch) return null;
+    for (const target of this.targets.values())
+      if (target.documentId === documentId && target.job?.draft && !target.job.opened && !target.job.delivered) return target;
+    return null;
+  }
+  openForkedDraft(documentId) {
+    const target = this.forkedDraft(documentId);
+    if (!target) return false;
+    target.job.opened = true;
+    this.host().openAiDraft(target.job.draft);
+    this.editorChanged();
+    return true;
   }
   state() {
     return this.host().state();
@@ -180,6 +465,16 @@ export class AiEditorBridge {
     if (retained) {
       const [id, target] = retained;
       if (resume) { target.job.retained = false; return { ...this.context(id), retainedCandidate: true }; }
+      // A result the last job could not put on the model is never discarded silently.
+      if (target.job.draft && !target.job.delivered)
+        try {
+          const result = deliverJob(this, target, 'finish');
+          if (result.conflict || result.correction) deliverJob(this, target, 'open');
+        } catch {
+          try {
+            deliverJob(this, target, 'open');
+          } catch {}
+        }
       this.host().dropAiDraft(target.job.draft);
       this.targets.delete(id);
     }
@@ -188,6 +483,7 @@ export class AiEditorBridge {
     return { ...context, embeddedJob: true };
   }
   closeDocument(documentId) {
+    forgetReplayPictures(documentId);
     for (const [id, target] of this.targets) if (target.documentId === documentId) {
       if (target.job?.draft) this.host().dropAiDraft(target.job.draft);
       this.targets.delete(id);
@@ -222,7 +518,7 @@ export class AiEditorBridge {
         // Drawings are part of the prompt: later notes elsewhere never change them.
         annotations: sketchContext(sketchStore.strokes(state.session.id), state.model),
         // The strokes themselves, to draw them over the task's off-screen pictures.
-        strokes: sketchStore.strokes(state.session.id).map(s => ({ tool: s.tool, color: s.colorValue, points: Array.from(s.points) })),
+        strokes: sketchStore.strokes(state.session.id, 'model').map(s => ({ tool: s.tool, color: s.colorValue, points: Array.from(s.points) })),
         restore: viewSnapshot(state),
       });
     }
@@ -317,8 +613,14 @@ export class AiEditorBridge {
       session = target && s.sessions.find(x => x.id === target.documentId);
     if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
     if (target?.job && session) {
-      if (!target.job.draft && (changedSource(target.job, session) ||
-          (session === s.session && target.selectionSignature !== aiSelectionSignature(s)))) forkJob(this, target);
+      if (!target.job.draft) {
+        // While the user watches, their own selection or animation change is not an edit:
+        // the job adopts it and stays on the live model. Off, any change forks as before.
+        const rule = watchTargetRule({ watching: this.watch, sourceChanged: changedSource(target.job, session), onScreen: session === s.session,
+          selectionChanged: target.selectionSignature !== aiSelectionSignature(s) });
+        if (rule === 'fork') forkJob(this, target);
+        else if (rule === 'adopt') target.selectionSignature = aiSelectionSignature(s);
+      }
       if (target.job.draft) return target;
     }
     if (session && session !== s.session) {
@@ -334,6 +636,8 @@ export class AiEditorBridge {
       target.selectionSignature = aiSelectionSignature(s);
       target.offscreen = false;
     }
+    // Following the AI moves the live animation and frame; while watching that is not a change of the task's selection.
+    if (this.watch && target && session === s.session && session.doc.revision === target.revision) target.selectionSignature = aiSelectionSignature(s);
     checkAiTarget(target, s);
     return target;
   }
@@ -395,16 +699,18 @@ export class AiEditorBridge {
     const key = (args.target && this.targets.get(args.target)?.documentId) || '',
       run = async () => {
       if (options.signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
+      // A picture or a click on the live editor sees the real model, never a replay in flight.
+      if (this.watch && (name === 'mdlxl_capture' || name === 'mdlxl_ui')) aiReplay.stop();
       const display = (name === 'mdlxl_command' && AI_DISPLAY_COMMANDS.has(args.id)) || (name === 'mdlxl_view' && !args.mode);
       if (display && name === 'mdlxl_command' && this.env(this.targets.get(args.target)).live === false)
         throw Error('This display command needs the model tab on screen. Use mdlxl_capture samples with geosets to inspect its parts in the background.');
       if (needsScreen(name, args)) {
         const target = args.target && this.requireTarget(args.target);
-        if (target?.job?.draft) throw Error('Use the modeling tools on the private AI copy. This command requires the live screen.');
+        if (target?.job?.draft) throw Error(screenOnly(name, args));
         await this.waitForTarget(args.target, options);
-        if (target?.job?.draft) throw Error('This command requires the live screen. Continue on the private copy with the modeling tools.');
+        if (target?.job?.draft) throw Error(screenOnly(name, args));
       }
-      let review, revision, paint;
+      let review, revision, paint, replay;
       const target = args.target && this.targets.get(args.target),
         current = () => {
           try {
@@ -427,10 +733,14 @@ export class AiEditorBridge {
           options.signal.addEventListener('abort', cancel, { once: true });
           if (options.signal.aborted) cancel();
         }) : null;
+        const liveBefore = this.watch ? current()?.live : undefined;
+        replay = liveBefore && aiToolEditsModel(name, args) ? this.armReplay(current()) : null;
         const operation = this.dispatch(name, args, options);
         result = await (cancelled ? Promise.race([operation, cancelled]) : operation);
+        if (this.watch) this.follow(name, args, result, liveBefore);
         return result;
       } finally {
+        if (replay) this.playReplay(replay, current(), result);
         if (cancel) options.signal.removeEventListener('abort', cancel);
         const env = review && current();
         if (env && (env.doc.revision !== revision || env.session.paintWorkingRevision !== paint))
@@ -535,7 +845,7 @@ export class AiEditorBridge {
       this.requireTarget(args.target);
       return { ...picture, label: 'Candidate only, ' + args.view, triangles };
     }
-    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal);
+    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args, signal, this.sampleModels(target, env, args));
     if (name === 'mdlxl_versions') {
       const versions = this.versionStore,
         id = target.documentId;
@@ -564,16 +874,23 @@ export class AiEditorBridge {
       active();
       return result;
     }
-    if (name === 'mdlxl_script' || name === 'mdlxl_patch') {
+    const fromFile = name === 'mdlxl_document' && args.action === 'apply';
+    if (name === 'mdlxl_script' || name === 'mdlxl_patch' || fromFile) {
       if (state.saving) throw Error('Wait for the current save to finish.');
-      if ((name === 'mdlxl_patch' || args.edit) && state.mode === 'paint')
+      if ((name === 'mdlxl_patch' || fromFile || args.edit) && state.mode === 'paint')
         throw Error(
           'Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.',
         );
       const before = structuredClone(env.doc.model);
       let result;
       if (name === 'mdlxl_patch') result = { model: patchAiModel(before, args.operations) };
-      else
+      else if (fromFile) {
+        // A model file (for example one a Python script wrote) lands as one ordinary edit:
+        // every section may change, and only what differs from the model does.
+        const model = await modelFromFile(args.path, env.doc, before);
+        args = { ...args, label: args.label || 'Apply ' + String(args.path).split(/[\\/]/).pop(), scope: fileEditScope(before, model) };
+        result = { model };
+      } else
         result = await window.desktop.aiScript({
           requestId,
           code: args.code,
@@ -597,7 +914,9 @@ export class AiEditorBridge {
         });
       active();
       this.requireTarget(args.target);
-      const value = encodeAiValue(result.value);
+      // Large typed arrays and long lists come back summarised; workspace programs that write an output file keep their full data.
+      const encoded = encodeAiValue(result.value),
+        value = args.workspaceFiles && args.capOutput === false ? encoded : limitAiOutput(encoded);
       if (name === 'mdlxl_script' && !args.edit) return { value, logs: result.logs || [], applied: false };
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');
@@ -611,6 +930,7 @@ export class AiEditorBridge {
         { doc } = now;
       const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
+      const baseline = this.saveBaseline(doc);
       const options = { rethrow: true, validate: (model, committed) => {
         const checked = prepareAiEdit(committed, model, args);
         return checked;
@@ -633,10 +953,11 @@ export class AiEditorBridge {
       // An edit the model could not be saved with is taken back at once; left in place it
       // would block every later checkpoint, review and Undo step. Checked in the document's
       // own format, and MDX too when it can convert (AI checkpoints use MDX).
-      try {
-        for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
-          doc.serialize(format, { strict: true });
-      } catch (error) {
+      // Only problems this edit introduced refuse it; ones the model already had are reported once.
+      const afterSave = this.saveWarnings(doc),
+        freshProblems = newSaveProblems(baseline, afterSave);
+      if (freshProblems.length) {
+        const error = Error(freshProblems.join(' '));
         if (now.live) await host.command('undo');
         else {
           host.undoIn(now.session.id, false);
@@ -647,6 +968,9 @@ export class AiEditorBridge {
           `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
         );
       }
+      this.saveBaselines.set(doc, { revision: doc.revision, warnings: afterSave });
+      const existingSaveIssues = baseline.length && !this.reportedSaveIssues.has(doc) ? baseline : null;
+      if (existingSaveIssues) this.reportedSaveIssues.add(doc);
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
       if (assets.length) await host.addAssetsIn(now.session.id, assets);
@@ -660,6 +984,8 @@ export class AiEditorBridge {
         value,
         logs: result.logs || [],
         diagnostics: doc.diagnostics,
+        ...(existingSaveIssues ? { savedWithExistingIssues: existingSaveIssues, note: 'The model already had these save-check differences before your edit; they are not caused by it and did not block it.' } : {}),
+        ...animationNotes(before, doc.model),
       };
     }
     if (name === 'mdlxl_select') {
@@ -683,9 +1009,67 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_command') {
       if (!env.live) {
-        // Undo and Redo work on the task's own model; other commands need its tab.
-        if (!['undo', 'redo'].includes(args.id)) throw Error(LEFT_TAB);
-        host.undoIn(env.session.id, args.id === 'redo');
+        // A model tab that is not showing, or the job's private copy: Undo/Redo, mesh tools,
+        // selection and view commands run on the task's own model, selection and view, as on
+        // screen. Commands that open a window still need the tab.
+        if (['undo', 'redo'].includes(args.id)) {
+          host.undoIn(env.session.id, args.id === 'redo');
+          this.adoptTab(target);
+          this.advance(args.target);
+          return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
+        }
+        if (Object.hasOwn(VIEW_COMMANDS, args.id))
+          return { invoked: args.id, dialog: null, context: await this.dispatch('mdlxl_view', { target: args.target, ...VIEW_COMMANDS[args.id] }, { signal, requestId }) };
+        if (!MESH_ACTIONS.includes(args.id) && !SELECTION_COMMANDS.includes(args.id) && !Object.hasOwn(GEOSET_ACTIONS, args.id) && args.id !== CUT_ACTION) throw Error(LEFT_TAB);
+        const model = env.model,
+          checked = [...(env.session.viewState?.selectable || model.Geosets.map((_, gi) => gi))].filter(gi => model.Geosets[gi]),
+          marked = Object.fromEntries(
+            Object.entries(target.selection || {})
+              .map(([gi, ids]) => [gi, (ids || []).filter(i => model.Geosets[gi] && i * 3 < model.Geosets[gi].Vertices.length)])
+              .filter(([, ids]) => ids.length),
+          ),
+          count = Object.values(marked).reduce((sum, ids) => sum + ids.length, 0);
+        let vertices;
+        if (Object.hasOwn(GEOSET_ACTIONS, args.id) || args.id === CUT_ACTION) {
+          // The sidebar's geoset operations and the Cut tool, as on screen: one Undo step, and the
+          // marked vertices, checked geosets and active geoset follow the change.
+          const after = {}, view = env.session.viewState;
+          if (args.id === CUT_ACTION) {
+            if (!args.cut || typeof args.cut !== 'object') throw Error('Cut needs cut: { geosetIndex, start, a, b, t } (a point on line a-b, t between 0 and 1) or { geosetIndex, start, vertex }.');
+            host.editIn(env.session.id, CUT_ACTION, ['Geosets'], edited => {
+              const shown = applyCut(edited, args.cut);
+              if (shown) Object.assign(after, { vertices: { [shown.geosetIndex]: shown.selection }, activeGeoset: shown.geosetIndex });
+            }, { selection: after });
+          } else {
+            const action = GEOSET_ACTIONS[args.id];
+            if (action.needs === 'marked' && !count) throw Error('Mark the vertices first with mdlxl_select: ' + args.id + ' acts on the marked vertices.');
+            if (action.needs === 'checked' && !checked.length) throw Error('Check the geosets first with mdlxl_select geosetIds: ' + args.id + ' acts on the checked geosets.');
+            host.editIn(env.session.id, action.label, action.sections, edited => {
+              const next = applyGeosetAction(edited, args.id, { selection: marked, selectable: new Set(checked), activeGeoset: view?.activeGeoset ?? -1 }, { resolutions: args.resolutions });
+              if (next.result.oldToNew && view) for (const key of ['visibleOnly', 'hiddenByUser']) if (view[key]) view[key] = remapGeosetSet(view[key], next.result);
+              Object.assign(after, { vertices: next.selection, geosetIds: [...next.selectable], activeGeoset: next.activeGeoset });
+            }, { selection: after });
+          }
+          vertices = after.vertices ?? marked;
+        } else if (SELECTION_COMMANDS.includes(args.id)) {
+          const all = gi => Array.from({ length: model.Geosets[gi].Vertices.length / 3 }, (_, i) => i);
+          vertices = args.id === 'clear' ? {} : Object.fromEntries(checked.map(gi => {
+            const picked = new Set(marked[gi] || []);
+            return [gi, args.id === 'selectAll' ? all(gi) : all(gi).filter(i => !picked.has(i))];
+          }).filter(([, ids]) => ids.length));
+          host.selectIn(env.session.id, { vertices });
+        } else {
+          if (!count) throw Error('Mark the vertices first with mdlxl_select: ' + args.id + ' acts on the marked vertices.');
+          if (['Collapse', 'Weld'].includes(args.id) && count < 2) throw Error(args.id + ' needs at least two marked vertices.');
+          const after = {};
+          host.editIn(env.session.id, args.id, ['Geosets', 'GeosetAnims', 'Nodes'], edited => {
+            const { updated, removedGeosets } = applyMeshAction(edited, args.id, marked, { axis: workplaneAxis(target.workplane), ...host.meshOptions?.(), ...meshParameters(args) });
+            // As on screen: a removed geoset clears the selection, a tool's new vertices become it.
+            after.vertices = removedGeosets.length ? {} : Object.keys(updated).length ? updated : marked;
+          }, { selection: after });
+          vertices = after.vertices;
+        }
+        if (target.job?.draft) target.job.resultSelection = { ...target.job.resultSelection, vertices };
         this.adoptTab(target);
         this.advance(args.target);
         return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
@@ -736,13 +1120,28 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_capture' || (name === 'mdlxl_ui' && args.action === 'capture')) {
       if (name === 'mdlxl_capture' && args.samples) {
-        // Each sample is drawn off-screen, so the view on screen never moves.
-        for (const sample of args.samples) checkView(sample, env.model);
+        // Each sample is drawn off-screen, so the view on screen never moves. A sample with documentId
+        // draws an open reference model (a donor) at its own animation and frame instead.
+        const referenceOf = sample => {
+          if (sample.documentId == null || sample.documentId === target.documentId) return null;
+          const reference = this.referenceSessions(target).find(x => x.id === sample.documentId);
+          if (!reference) throw Error('Reference model is not open. Load it with mdlxl_assets reference or mdlxl_document open.');
+          if (sample.uv || sample.filmstrip || sample.vertices || sample.fit === 'selection') throw Error('A reference picture takes view, sequence, globalSequence, frame, plain and wireframe only.');
+          return reference;
+        };
+        for (const sample of args.samples) {
+          const reference = referenceOf(sample);
+          checkView(sample, reference ? reference.doc.model : env.model);
+          if (!reference) checkSample(sample, env.model);
+        }
         const images = [];
         for (const sample of args.samples) {
           active();
           this.requireTarget(args.target);
-          images.push(await this.picture(args.target, sample));
+          const reference = referenceOf(sample);
+          if (reference) images.push(await this.picture(args.target, sample, { documentId: reference.id }));
+          else if (sample.uv) images.push(...(await this.uvPictures(args.target, sample)));
+          else images.push(await this.picture(args.target, sample));
         }
         return { images };
       }
@@ -832,6 +1231,13 @@ export class AiEditorBridge {
         });
         return { ...result, revision: target.revision, format };
       }
+      if (args.action === 'health') return meshHealth(env.doc.model);
+      if (args.action === 'sanity') {
+        // The Help menu's Sanity Check on this target's own model (a hidden tab or private copy too).
+        const report = await checkSanity(env.doc.model, hiveSanity);
+        active();
+        return sanityForAi(report);
+      }
       if (args.action === 'validate') {
         const results = [];
         for (const format of ['mdx', 'mdl'])
@@ -844,6 +1250,7 @@ export class AiEditorBridge {
               bytes: saved.bytes.byteLength,
               diagnostics: reopened.diagnostics,
               readOnly: reopened.readOnly,
+              ...(format === 'mdx' ? sizeOf(saved.bytes, env.doc.model) : {}),
             });
           } catch (error) {
             results.push({ format, error: error.message });
@@ -852,6 +1259,37 @@ export class AiEditorBridge {
       }
     }
     throw Error('Unsupported tool action.');
+  }
+  // What saving the document in its formats reports right now (never throws).
+  saveWarnings(doc) {
+    const found = new Set();
+    for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+      try {
+        doc.serialize(format);
+        doc.lastSaveWarnings.forEach(w => found.add(w));
+      } catch (error) {
+        found.add(error.message);
+      }
+    return [...found];
+  }
+  saveBaseline(doc) {
+    const known = this.saveBaselines.get(doc);
+    if (known?.revision === doc.revision) return known.warnings;
+    const warnings = this.saveWarnings(doc);
+    this.saveBaselines.set(doc, { revision: doc.revision, warnings });
+    return warnings;
+  }
+  // The other models a sample measures against: a style donor (an open reference or this model) and a
+  // saved version for since.
+  sampleModels(target, env, args) {
+    const resolved = {}, donor = args.style?.donor?.documentId;
+    if (donor) {
+      const session = donor === target.documentId ? env.session : this.referenceSessions(target).find(s => s.id === donor);
+      if (!session) throw Error('The donor model is not open. Open it with mdlxl_document open or mdlxl_assets reference.');
+      resolved.donor = session.doc.model;
+    }
+    if (args.since !== undefined) resolved.since = this.versionStore.get(target.documentId, args.since);
+    return resolved;
   }
   contextFor(id) {
     const target = this.targets.get(id),
@@ -923,33 +1361,38 @@ export class AiEditorBridge {
   // chooses another view, animation or frame for this picture only. source.model
   // draws another state of the task's model (the original kept for review),
   // source.documentId an attached reference model (a donor), and source.focus frames
-  // these model-space points so pictures meant to be compared match.
+  // these model-space points so pictures meant to be compared match. The framed points
+  // are posed exactly as the preview draws them (no animation is the bind pose) and end
+  // up centred in the picture, in every view.
   async picture(id, sample = {}, source = {}) {
     const target = this.targets.get(id),
       env = this.env(target),
       s = env.state;
+    const renderMode = sample.wireframe === true ? 'wireframe' : sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
     if (source.documentId) {
       const donor = this.referenceSessions(target).find(x => x.id === source.documentId);
       if (!donor) throw Error('Reference model is no longer open.');
-      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1);
+      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1),
+        pose = picturePose(donor.doc.model, { sequence, globalSequence: sample.globalSequence ?? null, frame: sample.frame ?? 0 });
       const image = await this.host().render({
         documentId: donor.id,
         view: sample.view || s.view,
         sequence,
         globalSequence: sample.globalSequence ?? null,
-        frame: sample.frame ?? 0,
-        renderMode: sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
+        frame: pose.frame,
+        restPose: !!pose.bind,
+        renderMode,
         hiddenGeosets: [],
         marks: null,
-        focus: source.focus || null,
+        focus: source.focus || posedPoints(pose, new Map(drawnGeosets(pose).map(g => [g, true]))),
       });
-      return { label: donor.doc.name, image };
+      return { label: donor.doc.name, image: typeof image === 'string' ? image : image.image };
     }
     const model = source.model || env.model;
     const globalSequence =
       sample.globalSequence !== undefined ? sample.globalSequence : sample.sequence !== undefined ? null : s.globalSeqId;
     const sequence = globalSequence == null ? (sample.sequence ?? s.sequence) : -1;
-    const frame =
+    const asked =
       sample.frame ??
       (sample.globalSequence != null
         ? 0
@@ -957,37 +1400,233 @@ export class AiEditorBridge {
           ? (model.Sequences[sample.sequence]?.Interval?.[0] ?? 0)
           : s.time);
     const view = sample.view || s.view,
-      // Pictures show the surface; wireframe marks belong to the live viewport.
-      renderMode = sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
-    const marked = markedPositions(model, source.candidate || target.selection, sequence, globalSequence, frame);
-    if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+      // Pictures show the surface; mesh lines only when the sample asks for them (wireframe: true).
+      wireframe = renderMode === 'wireframe';
+    // sample.vertices marks and frames exactly those vertices without touching the selection.
+    const own = sample.vertices && !source.candidate ? sample.vertices : null;
     // Only the parts in question: the other geosets are hidden and the picture frames the rest.
     const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
     if (sample.geosets?.length && !only.length) throw Error('None of those geosets exist in this model.');
-    const parts = only
-      ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
-      : null;
-    const image = await this.host().render({
-      documentId: env.session.id,
-      ...(source.model ? { model: structuredClone(source.model) } : {}),
-      view,
-      sequence,
-      globalSequence,
-      frame,
-      renderMode,
-      hiddenGeosets: only
+    const hidden = source.candidate
+      ? []
+      : only
         ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g))
         : source.model && source.model.Geosets.length !== env.model.Geosets.length
           ? []
-          : s.hiddenGeosets,
-      marks: source.candidate ? null : { strokes: target.strokes || [], vertices: marked },
-      ...(source.candidate ? { hiddenGeosets: [], showParticles: false } : {}),
-      focus: source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts),
-    });
+          : [...(s.hiddenGeosets || [])];
+    // One frame as the preview draws it: the frame kept inside the animation (or the bind pose),
+    // the marked points, the geosets drawn (not hidden, not faded out) and the points to frame.
+    const shot = at => {
+      const pose = picturePose(model, { sequence, globalSequence, frame: at }),
+        matrices = poseMatrices(pose),
+        marked = posedPoints(pose, own || source.candidate || target.selection || {}, matrices),
+        shown = drawnGeosets(pose, hidden),
+        whole = posedPoints(pose, new Map(shown.map(g => [g, true])), matrices);
+      let focus = sample.fit === 'selection' ? marked : sample.fit === 'model' ? whole : only ? posedPoints(pose, new Map(only.map(g => [g, true])), matrices) : whole;
+      if (own && sample.fit !== 'model') focus = marked;
+      if (!focus.length) focus = whole;
+      return { pose, frame: pose.frame, marked, shown, focus };
+    };
+    const strip = sample.filmstrip > 1 ? filmstripFrames(picturePose(model, { sequence, globalSequence }).interval || [], sample.filmstrip) : null;
+    if (sample.filmstrip > 1 && !strip) throw Error('A filmstrip needs an animation: give sequence or globalSequence.');
+    const shots = (strip || [asked]).map(shot),
+      first = shots[0];
+    if (sample.fit === 'selection' && !first.marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+    // Trails: each chosen node's path through the animation, drawn over the picture and framed with it.
+    if (sample.trails?.length && first.pose.bind) throw Error('Trails need an animation: give sequence or globalSequence.');
+    const trails = sample.trails?.length ? motionTrails(first.pose, trailNodeIds(model, sample.trails)) : [];
+    const trailPoints = trails.flatMap(trail => trail.points.flat());
+    // A filmstrip frames every frame alike, so the motion is the model's, not the camera's.
+    const focus = source.focus || concatPoints([...(shots.length > 1 ? shots.map(one => one.focus) : [first.focus]), trailPoints]);
+    const zoom = clampZoom(sample.zoom);
+    const draw = one =>
+      this.host().render({
+        documentId: env.session.id,
+        ...(source.model ? { model: structuredClone(source.model) } : {}),
+        view,
+        sequence,
+        globalSequence,
+        frame: one.frame,
+        restPose: !!one.pose.bind,
+        renderMode,
+        hiddenGeosets: hidden,
+        marks: source.candidate
+          ? null
+          : {
+              strokes: target.strokes || [],
+              vertices: Array.from(one.marked),
+              trails: trails.map((trail, i) => ({
+                color: TRAIL_COLORS[i],
+                number: i + 1,
+                points: trail.points.flat(),
+                keys: trail.keys.flatMap(key => key.point),
+                // Where the node is in this frame.
+                now: trail.points[motionPathMarker(trail.frames, one.frame)] || null,
+              })),
+            },
+        particles: !source.candidate && sample.particles !== false,
+        ...(sample.overlays ? { overlays: sample.overlays } : {}),
+        ...(sample.teamColor ? { teamColor: sample.teamColor } : {}),
+        ...(Number.isInteger(sample.camera) ? { camera: sample.camera } : {}),
+        focus: focus?.length ? focus : null,
+        zoom: source.focus ? 1 : zoom,
+      });
+    const pictures = [],
+      notes = new Set();
+    for (const one of shots) {
+      const drawn = await draw(one);
+      pictures.push(typeof drawn === 'string' ? drawn : drawn.image);
+      for (const note of drawn?.notes || []) notes.add(note);
+    }
+    const effects = hasEffects(model) && !source.candidate
+      ? sample.particles === false
+        ? '; particles and ribbons off'
+        : first.pose.bind
+          ? '; particles and ribbons need an animation (none in the bind pose)'
+          : '; particles and ribbons replayed from the animation start'
+      : '';
+    const pose = first.pose,
+      name = pose.kind === 'sequence' && model.Sequences[sequence]?.Name,
+      triangles = first.shown.reduce((sum, g) => sum + model.Geosets[g].Faces.length / 3, 0),
+      faded = [...new Set(shots.flatMap(one => (only || model.Geosets.map((_, g) => g)).filter(g => !hidden.includes(g) && !one.shown.includes(g))))],
+      animation = pose.kind === 'global' ? 'global sequence ' + globalSequence : 'sequence ' + sequence + (name ? ' "' + name + '"' : ''),
+      when =
+        pose.kind === 'bind'
+          ? 'bind pose (no animation)'
+          : strip
+            ? `${animation}; filmstrip of ${strip.length} frames ${strip.join(', ')}, left to right, top to bottom, one shared framing`
+            : `${animation}; frame ${first.frame}${Number.isFinite(asked) && asked !== first.frame ? ' (asked ' + asked + ', outside the animation)' : ''}`;
+    const image = strip ? await composeFilmstrip(pictures, strip.map(at => frameCaption(at, pose.interval))) : pictures[0];
+    const shownOverlays = Object.entries(sample.overlays || {}).filter(([, on]) => on).map(([key]) => key),
+      cameraText = Number.isInteger(sample.camera)
+        ? `; through model camera ${sample.camera} "${model.Cameras[sample.camera].Name || ''}" as the game shows a portrait (portrait light, black background, portrait shape; framing and zoom do not apply)`
+        : '',
+      extras = `${cameraText}${shownOverlays.length ? '; overlays: ' + shownOverlays.join(', ') : ''}${sample.teamColor ? '; team colour ' + sample.teamColor : ''}`;
+    const round = value => Math.round(value * 10) / 10,
+      trailText = trails.length
+        ? '; trails (line = path, small dots every ~33 ms so wide gaps are fast, big dots = key frames of the node or a parent, ring = this frame): ' +
+          trails.map((trail, i) => `${i + 1} ${TRAIL_NAMES[i]} "${trail.name}" (node ${trail.id}): ${trail.keys.length} keys at ${trail.keys.map(key => key.frame).join(', ') || 'none'}; path ${round(trail.length)} units; peak speed ${round(trail.peakSpeed)} units/s near frame ${trail.peakFrame}; start to end ${round(trail.travel)} units`).join('; ')
+        : '';
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}`,
+      label: `${Number.isInteger(sample.camera) ? 'camera ' + sample.camera : view}; ${when}${extras}${trailText}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${!only && hidden.length ? '; hidden in the task view: geosets ' + hidden.join(', ') : ''}${faded.length ? `; not drawn ${strip ? 'in some frames' : 'at this frame'} (geoset alpha 0): ` + faded.join(', ') : ''}${renderMode === 'solid' ? '; plain shading' : ''}${wireframe ? '; wireframe' : ''}${own ? '; close-up of the given vertices (selection unchanged)' : ''}${zoom > 1 && !source.focus ? '; zoom ' + zoom + 'x' : ''}${effects}${[...notes].map(note => '; ' + note).join('')}; ${triangles} triangles drawn`,
       image,
     };
+  }
+  // Flat pictures of the geosets' UV layout: the texture with the UV triangles drawn over it, one
+  // picture per texture. Marked vertices (sample.vertices, else the task's marks) are red dots.
+  // The editor's team colour, as its 3D pictures use it (the hidden picture preview knows it).
+  async pictureTeamColor(documentId) {
+    try {
+      const color = await this.host().render({ documentId, model: {}, query: 'teamColor' });
+      if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+    } catch {
+      /* the default below */
+    }
+    return '#ff0303';
+  }
+  async uvPictures(id, sample) {
+    const target = this.targets.get(id),
+      env = this.env(target),
+      model = env.model,
+      uvSet = sample.uvSet ?? 0,
+      marks = sample.vertices || target.selection || {};
+    const geosets = uvPictureGeosets(model, sample.geosets, marks).filter(g => uvArray(model.Geosets[g], uvSet));
+    if (!geosets.length) throw Error('These geosets have no UV set ' + uvSet + '.');
+    const pictures = [],
+      teamColor = sample.teamColor || (await this.pictureTeamColor(env.session.id));
+    for (const group of groupGeosetsByTexture(model, geosets)) {
+      const list = group.geosets.map(g => model.Geosets[g]),
+        range = uvRange(uvBounds(list, uvSet)),
+        tiles = uvTiles(range),
+        { width, height } = uvPictureSize(range),
+        canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d'),
+        spanU = range.maxU - range.minU,
+        spanV = range.maxV - range.minV,
+        px = u => ((u - range.minU) / spanU) * width,
+        py = v => ((v - range.minV) / spanV) * height;
+      // Background: the material as the UV Wrapper shows it (every layer composited, team colour
+      // and glow included), tiled across the range (Warcraft III wraps), else plain grey.
+      context.fillStyle = '#808080';
+      context.fillRect(0, 0, width, height);
+      let note = '';
+      if (!group.layers.length) note = 'no material layers: plain grey background';
+      else {
+        let picture = null;
+        try {
+          const assets = new Map();
+          for (const layer of group.layers)
+            if (layer.path) {
+              const asset = await loadTextureAsset(layer.path, env.session);
+              if (asset) assets.set(gamePathKey(layer.path), asset);
+            }
+          const { renderUVMaterialTexture } = await import('./uv-material-preview.js');
+          const backdrop = await renderUVMaterialTexture(model, group.material, assets, { teamColor, time: sample.frame ?? 0, sequenceIndex: sample.sequence ?? -1 });
+          picture = await loadPicture(backdrop.url);
+          if (backdrop.warnings.length) note = 'not shown: ' + backdrop.warnings.join(', ');
+        } catch (error) {
+          note = 'texture could not be loaded (' + error.message + '): plain grey background';
+        }
+        if (picture)
+          for (let tu = tiles.u[0]; tu < tiles.u[1]; tu++)
+            for (let tv = tiles.v[0]; tv < tiles.v[1]; tv++)
+              context.drawImage(picture, px(tu), py(tv), px(tu + 1) - px(tu), py(tv + 1) - py(tv));
+      }
+      // Tile borders where the UVs go outside 0..1.
+      if (spanU > 1 || spanV > 1) {
+        context.strokeStyle = 'rgba(255,255,0,0.7)';
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let tu = Math.ceil(range.minU); tu <= range.maxU; tu++) (context.moveTo(px(tu), 0), context.lineTo(px(tu), height));
+        for (let tv = Math.ceil(range.minV); tv <= range.maxV; tv++) (context.moveTo(0, py(tv)), context.lineTo(width, py(tv)));
+        context.stroke();
+      }
+      // White under cyan keeps the thin edges readable on both light and dark textures.
+      const edges = group.geosets.flatMap(g => uvEdges(model.Geosets[g], uvSet));
+      for (const [style, line] of [['rgba(255,255,255,0.6)', 2], ['rgba(0,255,255,0.95)', 1]]) {
+        context.strokeStyle = style;
+        context.lineWidth = line;
+        context.beginPath();
+        for (let i = 0; i < edges.length; i += 4) {
+          context.moveTo(px(edges[i]), py(edges[i + 1]));
+          context.lineTo(px(edges[i + 2]), py(edges[i + 3]));
+        }
+        context.stroke();
+      }
+      let dots = 0;
+      context.fillStyle = '#ff2020';
+      for (const g of group.geosets)
+        for (const [u, v] of markedUvPoints(model.Geosets[g], marks[g] || [], uvSet)) {
+          context.beginPath();
+          context.arc(px(u), py(v), 3.5, 0, Math.PI * 2);
+          context.fill();
+          dots++;
+        }
+      // Islands (the UV Wrapper's pieces), numbered at their centres, largest first.
+      const islands = group.geosets.flatMap(g => uvIslands(model.Geosets[g], uvSet).map(island => ({ ...island, geoset: g }))).sort((a, b) => b.area - a.area),
+        numbered = islands.slice(0, MAX_ISLAND_NUMBERS);
+      context.font = 'bold 14px Tahoma, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.lineWidth = 3;
+      numbered.forEach((island, i) => {
+        context.strokeStyle = '#000000';
+        context.strokeText(String(i + 1), px(island.u), py(island.v));
+        context.fillStyle = '#ffff00';
+        context.fillText(String(i + 1), px(island.u), py(island.v));
+      });
+      const round = value => Math.round(value * 1000) / 1000,
+        islandText = numbered
+          .map((island, i) => `${i + 1} geoset ${island.geoset} (${island.triangles} triangles, u ${round(island.minU)}..${round(island.maxU)}, v ${round(island.minV)}..${round(island.maxV)})`)
+          .join('; ');
+      pictures.push({
+        label: `UV layout, set ${uvSet}; geosets ${group.geosets.join(', ')}; material ${group.material} layers ${group.layers.map(layerText).join(' + ') || 'none'}${group.layers.some(layer => layer.replaceableId === 1 || layer.replaceableId === 2) ? '; team colour ' + teamColor : ''}; UV range u ${round(range.minU)}..${round(range.maxU)}, v ${round(range.minV)}..${round(range.maxV)}${note ? '; ' + note : ''}${dots ? '; red dots: ' + dots + ' marked vertices' : ''}; islands numbered in yellow, largest first: ${islandText}${islands.length > numbered.length ? `; ${islands.length - numbered.length} smaller islands not numbered` : ''}`,
+        image: canvas.toDataURL('image/png'),
+      });
+    }
+    return pictures;
   }
   inspectUi() {
     this.controls.clear();
@@ -1092,7 +1731,19 @@ export class AiEditorBridge {
     notify(true);
     try {
       await new Promise((resolve, reject) => {
+        // A step that needs the screen waits briefly, then says so plainly: an indefinite
+        // wait looked like a stalled editor and made the AI ask the user to switch tabs.
+        const timer = setTimeout(
+          () =>
+            finish(
+              Error(
+                'This step needs the model "' + document + '" on screen, and the user is looking at another tab. Nothing was changed. Do not ask the user to switch tabs: use mdlxl_script, mdlxl_capture or the other tools that run on a tab in the background, or retry this step later.',
+              ),
+            ),
+          this.screenWaitMs ?? 8000,
+        );
         const finish = error => {
+          clearTimeout(timer);
           this.waiters.delete(check);
           signal?.removeEventListener('abort', check);
           error ? reject(error) : resolve();

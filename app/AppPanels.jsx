@@ -21,7 +21,7 @@ export function AppUVWorkspace({
   setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
   validSelection, view, uvMinimized, rgbShown, rgbSequence, toggleRGBPreview
 }) {
-  return (<Suspense fallback={null}><UVWorkspace key={session.id+':'+uvEntryId} model={model} materialModel={texturedModel} previewModel={previewModel} revision={doc.revision} activeGeoset={activeGeoset} eligibleSelection={uvEntrySelection} selectionByGeoset={validSelection}
+  return (<Suspense fallback={null}><UVWorkspace key={session.id+':'+uvEntryId} sketchDocument={session.id} model={model} materialModel={texturedModel} previewModel={previewModel} revision={doc.revision} activeGeoset={activeGeoset} eligibleSelection={uvEntrySelection} selectionByGeoset={validSelection}
         onSelectionChange={next => setSelection(filterVertexSelection(next, new Set(Object.keys(uvEntrySelection).map(Number)), doc.model))}
         onPreviewSelectionChange={next => {
           setUVEntrySelection(previous => {

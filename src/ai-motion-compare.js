@@ -223,7 +223,7 @@ function constantCurve(track, keys, rotation) {
     return key.OutTan != null && next.InTan != null && [...key.OutTan, ...next.InTan].every(v => v === 0);
   });
 }
-function nativePercentileRange(value, reference) {
+export function nativePercentileRange(value, reference) {
   if (value == null || !reference) return null;
   // The study commits quantiles, not the raw distribution. A bracket is honest;
   // interpolating an exact rank from these summaries would invent evidence.

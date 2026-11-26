@@ -7,7 +7,7 @@ export { forgeTangents } from './geoset-tangents.js';
  */
 import { booleanContours, exteriorFrame, triangulateContours, signedArea as area, pointInside as pointIn, cross, segmentDistance } from './forge-geometry.js';
 import { createNode, recalculateNormals, recalculateExtents } from './editor-document.js';
-import { fillSequenceExtents } from './sequence-editor.js';
+import { fillSequenceExtents, keepsGeosetAnimationBounds } from './sequence-editor.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { FORGE_ITEM_KEY, NO_MATERIAL } from './forge-clay.js';
 export { ensureDummyBone } from './dummy-bone.js';
@@ -252,7 +252,7 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
   return result;
 }
 function addForgeGeosets(model, mesh, bone, hd, surface, extra) {
-  const geosetIndices = [];
+  const geosetIndices = [], keep = keepsGeosetAnimationBounds(model);
   for (const [i, source] of mesh.geosets.entries()) {
     const index = model.Geosets.length, g = { ...structuredClone(source), VertexGroup: new Uint8Array(source.Vertices.length / 3), Groups: [[bone.ObjectId]], TotalGroupsCount: 1, ...surface(i), SelectionGroup: 0, Unselectable: false, Anims: [] };
     // The codec's missing-LOD default becomes -1 on MDX save; the native
@@ -262,7 +262,7 @@ function addForgeGeosets(model, mesh, bone, hd, surface, extra) {
     model.Geosets.push(g); geosetIndices.push(index);
   }
   recalculateExtents(model, geosetIndices);
-  for (const i of geosetIndices) fillSequenceExtents(model, model.Geosets[i]);
+  for (const i of geosetIndices) fillSequenceExtents(model, model.Geosets[i], { keep });
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length; }
   return { geosetIndices, boneId: bone.ObjectId, ...extra };
 }

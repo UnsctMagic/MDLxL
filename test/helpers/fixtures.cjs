@@ -170,6 +170,9 @@ const FIXTURES = {
   'xfer-r32-donor': ['MDLXL_XFER_R32_DONOR', testModel('xfer-reasonable/Arkain_CavalrySergeant-840af16a/Arkain_CavalrySergeant.mdx')],
   'xfer-r43-own': ['MDLXL_XFER_R43_OWN', testModel('reasonable-50/human__bloodelfdragonhawk-a175aae4/bloodelfdragonhawk.mdx')], // reasonable-43: a legless flyer bobbed on the winged Gryphon Rider
   'xfer-r43-donor': ['MDLXL_XFER_R43_DONOR', testModel('reasonable-50/human__gryphonrider-fe21e8ec/gryphonrider.mdx')],
+  'uv-fit-nurgle': ['MDLXL_UV_FIT_NURGLE', testModel('uv-fit-layout/WH_WOC_KnightNurgleHeavy06.mdx')], // geoset 46: two UV rings folded on one patch
+  'uv-fit-archer': ['MDLXL_UV_FIT_ARCHER', testModel('uv-fit-layout/Bretonnian_Archer.mdx')], // geoset 11: three quads on one UV spot
+  'uv-fit-orc': ['MDLXL_UV_FIT_ORC', testModel('uv-fit-layout/Greenskin_Orc1.mdx')], // geoset 5: a folded piece and two mirrored quads
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
 
@@ -204,4 +207,15 @@ function tempDir(prefix = 'mdlxl-', env = process.env) {
   return fs.mkdtempSync(path.join(base, prefix));
 }
 
-module.exports = { FIXTURES, fixturePath, testModel, modelsRoot, gameFolder, tempDir };
+// Wraps node:test so a test whose model from the collection is missing skips instead of failing
+// (CI and other PCs have no D:/Claude/MDLxL-TestModels).
+function skipWithoutModels(test) {
+  return (name, fn) => test(name, async t => {
+    try { return await fn(t); } catch (error) {
+      if (error?.code === 'ENOENT' && path.resolve(String(error.path)).startsWith(modelsRoot())) return t.skip('test model not on this machine');
+      throw error;
+    }
+  });
+}
+
+module.exports = { FIXTURES, fixturePath, testModel, modelsRoot, gameFolder, tempDir, skipWithoutModels };

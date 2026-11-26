@@ -76,7 +76,10 @@ function duplicateBones(m,settings,changes){
 function unusedNodes(m,changes){const used=new Set(m.Geosets.flatMap(g=>g.Groups.flat()));const nodes=allNodes(m),tree=nodeIndex(m,nodes);for(const k of collections)if(!['Bones','Helpers'].includes(k))for(const n of m[k]||[])used.add(n.ObjectId);for(const n of [...m.Bones,...m.Helpers])if(n.GeosetId!=null||n.GeosetAnimId!=null)used.add(n.ObjectId);
  for(const id of [...used])for(const parent of tree.ancestors(id))used.add(parent);
  const removed=new Set([...m.Bones,...m.Helpers].filter(n=>!used.has(n.ObjectId)).map(n=>n.ObjectId));for(const n of nodes)if(removed.has(n.ObjectId))changes.push({label:`${m.Bones.includes(n)?'Bone':'Helper'}: ${n.Name||n.ObjectId}`});if(removed.size)remapNodes(m,removed);return removed.size;}
-function unusedGlobals(m,changes){const owners=[...tracks(m).map(t=>t.track),...m.EventObjects],used=new Set(owners.map(t=>t.GlobalSeqId).filter(id=>Number.isInteger(id)&&id>=0&&id<m.GlobalSequences.length)),map=new Map(),kept=[];m.GlobalSequences.forEach((duration,id)=>{if(used.has(id)){map.set(id,kept.length);kept.push(duration);}else changes.push({label:`Global sequence ${id+1}`});});const removed=m.GlobalSequences.length-kept.length;for(const t of owners)if(map.has(t.GlobalSeqId))t.GlobalSeqId=map.get(t.GlobalSeqId);m.GlobalSequences=kept;return removed;}
+function unusedGlobals(m,changes){const owners=[...tracks(m).map(t=>t.track),...m.EventObjects],used=new Set(owners.map(t=>t.GlobalSeqId).filter(id=>Number.isInteger(id)&&id>=0&&id<m.GlobalSequences.length)),map=new Map(),kept=[];m.GlobalSequences.forEach((duration,id)=>{if(used.has(id)){map.set(id,kept.length);kept.push(duration);}else changes.push({label:`Global sequence ${id+1}`});});const removed=m.GlobalSequences.length-kept.length;for(const t of owners)if(map.has(t.GlobalSeqId))t.GlobalSeqId=map.get(t.GlobalSeqId);m.GlobalSequences=kept;
+ // FX layer lists remember the clocks they created by index; follow the renumbering as deleteGlobalSequence does.
+ if(removed)for(const g of m.Geosets){const s=g._FxStack;if(!Array.isArray(s?.createdClockIds))continue;s.createdClockIds=s.createdClockIds.filter(id=>map.has(id)).map(id=>map.get(id));s.createdClocks=[...new Set(s.createdClockIds.map(id=>kept[id]).filter(Number.isFinite))];}
+ return removed;}
 function unusedResources(m,stats,skipped,changes){
  const beforeMaterials=[...m.Materials],beforeTextures=[...m.Textures],counts={materials:0,textures:0,originalMaterials:m.Materials.length};
  resources(m,counts,skipped);Object.assign(stats,counts);
@@ -155,7 +158,7 @@ export function sanityProposals(m){const findings=[];for(const [i,e]of m.Particl
  if(relocation>=0)existing.splice(relocation,0,...exact);else existing.push(...exact);
  // Extents come last so batches and Fix everything measure the repaired motion.
  return [...existing,...boundsProposals(m)];}
-export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
+export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'||f.kind==='bounds'&&f.choices?{choice:f.choice}:{};
 /** Apply every automatic repair, check again and repeat: one repair can expose
  * or enable another (sorted keys can then get opening keys, for example). */
 function fixAll(m){
@@ -163,7 +166,7 @@ function fixAll(m){
  for(let pass=0;pass<12;pass++){
   // Spline resampling only clears notices and rewrites whole tracks; after
   // other key repairs it can turn a pose (Rifleman's root in Death). Hand-pick it.
-  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!['skinCollapse','splineResample'].includes(f.kind));
+  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!f.optional&&!['skinCollapse','splineResample'].includes(f.kind));
   // Structural checker repairs can renumber nodes and geosets, which moves
   // key-level findings. Apply them alone, then scan again.
   const checker=list.filter(f=>f.kind==='checker'&&!tried.has(json([f.id,f.items])));
@@ -253,7 +256,8 @@ function applyRepair(m,fix,settings,evidenceModel=m){
  if(fix.kind==='bounds'){
   const current=scan(boundsProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
-  calculateExtents(m);return;
+  // Necessary only exists only where it is offered (Classic/SD with animations).
+  calculateExtents(m,{necessaryOnly:!!current.choices&&(settings.choice??current.choice)==='necessary'});return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}
 function spheres(m,settings){const chosen=settings.spheres||presetShapes(settings.preset??1),size=clamp(settings.size??1,.01,20),old=m.CollisionShapes;
  if(allNodes(m).some(n=>!old.includes(n)&&old.some(c=>c.ObjectId===n.Parent)))throw Error('A collision shape has non-collision child nodes; adjust that hierarchy before replacing spheres.');

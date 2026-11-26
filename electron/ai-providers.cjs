@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { spawnAgent, stopAgent, lines, prepareEnvironment } = require('./ai-process.cjs');
+const { spawnAgent, stopAgent, lines, prepareEnvironment, resolveExecutable } = require('./ai-process.cjs');
 const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
@@ -26,10 +26,14 @@ function endpoint(value) {
     throw Error('Use an HTTPS API base URL, or HTTP on localhost.');
   return url.href.replace(/\/$/, '');
 }
-// The connection's API address: its own server, or Anthropic's or OpenAI's.
+// The connection's API address: its own server, the provider's listed address
+// (src/ai-providers.json "apiBase"), or Anthropic's or OpenAI's.
 function apiBase(settings) {
+  const info = providerInfo(settings.provider) || {};
+  if (!settings.baseUrl && info.baseUrlRequired)
+    throw Error('Enter the API base URL for ' + info.label + ' in AI connection settings.');
   return endpoint(
-    settings.baseUrl || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
+    settings.baseUrl || info.apiBase || (settings.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
   );
 }
 const ANTHROPIC_HEADERS = Object.freeze({ 'anthropic-version': '2023-06-01' });
@@ -96,11 +100,33 @@ function responsesInput(history) {
     if (m.role === 'tool') return [{ type: 'function_call_output', call_id: m.tool_call_id, output: m.content }];
     if (m.role === 'assistant')
       return [
+        ...(m.reasoning_items || []),
         ...(m.content ? [{ role: 'assistant', content: m.content }] : []),
         ...(m.tool_calls || []).map(c => ({ type: 'function_call', call_id: c.id, name: c.function.name, arguments: c.function.arguments })),
       ];
     return [{ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) }];
   });
+}
+// Once a long conversation is big, old pictures and long tool results (all but the newest
+// few) become short placeholders, so each later step stops paying to re-read them. The
+// history itself is trimmed, in one batch, so the provider's prompt cache stays valid
+// between trims. Returns how many items were cleared.
+function trimOldContext(history, { keepResults = 6, keepPictures = 2, minChars = 1200 } = {}) {
+  let cleared = 0;
+  const tools = [], pictures = [];
+  history.forEach((m, i) => {
+    if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > minChars && !m.content.startsWith('[Cleared')) tools.push(i);
+    if (m.role === 'user' && Array.isArray(m.content) && m.content.some(c => c.type === 'image_url')) pictures.push(i);
+  });
+  for (const i of tools.slice(0, Math.max(0, tools.length - keepResults))) {
+    history[i] = { ...history[i], content: '[Cleared to save context: an earlier tool result of ' + history[i].content.length + ' characters. Run the step again if you need it.]' };
+    cleared++;
+  }
+  for (const i of pictures.slice(0, Math.max(0, pictures.length - keepPictures))) {
+    history[i] = { ...history[i], content: history[i].content.map(c => (c.type === 'image_url' ? { type: 'text', text: '[Earlier picture cleared to save context.]' } : c)) };
+    cleared++;
+  }
+  return cleared;
 }
 // Attached images must be plain base64 (no whitespace), stricter than tool captures.
 function imageParts(images = [], kind = 'openai') {
@@ -156,19 +182,32 @@ function toolDetail(input) {
 function toolSummary(text) {
   return typeof text === 'string' ? text.slice(0, 300) : undefined;
 }
-// One prompt may take at most this many tool rounds unless the user sets a step limit.
-const API_STEP_LIMIT = 64;
-// Anthropic API list prices in US$ per million tokens (checked 2026-10). Cache
+// A prompt may take as many tool rounds as it needs; only the user's own step limit ends it.
+// A price list entry for a model id, also when the id ends in a dated snapshot.
+function listedPrice(prices, model) {
+  return prices[model] || prices[String(model || '').replace(/-\d{4}-?\d{2}-?\d{2}$/, '')] || null;
+}
+// Anthropic API list prices in US$ per million tokens (checked 2026-11-17). Cache
 // writes cost 1.25x input. Unlisted models show tokens only and have no limit.
 const ANTHROPIC_PRICES = {
+  'claude-fable-5-2': { input: 8, output: 40, cacheRead: 0.2 },
+  'claude-mythos-5-2': { input: 8, output: 40, cacheRead: 0.2 },
   'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25 },
+  'claude-fable-5': { input: 10, output: 50, cacheRead: 1 },
   'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2 },
-  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2 },
-  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1 },
+  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
+  // Above 100K prompt tokens a request is billed at the long-context rates.
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01, long: { above: 100000, input: 0.5, output: 2.5, cacheRead: 0.05 } },
 };
+// Cost of one request (or the sum of several at one rate). A request is priced on its own
+// prompt size, so tiered models never bill a small request at the big-prompt rate.
 function anthropicCost(model, spent) {
-  const price = ANTHROPIC_PRICES[model];
-  if (!price) return null;
+  const listed = listedPrice(ANTHROPIC_PRICES, model);
+  if (!listed) return null;
+  const prompt = (spent.input || 0) + (spent.cacheWrite || 0) + (spent.cacheRead || 0);
+  const price = listed.long && prompt > listed.long.above ? { ...listed, ...listed.long } : listed;
   return (
     (spent.input * price.input +
       spent.cacheWrite * price.input * 1.25 +
@@ -176,6 +215,96 @@ function anthropicCost(model, spent) {
       spent.output * price.output) /
     1e6
   );
+}
+
+// OpenAI API list prices in US$ per million tokens (checked 2026-11-17):
+// [input, cached input, output], then the same above 272K input tokens.
+const OPENAI_LONG_CONTEXT = 272000;
+const OPENAI_PRICES = {
+  'gpt-6.2-astra': [8, 0.4, 40, 16, 0.8, 60],
+  'gpt-6.2-sol': [2, 0.1, 10, 4, 0.2, 15],
+  'gpt-6.1-sol': [2, 0.1, 10, 4, 0.2, 15],
+  'gpt-6.1-terra': [1, 0.05, 5, 2, 0.1, 7.5],
+  'gpt-6-astra': [10, 1, 50, 20, 2, 75],
+  'gpt-6-sol': [2, 0.2, 10, 4, 0.4, 15],
+  'gpt-6-luna': [0.1, 0.01, 0.5, 0.2, 0.02, 0.75],
+  'gpt-5.6-sol': [4, 0.4, 20, 8, 0.8, 30],
+  'gpt-5.6-terra': [2, 0.2, 12, 4, 0.4, 18],
+  'gpt-5.6-luna': [0.2, 0.02, 1.2, 0.4, 0.04, 1.8],
+};
+// List prices of the providers on the chat-completions route, in US$ per million
+// tokens (checked 2026-11-19 on each provider's own price page): [input, cached
+// input, output], then the same above the provider's long-prompt mark where it has
+// one. Unlisted models show tokens only and have no limit. DeepSeek is listed at its
+// peak rate (off-peak is half), so its limit never undercounts.
+const PROVIDER_PRICES = {
+  google: {
+    long: 200000,
+    'gemini-4-carbon': [2, 0.1, 10],
+    'gemini-4-argon': [2, 0.1, 10],
+    'gemini-4-neon': [3, 0.15, 15],
+    'gemini-4-hydrogen': [1.5, 0.075, 7.5],
+    'gemini-3.8-flash': [0.75, 0.075, 3.75],
+    'gemini-3.6-flash': [0.75, 0.075, 3.75],
+    'gemini-3.5-flash-lite': [0.3, 0.03, 2.5],
+    'gemini-3.1-pro-preview': [2, 0.2, 12, 4, 0.4, 18],
+    'gemini-3.1-flash-lite': [0.25, 0.025, 1.5],
+    'gemini-3-flash-preview': [0.5, 0.05, 3],
+    'gemini-2.5-pro': [1.25, 0.125, 10, 2.5, 0.25, 15],
+    'gemini-2.5-flash': [0.3, 0.03, 2.5],
+    'gemini-2.5-flash-lite': [0.1, 0.01, 0.4],
+  },
+  xai: {
+    long: 200000,
+    'grok-4.7': [2, 0.5, 6, 4, 1, 12],
+    'grok-4.6': [2, 0.5, 6, 4, 1, 12],
+    'grok-4.5': [2, 0.3, 6, 4, 0.6, 12],
+    'grok-4.3': [1.25, 0.2, 2.5, 2.5, 0.4, 5],
+    'grok-build-0.1': [1, 0.2, 2, 2, 0.4, 4],
+  },
+  mistral: { 'mistral-large-latest': [0.5, 0.05, 1.5] },
+  deepseek: {
+    'deepseek-flash': [0.3, 0.006, 1.2],
+    'deepseek-v4-flash': [0.3, 0.006, 1.2],
+    'deepseek-v4-pro': [1.32, 0.044, 3.96],
+  },
+  groq: { 'openai/gpt-oss-120b': [0.15, 0.15, 0.6], 'openai/gpt-oss-20b': [0.075, 0.075, 0.3] },
+};
+// Cost of one chat-completions response, or null when the model has no listed price.
+// The prompt count includes the cached part (OpenAI's and DeepSeek's field names).
+function compatibleCost(provider, model, usage) {
+  const prices = PROVIDER_PRICES[provider], price = prices && listedPrice(prices, String(model || '').replace(/^models\//, ''));
+  if (!price) return null;
+  const input = usage.prompt_tokens || 0,
+    cached = Math.min(usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens ?? 0, input);
+  const [rate, cachedRate, outputRate] = prices.long && input > prices.long && price.length > 3 ? price.slice(3) : price;
+  return ((input - cached) * rate + cached * cachedRate + (usage.completion_tokens || 0) * outputRate) / 1e6;
+}
+// A chat-completions answer as stream events: the stream itself, or one event built
+// from a whole answer (a provider that cannot stream tool calls).
+async function* chatEvents(response, streamed) {
+  if (streamed) return yield* sseEvents(response);
+  const data = await response.json();
+  if (data.error) throw Error(data.error.message || 'AI request failed.');
+  const choice = data.choices?.[0], message = choice?.message || {};
+  yield {
+    usage: data.usage,
+    choices: choice
+      ? [{
+          finish_reason: choice.finish_reason || 'stop',
+          delta: { content: message.content || '', reasoning_content: message.reasoning_content, tool_calls: (message.tool_calls || []).map((call, index) => ({ ...call, index })) },
+        }]
+      : [],
+  };
+}
+// Cost of one OpenAI response; its input count includes the cached part.
+function openaiCost(model, usage) {
+  const price = listedPrice(OPENAI_PRICES, model);
+  if (!price) return null;
+  const input = usage.input_tokens || 0,
+    cached = Math.min(usage.input_tokens_details?.cached_tokens || 0, input);
+  const [rate, cachedRate, outputRate] = input > OPENAI_LONG_CONTEXT ? price.slice(3) : price;
+  return ((input - cached) * rate + cached * cachedRate + (usage.output_tokens || 0) * outputRate) / 1e6;
 }
 
 // Claude 4.6+ thinks adaptively; summarized display lets the console show it.
@@ -235,12 +364,99 @@ function claudeCompaction(data) {
   if (data.subtype === 'status') return data.status === 'compacting';
   return null;
 }
+// Old pictures, data dumps and reasoning are cleared by the API itself once the
+// conversation is large, so later steps stop paying to re-read them. Server-side
+// clearing keeps prompt caching and preserved reasoning valid (a client-side edit of
+// earlier turns would not). Each clear removes at least 20K tokens, so the cache
+// rewrite it causes pays for itself.
+//
+// A whole job is one API turn (tool results continue it), so clearing reasoning never
+// reaches the job's own thinking, which piles up and is re-read on every step. Past
+// COMPACT_ABOVE input tokens the API also summarises everything so far into a
+// compaction block; the request carries on from that summary, and the saved history
+// drops what came before it, so later requests stay small.
+const CONTEXT_EDITING_BETA = 'context-management-2025-06-27';
+const COMPACTION_BETA = 'compact-2026-01-12';
+const COMPACT_ABOVE = 100000;
+const COMPACTION_INSTRUCTIONS =
+  'Summarize this MDLxL model-editing conversation inside <summary></summary> tags so the work can continue from the summary alone. Keep: ' +
+  "the user's request in their own words and every later instruction or correction they gave; the plan and which step is current; " +
+  'each change made to the model (what, where, with which tool) and whether it was verified, with the result of each check; ' +
+  "every file path in the chat's work folder and any names, ids, indices or numbers that later steps need; open problems; and the remaining work, in order. " +
+  'Leave out picture descriptions and data a tool can read again. Do not call any tools while writing this summary; respond with text only.';
+const EDIT_TYPES = { thinking: 'clear_thinking_20251015', tools: 'clear_tool_uses_20250919', compact: 'compact_20260112' };
+// What each piece is called in the chat when Claude refuses it.
+const EDIT_LABELS = {
+  [EDIT_TYPES.thinking]: 'clearing of earlier reasoning',
+  [EDIT_TYPES.tools]: 'clearing of old tool results',
+  [EDIT_TYPES.compact]: 'context compaction',
+};
+// `off` holds the edit types Claude refused earlier in this run. Returns null when nothing is left.
+function anthropicContextEditing(thinking, off = new Set()) {
+  const edits = [
+    // Keep the reasoning of the job in progress; earlier jobs' reasoning is cleared.
+    // Claude requires this one first.
+    ...(thinking ? [{ type: EDIT_TYPES.thinking, keep: { type: 'thinking_turns', value: 1 } }] : []),
+    {
+      type: EDIT_TYPES.tools,
+      // Old tool inputs (whole scripts) go too, not only their results.
+      clear_tool_inputs: true,
+      trigger: { type: 'input_tokens', value: 60000 },
+      keep: { type: 'tool_uses', value: 4 },
+      clear_at_least: { type: 'input_tokens', value: 20000 },
+    },
+    // Compaction needs the same models as adaptive thinking (Claude 4.6 and later).
+    ...(thinking ? [{ type: EDIT_TYPES.compact, trigger: { type: 'input_tokens', value: COMPACT_ABOVE }, instructions: COMPACTION_INSTRUCTIONS }] : []),
+  ].filter(edit => !off.has(edit.type));
+  return edits.length ? { edits } : null;
+}
+// The beta header the edits need.
+function anthropicBetas(edits) {
+  const betas = [];
+  if (edits.some(edit => edit.type !== EDIT_TYPES.compact)) betas.push(CONTEXT_EDITING_BETA);
+  if (edits.some(edit => edit.type === EDIT_TYPES.compact)) betas.push(COMPACTION_BETA);
+  return betas.join(',');
+}
+// The edit types a 400 refuses, out of those sent: the ones it names, or the ones whose
+// beta it names; a refusal of context management in general takes the newest piece
+// first. Any other 400 refuses none, and the error stands.
+function refusedEdits(message, edits) {
+  if (!edits?.length || !/HTTP 400/.test(message)) return [];
+  const types = edits.map(edit => edit.type);
+  const named = new Set();
+  if (/compact/i.test(message)) named.add(EDIT_TYPES.compact);
+  if (/clear_thinking/i.test(message)) named.add(EDIT_TYPES.thinking);
+  if (/clear_tool_uses/i.test(message)) named.add(EDIT_TYPES.tools);
+  const index = /edits(?:\.|\[)(\d+)/.exec(message);
+  if (index && types[index[1]]) named.add(types[index[1]]);
+  let hit = types.filter(type => named.has(type));
+  if (!hit.length && /context-management-2025-06-27|context[ _-]editing/i.test(message))
+    hit = types.filter(type => type !== EDIT_TYPES.compact);
+  if (!hit.length && /context[ _]management/i.test(message)) hit = types.slice(-1);
+  return hit;
+}
+// Token counts of one response: the top level counts only the reply itself; with
+// compaction, `iterations` lists the summary and the reply, and the bill is their sum.
+function usageParts(usage) {
+  const count = u => ({
+    input: u?.input_tokens || 0,
+    cacheWrite: u?.cache_creation_input_tokens || 0,
+    cacheRead: u?.cache_read_input_tokens || 0,
+    output: u?.output_tokens || 0,
+  });
+  return Array.isArray(usage?.iterations) && usage.iterations.length ? usage.iterations.map(i => ({ type: i.type, ...count(i) })) : null;
+}
 const CANCELLED = 'AI request cancelled.';
 // Said when a provider asks for anything beyond MDLxL's own editor tools.
 const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
 const CLAUDE_SIGN_IN = 'Sign in to Claude Code in your own terminal with: claude auth login. Then press Check sign-in.';
+// Providers whose CLI the user signs in to themselves (src/ai-providers.json "ownSignIn").
+const ownSignIn = provider => {
+  const info = providerInfo(provider) || {};
+  return provider === 'claude' ? CLAUDE_SIGN_IN : 'Sign in to ' + info.label + ' in your own terminal with: ' + info.signInHint + '. Then press Check sign-in.';
+};
 function authenticationRequired(provider) {
-  const message = provider === 'claude' ? CLAUDE_SIGN_IN + ' Your prompt has been kept.' : 'Sign in to connect your AI. Your prompt has been kept.';
+  const message = providerInfo(provider)?.ownSignIn ? ownSignIn(provider) + ' Your prompt has been kept.' : 'Sign in to connect your AI. Your prompt has been kept.';
   return Object.assign(Error(message), {
     code: 'AI_AUTH_REQUIRED',
   });
@@ -272,6 +488,11 @@ async function runApi({
   // What this prompt has spent so far, shown under the reply and checked against the limit.
   const spent = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
   const limit = settings.spendLimit > 0 ? settings.spendLimit : 0;
+  // OpenAI bills each response on its own, so its cost is added up per response.
+  let openaiUsd = 0;
+  let anthropicUsd = 0;
+  let compatibleUsd = 0;
+  const info = providerInfo(settings.provider) || {};
   const charge = usd => {
     event({ type: 'cost', usd, tokens: spent.input + spent.cacheWrite + spent.cacheRead + spent.output });
     if (limit && usd !== null && usd >= limit)
@@ -319,6 +540,7 @@ async function runApi({
         callId: toolCall.id,
         error: !!result.isError,
         summary: toolSummary(textContent),
+        content: result.content,
       });
     }
     if (imageMessages.length)
@@ -328,7 +550,14 @@ async function runApi({
       });
   }
   let awarenessVersion = awareness?.version;
-  const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
+  // Cleared and compacted by the API once the conversation is large; a piece Claude
+  // refuses stays off for the rest of this prompt, and the chat says so.
+  const refused = new Set();
+  // Providers without server-side clearing: trim the history here once it is large.
+  const TRIM_ABOVE = 60000;
+  let lastUsed = 0;
+  let compatibleUsage = true, keepReasoning = true;
+  const steps = settings.stepLimit > 0 ? settings.stepLimit : Infinity;
   for (let step = 0; step < steps; step++) {
     if (signal.aborted) throw Error(CANCELLED);
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
@@ -343,12 +572,13 @@ async function runApi({
         last.content.push({ type: 'text', text: steer });
       else history.push({ role: 'user', content: anthropic ? [{ type: 'text', text: steer }] : steer });
     }
+    if (!anthropic && lastUsed > TRIM_ABOVE && trimOldContext(history)) lastUsed = 0;
     if (anthropic) {
       const thinking = anthropicThinking(settings.model);
       // Prompt caching: the tools/system prefix and the conversation so far are
       // billed at the cached rate on the next step instead of full price.
       const cache = { type: 'ephemeral' };
-      const apiTools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema }));
+      const apiTools = tools.map(t => (t.anthropicType ? { type: t.anthropicType, name: t.name } : { name: t.name, description: t.description, input_schema: t.inputSchema }));
       if (apiTools.length) apiTools[apiTools.length - 1] = { ...apiTools.at(-1), cache_control: cache };
       if (web) apiTools.push(...anthropicWebTools(settings.model));
       const messages = history.slice();
@@ -359,6 +589,7 @@ async function runApi({
         blocks[blocks.length - 1] = { ...blocks.at(-1), cache_control: cache };
         messages[messages.length - 1] = { ...lastMessage, content: blocks };
       }
+      const contextManagement = anthropicContextEditing(thinking, refused);
       let response;
       try {
         event({ type: 'request', model: settings.model });
@@ -373,34 +604,51 @@ async function runApi({
             ...(apiTools.length ? { tools: apiTools } : {}),
             ...(thinking ? { thinking } : {}),
             ...(thinking && effortFor(settings) ? { output_config: { effort: effortFor(settings) } } : {}),
+            ...(contextManagement ? { context_management: contextManagement } : {}),
             stream: true,
           },
           key,
           signal,
-          ANTHROPIC_HEADERS,
+          contextManagement ? { ...ANTHROPIC_HEADERS, 'anthropic-beta': anthropicBetas(contextManagement.edits) } : ANTHROPIC_HEADERS,
         );
       } catch (error) {
+        // A model or account without one of the pieces works on without that piece only.
+        const pieces = refusedEdits(error.message, contextManagement?.edits);
+        if (pieces.length) {
+          for (const piece of pieces) {
+            refused.add(piece);
+            event({
+              type: 'provider-notice',
+              text: `Claude did not accept ${EDIT_LABELS[piece]}; this prompt continues without it, and long jobs re-read more each step.`,
+              detail: error.message,
+              severity: 'warning',
+            });
+          }
+          event({ type: 'request-usage', model: settings.model, refused: pieces, error: error.message.slice(0, 500) });
+          step--;
+          continue;
+        }
         // Old reasoning refused: drop it (finished turns first, then all) and ask again.
         if (!STALE_THINKING.test(error.message) || !(dropStaleThinking(history) || dropStaleThinking(history, true))) throw error;
         step--;
         continue;
       }
       const content = [];
-      let stopReason = null;
+      const request = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
+      const window = thinking ? 1000000 : 200000;
+      let stopReason = null,
+        iterations = null,
+        appliedEdits = null;
       for await (const data of sseEvents(response)) {
         if (data.type === 'error') throw Error(data.error?.message || 'Claude stream failed.');
         if (data.type === 'content_block_start') content[data.index] = { ...data.content_block, _json: '' };
         // Actual provider context usage for the chat.
         if (data.type === 'message_start' && data.message?.usage) {
           const u = data.message.usage;
-          spent.input += u.input_tokens || 0;
-          spent.cacheWrite += u.cache_creation_input_tokens || 0;
-          spent.cacheRead += u.cache_read_input_tokens || 0;
-          event({
-            type: 'usage',
-            used: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
-            window: anthropicThinking(settings.model) ? 1000000 : 200000,
-          });
+          request.input = u.input_tokens || 0;
+          request.cacheWrite = u.cache_creation_input_tokens || 0;
+          request.cacheRead = u.cache_read_input_tokens || 0;
+          event({ type: 'usage', used: request.input + request.cacheRead + request.cacheWrite, window });
         }
         if (data.type === 'content_block_delta') {
           const block = content[data.index];
@@ -417,15 +665,47 @@ async function runApi({
           if (data.delta.type === 'signature_delta')
             block.signature = (block.signature || '') + data.delta.signature;
           if (data.delta.type === 'citations_delta') (block.citations ||= []).push(data.delta.citation);
+          // The summary arrives whole in one delta; the block is kept exactly as sent.
+          if (data.delta.type === 'compaction_delta') {
+            const { type, ...fields } = data.delta;
+            for (const [name, value] of Object.entries(fields))
+              block[name] = typeof value === 'string' && typeof block[name] === 'string' ? block[name] + value : value;
+          }
         }
         if (data.type === 'message_delta') {
           stopReason = data.delta?.stop_reason;
-          // output_tokens here is the reply's final total.
-          if (data.usage?.output_tokens) spent.output += data.usage.output_tokens;
+          // The usage here is the reply's final total.
+          const u = data.usage || {};
+          if (u.input_tokens != null) request.input = u.input_tokens;
+          if (u.cache_creation_input_tokens != null) request.cacheWrite = u.cache_creation_input_tokens;
+          if (u.cache_read_input_tokens != null) request.cacheRead = u.cache_read_input_tokens;
+          if (u.output_tokens) request.output = u.output_tokens;
+          iterations = usageParts(u) || iterations;
+          appliedEdits = (data.context_management || data.delta?.context_management)?.applied_edits || appliedEdits;
         }
       }
       if (!stopReason) throw Error('The provider stream ended before completion.');
-      charge(anthropicCost(settings.model, spent));
+      {
+        // A compaction is billed on top of the reply; each part at its own size.
+        const parts = iterations?.some(part => part.type === 'compaction') ? iterations : [request];
+        for (const part of parts) for (const name of Object.keys(spent)) spent[name] += part[name];
+        const costs = parts.map(part => anthropicCost(settings.model, part));
+        const usd = costs.includes(null) ? null : costs.reduce((sum, value) => sum + value, 0);
+        anthropicUsd = usd === null || anthropicUsd === null ? null : anthropicUsd + usd;
+        const compacted = iterations?.find(part => part.type === 'compaction');
+        // Each request's tokens, clearing and compaction, kept with the chat as proof of what a step costs.
+        event({
+          type: 'request-usage',
+          model: settings.model,
+          ...request,
+          stop: stopReason,
+          ...(appliedEdits?.length ? { edits: appliedEdits } : {}),
+          ...(compacted ? { compaction: { input: compacted.input + compacted.cacheRead + compacted.cacheWrite, output: compacted.output } } : {}),
+          ...(usd !== null ? { usd } : {}),
+        });
+        event({ type: 'usage', used: request.input + request.cacheRead + request.cacheWrite, window });
+        charge(anthropicUsd);
+      }
       for (const block of content) {
         if ((block.type === 'tool_use' || block.type === 'server_tool_use') && block._json) block.input = JSON.parse(block._json);
         delete block._json;
@@ -442,9 +722,24 @@ async function runApi({
           });
       }
       history.push({ role: 'assistant', content });
+      const compaction = content.find(b => b.type === 'compaction');
+      if (compaction) {
+        event({ type: 'compaction', active: true });
+        // Claude ignores everything before a summary, so the saved history (and every
+        // later upload) starts at it. Without a summary the full history stays.
+        if (typeof compaction.content === 'string' && compaction.content) history.splice(0, history.length - 1);
+        else
+          event({
+            type: 'provider-notice',
+            text: 'Context compaction wrote no summary; the full history is kept.',
+            detail: stopReason === 'refusal' ? 'The summary was declined.' : '',
+            severity: 'warning',
+          });
+        event({ type: 'compaction', active: false });
+      }
       const calls = content.filter(b => b.type === 'tool_use');
-      // A long web search can pause the turn; sending it back lets it continue.
-      if (!calls.length && stopReason === 'pause_turn') continue;
+      // A long web search (or a compaction) can pause the turn; sending it back lets it continue.
+      if (!calls.length && (stopReason === 'pause_turn' || stopReason === 'compaction')) continue;
       if (!calls.length) {
         if (stopReason === 'max_tokens')
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
@@ -471,6 +766,7 @@ async function runApi({
           callId: block.id,
           error: !!result.isError,
           summary: toolSummary(result.content.find(c => c.type === 'text')?.text),
+          content: result.content,
         });
       }
       history.push({ role: 'user', content: results });
@@ -478,12 +774,17 @@ async function runApi({
       // OpenAI's newer models take tools together with a thinking effort only
       // through its Responses API. The chat keeps its usual history format.
       event({ type: 'request', model: settings.model });
-      const response = await requestJson(
+      const reasoningModel = /^(?:od|gpt-[5-9])/.test(settings.model);
+      let response;
+      try {
+        response = await requestJson(
         base + '/responses',
         {
           model: settings.model,
           instructions: system,
           input: responsesInput(history),
+          // Stateless reasoning models hand back encrypted reasoning, kept between steps.
+          ...(reasoningModel && keepReasoning ? { include: ['reasoning.encrypted_content'] } : {}),
           ...(tools.length
             ? { tools: tools.map(t => ({ type: 'function', name: t.name, description: t.description, parameters: t.inputSchema, strict: false })) }
             : {}),
@@ -494,7 +795,18 @@ async function runApi({
         key,
         signal,
       );
-      const calls = [];
+      } catch (error) {
+        // A model, account or changed model that cannot take the saved reasoning runs without it.
+        if (keepReasoning && /HTTP 400.*(reasoning|encrypted|include)/is.test(error.message)) {
+          keepReasoning = false;
+          for (const m of history) delete m.reasoning_items;
+          step--;
+          continue;
+        }
+        throw error;
+      }
+      const calls = [],
+        reasoningItems = [];
       let text = '',
         incomplete = null;
       for await (const data of sseEvents(response)) {
@@ -504,21 +816,26 @@ async function runApi({
           text += data.delta;
           event({ type: 'text', text: data.delta });
         } else if (data.type === 'response.reasoning_summary_text.delta') event({ type: 'thinking', text: data.delta });
+        else if (data.type === 'response.output_item.done' && data.item?.type === 'reasoning' && keepReasoning && data.item.encrypted_content)
+          reasoningItems.push({ type: 'reasoning', id: data.item.id, summary: data.item.summary || [], encrypted_content: data.item.encrypted_content });
         else if (data.type === 'response.output_item.done' && data.item?.type === 'function_call')
           calls.push({ id: data.item.call_id, type: 'function', function: { name: data.item.name, arguments: data.item.arguments || '{}' } });
         else if (data.type === 'response.completed' || data.type === 'response.incomplete') {
           const usage = data.response?.usage;
           if (usage?.input_tokens) {
             event({ type: 'usage', used: usage.input_tokens, window: 400000 });
+            lastUsed = usage.input_tokens;
             spent.input += usage.input_tokens;
             spent.output += usage.output_tokens || 0;
-            charge(null);
+            const usd = openaiCost(settings.model, usage);
+            openaiUsd = usd === null || openaiUsd === null ? null : openaiUsd + usd;
+            charge(openaiUsd);
           }
           incomplete = data.type === 'response.incomplete' ? data.response?.incomplete_details?.reason || 'incomplete' : '';
         }
       }
       if (incomplete === null) throw Error('The provider stream ended before completion.');
-      history.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      history.push({ role: 'assistant', content: text || null, ...(reasoningItems.length ? { reasoning_items: reasoningItems } : {}), ...(calls.length ? { tool_calls: calls } : {}) });
       if (!calls.length) {
         if (incomplete === 'max_output_tokens')
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
@@ -527,7 +844,12 @@ async function runApi({
       await runChatToolCalls(calls);
     } else {
       event({ type: 'request', model: settings.model });
-      const response = await requestJson(
+      // A provider that cannot stream tool calls answers whole (src/ai-providers.json "toolStream").
+      const streamed = !(info.toolStream === false && tools.length);
+      const effort = info.reasoningEffort ? effortFor(settings) : null;
+      let response;
+      try {
+        response = await requestJson(
         base + '/chat/completions',
         {
           model: settings.model,
@@ -540,21 +862,35 @@ async function runApi({
                 })),
               }
             : {}),
-          stream: true,
+          stream: streamed,
+          ...(effort ? { reasoning_effort: effort === 'xhigh' ? 'high' : effort } : {}),
+          // Ask for token counts so the fresh-history rule and trimming can work.
+          ...(streamed && compatibleUsage ? { stream_options: { include_usage: true } } : {}),
         },
         key,
         signal,
       );
+      } catch (error) {
+        if (compatibleUsage && /HTTP 400.*(stream_options|include_usage)/is.test(error.message)) {
+          compatibleUsage = false;
+          step--;
+          continue;
+        }
+        throw error;
+      }
       const calls = new Map();
       let text = '',
         finishReason;
-      for await (const data of sseEvents(response)) {
+      for await (const data of chatEvents(response, streamed)) {
         if (data.error) throw Error(data.error.message || 'AI stream failed.');
         if (data.usage?.prompt_tokens) {
-          event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
+          event({ type: 'usage', used: data.usage.prompt_tokens, window: info.window || 128000 });
+          lastUsed = data.usage.prompt_tokens;
           spent.input += data.usage.prompt_tokens;
           spent.output += data.usage.completion_tokens || 0;
-          charge(null);
+          const cost = compatibleCost(settings.provider, settings.model, data.usage);
+          if (cost !== null) compatibleUsd += cost;
+          charge(cost === null ? null : compatibleUsd);
         }
         const choice = data.choices?.[0];
         if (!choice) continue;
@@ -573,6 +909,8 @@ async function runApi({
             calls.set(delta.index, call);
           }
           if (delta.id) call.id = delta.id;
+          // Gemini signs each tool call; the signature must go back with the call.
+          if (delta.extra_content) call.extra_content = delta.extra_content;
           if (delta.function?.name) call.function.name += delta.function.name;
           if (delta.function?.arguments) call.function.arguments += delta.function.arguments;
         }
@@ -592,12 +930,14 @@ async function runApi({
       await runChatToolCalls(toolCalls);
     }
   }
-  throw Error(`The AI used ${steps} tool rounds. Progress is retained; send another prompt to continue.`);
+  throw Error(`The AI used ${steps} tool rounds, your step limit. Progress is retained; send another prompt to continue.`);
 }
 
 class CodexProcess {
-  constructor(settings, { directory, event = () => {}, mcp, signal, web = false, askUser } = {}) {
+  constructor(settings, { directory, event = () => {}, mcp, signal, web = false, askUser, workDirectory, shellVariables } = {}) {
     this.settings = settings;
+    this.workDirectory = workDirectory;
+    this.shellVariables = shellVariables;
     this.askUser = askUser;
     this.questions = new AbortController();
     this.interactions = new Map();
@@ -613,9 +953,12 @@ class CodexProcess {
   }
   async start() {
     await fs.mkdir(this.directory, { recursive: true });
-    const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
+    // With the chat's work folder Codex has its own shell there (sandboxed to the folder,
+    // with local network for the MDLxL bridge and package installs); without it, no shell.
+    const args = ['app-server', '-c', `features.shell_tool=${this.workDirectory ? 'true' : 'false'}`, '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
+    if (this.workDirectory) args.push('-c', 'sandbox_workspace_write.network_access=true');
     if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
-    const env = await prepareEnvironment(this.directory, 'codex');
+    const env = { ...(await prepareEnvironment(this.directory, 'codex')), ...(this.shellVariables || {}) };
     if (this.mcp) {
       env.MDLXL_AI_TOKEN = this.mcp.token;
       args.push(
@@ -629,7 +972,7 @@ class CodexProcess {
         `mcp_servers.mdlxl.tool_timeout_sec=${MCP_TOOL_TIMEOUT_MS / 1000}`,
       );
       // Sending a prompt authorizes MDLxL's own editor tools, as in the Claude
-      // allowlist. This is private to this child; shell/filesystem access stays restricted.
+      // allowlist. This is private to this child; its shell writes only in the work folder.
       for (const name of this.mcp.toolNames || [])
         args.push('-c', `mcp_servers.mdlxl.tools.${name}.approval_mode="approve"`);
     }
@@ -778,12 +1121,25 @@ class CodexProcess {
         callId: p.item.id,
         error: p.item.status === 'failed',
         summary: toolSummary(p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text),
+        content: p.item.result?.content,
       });
     // Web research runs inside Codex; its searches show as steps.
     if (message.method === 'item/started' && p.item?.type === 'webSearch')
       this.event({ type: 'tool', name: 'web_search', callId: p.item.id, ...toolDetail(p.item.query || '') });
     if (message.method === 'item/completed' && p.item?.type === 'webSearch')
       this.event({ type: 'tool-result', name: 'web_search', callId: p.item.id, error: false, summary: p.item.query || '' });
+    // Its own shell commands and file changes in the chat's work folder show as steps too.
+    const own = { commandExecution: 'shell', fileChange: 'edit_file' }[p.item?.type];
+    if (own && message.method === 'item/started')
+      this.event({ type: 'tool', name: own, callId: p.item.id, ...toolDetail(p.item.command || (p.item.changes || []).map(c => c.path).join(', ')) });
+    if (own && message.method === 'item/completed')
+      this.event({
+        type: 'tool-result',
+        name: own,
+        callId: p.item.id,
+        error: p.item.status === 'failed' || p.item.status === 'declined' || (p.item.exitCode ?? 0) !== 0,
+        summary: toolSummary(p.item.aggregatedOutput || ''),
+      });
     if (message.method === 'account/login/completed') this.login?.(p);
     if (message.method === 'turn/completed') this.turn?.(p.turn);
     if (message.method === 'error')
@@ -866,7 +1222,9 @@ async function runCodex(options) {
     steering,
     web,
   } = options;
-  const mcp = await startMcpServer({ tools, call, awareness });
+  // The job's own server (shared with scripts in the work folder), or one for this turn.
+  const mcp = options.mcp || (await startMcpServer({ tools, call, awareness }));
+  const workDirectory = options.workDirectory;
   // A new thread (first turn, or a resume, which drops the old thread) counts from 0;
   // the previous thread's running total would otherwise hide this run's tokens.
   const tokenBaseline = conversation.threadId ? (conversation.providerTotalTokens ?? null) : 0;
@@ -878,7 +1236,7 @@ async function runCodex(options) {
       value = { ...value, tokens: Math.max(0, value.tokens - tokenBaseline) };
     }
     event(value);
-  }, mcp, signal, web, askUser: options.askUser });
+  }, mcp, signal, web, askUser: options.askUser, workDirectory, shellVariables: options.shellVariables });
   client.tools = tools;
   client.call = call;
   let unsubscribe,
@@ -893,9 +1251,9 @@ async function runCodex(options) {
     const account = await client.account();
     if (!account.account && account.requiresOpenaiAuth !== false) throw authenticationRequired();
     const params = {
-      cwd: directory,
+      cwd: workDirectory || directory,
       approvalPolicy: 'never',
-      sandbox: 'read-only',
+      sandbox: workDirectory ? 'workspace-write' : 'read-only',
       ...(settings.model ? { model: settings.model } : {}),
       developerInstructions: system,
     };
@@ -975,10 +1333,15 @@ async function runCodex(options) {
     await delivery;
     await updates;
     await client.close();
-    await mcp.close();
+    if (mcp !== options.mcp) await mcp.close();
   }
 }
+// Claude Code's own tools for the chat's computer.
+const CLAUDE_COMPUTER_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
 async function runClaude({
+  mcp: jobMcp,
+  workDirectory,
+  shellVariables,
   askUser,
   settings,
   directory,
@@ -995,8 +1358,13 @@ async function runClaude({
   web,
 }) {
   await fs.mkdir(directory, { recursive: true });
-  const mcp = await startMcpServer({ tools, call, awareness });
+  const mcp = jobMcp || (await startMcpServer({ tools, call, awareness }));
   const runDirectory = await fs.mkdtemp(path.join(directory, 'claude-run-'));
+  // Claude Code keeps a thread with the folder it ran in, so a tool-free turn of a chat
+  // with a work folder still runs there.
+  const cwd = workDirectory || conversation.threadFolder || directory;
+  await fs.mkdir(cwd, { recursive: true });
+  const own = workDirectory ? CLAUDE_COMPUTER_TOOLS : [];
   let child;
   try {
     const config = path.join(runDirectory, 'mcp.json'),
@@ -1011,11 +1379,12 @@ async function runClaude({
       'stream-json',
       '--verbose',
       '--include-partial-messages',
-      // Built-in tools stay off, except web search and page reading when the user allows them.
+      // Its own shell and file tools work in the chat's work folder without asking;
+      // web search and page reading only when the user allows them.
       '--tools',
-      [askUser && 'AskUserQuestion', web && 'WebSearch', web && 'WebFetch'].filter(Boolean).join(','),
+      [...own, askUser && 'AskUserQuestion', web && 'WebSearch', web && 'WebFetch'].filter(Boolean).join(','),
       '--allowedTools',
-      web ? 'mcp__mdlxl__*,WebSearch,WebFetch' : 'mcp__mdlxl__*',
+      ['mcp__mdlxl__*', ...own, ...(web ? ['WebSearch', 'WebFetch'] : [])].join(','),
       '--strict-mcp-config',
       '--mcp-config',
       config,
@@ -1028,10 +1397,11 @@ async function runClaude({
     if (settings.model) args.push('--model', settings.model);
     if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
+    if (settings.spendLimit > 0) args.push('--max-budget-usd', String(settings.spendLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
-    const env = await prepareEnvironment(directory, 'claude');
+    const env = { ...(await prepareEnvironment(directory, 'claude')), ...(shellVariables || {}) };
     env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_TIMEOUT_MS);
-    child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
+    child = spawnAgent(settings.executable || 'claude', args, { cwd, env });
     let finalResult = null,
       streamed = false,
       newMessage = false,
@@ -1173,6 +1543,7 @@ async function runClaude({
                     callId: block.tool_use_id,
                     error: !!block.is_error,
                     summary: toolSummary(text),
+                    content: Array.isArray(block.content) ? block.content : [],
                   });
                 }
             if (data.type === 'result') {
@@ -1212,14 +1583,184 @@ async function runClaude({
     }
   } finally {
     stopAgent(child);
-    await mcp.close();
+    if (mcp !== jobMcp) await mcp.close();
     await fs.rm(runDirectory, { recursive: true, force: true });
   }
 }
-// One provider turn through the connection's own route: Codex, Claude Code or an API.
+// Gemini CLI and GitHub Copilot CLI (src/ai-providers.json "cli"): each prompt is one run
+// of the CLI's non-interactive mode, with MDLxL's tools over the local MCP link. Built to
+// each CLI's published options; the user's own sign-in is used as it is and never copied.
+const CLI_MODELS = {
+  gemini: [
+    { id: 'gemini-4-neon', name: 'Gemini 4 Neon' },
+    { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen' },
+    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
+  ],
+};
+// Gemini CLI's own shell, file and web tools stay off unless the chat has a work folder.
+const GEMINI_OWN_TOOLS = ['run_shell_command', 'write_file', 'replace', 'save_memory', 'web_fetch', 'google_web_search'];
+const CLI_PROMPT_LIMIT = 24000;
+const cliToolName = name => String(name || '').replace(/^(?:mcp__)?mdlxl__/, '');
+// Whether the CLI is installed and has been set up by its user. The sign-in itself is
+// only known to the CLI: a signed-out CLI says so in its answer to the first prompt.
+async function cliSignedIn(settings) {
+  const kind = providerInfo(settings.provider).cli;
+  try {
+    resolveExecutable(settings.executable || kind);
+  } catch (error) {
+    return { loggedIn: false, error: error.message };
+  }
+  if (kind !== 'gemini') return { loggedIn: true };
+  const home = process.env.GEMINI_CLI_HOME || require('node:os').homedir();
+  const known = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) || (await fs.stat(path.join(home, '.gemini')).then(() => true, () => false));
+  return { loggedIn: known };
+}
+async function runCli({ mcp: jobMcp, workDirectory, shellVariables, settings, directory, event, tools, call, system, prompt, images, conversation, signal, awareness, steering }) {
+  const kind = providerInfo(settings.provider).cli, gemini = kind === 'gemini';
+  await fs.mkdir(directory, { recursive: true });
+  // Copilot prints only its answer, so its tool steps are reported from MDLxL's end of the link.
+  let serial = 0;
+  const reported = async (name, args, toolSignal) => {
+    const callId = kind + '-' + ++serial;
+    event({ type: 'tool', name, callId, ...toolDetail(args) });
+    try {
+      const result = await call(name, args, toolSignal);
+      event({ type: 'tool-result', name, callId, error: false, summary: toolSummary(typeof result === 'string' ? result : JSON.stringify(result ?? '')) });
+      return result;
+    } catch (error) {
+      event({ type: 'tool-result', name, callId, error: true, summary: toolSummary(error.message) });
+      throw error;
+    }
+  };
+  const mcp = gemini && jobMcp ? jobMcp : await startMcpServer({ tools, call: gemini ? call : reported, awareness });
+  const cwd = workDirectory || conversation.threadFolder || path.join(directory, kind + '-work');
+  await fs.mkdir(cwd, { recursive: true });
+  const runDirectory = await fs.mkdtemp(path.join(directory, kind + '-run-'));
+  const link = mcp.config.mcpServers.mdlxl, written = [];
+  const write = async (file, text) => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text, { mode: 0o600 });
+    written.push(file);
+  };
+  if (images?.length) event({ type: 'provider-notice', text: 'Pictures attached to the prompt are not passed to this CLI.', severity: 'warning' });
+  let child;
+  // One run of the CLI for one message; resolves with whether it answered.
+  const turn = async (message, resume) => {
+    const env = { ...(await prepareEnvironment(directory, settings.provider)), ...(shellVariables || {}) };
+    let args, input = null;
+    if (gemini) {
+      const instructions = path.join(runDirectory, 'system.md');
+      await write(instructions, system);
+      // Gemini CLI reads its MCP servers from the folder it runs in.
+      await write(path.join(cwd, '.gemini', 'settings.json'), JSON.stringify({
+        mcpServers: { mdlxl: { httpUrl: link.url, headers: link.headers, timeout: MCP_TOOL_TIMEOUT_MS, trust: true } },
+        ...(workDirectory ? {} : { excludeTools: GEMINI_OWN_TOOLS, tools: { exclude: GEMINI_OWN_TOOLS } }),
+      }));
+      env.GEMINI_SYSTEM_MD = instructions;
+      args = ['-o', 'stream-json', '--approval-mode', 'yolo', '--allowed-mcp-server-names', 'mdlxl'];
+      if (settings.model) args.push('-m', settings.model);
+      if (resume) args.push('--resume', resume);
+      // The prompt goes in on standard input, which also selects the non-interactive mode.
+      input = message;
+    } else {
+      const config = path.join(runDirectory, 'mcp.json');
+      await write(config, JSON.stringify({ mcpServers: { mdlxl: { type: 'http', url: link.url, headers: link.headers, tools: ['*'] } } }));
+      // Copilot CLI reads AGENTS.md in the folder it runs in as its instructions.
+      await write(path.join(cwd, 'AGENTS.md'), system);
+      let text = message;
+      if (text.length > CLI_PROMPT_LIMIT) {
+        // Too long for a command line: the request waits in a file the CLI is told to read.
+        await write(path.join(cwd, 'MDLXL-REQUEST.md'), message);
+        text = 'Read the file MDLXL-REQUEST.md in the current folder and carry out the request in it exactly.';
+      }
+      args = ['-p', text, '-s', '--no-ask-user', '--additional-mcp-config', '@' + config, '--allow-tool', 'mdlxl'];
+      if (text !== message) args.push('--allow-tool', 'read');
+      if (workDirectory) args.push('--allow-all-tools');
+      else args.push('--deny-tool', 'shell', '--deny-tool', 'write');
+      if (settings.model) args.push('--model', settings.model);
+    }
+    child = spawnAgent(settings.executable || kind, args, { cwd, env });
+    const running = child, toolNames = new Map();
+    let failure = '', answered = false, streamedText = false, stderr = '';
+    const abort = () => stopAgent(running);
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      await new Promise((resolve, reject) => {
+        running.on('error', reject);
+        running.once('close', code => (signal.aborted ? reject(Error(CANCELLED)) : failure || code !== 0 ? reject(Error(failure || stderr.trim().slice(-1500) || providerInfo(settings.provider).label + ' ended with code ' + code + '.')) : resolve()));
+        running.stdin.on('error', () => {});
+        running.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+        if (!gemini) {
+          // Plain text: the answer as it is printed.
+          running.stdout.setEncoding('utf8');
+          running.stdout.on('data', text => { if (text) { answered = true; event({ type: 'text', text }); } });
+        } else
+          lines(running.stdout, line => {
+            let data;
+            try {
+              data = JSON.parse(line);
+            } catch {
+              return;
+            }
+            if (data.type === 'init' && data.session_id) conversation.threadId = data.session_id;
+            if (data.type === 'message' && data.role === 'assistant' && data.content) {
+              if (!data.delta && streamedText) event({ type: 'text', text: '\n\n' });
+              streamedText = true;
+              answered = true;
+              event({ type: 'text', text: data.content });
+            }
+            if (data.type === 'tool_use') {
+              toolNames.set(data.tool_id, cliToolName(data.tool_name));
+              event({ type: 'tool', name: cliToolName(data.tool_name), callId: data.tool_id, ...toolDetail(data.parameters) });
+            }
+            if (data.type === 'tool_result')
+              event({ type: 'tool-result', name: toolNames.get(data.tool_id), callId: data.tool_id, error: data.status === 'error', summary: toolSummary(data.output || data.error?.message || '') });
+            if (data.type === 'error') event({ type: 'provider-notice', text: data.message || 'Gemini CLI reported a problem.', severity: data.severity === 'error' ? 'error' : 'warning' });
+            if (data.type === 'result') {
+              if (data.status === 'error') failure = data.error?.message || 'Gemini CLI ended with an error.';
+              const stats = data.stats;
+              if (stats) {
+                event({ type: 'cost', usd: null, tokens: stats.total_tokens || (stats.input_tokens || 0) + (stats.output_tokens || 0) });
+                if (stats.input_tokens) event({ type: 'usage', used: stats.input_tokens, window: 1000000 });
+              }
+            }
+          }, reject);
+        if (signal.aborted) return abort();
+        if (input !== null) running.stdin.write(input);
+        running.stdin.end();
+      });
+      return answered;
+    } finally {
+      signal.removeEventListener('abort', abort);
+      stopAgent(running);
+    }
+  };
+  try {
+    event({ type: 'request', model: settings.model });
+    let message = prompt;
+    while (message) {
+      try {
+        await turn(message, gemini ? conversation.threadId : null);
+      } catch (error) {
+        // A session the CLI no longer has: say it again in a new one.
+        if (!gemini || !conversation.threadId || signal.aborted || !/session|resume/i.test(error.message)) throw error;
+        conversation.threadId = null;
+        await turn(message, null);
+      }
+      // A message sent while the CLI worked becomes the next run.
+      message = steering?.take() || '';
+    }
+  } finally {
+    stopAgent(child);
+    if (mcp !== jobMcp) await mcp.close();
+    for (const file of written) await fs.rm(file, { force: true });
+    await fs.rm(runDirectory, { recursive: true, force: true });
+  }
+}
+// One provider turn through the connection's own route: Codex, Claude Code, another CLI or an API.
 function runProvider(options) {
   const provider = options.settings.provider;
-  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : runApi(options);
+  return provider === 'codex' ? runCodex(options) : provider === 'claude' ? runClaude(options) : providerInfo(provider)?.cli ? runCli(options) : runApi(options);
 }
 // The models a connection offers: Codex asks its app server, Claude Code takes
 // aliases, and APIs list their own.
@@ -1232,6 +1773,8 @@ async function providerModels(settings, key, signal, { directory } = {}) {
       { id: 'haiku', name: 'Haiku (newest, cheapest)' },
       { id: 'fable', name: 'Fable (newest, most capable)' },
     ];
+  // The other CLIs choose their own default; a model ID can still be typed.
+  if (providerInfo(settings.provider)?.cli) return CLI_MODELS[settings.provider] || [];
   if (settings.provider === 'codex') {
     const client = new CodexProcess(settings, { directory, signal });
     try {
@@ -1259,6 +1802,9 @@ async function providerModels(settings, key, signal, { directory } = {}) {
     items = items
       .filter(item => /^(?:gpt-|o\d|chatgpt-)/.test(item.id) && !/audio|realtime|transcribe|tts|image|search|embedding|instruct/.test(item.id))
       .sort((a, b) => (b.created || 0) - (a.created || 0));
+  // Providers that also list speech, image and embedding models: keep the chat ones.
+  const filter = providerInfo(settings.provider)?.modelFilter;
+  if (filter) items = items.filter(item => new RegExp(filter, 'i').test(String(item.id || item.name || '').replace(/^models\//, '')));
   return items.map(item => ({
     id: item.id || item.name,
     name: item.display_name || item.id || item.name,
@@ -1301,9 +1847,10 @@ async function providerAuth(settings, action, { directory, signal, openExternal,
       await client.close();
     }
   }
-  // MDLxL never signs in or out of Claude Code: the user does that in their
-  // own terminal, and MDLxL only checks the result.
-  if (action !== 'status') throw Error(CLAUDE_SIGN_IN);
+  // MDLxL never signs in or out of Claude Code, Gemini CLI or Copilot CLI: the user
+  // does that in their own terminal, and MDLxL only checks the result.
+  if (action !== 'status') throw Error(ownSignIn(settings.provider));
+  if (providerInfo(settings.provider)?.cli) return cliSignedIn(settings);
   const env = await prepareEnvironment(directory, 'claude');
   if (signal.aborted) throw Error('Sign-in cancelled.');
   const child = spawnAgent(settings.executable || 'claude', ['auth', action], {
@@ -1342,6 +1889,10 @@ module.exports = {
   PROVIDERS,
   providerInfo,
   anthropicCost,
+  openaiCost,
+  anthropicContextEditing,
+  trimOldContext,
+  responsesInput,
   anthropicThinking,
   claudeCompaction,
   endpoint,
@@ -1349,6 +1900,9 @@ module.exports = {
   runApi,
   runCodex,
   runClaude,
+  runCli,
+  apiBase,
+  compatibleCost,
   runProvider,
   providerModels,
   providerAuth,

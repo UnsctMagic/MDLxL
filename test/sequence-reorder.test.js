@@ -147,10 +147,18 @@ test('invalid orders, overlaps, missing bounds and overflow fail before mutation
     assert.deepEqual(doc.model, before);
   }
   assert.equal(reorderSequences(doc.model, [0, 1, 2]), false);
-  for (const change of [model => { model.Sequences[1].Interval[0] = 100; }, model => { model.Geosets[0].Anims.pop(); }, model => { model.Sequences[0].Interval[0] = 0xffffffff; }, model => { model.Sequences[1].Interval = [2000, 0x7fffffff]; model.Sequences[2].Interval = [0x7fffffff, 0x7fffffff]; }]) {
+  for (const change of [model => { model.Sequences[1].Interval[0] = 100; }, model => { model.Geosets[0].Anims.push(structuredClone(model.Geosets[0].Anims[0])); }, model => { model.Sequences[0].Interval[0] = 0xffffffff; }, model => { model.Sequences[1].Interval = [2000, 0x7fffffff]; model.Sequences[2].Interval = [0x7fffffff, 0x7fffffff]; }]) {
     const model = structuredClone(before); change(model); const input = structuredClone(model);
     assert.throws(() => reorderSequences(model, [2, 0, 1])); assert.deepEqual(model, input);
   }
+});
+
+test('a short geoset bounds table reorders; animations past its end keep the geoset box', () => {
+  const box = n => ({ MinimumExtent: [n, n, n], MaximumExtent: [n + 1, n + 1, n + 1], BoundsRadius: n });
+  const model = { Sequences: [{ Interval: [0, 10] }, { Interval: [20, 30] }, { Interval: [40, 50] }],
+    Geosets: [{ ...box(9), Anims: [box(1)] }, { ...box(7), Anims: [box(1), box(2)] }] };
+  reorderSequences(model, [2, 0, 1]);
+  assert.deepEqual(model.Geosets.map(geoset => geoset.Anims.map(record => record.BoundsRadius)), [[9, 1], [7, 1, 2]]);
 });
 
 test('zero-length animations and empty tracks reorder without invented keys', () => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { applyAiEvent, recordAiEvent } from '../src/ai-transcript.js';
+import { applyAiEvent, isStopRequest, recordAiEvent } from '../src/ai-transcript.js';
 const require = createRequire(import.meta.url);
 const { AiRecorder } = require('../electron/ai-chat-state.cjs');
 
@@ -201,4 +201,12 @@ test('the console reducer never changes what it is given and copies only what ch
   assert.equal(applyAiEvent(messages, { type: 'tool-result', callId: 'none', name: 'none' }), messages);
   assert.equal(applyAiEvent(messages, { type: 'compaction', active: false }), messages);
   assert.equal(recordAiEvent(structuredClone(messages), { type: 'compaction', active: false }), false);
+});
+
+// Owner, 18 Nov 2026: "stgop", "STOP" and "STOP CUNT" were meant as a stop, not as advice.
+test('a short stop message counts as Stop, typos included; longer or negated wording stays steering', () => {
+  for (const text of ['stop', 'stgop', 'STOP', 'STOP CUNT', 'stop!!', 'Stop it now', 'please stop', 'sotp', 'halt', 'стоп', '停', '停下来'])
+    assert.equal(isStopRequest(text), true, text);
+  for (const text of ['stop making the eyes green', "don't stop", 'next step', 'top view', 'shop', 'make it red', 'can you stop the animation at frame 20', ''])
+    assert.equal(isStopRequest(text), false, text);
 });

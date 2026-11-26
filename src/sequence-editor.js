@@ -84,22 +84,44 @@ export function setGlobalSequenceDuration(model, globalSeqId, duration) {
   return duration;
 }
 
+/** Whether the model keeps geoset animation bounds (one box per animation on
+ * each geoset, `geoset.Anims`). A model with animations and geosets where no
+ * geoset has any has left them out, as some Blizzard units and OptimizeXL's
+ * "Necessary only" do: tools then add none, so nothing quietly refills them.
+ * With nothing to judge yet (no animations or no geosets) the answer is yes.
+ * This decides only for geosets that have no table yet; an existing geoset
+ * keeps its own state (a table stays in step, an empty one stays empty).
+ * `ignore` leaves out geosets the caller has just created. */
+export function keepsGeosetAnimationBounds(model, ignore = []) {
+  const geosets = (model?.Geosets || []).filter(geoset => !ignore.includes(geoset));
+  if (!model?.Sequences?.length || !geosets.length) return true;
+  return geosets.some(geoset => geoset.Anims?.length > 0);
+}
+
 /** One extent per sequence, each a copy of the geoset's own bounds.
- * onlyIfPresent leaves a geoset without per-sequence extents as it is. */
-export function fillSequenceExtents(model, geoset, { onlyIfPresent = false } = {}) {
+ * onlyIfPresent leaves a geoset without per-sequence extents as it is. keep
+ * defaults to the geoset's own table, else keepsGeosetAnimationBounds for the
+ * rest of the model; callers adding several geosets decide once beforehand.
+ * Without it the geoset gets no table. */
+export function fillSequenceExtents(model, geoset, { onlyIfPresent = false, keep = geoset.Anims?.length > 0 || keepsGeosetAnimationBounds(model, [geoset]) } = {}) {
   if (onlyIfPresent && !geoset.Anims?.length) return geoset.Anims;
+  if (!keep) return geoset.Anims = [];
   return geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
 }
 
 /** Append a sequence `gap` frames after the last one. Without a name it is
  * "New Sequence N". A template's fields are copied, otherwise the extents come
- * from the model. extents 'always' adds one per-sequence extent to every
- * geoset; 'ifPresent' only to geosets that already have them. */
+ * from the model. Geosets with per-sequence extents get one more. extents
+ * 'always' also starts them on every geoset with the model's first sequence
+ * (keepsGeosetAnimationBounds is true then); later, a geoset without them
+ * stays without, since one record for many animations is a broken table.
+ * 'ifPresent' never starts them. */
 export function createSequence(model, duration = 1000, { name, gap = 1000, template, nonLooping = false, extents = 'always' } = {}) {
   duration = wholeFrame(Number(duration), 'Sequence length');
   if (duration < 1) throw new Error('Sequence length must be at least 1 ms.');
   if (!['always', 'ifPresent'].includes(extents)) throw new Error('Unknown sequence extent option.');
   model.Sequences ||= [];
+  const startTables = extents === 'always' && !model.Sequences.length && keepsGeosetAnimationBounds(model);
   const previousEnd = model.Sequences.length ? Math.max(...model.Sequences.map(sequence => Number(sequence.Interval?.[1]) || 0)) : -gap;
   const start = previousEnd + gap, end = start + duration;
   if (end > MAX_FRAME) throw new Error('There is not enough frame space to create another sequence.');
@@ -119,7 +141,7 @@ export function createSequence(model, duration = 1000, { name, gap = 1000, templ
     ...(template ? {} : extentCopy(model.Info)),
   };
   const index = model.Sequences.push(sequence) - 1;
-  for (const geoset of model.Geosets || []) if (extents === 'always' || geoset.Anims?.length) (geoset.Anims ||= []).push(extentCopy(geoset));
+  for (const geoset of model.Geosets || []) if (startTables || geoset.Anims?.length) (geoset.Anims ||= []).push(extentCopy(geoset));
   return index;
 }
 
@@ -324,9 +346,13 @@ export function reorderSequences(model, order) {
     },
   });
   for (const geoset of model.Geosets || []) if (geoset.Anims?.length) {
-    if (geoset.Anims.length !== sequences.length) throw new Error('Geoset animation bounds must match the animation count before reordering.');
-    const anims = order.map(index => geoset.Anims[index]);
-    edits.push(() => { geoset.Anims = anims; });
+    if (geoset.Anims.length > sequences.length) throw new Error('Geoset animation bounds must match the animation count before reordering.');
+    // A short table is positional: animations past its end use the geoset box.
+    // Fill moved-in gaps with that box and drop trailing fill, so every
+    // animation keeps the bounds it had.
+    const anims = order.map(index => geoset.Anims[index] ?? null);
+    while (anims.length && anims.at(-1) === null) anims.pop();
+    edits.push(() => { geoset.Anims = anims.map(record => record ?? extentCopy(geoset)); });
   }
   for (const range of next) {
     range.sequence.Interval = intervalLike(range.sequence.Interval, ...range.currentNext);

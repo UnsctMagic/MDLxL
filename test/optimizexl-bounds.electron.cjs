@@ -6,14 +6,17 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: wait
  // Fixture: the owner's WH_WOC_WarriorNurgle_Flail11_Optimized.mdx (Downloads, copied to out/optimizexl-bounds). Measured with
  // out/fixture-scan/bounds-scan.mjs (sanityProposals on the raw file and on prepareOptimizeXL bytes, test/helpers/hive.mjs
  // sanityTest): mdx-m3-viewer 0 errors / 0 severe / 26 warnings / 0 notices; the only automatic proposal is one bounds repair
- // whose 26 targets are all sequence extents, over 10 sequences. No LowPolyWorks or SD MDX800 model has a bounds-only repair.
+ // whose 26 targets were all sequence extents (empty tables) over 10 sequences. Empty tables are no longer broken, so the proposal now has no
+ // targets and defaults to Necessary only; this test keeps proving the Full rebuild, so it picks Full in the window and computes
+ // `expected` with {choice:'full'}. No LowPolyWorks or SD MDX800 model has a bounds-only repair.
  // Every expected value below is still derived from the model at run time.
  const file=process.env.MDLXL_BOUNDS_MODEL||testModel('optimizexl-bounds/WH_WOC_WarriorNurgle_Flail11_Optimized.mdx');
  const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','bounds-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
  const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js'),{flattenHiveFindings}=await import('../app/optimizexl-hive.js');
  const { sanityTest } = await import('./helpers/hive.mjs');
  const hive=bytes=>{return sanityTest(new Uint8Array(bytes));};
- const beforeModel=openDocument(new Uint8Array(source),'input.mdx').model,fix=sanityProposals(beforeModel).find(f=>f.kind==='bounds'),expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'sanity',{},fix).bytes);
+ const beforeModel=openDocument(new Uint8Array(source),'input.mdx').model,fix=sanityProposals(beforeModel).find(f=>f.kind==='bounds'),expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'sanity',{choice:'full'},fix).bytes);
+ assert.equal(fix.choice,'necessary','this model has no geoset animation bounds, so Necessary only is the default');
  assert.ok(fix.targets.every(t=>t.sequenceExtents));
  const originalCheck=hive(source),repairedCheck=hive(expected),summary=r=>`mdx-m3-viewer: ${r.errors} errors · ${r.severe} severe · ${r.warnings} warnings · ${r.unused} notices`;
  const exe=appTarget().packaged; const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: work, out });
@@ -41,6 +44,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: wait
   };
   await p.screenshot({path:path.join(out,'01-default.png')});
   await p.getByLabel('Proposed fix',{exact:true}).selectOption(fix.id);
+  await p.getByLabel('Repair choice',{exact:true}).selectOption('full');
   await p.waitForFunction(n=>boundsState()[1]?.counts.every(c=>c===n),beforeModel.Sequences.length);
   await save(source);
   for(const label of ['Before preview','After preview']){
@@ -65,6 +69,9 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: wait
   assert.equal(await p.locator('[aria-label="Before preview"] h2').textContent(),pinned);await save(expected);
   await p.screenshot({path:path.join(out,'03-approved.png')});
   await p.getByRole('button',{name:'Back',exact:true}).click();await p.getByText(summary(originalCheck),{exact:true}).waitFor();await save(source);
+  // Each fix keeps its own choice; pick Full for the batch the same way.
+  await p.getByLabel('Proposed fix',{exact:true}).selectOption(fix.id);
+  await p.getByLabel('Repair choice',{exact:true}).selectOption('full');
   const list=p.locator('.ox-fix-selection');await list.locator('summary').click();await list.getByRole('button',{name:'Select all',exact:true}).click();
   assert.equal(await list.locator('input:checked').count(),2,'bounds plus the new exact cleanup');
   await list.getByRole('checkbox',{name:'Select Remove exact redundancy',exact:true}).uncheck();
@@ -72,6 +79,6 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs, settle: wait
   await p.waitForFunction(n=>boundsState()[1]?.counts.every(c=>c===n),beforeModel.Sequences.length);
   await p.getByRole('button',{name:'Approve selected',exact:true}).click();await stage();await p.getByText(summary(repairedCheck),{exact:true}).waitFor();await save(expected);
   assert.deepEqual(fs.readFileSync(file),source);assert.deepEqual(errors,[]);
-  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,tables:fix.targets.length,sequences:beforeModel.Sequences.length,nativePairedPoses:poses,cameraMouseRotationBothPanes:true,playback:true,collapsedDefault:true,individualAndSelectedApproval:true,approvedOnlySaves:true,beforePinned:true,backRestoresFindings:true,sourceUnchanged:true,remainingFindings:flattenHiveFindings(repairedCheck.nodes),errors,copies},null,2));console.log(out);
+  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,tables:beforeModel.Geosets.length,sequences:beforeModel.Sequences.length,nativePairedPoses:poses,cameraMouseRotationBothPanes:true,playback:true,collapsedDefault:true,individualAndSelectedApproval:true,approvedOnlySaves:true,beforePinned:true,backRestoresFindings:true,sourceUnchanged:true,remainingFindings:flattenHiveFindings(repairedCheck.nodes),errors,copies},null,2));console.log(out);
  }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

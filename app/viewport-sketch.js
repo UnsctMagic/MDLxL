@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { sketchStore, smoothStroke, PEN_REACH, MARKER_WIDTH } from '../src/ai-sketch.js';
+import { sketchStore, smoothStroke, PEN_REACH, MARKER_WIDTH, SKETCH_SPACES } from '../src/ai-sketch.js';
 
 // Pen/Marker drawing on the modeling viewport for the AI console. Strokes are
 // display-only scene objects; the model, selection and Undo are never touched.
@@ -70,7 +70,7 @@ export function createViewportSketch({ parent, entries, invalidate }) {
     line.material.dispose();
   }
   function sync() {
-    const strokes = enabled && documentId != null && sketchStore.get().visible ? sketchStore.strokes(documentId) : [];
+    const strokes = enabled && documentId != null && sketchStore.get().visible ? sketchStore.strokes(documentId, 'model') : [];
     const keep = new Set(strokes.map(s => s.id));
     for (const [id, line] of objects)
       if (!keep.has(id)) {
@@ -176,7 +176,7 @@ export function createViewportSketch({ parent, entries, invalidate }) {
   function erase(end, camera) {
     const screen = new THREE.Vector3(),
       hits = [];
-    for (const stroke of sketchStore.strokes(documentId)) {
+    for (const stroke of sketchStore.strokes(documentId, 'model')) {
       for (let i = 0; i < stroke.points.length; i += 3) {
         screen.set(stroke.points[i], stroke.points[i + 1], stroke.points[i + 2]).project(camera);
         if (screen.z < -1 || screen.z > 1) continue;
@@ -195,7 +195,8 @@ export function createViewportSketch({ parent, entries, invalidate }) {
 
   return {
     get tool() {
-      return enabled && sketchStore.get().visible ? sketchStore.get().tool : null;
+      const tool = enabled && sketchStore.get().visible ? sketchStore.get().tool : null;
+      return SKETCH_SPACES.model.includes(tool) ? tool : null;
     },
     get drawing() {
       return !!gesture;

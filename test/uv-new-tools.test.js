@@ -375,11 +375,11 @@ test('corner results map back to each geoset of the combined canvas', () => {
 test('the new tools follow their selection rules', () => {
   const state = uvToolState({ selectionCount: 3, eligibleCount: 10, triangleCount: 1 });
   assert.deepEqual([state.boxProjection, state.cylinderProjection, state.unwrap, state.straighten, state.mirrorCopy, state.relax], [true, true, true, true, true, true]);
-  assert.deepEqual(Object.values(uvToolState({ selectionCount: 3, eligibleCount: 10, triangleCount: 0 })).slice(6), [false, false, false, true, true, false], 'whole triangles needed for Box, Cylinder, Unwrap and Relax');
+  assert.deepEqual(Object.values(uvToolState({ selectionCount: 3, eligibleCount: 10, triangleCount: 0 })).slice(6), [false, false, false, true, true, false, false], 'whole triangles needed for Box, Cylinder, Unwrap, Relax and Fit');
   assert.equal(uvToolState({ selectionCount: 1, eligibleCount: 10, triangleCount: 0 }).straighten, false, 'Straighten needs two points');
   assert.equal(uvToolState({ selectionCount: 10, eligibleCount: 10, triangleCount: 4 }).mirrorCopy, false, 'Mirror Copy needs unselected points to copy onto');
   const draft = uvToolState({ selectionCount: 3, eligibleCount: 10, triangleCount: 1, draftCount: 1 });
-  assert.deepEqual([draft.boxProjection, draft.cylinderProjection, draft.unwrap, draft.straighten, draft.mirrorCopy, draft.relax], [false, false, false, true, true, true], 'point-adding tools wait for the test texture, like Uncouple');
+  assert.deepEqual([draft.boxProjection, draft.cylinderProjection, draft.unwrap, draft.straighten, draft.mirrorCopy, draft.relax, draft.fit], [false, false, false, true, true, true, true], 'point-adding tools wait for the test texture, like Uncouple; Fit only moves points');
   const locked = uvToolState({ readOnly: true, selectionCount: 3, eligibleCount: 10, triangleCount: 1 });
   assert.ok(Object.values(locked).every(value => value === false));
 });

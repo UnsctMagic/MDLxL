@@ -9,6 +9,10 @@ import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, mirrorCopyUVCoordinates, otherUVMaterials, projectUVFromView, relaxUVCoordinates, relevantUVMaterials, splitSelectedUVGeosets, straightenUVCoordinates } from '../src/uv-tools.js';
 import { boxProjectUVCorners, cylinderProjectUVCorners, planUVCorners, POINT_LIMIT_ERROR, unwrapUVCorners, uvCornerCopies, wholeSelectedTriangles } from '../src/uv-unwrap.js';
+import { fitUVs, maskOutline } from '../src/uv-fit.js';
+import { magicSelection } from '../src/paint-selection.js';
+import { paintMessage } from '../src/paint-messages.js';
+import { useWindowKeyClaim } from './Hotkeys.jsx';
 import { Tool as EditorTool } from './EditorControls.jsx';
 import ToolIcon from './ToolIcon.jsx';
 import { geosetsHiddenByExtras } from '../src/geoset-extras.js';
@@ -103,7 +107,7 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,
   onPreviewSelectionChange, onUVChanges, onUVCorners, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, onMaterialAssign, textureAssets, teamColor, preferences, onPreferences,
-  draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit, rgbPreview = true, rgbSequence = -1, onRgbPreview }) {
+  draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit, rgbPreview = true, rgbSequence = -1, onRgbPreview, sketchDocument = null }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true), [showLines, setShowLines] = useState(true);
   const [previewRgb, setPreviewRgb] = useState(EMPTY_PREVIEW_RGB);
@@ -120,6 +124,10 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [sidePercent, setSidePercent] = useStoredState(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent);
   const [previewPercent, setPreviewPercent] = useStoredState(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent);
   const [densityOpen, setDensityOpen] = useState(false), [densityValue, setDensityValue] = useState(0), [densityResult, setDensityResult] = useState(null);
+  // Fit: while marking, the map's left button marks an area (Citadel Paint's polygon lasso, freehand
+  // lasso and magic wand); Fit again (or Enter) lays the selection into it, or tidies it in place
+  // when no area is marked.
+  const [marking, setMarking] = useState(null), [fitTolerance, setFitTolerance] = useState(32), markPress = useRef(null);
   const projectionView = useRef(null), workspaceBody = useRef(null), sidePanel = useRef(null), titleBar = useContext(UVWindowTools);
   const activePreviewPercent = previewPercent;
   const baseMaterialModel = suppliedMaterialModel || sourceModel, basePreviewModel = suppliedPreviewModel || sourceModel;
@@ -150,8 +158,9 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const materialOptions = [...materialEntries, ...assignableMaterials].sort((a, b) => a.materialID - b.materialID);
   const imageLayers = (current?.layers || []).filter(({ texture }) => texture && !texture.ReplaceableId && texture.Image?.trim());
   const wrappingEnabled = imageLayers.length > 0 && imageLayers.every(({ texture }) => (texture.Flags & 3) === 3);
-  // UV drags keep the renderer alive; material and texture changes must reload it.
-  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, geosetMaterials: previewModel?.Geosets?.map(geoset => geoset.MaterialID), density: densityChanges?.map(change => [change.index, change.geoset.Faces.length]) || [] });
+  // UV drags keep the renderer alive; material, texture and point-count changes must reload it (tools that
+  // add point copies change the model in place, and a light UV update cannot draw new points).
+  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, geosetMaterials: previewModel?.Geosets?.map(geoset => geoset.MaterialID), density: densityChanges?.map(change => [change.index, change.geoset.Faces.length]) || [], points: previewModel?.Geosets?.map(geoset => [geoset.Vertices?.length, geoset.Faces?.length]) });
 
   useEffect(() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }, [revision]);
 
@@ -285,6 +294,63 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     onUVCorners?.(plans, label);
   });
   const moveUVs = (label, next) => runTool(() => applyCombined(next(combined.geoset.TVertices[0]), false, label));
+  const fitAspect = materialPreview?.width > 0 && materialPreview?.height > 0 ? materialPreview.width / materialPreview.height : 1;
+  const applyFit = () => {
+    const area = marking?.area || (marking?.mode === 'polygon' && marking.points.length >= 3 ? marking.points : null);
+    setMarking(null);
+    if (!area) return;
+    // Fit moves the existing UV points only: the same points and triangles, nothing cut or added.
+    const view = projectionView.current;
+    moveUVs('Fit', source => fitUVs(combined.geoset, combined.selectedVertices, view?.viewMatrix, view?.projectionMatrix, source, area, fitAspect));
+  };
+  const fitPress = () => { if (marking) applyFit(); else { setMaterialError(''); setMarking({ mode: 'polygon', points: [], area: null }); } };
+  const fitMode = mode => setMarking(previous => previous && { ...previous, mode, points: [] });
+  const markingHandlers = marking && {
+    ...marking,
+    onDown: ({ uv, detail, sizeX, sizeY, raster }) => {
+      markPress.current = { sizeX, sizeY };
+      if (marking.mode === 'wand') {
+        const image = raster();
+        if (!image) { setMaterialError('The magic wand needs the texture picture.'); return; }
+        const tileU = Math.floor(uv[0]), tileV = Math.floor(uv[1]);
+        const mask = magicSelection(image, (uv[0] - tileU) * image.width, (uv[1] - tileV) * image.height, fitTolerance, true), outline = maskOutline(mask, image.width, image.height);
+        setMarking(previous => previous && { ...previous, points: [], area: outline ? outline.map(([x, y]) => [tileU + x / image.width, tileV + y / image.height]) : null });
+        return;
+      }
+      if (marking.mode === 'lasso') { setMarking(previous => previous && { ...previous, points: [uv], area: null }); return; }
+      setMarking(previous => {
+        if (!previous) return previous;
+        const points = previous.area ? [] : previous.points, first = points[0];
+        // The first point (or a double click) closes the polygon, as in Citadel Paint.
+        if (points.length >= 3 && (detail === 2 || Math.hypot((uv[0] - first[0]) * sizeX, (uv[1] - first[1]) * sizeY) <= 9)) return { ...previous, points: [], area: points };
+        return detail === 2 ? previous : { ...previous, points: [...points, uv], area: null };
+      });
+    },
+    onMove: ({ uv }) => {
+      if (marking.mode !== 'lasso') return;
+      const press = markPress.current;
+      setMarking(previous => {
+        const last = previous?.points.at(-1);
+        if (!previous || !last || Math.hypot((uv[0] - last[0]) * press.sizeX, (uv[1] - last[1]) * press.sizeY) < 1) return previous;
+        return { ...previous, points: [...previous.points, uv] };
+      });
+    },
+    onUp: () => { if (marking.mode === 'lasso') setMarking(previous => previous && (previous.points.length >= 3 ? { ...previous, points: [], area: previous.points } : { ...previous, points: [] })); },
+  };
+  // Enter fits (or closes a polygon in progress), Backspace removes the last corner, Esc cancels.
+  useWindowKeyClaim(({ event }) => {
+    if (!marking || event.target?.matches?.('input, select, textarea')) return false;
+    if (event.key === 'Enter') { if (marking.mode === 'polygon' && marking.points.length >= 3 && !marking.area) setMarking(previous => ({ ...previous, points: [], area: previous.points })); else applyFit(); return true; }
+    if (event.key === 'Backspace' && marking.mode === 'polygon' && marking.points.length) { setMarking(previous => ({ ...previous, points: previous.points.slice(0, -1) })); return true; }
+    return false;
+  }, 5);
+  useEffect(() => {
+    if (!marking) return;
+    const escape = event => { event.preventDefault(); setMarking(previous => previous?.points.length ? { ...previous, points: [] } : null); };
+    window.addEventListener('mdlxl-escape-key', escape);
+    return () => window.removeEventListener('mdlxl-escape-key', escape);
+  }, [!!marking]);
+  useEffect(() => { if (editingLocked || !toolState.fit) setMarking(null); }, [editingLocked, toolState.fit]);
   const chooseProjectionPreset = name => { if (name) setProjectionPreset(previous => ({ name, revision: previous.revision + 1 })); };
   const setActivePreviewPercent = value => setPreviewPercent(clampUVPreviewPercent(value));
   const changeLiveDisplay = change => onPreferences?.({ ...preferences, uvPreviewDisplay: { ...preferences?.uvPreviewDisplay, ...display, ...change } });
@@ -308,13 +374,18 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
         {/* Floats over the map so a warning never pushes the workspace down. */}
         {(materialError || materialPreview?.warnings?.length > 0) && <div className="uv-workspace-warning" role="status" data-alert="">{materialError || materialPreview.warnings.join(' · ')}</div>}
         {densityOpen && <div className="uv-density-popup" role="dialog" aria-modal="false" aria-label="Triangle density"><strong>{densityTargets.length === 1 ? `Geoset ${densityTargets[0].index + 1} triangle density` : 'Triangle density'}</strong><MeshDensitySlider compact targets={densityTargets} value={densityValue} onChange={value => { setDensityValue(value); setDensityResult(null); }} onResult={setDensityResult}/><div><button onClick={() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }}>Cancel</button><button className="primary" disabled={!densityValue || !densityResult || densityResult.trianglesAfter === densityResult.trianglesBefore} onClick={() => { const changes = densityResult.changes; setDensityOpen(false); setDensityValue(0); setDensityResult(null); onDensityApply(changes); }}>Apply</button></div></div>}
-        {combined?.eligibleVertices.length ? <UVEditor key="selected-geosets" wrapperControls geoset={combined.geoset} uvSet={0} revision={revision} textureUrl={materialPreview?.url} textureSize={materialPreview ? [materialPreview.width, materialPreview.height] : undefined} textureWrapping={!imageLayers.length || wrappingEnabled} viewTileLimit={viewTileLimit}
+        {combined?.eligibleVertices.length ? <UVEditor key="selected-geosets" wrapperControls sketchDocument={sketchDocument} sketchRefs={combined.refs} geoset={combined.geoset} uvSet={0} revision={revision} textureUrl={materialPreview?.url} textureSize={materialPreview ? [materialPreview.width, materialPreview.height] : undefined} textureWrapping={!imageLayers.length || wrappingEnabled} viewTileLimit={viewTileLimit}
           eligibleVertices={combined.eligibleVertices} selectedVertices={combined.selectedVertices} transformMode={uvTool} cameraMode="work" preferences={uvPreferences} onSensitivityChange={setScrollSensitivity} suspended={editingLocked} axis={axis}
           uvGrid={uvGrid} showTextureFrame={display.textureFrame} textureFrameColor={preferences?.visuals?.uvSelection}
-          onSelectVertices={selectCombined} onChange={values => applyCombined(values)} onPreviewChange={values => values ? applyCombined(values, true) : onPreviewChanges?.(null)} />
+          onSelectVertices={selectCombined} onChange={values => applyCombined(values)} onPreviewChange={values => values ? applyCombined(values, true) : onPreviewChanges?.(null)} marking={markingHandlers || null} />
           : <div className="classic-empty-view">Select textured vertices before opening the UV wrapper.</div>}
         {combined?.eligibleVertices.length > 0 && <button type="button" className="preview-reset-view" aria-label="Reset view" title="Reset view" onClick={() => dispatch('reset-view')}><span aria-hidden="true">↺</span></button>}
-        <div className="uv-texture-caption">{materialPreview?.layerCount ? `${current?.label} · ${materialPreview.layerCount} rendered layer${materialPreview.layerCount === 1 ? '' : 's'} · seamless tiled view` : current?.label || 'No material loaded'}</div>
+        {marking ? <div className="uv-fit-bar" role="toolbar" aria-label="Fit area">
+          {['polygon', 'lasso', 'wand'].map(mode => <button key={mode} type="button" aria-pressed={marking.mode === mode} data-hotkey={'uv-fit:' + mode} data-hotkey-manual data-hotkey-label={paintMessage('paint.select.' + mode)} onClick={() => fitMode(mode)}>{paintMessage('paint.select.' + mode)}</button>)}
+          {marking.mode === 'wand' && <label>{paintMessage('paint.tolerance')}<RangeInput aria-label="Fit wand tolerance" min="0" max="255" value={fitTolerance} onChange={event => setFitTolerance(+event.target.value)}/>{fitTolerance}</label>}
+          <span>{marking.area ? 'Fit or Enter lays the selection into the area. Esc cancels.' : { polygon: 'Click corners. Click the first point or press Enter to finish. Backspace removes a point.', lasso: 'Draw around the patch. Release to close it.', wand: 'Click a color. Tolerance controls how much is selected.' }[marking.mode]}</span>
+          <button type="button" onClick={() => setMarking(null)}>Cancel</button>
+        </div> : <div className="uv-texture-caption">{materialPreview?.layerCount ? `${current?.label} · ${materialPreview.layerCount} rendered layer${materialPreview.layerCount === 1 ? '' : 's'} · seamless tiled view` : current?.label || 'No material loaded'}</div>}
       </section>
       <Splitter orientation="vertical" label="Resize texture and live-view columns" value={sidePercent} minimum={UV_SIDE_MIN} maximum={UV_SIDE_MAX} defaultValue={UV_SIDE_DEFAULT}
         onValue={value => setSidePercent(clampUVSidePercent(value))} onPointerValue={event => { const rect = workspaceBody.current?.getBoundingClientRect(); if (rect) setSidePercent(uvSidePercentAtPointer(event.clientX, rect)); }}/>
@@ -369,10 +440,12 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             <Tool action="uv:flip-v" icon="mirrorY" label="Mirror by Y" disabled={!toolState.mirror} onClick={() => dispatch('flip-v')}/>
             <Tool action="Uncouple" icon="uncouple" label="Uncouple selected face corners" disabled={!toolState.uncouple} onClick={() => onUncouple?.(Object.fromEntries(Object.entries(allSelected).filter(([, ids]) => ids.length)), Object.fromEntries(materialEntries.flatMap(entry => entry.geosetIndices.map(index => [index, entry.coordId]))))}/>
             <div className="uv-fold-control"><Tool action="uv:fold" icon="fold" label="Fold" disabled={!toolState.fold} onClick={() => dispatch('fold', foldDirection)}/><select data-hotkey="uv-wrapper:fold-direction" data-hotkey-manual data-hotkey-label="Fold direction" aria-label="Fold direction" value={foldDirection} onChange={event => setFoldDirection(event.target.value)}><option value="right-to-left">Right → left</option><option value="left-to-right">Left → right</option><option value="bottom-to-top">Bottom → top</option><option value="top-to-bottom">Top → bottom</option></select></div>
-            <Tool data-hotkey="uv:straighten" data-hotkey-manual data-hotkey-label="Straighten" icon="straighten" label="Straighten" description="Straighten: lines the selected points up in a row, or in a column when they are taller than wide." disabled={!toolState.straighten} onClick={() => moveUVs('Straighten', values => straightenUVCoordinates(values, combined.selectedVertices, combined.geoset))}/>
-            <Tool data-hotkey="uv:mirror-copy" data-hotkey-manual data-hotkey-label="Mirror Copy" icon="mirrorCopy" label="Mirror Copy" description="Mirror Copy: copies the selected points' UVs onto the matching points on the other side of the model." disabled={!toolState.mirrorCopy} onClick={() => moveUVs('Mirror Copy', values => mirrorCopyUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/>
-            <Tool data-hotkey="uv:unwrap" data-hotkey-manual data-hotkey-label="Unwrap" icon="unwrap" label="Unwrap" description="Unwrap: lays the selected triangles out flat. A closed or tube-shaped part is cut along its outline in the live preview." disabled={!toolState.unwrap} onClick={() => projectCorners('Unwrap', unwrapUVCorners)}/>
-            <Tool data-hotkey="uv:relax" data-hotkey-manual data-hotkey-label="Relax" icon="relax" label="Relax" description="Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place." disabled={!toolState.relax} onClick={() => moveUVs('Relax', values => relaxUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/>
+            <div className="uv-tool-row">
+              <Tool data-hotkey="uv:straighten" data-hotkey-manual data-hotkey-label="Straighten" icon="straighten" label="Straighten" description="Straighten: lines the selected points up in a row, or in a column when they are taller than wide." disabled={!toolState.straighten} onClick={() => moveUVs('Straighten', values => straightenUVCoordinates(values, combined.selectedVertices, combined.geoset))}/>
+              <Tool data-hotkey="uv:fit" data-hotkey-manual data-hotkey-label="Fit" icon="fit" label="Fit" active={!!marking} description="Fit: marks an area on the texture with a polygon lasso, freehand lasso or magic wand. Press Fit again (or Enter) to move the selected UVs into it. Only existing points move." disabled={!toolState.fit} onClick={fitPress}/>
+              <Tool data-hotkey="uv:mirror-copy" data-hotkey-manual data-hotkey-label="Mirror Copy" icon="mirrorCopy" label="Mirror Copy" description="Mirror Copy: copies the selected points' UVs onto the matching points on the other side of the model." disabled={!toolState.mirrorCopy} onClick={() => moveUVs('Mirror Copy', values => mirrorCopyUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/>
+              <Tool data-hotkey="uv:unwrap" data-hotkey-manual data-hotkey-label="Unwrap" icon="unwrap" label="Unwrap" description="Unwrap: lays the selected triangles out flat. A closed or tube-shaped part is cut along its outline in the live preview." disabled={!toolState.unwrap} onClick={() => projectCorners('Unwrap', unwrapUVCorners)}/>
+              <Tool data-hotkey="uv:relax" data-hotkey-manual data-hotkey-label="Relax" icon="relax" label="Relax" description="Relax: evens out the selected points so their triangles stop overlapping. Points on the selection's outer edge stay in place." disabled={!toolState.relax} onClick={() => moveUVs('Relax', values => relaxUVCoordinates(combined.geoset, combined.selectedVertices, combined.eligibleVertices, values))}/></div>
           </div></section>
         </div>
       </aside>

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { aiReplay } from './ai-replay.js';
 import useDismiss from './useDismiss.js';
 import { useMousePressLost, useWindowKeyClaim } from './Hotkeys.jsx';
 import { holdGestureKey } from './gesture-keys.js';
@@ -60,6 +61,9 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
   const frame = domain ? Math.round(clamp(time, domain.start, domain.end)) : 0;
   const span = Math.max(1, (domain?.end || 0) - (domain?.start || 0));
   const percent = value => (value - (domain?.start || 0)) / span * 100;
+  // View AI work: keys an AI step just wrote pop onto the reel once (CSS animation, no per-frame work).
+  useSyncExternalStore(aiReplay.subscribe, aiReplay.version, aiReplay.version);
+  const replay = aiReplay.sample(), replayKeys = replay && domain ? replay.plan.keyFrames.filter(value => value >= domain.start && value <= domain.end) : [];
   const selectedKeysById = keySelection && activeController === keySelection.controller && selectedNodeIds.length === 1 && selectedNodeIds[0] === keySelection.nodeId ? keySelection : null;
   const keyMarkers = useMemo(() => times.map(value => <span key={value} data-frame={value} className={`classic-reel-key${motionActive && value >= motionActive.start && value <= motionActive.end ? ' motion-key-highlight' : ''}${selectedKeysById?.frames.has(value) && keys.some(key => key.frame === value && key.trackId === selectedKeysById.trackId) ? ' motion-key-selected' : ''}`} style={{ left: `clamp(0px, ${(value - (domain?.start || 0)) / span * 100}%, calc(100% - 1px))` }}/>), [times, domain, span, motionActive, selectedKeysById, keys]);
   const warningMarkers = useMemo(() => {
@@ -255,6 +259,7 @@ export default function KeyframeTimeline({ objectKeys = false, model, revision, 
         {motionActive && <span className="motion-reel-interval" style={{ left: `${percent(motionActive.start)}%`, width: `${percent(motionActive.end) - percent(motionActive.start)}%` }}/>}
         {hasRange && <span className="classic-reel-selection" data-range-start={bounds[0]} data-range-end={bounds[1]} style={{ left: `${percent(bounds[0])}%`, width: `${percent(bounds[1]) - percent(bounds[0])}%` }}/>}
         {keyMarkers}
+        {replayKeys.map(value => <span key={replay.id + ':' + value} data-ai-replay-key={value} className="classic-reel-key ai-replay-key" style={{ left: `${percent(value)}%`, '--ai-replay-ms': replay.plan.ms + 'ms', '--ai-replay-color': aiReplay.color }}/>)}
         <span className="classic-reel-cursor" style={{ left: `clamp(1px, ${percent(frame)}%, calc(100% - 1px))` }}/>
       </div>
       {warningMarkers.map(([at, findings]) => <button key={at} type="button" data-frame={at} className={`motion-reel-warning${findings.every(f => motionControls?.desired[f.signature]) ? ' motion-reel-desired' : ''}`} aria-pressed={!!motionActive && findings.some(f => f.signature === motionActive.signature)} aria-label={`Motion warning: ${findings.map(f => `${f.nodeName}, ${f.property}, ${f.time} ms, ${f.kind}`).join('; ')}`} title={`${findings.length > 1 ? `${findings.length} motion warnings` : `${findings[0].nodeName} · ${findings[0].property}`} · ${at} ms — click to inspect`} style={{ left: `clamp(6px, ${percent(at)}%, calc(100% - 6px))` }} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setRange(null); setContext(null); onMotionFinding?.(findings[0], event.currentTarget); }}><span aria-hidden="true">◆</span><span className="motion-warning-underline" aria-hidden="true"/></button>)}

@@ -12,12 +12,12 @@ import {partFrame,createsOverlay,surfaceIngredient,layerMoves,secondTint,findLoo
 import {stackForPart} from './fx-own-looks.js';
 import {visitTextureReferences} from './texture-references.js';
 import {ribbonQuickValues} from './ribbon-quick.js';
-import {visitTracks,sampleNodeMatrices,geosetSkinMatrix} from './animation.js';
+import {visitTracks,geosetSkinMatrix,geosetVertexBones,nodeIndex,sampleSomeNodeMatrices} from './animation.js';
 import {emptyParticleModel} from './particle-recipes.js';
 import {createResourceImporter} from './model-import.js';
 import {addParticles} from './visual-effect-composition.js';
 import {particleBurstTrack} from './particle-sweep.js';
-import {deleteGlobalSequence} from './sequence-editor.js';
+import {deleteGlobalSequence,keepsGeosetAnimationBounds} from './sequence-editor.js';
 import {gamePathKey,effectPicturePath} from './game-path.js';
 import {attackContact} from './fx-attack-contact.js';
 import {vertexBoneWeights} from './part-bones.js';
@@ -1045,10 +1045,12 @@ function regionParent(c,region,point,key){
  const memo='keys|'+c.surfaceKey+'|'+region.vertices[0]+'|'+parent+'|'+point.toArray().join(',')+'|'+c.frame.length,known=samples.get(memo);
  if(known){bone.Translation={LineType:1,GlobalSeqId:null,Keys:known.map(([Frame,v])=>({Frame,Vector:vec(v)}))};return bone.ObjectId;}
  const keys=[],plain=[],steady=new Vector3();
+ // Only the bones this attachment reads, and their parents, are sampled; each frame's matrices are shared by every site.
+ const nodes=nodeIndex(c.model),bones=[...new Set([parent,...geosetVertexBones(c.source,region.vertices[0]),...(region.surface?.vertices||[]).flatMap(v=>geosetVertexBones(c.source,v))])];
  // steady: where the attachment last was a real place. A bone scaled to nothing in one animation (a piece the model
  // hides) has no inverse, and the sample there is not a number; that key keeps the last real place.
  for(const [sequence,clip] of c.model.Sequences.entries()){
-  const value=frame=>{const key=sequence+':'+frame;let matrices=samples.get(key);if(!matrices){matrices=sampleNodeMatrices(c.model,frame,sequence,frame);samples.set(key,matrices);}const skin=geosetSkinMatrix(c.source,region.vertices[0],matrices),world=point.clone().applyMatrix4(skin);if(region.surface){const bind=new Vector3(),posed=new Vector3();region.surface.vertices.forEach((v,i)=>{const at=new Vector3().fromArray(c.source.Vertices,v*3),weight=region.surface.barycentric[i];bind.addScaledVector(at,weight);posed.addScaledVector(at.applyMatrix4(geosetSkinMatrix(c.source,v,matrices)),weight);});world.add(posed).sub(bind.applyMatrix4(skin));}const inverse=matrices.get(parent)?.clone().invert();if(inverse)world.applyMatrix4(inverse);world.sub(point);if(!Number.isFinite(world.x+world.y+world.z))return steady.clone();steady.copy(world);return world;};
+  const value=frame=>{const key=sequence+':'+frame,matrices=sampleSomeNodeMatrices(c.model,bones,frame,sequence,frame,samples.get(key),nodes);samples.set(key,matrices);const skin=geosetSkinMatrix(c.source,region.vertices[0],matrices),world=point.clone().applyMatrix4(skin);if(region.surface){const bind=new Vector3(),posed=new Vector3();region.surface.vertices.forEach((v,i)=>{const at=new Vector3().fromArray(c.source.Vertices,v*3),weight=region.surface.barycentric[i];bind.addScaledVector(at,weight);posed.addScaledVector(at.applyMatrix4(geosetSkinMatrix(c.source,v,matrices)),weight);});world.add(posed).sub(bind.applyMatrix4(skin));}const inverse=matrices.get(parent)?.clone().invert();if(inverse)world.applyMatrix4(inverse);world.sub(point);if(!Number.isFinite(world.x+world.y+world.z))return steady.clone();steady.copy(world);return world;};
   const result=new Map(),sample=t=>{if(!result.has(t))result.set(t,value(t));return result.get(t);};
   const split=(a,b)=>{const mid=Math.floor((a+b)/2);if(mid===a)return;const error=sample(mid).distanceTo(sample(a).clone().lerp(sample(b),(mid-a)/(b-a)));if(b-a>80||error>Math.max(.005,c.frame.length*.0003)){split(a,mid);split(mid,b);}else result.delete(mid);};
   const [a,b]=clip.Interval;sample(a);sample(b);split(a,b);
@@ -1503,7 +1505,8 @@ function quadBounds(c,g,points,reach){
  const reachOf=list=>{const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const p of list)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],p[a]-reach);hi[a]=Math.max(hi[a],p[a]+reach);}return [lo,hi];};
  const [lo,hi]=reachOf(points);
  Object.assign(g,geosetBounds(Float32Array.from([...lo,...hi])));
- g.Anims=(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
+ // A model that keeps no geoset animation bounds gets none for its cards either.
+ g.Anims=!keepsGeosetAnimationBounds(m)?[]:(m.Sequences||[]).map((_,s)=>{const own=c.source.Anims?.[s];
   // A sequence without usable bounds of its own (missing, or the empty ±3.4e38 box some files store) takes the cards' bounds.
   if(!own?.MinimumExtent||!own?.MaximumExtent||![0,1,2].every(k=>Math.abs(own.MinimumExtent[k])<1e7&&Math.abs(own.MaximumExtent[k])<1e7&&own.MinimumExtent[k]<=own.MaximumExtent[k]))return {MinimumExtent:vec(lo),MaximumExtent:vec(hi),BoundsRadius:g.BoundsRadius};const [a,b]=reachOf([Array.from(own.MinimumExtent),Array.from(own.MaximumExtent)]),min=a.map((v,i)=>Math.min(v,lo[i])),max=b.map((v,i)=>Math.max(v,hi[i]));return {MinimumExtent:vec(min),MaximumExtent:vec(max),BoundsRadius:geosetBounds(Float32Array.from([...min,...max])).BoundsRadius};});
 }
@@ -1561,12 +1564,13 @@ function flySwarm(c,l){
   // A local Z translation is turned downward by a falling parent in native playback.
   // Keep the centre following that parent, but write its rise in model space.
   const parent=swarm.Parent;swarm.Parent=null;
+  const nodes=nodeIndex(m);
   for(const [sequence,clip] of m.Sequences.entries()){
    const [start,end]=clip.Interval,death=/^death\b/i.test(clip.Name),time=Math.min(1,(end-start)/2170);
    visibility.push([start,layer.Alpha],[end,death?0:layer.Alpha]);
    if(death)visibility.push([start+Math.round(1900*time),0]);
    const first=start+Math.round(1000*time),last=start+Math.round(2170*time);
-   const value=frame=>{const key=sequence+':'+frame;let matrices=c.attachmentCache.get(key);if(!matrices){matrices=sampleNodeMatrices(m,frame,sequence,frame);c.attachmentCache.set(key,matrices);}const at=centre.clone(),matrix=matrices.get(parent);if(matrix)at.applyMatrix4(matrix);at.sub(centre);if(death)at.z+=tall*(frame<=first?.6*(frame-start)/Math.max(1,first-start):.6+1.9*Math.min(1,(frame-first)/Math.max(1,last-first)));return at;};
+   const value=frame=>{const key=sequence+':'+frame,matrices=sampleSomeNodeMatrices(m,[parent],frame,sequence,frame,c.attachmentCache.get(key),nodes);c.attachmentCache.set(key,matrices);const at=centre.clone(),matrix=matrices.get(parent);if(matrix)at.applyMatrix4(matrix);at.sub(centre);if(death)at.z+=tall*(frame<=first?.6*(frame-start)/Math.max(1,first-start):.6+1.9*Math.min(1,(frame-first)/Math.max(1,last-first)));return at;};
    const samples=new Map(),sample=t=>{if(!samples.has(t))samples.set(t,value(t));return samples.get(t);};
    const split=(a,b)=>{const mid=Math.floor((a+b)/2);if(mid===a)return;const error=sample(mid).distanceTo(sample(a).clone().lerp(sample(b),(mid-a)/(b-a)));if(b-a>80||error>Math.max(.005,tall*.0003)){split(a,mid);split(mid,b);}else samples.delete(mid);};
    const stops=[...new Set(death?[start,first,last,end]:[start,end])].sort((a,b)=>a-b);

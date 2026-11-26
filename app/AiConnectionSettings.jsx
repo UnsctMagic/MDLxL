@@ -32,12 +32,12 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                       </select>
                     </label>
                     {native && provider.ownSignIn ? (
-                      // Claude Code: the user signs in in their own terminal; MDLxL only checks.
+                      // Claude Code, Gemini CLI, Copilot CLI: the user signs in in their own terminal; MDLxL only checks.
                       <div className="ai-row">
                         <button
                           className={signedIn ? '' : 'ai-primary'}
                           disabled={anyBusy || authBusy}
-                          title="Checks whether Claude Code on this PC is signed in. To sign in, run claude auth login in your own terminal." data-hotkey="check-sign-in" data-hotkey-label="Check sign-in"
+                          title={'Checks whether ' + provider.label + ' on this PC is signed in. To sign in, run ' + (provider.signInHint || 'claude auth login') + ' in your own terminal.'} data-hotkey="check-sign-in" data-hotkey-label="Check sign-in"
                           onClick={() => authenticate('status')}
                         >
                           Check sign-in
@@ -83,7 +83,7 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                         API base URL
                         <input
                           data-hotkey="base-url" data-hotkey-label="API base URL" value={settings.baseUrl || ''}
-                          placeholder="http://localhost:1234/v1"
+                          placeholder={provider.basePlaceholder || provider.apiBase || 'http://localhost:1234/v1'}
                           onChange={event =>
                             setSettings(previous => ({ ...previous, baseUrl: event.target.value }))
                           }
@@ -192,7 +192,7 @@ export default function AiConnectionSettings({ settings, setSettings, authBusy, 
                     {native && (
                       <details>
                         <summary title="Where the AI program is installed." data-hotkey="advanced:expand" data-hotkey-label="Advanced connection">Advanced connection</summary>
-                        <label title="Path to the Codex or Claude program.">
+                        <label title="Path to this AI's command-line program.">
                           CLI executable (optional)
                           <input
                             data-hotkey="executable" data-hotkey-label="CLI executable" value={settings.executable || ''}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createSketchStore, sketchContext, smoothStroke, strokeVertices } from '../src/ai-sketch.js';
+import { createSketchStore, sketchContext, smoothStroke, speedProfile, strokeVertices, sweptAngle, uvStrokeVertices, SKETCH_SPACES } from '../src/ai-sketch.js';
 const { AiSteering } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const { anthropicThinking } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
 
@@ -169,4 +169,62 @@ test('one eraser drag and Clear are single Undo steps; a new drawing ends Redo',
   store.add({ ...marker, documentId: 'b' });
   store.step('a');
   assert.equal(store.strokes('b').length, 1);
+});
+
+// UV map and Movement notes (UV Wrapper and Movement drawing tools).
+const uv = [0.1, 0.1, 0.5, 0.1, 0.9, 0.9];
+const refs = [{ geosetIndex: 2, vertexIndex: 7 }, { geosetIndex: 2, vertexIndex: 8 }, { geosetIndex: 3, vertexIndex: 0 }];
+test('a UV marker takes the UV points it covered, named by geoset and vertex', () => {
+  const stroke = { space: 'uv', tool: 'marker', points: [0, 0.1, 0.6, 0.1], width: 0.1, reach: 0.02 };
+  assert.deepEqual(uvStrokeVertices(stroke, uv, [0, 1, 2], refs), { 2: [7, 8] });
+  assert.deepEqual(uvStrokeVertices(stroke, uv, [1, 2], refs), { 2: [8] }, 'only points shown on the map');
+});
+test('a UV arrow names the piece under its tail, not where it points', () => {
+  const arrow = { space: 'uv', tool: 'arrow', points: [0.1, 0.1, 0.12, 0.1, 0.3, 0.3, 0.6, 0.6, 0.9, 0.9], reach: 0.02 };
+  assert.deepEqual(uvStrokeVertices(arrow, uv, [0, 1, 2], refs), { 2: [7] });
+});
+test('a stroke circling a joint reads as a turn; a straight one does not', () => {
+  const circle = [];
+  for (let a = 0; a <= 180; a += 10) circle.push(100 + 40 * Math.cos((a * Math.PI) / 180), 100 - 40 * Math.sin((a * Math.PI) / 180));
+  assert.equal(sweptAngle(circle, [100, 100]), 180, 'counter-clockwise on screen is positive');
+  assert.equal(sweptAngle([...circle].reverse().flatMap((_, i, list) => i % 2 ? [] : [list[i + 1], list[i]]), [100, 100]), -180);
+  assert.ok(Math.abs(sweptAngle([0, 0, 50, 0, 100, 0], [50, 200])) < 30);
+});
+test('an acted-out arrow reports its pace: slow start, fast middle, slow end', () => {
+  const points = [0, 0, 0, 1, 0, 0, 2, 0, 0, 8, 0, 0, 9, 0, 0, 10, 0, 0];
+  const profile = speedProfile(points, [0, 100, 200, 300, 400, 500]);
+  assert.equal(profile.length, 5);
+  assert.ok(profile[2] > profile[0] && profile[2] > profile[4]);
+  assert.deepEqual(speedProfile([0, 0, 0, 10, 0, 0], [0, 100]), [1, 1, 1, 1, 1], 'even drag = even speed');
+});
+test('the AI context explains each place and keeps animation timing', () => {
+  const arrow = { space: 'motion', tool: 'arrow', color: 'blue', sequenceName: 'Attack', sequence: 0, frame: 100, part: { id: 4, name: 'Bone_Hand' }, points: [0, 0, 0, 0, 0, 10, 0, 0, 20], times: [0, 50, 200], frames: [100, 150, 300], turn: 90, view: [0, -1, 0] };
+  const hold = { space: 'motion', tool: 'hold', color: 'green', sequenceName: 'Attack', sequence: 0, frame: 120, part: { id: 2, name: 'Bone_Foot' }, points: [0, 0, 0] };
+  const uvNote = { space: 'uv', tool: 'marker', color: 'yellow', points: [0.1234, 0.5, 0.2, 0.5], width: 0.04, vertices: { 1: [3] } };
+  const context = sketchContext([marker, uvNote, arrow, hold], model);
+  assert.match(context.about, /UV Wrapper/);
+  assert.match(context.about, /acted-out motion/);
+  assert.deepEqual(context.strokes[0].markedVertices, { 0: [0, 1] }, 'model notes unchanged');
+  assert.equal(context.strokes[1].place, 'uv map');
+  assert.deepEqual(context.strokes[1].markedUVPoints, { 1: [3] });
+  assert.deepEqual(context.strokes[1].points[0], [0.123, 0.5]);
+  const acted = context.strokes[2];
+  assert.equal(acted.part, 'Bone_Hand');
+  assert.equal(acted.animation, 'Attack');
+  assert.equal(acted.endFrame, 300);
+  assert.deepEqual(acted.points.at(-1), [0, 0, 20, 300], 'each point carries its frame');
+  assert.equal(acted.turnDegrees, 90);
+  assert.equal(context.strokes[3].tool, 'hold');
+  assert.equal(context.strokes[3].part, 'Bone_Foot');
+  assert.equal(context.strokes[3].frame, 120);
+});
+test('each place draws and erases only its own notes', () => {
+  const store = createSketchStore();
+  store.add({ ...marker });
+  store.add({ space: 'uv', tool: 'pen', documentId: 'a', points: [0, 0] });
+  store.add({ space: 'motion', tool: 'hit', documentId: 'a', points: [0, 0, 0] });
+  assert.equal(store.strokes('a').length, 3);
+  assert.deepEqual(['model', 'uv', 'motion'].map(space => store.strokes('a', space).length), [1, 1, 1]);
+  assert.deepEqual(strokeVertices({ space: 'uv', tool: 'marker', points: [0, 0], width: 1 }, model), {});
+  assert.ok(SKETCH_SPACES.motion.includes('arrow') && !SKETCH_SPACES.model.includes('arrow'), 'the vertex editor keeps its three tools');
 });

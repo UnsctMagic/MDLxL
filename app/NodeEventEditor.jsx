@@ -53,7 +53,9 @@ export function EventDataPicker({ type, id, modelPath, catalog, spawnLookup, tea
   const needle = query.trim().toLowerCase();
   const matches = (type === 'SPN' ? spawnChoices : rows).filter(row => row.id === id || row.label.toLowerCase().includes(needle));
   const selectedSpawnShown = matches.some(row => row.id === id);
-  const sounds = type === 'SND' ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
+  // The expansion buttons narrow browsing only; a typed search looks in every
+  // expansion so a sound is never hidden behind a switched-off button.
+  const sounds = type === 'SND' && !needle ? rows.filter(row => !row.expansion || expansions.has(row.expansion)) : rows;
   const toggleExpansion = key => setExpansions(previous => {
     const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key);
     if (!next.size) for (const value of Object.keys(SOUND_EXPANSIONS)) next.add(value);
@@ -90,7 +92,7 @@ export function EventDataPicker({ type, id, modelPath, catalog, spawnLookup, tea
 
 // Shows only the chosen event kind. Type, timing and node fields wait behind
 // one closed disclosure (children are the generic node fields).
-export default function NodeEventEditor({ node, model, modelPath, catalog, getSpawnChoices, error: catalogError, edit, teamColor, frame, onSeek, sequenceIndex, onSequenceChange, children }) {
+export default function NodeEventEditor({ node, model, modelPath, catalog, getSpawnChoices, error: catalogError, edit, teamColor, frame, onSeek, onShowFrame, sequenceIndex, onSequenceChange, children }) {
   const type = EVENT_TYPES[node.Name?.slice(0,3)] ? node.Name.slice(0,3) : 'SND', id = node.Name?.slice(4);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const spawnLookup = useSpawnChoices(getSpawnChoices, type === 'SPN' || settingsOpen);
@@ -100,7 +102,7 @@ export default function NodeEventEditor({ node, model, modelPath, catalog, getSp
   return <div className="re-event-editor">
     <EventDataPicker key={type} type={type} id={id} modelPath={modelPath} catalog={catalog} spawnLookup={spawnLookup} teamColor={teamColor} error={catalogError} onSelect={next => assign(type, next)}/>
     {global < 0 && <SelectField label="Preview animation" value={sequenceIndex} options={model.Sequences.map((seq,value)=>({value,label:seq.Name}))} onChange={v=>onSequenceChange(Number(v))}/>}
-    <div className="re-event-frames"><span>Event tracks</span><div>{Array.from(node.EventTrack || []).map(at=><button key={at} aria-label={`Event frame ${at}`} onClick={()=>onSeek(at)}>{at}</button>)}</div><button onClick={()=>edit('Add event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,true))}>Add at {frame}</button><button disabled={!Array.from(node.EventTrack || []).includes(frame)} onClick={()=>edit('Remove event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,false))}>Remove</button></div>
+    <div className="re-event-frames"><span>Event tracks</span><div>{Array.from(node.EventTrack || []).map(at=><button key={at} aria-label={`Event frame ${at}`} title="Double-click to show this frame in Animations" onClick={()=>onSeek(at)} onDoubleClick={()=>onShowFrame?.(at, global)}>{at}</button>)}</div><button onClick={()=>edit('Add event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,true))}>Add at {frame}</button><button disabled={!Array.from(node.EventTrack || []).includes(frame)} onClick={()=>edit('Remove event track',['Nodes'],current=>setEventFrame(current.Nodes[node.ObjectId],frame,false))}>Remove</button></div>
     <details className="re-event-settings" onToggle={e=>setSettingsOpen(e.currentTarget.open)}><summary title="Change the event type, global sequence, name, parent or pivot of this event node.">Node settings</summary>
       <SelectField label="Type" value={type} options={Object.entries(EVENT_TYPES).filter(([value])=>value !== 'SPN' || type === 'SPN' || spawnChoices.length).map(([value,label])=>({value,label}))} onChange={next => {
         const first = (next === 'SPN' ? spawnChoices : catalog?.[next])?.[0];

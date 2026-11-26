@@ -18,8 +18,8 @@ const builtins=new Set(builtinModules);
 // electron/ files that vite.config.js bundles (with their packages) into dist/; the app loads the bundle instead.
 const bundledEntries=new Set([...fs.readFileSync(path.join(root,'vite.config.js'),'utf8').matchAll(/entryPoints:\s*\[([^\]]*)\]/g)].flatMap(m=>[...m[1].matchAll(/['"]([^'"]+)['"]/g)].map(x=>path.join(root,x[1]))));
 
-function stripComments(code){
- // Keeps strings and template literals; drops // and /* */ comments.
+function stripComments(code,templates=true){
+ // Keeps strings and template literals (their text emptied when templates is false); drops // and /* */ comments.
  let out='',i=0;
  while(i<code.length){
   const c=code[i],n=code[i+1];
@@ -27,7 +27,7 @@ function stripComments(code){
   if(c==='/'&&n==='/'){const end=code.indexOf('\n',i);i=end<0?code.length:end;continue;}
   if(c==='"'||c==="'"||c==='`'){
    let j=i+1;while(j<code.length&&code[j]!==c){if(code[j]==='\\')j++;else if(c!=='`'&&code[j]==='\n')break;j++;}
-   out+=code.slice(i,j+1);i=j+1;continue;
+   out+=c==='`'&&!templates?'``':code.slice(i,j+1);i=j+1;continue;
   }
   out+=c;i++;
  }
@@ -72,7 +72,8 @@ export function unresolvableMainImports(){
  while(queue.length){
   const [file,chain]=queue.shift();
   if(!loadable(file))continue;
-  for(const spec of specifiers(stripComments(fs.readFileSync(file,'utf8')))){
+  // Template text is not code here: it holds prompts and scripts written to disk for other programs (mdlxl.mjs).
+  for(const spec of specifiers(stripComments(fs.readFileSync(file,'utf8'),false))){
    if(spec.startsWith('node:')||builtins.has(spec)||spec==='electron')continue;
    if(!spec.startsWith('.')){problems.push(`${[...chain,spec].join(' -> ')} (package not shipped)`);continue;}
    const target=resolveRelative(file,spec);
