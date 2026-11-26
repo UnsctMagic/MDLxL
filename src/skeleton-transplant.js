@@ -3270,8 +3270,9 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     if (seating) fixed.seatWeapon = seating;
   }
   // Two-hand grip (plan step 7): the other hand onto the weapon in the animations where the donor holds it with both
-  // hands, unless Seat's own second hand already acted.
-  if (fix?.surfaceGrip && rigA.ok && rigB.ok && !fixed.seatWeapon?.some(item => item.support)) {
+  // hands, unless Seat's own second hand already acted, or the bow grip above already fitted the holding palms per
+  // animation (bowHands: it also moves a hand off the shaft where the donor switches hands; a second pull undid that).
+  if (fix?.surfaceGrip && rigA.ok && rigB.ok && !bowHands && !fixed.seatWeapon?.some(item => item.support)) {
     const second = secondHandOnWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
     if (second) fixed.secondHand = second;
   }
