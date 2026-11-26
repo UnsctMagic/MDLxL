@@ -1964,3 +1964,14 @@ that worked. Each is measurable on every pair without the owner's grade.
   true").
 - `sheet-smoke.cjs --row-timeout <s>` (default 180): each row waits until its After view has finished (grades enabled), and
   a row that does not finish in time fails with its id and ends the walk.
+
+### Fable plan step 10 (Opus, 26 Nov): a legless flyer on a winged donor hovers on the donor's body
+
+- `solesDown` (skeleton-transplant.js): the hover branch is also taken when this model has no legs and the donor has a wing
+  pair (and a body joint): the body follows the donor body's rise from Stand with one fixed clearance, `hover`. The tail
+  sub-branch keeps its old condition (donor without feet). Not a box.
+- Test `test/xfer-flyer-hover.test.js` (fixtures `xfer-r43-own/-donor`): Gryphon Rider -> Dragonhawk Rider reports `hover`
+  and the body's vertical range in Stand and Walk is within 1.2x the donor's x travel + 1% of the height; fails first
+  (`soles`).
+- `regress.mjs --check --all --only reasonable-40,reasonable-43,new-08`: reasonable-40 and -43 exports differ at unchanged
+  ticks, new-08 identical; `--check` 8 of 8. Build passes.

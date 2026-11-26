@@ -3433,8 +3433,12 @@ function solesDown(M, D, model, rigB, rigA, rigM, loose, travel, trackMode) {
   const donorBody = rigA.body != null && donorById.has(rigA.body) ? rigA.body : null;
   if (!feetA.length && donorBody == null) return null;
   const bodyRest = donorBody != null ? pivotZ(donorBody, sampleNodeMatrices(D, D.Sequences[donorStand].Interval[0], donorStand)) : 0;
-  if (!feetA.length && !Object.values(rigB.parts).some(part => part.limbKind === 'leg') && M.Nodes[rigM.body]) {
-    if ([model,D].every((m,k)=>{
+  // A legless model hovers on the donor's body: when the donor has no feet, and when the donor is a flyer (a wing pair; plan
+  // step 10, owner: "jumps up and down while the donor remains stable"): its dangling, tucking feet are no ground, and this
+  // model's lowest point (a wingtip, the tail) is no sole.
+  const wingedDonor = !!(rigA.parts?.wingL && rigA.parts?.wingR) && donorBody != null;
+  if ((!feetA.length || wingedDonor) && !Object.values(rigB.parts).some(part => part.limbKind === 'leg') && M.Nodes[rigM.body]) {
+    if (!feetA.length && [model,D].every((m,k)=>{
       const tail=(k?rigA:rigB).parts.tail, tree=nodeIndex(m);
       return tail && m.Nodes.filter(n=>n && /tail/i.test(n.Name) && tree.isAncestor(n.ObjectId,tail.marker)).length>=4;
     })) {
