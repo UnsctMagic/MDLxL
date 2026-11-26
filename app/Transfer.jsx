@@ -708,7 +708,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   }, [tpKey]);
   const tpReady = !!tpKey && tpBuilt?.key === tpKey && !!tpBuilt.model;
   const tpBuilding = !!tpKey && tpBuilt?.key !== tpKey;
-  const tpShown = !tpDonor ? null : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
+  // No donor yet: the open model itself, in its own Stand (what you see is what you get: your model is always in view).
+  const tpShown = !tpDonor ? (transplanting && rigB.ok ? { model, report: null, own: true } : null) : tpShowsModel ? { model, report: tpApplied.report } : tpBuilt?.model ? tpBuilt : null;
   // The settings column reads the result on screen, so it does not flicker while a setting rebuilds it.
   const tpReport = tpShown?.report || null;
   const shownMirror = tpMirrorOverride ?? tpReport?.mirrored ?? donorMirror;
@@ -763,7 +764,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   const onTpHandle = useCallback(target => latestHandlers.current.tpHandle?.(target), []);
   const moreItems = ['donorPose', 'keepTorso', 'authoredMotion'].map(key => ({ key, label: AUTO_FIX_LABELS[key]?.[0] || key, tip: AUTO_FIX_LABELS[key]?.[1] || '', visible: !!activeRepairs?.visible?.includes(key), on: selectedRepairs.includes(key) }));
   const frontLegChoice = !!activeRepairs?.visible?.some(key => key === 'mirrorLegs' || key === 'useArms');
-  const tpSeq = tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
+  const [ownSeq, setOwnSeq] = useState(null);
+  const tpSeq = tpShown?.own ? (ownSeq != null && model.Sequences?.[ownSeq] ? ownSeq : Math.max(0, standSequenceIndex(model))) : tpShown ? transplantSequence(tpShown.model, tpDonor.model, donorSeq) : -1;
   const tpInterval = tpShown?.model?.Sequences?.[tpSeq]?.Interval;
   const [tpTime, setTpTime] = useState(0), [tpPlaying, setTpPlaying] = useState(true), [tpSpeed, setTpSpeed] = useState(100);
   useEffect(() => { setTpTime(tpInterval?.[0] ?? 0); }, [tpDonor?.id, tpDonor?.revision, doc.revision, tpSeq, tpInterval?.[0]]);
@@ -886,12 +888,12 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
             </section>
             {transplanting ? <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span></div>
-              {!tpShowsModel && <MethodRow method={shownMethod} suggested={engineSuggestion ? methodOf(engineSuggestion.suggested, methodParts) : null} onMethod={chooseMethod}
+              {!tpShowsModel && tpDonor && <MethodRow method={shownMethod} suggested={engineSuggestion ? methodOf(engineSuggestion.suggested, methodParts) : null} onMethod={chooseMethod}
                 scope={methodScope} onScope={value => { setMethodScope(value); if (value === 'this' && engineAnimation && !engineOwn) setEngineChoice({ context: tpContext, value: { ...engineState, animations: { ...engineState.animations, [engineAnimation]: { ...engineState.base } } } }); }}
                 animation={engineAnimation} more={moreItems} onMore={changeRepair} warnings={tpWarnings.map(([key, part]) => ({ key, label: translate(transferPartLabel(key)), reason: part.still ? translate('This part did not follow the donor.') : translate('The donor has no {0}. Keeps its own movement.').replace('{0}', () => translate(transferPartLabel(key)).toLowerCase()) }))} disabled={!methodParts.length}/>}
               <div className="xf-preview" data-transplant-view="" onPointerDownCapture={event => { const rect = event.currentTarget.getBoundingClientRect(); tpPointer.current = { x: event.clientX - rect.left, y: event.clientY - rect.top }; }}>
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
-                  <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
+                  <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShown.own ? `own|${doc.revision}` : tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}
                     cleanAnimationPreview emptyDragRotates transformMode="select" poseConfig={tpShowsModel || tpBuilding ? null : tpMarks} poseDocumentModel={tpShown.model} onPoseSelect={onTpHandle} onPoseCommit={noop} onCaptureReady={onResultCapture}/>
                 </Suspense> : <div className="xf-placeholder">{!tpDonor ? 'Choose a model under From.' : tpBuilding ? 'Building…' : 'Loading preview…'}</div>}
                 {tpChip && <PartChip chip={{ label: transferPartLabel(tpChip.key), x: tpChip.x, y: tpChip.y, avoid: tpChip.avoid, region: tpChip.region, value: tpEngines[tpChip.region] === 2 ? 2 : 1, weapon: tpChip.weapon, weaponValue: tpEngines.weapon === 2 ? 2 : 1, reason: tpChip.reason }}
@@ -903,7 +905,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
               </div>
               <TransferViewStrip name="Result view" playing={tpPlaying} onPlay={() => setTpPlaying(v => !v)} onReset={() => capture.current?.resetView()} playTitle="Play or pause this view."
                 interval={tpInterval || null} time={tpTime} onSeek={value => { setTpPlaying(false); setTpTime(value); }} speed={tpSpeed} onSpeed={setTpSpeed}
-                value={tpSeq >= 0 ? String(tpSeq) : ''} options={tpOptionsList} onChange={value => { const index = transplantSequence(tpDonor.model, tpShown.model, Number(value)); if (index >= 0) setDonorSeqs(old => ({ ...old, [tpDonor.id]: index })); }} disabled={!tpShown || tpSeq < 0}
+                value={tpSeq >= 0 ? String(tpSeq) : ''} options={tpOptionsList} onChange={value => { if (!tpDonor) { setTpTime(tpShown?.model?.Sequences?.[Number(value)]?.Interval?.[0] ?? 0); setOwnSeq(Number(value)); return; } const index = transplantSequence(tpDonor.model, tpShown.model, Number(value)); if (index >= 0) setDonorSeqs(old => ({ ...old, [tpDonor.id]: index })); }} disabled={!tpShown || tpSeq < 0}
                 selectTitle="The donor animation to look at. The same choice as the Animations list."/>
             </section> : <section className="xf-view" aria-label="Result">
               <div className="xf-caption"><span translate="no">{plainName(doc.name)}</span>
