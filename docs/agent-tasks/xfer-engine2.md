@@ -28,6 +28,14 @@ Engine 1 and its toggles are unchanged; the toggles still run before engine 2 if
 - Views: Donor, Receiver, Engine 1 (at the ticks the owner graded, else the pair's suggestion; options `toggles`, read by
   app/TransferPicks.jsx), Engine 2 (no ticks).
 
+## Checks run
+
+- All 20 pairs build with engine 2 in node: no crash, no non-finite vertex; mesh reach matches engine 1 (the big reaches are
+  donor Birth/Dissipate moves engine 1 has too).
+- Installed into `TestBuilds	ransfer-xl-35` (dist + src, profile kept). `sheet-smoke.cjs --app` hidden: every row opens with
+  Donor, Receiver, Engine 1, Engine 2; nurgle-01, new-01 and reasonable-23 were counted while still loading (known flaw).
+  Its "control opens at its graded ticks" lines fail by design: engine 1's ticks sit in the sheet's options, not in answers.
+
 ## Known limits
 
 - Trunk (hips, chest, head) still turns as engine 1 does; only limbs are re-posed.
