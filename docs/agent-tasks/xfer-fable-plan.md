@@ -1042,6 +1042,19 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
     stretched edges and reasonable-43's near-twin miss are the same before and after step 10: older faults, not from it.
 20. **Weapon in hand: one engine change (per-moment shift, re-measure passes), and Stand - 2 follows the rule, not my first
     expectation.** Fallback fixed in advance: the committed two-thirds version.
+21. **Step 9's engine change is accepted** (`4252b56e`): in the checker's eight Attack - 3 frames the hilt stays at the
+    fists and nothing jumps; jitter unchanged. The Attack - 3 test limit is 0.10 at the 16 independent moments (0.08
+    remains between 33 ms keys while the sword turns fast).
+22. **Three tick changes are held until explained; the baseline takes only reasonable-40 and -43 for now.**
+    reasonable-08 losing Two-hand grip is acceptable only if the left hand is on the sword without it now that the sword
+    is in the right hand (check: its second-hand share, overall and in Attack - 1, with and without the box at the new
+    ticks; accepted at 0.8 or more in Attack - 1 without the box, else Two-hand grip must come back for it).
+    reasonable-13 and -21 gaining Two-hand grip was not planned: the only engine change on that path since the baseline is
+    the bow fix (`!bowHands`). Check: for both, the second-hand decision's numbers at `e91f7b10` and at `4252b56e`, and
+    whether the export at their old ticks plus Two-hand grip differs between the two commits. Accepted if the cause is the
+    bow fix and pictures with and without show the second hand on the weapon and nothing else moved; otherwise it is a
+    bug to fix before the sheet. reasonable-21 was a 10 on an older sheet, so it is not waved through.
+
 
 
 
