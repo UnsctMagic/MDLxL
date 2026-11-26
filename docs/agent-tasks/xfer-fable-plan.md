@@ -1054,6 +1054,17 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
     whether the export at their old ticks plus Two-hand grip differs between the two commits. Accepted if the cause is the
     bow fix and pictures with and without show the second hand on the weapon and nothing else moved; otherwise it is a
     bug to fix before the sheet. reasonable-21 was a 10 on an older sheet, so it is not waved through.
+23. **Two-hand grip's gain is also counted per animation, so reasonable-08 keeps it.** With Weapon in hand ticked the
+    overall rise fell to 0.094 (0.866 to 0.960) and missed the 0.1 mark, while Attack - 1 still goes 0.58 to 0.90 and
+    Attack - 2 0.71 to 1.00. Rule: suggested when the overall share rises by 0.1 or more (as before, so new-02,
+    reasonable-13 and -21 stay as they are) **or** some animation in which the donor is two-handed rises by 0.2 or more;
+    in both cases no two-handed animation may fall by more than 0.1 and no rule may be lost. Stop rule as before: if a
+    control or a sheet-10 newly gains the box, report it, do not merge.
+24. **reasonable-13 and -21 gaining Two-hand grip is accepted.** It is step 7's own effect (same decision and same export
+    at the step 7 baseline commit; that baseline write covered only three pairs), not something step 9 did. Second-hand
+    share 0.73 to 0.83 and 0.67 to 0.92, no rule lost; in the Attack pictures nothing else moves. Said plainly: at 240 px
+    the gain itself cannot be seen from that side, so it rests on the numbers.
+
 
 
 

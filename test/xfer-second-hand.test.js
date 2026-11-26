@@ -11,6 +11,7 @@ import { transferRig } from '../src/anim-transfer.js';
 import { standSequenceIndex } from '../src/sequence-editor.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
 import { readWeapon, secondHandShare } from '../src/transplant-weapon-seat.js';
+import { secondHandGains } from '../src/xfer-suggest-toggles.js';
 
 const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const missing = ['xfer-r08-own', 'xfer-r08-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false;
@@ -42,4 +43,20 @@ test('Seat weapon on the Footman Leader / Elf Death Knight: Seat\'s own second h
   const seated = transplantSkeleton(own, donor, { ...OPTIONS, autoFix: { ...TICKS, seatWeapon: true } }).report.autoFix?.seatWeapon || [];
   assert.ok(seated.length, 'Seat acted');
   assert.ok(seated.every(item => !item.support), `no second hand from Seat: ${JSON.stringify(seated.map(item => item.support ?? null))}`);
+});
+
+// Plan decision 23: a strong gain in one two-handed animation also counts, as long as no two-handed animation loses much.
+test('secondHandGains on reasonable-08\'s readings: Attack - 1 rises 0.32, nothing falls by more than 0.1: suggested', () => {
+  const reading = (share, clips) => ({ share, clips: clips.map(([name, donorOn, value]) => ({ name, donorOn, share: value })) });
+  const without = reading(.866, [['Attack - 1', 1, .579], ['Attack - 2', 1, .71], ['Attack Slam', 1, .97], ['Attack Walk Stand Spin 1', .52, .86], ['Spell', .24, 1]]);
+  const withGrip = reading(.960, [['Attack - 1', 1, .895], ['Attack - 2', 1, 1], ['Attack Slam', 1, .95], ['Attack Walk Stand Spin 1', .52, .79], ['Spell', .24, .4]]);
+  assert.equal(secondHandGains(without, withGrip), true, 'overall +0.094, Attack - 1 +0.316');
+  // A two-handed animation falling by more than 0.1 stops it (Spell is not two-handed: its fall does not count).
+  assert.equal(secondHandGains(without, reading(.960, [['Attack - 1', 1, .895], ['Attack - 2', 1, 1], ['Attack Slam', 1, .80], ['Attack Walk Stand Spin 1', .52, .79]])), false);
+  // Neither 0.1 overall nor 0.2 in one animation.
+  assert.equal(secondHandGains(without, reading(.90, [['Attack - 1', 1, .70], ['Attack - 2', 1, .80], ['Attack Slam', 1, .97], ['Attack Walk Stand Spin 1', .52, .86]])), false);
+  // 0.1 overall alone, as before.
+  assert.equal(secondHandGains(reading(0, [['Attack - 1', 1, 0]]), reading(.61, [['Attack - 1', 1, .61]])), true);
+  // No animation where the donor holds with both hands: never.
+  assert.equal(secondHandGains(reading(0, [['Spell', .2, 0]]), reading(.9, [['Spell', .2, .9]])), false);
 });

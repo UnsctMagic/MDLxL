@@ -2018,3 +2018,15 @@ that worked. Each is measurable on every pair without the owner's grade.
   without: the hilt now meets the fists in the swing, no snap seen (`out/fable-plan/step-9/r08-attack3-*.png`).
 - Engine test with the new expectations: all pass except Attack - 3 (0.08 against 0.05): kept as specified, marked todo.
   Box unticked: reasonable-08's export equals the baseline hash; `--check` 8 of 8. Build passes.
+
+### Decision 23 (Opus, 26 Nov): Two-hand grip by a strong gain in one animation too; Weapon-in-hand test limits
+
+- `secondHandGains(without, withGrip)` (xfer-suggest-toggles.js, pure): the donor two-handed in some animation, and either
+  the overall share rises 0.1 or more, or one two-handed animation rises 0.2 or more; no two-handed animation falls by more
+  than 0.1. The Two-hand grip decision uses it (and `ruleChange` loses nothing). Unit test on reasonable-08's readings
+  (overall 0.866 -> 0.960, Attack - 1 0.579 -> 0.895, Spin 1 0.86 -> 0.79: suggested) plus refusals; fails first on
+  17bd16f1 (no export).
+- Weapon-in-hand engine test: no longer todo; Attack - 1 <= 0.05, Attack - 3 <= 0.10 (0.08 remains between the 33 ms
+  keys while the sword turns fast, down from 0.36). Both test files: 5 of 5.
+- Live suggestion: reasonable-08 surfaceGrip, skinLandmarks, trackWindow, keepTorso, gripInHand; the eight controls
+  unchanged. Build passes.

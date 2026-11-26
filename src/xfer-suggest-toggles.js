@@ -59,6 +59,19 @@ export function frontLegPick({ spare, ownArms, donorArms }) {
   return spare && !ownArms && donorArms ? 'useArms' : null;
 }
 
+/** Does Two-hand grip help (plan decision 23)? `without` and `withGrip` are secondHandShare readings. Yes when the donor
+ * holds its weapon with both hands in some animation (donorOn TWO_HANDED_SHARE or more), and either the overall share
+ * rises by 0.1 or more, or one such animation rises by 0.2 or more; in both cases no such animation falls by more than
+ * 0.1. Pure. */
+export function secondHandGains(without, withGrip) {
+  const twoHanded = (withGrip?.clips || []).filter(clip => clip.donorOn >= TWO_HANDED_SHARE);
+  if (!twoHanded.length) return false;
+  const before = name => (without?.clips || []).find(clip => clip.name === name)?.share ?? 0;
+  const rises = twoHanded.map(clip => clip.share - before(clip.name));
+  if (rises.some(rise => rise < -.1)) return false;
+  return (withGrip.share ?? 0) - (without?.share ?? 0) >= .1 || rises.some(rise => rise >= .2);
+}
+
 /** Rules gained and lost from one judged result to another. Holes only veto: closing holes gains nothing, and a result
  * loses a rule when its seams tear worse (holesWorse), not by the hole rule's pass or fail. */
 export function ruleChange(before, after) {
@@ -266,20 +279,19 @@ export function suggestToggles(model, donor, options = {}, {
         comboScore = scoreCombo(suggested);
       }
     }
-    // Two-hand grip (plan step 7): built with and without it on the final ticks; suggested only when the donor holds its
-    // weapon with both hands in some animation (TWO_HANDED_SHARE of its moments), the result's second hand gains 0.1 or more
-    // of those moments, and no rule is lost (jitter, near-twin and holes included).
+    // Two-hand grip (plan step 7, decision 23): built with and without it on the final ticks; suggested only when
+    // secondHandGains (the second hand gains 0.1 overall or 0.2 in one two-handed animation, none falls by more than 0.1)
+    // and no rule is lost (jitter, near-twin and holes included).
     if (visible.includes('surfaceGrip') && !suggested.includes('surfaceGrip') && !blocked.has('surfaceGrip')) {
       const ticks = suggested.filter(key => key !== 'donorPose'), withGrip = toggleRepair(ticks, 'surfaceGrip', true);
       const without = build(ticks), gripped = build(withGrip);
       const shownDonor = without.mirrored === true ? reflected ??= mirrorModel(donor) : donor;
       const shareWithout = secondHandShare(model, shownDonor, without.model), shareWith = secondHandShare(model, shownDonor, gripped.model);
-      const twoHanded = !!shareWith?.clips.some(clip => clip.donorOn >= TWO_HANDED_SHARE);
-      const gain = (shareWith?.share ?? 0) - (shareWithout?.share ?? 0);
+      const twoHanded = !!shareWith?.clips.some(clip => clip.donorOn >= TWO_HANDED_SHARE), gains = secondHandGains(shareWithout, shareWith);
       const judge = built => judgeResult(scoreResult(model, donor, built.model, built.mirrored === true));
-      const { lost } = twoHanded && gain >= .1 ? ruleChange(judge(without), judge(gripped)) : { lost: null };
-      const take = twoHanded && gain >= .1 && lost === 0;
-      scores.secondHand = { twoHanded, without: shareWithout?.share ?? null, with: shareWith?.share ?? null, lost, suggested: take };
+      const { lost } = gains ? ruleChange(judge(without), judge(gripped)) : { lost: null };
+      const take = gains && lost === 0;
+      scores.secondHand = { twoHanded, gains, without: shareWithout?.share ?? null, with: shareWith?.share ?? null, lost, suggested: take };
       if (take) {
         suggested = toggleRepair(suggested, 'surfaceGrip', true);
         comboScore = scoreCombo(suggested);

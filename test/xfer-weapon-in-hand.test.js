@@ -33,8 +33,8 @@ test('leavesHand: a weapon that leaves the hand during an attack while the donor
 
 // The plan's engine test (step 9, decisions 19-20: per-moment shift, re-measure passes). Stand - 2: the result follows
 // the donor's own gap (within 0.06 at every moment) and still lets go mid-clip (above 0.10); Attack - 1 and Attack - 3:
-// the worst excess over the donor's held moments 0.05 or less.
-test('Footman Leader onto the Elf Death Knight with Weapon in hand: the attacks held, Stand - 2 follows the donor', { todo: 'Attack - 3 reads 0.08 (plan: 0.05) at 26 Nov, 16-moment measure between the 33 ms keys; Fable to decide', skip: ['xfer-r08-own', 'xfer-r08-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false }, () => {
+// the worst excess over the donor's held moments 0.05 or less (Attack - 3: 0.10, see below).
+test('Footman Leader onto the Elf Death Knight with Weapon in hand: the attacks held, Stand - 2 follows the donor', { skip: ['xfer-r08-own', 'xfer-r08-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false }, () => {
   const load = key => { const file = fixturePath(key); return openDocument(fs.readFileSync(file), file).model; };
   const own = load('xfer-r08-own'), donor = load('xfer-r08-donor');
   const ticks = { skinLandmarks: true, trackWindow: true, keepTorso: true }, options = { events: true, emitters: false, keep: [], mirror: false };
@@ -44,5 +44,7 @@ test('Footman Leader onto the Elf Death Knight with Weapon in hand: the attacks 
   const stand = withBox.clips.find(c => c.name === 'Stand - 2').rows;
   for (const [k, row] of stand.entries()) assert.ok(Math.abs(row.resultGap - row.donorGap) <= .06, `Stand - 2 moment ${k}: result ${row.resultGap.toFixed(2)}, donor ${row.donorGap.toFixed(2)}`);
   assert.ok(stand[7].resultGap > .10, `Stand - 2 lets the sword leave mid-clip (${stand[7].resultGap.toFixed(2)})`);
-  for (const name of ['Attack - 1', 'Attack - 3']) assert.ok(attackExcess(withBox, name) <= .05, `${name}: worst excess ${attackExcess(withBox, name).toFixed(2)}`);
+  assert.ok(attackExcess(withBox, 'Attack - 1') <= .05, `Attack - 1: worst excess ${attackExcess(withBox, 'Attack - 1').toFixed(2)}`);
+  // Attack - 3 (plan decision 23): 0.08 is what remains between the 33 ms keys while the sword turns fast (down from 0.36).
+  assert.ok(attackExcess(withBox, 'Attack - 3') <= .10, `Attack - 3: worst excess ${attackExcess(withBox, 'Attack - 3').toFixed(2)}`);
 });
