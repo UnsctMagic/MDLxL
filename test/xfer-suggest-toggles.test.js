@@ -8,18 +8,15 @@ import { openDocument } from '../src/editor-document.js';
 import { OWNER_REJECTED_KEYS } from '../src/transplant-autofix.js';
 import { suggestToggles } from '../src/xfer-suggest-toggles.js';
 
-const { testModel } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
+const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs');
 const load = file => openDocument(fs.readFileSync(file), file).model;
-const stock = name => testModel('reasonable-50', name);
+const pair = id => [fixturePath(`xfer-${id}-own`), fixturePath(`xfer-${id}-donor`)];
 const OPTIONS = { events: true, emitters: false, keep: [], mirror: false };
 
-// Stock models only. reasonable-46 had Seam fix suggested on the final sheet (holes in the wyvern).
-const PAIRS = {
-  'reasonable-46': [stock('orc__riderlesswyvern-a9e3ab42/riderlesswyvern.mdx'), stock('creeps__reddragon-8fbd9325/reddragon.mdx')],
-  'reasonable-29': [stock('creeps__wendigoshaman-2445ff6f/wendigoshaman.mdx'), stock('creeps__furbolgshaman-1aa9291f/furbolgshaman.mdx')],
-  'reasonable-44': [stock('demon__felhound-09aca38c/felhound.mdx'), stock('creeps__direwolf-bbc7dc3d/direwolf.mdx')],
-};
-const missing = files => files.some(file => !fs.existsSync(file)) ? 'stock reasonable-50 models unavailable' : false;
+// Stock models (named fixtures). reasonable-46 had Seam fix suggested on the final sheet (holes in the wyvern).
+// Keep this cheap: three whole-suggester pairs, no more.
+const PAIRS = { 'reasonable-46': pair('r46'), 'reasonable-29': pair('r29'), 'reasonable-44': pair('r44') };
+const missing = files => files.some(file => !fs.existsSync(file)) ? 'XFER reasonable models unavailable' : false;
 const results = new Map();
 const suggest = id => {
   if (!results.has(id)) { const [own, donor] = PAIRS[id]; results.set(id, suggestToggles(load(own), load(donor), { ...OPTIONS })); }

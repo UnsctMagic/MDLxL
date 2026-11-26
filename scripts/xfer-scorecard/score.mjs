@@ -1,6 +1,7 @@
 // XFER scorecard (docs/agent-tasks/xfer-finish-line.md): the owner's six rules, measured on every pair and every
 // donated animation, at the pair's default ticks. One JSON line per pair.
-//   node out/scorecard/score.mjs <out.jsonl> [--only id,id] [--shard k/n] [--src <folder holding src/>]
+//   node scripts/xfer-scorecard/score.mjs <out.jsonl> [--pairs <file>] [--only id,id] [--shard k/n] [--src <folder holding src/>]
+// --pairs defaults to pairs-reasonable.json beside this script (the reasonable test set, models in MDLxL-TestModels).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -15,10 +16,9 @@ const { transplantRepairOptions } = await import(pathToFileURL(path.join(srcRoot
 const { repairFlags } = await import(pathToFileURL(path.join(srcRoot, 'src', 'transplant-autofix.js')).href);
 const { scoreResult } = await import(pathToFileURL(path.join(srcRoot, 'src', 'xfer-scorecard.js')).href);
 
-const SHEETS = ['weapons14', 'reasonable50', 'new30', 'random30'];
-const ROOT = 'D:/Claude/MDLxL/TestBuilds/transfer-xl-35/';
+const pairsFile = opt('pairs') ?? new URL('./pairs-reasonable.json', import.meta.url);
 const pairs = [];
-for (const sheet of SHEETS) for (const row of JSON.parse(fs.readFileSync(ROOT + `cases-${sheet}.json`)).cases) {
+for (const row of JSON.parse(fs.readFileSync(pairsFile)).cases) {
   const t = row.variants.find(v => v.transplant)?.transplant;
   if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, title: row.question, t, keys: (row.suggestion?.suggested || []).filter(k => k !== 'donorPose') });
 }

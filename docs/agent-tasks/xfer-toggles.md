@@ -1728,3 +1728,19 @@ that worked. Each is measurable on every pair without the owner's grade.
   Keep torso shares the clash group with Seam fix; on the final sheet the rules step's Seam fix flip removed it, now that
   flip is skipped and Keep torso (scored better than plain, 1/1.31 vs 1/1.46) stays. For Fable to judge by picture.
 - No engine or export code changed. `pnpm run build` passes.
+
+### Fable plan step 2 (Opus, 26 Nov): reasonable test set and byte-for-byte regression check
+
+- 83 model folders (with textures) of the 58 pairs that lived under `TestBuilds\transfer-xl-35` copied (not moved) to
+  `D:\Claude\MDLxL-TestModels\xfer-reasonable\` (58 MB); one line added to that collection's README.txt; nothing else there
+  changed. No Arbalester / Crossbowman model copied.
+- `scripts/xfer-scorecard/pairs-reasonable.json`: the 58 rows in the sheets' shape, every path in the collection;
+  `suggestion` = the live suggestion at 918aaa11; the eight 9-10 pairs carry `regression: true` and the graded `ticks`
+  (new-01 skinLandmarks, hangingChains; new-08 without donorPose). `score.mjs` and `live-suggest.mjs` read it by default
+  (`--pairs`). Test fixtures `xfer-r46/r29/r44/r08/r45-own/-donor` in `test/helpers/fixtures.cjs`.
+- `regress.mjs` + `regression-baseline.json`, written at 918aaa11 (no `src/` change in this step): 8 regression pairs at
+  the graded ticks, 58 pairs at the suggester's ticks (reasonable-38 = authoredMotion, keepTorso, seatWeapon, accepted).
+  `--check --all --jobs 4` with the suggester re-run: 58 checked, 0 differ (18 min). `--check`: 8 checked, 0 differ.
+- Live suggestion at 918aaa11 vs the last accepted run (`out/scorecard/final/suggestions.jsonl`): 53 of 58 unchanged;
+  the 5 that changed all lost only Seam fix (step 1): reasonable-38 (Keep torso kept), reasonable-40, reasonable-45,
+  reasonable-46, new-26. Shown checkboxes unchanged on all 58.

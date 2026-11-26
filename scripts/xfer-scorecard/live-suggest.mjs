@@ -1,5 +1,6 @@
 // The app's live suggestion (src/xfer-suggest-toggles.js, as the transplant worker runs it) for every scorecard pair.
-//   node scripts/xfer-scorecard/live-suggest.mjs <out.jsonl> [--only id,id] [--shard k/n]
+//   node scripts/xfer-scorecard/live-suggest.mjs <out.jsonl> [--pairs <file>] [--only id,id] [--shard k/n]
+// --pairs defaults to pairs-reasonable.json beside this script (the reasonable test set, models in MDLxL-TestModels).
 import fs from 'node:fs';
 import { openDocument } from '../../src/editor-document.js';
 import { suggestToggles } from '../../src/xfer-suggest-toggles.js';
@@ -7,9 +8,9 @@ import { defaultRepairKeys } from '../../src/transplant-autofix.js';
 
 const args = process.argv.slice(2), outFile = args[0];
 const opt = name => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : null; };
-const ROOT = 'D:/Claude/MDLxL/TestBuilds/transfer-xl-35/';
+const pairsFile = opt('pairs') ?? new URL('./pairs-reasonable.json', import.meta.url);
 const pairs = [];
-for (const sheet of ['weapons14', 'reasonable50', 'new30', 'random30']) for (const row of JSON.parse(fs.readFileSync(ROOT + `cases-${sheet}.json`)).cases) {
+for (const row of JSON.parse(fs.readFileSync(pairsFile)).cases) {
   const t = row.variants.find(v => v.transplant)?.transplant;
   if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, t });
 }

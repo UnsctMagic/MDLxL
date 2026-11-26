@@ -155,6 +155,17 @@ const FIXTURES = {
   'autofix-34-donor': ['MDLXL_AUTOFIX_34_DONOR', testModel('xfer-auto-fix/pair34-donor-Knightess.mdx')],
   'autofix-34-own': ['MDLXL_AUTOFIX_34_OWN', testModel('xfer-auto-fix/pair34-recipient-WH_Unsanctioned_Paladin.mdx')], // sword on its own bone named sord (detached)
   'vertex-modulate2x': ['MDLXL_VERTEX_MODULATE2X', testModel('vertex-modulate2x/Baron Rivendare.mdx')], // horse legs: HeroDeathknight + dark TeamColor24 at Modulate 2x
+  // XFER reasonable test set (scripts/xfer-scorecard/pairs-reasonable.json): pairs the suggester and transplant tests use.
+  'xfer-r46-own': ['MDLXL_XFER_R46_OWN', testModel('reasonable-50/orc__riderlesswyvern-a9e3ab42/riderlesswyvern.mdx')], // reasonable-46: Seam fix was suggested (holes)
+  'xfer-r46-donor': ['MDLXL_XFER_R46_DONOR', testModel('reasonable-50/creeps__reddragon-8fbd9325/reddragon.mdx')],
+  'xfer-r29-own': ['MDLXL_XFER_R29_OWN', testModel('reasonable-50/creeps__wendigoshaman-2445ff6f/wendigoshaman.mdx')], // reasonable-29, graded 10
+  'xfer-r29-donor': ['MDLXL_XFER_R29_DONOR', testModel('reasonable-50/creeps__furbolgshaman-1aa9291f/furbolgshaman.mdx')],
+  'xfer-r44-own': ['MDLXL_XFER_R44_OWN', testModel('reasonable-50/demon__felhound-09aca38c/felhound.mdx')], // reasonable-44, graded 10
+  'xfer-r44-donor': ['MDLXL_XFER_R44_DONOR', testModel('reasonable-50/creeps__direwolf-bbc7dc3d/direwolf.mdx')],
+  'xfer-r08-own': ['MDLXL_XFER_R08_OWN', testModel('xfer-reasonable/Elf_DeathKnight-d080b1d6/Elf_DeathKnight.mdx')], // reasonable-08: right arm read to its sword bone
+  'xfer-r08-donor': ['MDLXL_XFER_R08_DONOR', testModel('xfer-reasonable/Footman_Leader-992d24c9/Footman Leader.mdx')],
+  'xfer-r45-own': ['MDLXL_XFER_R45_OWN', testModel('reasonable-50/naga__snapdragon-b3ced23c/snapdragon.mdx')], // reasonable-45: front legs should become arms
+  'xfer-r45-donor': ['MDLXL_XFER_R45_DONOR', testModel('xfer-reasonable/Cold_One_Riderless-d2eca444/Cold_One_Riderless.mdx')],
   'vertex-rgb-match': ['MDLXL_VERTEX_RGB_MATCH', testModel('vertex-rgb-match/Baron Rivendare.mdx')], // owner's Baron (16 Nov 2026): red geoset RGB, Blend layers; with shoulder_leather_raidrogue_d_01.blp
 };
 
