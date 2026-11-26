@@ -3,8 +3,9 @@ const fs = require('node:fs');
 const args = process.argv.slice(2);
 const send = value => process.stdout.write(JSON.stringify(value) + '\n');
 if (args[0] === 'auth') { send({ loggedIn: true, authMethod: 'fixture' }); process.exit(0); }
+// Since PR 682 (the AI's own computer) Claude also gets its own shell and file tools in the chat's work folder.
 const tools = args[args.indexOf('--tools') + 1].split(',');
-if (!tools.includes('AskUserQuestion') || tools.some(t => !['AskUserQuestion', 'WebSearch', 'WebFetch'].includes(t)) || args[args.indexOf('--permission-prompt-tool') + 1] !== 'stdio' || args.includes('--dangerously-skip-permissions')) process.exit(8);
+if (!tools.includes('AskUserQuestion') || tools.some(t => !['AskUserQuestion', 'WebSearch', 'WebFetch', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'].includes(t)) || args[args.indexOf('--permission-prompt-tool') + 1] !== 'stdio' || args.includes('--dangerously-skip-permissions')) process.exit(8);
 const questions = [{ question: 'Which parts should stay unchanged?', header: 'Keep', options: [{ label: 'Shoulders', description: 'Preserve shoulder position' }, { label: 'Axe', description: 'Preserve the axe size' }], multiSelect: true }];
 require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
   const m = JSON.parse(line);
