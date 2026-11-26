@@ -17,6 +17,10 @@ export const SCORE_RULES = Object.freeze(['shape', 'motion', 'weapon', 'twins', 
 // A welded pair is torn when it opens more than HOLE_OPEN of the model's height beyond the model's own largest opening;
 // the rule fails when more than HOLE_SHARE of the welded pairs are torn or one opens more than HOLE_WORST. Do not tune.
 export const HOLE_OPEN = 0.015, HOLE_SHARE = 0.01, HOLE_WORST = 0.03;
+/** The suggester's veto (plan "Step 3 fix"): more torn seams by more than two and more than half a percent of the seams.
+ * One touching point opening is not a hole. */
+export const holesWorse = (before, after) => !!before?.pairs && !!after?.pairs &&
+  after.torn - before.torn > Math.max(2, 0.005 * before.pairs);
 
 const rigOf = m => transferRig(m, Math.max(0, standSequenceIndex(m)));
 const median = xs => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[s.length >> 1] : null; };

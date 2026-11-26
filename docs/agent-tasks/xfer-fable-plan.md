@@ -1,7 +1,8 @@
 # XFER transplant: Fable's review and fix plan (26 Nov 2026)
 
 Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
-Next: step 2b (the owner's answer on Seam fix, 26 Nov: "Remove it"), then step 3.
+Step 2b done (`d7e96680`, approved). Step 3 built (`6571275b`): approved with one fix, written under step 3 ("Step 3 fix").
+Next: the step 3 fix, then step 4.
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
 Brief: [xfer-fable-review-brief.md](xfer-fable-review-brief.md). History: [xfer-toggles.md](xfer-toggles.md), [xfer-finish-line.md](xfer-finish-line.md).
@@ -355,6 +356,58 @@ built by the engine. Nothing else about the suggester or the engine changes.
 - **By eye.** Fable compares the three worst `holes` readings of the run with their pictures to confirm the number shows
   real cracks.
 
+### Step 3 fix. Holes veto only, and by getting worse, not by pass or fail (Fable's review of `6571275b`)
+
+The hole rule itself is right and stays as built (limits fixed: 1.5% opening, 1% of pairs, 3% widest). Two things in how
+the suggester uses it are wrong; the first is my own wording in step 3 ("add `holes` to `SCORE_RULES` so gained and lost
+count it").
+
+- **Why.** On reasonable-28 the six-rule step ticked **Find held weapon** because it "passed" the hole rule (3 torn pairs
+  to 0) and lost no other rule. That checkbox changes which hand is read and mirrors the result; it was ticked for a side
+  effect on a new number nobody had looked at. Pictures (`out/fable-review/step-3/r28-trac.png`, `r28-held.png`): it does
+  bring the two halves of Furion's left hand together, and it also turns the stance round and leaves a small loose
+  fragment by the staff. Not a clear gain, and exactly the way Seam fix came back. The hole rule may stop a tick. It may
+  never add one.
+- **Second fault.** The veto only fires when the plain result passes and the ticked result fails. Nine of the 58 pairs
+  already fail plain (below), so on those the veto can never fire, whatever a checkbox tears. A veto has to look at
+  whether holes got **worse**.
+- **Change** (`src/xfer-scorecard.js`, `src/xfer-suggest-toggles.js`, tests):
+  1. Export from `xfer-scorecard.js`:
+     `holesWorse(before, after)` = both have `pairs`, and `after.torn - before.torn > Math.max(2, 0.005 * before.pairs)`.
+     (More torn seams by more than two and more than half a percent of the seams. One touching point opening is not a hole.)
+  2. In `suggestToggles`, move the six-rule bookkeeping into an exported pure function
+     `ruleChange(before, after)` -> `{ gained, lost }`:
+     `gained` counts rules other than `holes` going fail to pass;
+     `lost` counts rules other than `holes` going pass to fail, plus 1 when `holesWorse(before.rules.holes, after.rules.holes)`.
+     The loop and the "together they fail" fallback use it unchanged otherwise.
+  3. The final veto compares with the plain result by the same test: when `holesWorse(plainHoles, suggestedHoles)`, drop and
+     block the first tick whose removal makes it no longer worse than plain. (Today's condition "plain passes and the
+     suggestion fails" goes.)
+  4. `SCORE_RULES` keeps `'holes'` for the scorecard page and scripts; only the suggester treats it differently.
+- **Tests (fail first, no models needed).** `ruleChange`: holes fail to pass with everything else equal gives
+  `gained: 0`; holes 47 torn to 136 torn of 807 with both failing gives `lost: 1`; 0 to 1 torn of 505 gives `lost: 0`;
+  another rule fail to pass still gives `gained: 1`. `holesWorse` on the same numbers. The existing tear test stays.
+- **Measure.** `regress.mjs --check --all` with the suggester re-run: **58 checked, 0 differ** (reasonable-28 back to Smooth
+  feet + Seat weapon). `--check`: 8 of 8. The baseline is not rewritten.
+
+**What the hole rule found on the plain engine (no fix in this step; listed so nobody recalibrates it away).**
+
+| Pair | Reading | What it is |
+|---|---|---|
+| reasonable-28 Fel Orc Warlock -> Furion | 3 of 780, 52% of height, Attack | Real. Furion's left hand is two meshes on two bones under the hand (`Mesh20ArchDruid`, `Mesh11ArchDruid`). They are carried as weapon pieces, one on the donor's `Weapon` bone and one on its `Staff` bone, so half the hand leaves the arm. Seen in the picture. Same family as C2: something under the hand read as the held item |
+| reasonable-16 Kroxigor -> Tauren | 12 of 278, 13% and 6%, the Slam animations | Both wrists: hand piece against forearm piece. Not confirmed by picture at sheet size |
+| reasonable-22 Arquebus -> Reikland Handgunner | 6 of 225, 2.6% | Both wrists, small |
+| reasonable-38 | 47 of 807, 2.4% | Rider against mount, small |
+| reasonable-41 | 4 of 1856, 4.6%, Death | Rider's chest against the mount's body when the rider falls: expected |
+| reasonable-24 | 2 of 651, 5.3% | A hood tail against the chest (cloth) |
+| reasonable-04 | 2 of 187, 2.8%, Death | Shoulder |
+| reasonable-08 | 1 of 505, 8.2% | One point where the two thighs touch: not a hole |
+| reasonable-02 | 1 of 317, 3.6% | One point between the base and a leg: not a hole |
+
+So the pass or fail of this rule on a plain result mixes real gaps (28, 16, 22) with touching points (08, 02). The limits
+are **not** changed because of that: the suggester now uses only "got worse", and the scorecard page shows the reading.
+reasonable-28's split hand is a real engine fault and is added to the risks list; it is not part of steps 4-7.
+
 ### Step 4. An arm ends at its hand, not at the weapon bone (reasonable-08)
 
 - **File.** `src/anim-transfer.js`, `transferRig`, the limb loop at lines 502-512. New case in
@@ -614,6 +667,9 @@ pair on any sheet (noisy; a guide, not a target).
   animations: probably not a weapon at all. The pair is out of the set; the misreading in `readWeapon` is not investigated.
 - **The scorecard's shaft angle** read 45 deg on reasonable-38 with Seat while the shaft matches the donor's within 1 deg
   in world space (`plane.mjs`). One of the two readings is wrong; I did not find which. Step 6 does not rely on it.
+- **reasonable-28: half of Furion's left hand is carried as a weapon piece** (found by the hole rule in step 3, seen in the
+  picture). Not fixed by any step here. Find held weapon closes it but turns the stance round; the owner has not seen
+  either version since the staff-foot fix.
 - **Grades are noisy** (owner, 25 Nov). The 9-10 pairs are held byte-identical, which is safe but also means nothing in
   this plan can improve them.
 

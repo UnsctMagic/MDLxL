@@ -1784,3 +1784,14 @@ that worked. Each is measurable on every pair without the owner's grade.
   `--check`: 8 of 8 same.
 - page.mjs (No holes column; pictures from pairs-reasonable.json), calibrate.mjs, compare.mjs, pick-toggles.mjs (optional
   chaining for score files without `holes`) each ran once on a 3-pair run.
+
+### Fable plan step 3 fix (Opus, 26 Nov): holes veto only, by getting worse
+
+- `holesWorse(before, after)` (xfer-scorecard.js): more torn seams by more than two and more than 0.5% of the seams.
+  `ruleChange(before, after)` (xfer-suggest-toggles.js, pure): `gained` counts the other rules fail -> pass, `lost` the
+  other rules pass -> fail plus 1 when holes got worse; the six-rule loop and its fallback use it. The final veto drops and
+  blocks the first tick whose removal makes it no longer worse than the plain result (scored only when the suggestion has
+  more than two torn seams). `SCORE_RULES` keeps `holes`; limits unchanged.
+- Model-free test of `ruleChange` / `holesWorse` (fails first: no such exports on 6571275b, whose inline count gave
+  reasonable-28 a gained rule). `regress.mjs --check --all` (suggester re-run): 58 checked, 0 differ, reasonable-28 back to
+  trackWindow, seatWeapon; `--check` 8 of 8. Build passes.

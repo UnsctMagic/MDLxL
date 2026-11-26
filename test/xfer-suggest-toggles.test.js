@@ -1,13 +1,13 @@
 // The owner-rejected list (src/transplant-autofix.js OWNER_REJECTED_KEYS) outranks every stage of suggestToggles.
-// Plan: docs/agent-tasks/xfer-fable-plan.md, steps 1, 2b and 3.
+// Plan: docs/agent-tasks/xfer-fable-plan.md, steps 1, 2b, 3 and its fix.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { openDocument } from '../src/editor-document.js';
 import { OWNER_REJECTED_KEYS } from '../src/transplant-autofix.js';
-import { suggestToggles } from '../src/xfer-suggest-toggles.js';
-import { scoreResult, weldedPairs } from '../src/xfer-scorecard.js';
+import { ruleChange, suggestToggles } from '../src/xfer-suggest-toggles.js';
+import { holesWorse, scoreResult, weldedPairs } from '../src/xfer-scorecard.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
 import { vertexBones } from '../src/part-bones.js';
 
@@ -72,4 +72,21 @@ test('Red Dragon onto the riderless Wind Rider: the hole rule passes plain and f
   const after = scoreResult(own, donor, torn, false).rules.holes;
   assert.equal(after.pass, false, JSON.stringify(after));
   assert.ok(after.torn >= 20, JSON.stringify(after));
+});
+
+// Holes only veto, and by getting worse (plan "Step 3 fix"): no rule gain from closing holes, a loss when seams tear.
+const scored = (holes, other = {}) => ({ rules: {
+  shape: { pass: other.shape ?? true }, motion: { pass: other.motion ?? false }, weapon: { pass: null }, twins: { pass: null },
+  jitter: { pass: true }, holes,
+} });
+test('ruleChange: holes never gain a rule, and lose one only when the mesh tears worse', () => {
+  const hole = (torn, pairs, pass) => ({ pass, pairs, torn });
+  assert.deepEqual(ruleChange(scored(hole(3, 780, false)), scored(hole(0, 780, true))), { gained: 0, lost: 0 });
+  assert.deepEqual(ruleChange(scored(hole(47, 807, false)), scored(hole(136, 807, false))), { gained: 0, lost: 1 });
+  assert.deepEqual(ruleChange(scored(hole(0, 505, true)), scored(hole(1, 505, false))), { gained: 0, lost: 0 });
+  assert.deepEqual(ruleChange(scored(hole(0, 505, true)), scored(hole(0, 505, true), { motion: true })), { gained: 1, lost: 0 });
+  assert.equal(holesWorse(hole(3, 780, false), hole(0, 780, true)), false);
+  assert.equal(holesWorse(hole(47, 807, false), hole(136, 807, false)), true);
+  assert.equal(holesWorse(hole(0, 505, true), hole(1, 505, false)), false);
+  assert.equal(holesWorse({ pass: null, note: 'other geosets' }, hole(9, 100, false)), false);
 });

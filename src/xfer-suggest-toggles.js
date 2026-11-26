@@ -2,7 +2,7 @@ import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
 import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, OWNER_REJECTED_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
-import { SCORE_RULES, judgeResult, scoreResult } from './xfer-scorecard.js';
+import { SCORE_RULES, holesWorse, judgeResult, scoreResult } from './xfer-scorecard.js';
 import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
@@ -25,6 +25,17 @@ function keysWithNeeds(keys) {
   const chosen = new Set(keys);
   for (const key of keys) for (const need of TOGGLE_NEEDS[key] ?? []) chosen.add(need);
   return AUTO_FIX_KEYS.filter(key => chosen.has(key));
+}
+
+/** Rules gained and lost from one judged result to another. Holes only veto: closing holes gains nothing, and a result
+ * loses a rule when its seams tear worse (holesWorse), not by the hole rule's pass or fail. */
+export function ruleChange(before, after) {
+  const others = SCORE_RULES.filter(k => k !== 'holes');
+  return {
+    gained: others.filter(k => before.rules[k]?.pass === false && after.rules[k]?.pass === true).length,
+    lost: others.filter(k => before.rules[k]?.pass === true && after.rules[k]?.pass === false).length +
+      (holesWorse(before.rules.holes, after.rules.holes) ? 1 : 0),
+  };
 }
 
 /** Scores changed transplants as [reason count, sum of value / limit] in inventory order. */
@@ -141,10 +152,7 @@ export function suggestToggles(model, donor, options = {}, {
     const judged = keys => { const built = build(keys); return judgeResult(scoreResult(model, donor, built.model, built.mirrored === true)); };
     const ticks = suggested.filter(key => key !== 'donorPose'), pose = suggested.includes('donorPose');
     const before = judged(ticks);
-    const change = r => ({
-      gained: SCORE_RULES.filter(k => before.rules[k].pass === false && r.rules[k].pass === true).length,
-      lost: SCORE_RULES.filter(k => before.rules[k].pass === true && r.rules[k].pass === false).length,
-    });
+    const change = r => ruleChange(before, r);
     const helpful = [];
     for (const key of visible) {
       if (key === 'donorPose' || blocked.has(key)) continue;
@@ -163,12 +171,14 @@ export function suggestToggles(model, donor, options = {}, {
       comboScore = scoreCombo(suggested);
       scores.rules = helpful.map(({ key, checked, gained }) => ({ key, checked, gained }));
     }
-    // Holes only veto (plan step 3): when the suggested ticks tear the mesh and the plain result does not, the tick whose
-    // removal closes the holes is dropped and blocked for this pair.
+    // Holes only veto (plan step 3 and its fix): when the suggested ticks tear the mesh worse than the plain result, the
+    // first tick whose removal makes it no longer worse than plain is dropped and blocked for this pair.
     const finalTicks = suggested.filter(key => key !== 'donorPose');
     const holes = (helpful.length ? judged(finalTicks) : before).rules.holes;
-    if (holes?.pass === false && scoreResult(model, donor, base.model, baseMirror === true).rules.holes?.pass === true) {
-      const culprit = finalTicks.find(key => judged(toggleRepair(finalTicks, key, false)).rules.holes?.pass === true);
+    // Worse needs more than two torn seams, so the plain result is scored only then.
+    const plainHoles = finalTicks.length && holes?.torn > 2 ? scoreResult(model, donor, base.model, baseMirror === true).rules.holes : holes;
+    if (holesWorse(plainHoles, holes)) {
+      const culprit = finalTicks.find(key => !holesWorse(plainHoles, judged(toggleRepair(finalTicks, key, false)).rules.holes));
       if (culprit) {
         blocked.add(culprit);
         suggested = toggleRepair(suggested, culprit, false);
