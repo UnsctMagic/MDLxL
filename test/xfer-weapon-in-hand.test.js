@@ -31,18 +31,18 @@ test('leavesHand: a weapon that leaves the hand during an attack while the donor
   assert.equal(leavesHand({ ownGrip: .02, clips: [{ name: 'Attack - 3', rows: rows([.05, .05, .05, .05, .6, .6, .6, .6, ...Array(8).fill(.05)], opens) }] }), null);
 });
 
-// The plan's engine test (step 9). At 26 Nov, Opus's keepInHand brings Attack - 3 to 0.14 (plan: 0.05) and leaves Stand - 2
-// at 0.24 mid-clip (plan: above 0.3, but the donor's own gap there is 0.17, inside the 0.15-0.30 fade): kept as specified,
-// marked todo until Fable decides; it does not count as a pass.
-test('Footman Leader onto the Elf Death Knight with Weapon in hand: Attack - 3 held, Stand - 2 still lets go', { todo: 'keepInHand short of the plan numbers (Fable to decide)', skip: ['xfer-r08-own', 'xfer-r08-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false }, () => {
+// The plan's engine test (step 9, decisions 19-20: per-moment shift, re-measure passes). Stand - 2: the result follows
+// the donor's own gap (within 0.06 at every moment) and still lets go mid-clip (above 0.10); Attack - 1 and Attack - 3:
+// the worst excess over the donor's held moments 0.05 or less.
+test('Footman Leader onto the Elf Death Knight with Weapon in hand: the attacks held, Stand - 2 follows the donor', { todo: 'Attack - 3 reads 0.08 (plan: 0.05) at 26 Nov, 16-moment measure between the 33 ms keys; Fable to decide', skip: ['xfer-r08-own', 'xfer-r08-donor'].some(key => !fs.existsSync(fixturePath(key))) ? 'XFER reasonable models unavailable' : false }, () => {
   const load = key => { const file = fixturePath(key); return openDocument(fs.readFileSync(file), file).model; };
   const own = load('xfer-r08-own'), donor = load('xfer-r08-donor');
   const ticks = { skinLandmarks: true, trackWindow: true, keepTorso: true }, options = { events: true, emitters: false, keep: [], mirror: false };
-  const worst = (reading, name) => Math.max(...reading.clips.find(c => c.name === name).rows.map(r => r.resultGap - r.donorGap));
   const without = handGapRows(own, donor, transplantSkeleton(own, donor, { ...options, autoFix: ticks }).model);
   const withBox = handGapRows(own, donor, transplantSkeleton(own, donor, { ...options, autoFix: { ...ticks, gripInHand: true } }).model);
-  assert.ok(worst(without, 'Attack - 3') > .15, `without the box Attack - 3 ${worst(without, 'Attack - 3').toFixed(2)}`);
-  assert.ok(worst(withBox, 'Attack - 3') <= .05, `with the box Attack - 3 ${worst(withBox, 'Attack - 3').toFixed(2)}`);
-  assert.ok(withBox.clips.find(c => c.name === 'Stand - 2').rows[7].resultGap > .3, 'Stand - 2 lets the sword leave mid-clip');
-  assert.ok(attackExcess(withBox, 'Attack - 3') < attackExcess(without, 'Attack - 3'));
+  assert.ok(attackExcess(without, 'Attack - 3') > .15, `without the box Attack - 3 ${attackExcess(without, 'Attack - 3').toFixed(2)}`);
+  const stand = withBox.clips.find(c => c.name === 'Stand - 2').rows;
+  for (const [k, row] of stand.entries()) assert.ok(Math.abs(row.resultGap - row.donorGap) <= .06, `Stand - 2 moment ${k}: result ${row.resultGap.toFixed(2)}, donor ${row.donorGap.toFixed(2)}`);
+  assert.ok(stand[7].resultGap > .10, `Stand - 2 lets the sword leave mid-clip (${stand[7].resultGap.toFixed(2)})`);
+  for (const name of ['Attack - 1', 'Attack - 3']) assert.ok(attackExcess(withBox, name) <= .05, `${name}: worst excess ${attackExcess(withBox, name).toFixed(2)}`);
 });

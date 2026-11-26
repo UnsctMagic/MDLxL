@@ -2004,3 +2004,17 @@ that worked. Each is measurable on every pair without the owner's grade.
 - Test tightened to the standing-height ratio (passes; it also passes on cf7ce6a7, the two ratios being close there).
   `regress.mjs --check --all --only reasonable-40,reasonable-43,new-08`: -40 and -43 differ, new-08 identical; `--check`
   8 of 8. Build passes.
+
+### Fable plan step 9, decisions 19-20 (Opus, 26 Nov): per-moment shift, re-measure passes
+
+- `keepInHand`: each moment moves by its own shift toward the palm; only the on/off weight is eased over SPAN 4. After
+  writing, the result is posed again and what is left is added, up to three passes or until the worst excess is 0.02 or
+  less. Allowance, fade and skipped animations unchanged.
+- reasonable-08 at skinLandmarks,trackWindow,keepTorso, 16 moments (worst result-minus-donor gap / worst excess over held
+  moments), without -> with the box: Attack - 3 0.39 / 0.36 -> 0.11 / 0.08; Attack - 1 0.31 / 0.28 -> 0.06 / 0.03;
+  Stand - 2 0.33 / 0.27 -> 0.04 / 0.00, mid-clip 0.47 -> 0.20 (donor 0.17). At the engine's own key frames the remaining
+  excess averages 0.002; Attack - 3's 0.08 is at moments between the 33 ms keys.
+- Jitter (scorecard, animations over the limit): 2 without, 2 with the box (same worst clip). Render of Attack - 3 with and
+  without: the hilt now meets the fists in the swing, no snap seen (`out/fable-plan/step-9/r08-attack3-*.png`).
+- Engine test with the new expectations: all pass except Attack - 3 (0.08 against 0.05): kept as specified, marked todo.
+  Box unticked: reasonable-08's export equals the baseline hash; `--check` 8 of 8. Build passes.

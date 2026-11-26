@@ -938,40 +938,47 @@ export function keepInHand(result, own, donor, rigB, rigA, donorMap, limbEntries
     for (let f=a; f<z; f+=33) times.add(Math.round(f));
     for (const prop of ['Translation','Rotation']) for (const k of node[prop]?.Keys || []) if (k.Frame>=a && k.Frame<=z) times.add(k.Frame);
     const frames = [...times].sort((x,y) => x-y);
-    const wants = frames.map(frame => {
-      const phase = z>a ? (frame-a)/(z-a) : 0, df = pose(donor,di,phase), rf = pose(result,si,phase);
-      const d = gripGap(donor,df,wanted.hand,wanted.parts), r = gripGap(result,rf,item.hand,item.parts);
-      if (!d || !r) return {rf,weight:0,shift:vector(),excess:0};
-      const excess = r.gap-(Math.max(d.gap,ownGrip)+GRIP_SLACK), strength = heldStrength(d.gap);
-      if (excess<=0 || !strength) return {rf,weight:0,shift:vector(),excess:0};
+    // The donor's gap does not change between passes: read it once.
+    const donorGaps = frames.map(frame => gripGap(donor,pose(donor,di,z>a ? (frame-a)/(z-a) : 0),wanted.hand,wanted.parts)?.gap ?? null);
+    // Each moment's own shift toward the palm; only the on/off weight is eased over SPAN (plan decision 19).
+    const measure = () => frames.map((frame,k) => {
+      const rf = pose(result,si,z>a ? (frame-a)/(z-a) : 0), d = donorGaps[k], r = gripGap(result,rf,item.hand,item.parts);
+      if (d==null || !r) return {rf,weight:0,shift:vector(),excess:0};
+      const excess = r.gap-(Math.max(d,ownGrip)+GRIP_SLACK), strength = heldStrength(d);
+      if (excess<=0 || !strength) return {rf,weight:0,shift:vector(),excess:Math.max(0,excess)*strength};
       const toward = palmAt(item.hand,rf).sub(r.world);
       return {rf,weight:strength,shift:toward.lengthSq()>1e-12 ? toward.normalize().multiplyScalar(excess*reach) : vector(),excess};
     });
+    let wants = measure();
     if (!wants.some(w => w.weight>0)) continue;
-    const SPAN = 4;
-    const eased = wants.map((_,k) => {
-      let weight=0, total=0;
-      const shift=vector();
-      for (let j=Math.max(0,k-SPAN); j<=Math.min(wants.length-1,k+SPAN); j++) {
-        const fall = 1-Math.abs(j-k)/(SPAN+1);
-        weight += fall*wants[j].weight; total += fall;
-        shift.addScaledVector(wants[j].shift,fall*wants[j].weight);
+    const first = wants;
+    // Re-measure passes (plan decision 20): after writing, pose again and add what is left, up to three passes or until
+    // the worst excess is 0.02 arm or less.
+    for (let pass=0; pass<3; pass++) {
+      if (Math.max(...wants.map(w => w.weight>0 ? w.excess : 0)) <= .02) break;
+      const SPAN = 4;
+      const weights = wants.map((_,k) => {
+        let weight=0, total=0;
+        for (let j=Math.max(0,k-SPAN); j<=Math.min(wants.length-1,k+SPAN); j++) {
+          const fall = 1-Math.abs(j-k)/(SPAN+1);
+          weight += fall*wants[j].weight; total += fall;
+        }
+        return weight/total;
+      });
+      const values = new Map();
+      for (const [k,frame] of frames.entries()) {
+        const {rf,shift} = wants[k], weight = weights[k];
+        if (weight<1e-3 || shift.lengthSq()<1e-12) { values.set(frame, v => v); continue; }
+        // The world shift taken into the carrier's parent frame.
+        const parent = rf.world.get(node.Parent) || new Matrix4(), back = parent.clone().invert();
+        const pivot = vector().fromArray(nodePivot(result,node,carrier)).applyMatrix4(rf.world.get(carrier));
+        const local = pivot.clone().add(shift.clone().multiplyScalar(weight)).applyMatrix4(back).sub(pivot.clone().applyMatrix4(back));
+        values.set(frame, v => [v[0]+local.x,v[1]+local.y,v[2]+local.z]);
       }
-      const sum = wants.slice(Math.max(0,k-SPAN),k+SPAN+1).reduce((n,w,i) => n+(1-Math.abs(Math.max(0,k-SPAN)+i-k)/(SPAN+1))*w.weight,0);
-      return {weight:weight/total, shift:sum>1e-6 ? shift.divideScalar(sum) : shift};
-    });
-    const values = new Map();
-    for (const [k,frame] of frames.entries()) {
-      const {rf,excess} = wants[k], {weight,shift} = eased[k];
-      if (weight<1e-3) { values.set(frame, v => v); continue; }
-      // The world shift taken into the carrier's parent frame.
-      const parent = rf.world.get(node.Parent) || new Matrix4(), back = parent.clone().invert();
-      const pivot = vector().fromArray(nodePivot(result,node,carrier)).applyMatrix4(rf.world.get(carrier));
-      const local = pivot.clone().add(shift.clone().multiplyScalar(weight)).applyMatrix4(back).sub(pivot.clone().applyMatrix4(back));
-      values.set(frame, v => [v[0]+local.x,v[1]+local.y,v[2]+local.z]);
-      if (wants[k].weight>0) { moments++; before+=excess; after+=Math.max(0,excess-shift.length()*weight/reach); }
+      rewriteTrack(result,node,si,frames,values,'Translation');
+      wants = measure();
     }
-    if (values.size) rewriteTrack(result,node,si,frames,values,'Translation');
+    for (const [k,w] of first.entries()) if (w.weight>0) { moments++; before+=w.excess; after+=Math.max(0,wants[k].excess); }
   }
   return moments ? {moments,gapBefore:before/moments,gapAfter:after/moments} : null;
 }
