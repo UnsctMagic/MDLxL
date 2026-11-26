@@ -1,5 +1,5 @@
 {
- "revision": "7cf9992d",
+ "revision": "a89a133b",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -450,7 +450,7 @@
    "ticks": [
     "seatWeapon"
    ],
-   "sha256": "06334d491e668ae74ef3ab0ff9d1f214d2da12dae6dc7f71d0c598a94382757e"
+   "sha256": "18e1e0b9468a2eb40e346cd5d2f3ac80895359383f05c219da4b5e3cf46edb65"
   },
   "reasonable-41": {
    "suggested": [
@@ -469,7 +469,7 @@
   "reasonable-43": {
    "suggested": [],
    "ticks": [],
-   "sha256": "0c1c345d9366d6c4ef477acc5f2cb029cd673328527359152bf5f96141fb3009"
+   "sha256": "3051d7555f5638e8228cd01e3d4766c396592cc2a671112a76b6adce04c140b1"
   },
   "reasonable-44": {
    "suggested": [
