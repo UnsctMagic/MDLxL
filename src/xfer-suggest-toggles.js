@@ -7,7 +7,7 @@ import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { spareFrontLegs } from './transplant-gait.js';
-import { gripReading, readWeapon, rollFromOwn, seatWithheld, secondHandShare, shaftAngle, TWO_HANDED_SHARE, weaponTurn } from './transplant-weapon-seat.js';
+import { attackExcess, gripReading, handGapRows, leavesHand, readWeapon, rollFromOwn, seatWithheld, secondHandShare, shaftAngle, TWO_HANDED_SHARE, weaponTurn } from './transplant-weapon-seat.js';
 import { worldPivot, sampleNodeMatrices } from './animation.js';
 import { verdict } from './xfer-look-verdict.js';
 
@@ -123,7 +123,7 @@ export function suggestToggles(model, donor, options = {}, {
     if (identical && key !== 'seatWeapon') continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
-    if (blocked.has(key) || FRONT_LEG_KEYS.includes(key) || ['skinLandmarks', 'gripRouting'].includes(key)) continue;
+    if (blocked.has(key) || FRONT_LEG_KEYS.includes(key) || ['skinLandmarks', 'gripRouting', 'gripInHand'].includes(key)) continue;
     if (key === 'surfaceGrip') {
       const holdsWithBothHands = (m, rig) => heldContact(m, rig ?? rigFor(m, Math.max(0, standSequenceIndex(m))))?.twoHands;
       if (!holdsWithBothHands(model, ownRig) || !holdsWithBothHands(donor, donorRig)) continue;
@@ -213,7 +213,7 @@ export function suggestToggles(model, donor, options = {}, {
     const helpful = [];
     for (const key of visible) {
       // Two-hand grip is decided in one place below (plan step 7), not by the six rules.
-      if (key === 'donorPose' || key === 'surfaceGrip' || blocked.has(key) || FRONT_LEG_KEYS.includes(key)) continue;
+      if (key === 'donorPose' || key === 'surfaceGrip' || key === 'gripInHand' || blocked.has(key) || FRONT_LEG_KEYS.includes(key)) continue;
       const checked = !ticks.includes(key), flipped = toggleRepair(ticks, key, checked);
       const { gained, lost } = change(judged(flipped));
       if (gained && !lost) helpful.push({ key, checked, gained });
@@ -242,6 +242,28 @@ export function suggestToggles(model, donor, options = {}, {
         suggested = toggleRepair(suggested, culprit, false);
         comboScore = scoreCombo(suggested);
         scores.holes = { dropped: culprit, torn: holes.torn, worst: holes.worst };
+      }
+    }
+    // Weapon in hand (plan step 9, decision 18): only for a weapon that leaves the hand during an attack (leavesHand), when
+    // the box cuts that excess by 0.1 or more and no rule is lost; never with Seat suggested. Before the Two-hand grip.
+    if (visible.includes('gripInHand') && !suggested.includes('gripInHand') && !suggested.includes('seatWeapon') && !blocked.has('gripInHand')) {
+      const ticks = suggested.filter(key => key !== 'donorPose'), without = build(ticks);
+      const shownDonor = without.mirrored === true ? reflected ??= mirrorModel(donor) : donor;
+      const reading = handGapRows(model, shownDonor, without.model), leaves = reading && leavesHand(reading);
+      let take = false, withExcess = null, lost = null;
+      if (leaves) {
+        const kept = build(toggleRepair(ticks, 'gripInHand', true));
+        withExcess = attackExcess(handGapRows(model, shownDonor, kept.model), leaves.clip);
+        if (withExcess != null && leaves.excess - withExcess >= .1) {
+          const judge = built => judgeResult(scoreResult(model, donor, built.model, built.mirrored === true));
+          lost = ruleChange(judge(without), judge(kept)).lost;
+          take = lost === 0;
+        }
+      }
+      scores.gripInHand = { leaves, withExcess, lost, suggested: take };
+      if (take) {
+        suggested = toggleRepair(suggested, 'gripInHand', true);
+        comboScore = scoreCombo(suggested);
       }
     }
     // Two-hand grip (plan step 7): built with and without it on the final ticks; suggested only when the donor holds its

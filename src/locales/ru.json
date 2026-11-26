@@ -8943,5 +8943,7 @@
   "Use arms": "Использовать руки",
   "Front legs move as the donor's arms.": "Передние ноги двигаются как руки донора.",
   "Leg timing": "Ритм ног",
-  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Когда ступают передние ноги: 0 — вместе с задней ногой той же стороны, 50 — с противоположной."
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Когда ступают передние ноги: 0 — вместе с задней ногой той же стороны, 50 — с противоположной.",
+  "Weapon in hand": "Оружие в руке",
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Держит оружие не дальше от руки, чем оружие донора от руки донора."
 }

@@ -8849,5 +8849,7 @@
   "Use arms": "使用手臂",
   "Front legs move as the donor's arms.": "前腿按供体的手臂动作移动。",
   "Leg timing": "腿部节奏",
-  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "前腿何时落步：0 与同侧后腿同步，50 与对侧后腿同步。"
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "前腿何时落步：0 与同侧后腿同步，50 与对侧后腿同步。",
+  "Weapon in hand": "武器在手",
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "让武器与手的距离不超过供体武器与供体手的距离。"
 }

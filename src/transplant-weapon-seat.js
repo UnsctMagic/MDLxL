@@ -844,6 +844,138 @@ export function secondHandShare(own, donor, mesh) {
   return {share:moments ? held/moments : null,moments,clips};
 }
 
+// ------------------------------------------------------------ the weapon stays in the hand (plan step 9)
+// The donor holds its weapon at full strength at a palm gap of HELD_FULL arm or less, not at all from HELD_NONE (the same
+// on/off fade as the second hand); the result may sit as far out as the donor's gap or the model's own Stand grip, plus
+// GRIP_SLACK. Death, Decay, Dissipate and Portrait are left alone, as by the second hand.
+export const HELD_FULL = .15, HELD_NONE = .30, GRIP_SLACK = .03;
+const HAND_SKIP = /^(death|decay|dissipate|portrait)/i;
+const heldStrength = gap => gap<=HELD_FULL ? 1 : gap>=HELD_NONE ? 0 : (HELD_NONE-gap)/(HELD_NONE-HELD_FULL);
+const gripGap = (model, frame, hand, parts) => {
+  const c = contacts(model,frame,parts.filter(p => p.faces?.length),palmAt(hand,frame));
+  return c ? {gap:c.gap/hand.arm.length,world:c.world} : null;
+};
+// The model's own grip gap at its first Stand moment (how it holds its weapon).
+const ownGripGap = (own, item) => { const si = standSequenceIndex(own); return si<0 ? 0 : gripGap(own,pose(own,si,0),item.hand,item.parts)?.gap ?? 0; };
+function pairedWeapon(own, donor, rigB, rigA) {
+  const source = readWeapon(own,rigB), target = source && readWeapon(donor,rigA);
+  const item = source?.items?.[0];
+  if (!item?.hand?.patch?.length || !target?.items?.length) return null;
+  const wanted = target.items.find(t => t.hand.arm.key===item.hand.arm.key) ?? target.items[0];
+  return wanted.hand?.patch?.length ? {source,target,item,wanted} : null;
+}
+
+/** Per donated animation (Death, Decay, Dissipate, Portrait left out), at 16 moments: the donor's grip-palm gap to its
+ * weapon and the result's (`mesh`), in arm lengths, and the model's own Stand grip gap. `donor` as built (mirrored when
+ * the build was). -> { ownGrip, clips: [{ name, rows: [{ donorGap, resultGap }] }] } or null without both weapons. */
+export function handGapRows(own, donor, mesh) {
+  const rigOf = m => transferRig(m,{sequence:Math.max(0,standSequenceIndex(m))});
+  const pair = pairedWeapon(own,donor,rigOf(own),rigOf(donor));
+  if (!pair) return null;
+  const {item,wanted} = pair, clips = [];
+  for (const [di,seq] of donor.Sequences.entries()) {
+    const si = mesh.Sequences.findIndex(s => s.Name===seq.Name && s.Interval[0]===seq.Interval[0] && s.Interval[1]===seq.Interval[1]);
+    if (si<0 || HAND_SKIP.test(seq.Name.trim()) || !(seq.Interval[1]>seq.Interval[0])) continue;
+    const rows = [];
+    for (let k=0;k<16;k++) {
+      const phase = k/15, d = gripGap(donor,pose(donor,di,phase),wanted.hand,wanted.parts), r = gripGap(mesh,pose(mesh,si,phase),item.hand,item.parts);
+      if (d && r) rows.push({donorGap:d.gap,resultGap:r.gap});
+    }
+    if (rows.length) clips.push({name:seq.Name.trim(),rows});
+  }
+  return {ownGrip:ownGripGap(own,item),clips};
+}
+
+/** Does the weapon leave the hand during an attack (plan step 9, decision 18)? Attack animations only; allowance = the
+ * larger of the donor's gap and the model's own Stand grip gap, plus GRIP_SLACK; the weapon starts the animation within
+ * the allowance, and over the moments where the donor holds its weapon (gap HELD_FULL or less) at least a tenth exceed the
+ * allowance by 0.15 or more. Pure. -> { clip, share, excess } (excess: the largest over the held moments of the worst
+ * qualifying attack) or null. */
+export function leavesHand({ ownGrip = 0, clips = [] } = {}) {
+  let found = null;
+  for (const {name,rows} of clips) {
+    if (!/^attack/i.test(name) || !rows.length) continue;
+    const allowance = row => Math.max(row.donorGap,ownGrip)+GRIP_SLACK;
+    if (rows[0].resultGap > allowance(rows[0])) continue;
+    const held = rows.filter(row => row.donorGap<=HELD_FULL);
+    if (!held.length) continue;
+    const over = held.filter(row => row.resultGap-allowance(row) >= .15).length/held.length;
+    if (over < .1) continue;
+    const excess = Math.max(...held.map(row => row.resultGap-allowance(row)));
+    if (!found || excess > found.excess) found = {clip:name,share:over,excess};
+  }
+  return found;
+}
+/** The largest excess over the held moments of one attack (by name) in a reading: to compare a build with and without. */
+export function attackExcess({ ownGrip = 0, clips = [] } = {}, clip) {
+  const rows = clips.find(c => c.name===clip)?.rows.filter(row => row.donorGap<=HELD_FULL) || [];
+  return rows.length ? Math.max(...rows.map(row => row.resultGap-Math.max(row.donorGap,ownGrip)-GRIP_SLACK)) : null;
+}
+
+/** Weapon in hand (plan step 9): while the donor holds its weapon, the model's weapon is moved toward the palm by what it
+ * sits further out than the donor's (or the model's own grip), eased as the second hand eases, written as Translation keys
+ * on the one bone that carries the weapon and nothing else. Where the donor lets go, the weapon may leave as far as the
+ * donor's. Not with Seat (a seated weapon is on the hand already). -> { moments, gapBefore, gapAfter } or null */
+export function keepInHand(result, own, donor, rigB, rigA, donorMap, limbEntries, keep) {
+  const pair = pairedWeapon(own,donor,rigB,rigA);
+  if (!pair) return null;
+  const {source,item,wanted} = pair;
+  if (item.parts.some(p => [...p.ids].some(id => source.tree.ancestors(id,true).some(ancestor => keep.has(ancestor))))) return null;
+  // The one result bone that carries the weapon, and only the weapon.
+  const carriers = new Set(), mine = new Set(item.parts.flatMap(p => p.vertices.map(v => p.gi+':'+v)));
+  for (const p of item.parts) for (const v of p.vertices) for (const id of vertexBones(result.Geosets[p.gi],v)) carriers.add(id);
+  if (carriers.size!==1) return null;
+  const [carrier] = carriers, node = result.Nodes[carrier];
+  if (!node) return null;
+  for (const [gi,g] of result.Geosets.entries()) for (let v=0; v<g.Vertices.length/3; v++)
+    if (!mine.has(gi+':'+v) && vertexBones(g,v).includes(carrier)) return null;
+  const ownGrip = ownGripGap(own,item), reach = item.hand.arm.length;
+  let moments=0, before=0, after=0;
+  for (const [di,seq] of donor.Sequences.entries()) {
+    const si = result.Sequences.findIndex(s => s.Name===seq.Name && s.Interval[0]===seq.Interval[0] && s.Interval[1]===seq.Interval[1]);
+    if (si<0 || HAND_SKIP.test(seq.Name.trim())) continue;
+    const [a,z] = seq.Interval, times = new Set([a,z]);
+    for (let f=a; f<z; f+=33) times.add(Math.round(f));
+    for (const prop of ['Translation','Rotation']) for (const k of node[prop]?.Keys || []) if (k.Frame>=a && k.Frame<=z) times.add(k.Frame);
+    const frames = [...times].sort((x,y) => x-y);
+    const wants = frames.map(frame => {
+      const phase = z>a ? (frame-a)/(z-a) : 0, df = pose(donor,di,phase), rf = pose(result,si,phase);
+      const d = gripGap(donor,df,wanted.hand,wanted.parts), r = gripGap(result,rf,item.hand,item.parts);
+      if (!d || !r) return {rf,weight:0,shift:vector(),excess:0};
+      const excess = r.gap-(Math.max(d.gap,ownGrip)+GRIP_SLACK), strength = heldStrength(d.gap);
+      if (excess<=0 || !strength) return {rf,weight:0,shift:vector(),excess:0};
+      const toward = palmAt(item.hand,rf).sub(r.world);
+      return {rf,weight:strength,shift:toward.lengthSq()>1e-12 ? toward.normalize().multiplyScalar(excess*reach) : vector(),excess};
+    });
+    if (!wants.some(w => w.weight>0)) continue;
+    const SPAN = 4;
+    const eased = wants.map((_,k) => {
+      let weight=0, total=0;
+      const shift=vector();
+      for (let j=Math.max(0,k-SPAN); j<=Math.min(wants.length-1,k+SPAN); j++) {
+        const fall = 1-Math.abs(j-k)/(SPAN+1);
+        weight += fall*wants[j].weight; total += fall;
+        shift.addScaledVector(wants[j].shift,fall*wants[j].weight);
+      }
+      const sum = wants.slice(Math.max(0,k-SPAN),k+SPAN+1).reduce((n,w,i) => n+(1-Math.abs(Math.max(0,k-SPAN)+i-k)/(SPAN+1))*w.weight,0);
+      return {weight:weight/total, shift:sum>1e-6 ? shift.divideScalar(sum) : shift};
+    });
+    const values = new Map();
+    for (const [k,frame] of frames.entries()) {
+      const {rf,excess} = wants[k], {weight,shift} = eased[k];
+      if (weight<1e-3) { values.set(frame, v => v); continue; }
+      // The world shift taken into the carrier's parent frame.
+      const parent = rf.world.get(node.Parent) || new Matrix4(), back = parent.clone().invert();
+      const pivot = vector().fromArray(nodePivot(result,node,carrier)).applyMatrix4(rf.world.get(carrier));
+      const local = pivot.clone().add(shift.clone().multiplyScalar(weight)).applyMatrix4(back).sub(pivot.clone().applyMatrix4(back));
+      values.set(frame, v => [v[0]+local.x,v[1]+local.y,v[2]+local.z]);
+      if (wants[k].weight>0) { moments++; before+=excess; after+=Math.max(0,excess-shift.length()*weight/reach); }
+    }
+    if (values.size) rewriteTrack(result,node,si,frames,values,'Translation');
+  }
+  return moments ? {moments,gapBefore:before/moments,gapAfter:after/moments} : null;
+}
+
 // ------------------------------------------------------------ is there something for Seat to repair? (plan step 6)
 // Readers ported from the Fable review helpers (gapsum, plane, roll). `weapon` is readWeapon(own): its item and palm
 // patches use the model's vertex numbers, which are valid on a transplant result of that model.

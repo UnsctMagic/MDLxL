@@ -1975,3 +1975,20 @@ that worked. Each is measurable on every pair without the owner's grade.
   (`soles`).
 - `regress.mjs --check --all --only reasonable-40,reasonable-43,new-08`: reasonable-40 and -43 exports differ at unchanged
   ticks, new-08 identical; `--check` 8 of 8. Build passes.
+
+### Fable plan step 9 (Opus, 26 Nov): Weapon in hand, built; engine short of the plan's numbers
+
+- Box `gripInHand` "Weapon in hand" (after `useArms`; label in six languages). `keepInHand` (transplant-weapon-seat.js):
+  the weapon's one carrier bone (all its vertices, nothing else) gets Translation keys moving it toward the grip palm by
+  what it sits beyond max(donor gap, own Stand grip gap) + 0.03, at full strength where the donor's gap is 0.15 or less,
+  fading to 0 at 0.30, eased as `holdSupport` (SPAN 4); Death/Decay/Dissipate/Portrait skipped; runs after Seat and before
+  the second hand, never with Seat ticked. Readers `handGapRows` (16 moments per animation), pure `leavesHand`,
+  `attackExcess`. Suggester: never a candidate, not in the six-rule loop; decided before Two-hand grip by `leavesHand`, a
+  cut of 0.1 or more and no rule lost, never with Seat suggested.
+- reasonable-08 at skinLandmarks,trackWindow,keepTorso (result gap minus donor gap, worst): Attack - 3 0.39 -> 0.14,
+  Attack - 1 0.31 -> 0.12, Stand - 2 0.33 -> 0.10 (mid-clip 0.47 -> 0.24); others unchanged. **Short of the plan**
+  (Attack - 3 <= 0.05; Stand - 2 mid-clip above 0.3): without easing Attack - 3 still reads 0.11 (one translation per key
+  along one moment's direction); Stand - 2's donor gap is 0.17, inside the fade, so it is pulled. Engine test kept as
+  specified, marked todo. Thresholds not moved.
+- Self-check (live suggestion): only reasonable-08 gains the box; the eight controls, reasonable-19 (Seat), -31, -32, -42
+  unchanged. Box unticked: reasonable-08's export equals the baseline hash.

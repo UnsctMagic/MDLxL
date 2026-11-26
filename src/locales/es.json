@@ -8953,5 +8953,7 @@
   "Use arms": "Usar brazos",
   "Front legs move as the donor's arms.": "Las patas delanteras se mueven como los brazos del donante.",
   "Leg timing": "Ritmo de patas",
-  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Cuándo pisan las patas delanteras: 0 con la pata trasera del mismo lado, 50 con la del lado opuesto."
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Cuándo pisan las patas delanteras: 0 con la pata trasera del mismo lado, 50 con la del lado opuesto.",
+  "Weapon in hand": "Arma en la mano",
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Mantiene el arma no más lejos de la mano que el arma del donante de la mano del donante."
 }

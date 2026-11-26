@@ -811,10 +811,20 @@ Spell, where the donor itself throws or drops the weapon (new-02 Death: donor 3.
 - *Engine, `keepInHand`:* acts only while the donor holds its weapon: full strength where the donor's own gap is 0.15 arm
   or less, fading to nothing at 0.30 (the same on/off fade `holdSupport` uses), so a thrown, dropped or far-belted weapon
   is left alone. Death, Decay, Dissipate and Portrait are skipped. Never with Seat ticked.
-- *Suggestion:* measured on Stand, Walk and Attack animations only, and only over the moments where the donor's gap is
-  0.15 or less. Suggested when in some such animation at least a tenth of those moments exceed the donor's gap by 0.15
-  or more, the box brings that excess down by 0.1 or more, and `ruleChange` reports nothing lost. Never when Seat is
-  suggested.
+- *Suggestion (final, after the filtered table; the rule first written here hit three controls and two more 10s):*
+  the box is suggested only for the fault the owner named, a weapon that **leaves the hand during an attack**:
+  1. Attack animations only. Stand and Walk are never tested: a steady offset there is how the model holds its weapon,
+     and he graded such pairs 10 (new-02 Stand, new-05 Walk, reasonable-32 Walk - 2).
+  2. Excess is measured against the same allowance the engine uses, the larger of the donor's gap and **the model's own
+     Stand grip gap**, plus 0.03 (reasonable-31's constant 0.20 is its own grip sitting further out: no excess).
+  3. The weapon starts the animation in the hand (first moment within the allowance) and later, over the moments where
+     the donor's gap is 0.15 or less, at least a tenth of them exceed the allowance by 0.15 or more.
+  4. The box brings that excess down by 0.1 or more and `ruleChange` reports nothing lost. Never when Seat is suggested.
+  Put the test in one exported pure function (`leavesHand(rows)` on per-moment `{ donorGap, resultGap }` plus the own
+  grip gap) so it is tested on numbers.
+- *If the stop rule below still fires* (a control or a sheet-10 gains the box): no further rule is tried. The box ships
+  as a plain toggle, never suggested, and reasonable-08's row on the small sheet opens with it ticked (seeded) so the
+  owner sees it; the note to him says the box is his to tick.
 - *Stop rule added:* the defaults of the 9-10 pairs stay as they are. If the box becomes suggested on any of the eight
   controls or on any pair graded 10 on the reasonable sheet, do not merge: report the pair and its numbers.
 - *Checker, before Opus codes:* `pre910.mjs` again with that filter (Stand, Walk, Attack; donor gap 0.15 or less): per
@@ -865,6 +875,17 @@ lands elsewhere.
 
 **Cause confirmed by measurement:** both pairs run in `soles` mode; the body joint's vertical range against the donor's is
 2.2x in Stand and 4.4x in Walk on reasonable-40, 4.8x and 9.2x on reasonable-43. The spec below stands unchanged.
+
+**Built `cf7ce6a7`: approved with one fix.** The bounce that came from wingtips and dangling feet is gone (the ratio of the
+result's body range to the donor's is now the same in every animation), but it is 0.71 on reasonable-40 and 1.70 on
+reasonable-43 as shares of each model's height: the rise is scaled by the leg-travel ratio, which means nothing between two
+bodies without paired legs. The owner's rule of 22 Nov is "height above ground ... as a ratio of body size". **Fix:** in
+the new case only (legless model, winged donor) the donor body's rise is scaled by the two models' standing heights
+(`visibleStandHeight(model) / visibleStandHeight(D)`, the ratio Jump height already uses) instead of `travel`; the old
+footless-donor case keeps `travel`, so nothing else changes. Expected: both ratios 1.0, only these two pairs differ.
+Open until the checker has compared scores before and after at the same ticks: reasonable-40 reads 13 stretched edges
+(worst 3.45x in Attack, at Mesh13 / Mesh14 / Fur) and reasonable-43 a near-twin miss in Walk - 2; if either is new with
+this step, it is reported before the baseline is written.
 
 Owner: "jumps up and down while the donor remains stable", "model bobs up and down.... happened before."
 
@@ -990,6 +1011,12 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
 17. **Step 7's broken bow test is fixed before anything else merges** ("Archer bow grip follows actual shaft-contact
     palms"). Expected fix: the second-hand step does not run where the bow grip fit already placed the hands
     (`bowHands`). Seat exports and reasonable-08's gain must stay as they are; the checker re-runs the regression after it.
+18. **Weapon in hand is suggested only for a weapon that leaves the hand during an attack** (it starts in the hand, the
+    donor keeps holding, the result does not), measured against the model's own grip. The first rule would have changed
+    the defaults of new-02, new-05, new-08 and two more 10s on steady Stand and Walk offsets he had accepted. If even
+    the narrow rule touches a control or a 10, the box is never suggested and only seeded on reasonable-08's sheet row.
+    Bow regression of step 7: fixed in `78ecbfa3` (second-hand step skipped where the bow grip fit acted).
+
 
 
 

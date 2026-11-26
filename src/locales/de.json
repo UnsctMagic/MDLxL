@@ -9068,5 +9068,7 @@
   "Use arms": "Arme nutzen",
   "Front legs move as the donor's arms.": "Vorderbeine bewegen sich wie die Arme des Spenders.",
   "Leg timing": "Beintakt",
-  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Wann die Vorderbeine treten: 0 mit dem Hinterbein derselben Seite, 50 mit dem gegenüberliegenden."
+  "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Wann die Vorderbeine treten: 0 mit dem Hinterbein derselben Seite, 50 mit dem gegenüberliegenden.",
+  "Weapon in hand": "Waffe in der Hand",
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Hält die Waffe nicht weiter von der Hand entfernt als die Waffe des Spenders von dessen Hand."
 }

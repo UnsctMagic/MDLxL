@@ -18,7 +18,7 @@ export const AUTO_FIX_KEYS = Object.freeze([
   'looseAxis', 'gripRouting', 'heldGeometry', 'surfaceGrip', 'extraMotion', 'skinLandmarks',
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
   'wristGrip', 'keepTorso', 'sewnTorso', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
-  'mirrorLegs', 'useArms',
+  'mirrorLegs', 'useArms', 'gripInHand',
 ]);
 // Checkboxes the owner has rejected by eye but wants kept: still shown and tickable, never suggested by any stage of
 // suggestToggles. Keys are added here only on the owner's word. Seam fix was the first entry (26 Nov 2026) and was then
@@ -85,6 +85,7 @@ export const AUTO_FIX_LABELS = Object.freeze({
   donorPose: ["Donor pose", "Bends this model's stored pose into the donor's resting pose."],
   mirrorLegs: ['Mirror legs', "Front legs walk with the back legs' motion, mirrored and shifted in time."],
   useArms: ['Use arms', "Front legs move as the donor's arms."],
+  gripInHand: ['Weapon in hand', "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand."],
 });
 // Front legs (owner, 26 Nov 2026): Mirror legs and Use arms are a choice for a model with more legs than the donor, not a
 // scored repair (src/xfer-suggest-toggles.js). The Leg timing slider (shown with Mirror legs) shifts the mirrored front legs
