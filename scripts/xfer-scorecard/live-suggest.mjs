@@ -1,5 +1,5 @@
 // The app's live suggestion (src/xfer-suggest-toggles.js, as the transplant worker runs it) for every scorecard pair.
-//   node scripts/xfer-scorecard/live-suggest.mjs <out.jsonl> [--shard k/n]
+//   node scripts/xfer-scorecard/live-suggest.mjs <out.jsonl> [--only id,id] [--shard k/n]
 import fs from 'node:fs';
 import { openDocument } from '../../src/editor-document.js';
 import { suggestToggles } from '../../src/xfer-suggest-toggles.js';
@@ -14,6 +14,7 @@ for (const sheet of ['weapons14', 'reasonable50', 'new30', 'random30']) for (con
   if (t && !pairs.some(p => p.id === row.id)) pairs.push({ id: row.id, t });
 }
 let todo = pairs;
+if (opt('only')) { const only = new Set(opt('only').split(',')); todo = todo.filter(p => only.has(p.id) || only.has(p.id.replace(/^reasonable-/, ''))); }
 if (opt('shard')) { const [k, n] = opt('shard').split('/').map(Number); todo = todo.filter((_, i) => i % n === k); }
 const load = p => openDocument(fs.readFileSync(p), p).model;
 for (const { id, t } of todo) {

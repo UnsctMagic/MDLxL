@@ -1,7 +1,7 @@
 import { generateCompatibleMdx } from './mdx-compatibility.js';
 import { standSequenceIndex } from './sequence-editor.js';
 import { mirrorModel, transplantSkeleton } from './skeleton-transplant.js';
-import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
+import { AUTO_FIX_KEYS, LEGACY_AUTO_FIX_KEYS, OWNER_REJECTED_KEYS, TOGGLE_CLASHES, TOGGLE_NEEDS, autoFixMirror, toggleRepair } from './transplant-autofix.js';
 import { SCORE_RULES, judgeResult, scoreResult } from './xfer-scorecard.js';
 import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
@@ -34,6 +34,10 @@ export function suggestToggles(model, donor, options = {}, {
   check = createLookCheck(SUGGESTION_SAMPLING),
   rules = true,
 } = {}) {
+  // The owner's verdict outranks every measurement: a blocked key is never a candidate, never flipped on by the rules
+  // step, and is filtered from the result last, so no stage can add it back. It stays in `visible` for the user to tick.
+  const blocked = new Set(OWNER_REJECTED_KEYS);
+  const allowed = keys => keys.filter(key => !blocked.has(key));
   const ownRig = automaticMirror ? rigFor(model, Math.max(0, standSequenceIndex(model))) : null;
   const donorRig = automaticMirror ? rigFor(donor, Math.max(0, standSequenceIndex(donor))) : null;
   const named = !!(ownRig?.weaponSide && donorRig?.weaponSide && ownRig.weaponSide !== donorRig.weaponSide);
@@ -75,8 +79,8 @@ export function suggestToggles(model, donor, options = {}, {
     if (identical && key !== 'seatWeapon') continue;
     scores[key] = measure(result.model, result.mirrored);
     measured.set(keysWithNeeds([key]).join(','), scores[key]);
-    // Owner: "most times seamfix was used it made things worse".
-    if (['seamFix', 'skinLandmarks', 'gripRouting'].includes(key)) continue;
+    // Owner: "most times seamfix was used it made things worse" (now OWNER_REJECTED_KEYS).
+    if (blocked.has(key) || ['skinLandmarks', 'gripRouting'].includes(key)) continue;
     if (key === 'surfaceGrip') {
       const holdsWithBothHands = (m, rig) => heldContact(m, rig ?? rigFor(m, Math.max(0, standSequenceIndex(m))))?.twoHands;
       if (!holdsWithBothHands(model, ownRig) || !holdsWithBothHands(donor, donorRig)) continue;
@@ -143,7 +147,7 @@ export function suggestToggles(model, donor, options = {}, {
     });
     const helpful = [];
     for (const key of visible) {
-      if (key === 'donorPose') continue;
+      if (key === 'donorPose' || blocked.has(key)) continue;
       const checked = !ticks.includes(key), flipped = toggleRepair(ticks, key, checked);
       const { gained, lost } = change(judged(flipped));
       if (gained && !lost) helpful.push({ key, checked, gained });
@@ -160,6 +164,8 @@ export function suggestToggles(model, donor, options = {}, {
       scores.rules = helpful.map(({ key, checked, gained }) => ({ key, checked, gained }));
     }
   }
+  const kept = allowed(suggested);
+  if (kept.length !== suggested.length) comboScore = scoreCombo(kept);
   scores.suggested = comboScore;
-  return { visible, suggested, scores };
+  return { visible, suggested: kept, scores };
 }

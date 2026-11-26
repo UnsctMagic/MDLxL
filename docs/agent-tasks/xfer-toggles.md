@@ -1714,3 +1714,17 @@ The owner's standard, read from these: (1) the body never changes shape; (2) eve
 (3) the weapon sits in the same hand(s), at the same place and angle as the donor's, worked out from the model's own animations;
 (4) when the two models already animate alike, the result looks like them; (5) no jitter; (6) a fix may never break a pair
 that worked. Each is measurable on every pair without the owner's grade.
+
+### Fable plan step 1 (Opus, 26 Nov): Seam fix never suggested
+
+- `OWNER_REJECTED_KEYS = ['seamFix']` in `src/transplant-autofix.js` (owner's words and date in the comment). `suggestToggles`
+  builds `blocked` from it: no first-stage candidate, skipped by the six-rule loop, and `allowed()` filters the result last.
+  `visible` is unchanged: the checkbox is shown and tickable.
+- Test `test/xfer-suggest-toggles.test.js` (stock models in `MDLxL-TestModels/reasonable-50`): on the old code 2 of 5 fail
+  (reasonable-46 suggested `seamFix`); with the change 5 of 5 pass.
+- `live-suggest.mjs` gained `--only`. The eight final-sheet pairs that had Seam fix (`out/fable-plan/step-1/live.jsonl`,
+  `compare.txt`): Seam fix gone on all eight and still shown; seven keep every other tick of the final sheet.
+  **reasonable-38 differs:** `authoredMotion,keepTorso,seatWeapon` instead of `authoredMotion,seamFix,seatWeapon`.
+  Keep torso shares the clash group with Seam fix; on the final sheet the rules step's Seam fix flip removed it, now that
+  flip is skipped and Keep torso (scored better than plain, 1/1.31 vs 1/1.46) stays. For Fable to judge by picture.
+- No engine or export code changed. `pnpm run build` passes.

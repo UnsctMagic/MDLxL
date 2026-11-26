@@ -19,6 +19,9 @@ export const AUTO_FIX_KEYS = Object.freeze([
   'hangingChains', 'rootHeight', 'saddleDriver', 'trackWindow', 'authoredMotion', 'movingCarrier',
   'wristGrip', 'keepTorso', 'sewnTorso', 'seamFix', 'seatLooseGrip', 'riderSeat', 'donorPose', 'seatWeapon',
 ]);
+// Checkboxes the owner has rejected by eye: still shown and tickable, never suggested by any stage of suggestToggles.
+// Keys are added here only on the owner's word. Seam fix, 26 Nov 2026: "SEAM FIX IS CAUSING HOLES IN EVERY MODEL IT TOUCHES".
+export const OWNER_REJECTED_KEYS = Object.freeze(['seamFix']);
 export const TOGGLE_CLASHES = Object.freeze([
   ['hand', 'heldGeometry'],
   ['markers', 'wristGrip'],
