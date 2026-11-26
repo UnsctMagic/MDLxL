@@ -1,5 +1,5 @@
 {
- "revision": "7d7d0ae9",
+ "revision": "7cf9992d",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -136,16 +136,18 @@
   },
   "reasonable-08": {
    "suggested": [
+    "surfaceGrip",
     "skinLandmarks",
     "trackWindow",
     "keepTorso"
    ],
    "ticks": [
+    "surfaceGrip",
     "skinLandmarks",
     "trackWindow",
     "keepTorso"
    ],
-   "sha256": "a7bd8461f389027d62f78f29d0513ba88bd3194f26141bb0867a0bf8b993f8e8"
+   "sha256": "688ba4739251b3351e3db571723719454b7ec864f6c7fd25d42bf6586695a0f6"
   },
   "reasonable-09": {
    "suggested": [
@@ -541,9 +543,13 @@
    "sha256": "a2b32819433ffe551600ae7e49919c1023123fb8c159b486f0567df6c42a676a"
   },
   "new-02": {
-   "suggested": [],
-   "ticks": [],
-   "sha256": "6f9f4647825d9d53852f66e51c2f7e6a8c971bdf5d64b9fe5abb8df8fb84337b"
+   "suggested": [
+    "surfaceGrip"
+   ],
+   "ticks": [
+    "surfaceGrip"
+   ],
+   "sha256": "8abe90b416dfdba1505a21f847b84727665597773a799efa2a44951364d81505"
   },
   "new-04": {
    "suggested": [
@@ -632,13 +638,13 @@
   "legs-01": {
    "suggested": [
     "hangingChains",
-    "mirrorLegs"
+    "useArms"
    ],
    "ticks": [
     "hangingChains",
-    "mirrorLegs"
+    "useArms"
    ],
-   "sha256": "44261ca444aa9261807818a515dbd69b73d65a9fcb046f45f26f365a9a3b6d85"
+   "sha256": "b6726b49748e1a4dd5762fb9c04c5dc07890b7b6856654471690467453a8c2bf"
   }
  }
 }
