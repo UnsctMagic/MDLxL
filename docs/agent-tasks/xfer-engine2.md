@@ -79,10 +79,10 @@ degrees apart); per-animation engine wanted (29). Also found while checking: swo
   limb did not move although the donor's did (`followCheck`). `report.form`: the form's animations and the ones left out.
 - Retarget: `recipe.method` / `part.method` ('A' | 'B'); B turns each taken limb bone toward the donor's paired bone after
   the method A turn. Planted feet and the aimed weapon arm end at the same spots in both (Retarget's own later steps).
-- Window (contract xfer-controls-design.md): method row (app/TransferMethods.jsx) with Copy / Match / Mix, All animations /
+- Window (contract xfer-controls-design.md): method row (app/TransferMethods.jsx) with Rotation / Position / Mix, All animations /
   This animation, More (Donor pose, Keep own torso, Keep donor motion when they apply), "! N" with the list of parts and
   reasons; Mix dots and warning marks on the result's POSE handles (`poseConfig.marks`, app/pose-overlay.js); part chip
-  with Copy / Match (Shift: both sides), the weapon row on the weapon arm, the front-leg choice, Same as all; form buttons
+  with Rotation / Position (Shift: both sides), the weapon row on the weapon arm, the front-leg choice, Same as all; form buttons
   (Normal / Alternate, else Form n) and Both / Rider / Mount in the donor caption in Transplant too; other-form animations
   dimmed; "•" on animations with their own choice. Retarget: the same row (no scope), dots and chip on taken limbs.
 - Round 5 (owner: "wtf is this"): the part chip was a huge empty panel (a stylesheet rule stretched every div in the preview;
@@ -92,6 +92,11 @@ degrees apart); per-animation engine wanted (29). Also found while checking: swo
   while building; Retarget's donor view showed handles of every skeleton in the file (crow, death body), now only the
   read form's. Checked hidden with the Druid of the Talon, Grunt and Ghoul as donors (Mix, a dot click, Escape, rebuild,
   animation change, Retarget).
+- Round 6 (owner 27 Nov: "rename copy and match"): the methods are Rotation and Position everywhere (row, popup, tooltips,
+  six languages, contract). Hidden click-through of every control (scratch script, four donors: Druid of the Talon, Grunt
+  with Transplant applied, Knight for Both/Rider/Mount, Demon Hunter): fixed the suggested mark wrapping in the buttons, the
+  result view re-framing on an animation two forms share (Decay Bone), a click without movement on the selected hand in
+  Retarget not opening its popup, and the donor view keeping the old form's camera after a form switch.
 - Starting method (owner 26 Nov: "Suggested method"): Transplant starts on `suggestEngineRegions`; a Retarget part without
   its own `method` builds with its region's suggestion. Both already did; no code change.
 - Not done from the contract: the M / X keys (buttons carry hotkey ids, so keys can be assigned in Settings); the

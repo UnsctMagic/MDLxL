@@ -94,12 +94,15 @@ const FIELDS = [
  * redraws while it plays. The dropdown is the same choice as the Animations list. The selected
  * part's hand or foot path is drawn over it, with a dot at the donor's own moment. The camera turns
  * with the result view's (turnCamera). `notes` are drawn over the view. */
-const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseConfig, onPoseSelect, path, turnCamera, notes }) {
+const DonorStage = memo(function DonorStage({ donor, sequence, onSequence, poseConfig, onPoseSelect, path, turnCamera, notes, frameKey = null }) {
   const interval = donor.model.Sequences?.[sequence]?.Interval;
   const [time, setTime] = useState(interval?.[0] ?? 0), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   useEffect(() => { setTime(interval?.[0] ?? 0); }, [donor.model, sequence]);
   const overlay = useMemo(() => path?.points.length > 1 ? [{ points: path.points, motion: true, width: 3, alpha: .95, marker: pathMarker(path.frames, time) }] : undefined, [path, time]);
   const view = useRef(null), onViewReady = useCallback(api => { view.current = api; }, []);
+  // Another form of the same donor (the crow of a druid) is a new body to look at: it is framed like a new model.
+  const framedKey = useRef(frameKey);
+  useEffect(() => { if (framedKey.current === frameKey) return; framedKey.current = frameKey; view.current?.resetView(); }, [frameKey]);
   const options = useMemo(() => (donor.model.Sequences || []).map((s, i) => ({ value: String(i), label: sequenceName(donor.model, i), own: true })), [donor.model]);
   return <>
     <div className="xf-preview">
@@ -549,7 +552,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!d) return;
     event.stopPropagation();
     aimFrame.current.flush(); aim.current = null; setGhost(null);
-    if (d.next) { setDraft(null); change(d.next); setAimNote(d.clamped); } else setDraft(null);
+    if (d.next) { setDraft(null); change(d.next); setAimNote(d.clamped); } else { setDraft(null); if (rtMethod === 'mix') openRtChip(d.key); } // a click without movement opens the part's method popup
   };
   const aimCancel = () => { if (!aim.current) return; aimFrame.current.cancel(); aim.current = null; setGhost(null); setDraft(null); };
   useWindowKeyClaim(({ event }) => { if (event.key !== 'Escape' || !aim.current) return false; aimCancel(); return true; }, 0);
@@ -671,7 +674,9 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
   };
   const sameAsAll = () => { const animations = { ...engineState.animations }; delete animations[engineAnimation]; setEngineChoice({ context: tpContext, value: { ...engineState, animations } }); };
   // What the donor view shows is used: its form (the shown animation's) and, for rider and mount, its reading.
-  const donorForm = useMemo(() => { try { return tpDonor ? transferForm(tpDonor.model, donorSeq) : null; } catch { return null; } }, [tpDonor?.model, donorSeq]);
+  // The form the donor view shows: the listed form the animation belongs to (a decay seen by two forms stays with the shown one).
+  const readForm = useMemo(() => { try { return tpDonor ? transferForm(tpDonor.model, donorSeq) : null; } catch { return null; } }, [tpDonor?.model, donorSeq]);
+  const donorForm = transplanting && shownForm ? shownForm : readForm;
   const tpActor = tpDonor ? recipe.sources?.[tpDonor.id]?.actor : null;
   const tpOptions = { ...transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false, legTiming: tpLegTiming }), ...tpEngine,
     ...(donorForm?.key != null && donorForm.stand >= 0 ? { donorSequence: donorForm.stand } : {}), ...(tpActor ? { actor: tpActor } : {}) };
@@ -874,7 +879,7 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                   <button data-hotkey="transfer:donor-rider" data-hotkey-manual data-hotkey-label="Donor: Rider" data-actor="seated" aria-pressed={donorActor === 'seated'} title={ACTORS[1][2]} onClick={() => chooseActor('seated')}>Rider</button>
                   <button data-hotkey="transfer:donor-mount" data-hotkey-manual data-hotkey-label="Donor: Mount" data-actor="walker" aria-pressed={donorActor === 'walker'} title={ACTORS[2][2]} onClick={() => chooseActor('walker')}>Mount</button>
                 </>}</div>
-              {donor ? <DonorStage donor={donor} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={transplanting ? null : donorPose} onPoseSelect={onDonorHandle} path={transplanting ? null : donorPath} turnCamera={turnCamera.current}
+              {donor ? <DonorStage donor={donor} frameKey={shownForm?.key ?? null} sequence={donorSeq} onSequence={index => setDonorSeqs(old => ({ ...old, [donor.id]: index }))} poseConfig={transplanting ? null : donorPose} onPoseSelect={onDonorHandle} path={transplanting ? null : donorPath} turnCamera={turnCamera.current}
                   notes={<>{!rigA?.ok && <div className="xf-overlay-note" role="status">{(rigA?.problems || []).map(text => <p key={text}>{text}</p>)}</div>}{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</>}/>
                 : <><div className="xf-preview"><div className="xf-placeholder">Choose a model under From.</div>{(loading || message) && <div className="xf-overlay-note xf-message" role="status">{loading ? 'Loading model…' : message}</div>}</div>
                   <TransferViewStrip name="Donor view" donor playing={false} onPlay={noop} onReset={noop} playTitle="Play or pause the donor view." interval={[0, 1]} time={0} onSeek={noop} speed={100} onSpeed={noop} value="" options={[]} onChange={noop} selectTitle="The donor animation to look at and take from. The same choice as the Animations list." disabled/></>}

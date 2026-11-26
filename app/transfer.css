@@ -225,3 +225,4 @@
 .transfer-xl .xf-warn-count{background:none!important;border:0!important;padding:0 2px;cursor:pointer}
 .transfer-xl .xf-warn-list{left:0;right:auto;min-width:220px;font-size:11px}
 .transfer-xl .xf-method-switch .xf-more{margin-left:0}
+.transfer-xl .xf-method-switch>button,.transfer-xl .xf-chip-row>button,.transfer-xl .xf-method-scope>button{white-space:nowrap}

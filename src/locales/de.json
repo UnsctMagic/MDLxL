@@ -9076,7 +9076,6 @@
   "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.": "Angehakt: Die Hand dreht sich, sodass die Waffe wie die Waffe des Spenders zeigt (Engine 2). Nicht angehakt: Die Hand behält die Drehung von Engine 1. Wohin die Hand geht, entscheidet das Kästchen des Arms.",
   "This animation only": "Nur diese Animation",
   "Ticked: the Engine 2 boxes apply only to {0}. Unticked: they apply to every animation without its own choice.": "Angehakt: Die Engine-2-Kästchen gelten nur für {0}. Nicht angehakt: Sie gelten für jede Animation ohne eigene Wahl.",
-  "Match": "Anpassen",
   "Mix": "Mix",
   "All animations": "Alle Animationen",
   "This animation": "Diese Animation",
@@ -9085,9 +9084,6 @@
   "Form {0}": "Form {0}",
   "Method": "Methode",
   "Scope": "Bereich",
-  "Each joint turns as the donor's joint turns. Best when the two bodies are built alike.": "Jedes Gelenk dreht sich wie das Gelenk des Spenders. Am besten, wenn beide Körper ähnlich gebaut sind.",
-  "Limbs point the way the donor's do. Hands and feet go to the donor's spots, scaled to this body. Best when the bodies differ.": "Gliedmaßen zeigen wie die des Spenders. Hände und Füße gehen an die Stellen des Spenders, auf diesen Körper skaliert. Am besten, wenn die Körper verschieden sind.",
-  "Choose Copy or Match for each body part. Click a part on the model.": "Wähle Kopieren oder Anpassen für jeden Körperteil. Klicke einen Teil am Modell an.",
   "The hand turns so the weapon points the way the donor's weapon points.": "Die Hand dreht sich, sodass die Waffe wie die Waffe des Spenders zeigt.",
   "Changes apply only to {0}.": "Änderungen gelten nur für {0}.",
   "Choices for unusual models.": "Optionen für ungewöhnliche Modelle.",
@@ -9095,5 +9091,9 @@
   "The donor has no {0}. Keeps its own movement.": "Der Spender hat kein(e) {0}. Behält seine eigene Bewegung.",
   "This part did not follow the donor.": "Dieser Teil ist dem Spender nicht gefolgt.",
   "Other form. Not transferred.": "Andere Form. Wird nicht übertragen.",
-  "Parts that do not get the chosen method. Click the ! on a part.": "Teile, die die gewählte Methode nicht bekommen. Klicke auf das ! an einem Teil."
+  "Parts that do not get the chosen method. Click the ! on a part.": "Teile, die die gewählte Methode nicht bekommen. Klicke auf das ! an einem Teil.",
+  "Each joint turns like the donor's. Best when the bodies are built alike.": "Jedes Gelenk dreht sich wie beim Spender. Am besten, wenn die Körper ähnlich gebaut sind.",
+  "Hands and feet go where the donor's go, scaled to this body. Best when proportions differ.": "Hände und Füße gehen dorthin, wo die des Spenders sind, auf diesen Körper skaliert. Am besten bei anderen Proportionen.",
+  "Choose Rotation or Position for each body part. Click a part on the model.": "Wähle Drehung oder Position für jeden Körperteil. Klicke einen Teil am Modell an.",
+  "The hand turns like the donor's hand.": "Die Hand dreht sich wie die des Spenders."
 }

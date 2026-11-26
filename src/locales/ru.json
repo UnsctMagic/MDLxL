@@ -8951,7 +8951,6 @@
   "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.": "Отмечено: кисть поворачивается так, чтобы оружие было направлено как оружие донора (движок 2). Не отмечено: кисть сохраняет поворот движка 1. Куда идёт кисть, решает флажок руки.",
   "This animation only": "Только эта анимация",
   "Ticked: the Engine 2 boxes apply only to {0}. Unticked: they apply to every animation without its own choice.": "Отмечено: флажки «Движок 2» действуют только для {0}. Не отмечено: они действуют для всех анимаций без собственного выбора.",
-  "Match": "Подгонка",
   "Mix": "Смесь",
   "All animations": "Все анимации",
   "This animation": "Эта анимация",
@@ -8960,9 +8959,6 @@
   "Form {0}": "Форма {0}",
   "Method": "Способ",
   "Scope": "Охват",
-  "Each joint turns as the donor's joint turns. Best when the two bodies are built alike.": "Каждый сустав поворачивается как сустав донора. Лучше, когда тела похожи.",
-  "Limbs point the way the donor's do. Hands and feet go to the donor's spots, scaled to this body. Best when the bodies differ.": "Конечности направлены как у донора. Кисти и ступни идут в точки донора в масштабе этого тела. Лучше, когда тела различаются.",
-  "Choose Copy or Match for each body part. Click a part on the model.": "Выберите «Копия» или «Подгонка» для каждой части тела. Щёлкните часть на модели.",
   "The hand turns so the weapon points the way the donor's weapon points.": "Кисть поворачивается так, чтобы оружие было направлено как оружие донора.",
   "Changes apply only to {0}.": "Изменения действуют только для {0}.",
   "Choices for unusual models.": "Настройки для необычных моделей.",
@@ -8970,5 +8966,9 @@
   "The donor has no {0}. Keeps its own movement.": "У донора нет: {0}. Сохраняет своё движение.",
   "This part did not follow the donor.": "Эта часть не повторила движение донора.",
   "Other form. Not transferred.": "Другая форма. Не переносится.",
-  "Parts that do not get the chosen method. Click the ! on a part.": "Части, которые не получают выбранный способ. Щёлкните ! на части."
+  "Parts that do not get the chosen method. Click the ! on a part.": "Части, которые не получают выбранный способ. Щёлкните ! на части.",
+  "Each joint turns like the donor's. Best when the bodies are built alike.": "Каждый сустав поворачивается как у донора. Лучше, когда тела похожи.",
+  "Hands and feet go where the donor's go, scaled to this body. Best when proportions differ.": "Кисти и ступни идут туда же, куда у донора, в масштабе этого тела. Лучше, когда пропорции различаются.",
+  "Choose Rotation or Position for each body part. Click a part on the model.": "Выберите «Вращение» или «Положение» для каждой части тела. Щёлкните часть на модели.",
+  "The hand turns like the donor's hand.": "Кисть поворачивается как у донора."
 }

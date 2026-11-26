@@ -5,14 +5,14 @@ import { LEG_TIMING } from '../src/transplant-autofix.js';
 import { translate } from '../src/localization.js';
 
 // The Transfer window's method row and part chip (contract: docs/agent-tasks/xfer-controls-design.md).
-// Copy = each joint turns as the donor's (method A, engine 1); Match = limbs point like the donor's and hands and feet reach
-// its spots (method B, engine 2); Mix = per part, picked on the model. The buttons are a view of the per-part choice.
+// Rotation = each joint turns as the donor's (method A, engine 1); Position = hands, feet and limbs go where the donor's are
+// (method B, engine 2); Mix = per part, picked on the model. The buttons are a view of the per-part choice.
 
 export const METHOD_PARTS = ['armL', 'armR', 'legL', 'legR', 'weapon'];
 const TIPS = {
-  A: 'Each joint turns as the donor\'s joint turns. Best when the two bodies are built alike.',
-  B: 'Limbs point the way the donor\'s do. Hands and feet go to the donor\'s spots, scaled to this body. Best when the bodies differ.',
-  mix: 'Choose Copy or Match for each body part. Click a part on the model.',
+  A: 'Each joint turns like the donor\'s. Best when the bodies are built alike.',
+  B: 'Hands and feet go where the donor\'s go, scaled to this body. Best when proportions differ.',
+  mix: 'Choose Rotation or Position for each body part. Click a part on the model.',
 };
 const PART_LABELS = { armL: 'Left arm', armR: 'Right arm', legL: 'Left leg', legR: 'Right leg', weapon: 'Weapon' };
 
@@ -22,7 +22,7 @@ export function methodOf(choice, parts) {
   return !values.length || values.every(v => v === 1) ? 'A' : values.every(v => v === 2) ? 'B' : 'mix';
 }
 
-/** Method row: [Copy][Match][Mix], scope (Transplant only), More, and the warning count. */
+/** Method row: [Rotation][Position][Mix], scope (Transplant only), More, and the warning count. */
 export function MethodRow({ method, suggested, onMethod, scope, onScope, animation, more = [], onMore, warnings = [], disabled }) {
   const mark = <span className="xf-suggested" title={translate('Suggested for this pair.')} aria-label={translate('Suggested for this pair.')}>✦</span>;
   const [open, setOpen] = React.useState(false), menu = useRef(null), [listed, setListed] = React.useState(false), list = useRef(null);
@@ -43,7 +43,7 @@ export function MethodRow({ method, suggested, onMethod, scope, onScope, animati
   const shownMore = more.filter(item => item.visible);
   return <div className="xf-repairs xf-methods" data-transfer-methods="" role="group" aria-label={translate('Method')}>
     <span className="xf-method-switch" role="group" aria-label={translate('Method')}>
-      {[['A', 'Copy'], ['B', 'Match'], ['mix', 'Mix']].map(([id, label]) => <button key={id} data-method={id} data-hotkey={`transfer:method-${label.toLowerCase()}`} data-hotkey-manual data-hotkey-label={label}
+      {[['A', 'Rotation'], ['B', 'Position'], ['mix', 'Mix']].map(([id, label]) => <button key={id} data-method={id} data-hotkey={`transfer:method-${label.toLowerCase()}`} data-hotkey-manual data-hotkey-label={label}
         aria-pressed={method === id} disabled={disabled} title={translate(TIPS[id])} onClick={() => onMethod(id)}>{translate(label)}{suggested === id && mark}</button>)}
       {warnings.length > 0 && <span className="xf-more" ref={list}><button className="xf-warn-count" aria-expanded={listed} title={translate('Parts that do not get the chosen method. Click the ! on a part.')} onClick={() => setListed(value => !value)}>! {warnings.length}</button>
         {listed && <span className="xf-more-menu xf-warn-list" role="status">{warnings.map(item => <span key={item.key}><b>{item.label}</b> {item.reason}</span>)}</span>}</span>}
@@ -61,7 +61,7 @@ export function MethodRow({ method, suggested, onMethod, scope, onScope, animati
   </div>;
 }
 
-/** Part chip at a picked dot: Copy / Match for the part (Shift = both sides), the weapon's choice on the weapon arm, the
+/** Part chip at a picked dot: Rotation / Position for the part (Shift = both sides), the weapon's choice on the weapon arm, the
  * front-leg choice on a spare front leg, the reason of a warning, and "Same as all" in This animation. */
 export function PartChip({ chip, onPick, onClose, sameAsAll, frontLegs }) {
   const box = useRef(null);
@@ -73,7 +73,7 @@ export function PartChip({ chip, onPick, onClose, sameAsAll, frontLegs }) {
   useWindowKeyClaim(({ event }) => { if (event.key !== 'Escape') return false; onClose(); return true; }, 0);
   const row = (key, value, locked) => <span className="xf-chip-row" role="group" aria-label={translate(PART_LABELS[key] || key)}>
     {key === 'weapon' && <span className="xf-chip-name">{translate('Weapon')}</span>}
-    {[[1, 'Copy'], [2, 'Match']].map(([v, label]) => <button key={v} aria-pressed={value === v} disabled={!!locked && v === 2} title={locked && v === 2 ? translate(locked) : key === 'weapon' && v === 2 ? translate('The hand turns so the weapon points the way the donor\'s weapon points.') : undefined}
+    {[[1, 'Rotation'], [2, 'Position']].map(([v, label]) => <button key={v} aria-pressed={value === v} disabled={!!locked && v === 2} title={locked && v === 2 ? translate(locked) : key === 'weapon' ? translate(v === 2 ? 'The hand turns so the weapon points the way the donor\'s weapon points.' : 'The hand turns like the donor\'s hand.') : translate(TIPS[v === 2 ? 'B' : 'A'])}
       onClick={event => onPick(key, v, event.shiftKey)}>{translate(label)}</button>)}
   </span>;
   // Next to the clicked dot, never over it, kept inside the view.
