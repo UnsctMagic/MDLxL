@@ -5,7 +5,8 @@ Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f
 approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Step 5b done (`af6def6b`, `10b7c6d2`, baseline `b0d6fd03`; approved by reading: the
 walk itself was then looked at from the side: see "Step 5b finding"). Step 6 built (`e48baec7`): approved with one fix
 ("Step 6 fix", done `5336de33`, approved). Step 8's sheet built (`ebc2b809`, approved with the control ticks seeded).
-Next: step 5c (the wolf's posture, one attempt), then the rest of step 8. Step 7 waits for the owner.
+Step 5c dropped by the owner (13:56). Step 7 built (`bf9b4c8c`, side branch): merge approved (decision 10). Next: merge,
+baseline, sheet again, then the rest of step 8 (source suite, build, package, hidden click, sheet check, row pictures).
 Owner, 26 Nov: "keep going without him"; Fable decides and writes each decision under "Decisions made without the owner".
 From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
@@ -822,6 +823,18 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
    -40, new-26, the Seat pairs reasonable-10, -31, -32, -39, -43, any pair step 7 changes, and the controls reasonable-05,
    -29, random-10, random-21, new-05, new-02. Every donated animation.
 9. **The controls open at the ticks he graded** (decision 2 stands), for the six controls left on the sheet.
+10. **Step 7 is merged, and new-02 gains the Two-hand grip suggestion.** Stop rule 1 held it for a look; the look says
+    merge. On new-02 (French Rifleman -> Polish Partisan Sapper, graded 9 with no box) the second hand was on the rifle in
+    none of the donor's two-handed moments; with the box it is in 0.54-0.61 of them. In the pictures the supporting hand
+    ends on the rifle instead of below it at the end of the aim, the elbow stays bent, and the jitter and near-twin
+    readings are the same with and without. Nothing he graded changes: the export at his graded ticks is byte-identical
+    (8 of 8), and on the sheet the row opens at his ticks, with the box marked as suggested for him to try. No rule that
+    is not a per-pair hack keeps reasonable-08's gain (0.50 to 1.00 in Attack - 1) and leaves new-02 out, since new-02
+    gains more. Said plainly: stills cannot show a twitch between frames; the jitter rule says there is none.
+11. **After the merge:** the baseline takes reasonable-08, new-02 and legs-01 (suggested ticks only); the sheet is made
+    again from the merged code (reasonable-08 with Two-hand grip, new-02 at his graded ticks), and the sheet check runs
+    again on the final package. The 15 rows and the check's split (launcher line and first row on the real answers file,
+    read only; every row and the write test on the `answers-smoke` copy) are accepted.
 
 ## Test set: reasonable pairs only
 
