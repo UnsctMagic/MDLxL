@@ -296,7 +296,21 @@ function skeletonRoot(model, info, id) {
   if (!pose || pose.body == null) return root;
   if (!info.seatedRoots) {
     const sequence = defaultSequence(model), ref = sampleAt(model, sequence, sequence >= 0 ? model.Sequences[sequence].Interval[0] : 0);
-    info.seatedRoots = new Set(seatedAssemblies(model, info, pose.body, id => worldPos(model, ref, id), sequence).map(item => info.tree.root(item.top)));
+    // A rider is shown together with its mount. A skeleton shown with the body in under half of the animations that show
+    // either (a second form of the model: a druid's crow, a hero's demon form, together only in the morph between them)
+    // is no rider: it stays a skeleton of its own.
+    const together = root => {
+      let both = 0, either = 0;
+      (model.Sequences || []).forEach((seq, index) => {
+        if (!seq?.Interval) return;
+        const shown = rawShown(model, info, index), a = (shown.get(root) || 0) > 0, b = (shown.get(info.tree.root(pose.body)) || 0) > 0;
+        if (a || b) either++;
+        if (a && b) both++;
+      });
+      return either > 0 && both >= 0.5 * either;
+    };
+    const anyShown = (model.Sequences || []).some((seq, index) => seq?.Interval && rawShown(model, info, index).size > 0);
+    info.seatedRoots = new Set(seatedAssemblies(model, info, pose.body, id => worldPos(model, ref, id), sequence).map(item => info.tree.root(item.top)).filter(root => !anyShown || together(root)));
   }
   return info.seatedRoots.has(root) ? info.tree.root(pose.body) : root;
 }
@@ -311,16 +325,92 @@ function skeletonKeys(model, info, root, sequence) {
   }
   return count;
 }
-/** Among separate skeletons with limbs, the one with the most Rotation keys in
- * the animation; the POSE body's skeleton when none moves. */
+/** Vertices of the geosets an animation shows, per hierarchy root (no rider grouping). */
+function rawShown(model, info, sequence) {
+  const key = `raw:${sequence}`, seq = model.Sequences?.[sequence];
+  if (info.skeletons.has(key)) return info.skeletons.get(key);
+  const skin = new Map();
+  if (seq?.Interval) (model.Geosets || []).forEach((geoset, index) => {
+    const track = geosetAlphaTrack(model, index);
+    if (isGlobalTrack(track, model) || !geosetVisibleIn(model, track, seq)) return;
+    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const bone = weights?.length >= (v + 1) * 8 ? weights[v * 8] : geoset.Groups?.[geoset.VertexGroup?.[v]]?.[0];
+      if (bone == null || !info.byId.has(bone)) continue;
+      const root = info.tree.root(bone);
+      skin.set(root, (skin.get(root) || 0) + 1);
+    }
+  });
+  info.skeletons.set(key, skin);
+  return skin;
+}
+/** What an animation shows (owner 26 Nov: "what I see is what I get"): the geosets visible in it, and per skeleton
+ * (hierarchy root) the vertices of those geosets it carries. A model holding two forms (a druid and its crow, a hero
+ * and its demon form) shows one of them in each animation; the skeleton that carries what is shown is the body read. */
+function shownIn(model, info, sequence) {
+  const key = `shown:${sequence}`, seq = model.Sequences?.[sequence];
+  if (info.skeletons.has(key)) return info.skeletons.get(key);
+  const geosets = [], skin = new Map();
+  if (seq?.Interval) (model.Geosets || []).forEach((geoset, index) => {
+    const track = geosetAlphaTrack(model, index);
+    if (isGlobalTrack(track, model) || !geosetVisibleIn(model, track, seq)) return;
+    geosets.push(index);
+    const count = (geoset.Vertices?.length || 0) / 3, weights = geoset.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const bone = weights?.length >= (v + 1) * 8 ? weights[v * 8] : geoset.Groups?.[geoset.VertexGroup?.[v]]?.[0];
+      if (bone == null || !info.byId.has(bone)) continue;
+      const root = skeletonRoot(model, info, bone);
+      skin.set(root, (skin.get(root) || 0) + 1);
+    }
+  });
+  const shown = { geosets, skin };
+  info.skeletons.set(key, shown);
+  return shown;
+}
+/** Among separate skeletons with limbs, the one carrying the most of what the animation shows; when none carries shown
+ * skin (or the animation shows nothing), the one with the most Rotation keys in the animation; the POSE body's skeleton
+ * when none moves. */
 function skeletonFor(model, info, sequence) {
   const { pose } = info.pose, key = `skeleton:${sequence}`;
   if (info.skeletons.has(key)) return info.skeletons.get(key);
   const roots = [...new Set(pose.chains.map(chain => skeletonRoot(model, info, chain.root)))];
-  let best = pose.body != null ? info.tree.root(pose.body) : roots[0] ?? null, most = best == null ? -1 : skeletonKeys(model, info, best, sequence);
-  for (const root of roots) { const count = skeletonKeys(model, info, root, sequence); if (count > most) { best = root; most = count; } }
+  const { skin } = shownIn(model, info, sequence);
+  let best = null, most = 0;
+  for (const root of roots) { const count = skin.get(root) || 0; if (count > most) { best = root; most = count; } }
+  if (best == null) {
+    best = pose.body != null ? info.tree.root(pose.body) : roots[0] ?? null; most = best == null ? -1 : skeletonKeys(model, info, best, sequence);
+    for (const root of roots) { const count = skeletonKeys(model, info, root, sequence); if (count > most) { best = root; most = count; } }
+  }
   info.skeletons.set(key, best);
   return best;
+}
+
+/** The form an animation shows and the animations of that form (owner 26 Nov: "what I see is what I get").
+ * `key`: the skeleton read (one string per form). `sequences`: the animations whose shown skin is that skeleton's,
+ * plus those showing no living skin of another form (a death or decay body, a portrait). A transition between forms
+ * (it shows two skeletons' skin, as a Morph does) is in neither. `stand`: that form's Stand. */
+export function transferForm(model, sequence) {
+  const info = modelInfo(model);
+  transferRig(model, { sequence });
+  if (!info.pose?.pose) return { key: null, sequences: (model.Sequences || []).map((_, i) => i), stand: standSequenceIndex(model) };
+  const at = Number.isInteger(sequence) && model.Sequences?.[sequence]?.Interval ? sequence : defaultSequence(model);
+  const skeleton = skeletonFor(model, info, at), limbed = new Set(info.pose.pose.chains.map(chain => skeletonRoot(model, info, chain.root)));
+  const named = index => String(model.Sequences[index]?.Name || '');
+  const ending = index => /death|decay|dissipate|portrait/i.test(named(index));
+  const formsIn = index => { const { skin } = shownIn(model, info, index), total = [...skin.values()].reduce((a, b) => a + b, 0); return [...skin].filter(([root, count]) => limbed.has(root) && count >= 0.1 * total).map(([root]) => root); };
+  // A form: a skeleton with limbs shown in a living animation. One shown only in death or decay is a corpse.
+  const living = new Set((model.Sequences || []).flatMap((seq, index) => seq?.Interval && !ending(index) ? formsIn(index) : []));
+  const tagged = index => /alternate|alt\b/i.test(named(index)), shownTag = tagged(at);
+  const sequences = [];
+  (model.Sequences || []).forEach((seq, index) => {
+    if (!seq?.Interval) return;
+    const forms = formsIn(index).filter(root => living.has(root));
+    if (forms.length > 1) return; // a transition between forms (a morph)
+    // No living form shown (a corpse, a decay, a portrait): the form whose name tag it carries.
+    if (forms.length ? forms[0] === skeleton : living.size < 2 || tagged(index) === shownTag) sequences.push(index);
+  });
+  const stand = sequences.find(index => /^stand\b/i.test(named(index)) && !/portrait|work|ready|victory|channel/i.test(named(index))) ?? sequences.find(index => /^stand/i.test(named(index))) ?? sequences[0] ?? -1;
+  return { key: skeleton == null ? null : String(skeleton), sequences, stand };
 }
 
 function readRig(model, info, skeleton, wanted = 'both', mainArms = false) {
@@ -1075,6 +1165,13 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
   let ownData = null;
   const ownOf = () => ownData ||= ownMotion(recipient, rigB);
 
+  // The method per taken part (owner 26 Nov): recipe.method 'A' (each joint turns as the donor's), 'B' (match the donor's
+  // pose) or 'mix' (recipe.mix: per part key or region, 'A' or 'B'); a part's own `method` wins. Trunk parts turn as in A.
+  const regionKey = key => /^arm[LR]/.test(key) ? key.slice(0, 4) : /^leg[LR]/.test(key) ? key.slice(0, 4) : /^wing([LR])/.test(key) ? 'arm' + key[4] : key;
+  const methodOf = entry => {
+    const pick = entry.part.method ?? (recipe.method === 'mix' ? recipe.mix?.[entry.key] ?? recipe.mix?.[regionKey(entry.key)] : recipe.method);
+    return pick === 'B' || pick === 2 ? 'B' : 'A';
+  };
   // Taken parts, each with its donor, mapping and constant rotations.
   const taken = [];
   // A part may carry more clips after its first (`next`): each is an entry of its own.
@@ -1313,6 +1410,19 @@ export function buildTransfer(recipient, sources, recipe, options = {}) {
         const delta = entry.frame && entry.own.kind === 'limb' ? mul(inv(entry.toTheirs[i]), turned, entry.toTheirs[i]) : turned;
         setRotation(id, mul(frameB, offset, delta, entry.align[i], entry.refRotB[i]), w, placed.has(entry) ? 0 : entry.range);
       });
+      // Method B (match pose, owner 26 Nov): each bone of a taken limb then points the way the donor's paired bone points,
+      // whatever the two rest poses; its twist stays the one method A gave it.
+      if (methodOf(entry) === 'B' && entry.own.kind === 'limb') {
+        const toWorld = mul(frameB, offset);
+        for (let i = 0; i + 1 < entry.own.joints.length; i++) {
+          const id = entry.own.joints[i], next = entry.own.joints[i + 1], from = entry.map[i], to = entry.map[i + 1];
+          if (entry.skip.has(id) || from < 0 || to < 0 || from === to) continue;
+          const a = entry.theirs.joints[from], b = entry.theirs.joints[to];
+          const want = entry.convertV(worldPos(entry.donor, donorSample, b).clone().sub(worldPos(entry.donor, donorSample, a)).applyQuaternion(inv(dA))).applyQuaternion(toWorld);
+          const here = v3(nodePivot(recipient, byIdB.get(id), id)).applyMatrix4(world(id)), there = v3(nodePivot(recipient, byIdB.get(next), next)).applyMatrix4(world(next));
+          setRotation(id, arc(there.sub(here), want).multiply(rotationOf(world(id))), w);
+        }
+      }
       // Shared joints hanging from this part (a waist under the hips, a sword under the hand), set before the parts
       // below them read their parents.
       for (const item of sharedOf.get(entry) || []) {

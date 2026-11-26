@@ -73,7 +73,7 @@ import { engine2Pose } from './transplant-engine2.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
-  jointMap, recipientForDonorWings, rigSizeRatio, transferPartLabel, transferRig, transferWholeBody,
+  jointMap, recipientForDonorWings, rigSizeRatio, transferForm, transferPartLabel, transferRig, transferWholeBody,
 } from './anim-transfer.js';
 
 const JOINT_KEYS = ['Bones', 'Helpers'];
@@ -910,7 +910,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default, engine = 1, regions = null } = {}) {
+function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default, engine = 1, regions = null, actor = null } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -947,7 +947,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   // horse's body. Read together, the horse's legs carried the rider's trunk: the wolf's back rose as the rider sits.
   const legPairs = rig => { const legs = Object.keys(rig.parts || {}).filter(key => /^leg/.test(key)); return Math.max(legs.filter(key => /^legL/.test(key)).length, legs.filter(key => /^legR/.test(key)).length); };
   let donorActor = 'both';
-  if (rigB.ok && rigA0.ok && rigA0.actors?.length > 1 && !(rigB.actors?.length > 1) && !Object.values(rigB.parts || {}).some(part => part.limbKind === 'arm')) {
+  // `actor`: the reading the donor view shows (Both / Rider / Mount); none: the automatic choice below.
+  if ((actor === 'walker' || actor === 'seated') && rigA0.ok && rigA0.actors?.includes(actor)) {
+    const chosen = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor });
+    if (chosen.ok && chosen.actor === actor) { rigA0 = chosen; donorActor = actor; }
+  } else if (actor !== 'both' && rigB.ok && rigA0.ok && rigA0.actors?.length > 1 && !(rigB.actors?.length > 1) && !Object.values(rigB.parts || {}).some(part => part.limbKind === 'arm')) {
     const walker = transferRig(donor, { sequence: donorStand0 >= 0 ? donorStand0 : undefined, actor: 'walker' });
     if (walker !== rigA0 && walker.ok && legPairs(walker) > 0 && legPairs(walker) === legPairs(rigB)) { rigA0 = walker; donorActor = 'walker'; notes.push("The donor is a rider on a mount: this model takes the mount's body; the rider's motion is left out."); }
   }
@@ -3337,6 +3341,11 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         attachments: (M.Attachments || []).length, events: (M.EventObjects || []).length, emitters: EFFECT_KEYS.reduce((n, k) => n + (M[k] || []).length, 0),
         vertices: (M.Geosets || []).reduce((n, g) => n + g.Vertices.length / 3, 0), bakedVertices: baked, sizeRatio: size, travel, ridesStill, skin: skinCounts, posture,
       },
+      // Per part of this model: matched to a donor part or not, and which (never fail silently: the window shows it on the part).
+      parts: Object.fromEntries(Object.values(rigB.parts || {}).map(part => {
+        const entry = entries.find(item => item.own.key === part.key), matched = !still.includes(part.key);
+        return [part.key, { matched, donor: entry?.theirs?.key ?? null, ...(matched ? {} : { reason: `The donor has no ${transferPartLabel(part.key).toLowerCase()}. Keeps its own movement.` }) }];
+      })),
       ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, donorPose, ...(fix ? { autoFix: fixed } : {}), ...(engine === 2 ? { engine2: engine2Report } : {}),
     },
     ...(markersCorrected && !fixed.markers ? { markersUnused: true } : {}),
@@ -3347,10 +3356,75 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
  * Weapon markers the weapon fit reads. Where no weapon fit ran on them, the corrected markers would only move the result's
  * own attachment points for nothing: the transplant is then built without that key, exactly as the plain one is. */
 export function transplantSkeleton(model, donor, options = {}) {
+  // What you see is what you get (owner 26 Nov): the donor is read in the form its shown animation shows (`donorSequence`,
+  // the donor view's animation; else its Stand), and only that form's animations are donated. A model of one form is
+  // used as it is.
+  const { donorSequence = null, method = null, mix = null, ...rest } = options;
+  const form = transferForm(donor, Number.isInteger(donorSequence) ? donorSequence : undefined);
+  const all = (donor.Sequences || []).map((_, index) => index).filter(index => donor.Sequences[index]?.Interval);
+  const formOnly = form.key != null && form.sequences.length && form.sequences.length < all.length;
+  const shownDonor = formOnly ? { ...donor, Sequences: form.sequences.map(index => donor.Sequences[index]) } : donor;
+  const made = transplantOnce(model, shownDonor, { ...rest, ...methodOptions(method, mix, rest) });
+  followCheck(made, shownDonor);
+  made.report.form = { key: form.key, sequences: form.sequences.map(index => donor.Sequences[index]?.Name), left: formOnly ? all.filter(index => !form.sequences.includes(index)).map(index => donor.Sequences[index]?.Name) : [] };
+  return made;
+}
+function transplantOnce(model, donor, options) {
   const made = transplantRun(model, donor, options);
-  if (made.detachedUnused) return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), detached: false, looseAxis: false, seatLooseGrip: false } });
+  if (made.detachedUnused) return transplantOnce(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), detached: false, looseAxis: false, seatLooseGrip: false } });
   if (!made.markersUnused) return made;
-  return transplantSkeleton(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
+  return transplantOnce(model, donor, { ...options, autoFix: { ...autoFixOptions(options.autoFix), markers: false } });
+}
+
+/** A matched limb that stayed still in the result although the donor's moved (the Footman whose legs did not walk): marked
+ * in `report.parts` (`still`, with a reason), checked in the first walk, else the first animation where the donor limb
+ * moves. Movement: the limb end's largest distance from its average place over the animation, against hip height. */
+function followCheck(made, donor) {
+  const parts = made.report.parts, M = made.model;
+  if (!parts) return;
+  try {
+    const standM = standSequenceIndex(M), standD = standSequenceIndex(donor);
+    const rigM = transferRig(M, { sequence: standM >= 0 ? standM : undefined }), rigD = transferRig(donor, { sequence: standD >= 0 ? standD : undefined });
+    if (!rigM.ok || !rigD.ok) return;
+    const reach = (model, rig, key, index) => {
+      const part = rig.parts[key], seq = model.Sequences[index];
+      if (!part || !seq?.Interval) return 0;
+      const node = allNodes(model).find(item => item.ObjectId === part.marker), pivot = v3(nodePivot(model, node, part.marker)), points = [];
+      for (let k = 0; k <= 8; k++) points.push(pivot.clone().applyMatrix4(sampleNodeMatrices(model, seq.Interval[0] + (seq.Interval[1] - seq.Interval[0]) * k / 8, index).get(part.marker)));
+      const middle = points.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(points.length);
+      return Math.max(...points.map(p => p.distanceTo(middle))) / Math.max(1e-6, rig.hipHeight);
+    };
+    const order = seqs => [...seqs.keys()].sort((a, b) => Number(!/^walk/i.test(seqs[a].Name || '')) - Number(!/^walk/i.test(seqs[b].Name || '')));
+    for (const [key, entry] of Object.entries(parts)) {
+      if (!entry.matched || !/^(arm|leg|wing|tail)/.test(key)) continue;
+      const theirs = [entry.donor, entry.donor && entry.donor.replace(/^(arm|leg|wing)([LR])/, (_, kind, side) => kind + (side === 'L' ? 'R' : 'L'))].filter(Boolean);
+      for (const index of order(donor.Sequences || [])) {
+        const name = donor.Sequences[index]?.Name, mine = (M.Sequences || []).findIndex(seq => seq.Name === name);
+        if (mine < 0) continue;
+        const moves = Math.max(...theirs.map(other => reach(donor, rigD, other, index)));
+        if (moves < 0.15) continue;
+        if (reach(M, rigM, key, mine) < 0.02) Object.assign(entry, { still: true, reason: 'This part did not follow the donor.' });
+        break;
+      }
+    }
+  } catch { /* the check only adds marks */ }
+}
+
+/** The methods (owner 26 Nov): 'A' turns each joint as the donor's turns (engine 1); 'B' matches the donor's pose (engine 2,
+ * every part); 'mix' picks per part ({armL, armR, legL, legR, weapon}: 'A' or 'B', or 1 or 2) with `animations`
+ * ({animation name: the same}) for animations with their own choice. No method: the older `engine` / `regions` options. */
+export function methodOptions(method, mix, { engine, regions } = {}) {
+  const code = value => value === 'B' || value === 2 ? 2 : value === 'A' || value === 1 ? 1 : null;
+  const choice = source => Object.fromEntries(Object.entries(source || {}).filter(([key]) => key !== 'animations').map(([key, value]) => [key, code(value)]).filter(([, value]) => value));
+  if (method === 'A') return { engine: 1, regions: null };
+  if (method === 'B') return { engine: 2, regions: { armL: 2, armR: 2, legL: 2, legR: 2, weapon: 2 } };
+  if (method === 'mix') {
+    const animations = Object.fromEntries(Object.entries(mix?.animations || {}).map(([name, value]) => [name, choice(value)]));
+    const base = choice(mix);
+    const any = Object.values(base).includes(2) || Object.values(animations).some(value => Object.values(value).includes(2));
+    return any ? { engine: 2, regions: { ...base, ...(Object.keys(animations).length ? { animations } : {}) } } : { engine: 1, regions: null };
+  }
+  return { engine: engine ?? 1, regions: regions ?? null };
 }
 
 /** The ground the feet stand on in the result's reference pose, against the open model's own:
