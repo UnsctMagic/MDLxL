@@ -8708,5 +8708,8 @@
   "Drag on the UV map to draw.": "Тяните по UV-карте, чтобы рисовать.",
   "Drag on the UV map to highlight.": "Тяните по UV-карте, чтобы выделять.",
   "Drag on the animation to draw.": "Тяните по анимации, чтобы рисовать.",
-  "Drag on the animation to highlight.": "Тяните по анимации, чтобы выделять."
+  "Drag on the animation to highlight.": "Тяните по анимации, чтобы выделять.",
+  "Local": "Локально",
+  "Local axes": "Локальные оси",
+  "On: Rotate's handles and the XY/ZX/YZ planes tilt with the selected bone. Off: they follow the model's axes.": "Включено: ручки вращения и плоскости XY/ZX/YZ наклоняются вместе с выбранной костью. Выключено: они идут по осям модели."
 }

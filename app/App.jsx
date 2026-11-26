@@ -2027,7 +2027,7 @@ export default function App() {
     onHighlightChain: changeHighlightChain, preferences, disabled: doc.readOnly || saving, model, revision: doc.revision, sequenceIndex: sequence,
     time, selectedNodeIds, onSelectNodes: setSelectedNodeIds, onEdit: edit, onSeek: setTime, onSequenceChange: selectSequence, playing,
     onPlayingChange: setPlaying, transformMode: movementMode, onTransformMode: value => setWorkTool(value==='move'?'translate':value),
-    transformSpace: movementSpace, showNodes, onShowNodes: setShowNodes,
+    transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
   // changePreferences only touches refs and state setters, so an earlier render's copy stays valid.

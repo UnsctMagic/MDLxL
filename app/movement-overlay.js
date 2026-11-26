@@ -281,8 +281,9 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
+/** Local turns the handles and the XY/ZX/YZ workplanes with the bone; World keeps them on the model's axes. */
 export function movementRotationSpace(gesture) {
-  return gesture.workplaneEnabled && !(gesture.pose && ['body', 'node'].includes(gesture.target?.kind)) ? 'world' : gesture.space;
+  return gesture.space === 'local' ? 'local' : 'world';
 }
 
 export function movementRotationAmount(gesture, dx, dy, sensitivity = 1, shift = false, ctrl = false) {

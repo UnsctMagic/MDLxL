@@ -10,6 +10,7 @@
   {"id":"animation-controller:create-visibility","label":"Create Visibility","group":"editor","category":"Animation Controller"},
   {"id":"animation-controller:delete","label":"Delete animation","group":"editor","category":"Animation Controller"},
   {"id":"animation-controller:global","label":"Create global sequence","group":"editor","category":"Animation Controller"},
+  {"id":"animation-controller:local-axes","label":"Local axes","group":"editor","category":"Animation Controller"},
   {"id":"animation-controller:loop","label":"Loop","group":"editor","category":"Animation Controller"},
   {"id":"animation-controller:move-down","label":"Move down","group":"editor","category":"Animation Controller"},
   {"id":"animation-controller:move-to-bottom","label":"Move to bottom","group":"editor","category":"Animation Controller"},

@@ -8614,5 +8614,8 @@
   "Drag on the UV map to draw.": "在 UV 贴图上拖动以绘制。",
   "Drag on the UV map to highlight.": "在 UV 贴图上拖动以高亮。",
   "Drag on the animation to draw.": "在动画上拖动以绘制。",
-  "Drag on the animation to highlight.": "在动画上拖动以高亮。"
+  "Drag on the animation to highlight.": "在动画上拖动以高亮。",
+  "Local": "局部",
+  "Local axes": "局部坐标轴",
+  "On: Rotate's handles and the XY/ZX/YZ planes tilt with the selected bone. Off: they follow the model's axes.": "开启：旋转手柄和 XY/ZX/YZ 平面随所选骨骼倾斜。关闭：沿模型坐标轴。"
 }

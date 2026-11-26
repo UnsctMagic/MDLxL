@@ -577,17 +577,18 @@ test('Swept Local X follows the mouse circle after a 180 degree Y turn; constrai
   }
 });
 
-test('Pivot-based Local facing preserves ordinary workplane and POSE Body/Object exceptions', async () => {
+test('Local turns the workplane and handles with the bone; World keeps model axes', async () => {
   const rotation = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI), view = new Vector3(-1, 0, 0);
   const facing = options => {
     const gesture = { space: 'local', workplaneEnabled: true, ...options };
     return beginGizmoRotation(facingGesture(view, { rotation, ...gesture, space: movementRotationSpace(gesture), workplane: 'yz' })).facings.X;
   };
-  near(facing({}), 1);
+  near(facing({}), -1);
+  near(facing({ space: 'world' }), 1);
   for (const kind of ['body', 'node']) {
     near(facing({ pose: true, target: { kind } }), -1);
     near(facing({ pose: true, target: { kind }, space: 'world' }), 1);
   }
-  near(facing({ pose: true, target: { kind: 'endpoint' } }), 1);
+  near(facing({ pose: true, target: { kind: 'endpoint' } }), -1);
   near(facing({ workplaneEnabled: false }), -1);
 });
