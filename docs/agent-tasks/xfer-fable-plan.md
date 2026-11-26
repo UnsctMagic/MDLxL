@@ -5,8 +5,8 @@ Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f
 approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Step 5b done (`af6def6b`, `10b7c6d2`, baseline `b0d6fd03`; approved by reading: the
 walk itself was then looked at from the side: see "Step 5b finding"). Step 6 built (`e48baec7`): approved with one fix
 ("Step 6 fix", done `5336de33`, approved). Step 8's sheet built (`ebc2b809`, approved with the control ticks seeded).
-Step 5c dropped by the owner (13:56). Step 7 built (`bf9b4c8c`, side branch): merge approved (decision 10). Next: merge,
-baseline, sheet again, then the rest of step 8 (source suite, build, package, hidden click, sheet check, row pictures).
+Step 5c dropped by the owner (13:56). Step 7 merged (`7cf9992d`, baseline `e91f7b10`). The owner graded the reasonable
+sheet (nine 10s, three 9s, one 8, two 5s). Next: steps 9, 10, 11 and the small sheet, under "After the reasonable sheet".
 Owner, 26 Nov: "keep going without him"; Fable decides and writes each decision under "Decisions made without the owner".
 From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
@@ -790,6 +790,122 @@ unseated one is the model's own grip; condition 1 never checked that.
   fixed or listed as a known limit before the owner opens the sheet.
 - Add the row for this plan to `docs/agent-tasks/README.md`; keep the step reports in [xfer-toggles.md](xfer-toggles.md).
 
+## After the reasonable sheet (owner's grades, 26 Nov, build `e91f7b10`)
+
+Fifteen rows: nine 10s, three 9s, one 8, two 5s; every 9-10 control held. Three faults, three steps, in this order.
+Answers: `TestBuilds\transfer-xl-35\reasonable\answers.json`.
+
+**Found while reading the answers:** the sheet he graded did not carry step 7. reasonable-08's saved `suggested` has no
+Two-hand grip, his screenshot shows no such box, and new-02's `suggested` is empty, though the cases file on disk now
+lists Two-hand grip for both. So the second-hand step has not been seen by the owner yet; the small sheet below shows it.
+Checker: say which cases file and which build the graded sheet came from.
+
+### Step 9. The weapon stays in the hand as far as the donor's does (reasonable-08, Attack - 3)
+
+Owner: "Weapon leaves hand ... but only in 1 anim". In his screenshot (Attack - 3, about a quarter in) the donor holds its
+sword at head height with the hilt in its hands; the result's sword sits at that height while its fists are at the chest.
+The model's weapon rides the donor's weapon bone, which the donor moves against its own hand; on other arms that offset
+lands elsewhere.
+
+- **Check first (checker, no code):** for reasonable-08 at `skinLandmarks,trackWindow,keepTorso`, per animation and for
+  16 moments: the donor's grip-palm gap to its weapon and the result's, in arm lengths
+  (`out/fable-review/weapon.mjs` prints both); then the same "largest result gap minus donor gap" for every pair of the
+  list at its ticks. Step 9's thresholds are confirmed against that table before Opus codes.
+- **Opus codes.**
+  1. `src/transplant-weapon-seat.js`, new export `keepInHand(result, own, donor, rigB, rigA, donorMap, limbEntries, keep)`:
+     reads both weapons (`readWeapon`), pairs items as `seatWeapon` does, finds the one result bone that carries the
+     model's weapon (all its vertices on one bone, else return null). Per donated animation (Death, Decay, Dissipate,
+     Portrait skipped, as `holdSupport`), on a 33 ms grid plus the carrier's own keys: `allowed` = the larger of the donor's
+     grip-palm gap at that moment and the model's own grip gap in its Stand, plus 0.03 arm; where the result's gap is
+     larger, the weapon is moved toward the palm by the excess (along the line from its nearest surface point to the
+     palm), eased over neighbouring moments exactly as `holdSupport` eases (same `SPAN`), and written as Translation keys
+     on the carrier with `rewriteTrack(..., 'Translation')` (the shift taken into the carrier's parent frame). Where the
+     donor lets go (its own gap is large, the belted sword of Stand - 2) the weapon may leave as far as the donor's.
+     Returns `{ moments, gapBefore, gapAfter }`.
+  2. `src/skeleton-transplant.js`, after the Seat block and **before** the second-hand step (so the other hand reaches
+     for the moved weapon): run it when the new key is ticked and Seat is not (a seated weapon is on the hand already).
+  3. `src/transplant-autofix.js`: key `gripInHand` after `useArms`; label `['Weapon in hand', "Keeps the weapon no
+     further from the hand than the donor's weapon is from the donor's hand."]`; translations in `de`, `es`, `fr`, `ru`,
+     `zh`.
+  4. `src/xfer-suggest-toggles.js`: decided in one place, before the Two-hand grip decision: built with and without on
+     the final ticks; suggested only when without it the result's gap exceeds the donor's by 0.15 arm or more in at
+     least a tenth of some animation's moments, with it that excess falls by 0.1 or more, and `ruleChange` reports nothing
+     lost. Never a first-stage candidate, never flipped by the six-rule loop.
+- **Scope.** A new box: every export without it is byte-identical. The eight 9-10 pairs: `--check` 8 of 8 at their graded
+  ticks; if the box becomes suggested on one of them, report it (the row opens at his ticks, as new-02 did).
+- **Test (fails first).** `xfer-r08-*` fixtures at his ticks: in Attack - 3 the largest "result gap minus donor gap" is
+  0.05 or less with the box and what the check measured (well above 0.15) without; Stand - 2 still lets the sword leave
+  the hand (gap mid-clip above 0.3 with the box).
+- **Stop rule.** If a pair that gains the box counts more jitter animations than without it, or a picture shows the weapon
+  snapping to the hand, revert and list it as a known limit.
+- **Checker.** `regress.mjs --check --all` (suggester re-run): pairs that gain the box, nothing else; `--check` 8 of 8.
+  For reasonable-08: the gap table again with the box, `score.mjs --only` both ways, pictures of Attack - 3
+  (`--n 8 --size 240`, and one close `--size 600 --n 2` at the quarter mark) with and without, and Stand - 2.
+
+### Step 10. A legless flyer on a winged donor keeps the donor's steadiness (reasonable-40, -43)
+
+Owner: "jumps up and down while the donor remains stable", "model bobs up and down.... happened before."
+
+- **Likely cause (from reading `solesDown`, `src/skeleton-transplant.js` 3420-3492; to be confirmed by the check).** Both
+  models (bat mount, dragonhawk rider) have no legs; both donors (gryphon riders) have legs and wings. Legs do not pair,
+  so the height is set per moment by "soles down": this model's "sole" is then the lowest 2% of its whole living body,
+  which on a flyer is a wingtip or the tail, and it is held against the donor's lowest **foot**, which on a flying gryphon
+  dangles and tucks. Both move with every wingbeat while the donor's body does not: the body is pushed up and down.
+  The code already says "a wingtip ... is not a supporting foot" and follows the donor **body's** rise instead, but only
+  when the donor has no feet at all.
+- **Check first (checker, no code):** for reasonable-40 and -43 at their ticks: `report.counts.ground` (expected
+  `soles`); per animation the vertical range of the donor's body joint and of the same joint in the result
+  (`report.donorNodes[rigA.body]`), as shares of each model's height. Confirmed when the result's range is well above the
+  donor's.
+- **Opus codes** (one condition, `solesDown`): the hover branch (today `!feetA.length && this model has no legs`) is also
+  taken when this model has no legs **and the donor has a wing pair** (`rigA.parts.wingL && rigA.parts.wingR`): the body
+  follows the donor body's rise from its Stand with one fixed clearance, and returns `hover`. Nothing else.
+- **Scope.** Not a box: the behaviour it replaces is a fault with no use (a wingtip as a sole), and the condition is
+  narrow. Of the list only reasonable-40 and -43 qualify by their rig readings (new-08, a 10, has no legs and wings but
+  its donor has no wings: untouched). `regress.mjs --check --all`: only those two differ; `--check` 8 of 8. If any other
+  pair differs, stop and report.
+- **Test (fails first).** Gryphon Rider -> Dragonhawk Rider (new named fixtures from the pair list): `report.counts.ground`
+  is `hover`; over Stand and Walk the result body joint's vertical range is at most 1.2 times the donor body's range
+  times the travel ratio plus 1% of the model's height (today it is not).
+- **Checker.** The range table again after the change; pictures of both pairs, Stand and Walk from the side
+  (`--yaw 90 --n 8 --size 240`), before and after; the hole reading; the regression as above.
+
+### Step 11. Mirror is a checkbox in the repair row (new-26, reasonable-10)
+
+Owner: "Why is he mirrored?... there is no checkbox allowing me to cancel this, its good but I would like this to be
+optional." "again mirror is defaulted for me."
+
+- **What is there.** The Transfer window has a Mirror button on the donor's caption. The grading sheet has nothing: each
+  row carries a fixed `mirror` in its options (true on new-26, reasonable-10, reasonable-40).
+- **Opus codes.**
+  1. `app/TransplantToggles.jsx`: props `mirror`, `mirrorSuggested`, `onMirror`. When `onMirror` is given, a checkbox
+     **first in the row**, `data-repair="mirror"`, label `Mirror`, tooltip the caption button's existing sentence ("Swap
+     left and right for this whole donor. On by itself when the two models hold their weapon in opposite hands."), with
+     the suggested mark when `mirrorSuggested`. Both strings are already in all five catalogs: no new text. Shown
+     whenever the row is shown, also when no repair box applies.
+  2. Sheet (`app/TransferPicks.jsx`, `src/transfer-picks.js`): the row's own `options.mirror` is the suggestion; the
+     answer may hold `mirror` (true or false), saved by `withGrade` beside `toggles`; the live request builds with the
+     answer's value when present and puts it in its key. Old answers without the field read as the row's value.
+  3. Transfer window (`app/Transfer.jsx`): the same checkbox, bound to the state the caption button already uses
+     (`shownMirror`, `toggleMirror`); suggested mark when the automatic choice is mirrored. The caption button stays
+     (it is also the retargeting control and has a hotkey); the two always show the same state.
+  4. The engine and the suggester are not touched: Mirror is an option, not a repair key.
+- **Scope.** No export changes at any ticks; `--check --all` and `--check` identical.
+- **Tests (fail first).** `test/transfer-picks.test.js`: `withGrade` keeps `mirror: false` on a row whose options say
+  true, and a second pair's answer is untouched; an old answer without the field reads as the row's value.
+- **Checker.** Regression as above. In the packaged app (hidden): on the new-26 row the Mirror box is first, ticked and
+  marked suggested; unticking it rebuilds the After view with no error and writes `mirror: false` (on the
+  `answers-smoke` copy); in the Transfer window the box and the caption button change together. A screenshot of the row.
+
+### Small sheet for the owner's next look
+
+- **Rows:** reasonable-08 (Weapon in hand and Two-hand grip, both new to him), reasonable-40 and -43 (steadiness), new-26
+  and reasonable-10 (Mirror box); controls reasonable-05, random-10, new-02 at the ticks he graded (new-02 shows Two-hand
+  grip as suggested). Every donated animation. Made with `make-final-sheet.cjs` as before; answers in a new folder.
+- **`sheet-smoke.cjs`:** the wait per row becomes a parameter (`--row-timeout`, default 180 s) and the check waits for the
+  After view to finish instead of a fixed time; reasonable-43 timed out at the old wait. A row that does not finish in
+  time is a failure with the row's id, not a skip.
+
 ## Decisions made without the owner (26 Nov, on his instruction)
 
 1. **reasonable-31 (Orc Warg Rider -> Thrall) stays without Seat weapon.** Measured against Thrall's own grip the unseated
@@ -835,6 +951,14 @@ floating, open seams and deformed looks on pairs whose bodies are alike):
     again from the merged code (reasonable-08 with Two-hand grip, new-02 at his graded ticks), and the sheet check runs
     again on the final package. The 15 rows and the check's split (launcher line and first row on the real answers file,
     read only; every row and the write test on the `answers-smoke` copy) are accepted.
+12. **Step 10 is an engine change, not a box.** Holding a wingtip against a dangling foot is a fault with no use; the
+    condition (this model has no legs, the donor has wings) touches two pairs of the list, both graded 5, and no 9-10 pair.
+13. **Step 9 is a new box (Weapon in hand)**, per toggles-not-gates: it moves a weapon, so it stays the user's choice and
+    is suggested only where the weapon leaves the hand clearly further than the donor's.
+14. **Mirror gets a box in the row and the caption button stays.** The owner asked for the box; the button also serves
+    retargeting and its hotkey. Two controls, one state; if he wants the button gone in transplant mode it is one line.
+15. **Checks come before code on steps 9 and 10:** the causes were read from the code and one screenshot, not measured.
+
 
 ## Test set: reasonable pairs only
 
