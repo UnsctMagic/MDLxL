@@ -8711,6 +8711,9 @@
   "Drag on the UV map to highlight.": "Auf der UV-Karte ziehen, um zu markieren.",
   "Drag on the animation to draw.": "Auf der Animation ziehen, um zu zeichnen.",
   "Drag on the animation to highlight.": "Auf der Animation ziehen, um zu markieren.",
+  "Local": "Lokal",
+  "Local axes": "Lokale Achsen",
+  "On: Rotate's handles and the XY/ZX/YZ planes tilt with the selected bone. Off: they follow the model's axes.": "An: Drehgriffe und die Ebenen XY/ZX/YZ kippen mit dem gewählten Knochen. Aus: sie folgen den Modellachsen.",
   "Paste special...": "Inhalte einfügen...",
   "Indo cache...": "Undo-Verlauf...",
   "Undo cache...": "Undo-Verlauf...",
@@ -8833,8 +8836,5 @@
   "{0} · {1} rendered layer{2} · seamless tiled view": "{0} · Render-Layer{2}: {1} · nahtlos gekachelt",
   "Add portrait background": "Porträthintergrund hinzufügen",
   "Add Background": "Hintergrund hinzufügen",
-  "geoset-selection\u0004Clear": "Keine",
-  "Local": "Lokal",
-  "Local axes": "Lokale Achsen",
-  "On: Rotate's handles and the XY/ZX/YZ planes tilt with the selected bone. Off: they follow the model's axes.": "An: Drehgriffe und die Ebenen XY/ZX/YZ kippen mit dem gewählten Knochen. Aus: sie folgen den Modellachsen."
+  "geoset-selection\u0004Clear": "Keine"
 }
