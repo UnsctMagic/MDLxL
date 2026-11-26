@@ -910,7 +910,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default, engine = 1 } = {}) {
+function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default, engine = 1, regions = null } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -3288,7 +3288,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
   let engine2Report = null;
   // Engine 2 (src/transplant-engine2.js): the paired limbs re-posed by the donor's bone directions and end spots.
   if (engine === 2 && rigA.ok && rigB.ok) {
-    try { engine2Report = engine2Pose(M, D, { limbs: limbEntries, donorMap, rigA, rigB }); }
+    try { engine2Report = engine2Pose(M, D, { limbs: limbEntries, donorMap, rigA, rigB, model, regions }); }
     catch (error) { notes.push(`Engine 2 could not re-pose this pair: ${error.message}`); }
     clearTransferCache(M);
   }

@@ -11,8 +11,10 @@ import { previewGeosetTint } from './warcraft-preview-adapter.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { corpseAndBackgroundGeosets, geosetMaterialLayers, hasOnlyAdditiveLayers } from '../src/geoset-extras.js';
 import { buildTransfer, sameKindSequence, transferPreviewModel, transferRig } from '../src/anim-transfer.js';
-import { jointPath, pathMarker, transplantRepairOptions } from '../src/transfer-window.js';
+import { engineOptions, jointPath, pathMarker, rigFor, transplantRepairOptions } from '../src/transfer-window.js';
+import { standSequenceIndex } from '../src/sequence-editor.js';
 import { transplantSkeleton } from '../src/skeleton-transplant.js';
+import { suggestEngineRegions } from '../src/transplant-engine2.js';
 import { defaultRepairKeys, knownRepairKeys, LEG_TIMING, legTimingValue, repairFlags, toggleRepair } from '../src/transplant-autofix.js';
 import { answerMirror, caseLetters, firstOpenCase, GRADES, lookNodes, parseAnswers, parseCases, withAnswer, withGrade } from '../src/transfer-picks.js';
 import './resource-editors.css';
@@ -167,7 +169,25 @@ function PickSheet({ sheet, teamColor, onClose }) {
   } : null;
   // The Before view builds plain, or with the ticks its options name (`toggles`: the engine 1 view of the engine 2 sheet).
   const beforeRequest = liveRequest(beforeVariant, transplantCase ? knownRepairKeys(beforeVariant.transplant.options.toggles || []) : []);
-  const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked, mirror);
+  // Engine per region (engine 2 sheet): shown when the After view builds with engine 2; the answer's choice, else the suggestion.
+  const afterVariant = transplantCase ? item.variants.find(variant => variant.id === 'after') : null;
+  const engineRow = afterVariant?.transplant.options.engine === 2;
+  const engineSuggestion = useMemo(() => {
+    if (!engineRow || !ready) return null;
+    try {
+      const own = loaded.own.model, donor = loaded.donor.model;
+      return suggestEngineRegions(own, rigFor(own, Math.max(0, standSequenceIndex(own))), donor, rigFor(donor, Math.max(0, standSequenceIndex(donor))));
+    } catch { return null; }
+  }, [item?.id, ready, engineRow]);
+  // Start: the row's own regions (a sheet may start every part on engine 2), else the suggestion; then the answer's choice.
+  const engines = engineRow ? { ...(engineSuggestion?.suggested || {}), ...(afterVariant.transplant.options.regions || {}), ...(answers[item.id]?.regions || {}) } : null;
+  const afterRequest = (() => {
+    const request = liveRequest(afterVariant, checked, mirror);
+    if (!request || !engineRow) return request;
+    if (!engineSuggestion) return null; // the suggestion first, so the first build is the one shown
+    const chosen = engineOptions(engines);
+    return { ...request, key: request.key + '|engines:' + JSON.stringify(engines), options: { ...request.options, engine: chosen.engine ?? 1, regions: chosen.regions ?? engines } };
+  })();
   const before = useTransplantView(beforeRequest), after = useTransplantView(afterRequest);
   const afterReady = afterRequest && after?.key === afterRequest.key && !!after.model;
 
@@ -344,7 +364,7 @@ function PickSheet({ sheet, teamColor, onClose }) {
   useEffect(() => { setComment(item ? answersRef.current[item.id]?.comment ?? '' : ''); }, [item?.id]);
   const grade = async value => {
     if (!item) return;
-    const next = withGrade(answersRef.current, item, { grade: value, comment, toggles: transplantCase ? checked : undefined });
+    const next = withGrade(answersRef.current, item, { grade: value, comment, toggles: transplantCase ? checked : undefined, ...(engines ? { regions: engines } : {}) });
     try { await write(next); }
     catch (error) { setProblem(`The grade was not saved: ${error.message}`); return; }
     answersRef.current = next; setProblem(''); setAnswers(next); setIndex(i => i + 1);
@@ -366,6 +386,11 @@ function PickSheet({ sheet, teamColor, onClose }) {
     const next = withGrade(answersRef.current, item, { toggles: checked, mirror: !!value });
     answersRef.current = next; setAnswers(next);
     write(next).then(() => setProblem(''), error => setProblem('The mirror choice was not saved: ' + error.message));
+  };
+  const changeEngine = (key, value) => {
+    const next = withGrade(answersRef.current, item, { toggles: checked, regions: { ...engines, [key]: value } });
+    answersRef.current = next; setAnswers(next);
+    write(next).then(() => setProblem(''), error => setProblem('The engine choice was not saved: ' + error.message));
   };
   const changeLegTiming = value => {
     const next = withGrade(answersRef.current, item, { toggles: checked, legTiming: legTimingValue(value) });
@@ -436,7 +461,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
               return <section key={`${item.id}:${view.id}`} className={`xp-view${shown ? '' : ' xp-off'}`} aria-label={transplantCase ? view.label : `Variant ${view.letter}`} aria-hidden={shown ? undefined : true}
                 style={transplantCase && !flip ? { gridColumn: position+1 } : undefined} data-transplant-pane={transplantCase ? view.id : undefined} data-transplant-revision={view.revision}>
                 {transplantCase && view.id === 'after' && <TransplantToggles visible={item.suggestion.visible} suggested={item.suggestion.suggested} checked={checked} onChange={changeRepair} legTiming={legTiming} onLegTiming={changeLegTiming}
-                  mirror={mirror} mirrorSuggested={rowMirror} onMirror={changeMirror}/> }
+                  mirror={mirror} mirrorSuggested={rowMirror} onMirror={changeMirror}
+                  engineRegions={engineRow ? engineSuggestion?.present || [] : []} engines={engines || {}} enginesSuggested={engineSuggestion?.suggested || {}} onEngine={engineRow ? changeEngine : undefined}/> }
                 <div className="xf-preview">
                   {!transplantCase && <span className="xp-letter" aria-hidden="true">{view.letter}</span>}
                   {view.label && <span className="xp-label">{view.label}</span>}

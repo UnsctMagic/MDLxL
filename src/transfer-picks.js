@@ -213,7 +213,7 @@ export const GRADES = Array.from({ length: 11 }, (_, i) => i);
 
 /** The answers with a grade case's grade and/or comment changed: { grade: 0-10 or null, comment, at }; the part not
  * given keeps its saved value. */
-export function withGrade(answers, item, { grade, comment, toggles, legTiming, mirror } = {}, at = new Date().toISOString()) {
+export function withGrade(answers, item, { grade, comment, toggles, legTiming, mirror, regions } = {}, at = new Date().toISOString()) {
   if (grade !== undefined && grade !== null && !GRADES.includes(grade)) throw new Error('The grade must be a whole number from 0 to 10.');
   const old = answers[item.id] || {};
   const entry = { grade: grade !== undefined ? grade : Number.isInteger(old.grade) ? old.grade : null,
@@ -227,6 +227,9 @@ export function withGrade(answers, item, { grade, comment, toggles, legTiming, m
     // Mirror (a checkbox in the repair row) is kept beside the ticks once it has been set.
     const mirrored = mirror ?? old.mirror;
     if (typeof mirrored === 'boolean') entry.mirror = mirrored;
+    // Engine per region (engine 2 sheet) is kept beside the ticks once it has been set.
+    const engines = regions ?? old.regions;
+    if (engines && typeof engines === 'object') entry.regions = { ...engines };
   }
   return { ...answers, [item.id]: entry };
 }

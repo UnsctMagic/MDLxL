@@ -9070,5 +9070,8 @@
   "Leg timing": "Beintakt",
   "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Wann die Vorderbeine treten: 0 mit dem Hinterbein derselben Seite, 50 mit dem gegenüberliegenden.",
   "Weapon in hand": "Waffe in der Hand",
-  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Hält die Waffe nicht weiter von der Hand entfernt als die Waffe des Spenders von dessen Hand."
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Hält die Waffe nicht weiter von der Hand entfernt als die Waffe des Spenders von dessen Hand.",
+  "Engine 2": "Engine 2",
+  "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.": "Angehakt: Engine 2 stellt diesen Teil. Seine Knochen zeigen wie die des Spenders, und Hand oder Fuß gehen an die Stelle des Spenders, auf diesen Körper skaliert. Nicht angehakt: Engine 1 übernimmt die Gelenkdrehungen des Spenders.",
+  "Ticked: the weapon hand goes to the donor's spot, scaled to this body (engine 2). Unticked: where engine 1 puts it.": "Angehakt: Die Waffenhand geht an die Stelle des Spenders, auf diesen Körper skaliert (Engine 2). Nicht angehakt: dorthin, wo Engine 1 sie setzt."
 }

@@ -8945,5 +8945,8 @@
   "Leg timing": "Ритм ног",
   "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "Когда ступают передние ноги: 0 — вместе с задней ногой той же стороны, 50 — с противоположной.",
   "Weapon in hand": "Оружие в руке",
-  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Держит оружие не дальше от руки, чем оружие донора от руки донора."
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Держит оружие не дальше от руки, чем оружие донора от руки донора.",
+  "Engine 2": "Движок 2",
+  "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.": "Отмечено: эту часть ставит движок 2. Её кости направлены как у донора, а кисть или ступня идёт в точку донора в масштабе этого тела. Не отмечено: движок 1 копирует повороты суставов донора.",
+  "Ticked: the weapon hand goes to the donor's spot, scaled to this body (engine 2). Unticked: where engine 1 puts it.": "Отмечено: рука с оружием идёт в точку донора в масштабе этого тела (движок 2). Не отмечено: туда, куда её ставит движок 1."
 }

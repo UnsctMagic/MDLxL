@@ -119,6 +119,18 @@ async function partTwo(cmd, sheet) {
       try { JSON.parse(fs.readFileSync(smokeAnswers, 'utf8')); parsed = true; } catch {}
       check(parsed, 'a repair box ticked and unticked: answers-smoke.json is written and parses');
     } else check(false, 'the first row shows a repair box to tick');
+    // Engine per region (engine 2 sheets): one box unticked, the row rebuilds, the choice is saved; then ticked back.
+    const engineBox = s.dialog.locator('[data-transplant-engines] input[data-engine-region]').first();
+    if (await engineBox.count()) {
+      const region = await engineBox.getAttribute('data-engine-region');
+      await engineBox.click(); await s.page.waitForTimeout(800);
+      await rowLoaded(s, sheet.cases[0].id);
+      let saved = null;
+      try { saved = JSON.parse(fs.readFileSync(smokeAnswers, 'utf8'))[sheet.cases[0].id]?.regions?.[region]; } catch {}
+      await engineBox.click(); await s.page.waitForTimeout(800);
+      await rowLoaded(s, sheet.cases[0].id);
+      check(saved === 1 || saved === 2, `an Engine 2 box (${region}) changed: the row rebuilds and answers-smoke.json keeps the choice (${saved})`);
+    }
     let walked = 0;
     for (let i = 0; i < sheet.cases.length; i++) {
       const id = sheet.cases[i].id;

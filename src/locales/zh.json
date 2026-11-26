@@ -8851,5 +8851,8 @@
   "Leg timing": "腿部节奏",
   "When the front legs step: 0 with the back leg on the same side, 50 with the opposite one.": "前腿何时落步：0 与同侧后腿同步，50 与对侧后腿同步。",
   "Weapon in hand": "武器在手",
-  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "让武器与手的距离不超过供体武器与供体手的距离。"
+  "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "让武器与手的距离不超过供体武器与供体手的距离。",
+  "Engine 2": "引擎 2",
+  "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.": "勾选：由引擎 2 摆放此部位。它的骨骼指向与供体相同，手或脚按此身体的比例移到供体的位置。不勾选：引擎 1 复制供体的关节旋转。",
+  "Ticked: the weapon hand goes to the donor's spot, scaled to this body (engine 2). Unticked: where engine 1 puts it.": "勾选：持武器的手按此身体的比例移到供体的位置（引擎 2）。不勾选：保持引擎 1 放置的位置。"
 }

@@ -385,6 +385,13 @@ export function transplantOptions({ sounds = true, effects = false, keep = [], m
     ...(autoFix?.mirrorLegs && legTiming != null ? { legTiming: legTimingValue(legTiming) } : {}) };
 }
 
+/** The transplant options of an engine-per-region choice ({armL, armR, legL, legR, weapon}: 1 or 2): engine 2 with those
+ * regions when any part is on engine 2, else nothing (engine 1, the plain transplant). */
+export function engineOptions(regions) {
+  const picked = Object.fromEntries(Object.entries(regions || {}).filter(([, value]) => value === 1 || value === 2));
+  return Object.values(picked).includes(2) ? { engine: 2, regions: picked } : {};
+}
+
 /** Use the same automatic Mirror choice for the trial and the result it recommends. */
 export function transplantRepairOptions(model, donor, options = {}, automaticMirror = options.mirror == null) {
   if (!automaticMirror) return options;
