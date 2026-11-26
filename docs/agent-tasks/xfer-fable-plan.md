@@ -910,7 +910,7 @@ Asked: keep the checkbox (never ticked) or remove it from the window? Answered 2
 
 "the results with use arms are great." "Waste less time trying to get imperfect pairs perfect - e.g a wolf and a footman is
 a RIDICLOUS pair, this is PRETTY FUCKING GOOD for a pair like that." He does not like: weapons in wrong places, floating,
-seams open, deformed looks. Excellent pairing = similar bodies, very different animations (Footman <-> HerrDave's orcs).
+seams open, deformed looks. General rule (the orcs are one example only): a good pair has bodies alike enough to look right, with different animations (e.g. Footman <-> HerrDave's orcs).
 Knight <-> Footman is ridiculous (no horse). Decision: the wolf Mirror-legs posture fix is dropped; Use arms is accepted
 as is. Remaining effort goes to similar-body pairs and those four faults. The Fable run was stopped by the owner at this
 point (last commit 5336de33); README.md and make-final-sheet.cjs edits were left uncommitted.
