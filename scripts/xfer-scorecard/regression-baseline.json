@@ -1,5 +1,5 @@
 {
- "revision": "a89a133b",
+ "revision": "d559d03e",
  "pairs": "pairs-reasonable.json",
  "regression": {
   "reasonable-05": {
@@ -139,15 +139,17 @@
     "surfaceGrip",
     "skinLandmarks",
     "trackWindow",
-    "keepTorso"
+    "keepTorso",
+    "gripInHand"
    ],
    "ticks": [
     "surfaceGrip",
     "skinLandmarks",
     "trackWindow",
-    "keepTorso"
+    "keepTorso",
+    "gripInHand"
    ],
-   "sha256": "688ba4739251b3351e3db571723719454b7ec864f6c7fd25d42bf6586695a0f6"
+   "sha256": "e234fbccd8128806d1dc4a6a1f72741f3eda3896e8aada92927f7484bb03bafd"
   },
   "reasonable-09": {
    "suggested": [
@@ -192,14 +194,16 @@
   },
   "reasonable-13": {
    "suggested": [
+    "surfaceGrip",
     "trackWindow",
     "seatWeapon"
    ],
    "ticks": [
+    "surfaceGrip",
     "trackWindow",
     "seatWeapon"
    ],
-   "sha256": "a0907c062d722abc54d8627214753db6e51cfda206ac7645c7d501c089756b93"
+   "sha256": "f35ea641422a8b25cba31c112bf60bfe1f01d89fd0939d99a9910edcc0c0be52"
   },
   "reasonable-14": {
    "suggested": [
@@ -267,14 +271,16 @@
   },
   "reasonable-21": {
    "suggested": [
+    "surfaceGrip",
     "authoredMotion",
     "seatWeapon"
    ],
    "ticks": [
+    "surfaceGrip",
     "authoredMotion",
     "seatWeapon"
    ],
-   "sha256": "816a3298808e0fe6bc133ac1b8b68ea731bc0d50d01ef74714cc0b6458a73ad7"
+   "sha256": "e84dc788d33df0f85857b4202c57f38f7a1d66c441b472d0fbcf7aca21eb7f50"
   },
   "reasonable-22": {
    "suggested": [
