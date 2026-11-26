@@ -69,6 +69,7 @@ import { motionFamilies, missedMotion, nativeShoulderCarrier } from './transplan
 import { bindLandmarks } from './transplant-bind-landmarks.js';
 import { finishDonorPose, storedPoseClearance } from './transplant-donor-pose.js';
 import { autoFixMirror, autoFixOptions, fixMarkers, LEG_TIMING, legTimingValue, standingHeight, TRUNK_LINE_SHARE } from './transplant-autofix.js';
+import { engine2Pose } from './transplant-engine2.js';
 import { transplantGait, duplicateGaitChains, frontBodySupport } from './transplant-gait.js';
 import {
   buildTransfer, clearTransferCache, copyBodyAnimation, defaultTransferPart, newSequenceExtents, sameKindSequence,
@@ -909,7 +910,7 @@ export function donorWeaponSwap(D, rigA) {
  * weapon, shield) would go under the floor deeper than the donor's own arm goes there, by the smallest angle that keeps it
  * above (`bendArmsAboveFloor`; `report.bend` says where); 'free' leaves every arm exactly the donor's.
  * In the donor's Death and Decay the model shows what its Stand shows (the living body dies; see holdShowing). */
-function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default } = {}) {
+function transplantRun(model, donor, { keep = [], events = true, emitters = false, mirror = null, extents = true, legs = 'straight', feet = 'down', floor = 'bend', gait = 'back-and-arms', autoFix = null, legTiming = LEG_TIMING.default, engine = 1 } = {}) {
   // `hard`: a body not read, no animations, no pairing, too many bone groups. `notes`: said only alongside a poor fit.
   // The report's `reasons` (what the window shows under Poor fit) is built from them at the end.
   const hard = [], notes = [], keepSet = new Set(keep.map(Number));
@@ -3284,6 +3285,13 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
     const second = secondHandOnWeapon(M,model,reflected,rigB,rigA,donorMap,limbEntries,keepSet);
     if (second) fixed.secondHand = second;
   }
+  let engine2Report = null;
+  // Engine 2 (src/transplant-engine2.js): the paired limbs re-posed by the donor's bone directions and end spots.
+  if (engine === 2 && rigA.ok && rigB.ok) {
+    try { engine2Report = engine2Pose(M, D, { limbs: limbEntries, donorMap, rigA, rigB }); }
+    catch (error) { notes.push(`Engine 2 could not re-pose this pair: ${error.message}`); }
+    clearTransferCache(M);
+  }
   const cloth = nativeCloth(M,model,rigB,rigA,donorMap);
   const ammo = ammoFollowsDonor(M,model,reflected,rigA,rigB,donorMap);
   if (ammo) fixed.ammunition = ammo;
@@ -3329,7 +3337,7 @@ function transplantRun(model, donor, { keep = [], events = true, emitters = fals
         attachments: (M.Attachments || []).length, events: (M.EventObjects || []).length, emitters: EFFECT_KEYS.reduce((n, k) => n + (M[k] || []).length, 0),
         vertices: (M.Geosets || []).reduce((n, g) => n + g.Vertices.length / 3, 0), bakedVertices: baked, sizeRatio: size, travel, ridesStill, skin: skinCounts, posture,
       },
-      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, donorPose, ...(fix ? { autoFix: fixed } : {}),
+      ownNodes: ownMap, donorNodes: donorMap, repose: reposeOut, donorPose, ...(fix ? { autoFix: fixed } : {}), ...(engine === 2 ? { engine2: engine2Report } : {}),
     },
     ...(markersCorrected && !fixed.markers ? { markersUnused: true } : {}),
   };

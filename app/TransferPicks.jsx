@@ -165,7 +165,8 @@ function PickSheet({ sheet, teamColor, onClose }) {
     modelKey: variant.transplant.recipient, donorKey: variant.transplant.donor,
     options: { ...variant.transplant.options, autoFix: keys.length ? repairFlags(keys) : false, ...(keys.includes('mirrorLegs') ? { legTiming } : {}), ...(mirrored == null ? {} : { mirror: mirrored }) },
   } : null;
-  const beforeRequest = liveRequest(beforeVariant, []);
+  // The Before view builds plain, or with the ticks its options name (`toggles`: the engine 1 view of the engine 2 sheet).
+  const beforeRequest = liveRequest(beforeVariant, transplantCase ? knownRepairKeys(beforeVariant.transplant.options.toggles || []) : []);
   const afterRequest = liveRequest(transplantCase && item.variants.find(variant => variant.id === 'after'), checked, mirror);
   const before = useTransplantView(beforeRequest), after = useTransplantView(afterRequest);
   const afterReady = afterRequest && after?.key === afterRequest.key && !!after.model;
