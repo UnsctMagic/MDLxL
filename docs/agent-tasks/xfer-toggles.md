@@ -1910,3 +1910,17 @@ that worked. Each is measurable on every pair without the owner's grade.
   Thresholds not moved; for Fable.
 - Unit test updated (rolls from the own grip; a pre-turned blade keeps Seat); fails first on e48baec7 ("the sabre turned
   flat"). Build passes.
+
+### Fable plan step 8, Opus part (26 Nov): the sheet, launcher and named model
+
+- `make-final-sheet.cjs` takes `--pairs --ids --live --name --model [--leg-timing id=value]` (no options: the old final
+  sheet as before). Live suggestions for the rows: `out/fable-plan/step-8/live.jsonl` (step 6 fix code).
+- Sheet `TestBuilds\transfer-xl-35\cases-reasonable.json`, 20 rows, every donated animation (no animation list):
+  changed pairs reasonable-08, -45, -38, -40, -46, new-26, Seat pairs reasonable-10, -31, -32, -39, -43; legs-01; the
+  eight 9-10 controls. Answers `transfer-xl-35\reasonable\answers.json`, created with legs-01's Leg timing 25 only.
+  Reads back with `parseCases` / `parseAnswers`.
+- Launcher `TestBuilds\_START HERE\GRADE - XFER reasonable.cmd`; model `TestBuilds\test-models\TEST XFER 36.mdx` (copy of
+  `MDLxL-TestModels\pose\Footman.mdx`: it holds a weapon for the Seat / Two-hand clicks; Footman.blp and gutz.blp are
+  already in `test-models\Textures`).
+- Control new-01 opens at the suggester's `hangingChains` (as in the baseline since step 1), not the graded
+  skinLandmarks, hangingChains; left for Fable.

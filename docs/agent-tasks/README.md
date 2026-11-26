@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| XFER transplant fix plan (owner, 26 Nov: "Fable reviews and plans, Opus writes, builds, tests"): Seam fix removed, reasonable test set with byte check, hole veto, hand trim, front legs (Use arms / Mirror legs), Seat only where needed | Steps 1-6 built; step 8 sheet `cases-reasonable.json` made, packaging and hidden click with the checker; step 7 after the owner's grades; local on `codex/xfer-toggles` | [Fable plan](xfer-fable-plan.md), reports in [XFER toggles](xfer-toggles.md) / Fable plans, Opus codes |
 | XFER toggles: every repair a switch, suggested combo, no gating (owner, 23 Nov) | Contract written; CP1 next; local on `codex/xfer-toggles` | [XFER toggles](xfer-toggles.md) / Codex builds, Claude Code reviews each checkpoint |
 | Transfer (XFER): animation between models by body part | Engine and window built on local branch `claude/transfer-xl`; not online | [Transfer](transfer-xl.md) / Claude Code |
 | Recognition: limb or hanging cloth, in the shared POSE recogniser | A to D built (engine answer; the rig carries it as a bone chain marked cloth; Transfer leaves cloth out of the limbs); awaits the owner's look in POSE, Bone Namer and Transfer; local on `claude/transfer-xl` | [Limb or cloth](recognition-limb-or-cloth.md) / Claude Code |
