@@ -1895,3 +1895,18 @@ that worked. Each is measurable on every pair without the owner's grade.
   kept on reasonable-40 (shaft 88), new-08, random-10, random-21, random-17. **Also withheld, for Fable's pictures:**
   reasonable-10 (slide 0.17 -> 0.27, exactly the 0.10), reasonable-31 (roll 87, flat 2.2, shaft 21), reasonable-39
   (slide 0.12 -> 0.44), reasonable-43 (slide 0.03 -> 0.53). Thresholds not moved.
+
+### Fable plan step 6 fix (Opus, 26 Nov): the roll is measured from the model's own grip
+
+- `rollFromOwn(own, weapon, mesh)` (transplant-weapon-seat.js): the grip hand's skin (palm patch and vertices bound only to
+  the arm's last joint) fitted (`similarity`) from the model's first Stand moment onto `mesh`'s first Stand moment; the own
+  weapon carried through the fit; roll about the shaft against the weapon in `mesh`, folded 0-90. `seatWithheld` takes
+  `rollPlain` / `rollSeated`: for flat weapons (flat >= 2) condition 1 also needs rollPlain < 45, and the roll reason is
+  rollSeated >= 45. The plain-to-seated roll stays in `scores.seat` for the record only.
+- Readings on the 45 Seat pairs (`out/fable-plan/step-6fix/rolls.jsonl`, `rolls.md`; plain and seated built at the step 6
+  live ticks, the donor mirrored where the pair's options mirror): **no decision changes.** reasonable-32: plain 1, seated
+  81 (withheld). **reasonable-31: plain 0, seated 89: still withheld**, against Fable's picture (unseated hammer across his
+  head): measured in the hand's frame at the first Stand moment, the plain result holds the hammer as Thrall's own grip.
+  Thresholds not moved; for Fable.
+- Unit test updated (rolls from the own grip; a pre-turned blade keeps Seat); fails first on e48baec7 ("the sabre turned
+  flat"). Build passes.

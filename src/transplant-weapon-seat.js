@@ -825,6 +825,9 @@ export function gripReading(weapon, mesh) {
 // The shaft (butt to head) and the widest direction across it, at one moment.
 function weaponLineAt(mesh, item, si, phase) {
   const {point} = pose(mesh,si,phase);
+  return lineOf(item,point);
+}
+function lineOf(item, point) {
   const [b,h] = endPoints(item,point), axis = h.clone().sub(b).normalize();
   const points = item.parts.flatMap(p => p.vertices.map(v => point(p.gi,v))), centre = mean(points.map(p => p.clone()));
   const across = points.map(p => { const d = p.clone().sub(centre); return d.addScaledVector(axis,-d.dot(axis)); });
@@ -868,20 +871,42 @@ export function weaponTurn(plain, seated, weapon) {
   return {turn:axis.angleTo(turned)*180/Math.PI,roll:Math.min(roll,180-roll),flat:before.flat};
 }
 
+/** The roll (deg, folded to 0-90) about the shaft between the model's own grip and the weapon as it sits in `mesh` (plan
+ * step 6 fix): the grip hand's skin (palm patch and the vertices bound to the arm's last joint) is fitted from the model's
+ * first Stand moment onto the same vertices of `mesh` at its first Stand moment; the model's own weapon is carried through
+ * that fit and compared with the weapon in `mesh`. Null without a weapon, its ends, a hand skin or a Stand. */
+export function rollFromOwn(own, weapon, mesh) {
+  const item = weapon?.items?.[0], hand = item?.hand, si = standSequenceIndex(own), sm = standSequenceIndex(mesh);
+  if (!item?.ends || !hand?.arm || si < 0 || sm < 0) return null;
+  const last = hand.arm.joints.at(-1), skin = new Map((hand.patch || []).map(({gi,v}) => [gi+':'+v,{gi,v}]));
+  own.Geosets.forEach((g,gi) => { for (let v=0;v<g.Vertices.length/3;v++) { const bones = vertexBones(g,v); if (bones.length && bones.every(id => id===last)) skin.set(gi+':'+v,{gi,v}); } });
+  if (skin.size < 3) return null;
+  const mine = pose(own,si,0), theirs = pose(mesh,sm,0), refs = [...skin.values()];
+  const fit = similarity(refs.map(({gi,v}) => mine.point(gi,v)),refs.map(({gi,v}) => theirs.point(gi,v)));
+  if (!fit) return null;
+  const carried = lineOf(item,(gi,v) => mine.point(gi,v).applyMatrix4(fit)), shown = lineOf(item,theirs.point);
+  const across = carried.wide.clone().addScaledVector(shown.axis,-carried.wide.dot(shown.axis));
+  if (across.lengthSq() < 1e-12) return null;
+  return Math.acos(Math.min(1,Math.abs(across.normalize().dot(shown.wide))))*180/Math.PI;
+}
+
 // The fixed numbers of plan step 6 (what they mean, not fitted): an end handle, a visible slide, a blade turned on its side,
 // a shaft roughly like the donor's, the margin of "holds it as its own animations do".
 export const SEAT_WITHHELD = Object.freeze({ gapMargin: .05, placeMargin: .08, shaftDegrees: 35, endHandle: .25, slide: .10, flat: 2, rollDegrees: 45 });
 
 /** Seat weapon is withheld (a reason) when all three hold: (1) the plain result already holds the weapon as the model's own
- * animations do and points it within 35 deg of the donor's shaft, (2) Seat slides the hand off an end handle or rolls a flat
- * weapon 45 deg or more, (3) Seat gains no second hand. Otherwise null (Seat may be suggested). Pure.
- * numbers: { own, plain, seated: gripReading-like { gapMax, place }, shaft, roll, flat, support } */
-export function seatWithheld({ own, plain, seated, shaft, roll, flat, support } = {}, limits = SEAT_WITHHELD) {
+ * animations do and points it within 35 deg of the donor's shaft (a flat weapon also rolled less than 45 deg from the
+ * model's own grip), (2) Seat slides the hand off an end handle or leaves a flat weapon rolled 45 deg or more from the
+ * model's own grip, (3) Seat gains no second hand. Otherwise null (Seat may be suggested). Pure.
+ * numbers: { own, plain, seated: gripReading-like { gapMax, place }, shaft, flat, rollPlain, rollSeated (rollFromOwn), support } */
+export function seatWithheld({ own, plain, seated, shaft, flat, rollPlain, rollSeated, support } = {}, limits = SEAT_WITHHELD) {
   if (!own || !plain || !seated || shaft == null) return null;
+  const isFlat = flat != null && flat >= limits.flat;
   const holds = plain.gapMax <= own.gapMax + limits.gapMargin && own.place != null && plain.place != null &&
-    Math.abs(plain.place - own.place) <= limits.placeMargin && shaft < limits.shaftDegrees;
+    Math.abs(plain.place - own.place) <= limits.placeMargin && shaft < limits.shaftDegrees &&
+    (!isFlat || rollPlain != null && rollPlain < limits.rollDegrees);
   if (!holds || support) return null;
   if (own.place < limits.endHandle && seated.place != null && seated.place - own.place >= limits.slide) return 'slides the hand off the handle';
-  if (flat != null && roll != null && flat >= limits.flat && roll >= limits.rollDegrees) return 'rolls the blade';
+  if (isFlat && rollSeated != null && rollSeated >= limits.rollDegrees) return 'rolls the blade';
   return null;
 }

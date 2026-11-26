@@ -1,4 +1,4 @@
-// Seat weapon is suggested only where there is something to repair (docs/agent-tasks/xfer-fable-plan.md, step 6). Owner on
+// Seat weapon is suggested only where there is something to repair (docs/agent-tasks/xfer-fable-plan.md, step 6 and its fix). Owner on
 // reasonable-32: "the before is a better transfer... how can you not see this???".
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,18 +12,18 @@ const { fixturePath } = createRequire(import.meta.url)('./helpers/fixtures.cjs')
 const load = file => openDocument(fs.readFileSync(file), file).model;
 
 // The plan's C4 table (gap in arm lengths, place 0 butt to 1 head). Values C4 does not give (shaft, roll, flat of some
-// pairs) are this step's live readings, out/fable-plan/step-6/table.md; random-24 (not in the reasonable set) takes the
-// worst case for them.
+// pairs, and the rolls from the own grip) are live readings, out/fable-plan/step-6/table.md and step-6fix/rolls.md; random-24
+// (not in the reasonable set) takes the worst case for them.
 const grip = (gapMax, place) => ({ gapMax, place });
 const C4 = {
-  'reasonable-32': { own: grip(.12, .16), plain: grip(.12, .17), seated: grip(null, .17), shaft: 17, roll: 80, flat: 2.4, support: false },
+  'reasonable-32': { own: grip(.12, .16), plain: grip(.12, .17), seated: grip(null, .17), shaft: 17, flat: 2.4, rollPlain: 1, rollSeated: 81, support: false },
   'reasonable-38': { own: grip(.04, .11), plain: grip(.03, .12), seated: grip(null, .30), shaft: 31, roll: 1, flat: 1.5, support: false },
-  'reasonable-40': { own: grip(.04, .04), plain: grip(.05, .00), seated: grip(null, .57), shaft: 87, roll: 11, flat: 2.4, support: false },
+  'reasonable-40': { own: grip(.04, .04), plain: grip(.05, .00), seated: grip(null, .57), shaft: 87, flat: 2.4, rollPlain: 81, rollSeated: 66, support: false },
   'new-08': { own: grip(.03, .62), plain: grip(.03, .62), seated: grip(null, .20), shaft: 33, roll: 1, flat: 1.2, support: false },
-  'random-10': { own: grip(.02, .12), plain: grip(.05, .54), seated: grip(null, .38), shaft: 84, roll: 89, flat: 4.0, support: false },
-  'random-21': { own: grip(.04, .37), plain: grip(.44, .44), seated: grip(null, .57), shaft: 143, roll: 77, flat: 2.3, support: false },
-  'random-17': { own: grip(.41, .13), plain: grip(.48, .38), seated: grip(null, .03), shaft: 110, roll: 24, flat: 2.3, support: false },
-  'random-24': { own: grip(.00, .18), plain: grip(.00, .18), seated: grip(null, .07), shaft: 0, roll: 90, flat: 3, support: true },
+  'random-10': { own: grip(.02, .12), plain: grip(.05, .54), seated: grip(null, .38), shaft: 84, flat: 4.0, rollPlain: 81, rollSeated: 65, support: false },
+  'random-21': { own: grip(.04, .37), plain: grip(.44, .44), seated: grip(null, .57), shaft: 143, flat: 4.9, rollPlain: 14, rollSeated: 67, support: false },
+  'random-17': { own: grip(.41, .13), plain: grip(.48, .38), seated: grip(null, .03), shaft: 110, flat: 2.3, rollPlain: 82, rollSeated: 32, support: false },
+  'random-24': { own: grip(.00, .18), plain: grip(.00, .18), seated: grip(null, .07), shaft: 0, flat: 3, rollPlain: 0, rollSeated: 90, support: true },
 };
 
 test('seatWithheld on the C4 pairs: withheld where the plain grip was right, kept where Seat repairs or adds a second hand', () => {
@@ -33,6 +33,10 @@ test('seatWithheld on the C4 pairs: withheld where the plain grip was right, kep
     assert.equal(seatWithheld(C4[id]), null, `${id} keeps Seat`);
   assert.equal(seatWithheld({ ...C4['reasonable-38'], shaft: 35 }), null, 'a shaft 35 deg or more off the donor\'s is something to repair');
   assert.equal(seatWithheld({ ...C4['reasonable-32'], flat: 1.9 }), null, 'a round weapon has no blade to roll');
+  // Step 6 fix: the rolls are measured from the model's own grip, not between the two results.
+  assert.equal(seatWithheld({ ...C4['reasonable-32'], rollPlain: 80, rollSeated: 2, roll: 85 }), null,
+    'a blade the plain result already turned from the own grip is something to repair, whatever Seat turns it by');
+  assert.equal(seatWithheld({ ...C4['reasonable-32'], rollPlain: null }), null, 'a flat weapon without the plain roll: not known to be right');
   assert.equal(seatWithheld({}), null, 'nothing read: nothing withheld');
 });
 

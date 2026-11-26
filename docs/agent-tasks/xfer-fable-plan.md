@@ -3,7 +3,8 @@
 Status: in progress. Step 1 done (`918aaa11`, approved by Fable). Step 2 done (`e5718d53`, approved by Fable).
 Step 2b done (`d7e96680`, approved). Step 3 done (`6571275b` and its fix `43c16f95`, approved). Step 4 done (`a12a7bc0`,
 approved; housekeeping `557004c6`). Step 5 done (`22e994a7`, approved). Step 5b done (`af6def6b`, `10b7c6d2`, baseline `b0d6fd03`; approved by reading: the
-walk itself still needs a side view and foot timings, listed in the step 6 checks). Next: step 6.
+walk itself was then looked at from the side: see "Step 5b finding"). Step 6 built (`e48baec7`): approved with one fix
+("Step 6 fix"). Next: the step 6 fix and the Mirror legs experiment, then step 8. Step 7 waits for the owner.
 From here on Fable designs and reads results; checks are run by Opus or a cheaper agent (owner, 26 Nov).
 Owner's order (26 Nov): "Fable 5.2 reviews and plans the code. Opus 5.5 on medium writes, builds, tests. I review results."
 Checkout: `D:\Codex\xfer-toggles`, branch `codex/xfer-toggles`, revision `6cfed3a6`. Local only: never push, PR, tag or post.
@@ -598,6 +599,48 @@ the snap-dragon - front legs get animated as arms."
   wrongly, the fallback is the simpler rule "withheld whenever condition 1 holds, unless a second hand is gained", with
   new-08 shown to the owner both ways.
 
+### Step 5b finding. Mirror legs retimes the front legs; the wolf still does not walk like a wolf
+
+- **The foot table was the wrong ruler (Fable's request, not Opus's work).** A walk animation runs in place, so every
+  planted foot travels along the ground: "ground travel" is stride, not sliding. And "sole lowest at" is unstable on a flat
+  stance: the two back legs, whose keys are the same in every variant, read 0.39 / 0.86, 0.27 / 0.89 and 0.39 / 0.73.
+  By design at 25 the landings are 0.14, 0.39, 0.61, 0.86; measured 0.20, 0.39, 0.70, 0.86. The timing does roughly what
+  was specified.
+- **What the side views show** (`out/fable-plan/step-5b/legs01-*-walk-side.png`): with or without the box the wolf is
+  hunched nose-down with an arched back and its four feet bunched under it. No slider value makes that a four-legged walk.
+  The cause is older than step 5b: a four-legged body takes an upright two-legged donor's trunk, and both leg pairs follow
+  that donor's one pelvis.
+- **Experiment first (checker, a few renders, no code):** `legs-01` Walk from the side (`--yaw 90 --n 8 --size 240`) with
+  `mirrorLegs` plus each existing posture box in turn: `keepTorso`, `trunk`, `skinLandmarks`, `rootHeight`, and
+  `keepTorso,skinLandmarks`. Fable reads them.
+- **Then one of two.** If a box gives a level back and legs under the shoulders and hips: Opus makes the suggester add
+  that box whenever it suggests Mirror legs (a few lines, in `frontLegPick`'s caller). If none does: an engine step, to be
+  specified after Opus has read the trunk pairing: with Mirror legs the trunk (hips, chest, head, tail) keeps this model's
+  own standing posture and takes only the donor's travel, and the copied front legs hang from the donor joint that carries
+  this model's front leg roots, not from the pelvis. Until then the sheet row for `legs-01` is shown as it is, and the
+  report to the owner says so in one line.
+
+### Step 6 fix. The roll test compares with the model's own grip (Fable's review of `e48baec7`)
+
+Six pairs lose the Seat suggestion. By picture: reasonable-32, -38, -39 and -43 are right (the unseated weapon sits as in
+the model's own animation; seated, the spear or lance runs through the mount or nearly vanishes). reasonable-10 shows no
+visible difference either way. **reasonable-31 looks wrong:** seated, Thrall's hammer head stands as in his own pose;
+unseated it lies turned across his head. The test measured the roll **between** the two results (87 deg) and assumed the
+unseated one is the model's own grip; condition 1 never checked that.
+
+- **Change** (`src/transplant-weapon-seat.js`, `src/xfer-suggest-toggles.js`, tests): a reader `rollFromOwn(own, weapon,
+  mesh)`: fit the grip hand's skin (palm patch and the vertices bound to the arm's last joint) from the model's first
+  Stand moment onto the same vertices of `mesh`; carry the model's own weapon through that fit; the roll about the shaft
+  between that and the weapon as it sits in `mesh`, folded to 0-90. Then, for flat weapons (`flat >= 2`):
+  condition 1 also needs `rollFromOwn(plain) < 45`; the roll reason becomes `rollFromOwn(seated) >= 45` (the measure
+  between the two results is no longer used). `seatWithheld` takes the two numbers; the table gets two columns.
+- **Expected.** reasonable-32 still withheld (plain near 0, seated near 85). reasonable-31 decided by its numbers; if the
+  plain result is the turned one, Seat comes back. The slide pairs are untouched. Report the two rolls for every pair with
+  `flat >= 2`. Same stop rule as step 6.
+- **Checker.** `regress.mjs --check --all` (suggester re-run): list tick changes against the baseline; `--check` 8 of 8;
+  pictures of any pair that changes again. After Fable's approval: `--write --all --only` the pairs whose ticks changed in
+  step 6, from a clean tree.
+
 ### Step 7. Second hand on the weapon in the animations where the donor uses two hands (only after the owner has seen steps 1-6)
 
 - **Why separate.** It was tried in round 1 and reverted (two near-twin results got worse, on new-05 and new-02, both 9s).
@@ -627,6 +670,21 @@ the snap-dragon - front legs get animated as arms."
 - **If it does not hold up:** report it as a known limit. Do not ship a second-hand step that twitches.
 
 ### Step 8. Source suite, build, hidden click, one sheet
+
+**Split (owner, 26 Nov: Fable designs and reads; Opus codes; a cheaper agent runs).**
+
+- *Opus codes:* the sheet file `cases-reasonable.json` from `pairs-reasonable.json` with the existing sheet maker
+  (`scripts/xfer-scorecard/make-final-sheet.cjs`, pointed at the pair list): rows = every pair whose export or default
+  ticks changed since the final sheet (reasonable-08, -45, -38, -40, -46, new-26, the Seat pairs of step 6) + the eight
+  9-10 pairs as controls + `legs-01`; every donated animation; saved `legTiming` on `legs-01`. The launcher
+  `TestBuilds\_START HERE\GRADE - XFER reasonable.cmd`, the named model `TestBuilds\test-models\TEST XFER 36.mdx`, the
+  `docs/agent-tasks/README.md` row. Nothing else.
+- *Checker runs:* `pnpm run test:source` once (compare with `.github/known-test-failures.txt` and the failures named in
+  the step reports); `pnpm run build`; package into `TestBuilds\transfer-xl-35` (app closed, `profile` kept, TEMP and TMP
+  on D:); the hidden click-through below with screenshots; one picture per sheet row at its default ticks (Stand, Walk,
+  Attack, 240 px, at most three rows per PNG) for Fable to read before the owner opens the sheet.
+- *Fable:* reads the pictures and the click report; writes the short note for the owner (what changed, what is still
+  wrong: Stand - 2 sword through the body, Attack second hand, the wolf's posture).
 
 - `pnpm run test:source` once; fix only what this work broke; rerun only failed and related files.
 - `pnpm run build`, package into `TestBuilds\transfer-xl-35` as the brief describes (app closed, `profile` kept, TEMP on D:).

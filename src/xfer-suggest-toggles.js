@@ -7,7 +7,7 @@ import { heldContact } from './held-item.js';
 import { rigFor, transplantRepairOptions } from './transfer-window.js';
 import { createLookCheck } from './xfer-look.js';
 import { spareFrontLegs } from './transplant-gait.js';
-import { gripReading, readWeapon, seatWithheld, shaftAngle, weaponTurn } from './transplant-weapon-seat.js';
+import { gripReading, readWeapon, rollFromOwn, seatWithheld, shaftAngle, weaponTurn } from './transplant-weapon-seat.js';
 import { worldPivot, sampleNodeMatrices } from './animation.js';
 import { verdict } from './xfer-look-verdict.js';
 
@@ -192,6 +192,8 @@ export function suggestToggles(model, donor, options = {}, {
       own: weapon && gripReading(weapon, model), plain: weapon && gripReading(weapon, plainSeat.model),
       seated: weapon && gripReading(weapon, seated.model), shaft: weapon ? shaftAngle(plainSeat.model, weapon, shownDonor, donorWeapon) : null,
       turn: turn?.turn ?? null, roll: turn?.roll ?? null, flat: turn?.flat ?? null, support: !!seated.weaponSeated?.some(item => item.support),
+      // Rolls from the model's own grip (plan step 6 fix); `roll` (plain to seated) is kept for the record only.
+      rollPlain: weapon ? rollFromOwn(model, weapon, plainSeat.model) : null, rollSeated: weapon ? rollFromOwn(model, weapon, seated.model) : null,
     };
     const reason = seatWithheld(numbers);
     scores.seat = { ...numbers, withheld: reason };
