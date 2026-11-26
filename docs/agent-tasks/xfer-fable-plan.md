@@ -562,6 +562,8 @@ the snap-dragon - front legs get animated as arms."
 
 ### Step 5c. Mirror legs: a four-legged body stays level on a two-legged donor (one attempt)
 
+**DROPPED by the owner, 26 Nov 13:56** ("a wolf and a footman is a RIDICLOUS pair"). Not built. Kept below as a record only.
+
 **Why the wolf hunches** (Opus's reading of `legs-01`, Footman -> Timber Wolf). The wolf has no chest; its trunk is one
 chain, `Bone Center > Bone Wolf Neck`, the back legs under the first and the front legs under the second. The transplant
 pairs that chain with the Footman's `Bone_Root > Bone_Pelvis`, turns the wolf's level, forward-running chain onto the
@@ -690,6 +692,37 @@ unseated one is the model's own grip; condition 1 never checked that.
 
 ### Step 7. Second hand on the weapon in the animations where the donor uses two hands (only after the owner has seen steps 1-6)
 
+**Go (owner, 26 Nov 13:56). Coding brief; where it differs from the text below, this brief wins.**
+
+- *Engine* (`src/transplant-weapon-seat.js`): `holdSupport` gets an option `perClip`. With it, the Stand precondition
+  (`wanted.support`, line 704) is replaced by a test per animation: treated only when the donor's other palm is within
+  `ON_SHAFT` of its weapon in at least 30% of that animation's sampled moments. Without the option nothing changes (the
+  call inside `seatWeapon` stays as it is, so every Seat export is byte-identical). New export
+  `secondHandOnWeapon(result, own, donor, rigB, rigA, donorMap, limbEntries, keep)`: reads both weapons with `readWeapon`,
+  pairs items as `seatWeapon` does, skips an item whose bones the user keeps, calls `holdSupport(..., { perClip: true })`.
+- *Call* (`src/skeleton-transplant.js`, right after the Seat block near 3287): when `fix.surfaceGrip` is ticked and Seat's
+  own second hand did not act (`fixed.seatWeapon` has no `support`), run it and record `fixed.secondHand`. Nothing else in
+  the engine. No baseline pair has Two-hand grip ticked, so no export changes until the suggester ticks it.
+- *Reader* (same file): `secondHandShare(own, donor, mesh)`: over the moments where the donor's other palm is on its weapon,
+  the share where the result's other palm is within 0.2 arm of its own weapon. (The scorecard's second-hand number only
+  exists for donors two-handed in Stand, so it cannot be used.)
+- *Suggester* (`src/xfer-suggest-toggles.js`): Two-hand grip leaves the first stage's candidates for this purpose and is
+  decided in one place, after the Seat veto: built with and without it on the final ticks; suggested only when the donor
+  passes the 30% test in some animation, `secondHandShare` rises by 0.1 or more, and `ruleChange` reports nothing lost
+  (jitter, near-twin, holes included). Its old Stand-only candidate rule (lines 127-130, 146) stays for its old behaviour.
+- *Stop rules.* (1) If the ticks of any of the eight 9-10 pairs change (new-05 and new-02 broke in round 1), stop and
+  report. (2) If on any pair that gains the tick the jitter rule counts more animations than without it, or a picture
+  shows the elbow snapping or locked straight, the step is reverted and listed as a known limit. No tuning of `ON_SHAFT`,
+  the 30% or the easing to get past either.
+- *Test (fails first):* Footman Leader -> Elf Death Knight (`xfer-r08-*` fixtures) with Two-hand grip: `secondHandShare`
+  in Attack - 1 at least 0.8 (without the tick it is near 0), and the right palm's readings unchanged. `holdSupport`
+  without `perClip` on a Stand-one-handed donor still returns null.
+- *Checker:* `regress.mjs --check --all` (suggester re-run): list of pairs that gain Two-hand grip, no other difference;
+  `--check` 8 of 8; reasonable-45 hash unchanged. For each pair that gains it: `score.mjs --only` with and without the tick
+  (jitter, near-twin, weapon, holes), `secondHandShare` per animation, and pictures (every animation where the donor is
+  two-handed, `--n 8 --size 240`, with and without, plus one close `--size 600 --n 2` of Attack). The three related test
+  files with the known failures named.
+
 - **Why separate.** It was tried in round 1 and reverted (two near-twin results got worse, on new-05 and new-02, both 9s).
   It is the remaining half of the owner's reasonable-08 comment, and of his most frequent weapon comment over all rounds.
 - **Files.** `src/transplant-weapon-seat.js` (`holdSupport`, 703-783, and a new exported entry), `src/skeleton-transplant.js`
@@ -718,7 +751,18 @@ unseated one is the model's own grip; condition 1 never checked that.
 
 ### Step 8. Source suite, build, hidden click, one sheet
 
-**Split (owner, 26 Nov: Fable designs and reads; Opus codes; a cheaper agent runs).**
+**Split (owner, 26 Nov: Fable designs and reads; Opus codes; a cheaper agent runs).** Rows of the sheet: decision 8.
+
+- *The sheet must load (it showed the owner an error once, a broken "answers" path).* Opus writes
+  `scripts/xfer-scorecard/sheet-smoke.cjs`; the checker runs it and its output goes in the report:
+  1. Without the app: `parseCases` on `cases-reasonable.json` passes; `answers` is an absolute path whose folder exists;
+     the answers file (if present) parses; every model file of every row exists; every control row has seeded ticks.
+  2. In the packaged app, hidden (`scripts/hidden-run.ps1`), started with **the launcher's own command line** read from
+     `GRADE - XFER reasonable.cmd`: the sheet appears, no page error, no problem text; every row is opened in turn and its
+     Donor, Own and After views finish loading.
+  3. Writing: the same run on a copy of the cases file whose `answers` is `reasonable\answers-smoke.json` (same folder as
+     the real answers): one repair box is ticked and unticked, the file appears and parses, then it is deleted. The owner's
+     real answers file is never written by the check.
 
 - *Opus codes:* the sheet file `cases-reasonable.json` from `pairs-reasonable.json` with the existing sheet maker
   (`scripts/xfer-scorecard/make-final-sheet.cjs`, pointed at the pair list): rows = every pair whose export or default
@@ -760,6 +804,24 @@ unseated one is the model's own grip; condition 1 never checked that.
    Keeping its body level needs more engine work and is not in this build."
 4. **The Mirror legs experiment with the existing posture boxes is dropped.** Opus's reading shows no box touches the
    pairing that causes the hunch, so the renders would cost time for nothing.
+
+After the owner's verdict of 13:56 (Use arms accepted; stop perfecting mismatched pairs; fix weapons in the wrong place,
+floating, open seams and deformed looks on pairs whose bodies are alike):
+
+5. **Decision 3 is void:** step 5c is dropped by the owner, nothing to revert, no fallback line needed.
+6. **Use arms is the suggested box wherever it applies; Mirror legs is never suggested.** The owner tried Footman -> Timber
+   Wolf and said "the results with use arms are great"; the lean rule would have suggested Mirror legs there, which hunches.
+   `frontLegPick` returns `useArms` whenever the model has spare front legs, no arms, and the donor has arms. Mirror legs
+   and its slider stay as a box the user can tick. Only `legs-01` changes ticks.
+7. **Step 7 goes ahead** (second hand on the weapon): it is one of his four faults (weapon in the wrong place) on
+   like-bodied pairs, and his most repeated weapon comment. Brief under step 7.
+8. **The sheet shows like-bodied pairs only.** Dropped from the sheet (they stay in the regression): `legs-01` (he has
+   tried it and given his verdict), reasonable-38 (two-legged mount to four-legged mount), reasonable-46 (four-legged
+   dragon to two-legged wyvern), and the controls new-01 and new-08 (unlike bodies; their exports are byte-identical to
+   what he graded, which the regression check proves without his time). Rows: reasonable-08, -45 (his Use arms example),
+   -40, new-26, the Seat pairs reasonable-10, -31, -32, -39, -43, any pair step 7 changes, and the controls reasonable-05,
+   -29, random-10, random-21, new-05, new-02. Every donated animation.
+9. **The controls open at the ticks he graded** (decision 2 stands), for the six controls left on the sheet.
 
 ## Test set: reasonable pairs only
 
