@@ -20,7 +20,9 @@ self.onmessage = ({ data }) => {
   }
   if (!suggest) return;
   try {
-    const suggestion = suggestToggles(held.model, held.donor, options, { plain, automaticMirror });
+    // The repairs are engine 1's: with engine 2 on, they are suggested from the engine 1 build.
+    const { engine, regions, ...engine1 } = options;
+    const suggestion = engine === 2 ? suggestToggles(held.model, held.donor, engine1, { automaticMirror }) : suggestToggles(held.model, held.donor, options, { plain, automaticMirror });
     self.postMessage({ id, suggestion });
   } catch (error) {
     self.postMessage({ id, suggestionError: error.message });

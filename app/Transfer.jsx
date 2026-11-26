@@ -617,8 +617,20 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
     if (!tpContext || !rigA?.ok) return null;
     try { return suggestEngineRegions(model, rigB, tpDonor.model, rigA); } catch { return null; }
   }, [tpContext, rigA]);
-  const tpEngines = engineChoice.context === tpContext ? engineChoice.value : engineSuggestion?.suggested || {};
-  const tpEngine = engineOptions(tpEngines);
+  // The choice: `base` for every animation, `animations` for the ones with their own ("This animation only").
+  const engineState = engineChoice.context != null && engineChoice.context === tpContext && engineChoice.value ? engineChoice.value : { base: engineSuggestion?.suggested || {}, animations: {} };
+  const engineAnimation = String(tpDonor?.model?.Sequences?.[donorSeq]?.Name || '').trim();
+  const engineOwn = !!engineAnimation && Object.hasOwn(engineState.animations, engineAnimation);
+  const tpEngines = engineOwn ? engineState.animations[engineAnimation] : engineState.base;
+  const tpEngine = engineOptions(engineState.base, engineState.animations);
+  const changeEngine = (key, value) => setEngineChoice({ context: tpContext, value: engineOwn
+    ? { ...engineState, animations: { ...engineState.animations, [engineAnimation]: { ...tpEngines, [key]: value } } }
+    : { ...engineState, base: { ...engineState.base, [key]: value } } });
+  const changeEngineOwn = own => {
+    const animations = { ...engineState.animations };
+    if (own) animations[engineAnimation] = { ...engineState.base }; else delete animations[engineAnimation];
+    setEngineChoice({ context: tpContext, value: { ...engineState, animations } });
+  };
   const tpOptions = { ...transplantOptions({ ...tpSettings, mirror: donorMirror, autoFix: selectedRepairs.length ? repairFlags(selectedRepairs) : false, legTiming: tpLegTiming }), ...tpEngine };
   const tpKey = tpContext ? `${tpContext}|${selectedRepairs.join(',')}${selectedRepairs.includes('mirrorLegs') ? '|' + tpLegTiming : ''}${tpEngine.engine ? '|engines:' + JSON.stringify(tpEngine.regions) : ''}` : null;
   const tpBuilder = useRef(null), tpResult = useRef(null), tpSuggestion = useRef(null);
@@ -785,7 +797,8 @@ export default function Transfer({ doc, edit, textureAssets, teamColor, modelPat
                 onChange={changeRepair} suggesting={tpReady && !activeRepairs && !tpBuilt.suggestionError} error={tpBuilt?.key === tpKey ? tpBuilt.suggestionError : null}
                 legTiming={tpLegTiming} onLegTiming={value => setLegTiming({ context: tpContext, value })}
                 mirror={!!shownMirror} mirrorSuggested={mirrorSuggested} onMirror={rigA?.ok ? changeMirror : undefined}
-                engineRegions={engineSuggestion?.present || []} engines={tpEngines} enginesSuggested={engineSuggestion?.suggested || {}} onEngine={(key, value) => setEngineChoice({ context: tpContext, value: { ...tpEngines, [key]: value } })}/>}
+                engineRegions={engineSuggestion?.present || []} engines={tpEngines} enginesSuggested={engineSuggestion?.suggested || {}} onEngine={changeEngine}
+                engineAnimation={engineAnimation} engineOwn={engineOwn} onEngineOwn={engineAnimation ? changeEngineOwn : undefined}/>}
               <div className="xf-preview" data-transplant-view="">
                 {tpShown && tpSeq >= 0 ? <Suspense fallback={<span className="xf-note">Loading preview…</span>}>
                   <GamePreview presentation="preview" resetViewButton={false} interactivePreview fitModel fitSequenceExtent fitBox showGrid={false} showAxes={false} preserveCameraView model={tpShown.model} revision={tpShowsModel ? `doc|${doc.revision}` : tpBuilt.key} textureAssets={tpAssets} modelPath={modelPath} teamColor={teamColor} sequenceIndex={tpSeq} time={tpTime} onTimeChange={setTpTime} playing={tpPlaying} onPlayingChange={setTpPlaying} playbackSpeed={tpSpeed} turnCamera={turnCamera.current}

@@ -387,9 +387,12 @@ export function transplantOptions({ sounds = true, effects = false, keep = [], m
 
 /** The transplant options of an engine-per-region choice ({armL, armR, legL, legR, weapon}: 1 or 2): engine 2 with those
  * regions when any part is on engine 2, else nothing (engine 1, the plain transplant). */
-export function engineOptions(regions) {
-  const picked = Object.fromEntries(Object.entries(regions || {}).filter(([, value]) => value === 1 || value === 2));
-  return Object.values(picked).includes(2) ? { engine: 2, regions: picked } : {};
+export function engineOptions(regions, animations = null) {
+  const valid = source => Object.fromEntries(Object.entries(source || {}).filter(([, value]) => value === 1 || value === 2));
+  const picked = valid(regions), own = Object.fromEntries(Object.entries(animations || {}).map(([name, value]) => [name, valid(value)]));
+  // `animations`: {animation name: regions} for animations with their own choice (owner: legs on 1 in Walk, 2 in Attack).
+  const any = Object.values(picked).includes(2) || Object.values(own).some(value => Object.values(value).includes(2));
+  return any ? { engine: 2, regions: { ...picked, ...(Object.keys(own).length ? { animations: own } : {}) } } : {};
 }
 
 /** Use the same automatic Mirror choice for the trial and the result it recommends. */

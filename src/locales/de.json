@@ -9073,5 +9073,7 @@
   "Keeps the weapon no further from the hand than the donor's weapon is from the donor's hand.": "Hält die Waffe nicht weiter von der Hand entfernt als die Waffe des Spenders von dessen Hand.",
   "Engine 2": "Engine 2",
   "Ticked: engine 2 poses this part. Its bones point the way the donor's do and its hand or foot goes to the donor's spot, scaled to this body. Unticked: engine 1 copies the donor's joint turns.": "Angehakt: Engine 2 stellt diesen Teil. Seine Knochen zeigen wie die des Spenders, und Hand oder Fuß gehen an die Stelle des Spenders, auf diesen Körper skaliert. Nicht angehakt: Engine 1 übernimmt die Gelenkdrehungen des Spenders.",
-  "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.": "Angehakt: Die Hand dreht sich, sodass die Waffe wie die Waffe des Spenders zeigt (Engine 2). Nicht angehakt: Die Hand behält die Drehung von Engine 1. Wohin die Hand geht, entscheidet das Kästchen des Arms."
+  "Ticked: the hand turns so the weapon points the way the donor's weapon points (engine 2). Unticked: the hand keeps engine 1's turn. Where the hand goes is the arm's box.": "Angehakt: Die Hand dreht sich, sodass die Waffe wie die Waffe des Spenders zeigt (Engine 2). Nicht angehakt: Die Hand behält die Drehung von Engine 1. Wohin die Hand geht, entscheidet das Kästchen des Arms.",
+  "This animation only": "Nur diese Animation",
+  "Ticked: the Engine 2 boxes apply only to {0}. Unticked: they apply to every animation without its own choice.": "Angehakt: Die Engine-2-Kästchen gelten nur für {0}. Nicht angehakt: Sie gelten für jede Animation ohne eigene Wahl."
 }

@@ -1,6 +1,7 @@
 # XFER engine 2
 
-Status: round 2 (engine per region + polish) built, waiting for the owner's grades on sheet `engine2b` (26 Nov 2026).
+Status: round 3 built (26 Nov 2026): owner stopped sheets ("keeps repeating"); he plays with XFER via
+`TestBuilds\_START HERE\PLAY - XFER.cmd` (TEST XFER PLAY 01, a Footman copy). No more grading sheets.
 Branch `claude/xfer-engine2-1cdbdc` (local only), cut from `codex/xfer-toggles` at `f2cf9b90`.
 
 ## What it is
@@ -10,28 +11,35 @@ pose only comes out right when the bodies are built alike (owner-confirmed root 
 option `engine: 2` (+ `regions`). It runs engine 1, then re-poses limbs on its result in `engine2Pose`
 ([src/transplant-engine2.js](../../src/transplant-engine2.js)), every moment of every donated animation:
 
-- each bone of an engine 2 limb points the way the donor's matching bone points (rotation only, so the shape stays);
+- each bone of an engine 2 limb points the way the donor's matching bone points: engine 1's joint turn (the donor's) times
+  one fixed per-bone turn from this model's rest bone onto the donor's (a turn worked out anew each moment flipped where it
+  was large);
 - the foot goes to the donor's foot spot from the hip centre: forward and up by the leg-length ratio; sideways the donor's
   spread from its socket (leg ratio) from the wider of this model's socket and the donor's socket spacing times the leg
   ratio. The hand goes to the donor's hand spot from the centre of the shoulders of its own arm group (a rider's arms and
-  a mount's forelimbs are separate groups), scaled by that group's arm ratio; a second hand on the weapon is placed from
+  a mount's forelimbs are separate groups; only the main pair reaches for spots), scaled by that group's arm ratio; a second hand on the weapon is placed from
   the weapon hand, blended in as the donor's hands come together. Knee and elbow bend in the donor's bend plane
   (`solveTwoBone`), easing off before full stretch, keeping the last bend direction while the donor's limb is straight;
-- with both legs on engine 2, the body's height and travel follow the donor's hip centre times the leg ratio;
+- with both legs on engine 2, the body's height and travel follow the donor's hip centre times the leg ratio; only the
+  parentless joint the legs hang from moves (a hero glow or loose plane moved with it bobbed);
 - hands and feet keep engine 1's world turn (the donor's), so a held weapon keeps the donor's angle;
-- written tracks are linear, keyed every 1/30 s plus every key of the limb and the joints above it (round 1 keyed sparse,
-  and curved tracks got wrong tangents: the owner's "shaking").
+- new keys every 1/30 s plus every key of the limb and the joints above it, moving in straight steps; a curved track keeps
+  its type and every other animation's keys exactly (round 1 keyed sparse with wrong position tangents: the "shaking";
+  round 2 re-sampled other animations, which moved fast leg swings a few units).
 
 ## Engine per region (owner 26 Nov: "let users pick themselves")
 
 `regions = {armL, armR, legL, legR, weapon}`, each 1 or 2. Spine and head follow engine 1 in both engines. A tail follows the
 legs (engine 2 only when both legs are). The arm's box decides where its hand goes; the weapon box only how the weapon sits in
-the hand (2: the hand turns so the weapon points the way the donor's weapon points; 1: engine 1's turn). Before 26 Nov
+the hand (2: a fixed grip turn so the weapon points the way the donor's does, only when the two weapons lie within 60
+degrees in the hand at rest, else engine 1's turn: a 90-degree grip difference put Thrall's hammer into his body; with an
+empty donor hand, the wrist holds its average turn of the animation; 1: engine 1's turn). Before 26 Nov
 evening the weapon box placed the weapon hand and the arm box did nothing on that arm (owner, pair 1 of sheet 2b). Every region on 1 gives engine 1's result byte for byte (checked on 6 pairs). `suggestEngineRegions` suggests
 engine 2 where proportions differ (hip spacing vs leg length off by 25%, arm vs leg length off by 20%), else engine 1;
 the weapon follows the arms. UI: one "Engine 2:" group of boxes in the repair row (app/TransplantToggles.jsx), in the
 Transfer window (starts at the suggestion, kept per pair) and in the pick sheet (`engineOptions` in transfer-window.js).
-Labels in all six languages.
+Labels in all six languages. `regions.animations` = {animation name: regions}: the Transfer window's "This animation only"
+box (owner: legs on 1 in Walk, 2 in Attack); unticked, the boxes edit the choice for every animation without its own.
 
 ## Grading sheets
 
@@ -50,6 +58,12 @@ Labels in all six languages.
 - `node --test` transfer-picks, transfer-window, ui-primitives pass. localization-catalogs fails its catalog size and
   French/German order checks; both fail before this work too (sizes were already off, first order break at "Repairs").
 - Hidden `sheet-smoke.cjs --app` on the 2b launcher (now also changes one Engine 2 box).
+
+## Round 3 faults (2b answers, `TestBuilds\transfer-xl-35\engine2b\answers.json`)
+
+Micro shaking (05: loose parentless planes bobbed with the body); weapon swings in Walk (random-10: the receiver's club
+rides the donor's own club bone, same in engine 1, not changed); hammer inside the body with weapon on 2 (31: grips 90
+degrees apart); per-animation engine wanted (29). Also found while checking: sword spike (07) and wing shake (39).
 
 ## Known limits
 
