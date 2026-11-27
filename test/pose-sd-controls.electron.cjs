@@ -243,14 +243,15 @@ const { isDeepStrictEqual } = require('node:util');
       assert.ok(badgePixels > 8, 'unselected pinned foot retains its themed pin badge'); await shot('pin-unselected-badge');
       await select('endpoint', chain.key); await paint();
       await pin.press('Enter'); await page.waitForFunction(() => document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'false');
-      // Pinning an animated handle pauses on its current native pose.
+      // Pinning while the animation plays: the click pins the handle and playback carries on afterwards
+      // (PR 677: editing pauses only until the click or drag ends).
       await page.getByRole('button', { name: 'Play', exact: true }).click(); await paint();
       const playingPin = await pin.boundingBox();
       await page.mouse.move(playingPin.x + playingPin.width / 2, playingPin.y + playingPin.height / 2); await paint();
       const pausedTarget = await pin.boundingBox();
       await page.mouse.click(pausedTarget.x + pausedTarget.width / 2, pausedTarget.y + pausedTarget.height / 2);
-      await page.waitForFunction(() => !poseProbe().props.playing && document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'true');
-      assert.ok(Number.isInteger(await page.evaluate(() => poseProbe().props.time)), 'pinning pauses at an integer animation frame');
+      await page.waitForFunction(() => poseProbe().props.playing && document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'true');
+      await page.getByRole('button', { name: 'Stop', exact: true }).click(); await page.waitForFunction(() => !poseProbe().props.playing);
       await pin.press('Enter'); await page.waitForFunction(() => document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'false');
       await time.fill('500'); await time.press('Enter'); await paint();
       assert.deepEqual(await snap(), before, 'camera, playback and pin changes do not edit native animation');
