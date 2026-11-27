@@ -40,7 +40,7 @@ const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
-const {Reporter}=require('./report.cjs');
+const {Reporter,visibleText}=require('./report.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
 const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
 const {safeWindowsName}=require('./windows-name.cjs');
@@ -591,7 +591,7 @@ ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialM
 ipcMain.handle('settings:get',publicSettings);
 let reporter;
 ipcMain.handle('report:status',event=>{editorOnly(event,'Reports require the main editor.');return(reporter??=new Reporter({version:app.getVersion(),profile})).status();});
-ipcMain.handle('report:send',(event,text,name='')=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string'||typeof name!=='string')throw Error('Report text must be text.');const message=text.trim();if(!message||message.length>2000||name.trim().length>40)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message,name);});
+ipcMain.handle('report:send',(event,text,name='')=>{editorOnly(event,'Reports require the main editor.');if(typeof text!=='string'||typeof name!=='string')throw Error('Report text must be text.');const message=visibleText(text).trim();if(!message||message.length>2000||visibleText(name).trim().length>40)return 'invalid';return(reporter??=new Reporter({version:app.getVersion(),profile})).send(message,name);});
 ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{editorOnly(event,'Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a
