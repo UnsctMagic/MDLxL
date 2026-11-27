@@ -1,6 +1,6 @@
 # Release 0.40.3
 
-Status: in progress (27 Nov 2026). Branch `claude/release-0.40.3`, final tested revision `cd996ba8`.
+Status: completed. Published 27 Nov 2026: PR #701 merged as `c69ff389`, tag `v0.40.3`, public ZIP SHA-256 `f3880be3…3fbb43` equals the tested CI ZIP; LowPolyWorks #106 (report inbox, Worker f1a01d58) and #107 (release post, Fit tutorial).
 
 Owner requests (26–27 Nov): patch release with everything on main except ANIM; XFER ships as a work in
 progress (notice first in the Garithos post) with a six-language guide; ANIM button removed; Report a

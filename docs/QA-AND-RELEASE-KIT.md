@@ -213,6 +213,15 @@ Runner facts ([full guide](PACKAGED-TESTS.md)):
   so to re-check a passed neighbour use another variant name such as `release`.
 - Slow test: `SUITE_TIMEOUT_MS=1800000`.
 - A silent stop is usually a full disk. Check D: and resume.
+- A runner kills apps started from its own `out/` folder, including a package another run uses. To
+  check failures while the suite runs, use a second worktree with its own package copy.
+- Comparing with the previous release needs no download: build it in a detached worktree at its tag
+  (`git worktree add --detach <dir> v<previous>`) and point `MDLXL_SUITE_PKG` at that package.
+- Put the particle library in place before the run: a read-only copy of the owner's `profile/particles`
+  in the worktree's `profile/` and `MDLXL_REAL_PROFILE` (with `settings.json`); without it the
+  particle-library, particle-model-io, particle-review and particle-workflow tests fail at start.
+- Slider labels are shared by their − and + buttons (`Decrease <label>`): find a slider by its
+  exact name (`getByLabel(name, { exact: true })`).
 - A hidden-desktop run has about 1 frame per second, so timing tests need
   `--disable-gpu-vsync --disable-frame-rate-limit`. Compare those runs relatively.
 
