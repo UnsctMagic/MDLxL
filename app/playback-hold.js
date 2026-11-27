@@ -84,8 +84,9 @@ export function installEditHold(root, playback) {
     if (next && root.contains?.(next) !== false && !transport(next) && closest(next, TEXT_FIELD)) return;
     endFocus();
   };
-  // A picked option is a finished edit: playback goes on while the list keeps focus.
-  const change = event => { if (event.target?.tagName === 'SELECT') endFocus(); };
+  // A picked option is a finished edit: playback goes on while the list keeps focus. A dropdown's
+  // open list takes the mouse release, so the press that opened it ends here too.
+  const change = event => { if (event.target?.tagName === 'SELECT') { endFocus(); if (pressRelease) endPress(); } };
   root.addEventListener('pointerdown', down, true);
   win.addEventListener('pointerup', endPress, true);
   win.addEventListener('pointercancel', endPress, true);
