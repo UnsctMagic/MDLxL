@@ -144,6 +144,8 @@ export const SKIP = {
   // ANIM is switched off in the app (owner, 26 Nov 2026; src/switched-off.js). Remove these when it returns.
   'anim-xl': 'ANIM is switched off (owner, 26 Nov 2026)',
   'anim-xl-filmstrip': 'ANIM is switched off (owner, 26 Nov 2026)',
+  // PR 699 removed the Transplant repair checkboxes by design (docs/agent-tasks/xfer-controls-design.md); repairs apply by themselves.
+  'transplant-autofix': 'Transplant repair checkboxes removed by design in PR 699',
 };
 // Rendering-, timing- and layout-heavy tests that are worth running under every variant.
 export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'model-tabs'];

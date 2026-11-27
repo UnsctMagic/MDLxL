@@ -1476,7 +1476,8 @@ async function transplantStory() {
     assert.equal(await settings().getByLabel('Sounds').isChecked(), true, 'transplant: Sounds on at first');
     assert.equal(await settings().getByLabel('Effects').isChecked(), false, 'transplant: Effects off at first');
     assert.equal(await button().isDisabled(), true, 'transplant: Transplant waits for a donor');
-    assert.match(await s.view('Result').innerText(), /Choose a model under From/, 'transplant: the result view asks for a donor');
+    // Since PR 699 the open model plays its own Stand in the result view before a donor is chosen.
+    assert.doesNotMatch(await s.view('Result').innerText(), /Choose a model under From/, 'transplant: the result view shows the open model, not a prompt');
     await s.shot('00-just-opened-light', shotsT);
     results.checks.push('transplant: the window opens in Transplant (caption switch: Transplant | Retarget); it shows the settings column (Sounds on, Effects off), no parts, timeline or Add buttons; Transplant waits for a donor');
     if (magnataur) {
