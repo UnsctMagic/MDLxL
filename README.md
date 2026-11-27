@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.40.3 adds − and + to every slider, the Cut tool, UV Fit, Motion path and Local axes in Movement, FX quick views, Necessary only bounds in OptimizeXL, Report a problem and more AI providers. ANIM is switched off for now. See [the release notes](docs/RELEASE-0.40.3.md).
+Version 0.40.3 adds XFER (Transfer, a work in progress; see its guide), − and + on every slider, the Cut tool, UV Fit, Motion path and Local axes in Movement, FX quick views, Necessary only bounds in OptimizeXL, Report a problem and more AI providers. ANIM is removed for now. See [the release notes](docs/RELEASE-0.40.3.md).
 
 From 0.40.2: Vertices show the same colours as Animations with anti-aliasing on. See [the hotfix notes](docs/RELEASE-0.40.2.md).
 

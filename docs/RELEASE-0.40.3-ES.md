@@ -1,6 +1,8 @@
 # MDLxL 0.40.3
 
-- ANIM y XFER: ninguno de los dos está aún como yo quiero, así que llevarán tiempo, si es que llegan. ANIM está desactivado en esta versión y solo volverá cuando sea útil.
+- XFER es difícil de dejar bien, así que sigue en desarrollo: revisa cada resultado; algunos modelos aún habrá que arreglarlos a mano.
+- ANIM se ha quitado por ahora y solo volverá cuando sea útil.
+- XFER (Transferencia, F11): da a un modelo el movimiento de otro modelo. Trasplante pone el modelo sobre el esqueleto del otro con todas sus animaciones; Reasignar toma el movimiento parte por parte del cuerpo. Rotación, Posición o Mezcla elige cómo siguen las extremidades. Consulta la guía de XFER (PDF).
 - Cada deslizador tiene un pequeño − y + que lo mueven un paso.
 - Editor de vértices: la nueva herramienta Cortar (tecla I) divide un triángulo en un punto nuevo sobre una de sus aristas.
 - Editor UV: Ajustar mueve los UV seleccionados a un área que marcas sobre la textura. Sustituir textura… está al final de la fila de materiales. Vista previa RGB vuelve a mostrar el RGB de todo el modelo.
@@ -11,7 +13,7 @@
 - FX: las vistas rápidas guardan looks mientras el modelo está abierto, y FX se abre más rápido en modelos grandes. FX y EMTR guardan las imágenes como .blp.
 - EMTR: cambiar de emisor ya no repite el efecto. Las áreas de emisión PRE2 miran hacia el lado correcto en la vista previa.
 - OptimizeXL: Calcular límites ofrece Máximo o Solo lo necesario (archivo más pequeño). Datos sin usar mantiene las capas FX en orden. Cambiar orden funciona en modelos con tablas cortas de límites de geoset.
-- Ayuda > Informar de un problema… me envía un informe corto directamente.
+- Ayuda > Informar de un problema… me envía directamente un informe corto en texto plano.
 - IA: trabaja sin paradas, Ver el trabajo de la IA repite cada paso de la IA en el editor, más proveedores de IA (primero Claude, luego Codex) y notas dibujadas en el Editor UV y en Movimiento.
 - Gestor de nodos: la búsqueda de sonidos encuentra sonidos de todas las expansiones.
 
