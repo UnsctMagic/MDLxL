@@ -35,7 +35,9 @@ export function createPlaybackHold(isPlaying, setPlaying) {
 // Playback Speed) never take a hold: they are how the user plays, so touching
 // one cancels a pending resume instead.
 export const PLAYBACK_CONTROL = '[data-playback-control],[data-time-scrub]';
-const TEXT_FIELD = 'textarea,select,[contenteditable=""],[contenteditable="true"],input:not([type]),input[type="text"],input[type="number"],input[type="search"],input[type="color"]';
+// A dropdown is a pick, not typing: its click holds like any control, and keeping focus on it does not
+// (focus comes back to it when its list closes, which would otherwise pause the preview again).
+const TEXT_FIELD = 'textarea,[contenteditable=""],[contenteditable="true"],input:not([type]),input[type="text"],input[type="number"],input[type="search"],input[type="color"]';
 const CONTROL = 'button,input,select,textarea,label,option,a,[role="button"],[role="menuitem"],[role="menuitemcheckbox"],[role="option"],[role="tab"],[role="checkbox"],[role="slider"],[role="listbox"],[role="treeitem"],[draggable="true"],[data-hold-playback]';
 
 const closest = (target, selector) => target?.closest ? target.closest(selector) : null;
@@ -84,8 +86,9 @@ export function installEditHold(root, playback) {
     if (next && root.contains?.(next) !== false && !transport(next) && closest(next, TEXT_FIELD)) return;
     endFocus();
   };
-  // A picked option is a finished edit: playback goes on while the list keeps focus.
-  const change = event => { if (event.target?.tagName === 'SELECT') endFocus(); };
+  // A picked option is a finished edit: playback goes on while the list keeps focus. A dropdown's
+  // open list takes the mouse release, so the press that opened it ends here too.
+  const change = event => { if (event.target?.tagName === 'SELECT') { endFocus(); if (pressRelease) endPress(); } };
   root.addEventListener('pointerdown', down, true);
   win.addEventListener('pointerup', endPress, true);
   win.addEventListener('pointercancel', endPress, true);

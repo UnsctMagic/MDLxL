@@ -10,6 +10,11 @@ const ENDPOINT = LOCAL_TEST || 'https://lowpolyworks-vault.lowpolyworks-internal
 const MAX_LENGTH = 2000;
 const NAME_LENGTH = 40;
 const ID_FILE = 'report-id.txt';
+// Reports are visible plain text only. The inbox refuses characters a reader cannot see (zero-width,
+// direction overrides, tag letters, private-use, separators, stray variation selectors), so they are
+// removed here first; line breaks and tabs stay, Windows line ends become plain line breaks.
+const HIDDEN = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\p{Cs}\p{Zl}\p{Zp}\u{FE00}-\u{FE0E}\u{E0100}-\u{E01EF}]|(?<!\p{Extended_Pictographic})\u{FE0F}/gu;
+const visibleText = value => String(value).replace(/\r\n?/g, '\n').replace(HIDDEN, c => c === '\n' || c === '\t' ? c : '');
 
 // The Windows machine id, read from the 64-bit registry view. Null when unreadable.
 function readMachineGuid() {
@@ -57,8 +62,8 @@ class Reporter {
   }
   // 'sent', 'paused', 'limit-pc', 'limit-ip', 'limit-day', 'invalid' or 'error'.
   async send(text, givenName = '') {
-    const message = typeof text === 'string' ? text.trim() : '';
-    const name = typeof givenName === 'string' ? givenName.trim().replace(/\s+/g, ' ') : '';
+    const message = typeof text === 'string' ? visibleText(text).trim() : '';
+    const name = typeof givenName === 'string' ? visibleText(givenName).trim().replace(/\s+/g, ' ') : '';
     if (!message || message.length > MAX_LENGTH || name.length > NAME_LENGTH) return 'invalid';
     try {
       const body = JSON.stringify({ message, name, pc: await this.pc(), version: this.version, os: this.osName() });
@@ -74,4 +79,4 @@ class Reporter {
   }
 }
 
-module.exports = { Reporter, ENDPOINT, MAX_LENGTH, NAME_LENGTH, readMachineGuid };
+module.exports = { Reporter, ENDPOINT, MAX_LENGTH, NAME_LENGTH, readMachineGuid, visibleText };

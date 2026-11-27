@@ -1,4 +1,5 @@
 import { DEFAULT_ROTATION } from '../src/rotation-drag.js';
+import { switchedOffKey } from '../src/switched-off.js';
 import { defaultUVDrag, normalizeUVDrag } from '../src/uv-drag-settings.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
@@ -256,7 +257,7 @@ export default function Settings({ preferences, onChange, onClose, visUI = false
   const bindings = useMemo(() => effectiveBindings(catalog, prefs.hotkeys), [catalog, preferences?.hotkeys]);
   const categories = [...new Set([...catalog.map(action => action.category || 'Controls'), DRAG_KEYS_CATEGORY])].sort();
   const dragKeys = category === 'All categories' || category === DRAG_KEYS_CATEGORY ? modifierRows(prefs, next => commit({ modifiers: next })).filter(row => `${row.label} ${row.id} ${DRAG_KEYS_CATEGORY} ${row.scopeLabel} ${row.value}`.toLowerCase().includes(search.toLowerCase())) : [];
-  const actions = catalog.filter(action => (category === 'All categories' || (action.category || 'Controls') === category) && `${action.label} ${action.id} ${action.category} ${(bindings[action.id] || []).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
+  const actions = catalog.filter(action => !switchedOffKey(action.id) && (category === 'All categories' || (action.category || 'Controls') === category) && `${action.label} ${action.id} ${action.category} ${(bindings[action.id] || []).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
   const hotkeyRows = [...actions.map(action => ({ category: action.category || '', label: action.label || action.id, action })), ...dragKeys.map(row => ({ category: DRAG_KEYS_CATEGORY, label: `${row.scopeLabel} ${row.label}`, row }))].sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
   const launcherKey = bindings.launcher?.[0] ? formatChord(bindings.launcher[0]) : '', uvStartFine = modifierLabel('drag.uv.pressFine', prefs);
   const conflicts = recorded && recording ? hotkeyConflicts(catalog, prefs.hotkeys, recording.id, recorded) : [];

@@ -33,7 +33,6 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     for (const mode of ['vertices', 'bones', 'animation', 'animations']) await visit(mode, () => click(control(mode)));
     await visit('uv', async () => { await click(control('vertices')); await page.keyboard.press('Control+a'); await click(control('uv')); await page.locator('.uv-workspace').waitFor(); await pause(400); await click(page.getByRole('button', { name:'Close UV Wrapper', exact: true })); await page.locator('.uv-workspace').waitFor({ state: 'detached' }); });
     await page.keyboard.press('Escape'); await visit('vertices again', () => click(control('vertices')));
-    await visit('AnimXL', async () => { await click(control('animation')); await click(control('animXL')); await page.getByRole('dialog', { name: 'AnimXL', exact: true }).waitFor(); });
     await visit('Particle Editor', async () => { await click(control('particles')); await page.getByRole('dialog', { name: 'Particle Editor', exact: true }).waitFor(); });
     // Forge's Shape tab embeds the vertex editor, where Esc is Clear, so it closes from its own button.
     await visit('Forge', async () => { await click(control('forge')); const forge = page.getByRole('dialog', { name: 'Forge', exact: true }); await forge.waitFor(); await pause(400); await click(forge.getByRole('button', { name: 'Close Forge', exact: true })); await forge.waitFor({ state: 'detached' }); });
@@ -51,7 +50,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await pause(400);
     fs.writeFileSync(path.join(out, 'visited.json'), JSON.stringify({ visited, skipped }, null, 1));
     assert.ok(visited.length >= 24, `only ${visited.length} windows opened; skipped: ${skipped.join(' | ')}`);
-    assert.ok(!skipped.some(entry => /^(vertices|AnimXL|Particle Editor|Forge|Texture Library|Paint|Showcase|Settings)\b/.test(entry)), skipped.join(' | '));
+    assert.ok(!skipped.some(entry => /^(vertices|Particle Editor|Forge|Texture Library|Paint|Showcase|Settings)\b/.test(entry)), skipped.join(' | '));
     checks.push(`Opened ${visited.length} windows and states`);
 
     // The merged catalog, as the app saved it.
@@ -121,19 +120,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.doesNotMatch(await page.locator('[data-hotkey="fit"]').first().getAttribute('title'), fitKeyPattern);
     checks.push('A hotkeys preset reaches the tooltip at once and forgets the rebound key in Learn');
 
-    // Esc on unapplied work asks first; nothing unapplied closes at once.
-    await click(control('animation')); await click(control('animXL'));
-    const anim = page.getByRole('dialog', { name: 'AnimXL', exact: true }); await anim.waitFor();
-    await page.keyboard.press('Escape'); await anim.waitFor({ state: 'detached' });
-    await click(control('animXL')); await anim.waitFor();
-    await click(anim.getByRole('button', { name: 'Heavy', exact: true }));
-    await page.waitForFunction(() => document.querySelector('[role="dialog"][aria-label="AnimXL"]')?.hasAttribute('data-hotkey-unapplied'));
-    await page.keyboard.press('Escape');
-    assert.match(await page.locator('.hotkeys-discard-cue').innerText(), /Press Esc again to discard/);
-    assert.equal(await anim.count(), 1, 'the first Esc keeps the work');
-    await page.keyboard.press('Escape'); await anim.waitFor({ state: 'detached' });
-    assert.equal(await page.locator('.hotkeys-discard-cue').count(), 0);
-    checks.push('AnimXL: one Esc with nothing unapplied, two with unapplied work');
+    // The Esc-twice check on unapplied work ran in AnimXL, which is switched off (owner, 26 Nov 2026).
     assert.deepEqual(errors, []);
     console.log(`PASS hotkey defaults audit\n- ${checks.join('\n- ')}${skipped.length ? `\nCould not open with this model: ${skipped.join(' | ')}` : ''}`);
   } finally { await closeApp(app); }

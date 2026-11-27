@@ -101,7 +101,7 @@ async function until(page, read, test, timeout = 15000) {
     const thumbs = page.locator('.ai-step-picture');
     check('the capture step shows a thumbnail of the AI picture', (await thumbs.count()) === 1, await thumbs.count());
     const thumbSize = await thumbs.first().locator('img').evaluate(img => ({ w: img.naturalWidth, h: img.naturalHeight, src: img.src.slice(0, 23) }));
-    check('the stored thumbnail is a small JPEG copy', thumbSize.src === 'data:image/jpeg;base64,' && Math.max(thumbSize.w, thumbSize.h) <= 384 && thumbSize.w > 0, thumbSize);
+    check('the stored thumbnail is a small JPEG copy', thumbSize.src === 'data:image/jpeg;base64,' && Math.max(thumbSize.w, thumbSize.h) <= 768 && thumbSize.w > 0, thumbSize); // 768 px since ac6e329a (sharper chat pictures)
     await thumbs.first().click();
     const viewer = page.getByRole('dialog', { name: 'AI picture' });
     await viewer.waitFor();

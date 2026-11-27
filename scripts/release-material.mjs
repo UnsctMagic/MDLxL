@@ -14,7 +14,7 @@ export function sixLanguageRelease(version) {
 }
 export const discordDescriptionLimit = 4096;
 export const portableZip = 'MDLxL-win32-x64.zip', ffmpegSourceZip = 'MDLxL-FFmpeg-corresponding-source.zip';
-const guideTitles = {'New-Features':'New in ','AI-Guide':'AI console','AI-Sign-in':'AI sign-in','Interface-Map':'Interface map'};
+const guideTitles = {'New-Features':'New in ','AI-Guide':'AI console','AI-Sign-in':'AI sign-in','Interface-Map':'Interface map','XFER-Guide':'XFER guide'};
 // What a "New in <version>" guide covers. Add the entry when its guide is written.
 const newFeatureTopics = {'0.40.0':'FX, Objects, POSE, EMTR, Vertices, UV, BITZ, Bone Namer','0.39.0':'Paint, Wiggle, Uncouple, EMTR, FX, extents, OptimizeXL','0.38.0':'layout and geoset tabs, Workplane Constraints, FX, EMTR effects, Sphereomancer, World Editor Style textures, Nuclear Weld, Fix model'};
 const separator = ' · ';

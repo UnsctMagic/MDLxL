@@ -26,7 +26,7 @@ const {buildSync}=require(path.resolve('node_modules/esbuild'));
      const text=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();
      for(const value of [text,...['title','aria-label','placeholder','label'].map(n=>el.getAttribute(n))])if(value&&/[A-Za-z]{2}/.test(value))auditText.add(value);
      if(!/[\p{L}\d]/u.test(text)||el.tagName==='OPTION'||el.tagName==='OPTGROUP')continue;
-     const cs=getComputedStyle(el);if(cs.backgroundClip==='text'||el.closest('.showcase-effect-tile,.showcase-text-style .outline,.pressed-keys-tool,.module-icon-badge,.viewport-orientation-compass'))continue;
+     const cs=getComputedStyle(el);if(parseFloat(cs.fontSize)===0||cs.backgroundClip==='text'||el.closest('.showcase-effect-tile,.showcase-text-style .outline,.pressed-keys-tool,.module-icon-badge,.viewport-orientation-compass'))continue;
      let bg=[255,255,255];const chain=[];for(let p=el;p;p=p.parentElement)chain.push(p);for(const p of chain.reverse())bg=over(color(getComputedStyle(p).backgroundColor),bg);
      const fg=over(color(cs.color),bg),a=lum(fg),b=lum(bg),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
      if(ratio<4.5)failures.push({text:text.slice(0,70),tag:el.tagName,class:el.className,fg:cs.color,bg,ratio:Math.round(ratio*100)/100});

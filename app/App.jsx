@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
+import { switchedOff } from '../src/switched-off.js';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import Viewport from './Viewport.jsx';
@@ -1600,6 +1601,7 @@ export default function App() {
     'ai:open': () => document.querySelector('[data-hotkey="ai:open"]')?.click(),
   };
   function commandEnabled(id) {
+    if (switchedOff(id)) return false;
     if (!doc) {
       if (id === 'exit') return !!window.desktop;
       if (id === 'undo' || id === 'redo') return mode === 'showcase' && showcaseHistoryState[id];
@@ -2006,7 +2008,7 @@ export default function App() {
   // Animation > Movement panel. Called while rendering each site, as before.
   // Motion path: the selected bones; in POSE the picked handle's joint (hand or foot, the
   // elbow or knee for a bend handle, the object for an object or body handle).
-  const poseTargetKey = poseConfig.enabled && poseConfig.target ? JSON.stringify(poseConfig.target) : '';
+  const motionTargetKey = poseConfig.enabled && poseConfig.target ? JSON.stringify(poseConfig.target) : '';
   const motionPathIds = useMemo(() => {
     if (!motionPath || visUI || restPose || mode !== 'animation' || animationPanel !== 'movement') return undefined;
     const target = poseConfig.enabled ? poseConfig.target : null, chain = target && poseConfig.chains?.find(item => item.key === target.key);
@@ -2014,7 +2016,7 @@ export default function App() {
     if (target?.kind === 'body') return poseConfig.body == null ? undefined : [poseConfig.body];
     if (chain) return [target.kind === 'bend' ? chain.middle : chain.end];
     return selectedNodeIds.length ? selectedNodeIds : undefined;
-  }, [motionPath, visUI, restPose, mode, animationPanel, poseTargetKey, poseConfig.body, poseConfig.chains, selectedNodeIds]);
+  }, [motionPath, visUI, restPose, mode, animationPanel, motionTargetKey, poseConfig.body, poseConfig.chains, selectedNodeIds]);
   const movementControllerProps = () => ({
     vanilla: visUI, motionPath, onMotionPath: setMotionPath,
     // MDLxL: the Bones sidebar's Refs tick shows attachments through Objects and its Attachments type.

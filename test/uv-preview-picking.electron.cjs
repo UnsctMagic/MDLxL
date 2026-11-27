@@ -129,7 +129,7 @@ const assertSameCamera = (actual, expected, message) => assert.ok(actual.every((
     assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
     await uvw.getByLabel('Highlight selected vertices in live preview').check();
     await uvw.getByLabel('Live selection and texture-frame color').fill('#33cc66');
-    const thickness = uvw.getByLabel('Live selection thickness');
+    const thickness = uvw.getByLabel('Live selection thickness', { exact: true });
     await thickness.focus(); await thickness.press('ArrowUp');
     await uv.waitForFunction(() => previewProps().previewOverlay.color === '#33cc66' && previewProps().previewOverlay.size === .5);
     await toggle.click();

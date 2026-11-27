@@ -15,7 +15,8 @@ const { fixturePath, gameFolder } = require('./helpers/fixtures.cjs');
     const search = manager.getByLabel('Search spawn objects', { exact: true });
     const picker = manager.getByLabel('Spawn Object', { exact: true });
     const preview = manager.getByRole('region', { name: 'Spawn Object preview' });
-    const node = name => manager.locator('.re-node-name').filter({ hasText: new RegExp('^' + name + '$') });
+    // Event rows show their game-file name after the code since PR 697 (SPNxTEST / ...).
+    const node = name => manager.locator('.re-node-name').filter({ hasText: new RegExp('^' + name + '( / .+)?$') });
     const visibleCodes = () => picker.locator('option:not([disabled]):not([hidden])').evaluateAll(options => options.map(option => option.value));
     const type = async (field, value) => {
       await field.click();

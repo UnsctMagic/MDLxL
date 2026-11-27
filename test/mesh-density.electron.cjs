@@ -73,7 +73,7 @@ async function setRange(locator, value) {
     const previewAt = async (amount, count) => {
       await triangles.click(); await popup.waitFor(); assert.equal(await popup.locator('select').count(), 0);
       assert.equal(await popup.locator('.mesh-density-labels').evaluate(element => getComputedStyle(element).display), 'grid', 'density slider styles must be present in the detached window');
-      await setRange(popup.getByLabel('Triangle density'), amount);
+      await setRange(popup.getByLabel('Triangle density', { exact: true }), amount);
       await uv.waitForFunction(expected => document.querySelector('.uv-density-popup .mesh-density-counts')?.textContent.includes(expected + ' triangles'), count);
       assert.equal(await popup.locator('.mesh-density-error').count(), 0);
       return uv.evaluate(readPreview);
@@ -106,7 +106,7 @@ async function setRange(locator, value) {
     await previewAt(25, 15); await popup.getByRole('button', { name: 'Apply', exact: true }).click(); await popup.waitFor({ state: 'detached' });
     const applied = await uv.evaluate(readPreview); assert.deepEqual(applied.model.Geosets, one.model.Geosets);
     const repeated = await previewAt(25, 27); assert.equal(repeated.model.Geosets[0].Faces.length / 3, 27);
-    assert.equal(await popup.getByLabel('Triangle density').getAttribute('max'), '100');
+    assert.equal(await popup.getByLabel('Triangle density', { exact: true }).getAttribute('max'), '100');
     await popup.getByRole('button', { name: 'Cancel', exact: true }).click(); await popup.waitFor({ state: 'detached' }); checks.push('Single-face Apply and repeated subdivision');
     await uv.keyboard.press('Control+z'); await uv.waitForFunction(() => window.readDensityPreview().model.Geosets[0].Faces.length === 36);
     assert.deepEqual((await uv.evaluate(readPreview)).model.Geosets, initial.model.Geosets);

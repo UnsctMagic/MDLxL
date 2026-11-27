@@ -80,3 +80,15 @@ test('without a machine id a random id is saved once and reused', async () => {
 test('the PC id is read from Windows itself, so deleting the profile does not reset the daily limit', { skip: process.platform !== 'win32' }, async () => {
   assert.match(await readMachineGuid() || '', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 });
+
+test('reports leave the app as visible text only: hidden characters are removed before sending', async () => {
+  const cp = n => String.fromCodePoint(n), sent = [];
+  const reporter = make(async (url, init) => { sent.push(JSON.parse(init.body)); return { status: 204, ok: true, json: async () => ({}) }; });
+  const hidden = [0x200B, 0x200D, 0x2060, 0xFEFF, 0x00AD, 0x202E, 0x2066, 0xE0049, 0xE0100, 0xFE00, 0xFE0E, 0xE000, 0x2028, 0x0085, 0x0007].map(cp).join('');
+  assert.equal(await reporter.send('Fit ' + hidden + 'crashes' + String.fromCharCode(13, 10) + String.fromCharCode(9) + 'step 2 ' + cp(0x2764) + cp(0xFE0F), 'Ann' + cp(0x200B) + 'a'), 'sent');
+  assert.equal(sent[0].message, 'Fit crashes' + String.fromCharCode(10, 9) + 'step 2 ' + cp(0x2764) + cp(0xFE0F));
+  assert.equal(sent[0].name, 'Anna');
+  // Text made only of hidden characters is no report at all.
+  assert.equal(await reporter.send(hidden), 'invalid');
+  assert.equal(sent.length, 1);
+});

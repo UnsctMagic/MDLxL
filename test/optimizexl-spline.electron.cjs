@@ -13,7 +13,7 @@ const { appTarget, launchApp, prepareWindow, closeApp, stubDialogs } = require('
   const source=fs.readFileSync(model),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','spline-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(model));fs.copyFileSync(model,work);
   const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js');
   let expected=new Uint8Array(source);const passes=[];
-  for(let i=0;i<10;i++){const fixes=sanityProposals(openDocument(expected,'x.mdx').model).filter(f=>!f.inspectionOnly);if(!fixes.length)break;
+  for(let i=0;i<10;i++){const fixes=sanityProposals(openDocument(expected,'x.mdx').model).filter(f=>!f.inspectionOnly&&!f.optional);if(!fixes.length)break; /* Select all skips the optional Necessary only saving (PR 691). */
     expected=runOptimizeStage(expected,'sanity',{}, {kind:'batch',stage:'sanity',entries:fixes.map(fix=>({fix}))}).bytes;passes.push({count:fixes.length,bytes:Buffer.from(expected)});
   }
   const exe=appTarget().packaged;

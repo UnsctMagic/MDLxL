@@ -819,8 +819,11 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   );
   check(
     'multi-frame multi-view capture returns separate labeled real images',
+    // Each separate picture is framed on its own frame's points (PR 682, "AI pictures P3:
+    // exact framing"), so this one triangle that only slides along X looks the same at
+    // frames 0 and 500; the labels name each frame. Filmstrips frame all frames alike.
     captures.filter(c => c.type === 'image').length === 3 &&
-      captures[1].data !== captures[3].data &&
+      captures[0].text.includes('frame 0;') && captures[2].text.includes('frame 500;') &&
       captures[3].data !== captures[5].data &&
       captures[4].text.includes('front'),
     captures.map(c => (c.type === 'image' ? { imageHash: digest(c.data) } : { label: c.text })),

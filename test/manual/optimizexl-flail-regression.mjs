@@ -106,7 +106,9 @@ for (const path of paths) {
       if(fix.inspectionOnly){additionalRepairs.push({id:fix.id,inspectionOnly:true});continue;}
       const repaired = runOptimizeStage(source, stage, {}, fix);
       const repairedModel = openDocument(repaired.bytes, 'repaired.mdx').model;
-      assert.ok(!(stage === 'sanity' ? sanityProposals(repairedModel) : findIrregularities(repairedModel)).some(f => f.id === fix.id), 'Additional repair resolves its finding');
+      // An optional saving offer may follow a repair (PR 691: after Calculate extents the
+      // extents are right and only the Necessary only size saving is offered); it is not the finding.
+      assert.ok(!(stage === 'sanity' ? sanityProposals(repairedModel) : findIrregularities(repairedModel)).some(f => f.id === fix.id && !f.optional), 'Additional repair resolves its finding');
       if (fix.id === 'checker:unusedPivots') {
         assert.deepEqual(repairedModel, { ...model, PivotPoints: model.PivotPoints.slice(0, -fix.count) }, 'New pivot cleanup preserves every node and referenced pivot');
         const chunks = bytes => parseMdx(bytes).chunks.filter(c => c.tag !== 'PIVT').map(c => [c.tag, c.data]);
