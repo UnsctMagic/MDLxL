@@ -36,7 +36,9 @@ const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } =
    // Locator screenshots round fractional CSS clips before device scaling.
    // Crop the full screenshot at physical pixel edges instead, so 125% DPI
    // does not add different extra border columns to equal canvases.
-   const screenshot=await p.screenshot({scale:'device'});
+   // The small Reset view button (added after 0.40.2, 16186dc1) sits right:6px from each preview and can
+   // land on a half pixel at odd window widths; it is not part of the model picture compared here.
+   const screenshot=await p.screenshot({scale:'device',style:'.preview-reset-view{visibility:hidden!important}'});
    const crops=await p.evaluate(async({png,rects,dpr})=>{const img=new Image();img.src='data:image/png;base64,'+png;await img.decode();return rects.map(r=>{const c=document.createElement('canvas');c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr);c.getContext('2d').drawImage(img,Math.round(r.x*dpr),Math.round(r.y*dpr),c.width,c.height,0,0,c.width,c.height);return c.toDataURL().split(',')[1];});},{png:screenshot.toString('base64'),rects:state.canvases.map(c=>c.rect),dpr:state.dpr});
    const [a,b]=crops.map(s=>Buffer.from(s,'base64'));
    fs.writeFileSync(path.join(out,`before-${width}.png`),a);fs.writeFileSync(path.join(out,`after-${width}.png`),b);
