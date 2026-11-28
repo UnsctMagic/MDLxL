@@ -75,7 +75,7 @@ let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.re
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
 const fileTypes=userRun&&process.platform==='win32'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
-function registerFileTypes(claim=false){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
+function registerFileTypes(claim=false){if(settings.preferences?.windowsFileTypes===false)return;fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl},{claim}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 const drawMenuInEditor = process.platform === 'win32';
 let editorMenu;
@@ -630,6 +630,7 @@ ipcMain.handle('updates:revert',async event=>{
   const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
 });
 ipcMain.handle('app:fileTypesNeedDefaultAgain',async()=>Boolean(await fileTypes?.usesSharedDefault()));
+ipcMain.handle('app:removeFromWindows',async event=>{editorOnly(event,'Settings require the main editor.');return fileTypes?await fileTypes.remove():{removed:false};});
 ipcMain.handle('app:openDefaultApps',()=>shell.openExternal('ms-settings:defaultapps?registeredAppUser=MDLxL'));
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
@@ -639,14 +640,14 @@ ipcMain.handle('settings:configure',(_,value)=>{
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&editorOnly(event))win.close();});
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
-  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon+'|'+settings.preferences?.fileIconMdl;
+  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon+'|'+settings.preferences?.fileIconMdl+'|'+settings.preferences?.windowsFileTypes;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
-  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes(true);
+  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl+'|'+settings.preferences.windowsFileTypes)registerFileTypes(true);
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }

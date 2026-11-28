@@ -107,6 +107,37 @@ class FileTypeRegistration {
     await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', NOTIFY]).catch(() => {});
     return true;
   }
+  // Takes MDLxL back out of Windows (file types, Open with, Default apps) so a
+  // deleted folder leaves nothing behind. Test copies and a copy that does not
+  // own the file types leave them alone, like write().
+  remove() {
+    const operation = this.queue.catch(() => {}).then(() => this.erase());
+    this.queue = operation;
+    return operation;
+  }
+  async erase() {
+    if (isTestCopy(this.executable)) return { removed: false };
+    const owner = await ownerExecutable(this.run);
+    if (owner && owner.toLowerCase() !== this.executable.toLowerCase() && this.exists(owner)) return { removed: false, owner };
+    const remove = args => this.run('reg.exe', ['delete', ...args, '/f']).catch(() => {});
+    const application = 'Applications\\' + path.win32.basename(this.executable);
+    const progIds = [PROG_ID, ...Object.values(MODEL_TYPES).map(type => type.progId)];
+    const ours = [...progIds, application].map(id => id.toLowerCase());
+    // Windows' own default choice is cleared only where it points at MDLxL.
+    for (const extension of EXTENSIONS) for (const choice of ['UserChoice', 'UserChoiceLatest']) {
+      const key = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\${extension}\\${choice}`;
+      const progId = await this.run('reg.exe', ['query', key, '/v', 'ProgId']).then(output => output.match(/\sREG_SZ\s+([^\r\n]+)/)?.[1].trim().toLowerCase(), () => null);
+      if (ours.includes(progId)) await remove([key]);
+    }
+    for (const extension of Object.keys(MODEL_TYPES)) for (const progId of progIds) await remove([`${CLASSES}\\${extension}\\OpenWithProgids`, '/v', progId]);
+    for (const progId of progIds) await remove([`${CLASSES}\\${progId}`]);
+    await remove([`${CLASSES}\\${application}`]);
+    await remove([`${CLASSES}\\.mdlxlpaint`]);
+    await remove(['HKCU\\Software\\RegisteredApplications', '/v', 'MDLxL']);
+    await remove(['HKCU\\Software\\MDLxL']);
+    await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', NOTIFY]).catch(() => {});
+    return { removed: true };
+  }
   // Shared legacy and Open-with types cannot distinguish MDL from MDX.
   // Windows requires the user to choose the format-specific types in Default apps.
   async usesSharedDefault() {

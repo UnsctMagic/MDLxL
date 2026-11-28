@@ -9027,5 +9027,9 @@
   "Fit area": "Область вписывания",
   "Fit wand tolerance": "Допуск волшебной палочки для вписывания",
   "Double-click to show this frame in Animations": "Двойной щелчок показывает этот кадр в анимациях",
-  "Path to this AI's command-line program.": "Путь к программе командной строки этого ИИ."
+  "Path to this AI's command-line program.": "Путь к программе командной строки этого ИИ.",
+  "Remove MDLxL from Windows": "Убрать MDLxL из Windows",
+  "Takes MDLxL's file types, Open with entry and Default apps entry out of Windows. Use it before deleting the MDLxL folder. Picking a file icon adds them back.": "Убирает из Windows типы файлов MDLxL, пункт в «Открыть с помощью» и запись в «Приложениях по умолчанию». Используйте перед удалением папки MDLxL. Выбор значка файла возвращает их.",
+  "MDLxL is out of Windows. You can delete the MDLxL folder now. Pick a file icon to add MDLxL back.": "MDLxL убран из Windows. Теперь можно удалить папку MDLxL. Выберите значок файла, чтобы вернуть MDLxL.",
+  "Another MDLxL copy owns these Windows entries. Use Remove in that copy.": "Эти записи Windows принадлежат другой копии MDLxL. Используйте «Убрать» в той копии."
 }
