@@ -140,3 +140,43 @@ test('Open with defaults are detected for either extension, regardless of regist
     assert.equal(await types.usesSharedDefault(), true, `${extension}: ${progId}`);
   }
 });
+
+test('Remove MDLxL from Windows deletes only MDLxL entries and only from the owning copy', async () => {
+  const calls = [];
+  const run = (owner, defaults = {}) => async (file, args) => {
+    calls.push([file, ...args]);
+    if (args[0] === 'query' && args[1].endsWith(`${PROG_ID}\\shell\\open\\command`)) return `\r\n    (Default)    REG_SZ    "${owner}" "%1"\r\n`;
+    if (args[0] === 'query' && /\\UserChoice(Latest)?$/.test(args[1])) { const progId = defaults[args[1].split('\\').at(-2)]; if (progId) return `\r\n    ProgId    REG_SZ    ${progId}\r\n`; }
+    if (args[0] === 'query') throw Error('not found');
+    return '';
+  };
+  const deleted = () => calls.filter(call => call[1] === 'delete').map(call => call.slice(2, -1).join(' '));
+  const types = new FileTypeRegistration({ executable, brandingDirectory, run: run(executable, { '.mdx': 'MDLxL.MDX', '.mdl': 'Some.Other.Editor' }), exists: () => true });
+  assert.deepEqual(await types.remove(), { removed: true });
+  const removed = deleted();
+  for (const key of ['MDLxL.Model', 'MDLxL.MDL', 'MDLxL.MDX', 'Applications\\MDLxL.exe', '.mdlxlpaint']) assert.ok(removed.includes(`HKCU\\Software\\Classes\\${key}`), key);
+  assert.ok(removed.includes('HKCU\\Software\\RegisteredApplications /v MDLxL'));
+  assert.ok(removed.includes('HKCU\\Software\\MDLxL'));
+  assert.ok(removed.includes('HKCU\\Software\\Classes\\.mdx\\OpenWithProgids /v MDLxL.MDX'));
+  // Windows' default is cleared where it is MDLxL, kept where it is another program.
+  assert.ok(removed.some(key => key.endsWith('FileExts\\.mdx\\UserChoice')));
+  assert.ok(!removed.some(key => key.includes('FileExts\\.mdl\\')));
+  assert.ok(!removed.some(key => /Classes\\\.(mdx|mdl)$/.test(key)), 'the .mdl/.mdx keys themselves stay');
+  assert.ok(removed.every(key => key.startsWith('HKCU\\')));
+
+  calls.length = 0;
+  const other = new FileTypeRegistration({ executable, brandingDirectory, run: run('D:\\Other\\MDLxL.exe'), exists: () => true });
+  assert.deepEqual(await other.remove(), { removed: false, owner: 'D:\\Other\\MDLxL.exe' });
+  assert.deepEqual(deleted(), []);
+
+  calls.length = 0;
+  const testCopy = new FileTypeRegistration({ executable: 'D:\\Claude\\MDLxL\\TestBuilds\\x\\MDLxL.exe', brandingDirectory, run: run(executable), exists: () => true });
+  assert.equal((await testCopy.remove()).removed, false);
+  assert.deepEqual(deleted(), []);
+});
+
+test('a copy taken out of Windows stays out until a file icon is picked', () => {
+  assert.equal(normalizePreferences({}).windowsFileTypes, true);
+  assert.equal(normalizePreferences({ windowsFileTypes: false }).windowsFileTypes, false);
+  assert.equal(normalizePreferences({ windowsFileTypes: 'no' }).windowsFileTypes, true);
+});

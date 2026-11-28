@@ -8933,5 +8933,9 @@
   "Fit area": "适应区域",
   "Fit wand tolerance": "适应时魔棒的容差",
   "Double-click to show this frame in Animations": "双击在动画中显示此帧",
-  "Path to this AI's command-line program.": "此 AI 命令行程序的路径。"
+  "Path to this AI's command-line program.": "此 AI 命令行程序的路径。",
+  "Remove MDLxL from Windows": "从 Windows 中移除 MDLxL",
+  "Takes MDLxL's file types, Open with entry and Default apps entry out of Windows. Use it before deleting the MDLxL folder. Picking a file icon adds them back.": "从 Windows 中移除 MDLxL 的文件类型、“打开方式”条目和“默认应用”条目。请在删除 MDLxL 文件夹之前使用。选择文件图标会重新添加它们。",
+  "MDLxL is out of Windows. You can delete the MDLxL folder now. Pick a file icon to add MDLxL back.": "MDLxL 已从 Windows 中移除。现在可以删除 MDLxL 文件夹。选择一个文件图标即可重新添加 MDLxL。",
+  "Another MDLxL copy owns these Windows entries. Use Remove in that copy.": "这些 Windows 条目属于另一个 MDLxL 副本。请在那个副本中使用移除。"
 }

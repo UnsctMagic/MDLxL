@@ -1946,7 +1946,11 @@
     "The two models stand on a different number of legs: this model's hips and legs ride the donor's body without moving by themselves.",
     "No counterpart in the donor: {0}. They ride the donor's body without moving by themselves.",
     "Sized by the bodies' overall size: one of them does not stand on legs.",
-    "The result's legs were not read: its height was not settled."
+    "The result's legs were not read: its height was not settled.",
+    "Remove MDLxL from Windows",
+    "Takes MDLxL's file types, Open with entry and Default apps entry out of Windows. Use it before deleting the MDLxL folder. Picking a file icon adds them back.",
+    "MDLxL is out of Windows. You can delete the MDLxL folder now. Pick a file icon to add MDLxL back.",
+    "Another MDLxL copy owns these Windows entries. Use Remove in that copy."
   ],
   "paint": [
     "Citadel Paint",

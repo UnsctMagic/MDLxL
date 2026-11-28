@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('desktop', {
   revertUpdate: () => call('updates:revert'),
   openLink: url => call('app:openLink',url),
   openDefaultApps: () => call('app:openDefaultApps'),
+  removeFromWindows: () => call('app:removeFromWindows'),
   fileTypesNeedDefaultAgain: () => call('app:fileTypesNeedDefaultAgain'),
   onPreferences: callback => subscribe('settings:preferences',callback),
   onUpdateStatus: callback => {const stop=subscribe('updates:status',callback);ipcRenderer.send('updates:startup');return stop;},

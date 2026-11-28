@@ -9037,5 +9037,9 @@
   "Fit area": "Área de ajuste",
   "Fit wand tolerance": "Tolerancia de la varita al ajustar",
   "Double-click to show this frame in Animations": "Doble clic para ver este fotograma en Animaciones",
-  "Path to this AI's command-line program.": "Ruta del programa de línea de comandos de esta IA."
+  "Path to this AI's command-line program.": "Ruta del programa de línea de comandos de esta IA.",
+  "Remove MDLxL from Windows": "Quitar MDLxL de Windows",
+  "Takes MDLxL's file types, Open with entry and Default apps entry out of Windows. Use it before deleting the MDLxL folder. Picking a file icon adds them back.": "Quita de Windows los tipos de archivo de MDLxL, su entrada en «Abrir con» y su entrada en Aplicaciones predeterminadas. Úsalo antes de borrar la carpeta de MDLxL. Elegir un icono de archivo los vuelve a añadir.",
+  "MDLxL is out of Windows. You can delete the MDLxL folder now. Pick a file icon to add MDLxL back.": "MDLxL ya no está en Windows. Ahora puedes borrar la carpeta de MDLxL. Elige un icono de archivo para volver a añadir MDLxL.",
+  "Another MDLxL copy owns these Windows entries. Use Remove in that copy.": "Otra copia de MDLxL es dueña de estas entradas de Windows. Usa Quitar en esa copia."
 }
