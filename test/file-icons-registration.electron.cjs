@@ -25,7 +25,8 @@ async function iconTestRun(file, args) {
   if (file !== 'reg.exe') throw Error('Unexpected native test call: '+file);
   const key = args[1] + '|' + (args.includes('/ve') ? '' : args[args.indexOf('/v')+1]);
   if (args[0] === 'add') { data[key] = args.includes('/d') ? args[args.indexOf('/d')+1] : ''; iconTestFs.writeFileSync(iconTestRegistry,JSON.stringify(data)); return ''; }
-  if (args[0] === 'delete') { delete data[key]; iconTestFs.writeFileSync(iconTestRegistry,JSON.stringify(data)); return ''; }
+  if (args[0] === 'delete' && args.includes('/v')) { delete data[key]; iconTestFs.writeFileSync(iconTestRegistry,JSON.stringify(data)); return ''; }
+  if (args[0] === 'delete') { for (const name of Object.keys(data)) if (name.startsWith(args[1] + '|') || name.startsWith(args[1] + '\\\\')) delete data[name]; iconTestFs.writeFileSync(iconTestRegistry,JSON.stringify(data)); return ''; }
   if (!Object.hasOwn(data,key)) throw Error('Registry value absent');
   return '\\r\\n    value    REG_SZ    '+data[key]+'\\r\\n';
 }
@@ -58,15 +59,32 @@ require('electron').shell.openExternal = async url => {
     assert.equal(data['HKCU\\Software\\MDLxL\\Capabilities\\FileAssociations|.mdx'],'MDLxL.MDX');
     assert.equal(data[ext+'.mdl\\UserChoice|ProgId'],'Applications\\MDLxL.exe', 'App does not rewrite protected defaults');
     await click(page.getByRole('button', { name: 'Make MDLxL the default program…', exact: true }));
-    assert.equal(JSON.parse(fs.readFileSync(registry,'utf8')).openedUrl,'ms-settings:defaultapps?registeredAppUser=MDLxL');
+    await page.exposeFunction('readOpenedUrl', () => JSON.parse(fs.readFileSync(registry,'utf8')).openedUrl || '');
+    await page.waitForFunction(async () => await window.readOpenedUrl() === 'ms-settings:defaultapps?registeredAppUser=MDLxL', null, { timeout: 5000 });
     // Simulate the external OS result of the user choosing the two registered types.
     const defaults = JSON.parse(fs.readFileSync(registry,'utf8'));
     defaults[ext+'.mdl\\UserChoice|ProgId']='MDLxL.MDL'; defaults[ext+'.mdx\\UserChoice|ProgId']='MDLxL.MDX';
     fs.writeFileSync(registry,JSON.stringify(defaults));
     await click(page.getByRole('radiogroup', { name: 'MDX files', exact: true }).getByRole('radio', { name: 'Helmet with label', exact: true }));
     await warning.waitFor({ state: 'hidden' });
+    // Remove MDLxL from Windows: every MDLxL entry goes, other programs' entries stay.
+    const before = JSON.parse(fs.readFileSync(registry,'utf8'));
+    before[ext+'.mdl\\UserChoice|ProgId']='Other.Editor'; before[classes+'.mdx\\OpenWithProgids|Other.Editor']='';
+    fs.writeFileSync(registry,JSON.stringify(before));
+    await click(page.getByRole('button', { name: 'Remove MDLxL from Windows', exact: true }));
+    await page.getByRole('status').filter({ hasText: 'MDLxL is out of Windows.' }).waitFor();
+    const mdlxlKeys = data => Object.keys(data).filter(key => key !== 'openedUrl').filter(key => /MDLxL/i.test(key) || /MDLxL/.test(String(data[key])));
+    const after = JSON.parse(fs.readFileSync(registry,'utf8'));
+    assert.deepEqual(mdlxlKeys(after), [], 'no MDLxL entry is left');
+    assert.equal(after[ext+'.mdl\\UserChoice|ProgId'],'Other.Editor', 'another program stays the default');
+    assert.ok(Object.hasOwn(after, classes+'.mdx\\OpenWithProgids|Other.Editor'), 'other Open with entries stay');
+    // Picking a file icon puts MDLxL back.
+    await page.getByRole('radiogroup', { name: 'MDX files', exact: true }).waitFor();
+    await click(page.getByRole('radiogroup', { name: 'MDL files', exact: true }).getByRole('radio', { name: 'Dark tile', exact: true }));
+    await page.exposeFunction('readRegisteredApplication', () => JSON.parse(fs.readFileSync(registry,'utf8'))['HKCU\\Software\\RegisteredApplications|MDLxL'] || '');
+    await page.waitForFunction(async () => (await window.readRegisteredIcons())[0] === 'file-mdl-tile.ico' && await window.readRegisteredApplication() === 'Software\\MDLxL\\Capabilities', null, { timeout: 5000 });
     assert.deepEqual(running.errors,[]);
-    console.log('PASS: shared Open-with warning, independent registry icons, shell notification, Default apps button and cleared warning after reassociation. Registry I/O isolated.');
+    console.log('PASS: shared Open-with warning, independent registry icons, shell notification, Default apps button, cleared warning after reassociation, Remove MDLxL from Windows and adding back by picking an icon. Registry I/O isolated.');
   } finally {
     if (running) await closeApp(running.app);
     assert.ok(out.startsWith(path.resolve('out')+path.sep));
